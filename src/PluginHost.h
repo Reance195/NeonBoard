@@ -5,10 +5,9 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-class Database;
+class PluginContext;
 class PluginLoader;
-class TaskModel;
-class TrayController;
+class PluginRuntime;
 
 class PluginHost : public QObject
 {
@@ -18,12 +17,11 @@ class PluginHost : public QObject
     Q_PROPERTY(bool active READ isActive NOTIFY pluginIdChanged)
 
 public:
-    explicit PluginHost(PluginLoader *loader, Database *database, TaskModel *tasks,
-                        TrayController *tray, QObject *parent = nullptr);
+    explicit PluginHost(PluginRuntime *runtime, QObject *parent = nullptr);
 
-    QString pluginId() const { return m_pluginId; }
-    QStringList permissions() const { return m_permissions; }
-    bool isActive() const { return !m_pluginId.isEmpty(); }
+    QString pluginId() const;
+    QStringList permissions() const;
+    bool isActive() const;
 
     Q_INVOKABLE bool activate(const QString &pluginId);
     Q_INVOKABLE void deactivate();
@@ -38,22 +36,26 @@ public:
                                 const QString &status = QStringLiteral("todo"));
     Q_INVOKABLE bool updateTask(const QString &id, const QVariantMap &fields);
     Q_INVOKABLE bool moveTask(const QString &id, const QString &status);
+    Q_INVOKABLE bool moveTaskToEnd(const QString &id, const QString &status);
     Q_INVOKABLE bool deleteTask(const QString &id);
 
     Q_INVOKABLE void notify(const QString &title, const QString &body);
     Q_INVOKABLE void log(const QString &message);
     Q_INVOKABLE bool openUrl(const QString &url);
 
+    Q_INVOKABLE QString metaValue(const QString &key,
+                                  const QString &defaultValue = QString()) const;
+    Q_INVOKABLE bool setMetaValue(const QString &key, const QString &value);
+    Q_INVOKABLE bool removeMetaValue(const QString &key);
+
+    Q_INVOKABLE bool subscribe(const QStringList &events);
+    Q_INVOKABLE QStringList subscriptions() const;
+
 signals:
     void pluginIdChanged();
 
 private:
-    bool require(const QString &permission) const;
+    PluginContext *active() const;
 
-    PluginLoader *m_loader = nullptr;
-    Database *m_database = nullptr;
-    TaskModel *m_tasks = nullptr;
-    TrayController *m_tray = nullptr;
-    QString m_pluginId;
-    QStringList m_permissions;
+    PluginRuntime *m_runtime = nullptr;
 };

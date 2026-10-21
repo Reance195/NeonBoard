@@ -2,8 +2,10 @@
 #include "Database.h"
 #include "Hotkey.h"
 #include "Metrics.h"
+#include "PluginEventBus.h"
 #include "PluginHost.h"
 #include "PluginLoader.h"
+#include "PluginRuntime.h"
 #include "RoadmapSync.h"
 #include "SingleInstance.h"
 #include "SplashWindow.h"
@@ -233,8 +235,10 @@ int main(int argc, char *argv[])
     WindowController windowController;
     Hotkey hotkey;
     TrayController tray;
-    PluginLoader pluginLoader;
-    PluginHost pluginHost(&pluginLoader, &database, &taskStore, &tray);
+    PluginLoader pluginLoader(&database);
+    PluginEventBus pluginEventBus;
+    PluginRuntime pluginRuntime(&pluginLoader, &pluginEventBus, &database, &taskStore, &tray);
+    PluginHost pluginHost(&pluginRuntime);
 
     if (singleInstance) {
         QObject::connect(singleInstance.get(), &SingleInstance::showRequested,
@@ -242,12 +246,14 @@ int main(int argc, char *argv[])
     }
 
     QQmlApplicationEngine engine;
+    pluginRuntime.attachEngine(&engine);
     engine.rootContext()->setContextProperty(QStringLiteral("metrics"), &metrics);
     engine.rootContext()->setContextProperty(QStringLiteral("windowController"), &windowController);
     engine.rootContext()->setContextProperty(QStringLiteral("hotkey"), &hotkey);
     engine.rootContext()->setContextProperty(QStringLiteral("tray"), &tray);
     engine.rootContext()->setContextProperty(QStringLiteral("pluginLoader"), &pluginLoader);
     engine.rootContext()->setContextProperty(QStringLiteral("pluginHost"), &pluginHost);
+    engine.rootContext()->setContextProperty(QStringLiteral("pluginRuntime"), &pluginRuntime);
     engine.rootContext()->setContextProperty(QStringLiteral("database"), &database);
     engine.rootContext()->setContextProperty(QStringLiteral("taskStore"), &taskStore);
     engine.rootContext()->setContextProperty(QStringLiteral("todoModel"), &todoModel);
@@ -301,6 +307,7 @@ int main(int argc, char *argv[])
         qInfo() << "BENCH main only" << (boot.elapsed() - tMain);
         return 0;
     }
+    pluginRuntime.start();
     splashStage(0.86, QStringLiteral("LINKING MODULES"), 60);
     if (engine.rootObjects().isEmpty()) {
         if (splash)

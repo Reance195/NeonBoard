@@ -1,6 +1,7 @@
 #include "PluginLoader.h"
 
 #include "AppPaths.h"
+#include "Database.h"
 
 #include <QDebug>
 #include <QDesktopServices>
@@ -15,12 +16,63 @@
 #include <QSet>
 #include <QUrl>
 
-PluginLoader::PluginLoader(QObject *parent)
+namespace {
+constexpr const char *kDisabledMetaKey = "plugins.disabled";
+
+QStringList idsFromJsonArray(const QString &payload)
+{
+    QStringList ids;
+    if (payload.isEmpty())
+        return ids;
+
+    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
+    if (!document.isArray())
+        return ids;
+
+    for (const QJsonValue &value : document.array()) {
+        const QString id = value.toString().trimmed();
+        if (!id.isEmpty() && !ids.contains(id))
+            ids.append(id);
+    }
+    return ids;
+}
+
+QString jsonArrayFromIds(const QStringList &ids)
+{
+    QJsonArray array;
+    for (const QString &id : ids)
+        array.append(id);
+    return QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact));
+}
+}
+
+PluginLoader::PluginLoader(Database *database, QObject *parent)
     : QObject(parent)
+    , m_database(database)
 {
     m_pluginDir = AppPaths::pluginDir();
     QDir().mkpath(m_pluginDir);
     scan();
+}
+
+QStringList PluginLoader::disabledPlugins() const
+{
+    return readDisabledList();
+}
+
+QStringList PluginLoader::readDisabledList() const
+{
+    if (!m_database)
+        return {};
+    return idsFromJsonArray(m_database->metaValue(QString::fromLatin1(kDisabledMetaKey)));
+}
+
+bool PluginLoader::writeDisabledList(const QStringList &ids) const
+{
+    if (!m_database)
+        return false;
+    return m_database->setMetaValue(QString::fromLatin1(kDisabledMetaKey),
+                                    jsonArrayFromIds(ids));
 }
 
 void PluginLoader::scan()
@@ -30,7 +82,10 @@ void PluginLoader::scan()
     m_plugins.clear();
     QSet<QString> seenIds;
 
-    const auto scanDirectory = [this, &seenIds](const QString &rootPath) {
+    const QStringList disabledIds = readDisabledList();
+
+    const auto scanDirectory = [this, &seenIds, &disabledIds](const QString &rootPath,
+                                                              const QString &source) {
         QDir root(rootPath);
         if (!root.exists())
             return;
@@ -47,6 +102,8 @@ void PluginLoader::scan()
             plugin.insert(QStringLiteral("status"), QStringLiteral("ok"));
             plugin.insert(QStringLiteral("error"), QString());
             plugin.insert(QStringLiteral("mainUrl"), QString());
+            plugin.insert(QStringLiteral("backgroundUrl"), QString());
+            plugin.insert(QStringLiteral("source"), source);
             plugin.insert(QStringLiteral("baseUrl"),
                           QUrl::fromLocalFile(pluginDir + QLatin1Char('/')).toString());
 
@@ -74,12 +131,15 @@ void PluginLoader::scan()
             const QString version = object.value(QStringLiteral("version")).toString();
             const int apiVersion = object.value(QStringLiteral("apiVersion")).toInt(1);
             const QString main = object.value(QStringLiteral("main")).toString(QStringLiteral("main.qml"));
+            const QString background =
+                object.value(QStringLiteral("background")).toString();
 
             plugin[QStringLiteral("id")] = id;
             plugin[QStringLiteral("name")] = name;
             plugin[QStringLiteral("version")] = version;
             plugin[QStringLiteral("apiVersion")] = apiVersion;
             plugin[QStringLiteral("main")] = main;
+            plugin[QStringLiteral("background")] = background;
 
             QVariantList permissions;
             const QJsonArray permissionArray = object.value(QStringLiteral("permissions")).toArray();
@@ -87,10 +147,30 @@ void PluginLoader::scan()
                 permissions.append(value.toString());
             plugin[QStringLiteral("permissions")] = permissions;
 
+            const QJsonObject contributes = object.value(QStringLiteral("contributes")).toObject();
+            QStringList contributedEvents;
+            for (const QJsonValue &value : contributes.value(QStringLiteral("events")).toArray()) {
+                const QString event = value.toString().trimmed();
+                if (!event.isEmpty() && !contributedEvents.contains(event))
+                    contributedEvents.append(event);
+            }
+            QVariantList contributedCommands;
+            for (const QJsonValue &value : contributes.value(QStringLiteral("commands")).toArray()) {
+                const QJsonObject command = value.toObject();
+                if (command.isEmpty())
+                    continue;
+                contributedCommands.append(QVariantMap{
+                    {QStringLiteral("id"), command.value(QStringLiteral("id")).toString()},
+                    {QStringLiteral("title"), command.value(QStringLiteral("title")).toString()}
+                });
+            }
+            plugin[QStringLiteral("events")] = contributedEvents;
+            plugin[QStringLiteral("commands")] = contributedCommands;
+
             if (id.isEmpty()) {
                 plugin[QStringLiteral("status")] = QStringLiteral("error");
                 plugin[QStringLiteral("error")] = QStringLiteral("缺少 id");
-            } else if (apiVersion != 1) {
+            } else if (apiVersion < MinimumApiVersion || apiVersion > MaximumApiVersion) {
                 plugin[QStringLiteral("status")] = QStringLiteral("error");
                 plugin[QStringLiteral("error")] =
                     QStringLiteral("不支持的 apiVersion: %1").arg(apiVersion);
@@ -103,6 +183,24 @@ void PluginLoader::scan()
                     plugin[QStringLiteral("mainUrl")] =
                         QUrl::fromLocalFile(mainInfo.absoluteFilePath()).toString();
                 }
+
+                if (!background.isEmpty() && plugin[QStringLiteral("status")] == QStringLiteral("ok")) {
+                    const QFileInfo backgroundInfo(pluginDir + QLatin1Char('/') + background);
+                    if (!backgroundInfo.exists() || !backgroundInfo.isFile()) {
+                        plugin[QStringLiteral("status")] = QStringLiteral("error");
+                        plugin[QStringLiteral("error")] =
+                            QStringLiteral("后台入口文件不存在: %1").arg(background);
+                    } else {
+                        plugin[QStringLiteral("backgroundUrl")] =
+                            QUrl::fromLocalFile(backgroundInfo.absoluteFilePath()).toString();
+                    }
+                }
+            }
+
+            if (!id.isEmpty() && disabledIds.contains(id)
+                && plugin[QStringLiteral("status")] == QStringLiteral("ok")) {
+                plugin[QStringLiteral("status")] = QStringLiteral("disabled");
+                plugin[QStringLiteral("error")] = QStringLiteral("插件已禁用");
             }
 
             if (!id.isEmpty() && seenIds.contains(id))
@@ -114,9 +212,13 @@ void PluginLoader::scan()
         }
     };
 
-    scanDirectory(m_pluginDir);
-    scanDirectory(QCoreApplication::applicationDirPath() + QStringLiteral("/plugins"));
-    scanDirectory(QStringLiteral(NEONBOARD_SOURCE_DIR) + QStringLiteral("/plugins-samples"));
+    scanDirectory(m_pluginDir, QStringLiteral("appdata"));
+    scanDirectory(QCoreApplication::applicationDirPath() + QStringLiteral("/plugins"),
+                  QStringLiteral("appdir"));
+    scanDirectory(QStringLiteral(NEONBOARD_SOURCE_DIR) + QStringLiteral("/plugins"),
+                  QStringLiteral("official"));
+    scanDirectory(QStringLiteral(NEONBOARD_SOURCE_DIR) + QStringLiteral("/plugins-samples"),
+                  QStringLiteral("sample"));
 
     qInfo() << "PluginLoader: scanned" << m_plugins.size() << "plugin(s) from" << m_pluginDir
             << "in" << scanTimer.elapsed() << "ms";
@@ -136,4 +238,36 @@ QVariantMap PluginLoader::pluginById(const QString &id) const
             return plugin;
     }
     return {};
+}
+
+bool PluginLoader::isPluginEnabled(const QString &id) const
+{
+    if (id.isEmpty())
+        return false;
+    return !readDisabledList().contains(id);
+}
+
+bool PluginLoader::setPluginEnabled(const QString &id, bool enabled)
+{
+    if (id.isEmpty())
+        return false;
+
+    QStringList ids = readDisabledList();
+    const bool wasDisabled = ids.contains(id);
+
+    if (enabled) {
+        if (!wasDisabled)
+            return true;
+        ids.removeAll(id);
+    } else {
+        if (wasDisabled)
+            return true;
+        ids.append(id);
+    }
+
+    if (!writeDisabledList(ids))
+        return false;
+
+    scan();
+    return true;
 }

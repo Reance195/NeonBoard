@@ -28,6 +28,9 @@ qt_add_executable(NeonBoard
     src/UiSettings.h src/UiSettings.cpp
     src/AppPaths.h src/AppPaths.cpp
     src/RoadmapSync.h src/RoadmapSync.cpp
+    src/PluginContext.h src/PluginContext.cpp
+    src/PluginEventBus.h src/PluginEventBus.cpp
+    src/PluginRuntime.h src/PluginRuntime.cpp
     resources/neonboard.rc
 )
 

@@ -1,22 +1,36 @@
 #include "PluginHost.h"
 
-#include "Database.h"
-#include "PluginLoader.h"
-#include "TaskModel.h"
-#include "TrayController.h"
+#include "PluginContext.h"
+#include "PluginRuntime.h"
 
-#include <QDesktopServices>
 #include <QDebug>
-#include <QUrl>
 
-PluginHost::PluginHost(PluginLoader *loader, Database *database, TaskModel *tasks,
-                       TrayController *tray, QObject *parent)
+PluginHost::PluginHost(PluginRuntime *runtime, QObject *parent)
     : QObject(parent)
-    , m_loader(loader)
-    , m_database(database)
-    , m_tasks(tasks)
-    , m_tray(tray)
+    , m_runtime(runtime)
 {
+}
+
+PluginContext *PluginHost::active() const
+{
+    return m_runtime ? m_runtime->activeContext() : nullptr;
+}
+
+QString PluginHost::pluginId() const
+{
+    PluginContext *context = active();
+    return context ? context->pluginId() : QString();
+}
+
+QStringList PluginHost::permissions() const
+{
+    PluginContext *context = active();
+    return context ? context->permissions() : QStringList();
+}
+
+bool PluginHost::isActive() const
+{
+    return active() != nullptr;
 }
 
 bool PluginHost::activate(const QString &pluginId)
@@ -26,119 +40,140 @@ bool PluginHost::activate(const QString &pluginId)
         return true;
     }
 
-    const QVariantMap plugin = m_loader->pluginById(pluginId);
-    if (plugin.isEmpty() || plugin.value(QStringLiteral("status")).toString() != QStringLiteral("ok"))
+    if (!m_runtime)
         return false;
 
-    m_pluginId = pluginId;
-    m_permissions.clear();
-    const QVariant permissions = plugin.value(QStringLiteral("permissions"));
-    if (permissions.canConvert<QStringList>())
-        m_permissions = permissions.toStringList();
-    else
-        for (const QVariant &permission : permissions.toList())
-            m_permissions.append(permission.toString());
+    PluginContext *context = m_runtime->contextFor(pluginId);
+    if (!context) {
+        qWarning().noquote() << "PluginHost: activate failed, no context for" << pluginId;
+        return false;
+    }
+
+    m_runtime->setActiveContext(context);
+    qInfo().noquote() << "PluginHost: activated" << pluginId;
     emit pluginIdChanged();
     return true;
 }
 
 void PluginHost::deactivate()
 {
-    if (m_pluginId.isEmpty())
+    if (!m_runtime)
         return;
-    m_pluginId.clear();
-    m_permissions.clear();
+    if (!m_runtime->activeContext())
+        return;
+    m_runtime->setActiveContext(nullptr);
     emit pluginIdChanged();
 }
 
 bool PluginHost::hasPermission(const QString &permission) const
 {
-    return !permission.isEmpty() && m_permissions.contains(permission);
-}
-
-bool PluginHost::require(const QString &permission) const
-{
-    if (hasPermission(permission))
-        return true;
-    qWarning() << "PluginHost: permission denied" << permission << "for" << m_pluginId;
-    return false;
+    PluginContext *context = active();
+    return context && context->hasPermission(permission);
 }
 
 QString PluginHost::storageGet(const QString &key) const
 {
-    if (m_pluginId.isEmpty() || !require(QStringLiteral("storage")))
-        return {};
-    return m_database->pluginValue(m_pluginId, key);
+    PluginContext *context = active();
+    return context ? context->storageGet(key) : QString();
 }
 
 bool PluginHost::storageSet(const QString &key, const QString &value)
 {
-    if (m_pluginId.isEmpty() || !require(QStringLiteral("storage")))
-        return false;
-    return m_database->setPluginValue(m_pluginId, key, value);
+    PluginContext *context = active();
+    return context ? context->storageSet(key, value) : false;
 }
 
 bool PluginHost::storageRemove(const QString &key)
 {
-    if (m_pluginId.isEmpty() || !require(QStringLiteral("storage")))
-        return false;
-    return m_database->removePluginValue(m_pluginId, key);
+    PluginContext *context = active();
+    return context ? context->storageRemove(key) : false;
 }
 
 QVariantList PluginHost::tasks() const
 {
-    if (!require(QStringLiteral("tasks.read")))
-        return {};
-    return m_tasks->allTasks();
+    PluginContext *context = active();
+    return context ? context->tasks() : QVariantList();
 }
 
 QString PluginHost::addTask(const QString &title, const QString &status)
 {
-    if (!require(QStringLiteral("tasks.write")))
-        return {};
-    return m_tasks->addTask(title, status);
+    PluginContext *context = active();
+    return context ? context->addTask(title, status) : QString();
 }
 
 bool PluginHost::updateTask(const QString &id, const QVariantMap &fields)
 {
-    if (!require(QStringLiteral("tasks.write")))
-        return false;
-    return m_tasks->updateTask(id, fields);
+    PluginContext *context = active();
+    return context ? context->updateTask(id, fields) : false;
 }
 
 bool PluginHost::moveTask(const QString &id, const QString &status)
 {
-    if (!require(QStringLiteral("tasks.write")))
-        return false;
-    return m_tasks->moveTask(id, status, -1);
+    PluginContext *context = active();
+    return context ? context->moveTask(id, status) : false;
+}
+
+bool PluginHost::moveTaskToEnd(const QString &id, const QString &status)
+{
+    PluginContext *context = active();
+    return context ? context->moveTaskToEnd(id, status) : false;
 }
 
 bool PluginHost::deleteTask(const QString &id)
 {
-    if (!require(QStringLiteral("tasks.write")))
-        return false;
-    return m_tasks->deleteTask(id);
+    PluginContext *context = active();
+    return context ? context->deleteTask(id) : false;
 }
 
 void PluginHost::notify(const QString &title, const QString &body)
 {
-    if (!require(QStringLiteral("notifications")))
-        return;
-    m_tray->showMessage(title, body);
+    PluginContext *context = active();
+    if (context)
+        context->notify(title, body);
 }
 
 void PluginHost::log(const QString &message)
 {
-    qInfo().noquote() << "[plugin]" << m_pluginId << message;
+    PluginContext *context = active();
+    if (context) {
+        context->log(message);
+        return;
+    }
+    qInfo().noquote() << "[plugin]" << message;
 }
 
 bool PluginHost::openUrl(const QString &url)
 {
-    if (!require(QStringLiteral("openUrl")))
-        return false;
-    const QUrl target(url);
-    if (!target.isValid() || (target.scheme() != QStringLiteral("http")
-                              && target.scheme() != QStringLiteral("https")))
-        return false;
-    return QDesktopServices::openUrl(target);
+    PluginContext *context = active();
+    return context ? context->openUrl(url) : false;
+}
+
+QString PluginHost::metaValue(const QString &key, const QString &defaultValue) const
+{
+    PluginContext *context = active();
+    return context ? context->metaValue(key, defaultValue) : defaultValue;
+}
+
+bool PluginHost::setMetaValue(const QString &key, const QString &value)
+{
+    PluginContext *context = active();
+    return context ? context->setMetaValue(key, value) : false;
+}
+
+bool PluginHost::removeMetaValue(const QString &key)
+{
+    PluginContext *context = active();
+    return context ? context->removeMetaValue(key) : false;
+}
+
+bool PluginHost::subscribe(const QStringList &events)
+{
+    PluginContext *context = active();
+    return context ? context->subscribe(events) : false;
+}
+
+QStringList PluginHost::subscriptions() const
+{
+    PluginContext *context = active();
+    return context ? context->subscriptions() : QStringList();
 }

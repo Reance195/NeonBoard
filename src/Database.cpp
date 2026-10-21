@@ -198,3 +198,48 @@ bool Database::removePluginValue(const QString &pluginId, const QString &key)
     }
     return true;
 }
+
+QString Database::metaValue(const QString &key, const QString &defaultValue) const
+{
+    if (!m_db.isOpen())
+        return defaultValue;
+
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral("SELECT value FROM meta WHERE key = ?"));
+    query.addBindValue(key);
+    if (!query.exec() || !query.next())
+        return defaultValue;
+    return query.value(0).toString();
+}
+
+bool Database::setMetaValue(const QString &key, const QString &value)
+{
+    if (!m_db.isOpen())
+        return false;
+
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral(
+        "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)"));
+    query.addBindValue(key);
+    query.addBindValue(value);
+    if (!query.exec()) {
+        qWarning() << "Database: meta write failed:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool Database::removeMetaValue(const QString &key)
+{
+    if (!m_db.isOpen())
+        return false;
+
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral("DELETE FROM meta WHERE key = ?"));
+    query.addBindValue(key);
+    if (!query.exec()) {
+        qWarning() << "Database: meta delete failed:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}

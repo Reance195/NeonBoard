@@ -50,6 +50,12 @@ Makefile.*
 *.qmlc
 *.jsc
 
+# ===== 多代理并行 =====
+# 嵌套 worktree：每个 agent 一个工作区，禁止入库
+.worktrees/
+# agent 沙箱数据目录（NEONBOARD_DATA_DIR 指向的位置）
+.sandbox/
+
 # ===== 运行时数据（本地数据库等）=====
 *.db
 *.db-shm

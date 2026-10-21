@@ -1,3 +1,4 @@
+#include "AppPaths.h"
 #include "Database.h"
 #include "Hotkey.h"
 #include "Metrics.h"
@@ -14,7 +15,6 @@
 #include <QApplication>
 #include <QDateTime>
 #include <QDebug>
-#include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFont>
@@ -29,7 +29,6 @@
 #include <QQuickWindow>
 #include <QScreen>
 #include <QSettings>
-#include <QStandardPaths>
 #include <QTextStream>
 #include <QTimer>
 #include <QUrl>
@@ -41,9 +40,7 @@ static void neonboardLogHandler(QtMsgType, const QMessageLogContext &, const QSt
     static bool opened = false;
     if (!opened) {
         opened = true;
-        const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        QDir().mkpath(dir);
-        file.setFileName(dir + QStringLiteral("/neonboard.log"));
+        file.setFileName(AppPaths::logFilePath());
         file.open(QIODevice::Append | QIODevice::Text);
     }
     if (file.isOpen()) {
@@ -75,10 +72,16 @@ int main(int argc, char *argv[])
     qInstallMessageHandler(neonboardLogHandler);
 
     QSettings::setDefaultFormat(QSettings::IniFormat);
+    // 沙箱隔离：界面设置（主题/画质/动效）也随数据目录走，多 agent 互不干扰
+    if (AppPaths::isolated())
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, AppPaths::dataDir());
     QQuickStyle::setStyle(QStringLiteral("Basic"));
     QApplication::setWindowIcon(QIcon(QStringLiteral(":/icons/neonboard.svg")));
 
     qInfo() << "BOOT app" << boot.elapsed();
+    qInfo().noquote() << "AppPaths: data" << AppPaths::dataDir()
+                      << "isolated" << AppPaths::isolated()
+                      << "instance" << AppPaths::singleInstanceKey();
 
     const QStringList arguments = QCoreApplication::arguments();
     const bool smokeMode = arguments.contains(QStringLiteral("--smoke"));
@@ -86,8 +89,7 @@ int main(int argc, char *argv[])
     const bool utilityMode = arguments.contains(QStringLiteral("--selftest")) || smokeMode;
     std::unique_ptr<SingleInstance> singleInstance;
     if (!utilityMode) {
-        singleInstance = std::make_unique<SingleInstance>(
-            QStringLiteral("com.lin.NeonBoard.single-instance"));
+        singleInstance = std::make_unique<SingleInstance>(AppPaths::singleInstanceKey());
         if (!singleInstance->isPrimary())
             return 0;
     } else if (smokeMode) {

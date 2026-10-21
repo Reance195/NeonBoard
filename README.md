@@ -17,6 +17,8 @@
 - 动效链：卡片滑入进场、悬停浮起、按下微沉、拖起放大、拖入目标列边框呼吸、落位涟漪、勾选完成光扫、删除故障抖动、撤销滑回、逾期呼吸描边、统计数字滚动
 - 启动 Splash，主界面加载期间先显示品牌启动图
 - 设置 / 插件 / 外观三个面板改为按需加载，首帧不再为空面板付出代价（QML 树构建耗时下降约 250–490 ms）
+- 里程碑进度条：按 R0 / R1 / R2 / R3 聚合看板完成度，一眼看出哪个阶段收口了；点击阶段即按阶段过滤看板
+- 路线图双向绑定：仓库 `progress.json` 与本地看板自动同步（启动拉取、看板改动写回、提交钩子投递）
 - 系统托盘、全局热键、开机自启、单实例、窗口位置记忆
 - 运行时 QML 插件：权限清单、独立存储、宿主任务 API
 
@@ -107,6 +109,12 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
 --settings   启动后打开设置
 --plugins    启动后打开插件面板
 --appearance 启动后打开外观面板（主题 / 画质 / 减弱动效）
+--stage <R0|R1|R2|R3>
+             启动后按里程碑过滤看板（不填则显示全部）
+--sync-roadmap [path]
+             从路线图快照导入看板（默认取仓库 progress.json）
+--export-roadmap [path]
+             把看板现状写回路线图快照
 --newtask    启动后聚焦快速添加
 --autostart  静默启动到托盘
 ```
@@ -115,15 +123,18 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
 
 ```text
 NEONBOARD_NO_BG=1   关闭动态霓虹背景（低配 / 排障）
+NEONBOARD_ROADMAP   路线图快照路径（默认自动探测仓库内 progress.json）
+NEONBOARD_ROADMAP_AUTOWRITE=0
+                    关闭「看板改动自动写回快照」
 ```
 
 ## 项目结构
 
 ```text
-src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置
+src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置、路线图同步
 qml/                 QML：主界面、霓虹背景
   theme/             主题与动效单例（Theme / Motion）
-  components/        卡片、看板列、统计芯片、窗口按钮、外观面板、设置面板、插件面板
+  components/        卡片、看板列、统计芯片、窗口按钮、外观面板、设置面板、插件面板、阶段进度条
 shaders/             GLSL Shader
 plugins-samples/     示例插件
 installer/           Inno Setup 脚本
@@ -146,6 +157,7 @@ docs/                截图、迭代路线图与插件文档
 
 - 首次运行受磁盘与页缓存影响，主界面加载约 5–9 秒；之后热启动稳定在 1.2–1.4 秒。Splash 会先显示
 - 拖拽跨列时落到目标列末尾，不做列内精确插位
+- 手工改 `progress.json` 时请同步抬高该条目的 `updatedAt`，否则会以看板版本为准
 - 安装包未签名，Windows SmartScreen 可能提示
 - 未实现 JSON 导入导出、命令面板、插件热重载
 - Qt 采用 LGPL 动态链接；再分发时需保留 Qt 动态库与许可说明

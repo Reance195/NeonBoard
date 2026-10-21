@@ -25,6 +25,8 @@
 - 运行时 QML 插件：权限清单、独立存储、宿主任务 API
 - 插件平台 2.0：apiVersion 2 支持后台常驻插件、事件订阅、meta 共享配置、插件启停与热重载
 - 计划钩子：提交信息里写 `#T12`，标题带 `#T12` 的任务自动转到「进行中」（`#T12=done` / `#T12=todo` 同理），详见 [docs/plan-hook.md](docs/plan-hook.md)
+- 插件库：侧栏汇总「已装 / 可装」插件，支持打开、启用、禁用、安装、卸载、更新
+- 在线市场：按 JSON 索引拉取 `.neon` 单文件插件包，SHA-256 校验后原子安装；断网时自动降级到本地缓存索引
 
 ## 快捷键
 
@@ -131,6 +133,15 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
              把一段文本当作提交信息投递给计划钩子（只投递，规则由插件执行）
 --emit-hook-file <path>
              同上，从 UTF-8 文件读提交信息（推荐，避免命令行转义问题）
+--library    启动后打开插件库
+--install-plugin-file <path>
+             从本地 .neon 包安装插件（原子安装，退出码 0 成功 / 2 失败）
+--market-source <url>
+             设置插件市场索引地址（同时写入 meta，可离线复用）
+--market-refresh
+             拉取市场索引（失败时降级到本地缓存，退出码 0 成功 / 2 失败）
+--market-install <id>
+             从市场安装指定插件（校验 SHA-256 后原子安装）
 ```
 
 环境变量：
@@ -182,14 +193,53 @@ docs/themes/         6 套主题预设实机截图
 
 插件使用 QML 编写，放入插件目录后点「重新扫描插件」生效。详见 [docs/plugin-api.md](docs/plugin-api.md)。
 
+侧栏「插件」卡片即插件库入口：列出**已装**（用户安装区）与**可装**（随包 / 官方 / 示例 / 在线市场）两类插件，可直接打开、启用、禁用、安装、卸载、更新。完整库界面点击「详情」进入，也可按 `Ctrl+,` 打开设置后点「打开插件库」。
+
 当前插件边界：
 
 - 面板插件提供 `main.qml`；`apiVersion: 2` 还能加 `background.qml` 常驻后台
 - 支持权限：`storage`、`notifications`、`tasks.read`、`tasks.write`、`openUrl`、`meta`、`events`
 - 支持事件订阅（任务创建 / 更新 / 移动 / 完成 / 删除、提交投递）
 - 支持插件启停、重新扫描（热重载）
-- 不支持 `settings.qml`、命令面板、快捷键注册、HTTP API、插件市场
+- 支持插件库与在线市场：`.neon` 单文件包（JSON）→ SHA-256 校验 → 临时目录原子替换安装
+- 不支持 `settings.qml`、命令面板、快捷键注册、HTTP API
 - 插件运行在宿主 QML 引擎内，属于受信插件，不是沙箱
+
+### 在线市场
+
+市场是一个 JSON 索引文件，指向若干 `.neon` 包：
+
+```json
+{
+  "version": 1,
+  "updatedAt": "2026-10-21",
+  "plugins": [
+    {
+      "id": "com.lin.market-demo",
+      "name": "市场演示插件",
+      "version": "1.0.0",
+      "description": "示例",
+      "author": "NeonBoard",
+      "download": "https://example.com/market-demo.neon",
+      "sha256": "1c592a78…",
+      "size": 469
+    }
+  ]
+}
+```
+
+`.neon` 包本身是一个 JSON 文件，`manifest` 是插件清单，`files` 是文件名到源码文本的映射：
+
+```json
+{
+  "manifest": { "id": "com.lin.market-demo", "name": "市场演示插件", "version": "1.0.0", "apiVersion": 1, "main": "main.qml" },
+  "files": { "main.qml": "import QtQuick\nRectangle { }" }
+}
+```
+
+安装时依次做四道校验：包格式合法 → `manifest.id` 与请求一致 → SHA-256 与索引一致（索引给了才校验）→ 文件路径不越界（禁绝对路径、反斜杠与 `..`）。全部通过后先落到临时目录，再原子替换目标目录，失败自动回滚。
+
+市场地址默认指向仓库内置的 GitHub 地址，可在插件库或设置面板里改成任意 URL；索引会缓存到 `%APPDATA%\com.lin\NeonBoard\market-cache.json`，断网时用缓存索引继续浏览。
 
 ## 已知限制
 
@@ -197,8 +247,9 @@ docs/themes/         6 套主题预设实机截图
 - 拖拽跨列时落到目标列末尾，不做列内精确插位
 - 手工改 `progress.json` 时请同步抬高该条目的 `updatedAt`，否则会以看板版本为准
 - 安装包未签名，Windows SmartScreen 可能提示
-- 未实现 JSON 导入导出、命令面板、插件市场
+- 未实现 JSON 导入导出、命令面板
 - 计划钩子需先把 `plugins/plan-hook` 复制到用户插件目录才会生效；未安装时提交里的 `#T12` 静默失效
+- 插件市场的默认索引地址是占位用的 GitHub 地址，实际使用前需在插件库或设置面板里改成真实市场地址
 - Qt 采用 LGPL 动态链接；再分发时需保留 Qt 动态库与许可说明
 
 ## 第三方

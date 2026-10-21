@@ -270,3 +270,38 @@ $env:NEONBOARD_INSTANCE = "agent-a"
 - 端到端：`NeonBoard.exe --emit-hook-file <tmp>` 投递 → 主进程消费 → 任务换列；应用未运行时投递则下次启动补投递。
 - 注意 `Start-Process -ArgumentList "a b c"` 会按空格拆词，带空格文本必须用 `--emit-hook-file`。
 - 钩子报**退出码 127** 表示 exe 起不来（缺 Qt DLL），设 `NEONBOARD_QT_BIN` 指向 Qt `bin` 目录即可。
+
+---
+
+## 九、插件库与市场约定
+
+插件的**分发与安装**这条链路横跨 C++ 与 QML，改动时必须守住下面的边界。
+
+### 9.1 职责分层
+
+| 层 | 位置 | 职责 | 不允许做 |
+| --- | --- | --- | --- |
+| 插件发现 | `src/PluginLoader` | 扫 4 个源目录、校验 manifest、去重 | 执行插件代码 |
+| 插件编排 | `src/PluginRuntime` | 建上下文、加载后台入口、启停与热重载 | 绕过权限校验 |
+| 包格式与落盘 | `src/PluginPackage` | 解析 `.neon`、安全落盘、原子替换 | 跳过路径与摘要校验 |
+| 市场通信 | `src/PluginMarket` | 拉索引、下载包、校验 SHA-256、缓存 | 绕过 `PluginPackage` 落盘 |
+| 插件库门面 | `src/PluginLibrary` | 合并本地与市场条目、装/卸/启停/更新 | 直接写插件目录以外的地方 |
+
+### 9.2 硬性约束
+
+1. **只写用户安装区**：安装目标固定为 `AppPaths::pluginDir()/<id 末段>`（`%APPDATA%\com.lin\NeonBoard\plugins\`）。`appDir/plugins`、`sourceDir/plugins`、`sourceDir/plugins-samples` 一律**只读**，卸载不得删它们。
+2. **四道校验缺一不可**：包格式合法 → `manifest.id` 与请求 id 一致 → SHA-256 与索引一致（索引给了才校验）→ `files` 每个键是安全相对路径（禁绝对路径、反斜杠、`..`，只允许单层子目录）。任何一道不过就整单失败，**不落任何文件**。
+3. **原子安装**：先写临时目录（`.neon-stage-XXXXXX` / `.copy-stage-XXXXXX`），再原子替换目标目录；旧目录先改名 `.backup`，替换失败回滚，成功后删 `.backup`。**禁止**直接往目标目录里逐个写文件。
+4. **`.neon` 是单文件 JSON**：`{manifest:{...}, files:{相对路径:文件内容}}`；`manifest` 落盘为 `plugin.json`。**不要**引入 zip / minizip / 外部解压命令，保持零第三方依赖与跨平台。
+5. **市场源可配置**：地址存 `meta` 表 `plugin.market.source`，内置默认值是**占位用**的 GitHub 地址（`PluginMarket::defaultSource()`），用户可在插件库或设置面板改。**改默认地址时同步改 README 与本节**。
+6. **离线降级**：索引拉取成功后缓存到 `market-cache.json`；拉取失败读缓存并在状态里说明「离线模式，使用缓存索引」，不得让插件库整体不可用。
+7. **安装/卸载后必须 `PluginRuntime::reload()`**，并刷新插件库条目，否则界面与实际不一致。
+8. **官方插件不随安装包分发**：`plugins/`（官方源）不进 `dist`，发布态靠市场获取或用户手工复制；`scripts/deploy.ps1` 只复制 `plugins-samples/`。
+
+### 9.3 验证口径
+
+- 安装类：`--install-plugin-file <path>`（0 成功 / 2 失败）、`--market-install <id>`。
+- 市场类：`--market-source <url>` → `--market-refresh` → `--market-install <id>`。
+- **必须覆盖的失败用例**：篡改 `sha256` → 退出码 2 且**包未落盘**；`files` 里含 `../../evil.qml` → 退出码 2 且**没有 evil.qml 落盘**；断网 → `--market-refresh` 退出码 0 且提示离线模式、缓存文件存在。
+- 起本地市场用 `python -m http.server`；测断网前先确认 8731 端口没有**残留**服务在监听（`Get-NetTCPConnection -LocalPort 8731 -State Listen`），否则断网用例会假通过。
+- 日志断言要取**最后一条**匹配，不要取第一条。

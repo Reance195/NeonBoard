@@ -38,6 +38,11 @@ QString AppPaths::logFilePath()
     return dataDir() + QStringLiteral("/neonboard.log");
 }
 
+QString AppPaths::hookDbPath()
+{
+    return dataDir() + QStringLiteral("/hooks.db");
+}
+
 QString AppPaths::singleInstanceKey()
 {
     QString key = QString::fromLatin1(kBaseInstanceKey);

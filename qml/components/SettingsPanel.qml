@@ -174,9 +174,50 @@ Rectangle {
 
                 Text {
                     Layout.fillWidth: true
-                    text: pluginLoader.plugins.length + " 个已发现 · 目录 %APPDATA%\\com.lin\\NeonBoard\\plugins"
+                    text: pluginLoader.plugins.length + " 个已发现 · 目录 " + pluginLoader.pluginDir
                     color: Theme.muted
                     font.pixelSize: 10
+                    wrapMode: Text.WordWrap
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 30
+                        radius: 8
+                        color: rescanArea.pressed ? Theme.elevated : Theme.card
+                        border.width: 1
+                        border.color: Theme.border
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "重新扫描插件"
+                            color: Theme.cyan
+                            font.pixelSize: 11
+                        }
+
+                        MouseArea {
+                            id: rescanArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                pluginRuntime.reload()
+                                rescanHint.text = "已重新扫描，后台插件已重载"
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    id: rescanHint
+                    Layout.fillWidth: true
+                    text: "把插件目录放进上面的路径后点「重新扫描插件」"
+                    color: Theme.muted
+                    font.pixelSize: 9
                     wrapMode: Text.WordWrap
                 }
             }

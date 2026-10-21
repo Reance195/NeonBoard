@@ -1,0 +1,14 @@
+{
+    "id": "com.lin.plan-hook",
+    "name": "计划钩子",
+    "version": "1.0.0",
+    "apiVersion": 2,
+    "description": "提交信息里的 #短号 标记（如 #T12）自动把对应任务流转到进行中 / 已办结",
+    "main": "main.qml",
+    "background": "background.qml",
+    "permissions": ["tasks.read", "tasks.write", "meta", "events"],
+    "contributes": {
+        "events": ["hook.commit"],
+        "commands": []
+    }
+}

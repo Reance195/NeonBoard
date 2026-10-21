@@ -1,33 +1,153 @@
 #!/bin/sh
-# ============================================================
-# NeonBoard 仓库宪章 · post-commit
-# 提交后若改动涉及 progress.json，把路线图快照同步进本地看板
-# （仓库 → 看板方向）。看板侧的改动由应用自动写回文件。
+# post-commit：提交完成后做两件互相独立的事，任何失败都不阻塞提交（本钩子永远以 0 退出）
 #
-# 说明：
-# - 应用正在运行时不必插手：应用每 15 秒轮询一次文件变化，会自动拉取；
-# - 找不到可执行文件时静默跳过，绝不影响提交本身。
-# ============================================================
+#   1) 路线图快照同步
+#      本次提交改到了 progress.json → 把仓库里的快照同步进本地看板（仓库 → 看板方向）。
+#      应用正在运行时不插手：应用每 15 秒轮询一次文件变化，会自动拉取。
+#
+#   2) 计划钩子投递
+#      提交信息里带 #短号 → 投递给 NeonBoard：
+#        "fix(model): 修复 #T12 统计刷新"  →  标题含 #T12 的任务自动转为「进行中」
+#        #T12=done / #T12=todo             →  显式指定目标状态
+#      本钩子只负责「投递信号」，真正的任务流转由应用里的计划钩子插件（plan-hook）执行。
+
+set -u
 
 root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$root" ] || exit 0
 cd "$root" || exit 0
 
-changed="$(git show --name-only --format= HEAD 2>/dev/null | grep -x 'progress.json')"
-[ -n "$changed" ] || exit 0
+git_dir=$(git rev-parse --git-dir 2>/dev/null) || exit 0
+msg_file="$git_dir/COMMIT_EDITMSG"
 
-[ -f "$root/progress.json" ] || exit 0
+# ---------- 需要做哪几件事 ----------
+changed_progress=""
+if git show --name-only --format= HEAD 2>/dev/null | grep -qx 'progress.json'; then
+    if [ -f "$root/progress.json" ]; then
+        changed_progress="$root/progress.json"
+    fi
+fi
 
-# 应用在运行就让应用自己轮询，避免两个进程同时写同一个 SQLite 库
-if tasklist /FI "IMAGENAME eq NeonBoard.exe" 2>/dev/null | grep -q "NeonBoard.exe"; then
+has_marker=0
+if [ -f "$msg_file" ] && grep -Eq '#[A-Za-z][A-Za-z0-9]*' "$msg_file"; then
+    has_marker=1
+fi
+
+if [ -z "$changed_progress" ] && [ "$has_marker" -eq 0 ]; then
     exit 0
 fi
 
-for exe in "$root/build/Release/NeonBoard.exe" "$root/dist/NeonBoard/NeonBoard.exe"; do
-    if [ -f "$exe" ]; then
-        "$exe" --sync-roadmap "$root/progress.json" >/dev/null 2>&1 || true
-        break
+# ---------- 定位可执行文件 ----------
+to_unix() {
+    if command -v cygpath >/dev/null 2>&1; then
+        cygpath -u "$1" 2>/dev/null || printf '%s' "$1"
+    else
+        printf '%s' "$1"
     fi
-done
+}
+
+exe=""
+if [ -n "${NEONBOARD_EXE:-}" ]; then
+    candidate=$(to_unix "$NEONBOARD_EXE")
+    if [ -f "$candidate" ]; then
+        exe="$candidate"
+    fi
+fi
+
+if [ -z "$exe" ]; then
+    for candidate in "$root/build/Release/NeonBoard.exe" \
+                     "$root/dist/NeonBoard/NeonBoard.exe" \
+                     "$root/dist/NeonBoard.exe"; do
+        if [ -f "$candidate" ]; then
+            exe="$candidate"
+            break
+        fi
+    done
+fi
+
+if [ -z "$exe" ]; then
+    for candidate in "${LOCALAPPDATA:-}/Programs/NeonBoard/NeonBoard.exe" \
+                     "${PROGRAMFILES:-}/NeonBoard/NeonBoard.exe"; do
+        [ -n "$candidate" ] || continue
+        unix_candidate=$(to_unix "$candidate")
+        if [ -f "$unix_candidate" ]; then
+            exe="$unix_candidate"
+            break
+        fi
+    done
+fi
+
+if [ -z "$exe" ]; then
+    if [ "$has_marker" -eq 1 ]; then
+        echo "[NeonBoard] 未找到 NeonBoard.exe，提交里的 # 标记不会自动流转（可用 NEONBOARD_EXE 指定路径）" >&2
+    fi
+    exit 0
+fi
+
+# ---------- 让 exe 能找到 Qt 运行库 ----------
+#   1) 优先用 exe 同目录（安装版 / windeployqt 过的 dist 版自带 DLL）
+#   2) 找不到就找 Qt 的 bin 目录（开发期从源码树构建的 exe 需要它）
+#      可用 NEONBOARD_QT_BIN 显式指定
+exe_dir=$(dirname "$exe")
+PATH="$exe_dir:$PATH"
+qt_bin="${NEONBOARD_QT_BIN:-}"
+if [ -z "$qt_bin" ]; then
+    for candidate in /c/Qt/*/msvc2022_64/bin /c/Qt/*/mingw*/bin /c/Qt/*/gcc_64/bin; do
+        if [ -f "$candidate/Qt6Core.dll" ]; then
+            qt_bin="$candidate"
+            break
+        fi
+    done
+fi
+if [ -n "$qt_bin" ]; then
+    case "$qt_bin" in
+        [A-Za-z]:*|*\\*) qt_bin=$(to_unix "$qt_bin") ;;
+    esac
+    PATH="$qt_bin:$PATH"
+fi
+export PATH
+
+# ---------- 1) 路线图快照同步 ----------
+if [ -n "$changed_progress" ]; then
+    app_running=0
+    if command -v tasklist >/dev/null 2>&1; then
+        if tasklist /FI "IMAGENAME eq NeonBoard.exe" 2>/dev/null | grep -q "NeonBoard.exe"; then
+            app_running=1
+        fi
+    fi
+    if [ "$app_running" -eq 0 ]; then
+        "$exe" --sync-roadmap "$changed_progress" >/dev/null 2>&1 || true
+    fi
+fi
+
+# ---------- 2) 计划钩子投递 ----------
+if [ "$has_marker" -eq 1 ]; then
+    # 提交信息写临时文件传给 exe，避免命令行转义问题
+    tmp=""
+    if command -v mktemp >/dev/null 2>&1; then
+        tmp=$(mktemp 2>/dev/null) || tmp=""
+    fi
+    if [ -z "$tmp" ]; then
+        tmp="${TMPDIR:-/tmp}/neonboard-hook-$$.txt"
+    fi
+    cp "$msg_file" "$tmp" 2>/dev/null || tmp=""
+
+    if [ -n "$tmp" ]; then
+        # Windows 侧程序需要 Windows 风格路径
+        if command -v cygpath >/dev/null 2>&1; then
+            arg=$(cygpath -w "$tmp" 2>/dev/null) || arg="$tmp"
+        else
+            arg="$tmp"
+        fi
+
+        "$exe" --emit-hook-file "$arg" >/dev/null 2>&1
+        rc=$?
+        rm -f "$tmp" >/dev/null 2>&1
+
+        if [ "$rc" -ne 0 ]; then
+            echo "[NeonBoard] hook 事件投递失败（退出码 $rc），可在日志里查看原因" >&2
+        fi
+    fi
+fi
 
 exit 0

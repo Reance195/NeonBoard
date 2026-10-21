@@ -50,12 +50,19 @@ jobs:
       - name: 数据库自检
         shell: pwsh
         run: |
-          & .\build\Release\NeonBoard.exe --selftest
-          if ($LASTEXITCODE -ne 0) { throw "自检失败，退出码 $LASTEXITCODE" }
+          # Qt 的 DLL 不在系统 PATH，必须显式加入，否则 exe 找不到 Qt6Core.dll 无法启动
+          $env:PATH = "$env:QT_ROOT_DIR\bin;$env:PATH"
+          $exe = Join-Path $PWD 'build\Release\NeonBoard.exe'
+          $proc = Start-Process -FilePath $exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow `
+            -RedirectStandardOutput selftest.out -RedirectStandardError selftest.err
+          Get-Content selftest.out -ErrorAction SilentlyContinue
+          Get-Content selftest.err -ErrorAction SilentlyContinue
+          if ($proc.ExitCode -ne 0) { throw "自检失败，退出码 $($proc.ExitCode)" }
 
       - name: 冒烟启动并检查日志
         shell: pwsh
         run: |
+          $env:PATH = "$env:QT_ROOT_DIR\bin;$env:PATH"
           $exe = Join-Path $PWD 'build\Release\NeonBoard.exe'
           $log = Join-Path $env:APPDATA 'com.lin\NeonBoard\neonboard.log'
           if (Test-Path $log) { Remove-Item $log -Force }
@@ -83,7 +90,16 @@ jobs:
       - name: 打包便携版
         shell: pwsh
         run: |
-          & pwsh -NoProfile -File scripts\deploy.ps1 -SkipBuild
-          if ($LASTEXITCODE -ne 0) { throw "便携版打包失败，退出码 $LASTEXITCODE" }
+          $proc = Start-Process -FilePath 'pwsh' -ArgumentList '-NoProfile','-File','scripts\deploy.ps1','-SkipBuild' `
+            -Wait -PassThru -NoNewWindow
+          if ($proc.ExitCode -ne 0) { throw "便携版打包失败，退出码 $($proc.ExitCode)" }
           $exe = Join-Path $PWD 'dist\NeonBoard\NeonBoard.exe'
           if (-not (Test-Path $exe)) { throw '便携版产物缺失' }
+
+      - name: 验证便携版可独立运行
+        shell: pwsh
+        run: |
+          # 便携版自带 Qt 运行库，无需再注入 PATH；此步验证 windeployqt 是否打包完整
+          $exe = Join-Path $PWD 'dist\NeonBoard\NeonBoard.exe'
+          $proc = Start-Process -FilePath $exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow
+          if ($proc.ExitCode -ne 0) { throw "便携版自检失败，退出码 $($proc.ExitCode)" }

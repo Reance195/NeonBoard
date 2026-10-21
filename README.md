@@ -16,6 +16,7 @@
 - 画质三档（低 / 中 / 高）控制背景特效密度与刷新率，另有「减弱动效」开关
 - 动效链：卡片滑入进场、悬停浮起、按下微沉、拖起放大、拖入目标列边框呼吸、落位涟漪、勾选完成光扫、删除故障抖动、撤销滑回、逾期呼吸描边、统计数字滚动
 - 启动 Splash，主界面加载期间先显示品牌启动图
+- 设置 / 插件 / 外观三个面板改为按需加载，首帧不再为空面板付出代价（QML 树构建耗时下降约 250–490 ms）
 - 系统托盘、全局热键、开机自启、单实例、窗口位置记忆
 - 运行时 QML 插件：权限清单、独立存储、宿主任务 API
 
@@ -105,6 +106,7 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
              分档加载探针界面，量化启动各段开销
 --settings   启动后打开设置
 --plugins    启动后打开插件面板
+--appearance 启动后打开外观面板（主题 / 画质 / 减弱动效）
 --newtask    启动后聚焦快速添加
 --autostart  静默启动到托盘
 ```
@@ -121,7 +123,7 @@ NEONBOARD_NO_BG=1   关闭动态霓虹背景（低配 / 排障）
 src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置
 qml/                 QML：主界面、霓虹背景
   theme/             主题与动效单例（Theme / Motion）
-  components/        卡片、看板列、统计芯片、窗口按钮、外观面板
+  components/        卡片、看板列、统计芯片、窗口按钮、外观面板、设置面板、插件面板
 shaders/             GLSL Shader
 plugins-samples/     示例插件
 installer/           Inno Setup 脚本

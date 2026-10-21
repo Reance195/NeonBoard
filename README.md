@@ -141,7 +141,20 @@ installer/           Inno Setup 脚本
 scripts/             构建部署脚本
 docs/                截图、迭代路线图与插件文档
 docs/themes/         6 套主题预设实机截图
+.github/workflows/   GitHub Actions 持续集成流水线
 ```
+
+## 持续集成
+
+仓库内置 GitHub Actions 流水线（`.github/workflows/ci.yml`），推送或合并到 `main` 时自动在 `windows-2022` 上执行：
+
+1. 安装 MSVC 开发环境与 Qt 6.8.3（`install-qt-action`，含 `qtshadertools` addon）
+2. `cmake -S . -B build -G "Visual Studio 17 2022" -A x64` 配置并编译 Release
+3. `NeonBoard.exe --selftest` 数据库自检
+4. `--smoke` 冒烟启动，并扫描运行日志，出现 QML / C++ 错误即判定失败
+5. `scripts/deploy.ps1 -SkipBuild` 打包便携版，校验产物存在
+
+本地脚本 `scripts/deploy.ps1` 的工具定位顺序为「环境变量 → PATH → 已知安装路径」，因此在 CI 与本机都能直接运行。
 
 ## 插件
 

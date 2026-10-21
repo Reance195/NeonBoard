@@ -319,6 +319,11 @@ int main(int argc, char *argv[])
             QMetaObject::invokeMethod(window, "openPlugins");
         });
     }
+    if (app.arguments().contains(QStringLiteral("--appearance"))) {
+        QTimer::singleShot(300, window, [window]() {
+            QMetaObject::invokeMethod(window, "openAppearance");
+        });
+    }
 
     const bool smoke = app.arguments().contains(QStringLiteral("--smoke"));
     if (smoke) {

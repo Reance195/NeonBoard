@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -35,34 +35,44 @@ ApplicationWindow {
         todoColumn.focusQuickAdd()
     }
 
+    // 设置 / 插件面板均按需加载：首次打开时才构造，避免首帧为低频界面付出代价
+    property bool settingsPending: false
+    property int pendingPluginIndex: -1
+
     function openSettings() {
         show()
         raise()
         requestActivate()
-        settingsPanel.visible = true
+        if (settingsLoader.item) {
+            settingsLoader.item.open()
+        } else {
+            settingsPending = true
+            settingsLoader.active = true
+        }
     }
 
     function openPluginAt(index) {
-        var plugin = pluginLoader.plugins[index]
-        if (!plugin || plugin.status !== "ok")
-            return
-        if (!pluginHost.activate(plugin.id)) {
-            pluginPanelTitle.text = "插件激活失败"
-            pluginLoaderItem.source = ""
-            return
+        if (pluginPanelLoader.item) {
+            pluginPanelLoader.item.openPlugin(index)
+        } else {
+            pendingPluginIndex = index
+            pluginPanelLoader.active = true
         }
-        pluginPanel.visible = true
-        pluginPanelTitle.text = plugin.name
-        pluginLoaderItem.source = ""
-        pluginLoaderItem.source = plugin.mainUrl
     }
 
     function openPlugins() {
         show()
         raise()
         requestActivate()
-        pluginPanel.visible = true
         openPluginAt(0)
+    }
+
+    // 打开外观面板（供命令行 --appearance 诊断用）
+    function openAppearance() {
+        show()
+        raise()
+        requestActivate()
+        themePicker.open = true
     }
 
     property bool dragActive: false
@@ -576,309 +586,41 @@ MouseArea {
             }
         }
 
-        Rectangle {
-            id: pluginPanel
-            visible: false
+        // 插件面板：按需加载。首次点开插件时才构造面板与插件内容
+        // 尺寸与定位由 Loader 负责（QQuickLoader 会把 Loader 的尺寸强加给被加载项）
+        Loader {
+            id: pluginPanelLoader
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.rightMargin: 24
             anchors.bottomMargin: 24
-            width: Math.min(380, parent.width - 48)
-            height: Math.min(420, parent.height - 140)
-            radius: 14
-            color: Theme.panelSolid
-            border.width: 1
-            border.color: Theme.border
+            width: Math.min(380, root.width - 48)
+            height: Math.min(420, root.height - 140)
+            active: false
+            source: "PluginPanel.qml"
             z: 100
 
-            onVisibleChanged: {
-                if (!visible) {
-                    pluginLoaderItem.source = ""
-                    pluginHost.deactivate()
-                }
-            }
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 12
-                spacing: 8
-
-                RowLayout {
-                    Layout.fillWidth: true
-
-                    Rectangle {
-                        width: 6
-                        height: 6
-                        radius: 3
-                        color: Theme.cyan
-                    }
-
-                    Text {
-                        id: pluginPanelTitle
-                        text: pluginLoader.plugins.length > 0 ? pluginLoader.plugins[0].name : "插件"
-                        color: Theme.text
-                        font.pixelSize: 12
-                        font.bold: true
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Text {
-                        text: "PLUGIN"
-                        color: Theme.muted
-                        font.pixelSize: 9
-                        font.letterSpacing: 1.5
-                    }
-
-                    Rectangle {
-                        width: 40
-                        height: 20
-                        radius: 6
-                        color: openDirMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "目录"
-                            color: Theme.muted
-                            font.pixelSize: 10
-                        }
-
-                        MouseArea {
-                            id: openDirMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: pluginLoader.openPluginDir()
-                        }
-                    }
-
-                    Rectangle {
-                        width: 20
-                        height: 20
-                        radius: 6
-                        color: closeMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "✕"
-                            color: Theme.muted
-                            font.pixelSize: 11
-                        }
-
-                        MouseArea {
-                            id: closeMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: pluginPanel.visible = false
-                        }
-                    }
-                }
-
-                Loader {
-                    id: pluginLoaderItem
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                }
-
-                Text {
-                    visible: pluginLoader.plugins.length > 0
-                             && pluginLoader.plugins[0].status !== "ok"
-                    text: pluginLoader.plugins.length > 0 ? pluginLoader.plugins[0].error : ""
-                    color: Theme.magenta
-                    font.pixelSize: 10
-                    wrapMode: Text.WordWrap
+            onLoaded: {
+                if (window.pendingPluginIndex >= 0) {
+                    var index = window.pendingPluginIndex
+                    window.pendingPluginIndex = -1
+                    item.openPlugin(index)
                 }
             }
         }
 
-        Rectangle {
-            id: settingsPanel
+        // 设置面板：按需加载
+        Loader {
+            id: settingsLoader
             anchors.fill: parent
-            visible: false
-            color: Qt.rgba(0.0, 0.0, 0.0, 0.45)
+            active: false
+            source: "SettingsPanel.qml"
             z: 150
 
-            MouseArea {
-                anchors.fill: parent
-                onClicked: settingsPanel.visible = false
-            }
-
-            Rectangle {
-                width: Math.min(520, parent.width - 48)
-                height: 400
-                anchors.centerIn: parent
-                radius: 16
-                color: Theme.panelSolid
-                border.width: 1
-                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.35)
-
-                MouseArea { anchors.fill: parent }
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 20
-                    spacing: 14
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        Text {
-                            text: "设置"
-                            color: Theme.text
-                            font.pixelSize: 18
-                            font.bold: true
-                        }
-
-                        Text {
-                            text: "SETTINGS"
-                            color: Theme.muted
-                            font.pixelSize: 9
-                            font.letterSpacing: 1.5
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Rectangle {
-                            width: 26
-                            height: 26
-                            radius: 8
-                            color: closeSettingsMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "✕"
-                                color: Theme.muted
-                                font.pixelSize: 13
-                            }
-
-                            MouseArea {
-                                id: closeSettingsMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                onClicked: settingsPanel.visible = false
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 1
-                        color: Qt.rgba(1, 1, 1, 0.08)
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        ColumnLayout {
-                            spacing: 3
-
-                            Text {
-                                text: "开机自启"
-                                color: Theme.text
-                                font.pixelSize: 13
-                            }
-
-                            Text {
-                                text: "登录 Windows 后静默启动到托盘"
-                                color: Theme.muted
-                                font.pixelSize: 10
-                            }
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Switch {
-                            checked: tray.isAutostart()
-                            onToggled: tray.setAutostart(checked)
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        ColumnLayout {
-                            spacing: 3
-
-                            Text {
-                                text: "全局热键"
-                                color: Theme.text
-                                font.pixelSize: 13
-                            }
-
-                            Text {
-                                text: hotkey.registered ? "Ctrl + Shift + Space" : "注册失败（可能被占用）"
-                                color: hotkey.registered ? Theme.muted : Theme.magenta
-                                font.pixelSize: 10
-                            }
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Text {
-                            text: hotkey.registered ? "ACTIVE" : "OFF"
-                            color: hotkey.registered ? Theme.cyan : Theme.magenta
-                            font.family: "Cascadia Code"
-                            font.pixelSize: 10
-                        }
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 3
-
-                        Text {
-                            text: "数据文件"
-                            color: Theme.text
-                            font.pixelSize: 13
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: database.path
-                            color: Theme.muted
-                            font.pixelSize: 10
-                            elide: Text.ElideMiddle
-                        }
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 3
-
-                        Text {
-                            text: "插件"
-                            color: Theme.text
-                            font.pixelSize: 13
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: pluginLoader.plugins.length + " 个已发现 · 目录 %APPDATA%\\com.lin\\NeonBoard\\plugins"
-                            color: Theme.muted
-                            font.pixelSize: 10
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-
-                    Item { Layout.fillHeight: true }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        Text {
-                            text: "NeonBoard 0.1.0 · Qt 6.8 · SQLite"
-                            color: Theme.muted
-                            font.pixelSize: 9
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Text {
-                            text: "Ctrl+Z 撤销删除"
-                            color: Theme.muted
-                            font.pixelSize: 9
-                        }
-                    }
+            onLoaded: {
+                if (window.settingsPending) {
+                    window.settingsPending = false
+                    item.open()
                 }
             }
         }

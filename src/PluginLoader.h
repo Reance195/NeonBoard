@@ -11,6 +11,7 @@ class PluginLoader : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QVariantList plugins READ plugins NOTIFY pluginsChanged)
+    Q_PROPERTY(QVariantList candidates READ candidates NOTIFY pluginsChanged)
     Q_PROPERTY(QString pluginDir READ pluginDir CONSTANT)
     Q_PROPERTY(QStringList disabledPlugins READ disabledPlugins NOTIFY pluginsChanged)
 
@@ -21,6 +22,8 @@ public:
     explicit PluginLoader(Database *database = nullptr, QObject *parent = nullptr);
 
     QVariantList plugins() const { return m_plugins; }
+    /** 扫描到的全部插件条目（含被同 id 覆盖掉的），供插件库区分「已装」与「可安装」 */
+    QVariantList candidates() const { return m_candidates; }
     QString pluginDir() const { return m_pluginDir; }
     QStringList disabledPlugins() const;
 
@@ -39,5 +42,6 @@ private:
 
     Database *m_database = nullptr;
     QVariantList m_plugins;
+    QVariantList m_candidates;
     QString m_pluginDir;
 };

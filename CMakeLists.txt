@@ -32,6 +32,9 @@ qt_add_executable(NeonBoard
     src/PluginEventBus.h src/PluginEventBus.cpp
     src/PluginRuntime.h src/PluginRuntime.cpp
     src/HookEventQueue.h src/HookEventQueue.cpp
+    src/PluginMarket.h src/PluginMarket.cpp
+    src/PluginPackage.h src/PluginPackage.cpp
+    src/PluginLibrary.h src/PluginLibrary.cpp
     resources/neonboard.rc
 )
 
@@ -77,6 +80,7 @@ set_source_files_properties(qml/components/SettingsPanel.qml PROPERTIES QT_RESOU
 set_source_files_properties(qml/components/PluginPanel.qml PROPERTIES QT_RESOURCE_ALIAS "PluginPanel.qml")
 set_source_files_properties(qml/components/AppearancePanel.qml PROPERTIES QT_RESOURCE_ALIAS "AppearancePanel.qml")
 set_source_files_properties(qml/components/StageBar.qml PROPERTIES QT_RESOURCE_ALIAS "StageBar.qml")
+set_source_files_properties(qml/components/PluginLibraryPanel.qml PROPERTIES QT_RESOURCE_ALIAS "PluginLibraryPanel.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -95,6 +99,7 @@ qt_add_qml_module(NeonBoard
         qml/components/PluginPanel.qml
         qml/components/AppearancePanel.qml
         qml/components/StageBar.qml
+        qml/components/PluginLibraryPanel.qml
 )
 
 qt_add_resources(NeonBoard "icons"

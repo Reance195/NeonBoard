@@ -55,6 +55,22 @@ dist/NeonBoard/NeonBoard.exe
 <安装目录>\plugins\<plugin-id>\
 ```
 
+## 开发协作
+
+本仓库采用分支工作流，完整规约见 [AGENTS.md](AGENTS.md)：
+
+- 改动必须在独立分支上完成，分支名带 `feature/` `fix/` `docs/` 等类型前缀
+- `main` 禁止直接提交，由 Git 钩子强制拦截
+- 改完用 `git merge --no-ff` 合并回 `main`，随后删除分支
+
+一键合并回主分支：
+
+```powershell
+pwsh -File scripts/git-done.ps1
+```
+
+逐步操作与钩子排查见 [docs/git-workflow.md](docs/git-workflow.md)，贡献约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
 ## 开发构建
 
 依赖：Qt 6.8.3 MSVC 2022 x64、Visual Studio 2022 BuildTools、CMake 3.21+。

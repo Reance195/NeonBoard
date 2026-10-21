@@ -158,3 +158,70 @@ AI 代理在本仓库干活时：
 - 完整操作手册（含命令示例与常见问题）：[`docs/git-workflow.md`](docs/git-workflow.md)
 - 贡献者约定：[`CONTRIBUTING.md`](CONTRIBUTING.md)
 - 项目说明与构建：[`README.md`](README.md)
+
+---
+
+## 七、多代理并行约定
+
+多个 AI 代理（或多个会话）同时改这个仓库时，必须按下述约定协作，否则改动会互相覆盖。
+
+### 7.1 一 agent 一 worktree 一分支
+
+worktree 放在仓库内的 `.worktrees/` 下（已在 `.gitignore` 中排除）：
+
+```powershell
+# 主 worktree 留在仓库根目录，归用户 / 协调者使用
+git worktree add .worktrees/agent-a -b feature/<简述> main
+cd .worktrees/agent-a
+```
+
+- 同一分支禁止在两个 worktree 同时检出（Git 天然强制）。
+- 每个 worktree 拥有独立的 `build/` 目录，体积较大，不要共享。
+
+### 7.2 合并只在主 worktree，严格串行
+
+- 所有合并动作在**主 worktree**（仓库根目录）执行。
+- 分支按拓扑顺序串行合并（例如 A → B → C）；合并下一个分支前，尚未合并的分支先 `git rebase main`。
+- 合并完成后删除已合并的分支（`git branch -d <分支>`）。
+
+### 7.3 热点文件行段分区
+
+同一份文件被多个分支改动时，按行段划归不同代理，**同一时段只允许一个代理改同一段**：
+
+| 文件 | 分区约定 |
+| --- | --- |
+| `src/main.cpp` | include 区 / 参数与单实例区 / 数据区 / 服务装配区 / 上下文属性区 / CLI 区 |
+| `CMakeLists.txt` | 只允许在 `qt_add_executable` 源文件列表**尾部追加** |
+| `qml/Main.qml` | 按界面区块（侧栏 / 设置面板 / 插件面板 / 看板列） |
+
+冲突分三类：A 追加型（串行合并后自动消失）、B 同区块改写（靠分区规避）、C 同一行（rerere + 手工解兜底）。
+
+### 7.4 解冲突纪律
+
+1. 先 `git diff` 看清对方改了什么，再动手；
+2. 手工合并，**禁止** `git checkout --ours/--theirs` 盲解；
+3. 解完 `git add` + `git rebase --continue`；
+4. 仓库已启用 `rerere`（`rerere.enabled` / `rerere.autoupdate`），同种冲突第二次会自动复用上次的解法。
+
+### 7.5 沙箱隔离开关
+
+多个 agent 各自编译出独立的 `NeonBoard.exe`，默认会读写**同一份** `%APPDATA%\com.lin\NeonBoard\board.db`，从而互相污染（自检任务、界面改状态、插件安装目录全部串味）。启动前设置沙箱变量即可完全隔离：
+
+| 环境变量 | 作用 |
+| --- | --- |
+| `NEONBOARD_DATA_DIR` | 数据库、插件目录、日志、界面设置（主题/画质/动效）全部落到该目录 |
+| `NEONBOARD_INSTANCE` | 单实例本地服务器 key 加后缀，允许多个实例同时跑 |
+
+```powershell
+$env:NEONBOARD_DATA_DIR = "$PWD\.sandbox"
+$env:NEONBOARD_INSTANCE = "agent-a"
+.\build\Release\NeonBoard.exe
+```
+
+未设置时行为与原来完全一致，不影响正常用户。
+
+### 7.6 验证口径
+
+- 数据层统一用 `NeonBoard.exe --selftest` 自检（utilityMode 跳过单实例限制）。
+- 构建：`cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64`，然后 `cmake --build build --config Release`。
+- 涉及界面的改动在沙箱目录里验收，不要污染真实数据。

@@ -26,6 +26,7 @@ qt_add_executable(NeonBoard
     src/SingleInstance.h src/SingleInstance.cpp
     src/SplashWindow.h src/SplashWindow.cpp
     src/UiSettings.h src/UiSettings.cpp
+    src/AppPaths.h src/AppPaths.cpp
     resources/neonboard.rc
 )
 

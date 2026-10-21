@@ -1,10 +1,11 @@
 #include "Database.h"
 
+#include "AppPaths.h"
+
 #include <QDebug>
 #include <QDir>
 #include <QSqlError>
 #include <QSqlQuery>
-#include <QStandardPaths>
 
 Database::Database(QObject *parent)
     : QObject(parent)
@@ -22,7 +23,7 @@ Database::~Database()
 
 bool Database::open(QString *error)
 {
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    const QString dir = AppPaths::dataDir();
     if (dir.isEmpty()) {
         if (error)
             *error = QStringLiteral("无法获取应用数据目录");

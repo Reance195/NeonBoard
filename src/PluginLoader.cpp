@@ -1,5 +1,7 @@
 #include "PluginLoader.h"
 
+#include "AppPaths.h"
+
 #include <QDebug>
 #include <QDesktopServices>
 #include <QDir>
@@ -11,14 +13,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
-#include <QStandardPaths>
 #include <QUrl>
 
 PluginLoader::PluginLoader(QObject *parent)
     : QObject(parent)
 {
-    m_pluginDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-                  + QStringLiteral("/plugins");
+    m_pluginDir = AppPaths::pluginDir();
     QDir().mkpath(m_pluginDir);
     scan();
 }

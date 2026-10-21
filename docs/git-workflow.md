@@ -68,6 +68,7 @@ git commit -m "feat(board): 增加卡片按标签筛选"
 | `build` | 构建系统 | `build(cmake): 切换到 Ninja 生成器` |
 | `style` | 纯格式 | `style(qml): 统一缩进为四空格` |
 | `revert` | 回滚 | `revert(feat): 撤销卡片拖拽功能` |
+| `merge` | 合并提交 | `merge: 合入 feature/task-tag-filter` |
 
 `scope` 可省略，但不允许写成空括号。
 
@@ -88,6 +89,9 @@ git switch main
 git merge --no-ff feature/task-tag-filter    # 必须 --no-ff
 git branch -d feature/task-tag-filter        # 删除已合并分支
 ```
+
+> 合并提交的信息统一写 `merge: 合入 <分支名>`。若手动执行 `git merge` 不带 `-m`，
+> Git 会生成 `Merge branch 'xxx' into main`，钩子也会放行这种自动生成的合并信息。
 
 合并后看一眼历史，确认分支痕迹保留：
 

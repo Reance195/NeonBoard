@@ -20,7 +20,13 @@ is_protected() {
 }
 
 # stdin: <local_ref> <local_sha> <remote_ref> <remote_sha>
+# 注意：最后一个字段会带上行尾换行符，必须清理后再比较
 while read -r local_ref local_sha remote_ref remote_sha; do
+  local_ref=$(printf '%s' "$local_ref" | tr -d '\r\n')
+  local_sha=$(printf '%s' "$local_sha" | tr -d '\r\n')
+  remote_ref=$(printf '%s' "$remote_ref" | tr -d '\r\n')
+  remote_sha=$(printf '%s' "$remote_sha" | tr -d '\r\n')
+
   # 跳过删除远程分支的场景
   if [ "$local_sha" = "$zero" ]; then
     continue

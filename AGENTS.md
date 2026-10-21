@@ -73,9 +73,10 @@ git switch -c feature/<简述>
 
 格式：`<type>(<scope>): <中文简述>`
 
-- `type` 必须取自：feat / fix / chore / docs / refactor / perf / test / build / ci / style / revert
+- `type` 必须取自：feat / fix / chore / docs / refactor / perf / test / build / ci / style / revert / merge
 - `scope` 可省略，但不得为空括号
 - 主题句不超过 50 字
+- 合并提交统一用 `merge: 合入 <分支名>`
 
 示例：
 
@@ -121,7 +122,7 @@ git branch -d feature/<简述>
 | 钩子 | 拦截的行为 | 绕过方式 |
 | --- | --- | --- |
 | `pre-commit` | 在 `main`/`master`/`develop` 上提交；分支名缺少规范前缀 | `git commit --no-verify`（仅限紧急情况） |
-| `commit-msg` | 提交信息不符合 `<type>(<scope>): <subject>` 格式 | `git commit --no-verify` |
+| `commit-msg` | 提交信息不符合 `<type>(<scope>): <subject>` 格式（`merge` 类型与 Git 自动生成的合并信息除外） | `git commit --no-verify` |
 | `pre-push` | 推送尚未合并进 `main` 的分支；主分支非快进推送 | 需先合并回 `main` |
 | `post-merge` | ——（仅提示可清理的已合并分支） | —— |
 

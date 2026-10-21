@@ -58,7 +58,7 @@ perf(list): 列表批量刷新合并为一次更新
 chore(git): 初始化分支工作流与钩子
 ```
 
-`type` 取值：`feat` `fix` `chore` `docs` `refactor` `perf` `test` `build` `ci` `style` `revert`
+`type` 取值：`feat` `fix` `chore` `docs` `refactor` `perf` `test` `build` `ci` `style` `revert` `merge`
 
 **scope 写模块名**，本项目常用：`board` `model` `db` `plugin` `tray` `hotkey` `window` `qml` `ui` `build` `git`
 

@@ -2,6 +2,8 @@
 
 个人工作台：赛博霓虹风格的三列任务看板。Qt 6.8 + QML + C++20，本地 SQLite 存储。
 
+![CI](https://github.com/Reance195/NeonBoard/actions/workflows/ci.yml/badge.svg)
+
 ![NeonBoard](docs/screenshot.png)
 
 ## 功能
@@ -169,7 +171,10 @@ docs/themes/         6 套主题预设实机截图
 2. `cmake -S . -B build -G "Visual Studio 17 2022" -A x64` 配置并编译 Release
 3. `NeonBoard.exe --selftest` 数据库自检
 4. `--smoke` 冒烟启动，并扫描运行日志，出现 QML / C++ 错误即判定失败
-5. `scripts/deploy.ps1 -SkipBuild` 打包便携版，校验产物存在
+5. `scripts/deploy.ps1 -SkipBuild` 打包便携版，校验产物存在，并验证便携版可脱离本机 Qt 独立运行
+6. 上传便携版产物为构建制品（artifact 名 `NeonBoard-windows-x64`，保留 30 天），可在 Actions 页面直接下载解压使用
+
+本机运行 exe 时需要 Qt 的 DLL 在 `PATH` 中（CI 里由流水线注入 `$env:QT_ROOT_DIR\bin`）。
 
 本地脚本 `scripts/deploy.ps1` 的工具定位顺序为「环境变量 → PATH → 已知安装路径」，因此在 CI 与本机都能直接运行。
 

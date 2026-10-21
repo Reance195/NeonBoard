@@ -103,3 +103,11 @@ jobs:
           $exe = Join-Path $PWD 'dist\NeonBoard\NeonBoard.exe'
           $proc = Start-Process -FilePath $exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow
           if ($proc.ExitCode -ne 0) { throw "便携版自检失败，退出码 $($proc.ExitCode)" }
+
+      - name: 上传便携版产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeonBoard-windows-x64
+          path: dist/NeonBoard
+          if-no-files-found: error
+          retention-days: 30

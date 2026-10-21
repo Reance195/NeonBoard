@@ -84,6 +84,48 @@ ApplicationWindow {
     // 当前悬停的目标列状态（todo/doing/done），用于目标列呼吸高亮
     property string dragOverStatus: ""
 
+    // 里程碑过滤：空串表示全部；阶段来自卡片首个标签（R0/R1/R2/R3）
+    property string stageFilter: ""
+    property var stageStats: ({})
+
+    function setStageFilter(stage) {
+        stageFilter = stage
+        todoModel.stage = stage
+        doingModel.stage = stage
+        doneModel.stage = stage
+    }
+
+    function buildStageList() {
+        var order = ["R0", "R1", "R2", "R3", "OTHER"]
+        var labels = { "R0": "R0", "R1": "R1", "R2": "R2", "R3": "R3", "OTHER": "其他" }
+        var list = []
+        for (var i = 0; i < order.length; ++i) {
+            var key = order[i]
+            var stat = stageStats[key]
+            if (!stat)
+                continue
+            if (key === "OTHER" && stat.total === 0)
+                continue
+            list.push({
+                key: key,
+                label: labels[key],
+                total: stat.total || 0,
+                done: stat.done || 0,
+                doing: stat.doing || 0,
+                todo: stat.todo || 0
+            })
+        }
+        return list
+    }
+
+    // 路线图（仓库 progress.json）与看板的双向同步状态
+    property string roadmapSyncText: roadmap.enabled
+          ? (roadmap.conflicts > 0
+             ? "路线图已连接 · " + roadmap.conflicts + " 条外部改动"
+             : "路线图已连接 · 已对齐")
+          : "路线图同步未启用"
+    property bool roadmapSyncOk: roadmap.enabled && roadmap.conflicts === 0
+
     // 命中测试：把 root 坐标换算成所在列
     function columnAt(x, y) {
         var columns = [todoColumn, doingColumn, doneColumn]
@@ -164,6 +206,20 @@ ApplicationWindow {
     Shortcut {
         sequence: "Ctrl+,"
         onActivated: window.openSettings()
+    }
+
+    // 阶段统计：任务数据变化时重算里程碑完成度
+    Connections {
+        target: taskStore
+        function onCountsChanged() {
+            window.stageStats = taskStore.stageStats()
+        }
+    }
+
+    Component.onCompleted: {
+        stageStats = taskStore.stageStats()
+        setStageFilter(initialStage)
+        pluginLoader.scan()
     }
 
 
@@ -487,6 +543,17 @@ MouseArea {
                     Layout.rightMargin: 20
                     spacing: 12
 
+                    StageBar {
+                        id: stageBar
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 46
+                        stages: window.buildStageList()
+                        activeStage: window.stageFilter
+                        syncText: window.roadmapSyncText
+                        syncOk: window.roadmapSyncOk
+                        onStageSelected: function(stage) { window.setStageFilter(stage) }
+                    }
+
                     Rectangle {
                         Layout.preferredWidth: 340
                         height: 34
@@ -513,8 +580,6 @@ MouseArea {
                             Keys.onEscapePressed: text = ""
                         }
                     }
-
-                    Item { Layout.fillWidth: true }
                 }
 
                 RowLayout {
@@ -533,6 +598,7 @@ MouseArea {
                         status: "todo"
                         taskModel: todoModel
                         searchQuery: searchField.text
+                        stageFilter: window.stageFilter
                         dragSpace: root
                         dropTarget: window.dragOverStatus === status
                         onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
@@ -552,6 +618,7 @@ MouseArea {
                         status: "doing"
                         taskModel: doingModel
                         searchQuery: searchField.text
+                        stageFilter: window.stageFilter
                         dragSpace: root
                         dropTarget: window.dragOverStatus === status
                         onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
@@ -571,6 +638,7 @@ MouseArea {
                         status: "done"
                         taskModel: doneModel
                         searchQuery: searchField.text
+                        stageFilter: window.stageFilter
                         dragSpace: root
                         dropTarget: window.dragOverStatus === status
                         onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
@@ -980,9 +1048,5 @@ MouseArea {
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
         }
-    }
-
-    Component.onCompleted: {
-        pluginLoader.scan()
     }
 }

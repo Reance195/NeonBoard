@@ -4,6 +4,7 @@
 #include "Metrics.h"
 #include "PluginHost.h"
 #include "PluginLoader.h"
+#include "RoadmapSync.h"
 #include "SingleInstance.h"
 #include "SplashWindow.h"
 #include "TaskFilterModel.h"
@@ -85,8 +86,10 @@ int main(int argc, char *argv[])
 
     const QStringList arguments = QCoreApplication::arguments();
     const bool smokeMode = arguments.contains(QStringLiteral("--smoke"));
-    // 诊断模式（自检 / 冒烟）不受单实例限制，方便应用已在运行时做性能采样
-    const bool utilityMode = arguments.contains(QStringLiteral("--selftest")) || smokeMode;
+    const bool syncMode = arguments.contains(QStringLiteral("--sync-roadmap"))
+        || arguments.contains(QStringLiteral("--export-roadmap"));
+    // 诊断模式（自检 / 冒烟 / 路线图同步）不受单实例限制，方便应用已在运行时做性能采样
+    const bool utilityMode = arguments.contains(QStringLiteral("--selftest")) || smokeMode || syncMode;
     std::unique_ptr<SingleInstance> singleInstance;
     if (!utilityMode) {
         singleInstance = std::make_unique<SingleInstance>(AppPaths::singleInstanceKey());
@@ -141,6 +144,26 @@ int main(int argc, char *argv[])
     TaskModel taskStore(&database);
     taskStore.load();
 
+    // 路线图快照同步：仓库 progress.json ↔ 本地看板
+    RoadmapSync roadmap(&database, &taskStore);
+
+    const int syncIndex = arguments.indexOf(QStringLiteral("--sync-roadmap"));
+    const int exportIndex = arguments.indexOf(QStringLiteral("--export-roadmap"));
+    if (syncIndex >= 0 || exportIndex >= 0) {
+        QString target;
+        if (syncIndex >= 0 && syncIndex + 1 < arguments.size())
+            target = arguments.at(syncIndex + 1);
+        if (exportIndex >= 0 && exportIndex + 1 < arguments.size())
+            target = arguments.at(exportIndex + 1);
+        if (target.isEmpty())
+            target = RoadmapSync::resolvePath();
+        const bool force = arguments.contains(QStringLiteral("--force"));
+        const bool ok = exportIndex >= 0 ? roadmap.exportTo(target)
+                                          : roadmap.importFrom(target, force);
+        qInfo().noquote() << "ROADMAP" << (ok ? "OK" : "FAIL") << target << roadmap.lastReport();
+        return ok ? 0 : 3;
+    }
+
     TaskFilterModel todoModel;
     TaskFilterModel doingModel;
     TaskFilterModel doneModel;
@@ -174,6 +197,34 @@ int main(int argc, char *argv[])
         return ok ? 0 : 2;
     }
 
+    // 路线图同步接线：先装好「文件侧轮询 + 看板侧写回」，再做首次导入，
+    // 否则启动导入触发的 countsChanged 会先于连接建立，导致看板侧改动不写回。
+    roadmap.setPath(RoadmapSync::resolvePath());
+
+    QTimer roadmapPoll;
+    roadmapPoll.setInterval(15000);
+    QObject::connect(&roadmapPoll, &QTimer::timeout, &roadmap, [&roadmap]() { roadmap.poll(); });
+    roadmapPoll.start();
+
+    QTimer roadmapExport;
+    roadmapExport.setSingleShot(true);
+    roadmapExport.setInterval(1500);
+    QObject::connect(&taskStore, &TaskModel::countsChanged, &roadmapExport, [&]() {
+        roadmapExport.start();
+    });
+    QObject::connect(&roadmapExport, &QTimer::timeout, &roadmap, [&roadmap]() {
+        if (roadmap.enabled() && !roadmap.isApplying() && RoadmapSync::autoExportEnabled())
+            roadmap.exportTo(roadmap.path());
+    });
+
+    // 启动即拉取路线图快照：仓库 progress.json ↔ 本地看板保持一致
+    if (roadmap.enabled()) {
+        if (roadmap.importFrom(roadmap.path(), false))
+            qInfo().noquote() << "Roadmap: synced" << roadmap.path() << roadmap.lastReport();
+        else
+            qWarning().noquote() << "Roadmap: sync failed" << roadmap.path() << roadmap.lastReport();
+    }
+
     Metrics metrics;
     QObject::connect(&metrics, &Metrics::startupMeasured, [&boot]() {
         qInfo() << "BOOT firstframe" << boot.elapsed();
@@ -203,6 +254,13 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("doingModel"), &doingModel);
     engine.rootContext()->setContextProperty(QStringLiteral("doneModel"), &doneModel);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
+    engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);
+    // 启动即可按里程碑过滤看板：--stage R0
+    const int stageIndex = arguments.indexOf(QStringLiteral("--stage"));
+    QString initialStage;
+    if (stageIndex >= 0 && stageIndex + 1 < arguments.size())
+        initialStage = arguments.at(stageIndex + 1).trimmed().toUpper();
+    engine.rootContext()->setContextProperty(QStringLiteral("initialStage"), initialStage);
     // 低配 / 无障碍降级：关闭动态霓虹背景（NEONBOARD_NO_BG=1 启动）
     const bool noBackground = qEnvironmentVariableIsSet("NEONBOARD_NO_BG");
     engine.rootContext()->setContextProperty(QStringLiteral("noBackground"), noBackground);

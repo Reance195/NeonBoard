@@ -60,6 +60,10 @@ public:
     Q_INVOKABLE bool clearDone();
     Q_INVOKABLE QVariantMap taskById(const QString &id) const;
     Q_INVOKABLE QVariantList allTasks() const;
+    // 按指定 id 幂等写入（不存在则插入，存在则按字段更新），用于路线图快照同步
+    Q_INVOKABLE QString upsertTask(const QString &id, const QVariantMap &fields);
+    // 按里程碑标签（首个标签形如 R0/R1/R2/R3）聚合各阶段的任务完成度
+    Q_INVOKABLE QVariantMap stageStats() const;
 
 signals:
     void countsChanged();
@@ -86,6 +90,8 @@ private:
     static QString normalizeTags(const QString &tags);
     static QString firstTag(const QString &tags);
     static QString dueText(qint64 dueAt);
+    // 里程碑标签：首个标签形如 R0/R1/R2/R3 时返回该阶段，否则归入「其他」
+    static QString stageOf(const QString &tags);
 
     Database *m_database = nullptr;
     QVector<Task> m_tasks;

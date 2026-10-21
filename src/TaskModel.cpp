@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QRegularExpression>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -181,7 +182,13 @@ QVariantMap TaskModel::taskById(const QString &id) const
         {QStringLiteral("status"), task.status},
         {QStringLiteral("priority"), task.priority},
         {QStringLiteral("tags"), firstTag(task.tags)},
+        {QStringLiteral("tagsFull"), task.tags},
+        {QStringLiteral("stage"), stageOf(task.tags)},
+        {QStringLiteral("orderKey"), task.orderKey},
         {QStringLiteral("dueAt"), task.dueAt},
+        {QStringLiteral("createdAt"), task.createdAt},
+        {QStringLiteral("updatedAt"), task.updatedAt},
+        {QStringLiteral("completedAt"), task.completedAt},
         {QStringLiteral("due"), dueText(task.dueAt)}
     };
 }
@@ -198,12 +205,162 @@ QVariantList TaskModel::allTasks() const
             {QStringLiteral("status"), task.status},
             {QStringLiteral("priority"), task.priority},
             {QStringLiteral("tags"), firstTag(task.tags)},
+            {QStringLiteral("tagsFull"), task.tags},
+            {QStringLiteral("stage"), stageOf(task.tags)},
             {QStringLiteral("orderKey"), task.orderKey},
             {QStringLiteral("dueAt"), task.dueAt},
             {QStringLiteral("createdAt"), task.createdAt},
             {QStringLiteral("updatedAt"), task.updatedAt},
             {QStringLiteral("completedAt"), task.completedAt}
         });
+    }
+    return result;
+}
+
+QString TaskModel::upsertTask(const QString &id, const QVariantMap &fields)
+{
+    QString taskId = id.trimmed();
+    if (taskId.isEmpty())
+        taskId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+    const int row = findRow(taskId);
+    if (row < 0) {
+        Task task;
+        task.id = taskId;
+        task.title = fields.value(QStringLiteral("title")).toString().trimmed();
+        if (task.title.isEmpty())
+            return {};
+        task.note = nonNull(fields.value(QStringLiteral("note")).toString());
+        task.status = fields.value(QStringLiteral("status")).toString();
+        if (task.status != QLatin1String("todo")
+            && task.status != QLatin1String("doing")
+            && task.status != QLatin1String("done")) {
+            task.status = QStringLiteral("todo");
+        }
+        task.priority = qBound(0, fields.value(QStringLiteral("priority")).toInt(), 3);
+        task.tags = normalizeTags(fields.value(QStringLiteral("tags")).toString());
+        task.orderKey = fields.value(QStringLiteral("orderKey")).toLongLong();
+        if (task.orderKey <= 0)
+            task.orderKey = nextOrderKey(task.status);
+        task.dueAt = fields.value(QStringLiteral("dueAt")).toLongLong();
+        task.createdAt = fields.value(QStringLiteral("createdAt")).toLongLong() > 0
+            ? fields.value(QStringLiteral("createdAt")).toLongLong() : now;
+        task.updatedAt = fields.value(QStringLiteral("updatedAt")).toLongLong() > 0
+            ? fields.value(QStringLiteral("updatedAt")).toLongLong() : now;
+        task.completedAt = task.status == QLatin1String("done")
+            ? (fields.value(QStringLiteral("completedAt")).toLongLong() > 0
+                   ? fields.value(QStringLiteral("completedAt")).toLongLong() : now)
+            : 0;
+
+        const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+        QSqlQuery query(db);
+        query.prepare(QStringLiteral(
+            "INSERT OR REPLACE INTO task (id, title, note, status, priority, tags, order_key, due_at, "
+            "created_at, updated_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+        query.addBindValue(task.id);
+        query.addBindValue(task.title);
+        query.addBindValue(nonNull(task.note));
+        query.addBindValue(task.status);
+        query.addBindValue(task.priority);
+        query.addBindValue(nonNull(task.tags));
+        query.addBindValue(task.orderKey);
+        query.addBindValue(task.dueAt);
+        query.addBindValue(task.createdAt);
+        query.addBindValue(task.updatedAt);
+        query.addBindValue(task.completedAt);
+        if (!query.exec()) {
+            qWarning() << "TaskModel: upsert insert failed:" << query.lastError().text();
+            return {};
+        }
+
+        beginInsertRows(QModelIndex(), m_tasks.size(), m_tasks.size());
+        m_tasks.append(task);
+        endInsertRows();
+        emit countsChanged();
+        m_database->refreshStats();
+        return task.id;
+    }
+
+    // 已存在：按字段更新，但保留原有 order_key（不把卡片挪到列尾）
+    Task updated = m_tasks.at(row);
+    if (fields.contains(QStringLiteral("title"))) {
+        updated.title = fields.value(QStringLiteral("title")).toString().trimmed();
+        if (updated.title.isEmpty())
+            return {};
+    }
+    if (fields.contains(QStringLiteral("note")))
+        updated.note = nonNull(fields.value(QStringLiteral("note")).toString());
+    if (fields.contains(QStringLiteral("priority")))
+        updated.priority = qBound(0, fields.value(QStringLiteral("priority")).toInt(), 3);
+    if (fields.contains(QStringLiteral("tags")))
+        updated.tags = normalizeTags(fields.value(QStringLiteral("tags")).toString());
+    if (fields.contains(QStringLiteral("dueAt")))
+        updated.dueAt = fields.value(QStringLiteral("dueAt")).toLongLong();
+    if (fields.contains(QStringLiteral("status"))) {
+        const QString status = fields.value(QStringLiteral("status")).toString();
+        if (status == QLatin1String("todo")
+            || status == QLatin1String("doing")
+            || status == QLatin1String("done")) {
+            updated.status = status;
+            if (status == QLatin1String("done")
+                && fields.value(QStringLiteral("completedAt")).toLongLong() > 0) {
+                updated.completedAt = fields.value(QStringLiteral("completedAt")).toLongLong();
+            } else if (status == QLatin1String("done") && updated.completedAt == 0) {
+                updated.completedAt = now;
+            } else if (status != QLatin1String("done")) {
+                updated.completedAt = 0;
+            }
+        }
+    }
+    updated.updatedAt = fields.value(QStringLiteral("updatedAt")).toLongLong() > 0
+        ? fields.value(QStringLiteral("updatedAt")).toLongLong() : now;
+
+    const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "UPDATE task SET title = ?, note = ?, status = ?, priority = ?, tags = ?, "
+        "order_key = ?, due_at = ?, updated_at = ?, completed_at = ? WHERE id = ?"));
+    query.addBindValue(updated.title);
+    query.addBindValue(nonNull(updated.note));
+    query.addBindValue(updated.status);
+    query.addBindValue(updated.priority);
+    query.addBindValue(nonNull(updated.tags));
+    query.addBindValue(updated.orderKey);
+    query.addBindValue(updated.dueAt);
+    query.addBindValue(updated.updatedAt);
+    query.addBindValue(updated.completedAt);
+    query.addBindValue(updated.id);
+    if (!query.exec()) {
+        qWarning() << "TaskModel: upsert update failed:" << query.lastError().text();
+        return {};
+    }
+
+    m_tasks[row] = updated;
+    QVector<int> roles;
+    const auto names = roleNames();
+    for (auto it = names.cbegin(); it != names.cend(); ++it)
+        roles.append(it.key());
+    emit dataChanged(index(row), index(row), roles);
+    emit countsChanged();
+    m_database->refreshStats();
+    return updated.id;
+}
+
+QVariantMap TaskModel::stageStats() const
+{
+    QVariantMap result;
+    for (const Task &task : m_tasks) {
+        const QString stage = stageOf(task.tags);
+        QVariantMap entry = result.value(stage).toMap();
+        entry[QStringLiteral("total")] = entry.value(QStringLiteral("total")).toInt() + 1;
+        if (task.status == QLatin1String("done"))
+            entry[QStringLiteral("done")] = entry.value(QStringLiteral("done")).toInt() + 1;
+        else if (task.status == QLatin1String("doing"))
+            entry[QStringLiteral("doing")] = entry.value(QStringLiteral("doing")).toInt() + 1;
+        else
+            entry[QStringLiteral("todo")] = entry.value(QStringLiteral("todo")).toInt() + 1;
+        result[stage] = entry;
     }
     return result;
 }
@@ -627,4 +784,14 @@ QString TaskModel::dueText(qint64 dueAt)
     if (dueAt <= 0)
         return {};
     return QDateTime::fromSecsSinceEpoch(dueAt).toString(QStringLiteral("MM-dd"));
+}
+
+QString TaskModel::stageOf(const QString &tags)
+{
+    const QString tag = firstTag(tags).trimmed();
+    static const QRegularExpression pattern(QStringLiteral("^R\\d+$"),
+                                            QRegularExpression::CaseInsensitiveOption);
+    if (pattern.match(tag).hasMatch())
+        return tag.toUpper();
+    return QStringLiteral("OTHER");
 }

@@ -13,6 +13,8 @@ Rectangle {
     property string status: "todo"
     // 搜索关键字（由上层注入，用于空态文案判断）
     property string searchQuery: ""
+    // 里程碑过滤（由上层注入，用于空态文案判断）
+    property string stageFilter: ""
     // 拖拽坐标基准（与卡片保持同一坐标系）
     property Item dragSpace: null
     // 是否为当前拖拽悬停的列（边框呼吸）
@@ -144,9 +146,11 @@ Rectangle {
                 visible: column.taskModel && column.taskModel.count === 0
                 text: column.searchQuery.length > 0
                       ? "没有匹配的任务"
-                      : (column.status === "done"
-                         ? "完成的任务会出现在这里"
-                         : "暂无任务\n在下方输入，回车添加")
+                      : (column.stageFilter.length > 0
+                         ? ("该阶段暂无任务\n" + column.stageFilter + " · 切回「全部」查看其它阶段")
+                         : (column.status === "done"
+                            ? "完成的任务会出现在这里"
+                            : "暂无任务\n在下方输入，回车添加"))
                 color: Theme.muted
                 opacity: 0.75
                 font.pixelSize: 12

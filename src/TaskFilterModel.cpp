@@ -52,6 +52,22 @@ void TaskFilterModel::setSearch(const QString &search)
     emit countChanged();
 }
 
+QString TaskFilterModel::stage() const
+{
+    return m_stage;
+}
+
+void TaskFilterModel::setStage(const QString &stage)
+{
+    const QString clean = stage.trimmed().toUpper();
+    if (m_stage == clean)
+        return;
+    m_stage = clean;
+    invalidateFilter();
+    emit stageChanged();
+    emit countChanged();
+}
+
 QString TaskFilterModel::idAt(int row) const
 {
     if (row < 0 || row >= rowCount())
@@ -64,6 +80,11 @@ bool TaskFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceP
     const QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
     if (index.data(TaskModel::StatusRole).toString() != m_status)
         return false;
+    if (!m_stage.isEmpty()) {
+        const QString tag = index.data(TaskModel::TagRole).toString().trimmed().toUpper();
+        if (tag != m_stage)
+            return false;
+    }
     if (m_search.isEmpty())
         return true;
     const QString needle = m_search.toCaseFolded();

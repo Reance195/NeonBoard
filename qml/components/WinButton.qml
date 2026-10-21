@@ -12,7 +12,7 @@ Rectangle {
     width: 42
     height: 40
     color: winMouse.containsMouse
-           ? (winButton.danger ? Qt.rgba(0.95, 0.30, 0.40, 0.22)
+           ? (winButton.danger ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.22)
                                : Qt.rgba(1, 1, 1, 0.06))
            : "transparent"
     scale: winMouse.pressed ? 0.90 : 1.0

@@ -15,7 +15,7 @@ ShaderEffect {
     property color uPrimary: Theme.cyan
     property color uSecondary: Theme.magenta
     property color uAccent: Theme.violet
-    property float uQuality: Theme.quality
+    property real uQuality: Theme.quality
 
     fragmentShader: "qrc:/shaders/neon.frag.qsb"
 

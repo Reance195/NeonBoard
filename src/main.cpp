@@ -8,6 +8,7 @@
 #include "TaskFilterModel.h"
 #include "TaskModel.h"
 #include "TrayController.h"
+#include "UiSettings.h"
 #include "WindowController.h"
 
 #include <QApplication>
@@ -175,6 +176,7 @@ int main(int argc, char *argv[])
     QObject::connect(&metrics, &Metrics::startupMeasured, [&boot]() {
         qInfo() << "BOOT firstframe" << boot.elapsed();
     });
+    UiSettings uiSettings;
     WindowController windowController;
     Hotkey hotkey;
     TrayController tray;
@@ -198,13 +200,14 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("todoModel"), &todoModel);
     engine.rootContext()->setContextProperty(QStringLiteral("doingModel"), &doingModel);
     engine.rootContext()->setContextProperty(QStringLiteral("doneModel"), &doneModel);
+    engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
     // 低配 / 无障碍降级：关闭动态霓虹背景（NEONBOARD_NO_BG=1 启动）
     const bool noBackground = qEnvironmentVariableIsSet("NEONBOARD_NO_BG");
     engine.rootContext()->setContextProperty(QStringLiteral("noBackground"), noBackground);
     qInfo() << "BOOT engine" << boot.elapsed();
     splashStage(0.58, QStringLiteral("COMPILING INTERFACE"), 50);
 
-    const QUrl mainUrl(QStringLiteral("qrc:/qt/qml/NeonBoard/qml/Main.qml"));
+    const QUrl mainUrl(QStringLiteral("qrc:/qt/qml/NeonBoard/Main.qml"));
     qInfo().noquote() << "BOOT qml" << mainUrl.toString();
     qInfo() << "BOOT epoch" << QDateTime::currentMSecsSinceEpoch();
 

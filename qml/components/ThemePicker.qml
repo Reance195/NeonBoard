@@ -72,8 +72,8 @@ Item {
         anchors.top: trigger.bottom
         anchors.topMargin: 8
         anchors.right: parent.right
-        width: 300
-        height: content.implicitHeight + 24
+            width: 300
+            height: content.height + 24
         opacity: picker.open ? 1.0 : 0.0
         scale: picker.open ? 1.0 : 0.96
         transformOrigin: Item.TopRight
@@ -107,7 +107,9 @@ Item {
 
             Column {
                 id: content
-                anchors.fill: parent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
                 anchors.margins: 12
                 spacing: 8
 
@@ -146,16 +148,18 @@ Item {
                                 ColorAnimation { duration: Motion.fast }
                             }
 
-                            // 逐行渐入
-                            NumberAnimation {
-                                target: presetRow
-                                property: "opacity"
+                            // 逐行渐入（错峰 40ms）
+                            SequentialAnimation {
                                 running: picker.open
-                                from: 0
-                                to: 1
-                                duration: Motion.base
-                                delay: index * Motion.stagger
-                                easing.type: Easing.OutCubic
+                                PauseAnimation { duration: index * Motion.stagger }
+                                NumberAnimation {
+                                    target: presetRow
+                                    property: "opacity"
+                                    from: 0
+                                    to: 1
+                                    duration: Motion.base
+                                    easing.type: Easing.OutCubic
+                                }
                             }
 
                             // 三色预览

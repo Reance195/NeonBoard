@@ -1,7 +1,6 @@
 pragma Singleton
 
 import QtQuick
-import QtCore
 
 // 动效基线：全应用的时长与缓动令牌。
 // 组件只允许引用这里的常量，禁止再写魔法数字，保证「每一帧顺滑」有统一标尺。
@@ -12,16 +11,14 @@ QtObject {
     property bool reduced: false
     property bool persistedReduced: false
 
-    Settings {
-        id: settings
-        category: "appearance"
-        property bool reducedMotion: false
+    onPersistedReducedChanged: {
+        if (uiSettings.reducedMotion !== persistedReduced)
+            uiSettings.reducedMotion = persistedReduced
     }
 
-    onPersistedReducedChanged: settings.reducedMotion = persistedReduced
     Component.onCompleted: {
-        persistedReduced = settings.reducedMotion
-        reduced = settings.reducedMotion
+        persistedReduced = uiSettings.reducedMotion
+        reduced = uiSettings.reducedMotion
     }
 
     // ---- 基础时长（毫秒）----

@@ -25,6 +25,10 @@ public:
     bool setPluginValue(const QString &pluginId, const QString &key, const QString &value);
     bool removePluginValue(const QString &pluginId, const QString &key);
 
+    QString metaValue(const QString &key, const QString &defaultValue = QString()) const;
+    bool setMetaValue(const QString &key, const QString &value);
+    bool removeMetaValue(const QString &key);
+
 signals:
     void taskCountChanged();
 

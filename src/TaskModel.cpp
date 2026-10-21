@@ -10,6 +10,7 @@
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QStringList>
 #include <QUuid>
 
 static QString nonNull(const QString &value)
@@ -263,6 +264,9 @@ QString TaskModel::addTask(const QString &title, const QString &status, int prio
     endInsertRows();
     emit countsChanged();
     m_database->refreshStats();
+    emit taskCreated(task.id, task.title);
+    if (task.status == QLatin1String("done"))
+        emit taskCompleted(task.id);
     return task.id;
 }
 
@@ -273,6 +277,7 @@ bool TaskModel::updateTask(const QString &id, const QVariantMap &fields)
         return false;
 
     Task updated = m_tasks.at(row);
+    const QString previousStatus = updated.status;
     if (fields.contains(QStringLiteral("title"))) {
         updated.title = fields.value(QStringLiteral("title")).toString().trimmed();
         if (updated.title.isEmpty())
@@ -333,6 +338,12 @@ bool TaskModel::updateTask(const QString &id, const QVariantMap &fields)
     emit dataChanged(index(row), index(row), roles);
     emit countsChanged();
     m_database->refreshStats();
+    emit taskUpdated(updated.id);
+    if (previousStatus != updated.status) {
+        emit taskMoved(updated.id, previousStatus, updated.status);
+        if (updated.status == QLatin1String("done"))
+            emit taskCompleted(updated.id);
+    }
     return true;
 }
 
@@ -356,6 +367,7 @@ bool TaskModel::deleteTask(const QString &id)
     endRemoveRows();
     emit countsChanged();
     m_database->refreshStats();
+    emit taskRemoved(id);
     return true;
 }
 
@@ -436,6 +448,7 @@ QString TaskModel::restoreTask(const QVariantMap &task)
         return {};
     }
     load();
+    emit taskCreated(restored.id, restored.title);
     return restored.id;
 }
 
@@ -476,6 +489,7 @@ bool TaskModel::moveTask(const QString &id, const QString &status, int newIndex)
     }
 
     Task updated = m_tasks.at(row);
+    const QString previousStatus = m_tasks.at(row).status;
     const qint64 now = QDateTime::currentSecsSinceEpoch();
     updated.status = targetStatus;
     updated.orderKey = orderKey;
@@ -506,7 +520,19 @@ bool TaskModel::moveTask(const QString &id, const QString &status, int newIndex)
                      { StatusRole, OrderKeyRole, UpdatedAtRole, CompletedAtRole });
     emit countsChanged();
     m_database->refreshStats();
+    emit taskMoved(updated.id, previousStatus, targetStatus);
+    if (targetStatus == QLatin1String("done") && previousStatus != QLatin1String("done"))
+        emit taskCompleted(updated.id);
     return true;
+}
+
+bool TaskModel::moveTaskToEnd(const QString &id, const QString &status)
+{
+    if (findRow(id) < 0)
+        return false;
+
+    const int targetCount = orderKeys(status, id).size();
+    return moveTask(id, status, targetCount);
 }
 
 bool TaskModel::clearDone()
@@ -518,6 +544,12 @@ bool TaskModel::clearDone()
         return false;
     }
 
+    QStringList removedIds;
+    for (const Task &task : m_tasks) {
+        if (task.status == QLatin1String("done"))
+            removedIds.append(task.id);
+    }
+
     beginResetModel();
     for (int i = m_tasks.size() - 1; i >= 0; --i) {
         if (m_tasks.at(i).status == QLatin1String("done"))
@@ -526,6 +558,8 @@ bool TaskModel::clearDone()
     endResetModel();
     emit countsChanged();
     m_database->refreshStats();
+    for (const QString &removedId : removedIds)
+        emit taskRemoved(removedId);
     return true;
 }
 

@@ -57,12 +57,18 @@ public:
     Q_INVOKABLE QVariantMap removeTask(const QString &id);
     Q_INVOKABLE QString restoreTask(const QVariantMap &task);
     Q_INVOKABLE bool moveTask(const QString &id, const QString &status, int newIndex);
+    Q_INVOKABLE bool moveTaskToEnd(const QString &id, const QString &status);
     Q_INVOKABLE bool clearDone();
     Q_INVOKABLE QVariantMap taskById(const QString &id) const;
     Q_INVOKABLE QVariantList allTasks() const;
 
 signals:
     void countsChanged();
+    void taskCreated(const QString &id, const QString &title);
+    void taskUpdated(const QString &id);
+    void taskMoved(const QString &id, const QString &fromStatus, const QString &toStatus);
+    void taskCompleted(const QString &id);
+    void taskRemoved(const QString &id);
 
 private:
     struct Task {

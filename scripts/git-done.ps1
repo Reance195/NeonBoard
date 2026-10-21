@@ -24,11 +24,10 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Invoke-Git {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$GitArgs)
-    $output = & git @GitArgs 2>&1
+    $output = & git @args 2>&1
     $code = $LASTEXITCODE
     if ($code -ne 0) {
-        throw ("git {0} 执行失败（退出码 {1}）：`n{2}" -f ($GitArgs -join ' '), $code, ($output -join "`n"))
+        throw ("git {0} 执行失败（退出码 {1}）：`n{2}" -f ($args -join ' '), $code, ($output -join "`n"))
     }
     return $output
 }

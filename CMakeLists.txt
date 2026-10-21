@@ -67,6 +67,9 @@ set_source_files_properties(qml/components/StatChip.qml PROPERTIES QT_RESOURCE_A
 set_source_files_properties(qml/components/TaskCard.qml PROPERTIES QT_RESOURCE_ALIAS "TaskCard.qml")
 set_source_files_properties(qml/components/BoardColumn.qml PROPERTIES QT_RESOURCE_ALIAS "BoardColumn.qml")
 set_source_files_properties(qml/components/ThemePicker.qml PROPERTIES QT_RESOURCE_ALIAS "ThemePicker.qml")
+set_source_files_properties(qml/components/SettingsPanel.qml PROPERTIES QT_RESOURCE_ALIAS "SettingsPanel.qml")
+set_source_files_properties(qml/components/PluginPanel.qml PROPERTIES QT_RESOURCE_ALIAS "PluginPanel.qml")
+set_source_files_properties(qml/components/AppearancePanel.qml PROPERTIES QT_RESOURCE_ALIAS "AppearancePanel.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -81,6 +84,9 @@ qt_add_qml_module(NeonBoard
         qml/components/TaskCard.qml
         qml/components/BoardColumn.qml
         qml/components/ThemePicker.qml
+        qml/components/SettingsPanel.qml
+        qml/components/PluginPanel.qml
+        qml/components/AppearancePanel.qml
 )
 
 qt_add_resources(NeonBoard "icons"

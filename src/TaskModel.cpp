@@ -683,6 +683,50 @@ bool TaskModel::moveTask(const QString &id, const QString &status, int newIndex)
     return true;
 }
 
+bool TaskModel::moveTaskBefore(const QString &id, const QString &status, const QString &beforeId)
+{
+    // beforeId 为空表示落到列尾（注意 moveTask 的 -1 语义是列首，列尾要用 moveTaskToEnd）
+    if (beforeId.isEmpty() || beforeId == id)
+        return beforeId.isEmpty() ? moveTaskToEnd(id, status) : false;
+
+    const int beforeRow = findRow(beforeId);
+    if (beforeRow < 0)
+        return moveTaskToEnd(id, status);
+    if (m_tasks.at(beforeRow).status != status)
+        return moveTaskToEnd(id, status);
+
+    // 在「排除自身」的有序 order_key 序列里定位 before 的位置，
+    // 交给 moveTask 取前后中点作为新的 order_key
+    const qint64 beforeKey = m_tasks.at(beforeRow).orderKey;
+    const QVector<qint64> keys = orderKeys(status, id);
+    int index = 0;
+    while (index < keys.size() && keys.at(index) < beforeKey)
+        ++index;
+    return moveTask(id, status, index);
+}
+
+QStringList TaskModel::taskIdsInStatus(const QString &status) const
+{
+    // 必须与 TaskFilterModel 的排序规则一致（order_key 升序，id 兜底），
+    // 否则界面里的落点计算会与实际显示顺序错位
+    QVector<Task> items;
+    for (const Task &task : m_tasks) {
+        if (task.status == status)
+            items.append(task);
+    }
+    std::sort(items.begin(), items.end(), [](const Task &left, const Task &right) {
+        if (left.orderKey != right.orderKey)
+            return left.orderKey < right.orderKey;
+        return left.id < right.id;
+    });
+
+    QStringList ids;
+    ids.reserve(items.size());
+    for (const Task &task : items)
+        ids.append(task.id);
+    return ids;
+}
+
 bool TaskModel::moveTaskToEnd(const QString &id, const QString &status)
 {
     if (findRow(id) < 0)

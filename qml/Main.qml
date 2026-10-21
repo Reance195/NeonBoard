@@ -40,10 +40,20 @@ ApplicationWindow {
     property int pendingPluginIndex: -1
     property bool libraryPending: false
 
+    // 面板互斥：同一时刻只保留一个浮层，避免外观/插件/设置面板叠在一起
+    function closeAllPanels() {
+        themePicker.open = false
+        if (pluginPanelLoader.item)
+            pluginPanelLoader.item.close()
+        if (settingsLoader.item)
+            settingsLoader.item.close()
+    }
+
     function openSettings() {
         show()
         raise()
         requestActivate()
+        closeAllPanels()
         if (settingsLoader.item) {
             settingsLoader.item.open()
         } else {
@@ -53,6 +63,7 @@ ApplicationWindow {
     }
 
     function openPluginAt(index) {
+        closeAllPanels()
         if (pluginPanelLoader.item) {
             pluginPanelLoader.item.openPlugin(index)
         } else {
@@ -98,6 +109,7 @@ ApplicationWindow {
         show()
         raise()
         requestActivate()
+        closeAllPanels()
         themePicker.open = true
     }
 
@@ -175,11 +187,33 @@ ApplicationWindow {
         dragActive = true
     }
 
+    function clearDropMarks() {
+        var columns = [todoColumn, doingColumn, doneColumn]
+        for (var i = 0; i < columns.length; ++i) {
+            columns[i].dropBeforeId = ""
+            columns[i].dropAnchorId = ""
+            columns[i].dropAnchorBelow = false
+        }
+    }
+
     function updateTaskDrag(x, y) {
         dragX = x
         dragY = y
         var column = columnAt(x, y)
-        dragOverStatus = column ? column.status : ""
+        if (!column) {
+            clearDropMarks()
+            dragOverStatus = ""
+            return
+        }
+        var origin = column.mapToItem(root, 0, 0)
+        var drop = column.resolveDrop(y - origin.y)
+        var columns = [todoColumn, doingColumn, doneColumn]
+        for (var i = 0; i < columns.length; ++i) {
+            columns[i].dropBeforeId = (columns[i] === column) ? drop.beforeId : ""
+            columns[i].dropAnchorId = (columns[i] === column) ? drop.anchorId : ""
+            columns[i].dropAnchorBelow = (columns[i] === column) ? drop.below : false
+        }
+        dragOverStatus = column.status
     }
 
     function endTaskDrag(x, y) {
@@ -188,11 +222,14 @@ ApplicationWindow {
         dragX = x
         dragY = y
         var column = columnAt(x, y)
-        if (column && column.status !== dragTaskStatus) {
-            taskStore.moveTask(dragTaskId, column.status, -1)
-            // 落位涟漪：让「卡片进了新列」这件事有明确的视觉回响
-            column.ripple()
+        if (column) {
+            var origin = column.mapToItem(root, 0, 0)
+            var drop = column.resolveDrop(y - origin.y)
+            // 精确插位：插到落点卡片之前，beforeId 为空则落到列尾
+            if (taskStore.moveTaskBefore(dragTaskId, column.status, drop.beforeId))
+                column.ripple()
         }
+        clearDropMarks()
         dragActive = false
         dragOverStatus = ""
         dragTaskId = ""
@@ -272,6 +309,14 @@ ApplicationWindow {
                 anchors.fill: parent
                 color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.28)
             }
+        }
+
+        // 外观面板展开时，点击面板之外区域即关闭（z 低于标题栏，面板本体不受影响）
+        MouseArea {
+            anchors.fill: parent
+            z: 5
+            visible: themePicker.open
+            onClicked: themePicker.close()
         }
 
         Rectangle {

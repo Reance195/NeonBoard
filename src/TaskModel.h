@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractListModel>
+#include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QVector>
@@ -57,6 +58,10 @@ public:
     Q_INVOKABLE QVariantMap removeTask(const QString &id);
     Q_INVOKABLE QString restoreTask(const QVariantMap &task);
     Q_INVOKABLE bool moveTask(const QString &id, const QString &status, int newIndex);
+    // 精确插位：把任务挪到目标状态列中 beforeId 这张卡片之前；beforeId 为空表示追加到列尾
+    Q_INVOKABLE bool moveTaskBefore(const QString &id, const QString &status, const QString &beforeId);
+    // 指定状态下按 order_key 升序的任务 id 列表，供界面计算插入落点（不受搜索过滤影响）
+    Q_INVOKABLE QStringList taskIdsInStatus(const QString &status) const;
     Q_INVOKABLE bool moveTaskToEnd(const QString &id, const QString &status);
     Q_INVOKABLE bool clearDone();
     Q_INVOKABLE QVariantMap taskById(const QString &id) const;

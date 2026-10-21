@@ -1,6 +1,231 @@
 {
     "items": [
         {
+            "completedAt": 0,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1793030400,
+            "id": "76d2a804-c2f8-4173-8b90-2d0a49a876f0",
+            "note": "remind_at + notified_at 防重复；托盘气泡 + 窗口边缘辉光；启动补发漏提醒。",
+            "orderKey": 1024,
+            "priority": 3,
+            "stage": "R1",
+            "status": "todo",
+            "tags": [
+                "R1"
+            ],
+            "title": "R1 提醒 + 逾期提醒",
+            "updatedAt": 1792568900
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1793203200,
+            "id": "562f52c5-9119-4c08-8547-85963ec542c6",
+            "note": "存标准 RRULE 字符串，不自造格式，便于日后导出 ICS / 对接 CalDAV。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "R1",
+            "status": "todo",
+            "tags": [
+                "R1"
+            ],
+            "title": "R1 重复任务（RFC 5545 RRULE）",
+            "updatedAt": 1792568900
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1793376000,
+            "id": "6e16c4e4-6254-4da1-be47-f93a6daad9d2",
+            "note": "parent_id 自关联复用 Task 结构；卡片显示进度环。",
+            "orderKey": 3072,
+            "priority": 2,
+            "stage": "R1",
+            "status": "todo",
+            "tags": [
+                "R1"
+            ],
+            "title": "R1 子任务 + 卡片霓虹进度环",
+            "updatedAt": 1792568900
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1793548800,
+            "id": "1e4b499b-940b-4917-8437-0bdbc86ae302",
+            "note": "JSON/CSV 导出、导入时支持列映射；每日自动备份到应用数据目录。",
+            "orderKey": 4096,
+            "priority": 2,
+            "stage": "R1",
+            "status": "todo",
+            "tags": [
+                "R1"
+            ],
+            "title": "R1 导入导出 + 自动备份",
+            "updatedAt": 1792568900
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1793721600,
+            "id": "00f23528-e400-49bc-8f21-f4193f8c0c1d",
+            "note": "模糊搜索任务与命令，支持键盘流操作。",
+            "orderKey": 5120,
+            "priority": 1,
+            "stage": "R1",
+            "status": "todo",
+            "tags": [
+                "R1"
+            ],
+            "title": "R1 命令面板（Ctrl+K）",
+            "updatedAt": 1792568900
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1793721600,
+            "id": "abfe0b9c-6ac6-4df8-8bd5-c8071888ae6c",
+            "note": "拖放可落列内指定位置；撤销从单一删除扩展到通用操作栈。",
+            "orderKey": 6144,
+            "priority": 2,
+            "stage": "R1",
+            "status": "todo",
+            "tags": [
+                "R1"
+            ],
+            "title": "R1 列内插位 + 通用撤销",
+            "updatedAt": 1792568900
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1794326400,
+            "id": "5424c1dd-7581-4c6c-a441-108774588d81",
+            "note": "全屏专注计时视图；任务完成率/时长图表。",
+            "orderKey": 7168,
+            "priority": 1,
+            "stage": "R2",
+            "status": "todo",
+            "tags": [
+                "R2"
+            ],
+            "title": "R2 专注模式 + 统计可视化",
+            "updatedAt": 1792568900
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1794585600,
+            "id": "e5aa6c5a-570e-426b-84c6-1f2114d8ff93",
+            "note": "按场景切换背景（专注/待办/空闲）；theme.json 主题包，预留插件贡献。",
+            "orderKey": 8192,
+            "priority": 1,
+            "stage": "R2",
+            "status": "todo",
+            "tags": [
+                "R2"
+            ],
+            "title": "R2 Shader 场景化 + 主题包",
+            "updatedAt": 1792568900
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1795536000,
+            "id": "90daab15-2707-4716-b687-0cf0d3320ba1",
+            "note": "热重载、设置页、命令注册、多槽位、沙箱与权限提示。",
+            "orderKey": 9216,
+            "priority": 1,
+            "stage": "R3",
+            "status": "todo",
+            "tags": [
+                "R3"
+            ],
+            "title": "R3 插件平台 2.0",
+            "updatedAt": 1792568900
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792572839,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "189e6f97-d75b-4e27-b8df-643793b37508",
+            "note": "升级现有侧栏插件区：已安装（APPDATA/plugins，唯一可写区）与可安装（随包/官方/示例/市场）分区；底部刷新市场、重新扫描、打开目录。",
+            "orderKey": 22528,
+            "priority": 2,
+            "stage": "R3",
+            "status": "todo",
+            "tags": [
+                "R3",
+                "插件库"
+            ],
+            "title": "插件库侧栏：打开/启用/禁用/安装/卸载/更新 #M13",
+            "updatedAt": 1792572839
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792572839,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "3cbbcee6-85ec-437b-b886-4fbcf1adfccf",
+            "note": "单文件 JSON 包 {manifest, files}；下载后 SHA-256 校验 + manifest.id 一致性 + 防目录穿越；临时目录写完原子替换，失败回滚；索引缓存断网可用。",
+            "orderKey": 23552,
+            "priority": 2,
+            "stage": "R3",
+            "status": "todo",
+            "tags": [
+                "R3",
+                "插件库"
+            ],
+            "title": ".neon 包格式 + PluginMarket：校验与原子安装 #M14",
+            "updatedAt": 1792572839
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792572839,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "20eb6e7d-772c-4aa3-b2a3-28571bd131f8",
+            "note": "设置面板加插件市场源 URL；索引 market.json 拉取后缓存到 APPDATA。",
+            "orderKey": 24576,
+            "priority": 1,
+            "stage": "R3",
+            "status": "todo",
+            "tags": [
+                "R3",
+                "插件库"
+            ],
+            "title": "市场源配置：内置 GitHub 默认地址 + 设置可改 #M15",
+            "updatedAt": 1792572839
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792572839,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "55c3f461-b251-4d40-8b28-0b6c9e22676f",
+            "note": "官方插件放仓库 plugins/，插件库中列为可安装；装到 APPDATA/plugins 即生效。",
+            "orderKey": 25600,
+            "priority": 1,
+            "stage": "R3",
+            "status": "todo",
+            "tags": [
+                "R3",
+                "插件库"
+            ],
+            "title": "plan-hook 一键安装 + 官方源纳入扫描 #M16",
+            "updatedAt": 1792572839
+        },
+        {
             "completedAt": 1792568900,
             "createdAt": 1792568900,
             "deleted": false,
@@ -181,160 +406,7 @@
             "updatedAt": 1792577522
         },
         {
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1793030400,
-            "id": "76d2a804-c2f8-4173-8b90-2d0a49a876f0",
-            "note": "remind_at + notified_at 防重复；托盘气泡 + 窗口边缘辉光；启动补发漏提醒。",
-            "orderKey": 1024,
-            "priority": 3,
-            "stage": "R1",
-            "status": "todo",
-            "tags": [
-                "R1"
-            ],
-            "title": "R1 提醒 + 逾期提醒",
-            "updatedAt": 1792568900
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1793203200,
-            "id": "562f52c5-9119-4c08-8547-85963ec542c6",
-            "note": "存标准 RRULE 字符串，不自造格式，便于日后导出 ICS / 对接 CalDAV。",
-            "orderKey": 2048,
-            "priority": 2,
-            "stage": "R1",
-            "status": "todo",
-            "tags": [
-                "R1"
-            ],
-            "title": "R1 重复任务（RFC 5545 RRULE）",
-            "updatedAt": 1792568900
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1793376000,
-            "id": "6e16c4e4-6254-4da1-be47-f93a6daad9d2",
-            "note": "parent_id 自关联复用 Task 结构；卡片显示进度环。",
-            "orderKey": 3072,
-            "priority": 2,
-            "stage": "R1",
-            "status": "todo",
-            "tags": [
-                "R1"
-            ],
-            "title": "R1 子任务 + 卡片霓虹进度环",
-            "updatedAt": 1792568900
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1793548800,
-            "id": "1e4b499b-940b-4917-8437-0bdbc86ae302",
-            "note": "JSON/CSV 导出、导入时支持列映射；每日自动备份到应用数据目录。",
-            "orderKey": 4096,
-            "priority": 2,
-            "stage": "R1",
-            "status": "todo",
-            "tags": [
-                "R1"
-            ],
-            "title": "R1 导入导出 + 自动备份",
-            "updatedAt": 1792568900
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1793721600,
-            "id": "00f23528-e400-49bc-8f21-f4193f8c0c1d",
-            "note": "模糊搜索任务与命令，支持键盘流操作。",
-            "orderKey": 5120,
-            "priority": 1,
-            "stage": "R1",
-            "status": "todo",
-            "tags": [
-                "R1"
-            ],
-            "title": "R1 命令面板（Ctrl+K）",
-            "updatedAt": 1792568900
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1793721600,
-            "id": "abfe0b9c-6ac6-4df8-8bd5-c8071888ae6c",
-            "note": "拖放可落列内指定位置；撤销从单一删除扩展到通用操作栈。",
-            "orderKey": 6144,
-            "priority": 2,
-            "stage": "R1",
-            "status": "todo",
-            "tags": [
-                "R1"
-            ],
-            "title": "R1 列内插位 + 通用撤销",
-            "updatedAt": 1792568900
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1794326400,
-            "id": "5424c1dd-7581-4c6c-a441-108774588d81",
-            "note": "全屏专注计时视图；任务完成率/时长图表。",
-            "orderKey": 7168,
-            "priority": 1,
-            "stage": "R2",
-            "status": "todo",
-            "tags": [
-                "R2"
-            ],
-            "title": "R2 专注模式 + 统计可视化",
-            "updatedAt": 1792568900
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1794585600,
-            "id": "e5aa6c5a-570e-426b-84c6-1f2114d8ff93",
-            "note": "按场景切换背景（专注/待办/空闲）；theme.json 主题包，预留插件贡献。",
-            "orderKey": 8192,
-            "priority": 1,
-            "stage": "R2",
-            "status": "todo",
-            "tags": [
-                "R2"
-            ],
-            "title": "R2 Shader 场景化 + 主题包",
-            "updatedAt": 1792568900
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1795536000,
-            "id": "90daab15-2707-4716-b687-0cf0d3320ba1",
-            "note": "热重载、设置页、命令注册、多槽位、沙箱与权限提示。",
-            "orderKey": 9216,
-            "priority": 1,
-            "stage": "R3",
-            "status": "todo",
-            "tags": [
-                "R3"
-            ],
-            "title": "R3 插件平台 2.0",
-            "updatedAt": 1792568900
-        },
-        {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -343,16 +415,16 @@
             "orderKey": 10240,
             "priority": 3,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "插件"
             ],
             "title": "PluginContext：每插件 API 门面 + 权限校验 #M01",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -361,16 +433,16 @@
             "orderKey": 11264,
             "priority": 3,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "插件"
             ],
             "title": "PluginHost 改造：服务层 + 前台代理 #M02",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -379,16 +451,16 @@
             "orderKey": 12288,
             "priority": 3,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "插件"
             ],
             "title": "PluginEventBus + PluginRuntime：事件总线与后台运行时 #M03",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -397,16 +469,16 @@
             "orderKey": 13312,
             "priority": 2,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "插件"
             ],
             "title": "PluginLoader 升级：apiVersion 1|2 + background/contributes #M04",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -415,16 +487,16 @@
             "orderKey": 14336,
             "priority": 2,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "插件"
             ],
             "title": "TaskModel：任务事件信号 + moveTaskToEnd #M05",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -433,16 +505,16 @@
             "orderKey": 15360,
             "priority": 2,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "插件"
             ],
             "title": "Database：meta 读写 API #M06",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -451,16 +523,16 @@
             "orderKey": 16384,
             "priority": 3,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "计划钩子"
             ],
             "title": "HookEventQueue：独立 hooks.db 事件队列 #M07",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -469,16 +541,16 @@
             "orderKey": 17408,
             "priority": 2,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "计划钩子"
             ],
             "title": "CLI --emit-hook：只投递不执行 #M08",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -487,16 +559,16 @@
             "orderKey": 18432,
             "priority": 3,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "计划钩子"
             ],
             "title": "plan-hook 后台插件：订阅 hook.commit 执行规则 #M09",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -505,16 +577,16 @@
             "orderKey": 19456,
             "priority": 2,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "计划钩子"
             ],
             "title": "规则引擎 rules.js + plan.rules 规则 schema #M10",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -523,16 +595,16 @@
             "orderKey": 20480,
             "priority": 2,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "计划钩子"
             ],
             "title": "plan-hook 面板：规则编辑器 + 手动执行 + 执行记录 #M11",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -541,88 +613,16 @@
             "orderKey": 21504,
             "priority": 3,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "计划钩子"
             ],
             "title": ".githooks/post-commit：投递 hook 事件 #M12",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
-            "createdAt": 1792572839,
-            "deleted": false,
-            "dueAt": 1794412799,
-            "id": "189e6f97-d75b-4e27-b8df-643793b37508",
-            "note": "升级现有侧栏插件区：已安装（APPDATA/plugins，唯一可写区）与可安装（随包/官方/示例/市场）分区；底部刷新市场、重新扫描、打开目录。",
-            "orderKey": 22528,
-            "priority": 2,
-            "stage": "R3",
-            "status": "todo",
-            "tags": [
-                "R3",
-                "插件库"
-            ],
-            "title": "插件库侧栏：打开/启用/禁用/安装/卸载/更新 #M13",
-            "updatedAt": 1792572839
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792572839,
-            "deleted": false,
-            "dueAt": 1794412799,
-            "id": "3cbbcee6-85ec-437b-b886-4fbcf1adfccf",
-            "note": "单文件 JSON 包 {manifest, files}；下载后 SHA-256 校验 + manifest.id 一致性 + 防目录穿越；临时目录写完原子替换，失败回滚；索引缓存断网可用。",
-            "orderKey": 23552,
-            "priority": 2,
-            "stage": "R3",
-            "status": "todo",
-            "tags": [
-                "R3",
-                "插件库"
-            ],
-            "title": ".neon 包格式 + PluginMarket：校验与原子安装 #M14",
-            "updatedAt": 1792572839
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792572839,
-            "deleted": false,
-            "dueAt": 1794412799,
-            "id": "20eb6e7d-772c-4aa3-b2a3-28571bd131f8",
-            "note": "设置面板加插件市场源 URL；索引 market.json 拉取后缓存到 APPDATA。",
-            "orderKey": 24576,
-            "priority": 1,
-            "stage": "R3",
-            "status": "todo",
-            "tags": [
-                "R3",
-                "插件库"
-            ],
-            "title": "市场源配置：内置 GitHub 默认地址 + 设置可改 #M15",
-            "updatedAt": 1792572839
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792572839,
-            "deleted": false,
-            "dueAt": 1794412799,
-            "id": "55c3f461-b251-4d40-8b28-0b6c9e22676f",
-            "note": "官方插件放仓库 plugins/，插件库中列为可安装；装到 APPDATA/plugins 即生效。",
-            "orderKey": 25600,
-            "priority": 1,
-            "stage": "R3",
-            "status": "todo",
-            "tags": [
-                "R3",
-                "插件库"
-            ],
-            "title": "plan-hook 一键安装 + 官方源纳入扫描 #M16",
-            "updatedAt": 1792572839
-        },
-        {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1793203199,
@@ -631,16 +631,16 @@
             "orderKey": 26624,
             "priority": 2,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "计划钩子"
             ],
             "title": "端到端验收：12 条用例 #M17",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
             "dueAt": 1794412799,
@@ -649,15 +649,16 @@
             "orderKey": 27648,
             "priority": 1,
             "stage": "R3",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R3",
                 "插件"
             ],
             "title": "文档同步：plugin-api v2 + plan-hook.md #M18",
-            "updatedAt": 1792572839
+            "updatedAt": 1792588621
         }
     ],
-    "updated": "2026-10-21T19:15:55",
+    "updated": "2026-10-21T22:58:41",
     "version": 2
 }
+

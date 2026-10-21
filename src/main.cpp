@@ -255,6 +255,20 @@ int main(int argc, char *argv[])
         ok = taskStore.moveTask(id, QStringLiteral("doing"), -1) && ok;
         qInfo() << "SELFTEST move" << taskStore.taskById(id).value("status").toString();
         ok = taskStore.taskById(id).value("status").toString() == QStringLiteral("doing") && ok;
+        // 精确插位：moveTaskBefore 插入到指定卡片之前，且落点顺序可被 taskIdsInStatus 读回
+        const QString insA = taskStore.addTask(QStringLiteral("selftest-a"), QStringLiteral("todo"), 1, QString(), 0);
+        const QString insB = taskStore.addTask(QStringLiteral("selftest-b"), QStringLiteral("todo"), 1, QString(), 0);
+        const QString insC = taskStore.addTask(QStringLiteral("selftest-c"), QStringLiteral("todo"), 1, QString(), 0);
+        ok = taskStore.moveTaskBefore(insC, QStringLiteral("todo"), insA) && ok;
+        const QStringList todoIds = taskStore.taskIdsInStatus(QStringLiteral("todo"));
+        qInfo() << "SELFTEST insert" << todoIds.join(QLatin1Char(','));
+        ok = todoIds.indexOf(insC) >= 0 && todoIds.indexOf(insC) < todoIds.indexOf(insA) && ok;
+        ok = taskStore.moveTaskBefore(insC, QStringLiteral("todo"), QString()) && ok;
+        const QStringList tailIds = taskStore.taskIdsInStatus(QStringLiteral("todo"));
+        ok = tailIds.last() == insC && ok;
+        taskStore.deleteTask(insA);
+        taskStore.deleteTask(insB);
+        taskStore.deleteTask(insC);
         const QVariantMap removed = taskStore.removeTask(id);
         ok = !removed.isEmpty() && ok;
         const QString restoredId = taskStore.restoreTask(removed);

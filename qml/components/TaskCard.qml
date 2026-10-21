@@ -29,6 +29,7 @@ Rectangle {
     property bool glitching: false
     property real offsetX: 0         // 进场位移 / 故障抖动用
     property real overduePulse: 0
+    property real enterOpacity: 0    // 进场淡入，拖起时再整体压暗
 
     signal editRequested()
     signal completeRequested()
@@ -51,7 +52,8 @@ Rectangle {
         return cardMouse.containsMouse ? Theme.borderStrong : Theme.border
     }
     scale: cardMouse.pressed ? 0.985 : (cardMouse.dragging ? 1.04 : (cardMouse.containsMouse ? 1.012 : 1.0))
-    opacity: 0
+    // 拖起时压暗成「虚位」，告诉用户这张卡已经离手
+    opacity: card.enterOpacity * (cardMouse.dragging ? 0.35 : 1)
     clip: true
 
     Behavior on scale {
@@ -66,8 +68,11 @@ Rectangle {
     Behavior on opacity {
         NumberAnimation { duration: Motion.enter; easing.type: Easing.OutCubic }
     }
+    Behavior on enterOpacity {
+        NumberAnimation { duration: Motion.enter; easing.type: Easing.OutCubic }
+    }
 
-    Component.onCompleted: opacity = 1
+    Component.onCompleted: card.enterOpacity = 1
 
     // 进场：从右侧滑入并淡入（新建与撤销恢复共用）
     NumberAnimation on offsetX {

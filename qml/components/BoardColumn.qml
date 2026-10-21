@@ -20,6 +20,12 @@ Rectangle {
     // 是否为当前拖拽悬停的列（边框呼吸）
     property bool dropTarget: false
     property real dropPulse: 0
+    // 拖拽悬停时的插入落点：beforeId 为空表示落到列尾
+    property string dropBeforeId: ""
+    // 插入指示线锚定的卡片 id（空表示画在列尾）
+    property string dropAnchorId: ""
+    // 指示线画在锚定卡片的下方（true）还是上方（false）
+    property bool dropAnchorBelow: false
 
     signal editRequested(string taskId)
     signal startRequested(string taskId)
@@ -49,6 +55,9 @@ Rectangle {
         ColorAnimation { duration: Motion.base }
     }
 
+    onDropAnchorIdChanged: refreshDropLine()
+    onDropAnchorBelowChanged: refreshDropLine()
+
     // 拖入呼吸：仅在被拖拽悬停时循环
     NumberAnimation on dropPulse {
         running: column.dropTarget
@@ -62,6 +71,91 @@ Rectangle {
     // 落位涟漪
     function ripple() {
         rippleAnimation.restart()
+    }
+
+    // 当前已实例化的卡片代理（按纵向位置排序）
+    function visibleDelegates() {
+        var out = []
+        if (!list.contentItem)
+            return out
+        var children = list.contentItem.children
+        for (var i = 0; i < children.length; ++i) {
+            var it = children[i]
+            if (!it || it.taskId === undefined || it.y === undefined)
+                continue
+            out.push({ id: it.taskId, index: out.length, y: it.y, height: it.height })
+        }
+        out.sort(function(a, b) { return a.y - b.y })
+        return out
+    }
+
+    // 解析拖拽落点：yInColumn 为列内坐标，返回 { beforeId, anchorId, below }
+    // beforeId 为空串表示插到列尾；anchorId 为空串表示指示线画在列尾
+    function resolveDrop(yInColumn) {
+        var fullIds = taskStore.taskIdsInStatus(column.status)
+        if (fullIds.length === 0)
+            return { beforeId: "", anchorId: "", below: false }
+
+        var del = column.visibleDelegates()
+        if (del.length === 0)
+            return { beforeId: "", anchorId: "", below: false }
+
+        var pt = list.mapFromItem(column, 0, yInColumn)
+        var contentY = pt.y + list.contentY
+
+        for (var i = 0; i < del.length; ++i) {
+            var d = del[i]
+            if (contentY >= d.y && contentY <= d.y + d.height) {
+                // 卡片上半区：插到这张卡之前，指示线画在它上方
+                if (contentY < d.y + d.height / 2)
+                    return { beforeId: d.id, anchorId: d.id, below: false }
+                // 卡片下半区：插到它后面那张之前
+                var nextFull = fullIds.indexOf(d.id) + 1
+                var nextId = (nextFull >= 0 && nextFull < fullIds.length) ? fullIds[nextFull] : ""
+                if (i + 1 < del.length)
+                    return { beforeId: nextId, anchorId: del[i + 1].id, below: false }
+                // 已是最后一张可见卡：插到它之后，指示线画在它下方
+                return { beforeId: nextId, anchorId: d.id, below: true }
+            }
+        }
+
+        // 落在卡片之间的空白：位于所有可见卡片之上 → 插到整列最前
+        var first = del[0]
+        if (contentY < first.y)
+            return { beforeId: fullIds[0], anchorId: first.id, below: false }
+        // 位于最后一张可见卡片之下：插到它之后，指示线画在它下方
+        var last = del[del.length - 1]
+        var lastFull = fullIds.indexOf(last.id)
+        var afterId = (lastFull >= 0 && lastFull + 1 < fullIds.length) ? fullIds[lastFull + 1] : ""
+        return { beforeId: afterId, anchorId: last.id, below: true }
+    }
+
+    // 在列表中找到锚定卡片的 delegate（遍历 contentItem 的子项，按 taskId 匹配）
+    function anchorDelegate(anchorId) {
+        if (!anchorId || !list || !list.contentItem)
+            return null
+        var children = list.contentItem.children
+        for (var i = 0; i < children.length; ++i) {
+            var it = children[i]
+            if (it && it.taskId !== undefined && it.taskId === anchorId)
+                return it
+        }
+        return null
+    }
+
+    // 刷新插入指示线的位置（列表滚动、delegate 实例化后都要重算）
+    function refreshDropLine() {
+        if (!dropLine)
+            return
+        var d = column.anchorDelegate(column.dropAnchorId)
+        if (!d) {
+            dropLine.visible = false
+            return
+        }
+        // d.y 是 delegate 在 contentItem 中的坐标，换算到 viewport：减掉 contentY
+        var contentY = d.y + (column.dropAnchorBelow ? d.height : 0)
+        dropLine.y = list.y + contentY - list.contentY + (column.dropAnchorBelow ? list.spacing / 2 : -list.spacing / 2)
+        dropLine.visible = true
     }
 
     ColumnLayout {
@@ -137,7 +231,11 @@ Rectangle {
                     }
                     onDragMoved: function(x, y) { column.dragMoved(x, y) }
                     onDragEnded: function(x, y) { column.dragEnded(x, y) }
+
+                    Component.onCompleted: column.refreshDropLine()
                 }
+
+                onContentYChanged: column.refreshDropLine()
             }
 
             Text {
@@ -156,6 +254,32 @@ Rectangle {
                 font.pixelSize: 12
                 lineHeight: 1.5
                 horizontalAlignment: Text.AlignHCenter
+            }
+
+            // 插入指示线：拖拽时用霓虹横线标出即将落下的位置
+            // 作为覆盖层放在列表区域之上，位置由 refreshDropLine() 按需计算
+            Rectangle {
+                id: dropLine
+                z: 6
+                visible: false
+                x: list.x + 6
+                width: Math.max(0, list.width - 12)
+                height: 3
+                radius: 2
+                color: column.accent
+                opacity: visible ? 1 : 0
+
+                Behavior on opacity {
+                    NumberAnimation { duration: Motion.fast; easing.type: Easing.OutCubic }
+                }
+
+                // 外扩辉光
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    radius: 7
+                    color: Qt.rgba(column.accent.r, column.accent.g, column.accent.b, 0.28)
+                }
             }
 
             // 落位涟漪

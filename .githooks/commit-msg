@@ -1,0 +1,70 @@
+#!/bin/sh
+# ============================================================
+# NeonBoard 仓库钩子 —— commit-msg
+# 作用：约束提交信息格式，便于追溯
+# 格式：<type>(<scope>): <subject>
+#   type：feat fix chore docs refactor perf test build ci style revert
+#   scope：可省略
+#   subject：中文简述，不超过 50 字
+# ============================================================
+
+allowed_types="feat fix chore docs refactor perf test build ci style revert"
+
+message_file="$1"
+if [ -z "$message_file" ] || [ ! -f "$message_file" ]; then
+  exit 0
+fi
+
+first_line=$(sed -n '1p' "$message_file" | tr -d '\r')
+
+# 跳过注释行与空信息
+if [ -z "$first_line" ]; then
+  echo ""
+  echo " ❌ 提交信息不能为空。"
+  echo ""
+  echo " 格式：<type>(<scope>): <subject>"
+  echo " 示例：feat(board): 增加卡片按标签筛选"
+  echo ""
+  exit 1
+fi
+
+# 解析 type 与可选 scope
+head_part=$(echo "$first_line" | sed -E 's/^([a-zA-Z]+)(\([^)]*\))?:.*$/\1/')
+scope_part=$(echo "$first_line" | sed -nE 's/^[a-zA-Z]+\(([^)]*)\):.*$/\1/p')
+
+type_ok=0
+for t in $allowed_types; do
+  if [ "$head_part" = "$t" ]; then
+    type_ok=1
+    break
+  fi
+done
+
+if [ "$type_ok" -eq 0 ]; then
+  echo ""
+  echo " ❌ 提交信息格式不符合规范。"
+  echo ""
+  echo " 当前：$first_line"
+  echo ""
+  echo " 格式：<type>(<scope>): <subject>"
+  echo " type：feat fix chore docs refactor perf test build ci style revert"
+  echo " 示例：feat(board): 增加卡片按标签筛选"
+  echo "       fix(model): 修复删除后统计芯片未刷新"
+  echo ""
+  echo " 紧急情况可使用 git commit --no-verify 跳过本钩子。"
+  echo ""
+  exit 1
+fi
+
+# scope 若存在则不允许为空
+if echo "$first_line" | grep -qE '^[a-zA-Z]+\(\):' ; then
+  echo ""
+  echo " ❌ scope 不能为空。"
+  echo ""
+  echo " 示例：feat(board): 增加卡片按标签筛选"
+  echo "       若不需要 scope，请写成 feat: 增加卡片按标签筛选"
+  echo ""
+  exit 1
+fi
+
+exit 0

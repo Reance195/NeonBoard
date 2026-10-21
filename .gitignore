@@ -1,0 +1,73 @@
+# ===== 构建产物 =====
+build/
+build-*/
+cmake-build-*/
+out/
+dist/
+*.user
+
+# ===== 安装包与打包输出 =====
+*.exe
+*.msi
+*.msix
+*.zip
+*.7z
+*.rar
+*.appx
+
+# ===== 日志与临时文件 =====
+*.log
+*.tmp
+*.bak
+*.orig
+*.rej
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ===== IDE / 编辑器 =====
+.vs/
+.vscode/
+.idea/
+*.sln
+*.vcxproj
+*.vcxproj.*
+*.filters
+CMakeSettings.json
+CMakeUserPresets.json
+compile_commands.json
+
+# ===== Qt / CMake 生成物 =====
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*_autogen/
+.qmake.stash
+Makefile
+Makefile.*
+!Makefile.am
+*.qmlc
+*.jsc
+
+# ===== 运行时数据（本地数据库等）=====
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ===== 密钥与本地配置（严禁入库）=====
+*.pem
+*.key
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example

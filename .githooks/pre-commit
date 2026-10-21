@@ -1,0 +1,92 @@
+#!/bin/sh
+# ============================================================
+# NeonBoard 仓库钩子 —— pre-commit
+# 作用：强制「拉分支 → 改动提交 → 合并回主分支」的流程
+# 规则：
+#   1. 受保护分支（main/master/develop）上禁止直接提交
+#   2. 功能分支名必须带规范前缀
+#   3. 合并冲突解决、rebase 续行等中间态一律放行
+# ============================================================
+
+protected_branches="main master develop"
+allowed_prefixes="feature fix hotfix chore docs refactor perf test build ci style revert"
+
+current_branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo "")
+
+# ---- 空仓库豁免：初始化仓库时的首次提交允许在当前分支完成 ----
+if ! git rev-parse --verify -q HEAD >/dev/null 2>&1; then
+  exit 0
+fi
+
+# ---- 中间态放行：合并冲突解决 / rebase 续行 / cherry-pick 续行 ----
+git_dir=$(git rev-parse --git-dir)
+if [ -f "$git_dir/MERGE_HEAD" ] || [ -f "$git_dir/REBASE_HEAD" ] || \
+   [ -d "$git_dir/rebase-merge" ] || [ -d "$git_dir/rebase-apply" ] || \
+   [ -f "$git_dir/CHERRY_PICK_HEAD" ]; then
+  exit 0
+fi
+
+# ---- 规则 1：受保护分支禁止直接提交 ----
+if [ -n "$current_branch" ]; then
+  for p in $protected_branches; do
+    if [ "$current_branch" = "$p" ]; then
+      echo ""
+      echo "==================================================================="
+      echo " ❌ 禁止在受保护分支 '$current_branch' 上直接提交"
+      echo "==================================================================="
+      echo ""
+      echo " 本仓库宪章要求：每次改动必须先拉分支，在分支上提交，再合并回主分支。"
+      echo ""
+      echo " 正确流程："
+      echo "   git switch -c feature/<简述>      # 或 fix/ chore/ docs/ 等"
+      echo "   git add -A"
+      echo "   git commit -m \"feat(scope): 说明\""
+      echo "   git switch $current_branch"
+      echo "   git merge --no-ff feature/<简述>"
+      echo "   git branch -d feature/<简述>"
+      echo ""
+      echo " 紧急情况可使用 git commit --no-verify 跳过本钩子。"
+      echo ""
+      exit 1
+    fi
+  done
+
+  # ---- 规则 2：分支命名规范 ----
+  case "$current_branch" in
+    */*) ;;
+    *)
+      echo ""
+      echo " ❌ 分支名 '$current_branch' 不符合规范，缺少类型前缀。"
+      echo ""
+      echo " 允许的前缀：feature/ fix/ hotfix/ chore/ docs/ refactor/"
+      echo "             perf/ test/ build/ ci/ style/ revert/"
+      echo ""
+      echo " 示例：git switch -c feature/task-board-filter"
+      echo ""
+      exit 1
+      ;;
+  esac
+
+  prefix=$(echo "$current_branch" | cut -d/ -f1)
+  prefix_ok=0
+  for p in $allowed_prefixes; do
+    if [ "$prefix" = "$p" ]; then
+      prefix_ok=1
+      break
+    fi
+  done
+
+  if [ "$prefix_ok" -eq 0 ]; then
+    echo ""
+    echo " ❌ 分支名 '$current_branch' 的前缀 '$prefix' 不在允许列表中。"
+    echo ""
+    echo " 允许的前缀：feature/ fix/ hotfix/ chore/ docs/ refactor/"
+    echo "             perf/ test/ build/ ci/ style/ revert/"
+    echo ""
+    echo " 示例：git switch -c feature/task-board-filter"
+    echo ""
+    exit 1
+  fi
+fi
+
+exit 0

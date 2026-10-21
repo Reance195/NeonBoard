@@ -1,0 +1,9 @@
+{
+  "id": "com.lin.today",
+  "name": "今日概览",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "description": "待办、进行中、今日完成与逾期统计",
+  "main": "main.qml",
+  "permissions": ["tasks.read"]
+}

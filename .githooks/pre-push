@@ -1,0 +1,73 @@
+#!/bin/sh
+# ============================================================
+# NeonBoard 仓库钩子 —— pre-push
+# 作用：确保「未合并回主分支」的成果不会被推走
+# 规则：
+#   1. 功能分支必须已合并进 main 才允许推送
+#   2. main 的推送必须是快进，禁止强推覆盖历史
+# ============================================================
+
+remote_name="$1"
+remote_url="$2"
+main_branch="main"
+zero="0000000000000000000000000000000000000000"
+
+is_protected() {
+  case "$1" in
+    main|master|develop) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# stdin: <local_ref> <local_sha> <remote_ref> <remote_sha>
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # 跳过删除远程分支的场景
+  if [ "$local_sha" = "$zero" ]; then
+    continue
+  fi
+
+  branch=$(echo "$local_ref" | sed 's#^refs/heads/##')
+
+  # ---- 规则 2：主分支推送必须快进 ----
+  if is_protected "$branch"; then
+    if [ "$remote_sha" != "$zero" ]; then
+      if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+        echo ""
+        echo "==================================================================="
+        echo " ❌ 主分支 '$branch' 的推送不是快进更新，已阻止。"
+        echo "==================================================================="
+        echo ""
+        echo " 请先拉取远程最新提交并合并后再推送："
+        echo "   git pull --no-rebase origin $branch"
+        echo "   git push origin $branch"
+        echo ""
+        echo " 严禁对主分支使用 --force / --force-with-lease。"
+        echo ""
+        exit 1
+      fi
+    fi
+    continue
+  fi
+
+  # ---- 规则 1：功能分支必须已合并进 main ----
+  if git rev-parse --verify -q "$main_branch" >/dev/null 2>&1; then
+    if ! git merge-base --is-ancestor "$local_sha" "$main_branch" 2>/dev/null; then
+      echo ""
+      echo "==================================================================="
+      echo " ❌ 分支 '$branch' 尚未合并进 '$main_branch'，禁止推送。"
+      echo "==================================================================="
+      echo ""
+      echo " 本仓库宪章要求：改动必须先合并回主分支才能对外发布。"
+      echo ""
+      echo " 正确流程："
+      echo "   git switch $main_branch"
+      echo "   git merge --no-ff $branch"
+      echo "   git branch -d $branch"
+      echo "   git push origin $branch    # 推送合并后的主分支"
+      echo ""
+      exit 1
+    fi
+  fi
+done
+
+exit 0

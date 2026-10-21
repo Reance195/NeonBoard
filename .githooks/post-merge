@@ -1,0 +1,24 @@
+#!/bin/sh
+# ============================================================
+# NeonBoard 仓库钩子 —— post-merge
+# 作用：合并完成后提示清理已合并的临时分支
+# ============================================================
+
+current_branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo "")
+
+merged=$(git for-each-ref --merged HEAD --format='%(refname:short)' refs/heads 2>/dev/null | \
+        grep -v "^$current_branch$" | \
+        grep -vE '^(main|master|develop)$' || true)
+
+if [ -n "$merged" ]; then
+  echo ""
+  echo " ✅ 合并完成，当前分支：$current_branch"
+  echo ""
+  echo " 以下本地分支已合并，可安全删除："
+  echo "$merged" | while read -r b; do
+    echo "   git branch -d $b"
+  done
+  echo ""
+fi
+
+exit 0

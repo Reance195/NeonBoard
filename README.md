@@ -12,6 +12,8 @@
 - 删除后 5 秒内可撤销，或按 `Ctrl+Z`
 - 卡片拖拽跨列移动（落到目标列末尾）
 - 无边框窗口、自绘标题栏、霓虹 Shader 背景、玻璃卡片
+- 外观面板：6 套主题预设（霓虹青 / 赛博紫 / 落日橙 / 深海蓝 / 森野绿 / 极夜灰），切换即全应用（含霓虹背景）渐变
+- 画质三档（低 / 中 / 高）控制背景特效密度与刷新率，另有「减弱动效」开关
 - 启动 Splash，主界面加载期间先显示品牌启动图
 - 系统托盘、全局热键、开机自启、单实例、窗口位置记忆
 - 运行时 QML 插件：权限清单、独立存储、宿主任务 API
@@ -97,23 +99,33 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
 
 ```text
 --selftest   数据库增删改查自检
---smoke      启动 4 秒后输出指标并退出
+--smoke      启动 4 秒后输出指标并退出（不占用单实例锁）
+--benchload [minimal|controls|button]
+             分档加载探针界面，量化启动各段开销
 --settings   启动后打开设置
 --plugins    启动后打开插件面板
 --newtask    启动后聚焦快速添加
 --autostart  静默启动到托盘
 ```
 
+环境变量：
+
+```text
+NEONBOARD_NO_BG=1   关闭动态霓虹背景（低配 / 排障）
+```
+
 ## 项目结构
 
 ```text
-src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主
+src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置
 qml/                 QML：主界面、霓虹背景
+  theme/             主题与动效单例（Theme / Motion）
+  components/        卡片、看板列、统计芯片、窗口按钮、外观面板
 shaders/             GLSL Shader
 plugins-samples/     示例插件
 installer/           Inno Setup 脚本
 scripts/             构建部署脚本
-docs/                截图与插件文档
+docs/                截图、迭代路线图与插件文档
 ```
 
 ## 插件
@@ -129,7 +141,7 @@ docs/                截图与插件文档
 
 ## 已知限制
 
-- 主界面加载受系统负载影响，约 2–7 秒；Splash 会先显示
+- 首次运行受磁盘与页缓存影响，主界面加载约 5–9 秒；之后热启动稳定在 1.2–1.4 秒。Splash 会先显示
 - 拖拽跨列时落到目标列末尾，不做列内精确插位
 - 安装包未签名，Windows SmartScreen 可能提示
 - 未实现 JSON 导入导出、命令面板、插件热重载

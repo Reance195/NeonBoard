@@ -31,6 +31,7 @@ qt_add_executable(NeonBoard
     src/PluginContext.h src/PluginContext.cpp
     src/PluginEventBus.h src/PluginEventBus.cpp
     src/PluginRuntime.h src/PluginRuntime.cpp
+    src/HookEventQueue.h src/HookEventQueue.cpp
     resources/neonboard.rc
 )
 

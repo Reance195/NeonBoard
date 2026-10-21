@@ -1,5 +1,6 @@
 #include "AppPaths.h"
 #include "Database.h"
+#include "HookEventQueue.h"
 #include "Hotkey.h"
 #include "Metrics.h"
 #include "PluginEventBus.h"
@@ -90,8 +91,11 @@ int main(int argc, char *argv[])
     const bool smokeMode = arguments.contains(QStringLiteral("--smoke"));
     const bool syncMode = arguments.contains(QStringLiteral("--sync-roadmap"))
         || arguments.contains(QStringLiteral("--export-roadmap"));
-    // 诊断模式（自检 / 冒烟 / 路线图同步）不受单实例限制，方便应用已在运行时做性能采样
-    const bool utilityMode = arguments.contains(QStringLiteral("--selftest")) || smokeMode || syncMode;
+    // 诊断模式（自检 / 冒烟 / 路线图同步 / 钩子投递）不受单实例限制，
+    // 方便应用已在运行时做性能采样或由 Git 钩子投递事件
+    const bool utilityMode = arguments.contains(QStringLiteral("--selftest")) || smokeMode || syncMode
+        || arguments.contains(QStringLiteral("--emit-hook"))
+        || arguments.contains(QStringLiteral("--emit-hook-file"));
     std::unique_ptr<SingleInstance> singleInstance;
     if (!utilityMode) {
         singleInstance = std::make_unique<SingleInstance>(AppPaths::singleInstanceKey());
@@ -176,6 +180,37 @@ int main(int argc, char *argv[])
     doingModel.setStatus(QStringLiteral("doing"));
     doneModel.setStatus(QStringLiteral("done"));
 
+    // 钩子事件投递：--emit-hook <text> / --emit-hook-file <path>
+    // 只把提交信息写进事件队列，不在这里执行规则 —— 规则由主进程里的插件执行。
+    // 走 utilityMode：应用正在运行时也能投递。
+    const int emitHookIndex = arguments.indexOf(QStringLiteral("--emit-hook"));
+    const int emitHookFileIndex = arguments.indexOf(QStringLiteral("--emit-hook-file"));
+    if (emitHookIndex >= 0 || emitHookFileIndex >= 0) {
+        QString payloadText;
+        if (emitHookFileIndex >= 0 && emitHookFileIndex + 1 < arguments.size()) {
+            QFile payloadFile(arguments.at(emitHookFileIndex + 1));
+            if (payloadFile.open(QIODevice::ReadOnly | QIODevice::Text))
+                payloadText = QString::fromUtf8(payloadFile.readAll());
+            else
+                qWarning().noquote() << "EMIT-HOOK cannot read" << arguments.at(emitHookFileIndex + 1);
+        } else if (emitHookIndex >= 0 && emitHookIndex + 1 < arguments.size()) {
+            payloadText = arguments.at(emitHookIndex + 1);
+        }
+        if (payloadText.trimmed().isEmpty()) {
+            qWarning() << "EMIT-HOOK empty payload";
+            return 2;
+        }
+        HookEventQueue emitQueue(AppPaths::hookDbPath());
+        QString emitError;
+        const bool emitted = emitQueue.open(&emitError)
+            && emitQueue.enqueue(QStringLiteral("hook.commit"),
+                                  {{QStringLiteral("text"), payloadText},
+                                   {QStringLiteral("ts"), QDateTime::currentMSecsSinceEpoch()}},
+                                  &emitError);
+        qInfo().noquote() << "EMIT-HOOK" << (emitted ? "OK" : "FAIL") << emitError;
+        return emitted ? 0 : 2;
+    }
+
     if (arguments.contains(QStringLiteral("--selftest"))) {
         const QString id = taskStore.addTask(QStringLiteral("selftest"), QStringLiteral("todo"), 2, QStringLiteral("test"), 0);
         const QVariantMap created = taskStore.taskById(id);
@@ -239,6 +274,14 @@ int main(int argc, char *argv[])
     PluginEventBus pluginEventBus;
     PluginRuntime pluginRuntime(&pluginLoader, &pluginEventBus, &database, &taskStore, &tray);
     PluginHost pluginHost(&pluginRuntime);
+
+    // 钩子事件队列：与看板库物理隔离，主进程轮询消费后转成插件事件
+    HookEventQueue hookQueue(AppPaths::hookDbPath());
+    QString hookQueueError;
+    if (!hookQueue.open(&hookQueueError))
+        qWarning().noquote() << "HookEventQueue: open failed" << hookQueueError;
+    else
+        hookQueue.setEventBus(&pluginEventBus);
 
     if (singleInstance) {
         QObject::connect(singleInstance.get(), &SingleInstance::showRequested,
@@ -308,6 +351,8 @@ int main(int argc, char *argv[])
         return 0;
     }
     pluginRuntime.start();
+    // 后台插件就绪后再开始消费事件队列：启动时攒下的事件会被这一轮补投递
+    hookQueue.start(1000);
     splashStage(0.86, QStringLiteral("LINKING MODULES"), 60);
     if (engine.rootObjects().isEmpty()) {
         if (splash)

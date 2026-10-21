@@ -14,6 +14,8 @@ public:
     static QString pluginDir();
     // 日志文件路径
     static QString logFilePath();
+    // 钩子事件队列数据库路径（与看板库物理隔离）
+    static QString hookDbPath();
     // 单实例本地服务器 key，NEONBOARD_INSTANCE 可加后缀实现多实例共存
     static QString singleInstanceKey();
     // 当前是否处于沙箱隔离状态

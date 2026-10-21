@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     按仓库宪章执行「拉分支 → 改动提交 → 合并回主分支」的收尾动作：
-      1. 校验工作区干净、无未推送提交
+      1. 校验工作区干净
       2. 切回主分支
       3. 以 --no-ff 方式合并功能分支（保留分支痕迹，便于回溯）
       4. 删除已合并的本地功能分支
@@ -24,12 +24,13 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Invoke-Git {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-    $out = & git @Args 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "git $($Args -join ' ') 执行失败：`n$($out -join "`n")"
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$GitArgs)
+    $output = & git @GitArgs 2>&1
+    $code = $LASTEXITCODE
+    if ($code -ne 0) {
+        throw ("git {0} 执行失败（退出码 {1}）：`n{2}" -f ($GitArgs -join ' '), $code, ($output -join "`n"))
     }
-    return $out
+    return $output
 }
 
 $repoRoot = (Invoke-Git rev-parse --show-toplevel).Trim()
@@ -37,11 +38,11 @@ Set-Location -LiteralPath $repoRoot
 Write-Host "仓库根目录：$repoRoot" -ForegroundColor DarkGray
 
 # ---- 1. 校验工作区 ----
-$status = (Invoke-Git status --porcelain)
+$status = Invoke-Git status --porcelain
 if ($status) {
     Write-Host "`n❌ 工作区存在未提交改动，请先提交或暂存：" -ForegroundColor Red
     $status | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow }
-    Write-Host "`n参考：git add -A; git commit -m \"feat(scope): 说明\"`n"
+    Write-Host "`n参考：git add -A ; git commit -m 'feat(scope): 说明'`n" -ForegroundColor Yellow
     exit 1
 }
 
@@ -54,7 +55,7 @@ if ($Branch -eq $MainBranch) {
     exit 1
 }
 
-Invoke-Git rev-parse --verify -q $Branch | Out-Null
+& git rev-parse --verify -q $Branch | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "`n❌ 分支 '$Branch' 不存在。" -ForegroundColor Red
     exit 1
@@ -70,7 +71,7 @@ try {
 } catch {
     Write-Host "`n❌ 合并失败，可能存在冲突：" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Yellow
-    Write-Host "`n解决冲突后执行：git add -A; git commit; git branch -d $Branch`n" -ForegroundColor Yellow
+    Write-Host "`n解决冲突后执行：git add -A ; git commit ; git branch -d $Branch`n" -ForegroundColor Yellow
     exit 1
 }
 

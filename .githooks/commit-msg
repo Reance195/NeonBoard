@@ -8,7 +8,7 @@
 #   subject：中文简述，不超过 50 字
 # ============================================================
 
-allowed_types="feat fix chore docs refactor perf test build ci style revert"
+allowed_types="feat fix chore docs refactor perf test build ci style revert merge"
 
 message_file="$1"
 if [ -z "$message_file" ] || [ ! -f "$message_file" ]; then
@@ -16,6 +16,14 @@ if [ -z "$message_file" ] || [ ! -f "$message_file" ]; then
 fi
 
 first_line=$(sed -n '1p' "$message_file" | tr -d '\r')
+
+# 合并进行中：放行 Git 自动生成的默认合并信息（如 "Merge branch 'x' into main"）
+git_dir=$(git rev-parse --git-dir)
+if [ -f "$git_dir/MERGE_HEAD" ]; then
+  case "$first_line" in
+    Merge\ *|merge:*|Merge\ pull*) exit 0 ;;
+  esac
+fi
 
 # 跳过注释行与空信息
 if [ -z "$first_line" ]; then

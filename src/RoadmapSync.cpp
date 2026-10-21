@@ -10,9 +10,12 @@
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QList>
 #include <QSaveFile>
 #include <QSettings>
 #include <QVariantMap>
+
+#include <algorithm>
 
 namespace {
 
@@ -291,6 +294,24 @@ bool RoadmapSync::exportTo(const QString &filePath)
     int conflicts = 0;
     QStringList seen;
 
+    // 导出条目按「列内顺序」排列（待办 → 进行中 → 已办结，列内按 order_key 升序），
+    // 保证同一份看板数据每次导出得到完全一致的文本，避免无意义的 git diff。
+    struct SnapshotEntry {
+        QString status;
+        qint64 orderKey = 0;
+        QString id;
+        QJsonObject object;
+    };
+    QList<SnapshotEntry> entries;
+    const auto appendEntry = [&entries](const QString &status, qint64 orderKey, const QString &id, const QJsonObject &object) {
+        SnapshotEntry entry;
+        entry.status = status;
+        entry.orderKey = orderKey;
+        entry.id = id;
+        entry.object = object;
+        entries.append(entry);
+    };
+
     const QVariantList tasks = m_tasks->allTasks();
     for (const QVariant &value : tasks) {
         const QVariantMap task = value.toMap();
@@ -323,7 +344,9 @@ bool RoadmapSync::exportTo(const QString &filePath)
             ++conflicts;
         }
 
-        items.append(item);
+        appendEntry(item.value(QStringLiteral("status")).toString(),
+                    item.value(QStringLiteral("orderKey")).toInteger(),
+                    id, item);
         next.insert(id, item);
     }
 
@@ -336,9 +359,35 @@ bool RoadmapSync::exportTo(const QString &filePath)
             continue;
         item[QStringLiteral("deleted")] = true;
         item[QStringLiteral("updatedAt")] = QDateTime::currentSecsSinceEpoch();
-        items.append(item);
+        appendEntry(item.value(QStringLiteral("status")).toString(),
+                    item.value(QStringLiteral("orderKey")).toInteger(),
+                    it.key(), item);
         next.insert(it.key(), item);
     }
+
+    // 列顺序：待办 → 进行中 → 已办结，其余按名称
+    const auto statusRank = [](const QString &status) {
+        if (status == QStringLiteral("todo"))
+            return 0;
+        if (status == QStringLiteral("doing"))
+            return 1;
+        if (status == QStringLiteral("done"))
+            return 2;
+        return 3;
+    };
+    std::sort(entries.begin(), entries.end(), [&statusRank](const SnapshotEntry &left, const SnapshotEntry &right) {
+        const int leftRank = statusRank(left.status);
+        const int rightRank = statusRank(right.status);
+        if (leftRank != rightRank)
+            return leftRank < rightRank;
+        if (left.status != right.status)
+            return left.status < right.status;
+        if (left.orderKey != right.orderKey)
+            return left.orderKey < right.orderKey;
+        return left.id < right.id;
+    });
+    for (const SnapshotEntry &entry : entries)
+        items.append(entry.object);
 
     QJsonObject out;
     out[QStringLiteral("version")] = kSnapshotVersion;

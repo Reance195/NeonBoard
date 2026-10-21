@@ -140,6 +140,7 @@ plugins-samples/     示例插件
 installer/           Inno Setup 脚本
 scripts/             构建部署脚本
 docs/                截图、迭代路线图与插件文档
+docs/themes/         6 套主题预设实机截图
 ```
 
 ## 插件

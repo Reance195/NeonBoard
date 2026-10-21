@@ -180,14 +180,14 @@ Rectangle {
             width: 22
             height: 22
             radius: 6
-            color: Qt.rgba(0.12, 0.35, 0.70, 0.55)
+            color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.24)
             border.width: 1
             border.color: Qt.rgba(0.35, 0.70, 1.00, 0.35)
 
             Text {
                 anchors.centerIn: parent
                 text: "▶"
-                color: "#8FD3FF"
+                color: Theme.cyan
                 font.pixelSize: 10
                 font.bold: true
             }
@@ -203,14 +203,14 @@ Rectangle {
             width: 22
             height: 22
             radius: 6
-            color: Qt.rgba(0.10, 0.50, 0.45, 0.55)
+            color: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.24)
             border.width: 1
             border.color: Qt.rgba(0.30, 0.95, 0.80, 0.35)
 
             Text {
                 anchors.centerIn: parent
                 text: card.taskStatus === "done" ? "↩" : "✓"
-                color: "#7CFFE8"
+                color: Theme.success
                 font.pixelSize: 12
                 font.bold: true
             }
@@ -227,14 +227,14 @@ Rectangle {
             width: 22
             height: 22
             radius: 6
-            color: Qt.rgba(0.55, 0.10, 0.22, 0.55)
+            color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.24)
             border.width: 1
             border.color: Qt.rgba(1.00, 0.35, 0.55, 0.35)
 
             Text {
                 anchors.centerIn: parent
                 text: "✕"
-                color: "#FF8FB0"
+                color: Theme.danger
                 font.pixelSize: 11
                 font.bold: true
             }

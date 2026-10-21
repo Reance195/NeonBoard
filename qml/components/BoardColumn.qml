@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 // 看板单列：标题 + 任务列表 + 快速添加。
@@ -27,7 +28,7 @@ Rectangle {
 
     Layout.fillWidth: true
     Layout.fillHeight: true
-    Layout.minimumWidth: 200
+    Layout.minimumWidth: 150
     Layout.preferredWidth: 340
     radius: 16
     color: Theme.panel

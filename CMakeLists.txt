@@ -25,6 +25,7 @@ qt_add_executable(NeonBoard
     src/TaskFilterModel.h src/TaskFilterModel.cpp
     src/SingleInstance.h src/SingleInstance.cpp
     src/SplashWindow.h src/SplashWindow.cpp
+    src/UiSettings.h src/UiSettings.cpp
     resources/neonboard.rc
 )
 

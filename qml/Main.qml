@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -12,7 +12,7 @@ ApplicationWindow {
     minimumHeight: 600
     visible: false
     title: "NeonBoard"
-    color: "#05060A"
+    color: Theme.bg
     flags: Qt.FramelessWindowHint | Qt.Window | Qt.NoDropShadowWindowHint
 
     onClosing: function(close) {
@@ -164,7 +164,7 @@ ApplicationWindow {
 
             Rectangle {
                 anchors.fill: parent
-                color: Qt.rgba(0.015, 0.030, 0.060, 0.28)
+                color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.28)
             }
         }
 
@@ -248,9 +248,10 @@ MouseArea {
             spacing: 0
 
             Rectangle {
-                Layout.preferredWidth: 220
+                // 窄屏时侧栏按比例收缩，保证三列看板不被挤出可视区
+                Layout.preferredWidth: Math.min(220, Math.max(170, window.width * 0.24))
                 Layout.fillHeight: true
-                color: Qt.rgba(0.020, 0.040, 0.080, 0.62)
+                color: Theme.panel
                 border.width: 0
 
                 ColumnLayout {
@@ -282,7 +283,7 @@ MouseArea {
                             height: 34
                             radius: 8
                             color: index === 0
-                                   ? Qt.rgba(0.10, 0.60, 0.70, 0.16)
+                                   ? Theme.accentSoft
                                    : (navMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04)
                                                              : "transparent")
                             border.width: index === 0 ? 1 : 0
@@ -318,9 +319,9 @@ MouseArea {
                         Layout.fillWidth: true
                         height: 158
                         radius: 12
-                        color: Qt.rgba(0.030, 0.060, 0.110, 0.62)
+                        color: Theme.panel
                         border.width: 1
-                        border.color: Qt.rgba(0.45, 0.80, 1.00, 0.12)
+                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.12)
 
                         ColumnLayout {
                             anchors.fill: parent
@@ -466,9 +467,9 @@ MouseArea {
                         Layout.preferredWidth: 340
                         height: 34
                         radius: 8
-                        color: Qt.rgba(0.020, 0.040, 0.080, 0.70)
+                        color: Theme.input
                         border.width: 1
-                        border.color: Qt.rgba(0.45, 0.80, 1.00, 0.18)
+                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.18)
 
                         TextField {
                             id: searchField
@@ -559,7 +560,7 @@ MouseArea {
             width: Math.min(380, parent.width - 48)
             height: Math.min(420, parent.height - 140)
             radius: 14
-            color: Qt.rgba(0.025, 0.050, 0.090, 0.94)
+            color: Theme.panelSolid
             border.width: 1
             border.color: Theme.border
             z: 100
@@ -681,7 +682,7 @@ MouseArea {
                 height: 400
                 anchors.centerIn: parent
                 radius: 16
-                color: Qt.rgba(0.030, 0.060, 0.110, 0.96)
+                color: Theme.panelSolid
                 border.width: 1
                 border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.35)
 
@@ -938,9 +939,9 @@ MouseArea {
             width: undoLabel.implicitWidth + 96
             height: 38
             radius: 10
-            color: "#101B2E"
+            color: Theme.elevated
             border.width: 1
-            border.color: Qt.rgba(0.40, 0.90, 1.00, 0.30)
+            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.30)
             z: 300
 
             Text {
@@ -960,8 +961,8 @@ MouseArea {
                 anchors.right: parent.right
                 anchors.rightMargin: 7
                 anchors.verticalCenter: parent.verticalCenter
-                color: undoMouse.containsMouse ? Qt.rgba(0.13, 0.75, 0.85, 0.35)
-                                               : Qt.rgba(0.10, 0.45, 0.55, 0.25)
+                color: undoMouse.containsMouse ? Theme.accentSoft
+                                               : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.25)
 
                 Text {
                     anchors.centerIn: parent
@@ -1015,10 +1016,10 @@ MouseArea {
         }
 
         background: Rectangle {
-            color: "#0A1220"
+            color: Theme.panelSolid
             radius: 16
             border.width: 1
-            border.color: Qt.rgba(0.40, 0.85, 1.00, 0.32)
+            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
         }
 
         contentItem: ColumnLayout {
@@ -1039,10 +1040,10 @@ MouseArea {
                 color: Theme.text
                 font.pixelSize: 14
                 background: Rectangle {
-                    color: "#111B2E"
+                    color: Theme.elevated
                     radius: 8
                     border.width: 1
-                    border.color: Qt.rgba(0.45, 0.80, 1.00, 0.20)
+                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
                 }
             }
 
@@ -1056,10 +1057,10 @@ MouseArea {
                 font.pixelSize: 12
                 wrapMode: TextArea.Wrap
                 background: Rectangle {
-                    color: "#111B2E"
+                    color: Theme.elevated
                     radius: 8
                     border.width: 1
-                    border.color: Qt.rgba(0.45, 0.80, 1.00, 0.20)
+                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
                 }
             }
 
@@ -1076,12 +1077,12 @@ MouseArea {
                             height: 32
                             radius: 8
                             color: editor.priorityValue === index + 1
-                                   ? Qt.rgba(0.13, 0.55, 0.65, 0.48)
-                                   : Qt.rgba(0.03, 0.08, 0.14, 0.80)
+                                   ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.48)
+                                   : Theme.input
                             border.width: 1
                             border.color: editor.priorityValue === index + 1
                                           ? Theme.cyan
-                                          : Qt.rgba(0.45, 0.80, 1.00, 0.16)
+                                          : Theme.border
 
                             Text {
                                 anchors.centerIn: parent
@@ -1107,10 +1108,10 @@ MouseArea {
                     color: Theme.text
                     font.pixelSize: 12
                     background: Rectangle {
-                        color: "#111B2E"
+                        color: Theme.elevated
                         radius: 8
                         border.width: 1
-                        border.color: Qt.rgba(0.45, 0.80, 1.00, 0.20)
+                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
                     }
                 }
             }
@@ -1177,9 +1178,9 @@ MouseArea {
         width: Math.min(320, dragGhostText.implicitWidth + 40)
         height: 54
         radius: 12
-        color: Qt.rgba(0.060, 0.120, 0.220, 0.96)
+        color: Theme.ghost
         border.width: 1
-        border.color: Qt.rgba(0.34, 0.90, 1.00, 0.75)
+        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.75)
         z: 300
         x: window.dragX - width / 2
         y: window.dragY - height / 2

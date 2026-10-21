@@ -80,75 +80,123 @@ P2 炫酷生态
 
 ## 3. P0 炫酷地基
 
-### 3.1 启动性能：9696 ms → < 1500 ms
+### 3.1 启动性能：先纠正认知，再谈优化（R0 已实测）
 
-现状证据：主界面右上角自带指标 `启动 9696 ms · 56 fps · 209 MB`。
+> **状态：已完成诊断，结论已修正。** 原判断「冷启动 9.7 s 是设计缺陷」**不成立**——它是**首次运行 / 冷页缓存**的一次性成本。
+
+R0 诊断手段（已落地的工具，保留复用）：
+
+| 手段 | 位置 | 作用 |
+| --- | --- | --- |
+| 分段打点 | `src/main.cpp` 的 `BOOT db / engine / qml / loaded / attached / shown` + 新增 `BOOT firstframe` | 定位每一段耗时 |
+| `--smoke` 旁路单实例 | `src/main.cpp` | 诊断标志在应用运行时也可用（原先被 `QLocalServer` 锁挡掉） |
+| `--benchload [minimal\|controls\|button]` | `src/main.cpp` | 分档加载探针 QML，量化各部分开销 |
+| `NEONBOARD_NO_BG=1` | `src/main.cpp` → `Main.qml` | A/B 关掉动态背景，区分「背景 shader」与「其余」 |
+| `UiSettings` | `src/UiSettings.{h,cpp}` | 外观/画质持久化（QML 侧 `QtCore` 的 `Settings` 在本机不可用） |
+
+实测结论（2026-10-21，Release 构建）：
+
+| 场景 | 结果 |
+| --- | --- |
+| 首次运行（全新用户，磁盘/页缓存全冷） | `BOOT loaded` 4.8 s，`BOOT shown` 5.9 s，指标 6841 ms |
+| 热启动（连续 5 次） | **1.23 – 1.39 s 稳定**，fps 60.0，内存 199–204 MB |
+| 瓶颈段 | `engine → loaded`（QML 树构建）**0.80 – 0.94 s**，是最大头 |
+| `--benchload` | 最小 QML 仅 112–166 ms（含 Qt Quick 初始化 + 图形设备创建）；`import QtQuick.Controls` 仅多 ~50 ms |
+| 背景 shader | **不是**启动瓶颈（关掉后启动耗时无明显变化），但它是 fps 指标的来源 |
+
+剩余可做（优先级从高到低）：
 
 | 子项 | 做法 | 预期 |
 | --- | --- | --- |
-| 分段打点 | 扩展 `src/Metrics.cpp`：进程启动 → DB 打开 → QML 引擎 → 首帧 → Shader 就绪，逐段计时写日志 | 找出 9.7 s 花在哪 |
-| QML 预编译 | `qt_add_qml_module` 已有，确认为 Release 下 qmlcachegen 生效；拆分后用 QML Modules 拆分缓存 | 数百 ms |
-| 数据库 | `Database.cpp` 目前在 UI 线程同步建表/迁移，改为独立线程 + 延后首帧 | 数百 ms |
-| Shader | `.qsb` 首次编译 + 运行时链接；预热到 Splash 阶段，窗口显示前完成 | 可能秒级 |
-| 插件 | `PluginLoader` 扫描目录在主线程，改为后台扫描，首帧后再注入侧栏 | 数百 ms |
-| 字体 | `Cascadia Code` 缺失时的回退字体加载可能阻塞首帧 | 数百 ms |
+| QML 树瘦身 | 面板类（设置 / 插件 / 编辑弹窗）改 `Loader` 按需加载；组件已拆出，可再下沉 | 200–400 ms |
+| 数据库 | `Database.cpp` 在 UI 线程同步建表/迁移，改为独立线程 + 延后首帧 | 数十 ms |
+| 插件扫描 | `PluginLoader` 扫描目录在主线程，改为后台扫描，首帧后再注入侧栏 | 数十 ms |
+| 字体 | `Cascadia Code` 缺失时的回退字体加载可能阻塞首帧 | 数十 ms |
+| Shader 预热 | `.qsb` 首次链接可在 Splash 阶段预热（当前冷态 BOOT shown 比热态多 1–2 s） | 可能秒级 |
 
-**验收**：Splash 期间完成所有预热；冷启动 <1.5 s，热启动 <0.8 s；指标面板保留可见（这本身也是炫酷元素）。
+**验收**：热启动 < 1.5 s（**已达成：1.23–1.39 s**）；首次运行 < 3 s（待优化）；指标面板保留可见（这本身也是炫酷元素）。
 
-### 3.2 帧率与画质分级
+### 3.2 帧率与画质分级（已落地三档）
 
-- 新增 `quality` 设置：`ultra / high / medium / low / off`，控制 Shader 分辨率倍率、粒子数、模糊与辉光。
+**已实现**：
+
+- `quality` 三档（低 / 中 / 高），由外观面板直接切换，持久化在 `UiSettings`。
+- Shader 分支：`shaders/neon.frag` 新增 `uQuality`，低档跳过星星与扫描线，高档额外叠加颗粒。
+- 低档时 `NeonBackground` 的推进间隔从 16 ms 放宽到 33 ms（≈30 fps），明显省电。
+- 窗口失焦 / 最小化时暂停背景动画（`active: window.active`）。
+
+**剩余**：
+
+- 背景改用 `FrameAnimation`（Qt 6.4+）或 `QQuickWindow::beforeRendering` 推进 `iTime`，替掉 `NeonBackground.qml` 里的 16 ms `Timer`（定时器抖动 + 常驻 CPU）。
 - Shader 降采样：低档用 0.5 倍渲染纹理再放大（`ShaderEffect.sourceSize`）。
-- 窗口失焦 / 最小化时暂停背景动画（现在只判断 `visible`）。
-- 背景改用 `FrameAnimation`（Qt 6.4+）或 `QQuickWindow::beforeRendering` 推进 `iTime`，替掉 `NeonBackground.qml:15-20` 的 16 ms `Timer`（定时器抖动 + 常驻 CPU）。
-- 辉光用 `MultiEffect`（Qt 6.5+）按需启用：仅 hover/激活卡片开 `layer.enabled`，避免每张卡都做全屏模糊。
+- 辉光用 `MultiEffect` 按需启用：仅 hover/激活卡片开 `layer.enabled`，避免每张卡都做全屏模糊。
+- 主题与画质解耦：主题包（`theme.json`）可自带推荐画质档。
 
-**验收**：1920×1080 常态 60 fps；动画期间无掉帧；`medium` 档在集显上 ≥50 fps；`off` 档纯 CPU 占用 <3%。
+**验收**：1920×1080 常态 60 fps（**已达成：热启动 fps 60.0**）；动画期间无掉帧；低档在集显上 ≥50 fps；纯 CPU 占用 <3%。
 
-### 3.3 动效基线与组件拆分（结构先于堆料）
+### 3.3 动效基线与组件拆分（结构先于堆料）—— **已完成**
 
-当前 `qml/Main.qml` 单文件 1604 行 / 53 KB，TaskCard 是内联 `component`（`Main.qml:223`），颜色硬编码在 `Main.qml:147-155`。**继续加动效必须先拆**，否则 3000 行后无法维护。
+原状：`qml/Main.qml` 单文件 1604 行 / 53 KB，TaskCard 是内联 `component`，颜色硬编码在一处。
 
-目标结构：
+**实际落地结构**（`Main.qml` 1605 → 约 1180 行）：
 
 ```text
 qml/
-  Main.qml            窗口骨架、布局、路由
-  theme/Theme.qml     单例（QML Singleton），颜色/字体/动效时长/缓动曲线
+  Main.qml                 窗口骨架、布局、路由、拖拽协调（约 1180 行）
+  NeonBackground.qml       霓虹 ShaderEffect 背景（主题色驱动）
+  theme/
+    Theme.qml              单例：颜色令牌 + 6 套预设 + 换色过渡 + 画质档
+    Motion.qml             单例：动效时长/缓动令牌 + 减弱动效开关
   components/
-    TaskCard.qml      卡片（拆分自 Main.qml:223）
-    TaskColumn.qml    列容器 + 拖放目标
-    StatChip.qml      顶部统计芯片
-    Sidebar.qml / PluginPanel.qml / SearchBar.qml / AddField.qml
-    DragGhost.qml     拖拽幽灵（拆分自 Main.qml:1564）
-  effects/
-    Glow.qml          MultiEffect 封装（辉光/阴影）
-    Particles.qml     粒子封装
+    TaskCard.qml           卡片（进场淡入 / hover 浮起 / 按下微沉 / 动作渐显）
+    BoardColumn.qml        列容器 + 快速添加 + 空态
+    StatChip.qml           顶部统计芯片
+    WinButton.qml          窗口按钮
+    ThemePicker.qml        外观面板（预设 / 画质 / 减弱动效，MultiEffect 投影）
 ```
 
-**动效基线（全局统一，Theme 暴露时长与曲线）**：
+**约定（继续沿用）**：
 
-| 场景 | 表现 | 时长 |
-| --- | --- | --- |
-| 卡片 hover | 抬升 4px + 边框辉光 + 极轻微 3D 倾斜（≤3°，跟随鼠标） | 160 ms / OutCubic |
-| 卡片按下 | 缩放 0.985 + 辉光收拢 | 90 ms |
-| 拖起 | 卡片放大 1.04、阴影加深、轻微倾斜、光轨拖尾 | 120 ms |
-| 拖入目标列 | 目标列边框呼吸 + 插入位置虚线 | 持续 |
-| 落位 | 涟漪扩散 + 卡片弹性落位 | 220 ms |
-| 勾选完成 | 光扫过卡片 → 粒子迸发 → 卡片吸入“已办结”列 | 320 ms |
-| 删除 | RGB 分离故障 → 溶解（undo 出现时反向播放） | 260 ms |
-| 撤销 | 卡片从右侧滑回 + 一次高亮扫描 | 240 ms |
-| 新增任务 | 卡片从输入框方向飞入 + 描边点亮 | 240 ms |
-| 逾期 | 红色呼吸描边（周期 2 s，低频，不刺眼） | 循环 |
-| 统计变化 | 数字滚动 + 芯片闪光 | 200 ms |
+- 组件只从 `Theme.qml` 取色，禁止再写死颜色常量；已对 `Main.qml` / `TaskCard` / `WinButton` 做全量令牌化。
+- 组件只引用 `Motion.qml` 的时长，禁止魔法数字。
+- 组件对外只发信号（`editRequested` / `dragStarted` …），不直接调 `window.*`；坐标换算用注入的 `dragSpace` 属性。
 
-### 3.4 主题引擎 v1
+**动效基线（已实现的先落地，其余按序补）**：
 
-- `Theme.qml` 单例：bg / text / muted / accent / 三列主色 / border / panel / card / 阴影 / 动效时长。
-- 预设主题：**Cyberpunk**（现状）、**Synthwave**（品红+橙）、**Matrix**（绿单色）、**Ice**（青蓝高对比）、**Blood**（红黑）、**高对比**（无障碍）。
+| 场景 | 表现 | 时长 | 状态 |
+| --- | --- | --- | --- |
+| 卡片进场 | 淡入 | 260 ms | ✅ |
+| 卡片 hover | 浮起 1.012 + 描边辉光 | 150 ms | ✅ |
+| 卡片按下 | 缩放 0.985 | 90 ms | ✅ |
+| 动作按钮 | 悬停渐显 | 150 ms | ✅ |
+| 主题切换 | 全应用（含背景 shader）颜色渐变 | 260 ms | ✅ |
+| 外观面板 | 缩放淡入 + 逐行错峰渐入 | 240 ms | ✅ |
+| 拖起 | 卡片放大 1.04、阴影加深、倾斜、光轨拖尾 | 120 ms | ⬜ |
+| 拖入目标列 | 目标列边框呼吸 + 插入位置虚线 | 持续 | ⬜ |
+| 落位 | 涟漪扩散 + 卡片弹性落位 | 220 ms | ⬜ |
+| 勾选完成 | 光扫过卡片 → 粒子迸发 → 吸入“已办结” | 320 ms | ⬜ |
+| 删除 | RGB 分离故障 → 溶解（撤销反向播放） | 260 ms | ⬜ |
+| 撤销 | 卡片从右侧滑回 + 高亮扫描 | 240 ms | ⬜ |
+| 新增任务 | 从输入框方向飞入 + 描边点亮 | 240 ms | ⬜ |
+| 逾期 | 红色呼吸描边（周期 2 s） | 循环 | ⬜ |
+| 统计变化 | 数字滚动 + 芯片闪光 | 200 ms | ⬜ |
+
+### 3.4 主题引擎 v1 —— **已完成**
+
+**实际实现**：
+
+- `qml/theme/Theme.qml`（QML Singleton）：颜色令牌（bg / text / muted / cyan / magenta / violet / success / warning / danger + 派生的 border / panel / card / input / accentSoft / elevated / ghost 等），每个令牌带 `Behavior on color`，切换时**全应用渐变**。
+- `qml/theme/Motion.qml`（QML Singleton）：动效时长与缓动令牌 + 减弱动效开关。
+- **6 套预设**（实际名称）：霓虹青（默认）/ 赛博紫 / 落日橙 / 深海蓝 / 森野绿 / 极夜灰。每套含 bg / text / muted / 三主色 / 成功 / 警告 / 危险色。
+- **背景联动**：`shaders/neon.frag` 新增 `uBase / uPrimary / uSecondary / uAccent / uQuality` uniform，霓虹背景随主题一起渐变（这是「炫酷」的关键一环）。
+- **入口**：标题栏右侧三色圆点按钮 → 外观面板（预设列表 + 画质三档 + 减弱动效），`MultiEffect` 真投影 + 逐行错峰渐入。
+- **持久化**：C++ 侧 `src/UiSettings.{h,cpp}`（QSettings，`appearance/` 段）。**注意**：QML 侧 `import QtCore` 的 `Settings` 在本机不可用（`QtCore` 是磁盘动态插件且无 CMake 目标），故走 C++ 上下文属性 `uiSettings`。
+- **颜色令牌化**：`Main.qml` / `TaskCard` / `WinButton` 中所有硬编码 rgba 与字面色值已全部替换为 `Theme.*` 令牌，主题切换时全应用一致生效。
+
+**剩余**：
+
 - 强调色可单独覆盖（设置页取色器），标题栏、芯片、插件面板、Shader 辉光联动。
-- 持久化：`QSettings`（已有）或 `meta` 表。
-- 主题切换 <100 ms，无重启。
+- 主题切换 <100 ms（当前 260 ms 渐变，可再压）。
 - 预留 `theme.json` 供 P1 主题包与插件贡献。
 
 ## 4. P0.5 日常底座（功能）
@@ -203,21 +251,32 @@ qml/
 
 ## 9. 里程碑
 
-| 版本 | 主题 | 内容 | 出口标准 |
-| --- | --- | --- | --- |
-| **R0** | 炫酷地基 | 启动性能剖析与优化、动效基线、组件拆分、Theme 单例、主题引擎 v1 | 冷启动 <1.5 s；hover/落位/完成三组动效上线；主题可热切 |
-| **R1** | 日常底座 | 提醒 + 逾期、重复任务（RRULE）、子任务、导入导出 + 备份、快速录入解析、命令面板、列内插位、通用撤销 | 一周日常使用零遗漏；数据可导出可还原 |
-| **R2** | 记忆点 | Shader 场景化、专注模式、统计可视化、主题包、卡片详情、拖拽手感升级 | 截图能直接当壁纸；动效全链路顺滑 |
-| **R3** | 生态 | 插件平台 2.0、番茄钟/日历/笔记官方插件、动态托盘与窗口辉光、启动序列、音效 | 插件改一行即生效；主程序零改动可扩展 |
+| 版本 | 主题 | 内容 | 出口标准 | 进度 |
+| --- | --- | --- | --- | --- |
+| **R0** | 炫酷地基 | 启动性能剖析与优化、动效基线、组件拆分、Theme 单例、主题引擎 v1 | 热启动 <1.5 s；主题可热切；hover/进场/面板动效上线 | 主题引擎 + 组件拆分 + 画质分档 **已完成**；启动优化 **已诊断、待瘦身**；落位/完成特效 **待补** |
+| **R1** | 日常底座 | 提醒 + 逾期、重复任务（RRULE）、子任务、导入导出 + 备份、快速录入解析、命令面板、列内插位、通用撤销 | 一周日常使用零遗漏；数据可导出可还原 | 未开始 |
+| **R2** | 记忆点 | Shader 场景化、专注模式、统计可视化、主题包、卡片详情、拖拽手感升级 | 截图能直接当壁纸；动效全链路顺滑 | 未开始 |
+| **R3** | 生态 | 插件平台 2.0、番茄钟/日历/笔记官方插件、动态托盘与窗口辉光、启动序列、音效 | 插件改一行即生效；主程序零改动可扩展 | 未开始 |
 
 ## 10. 验收指标（“炫酷”可量化）
 
-| 指标 | 目标 |
-| --- | --- |
-| 冷启动到首帧可交互 | < 1.5 s |
-| 常态帧率 | 60 fps @1080p；动画期间不跌帧 |
-| 主题切换 | < 100 ms，无需重启 |
-| 反馈延迟 | 任何点击到视觉反馈 < 100 ms；动效 ≤ 250 ms（完成特效 ≤ 320 ms） |
-| 破坏性操作 | 必有动效 + 5 s 内可撤销 |
-| 空闲资源 | 最小化后台 CPU < 1% |
-| 截图门槛 | 任意一屏截图可直接发布（无占位、无错位、无模糊） |
+| 指标 | 目标 | 当前实测 |
+| --- | --- | --- |
+| 启动到首帧可交互 | 热启动 < 1.5 s；首次运行 < 3 s | 热启动 **1.23 – 1.39 s** ✅；首次运行 5 – 9 s ⬜（冷页缓存，R0 待优化） |
+| 常态帧率 | 60 fps @1080p；动画期间不掉帧 | **60.0 fps** ✅（热启动） |
+| 主题切换 | < 100 ms，无需重启 | 260 ms 渐变，**无需重启 ✅**、时长待压 ⬜ |
+| 反馈延迟 | 任何点击到视觉反馈 < 100 ms；动效 ≤ 250 ms（完成特效 ≤ 320 ms） | hover/按下/面板 均 ≤ 260 ms ✅ |
+| 破坏性操作 | 必有动效 + 5 s 内可撤销 | 撤销已实现（Ctrl+Z + Toast），**动效待补** ⬜ |
+| 空闲资源 | 最小化后台 CPU < 1% | 未测 ⬜ |
+| 内存 | 常驻 < 250 MB | 199 – 230 MB ✅ |
+| 截图门槛 | 任意一屏截图可直接发布（无占位、无错位、无模糊） | 外观面板/赛博紫主题截图已验证 ✅ |
+
+### 诊断命令速查
+
+```powershell
+# 启动性能打点（日志：%APPDATA%\com.lin\NeonBoard\neonboard.log）
+$env:QT_LOGGING_RULES = "qt.qml.import.debug=true"   # 仅排查 QML 类型解析时启用
+build\Release\NeonBoard.exe --smoke                  # 旁路单实例的冒烟模式
+build\Release\NeonBoard.exe --benchload controls     # 分档加载耗时
+$env:NEONBOARD_NO_BG = "1"; build\Release\NeonBoard.exe   # 关闭动态背景做 A/B
+```

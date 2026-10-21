@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 
 // 统计小挂件：侧栏/标题区的数字徽标，带发光描边。
 Rectangle {

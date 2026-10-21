@@ -1,7 +1,6 @@
 pragma Singleton
 
 import QtQuick
-import QtCore
 
 // 主题引擎 v1：颜色令牌 + 预设切换 + 换色过渡动画。
 // 全应用只从这里取色（Theme.xxx），组件不允许再写死颜色常量。
@@ -99,6 +98,8 @@ QtObject {
 
     property int presetIndex: 0
     property string presetKey: "neon"
+    // 启动阶段不做换色动画，避免首帧闪一下默认配色
+    property bool initializing: true
 
     // ================= 画质档位 =================
     // 0 低（省电） / 1 中（默认） / 2 高（全特效）
@@ -117,15 +118,15 @@ QtObject {
     property color danger: "#FB7185"
 
     // 换色动画：所有令牌同时渐变，主题切换 <100ms 内可感知但不刺眼
-    Behavior on bg { ColorAnimation { duration: Motion.theme; easing.type: Easing.InOutSine } }
-    Behavior on text { ColorAnimation { duration: Motion.theme; easing.type: Easing.InOutSine } }
-    Behavior on muted { ColorAnimation { duration: Motion.theme; easing.type: Easing.InOutSine } }
-    Behavior on cyan { ColorAnimation { duration: Motion.theme; easing.type: Easing.InOutSine } }
-    Behavior on magenta { ColorAnimation { duration: Motion.theme; easing.type: Easing.InOutSine } }
-    Behavior on violet { ColorAnimation { duration: Motion.theme; easing.type: Easing.InOutSine } }
-    Behavior on success { ColorAnimation { duration: Motion.theme; easing.type: Easing.InOutSine } }
-    Behavior on warning { ColorAnimation { duration: Motion.theme; easing.type: Easing.InOutSine } }
-    Behavior on danger { ColorAnimation { duration: Motion.theme; easing.type: Easing.InOutSine } }
+    Behavior on bg { ColorAnimation { duration: root.initializing ? 0 : Motion.theme; easing.type: Easing.InOutSine } }
+    Behavior on text { ColorAnimation { duration: root.initializing ? 0 : Motion.theme; easing.type: Easing.InOutSine } }
+    Behavior on muted { ColorAnimation { duration: root.initializing ? 0 : Motion.theme; easing.type: Easing.InOutSine } }
+    Behavior on cyan { ColorAnimation { duration: root.initializing ? 0 : Motion.theme; easing.type: Easing.InOutSine } }
+    Behavior on magenta { ColorAnimation { duration: root.initializing ? 0 : Motion.theme; easing.type: Easing.InOutSine } }
+    Behavior on violet { ColorAnimation { duration: root.initializing ? 0 : Motion.theme; easing.type: Easing.InOutSine } }
+    Behavior on success { ColorAnimation { duration: root.initializing ? 0 : Motion.theme; easing.type: Easing.InOutSine } }
+    Behavior on warning { ColorAnimation { duration: root.initializing ? 0 : Motion.theme; easing.type: Easing.InOutSine } }
+    Behavior on danger { ColorAnimation { duration: root.initializing ? 0 : Motion.theme; easing.type: Easing.InOutSine } }
 
     // 由主色派生的半透明层级（跟随 bg 与 cyan 自动变化）
     readonly property color border: Qt.rgba(cyan.r, cyan.g, cyan.b, 0.16)
@@ -135,6 +136,8 @@ QtObject {
     readonly property color card: Qt.rgba(bg.r + 0.020, bg.g + 0.048, bg.b + 0.092, 0.72)
     readonly property color cardHover: Qt.rgba(bg.r + 0.050, bg.g + 0.098, bg.b + 0.180, 0.82)
     readonly property color input: Qt.rgba(bg.r + 0.010, bg.g + 0.030, bg.b + 0.060, 0.70)
+    readonly property color elevated: Qt.rgba(bg.r + 0.055, bg.g + 0.105, bg.b + 0.190, 0.96)
+    readonly property color ghost: Qt.rgba(bg.r + 0.040, bg.g + 0.096, bg.b + 0.181, 0.96)
     readonly property color glow: Qt.rgba(cyan.r, cyan.g, cyan.b, 0.35)
     readonly property color accentSoft: Qt.rgba(cyan.r, cyan.g, cyan.b, 0.16)
 
@@ -144,19 +147,19 @@ QtObject {
     readonly property color accent3: violet
 
     // ================= 持久化 =================
-    Settings {
-        id: settings
-        category: "appearance"
-        property string preset: "neon"
-        property int qualityLevel: 1
+    onPresetKeyChanged: {
+        if (uiSettings.themePreset !== presetKey)
+            uiSettings.themePreset = presetKey
+    }
+    onQualityChanged: {
+        if (uiSettings.quality !== quality)
+            uiSettings.quality = quality
     }
 
-    onPresetKeyChanged: settings.preset = presetKey
-    onQualityChanged: settings.qualityLevel = quality
-
     Component.onCompleted: {
-        applyPresetByKey(settings.preset, false)
-        quality = settings.qualityLevel
+        applyPresetByKey(uiSettings.themePreset, false)
+        quality = uiSettings.quality
+        initializing = false
     }
 
     // ================= 对外接口 =================

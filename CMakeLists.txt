@@ -55,6 +55,18 @@ qt_policy(SET QTP0001 NEW)
 set_source_files_properties(qml/theme/Theme.qml qml/theme/Motion.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
+# QML 文件统一别名到模块根：否则文件位于模块子目录时，引擎的隐式导入解析为「所在目录」，
+# 导致同模块的文件型类型（组件）不可见，单例却能解析。
+set_source_files_properties(qml/Main.qml PROPERTIES QT_RESOURCE_ALIAS "Main.qml")
+set_source_files_properties(qml/NeonBackground.qml PROPERTIES QT_RESOURCE_ALIAS "NeonBackground.qml")
+set_source_files_properties(qml/theme/Theme.qml PROPERTIES QT_RESOURCE_ALIAS "Theme.qml")
+set_source_files_properties(qml/theme/Motion.qml PROPERTIES QT_RESOURCE_ALIAS "Motion.qml")
+set_source_files_properties(qml/components/WinButton.qml PROPERTIES QT_RESOURCE_ALIAS "WinButton.qml")
+set_source_files_properties(qml/components/StatChip.qml PROPERTIES QT_RESOURCE_ALIAS "StatChip.qml")
+set_source_files_properties(qml/components/TaskCard.qml PROPERTIES QT_RESOURCE_ALIAS "TaskCard.qml")
+set_source_files_properties(qml/components/BoardColumn.qml PROPERTIES QT_RESOURCE_ALIAS "BoardColumn.qml")
+set_source_files_properties(qml/components/ThemePicker.qml PROPERTIES QT_RESOURCE_ALIAS "ThemePicker.qml")
+
 qt_add_qml_module(NeonBoard
     URI NeonBoard
     VERSION 1.0

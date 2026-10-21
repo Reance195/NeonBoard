@@ -91,7 +91,7 @@
             "deleted": false,
             "dueAt": 1793721600,
             "id": "abfe0b9c-6ac6-4df8-8bd5-c8071888ae6c",
-            "note": "拖放可落列内指定位置；撤销从单一删除扩展到通用操作栈。",
+            "note": "已完成列内精确插位（R1-1）：TaskModel.moveTaskBefore(id, status, beforeId) 按目标卡片 id 精确插入，拖拽时显示霓虹插入指示线；快照按列内顺序导出以消除无意义 diff。通用撤销（R1-5）待做。",
             "orderKey": 6144,
             "priority": 2,
             "stage": "R1",
@@ -100,7 +100,7 @@
                 "R1"
             ],
             "title": "R1 列内插位 + 通用撤销",
-            "updatedAt": 1792568900
+            "updatedAt": 1792595167
         },
         {
             "completedAt": 0,
@@ -661,4 +661,3 @@
     "updated": "2026-10-21T22:58:41",
     "version": 2
 }
-

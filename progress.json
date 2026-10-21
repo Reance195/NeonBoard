@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "updated": "2026-10-21",
+  "items": [
+    {
+      "id": "r0-roadmap-board",
+      "title": "路线图进度上板：里程碑可视化",
+      "status": "doing",
+      "priority": 3,
+      "tags": [
+        "R0",
+        "路线图",
+        "roadmap"
+      ],
+      "due": "2026-10-23",
+      "note": "把 docs/iteration-roadmap.md 的 R0-R3 与子项落成任务卡片，进度在看板上直接可见。"
+    },
+    {
+      "id": "r0-motion-polish",
+      "title": "R0 收尾：落位涟漪 / 勾选光扫 / 删除故障",
+      "status": "doing",
+      "priority": 2,
+      "tags": [
+        "R0",
+        "炫酷",
+        "roadmap"
+      ],
+      "due": "2026-10-25",
+      "note": "动效基线表里未打勾的炫酷项：卡片落位弹性涟漪、完成光扫+粒子、删除 RGB 分离故障、拖入目标列边框呼吸。"
+    },
+    {
+      "id": "r1-reminders",
+      "title": "R1 提醒 + 逾期提醒",
+      "status": "todo",
+      "priority": 3,
+      "tags": [
+        "R1",
+        "roadmap"
+      ],
+      "due": "2026-10-27",
+      "note": "remind_at + notified_at 防重复；托盘气泡 + 窗口边缘辉光；启动补发漏提醒。"
+    },
+    {
+      "id": "r1-rrule",
+      "title": "R1 重复任务（RFC 5545 RRULE）",
+      "status": "todo",
+      "priority": 2,
+      "tags": [
+        "R1",
+        "roadmap"
+      ],
+      "due": "2026-10-29",
+      "note": "存标准 RRULE 字符串，不自造格式，便于日后导出 ICS / 对接 CalDAV。"
+    },
+    {
+      "id": "r1-subtasks",
+      "title": "R1 子任务 + 卡片霓虹进度环",
+      "status": "todo",
+      "priority": 2,
+      "tags": [
+        "R1",
+        "roadmap"
+      ],
+      "due": "2026-10-31",
+      "note": "parent_id 自关联复用 Task 结构；卡片显示进度环。"
+    },
+    {
+      "id": "r1-import-export",
+      "title": "R1 导入导出 + 自动备份",
+      "status": "todo",
+      "priority": 2,
+      "tags": [
+        "R1",
+        "roadmap"
+      ],
+      "due": "2026-11-02",
+      "note": "JSON/CSV 导出、导入时支持列映射；每日自动备份到应用数据目录。"
+    },
+    {
+      "id": "r1-command-palette",
+      "title": "R1 命令面板（Ctrl+K）",
+      "status": "todo",
+      "priority": 1,
+      "tags": [
+        "R1",
+        "roadmap"
+      ],
+      "due": "2026-11-04",
+      "note": "模糊搜索任务与命令，支持键盘流操作。"
+    },
+    {
+      "id": "r1-insert-undo",
+      "title": "R1 列内插位 + 通用撤销",
+      "status": "todo",
+      "priority": 2,
+      "tags": [
+        "R1",
+        "roadmap"
+      ],
+      "due": "2026-11-04",
+      "note": "拖放可落列内指定位置；撤销从单一删除扩展到通用操作栈。"
+    },
+    {
+      "id": "r2-focus-stats",
+      "title": "R2 专注模式 + 统计可视化",
+      "status": "todo",
+      "priority": 1,
+      "tags": [
+        "R2",
+        "roadmap"
+      ],
+      "due": "2026-11-11",
+      "note": "全屏专注计时视图；任务完成率/时长图表。"
+    },
+    {
+      "id": "r2-shader-scenes",
+      "title": "R2 Shader 场景化 + 主题包",
+      "status": "todo",
+      "priority": 1,
+      "tags": [
+        "R2",
+        "roadmap"
+      ],
+      "due": "2026-11-14",
+      "note": "按场景切换背景（专注/待办/空闲）；theme.json 主题包，预留插件贡献。"
+    },
+    {
+      "id": "r3-plugin-platform",
+      "title": "R3 插件平台 2.0",
+      "status": "todo",
+      "priority": 1,
+      "tags": [
+        "R3",
+        "roadmap"
+      ],
+      "due": "2026-11-25",
+      "note": "热重载、设置页、命令注册、多槽位、沙箱与权限提示。"
+    },
+    {
+      "id": "r0-theme-engine",
+      "title": "主题引擎 v1：6 套预设 + 换色渐变",
+      "status": "done",
+      "priority": 3,
+      "tags": [
+        "R0",
+        "主题",
+        "roadmap"
+      ],
+      "due": "",
+      "note": "Theme/Motion 双单例；霓虹青/赛博紫/落日橙/深海蓝/森野绿/极夜灰；全应用含霓虹背景一起渐变。持久化走 C++ UiSettings。"
+    },
+    {
+      "id": "r0-component-split",
+      "title": "组件拆分：Main.qml 1605 → 1180 行",
+      "status": "done",
+      "priority": 2,
+      "tags": [
+        "R0",
+        "重构",
+        "roadmap"
+      ],
+      "due": "",
+      "note": "抽出 qml/components/{TaskCard,BoardColumn,StatChip,WinButton,ThemePicker}.qml；跨组件只发信号，坐标靠 dragSpace 注入。"
+    },
+    {
+      "id": "r0-theme-picker",
+      "title": "外观面板：主题/画质/减弱动效",
+      "status": "done",
+      "priority": 3,
+      "tags": [
+        "R0",
+        "主题",
+        "roadmap"
+      ],
+      "due": "",
+      "note": "标题栏三色圆点入口，MultiEffect 真投影；6 预设行错峰渐入；画质低中高三档；减弱动效开关。"
+    },
+    {
+      "id": "r0-neon-theme-link",
+      "title": "霓虹背景联动主题色 + 画质分档",
+      "status": "done",
+      "priority": 2,
+      "tags": [
+        "R0",
+        "炫酷",
+        "roadmap"
+      ],
+      "due": "",
+      "note": "shader 新增 uBase/uPrimary/uSecondary/uAccent/uQuality；低档跳星星扫描线并降频 33ms。"
+    },
+    {
+      "id": "r0-startup-profile",
+      "title": "启动性能剖析：定位真实瓶颈",
+      "status": "done",
+      "priority": 3,
+      "tags": [
+        "R0",
+        "性能",
+        "roadmap"
+      ],
+      "due": "",
+      "note": "新增 --benchload / --smoke 旁路 / BOOT firstframe 打点 / NEONBOARD_NO_BG。结论：热启动 1.23-1.39s、60fps；瓶颈是 QML 树构建 0.8-0.94s，背景 shader 非瓶颈。"
+    },
+    {
+      "id": "r0-color-tokens",
+      "title": "颜色令牌化：零硬编码",
+      "status": "done",
+      "priority": 2,
+      "tags": [
+        "R0",
+        "重构",
+        "roadmap"
+      ],
+      "due": "",
+      "note": "Main.qml 与所有组件的硬编码 rgba/色值全部换成 Theme 令牌，主题切换全应用生效。"
+    },
+    {
+      "id": "r0-portable-build",
+      "title": "便携版打包 + 实跑验证",
+      "status": "done",
+      "priority": 1,
+      "tags": [
+        "R0",
+        "发布",
+        "roadmap"
+      ],
+      "due": "",
+      "note": "scripts/deploy.ps1 产出 dist/NeonBoard（1331 文件 93.8MB），实跑零 QML 报错；--selftest 退出码 0。"
+    }
+  ]
+}

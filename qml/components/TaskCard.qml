@@ -1,7 +1,7 @@
 import QtQuick
 
 // 任务卡片：看板三列的最小信息单元。
-// 交互基线：悬停浮起 + 描边发光，按下微沉，动作按钮渐显，进场淡入。
+// 动效链：进场滑入 → 悬停浮起 → 按下微沉 → 拖起放大 → 勾选光扫 → 删除故障 → 撤销滑回。
 Rectangle {
     id: card
 
@@ -14,6 +14,21 @@ Rectangle {
 
     // 拖拽坐标基准（由外部注入主内容区域）
     property Item dragSpace: null
+
+    // 逾期：due 形如 "MM-dd"，同年按字典序比较即可
+    readonly property bool overdue: {
+        if (due.length !== 5)
+            return false
+        var now = new Date()
+        var today = ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2)
+        return due < today
+    }
+
+    // 内部状态
+    property bool busy: false        // 正在播放完成/删除动效，屏蔽重复点击
+    property bool glitching: false
+    property real offsetX: 0         // 进场位移 / 故障抖动用
+    property real overduePulse: 0
 
     signal editRequested()
     signal completeRequested()
@@ -28,9 +43,16 @@ Rectangle {
     radius: 12
     color: cardMouse.containsMouse ? Theme.cardHover : Theme.card
     border.width: 1
-    border.color: cardMouse.containsMouse ? Theme.borderStrong : Theme.border
-    scale: cardMouse.pressed ? 0.985 : (cardMouse.containsMouse ? 1.012 : 1.0)
+    border.color: {
+        if (card.glitching)
+            return Theme.danger
+        if (card.overdue)
+            return Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.25 + 0.45 * card.overduePulse)
+        return cardMouse.containsMouse ? Theme.borderStrong : Theme.border
+    }
+    scale: cardMouse.pressed ? 0.985 : (cardMouse.dragging ? 1.04 : (cardMouse.containsMouse ? 1.012 : 1.0))
     opacity: 0
+    clip: true
 
     Behavior on scale {
         NumberAnimation { duration: Motion.fast; easing.type: Easing.OutCubic }
@@ -47,6 +69,24 @@ Rectangle {
 
     Component.onCompleted: opacity = 1
 
+    // 进场：从右侧滑入并淡入（新建与撤销恢复共用）
+    NumberAnimation on offsetX {
+        from: 26
+        to: 0
+        duration: Motion.enter
+        easing.type: Easing.OutCubic
+    }
+
+    // 逾期呼吸：低频、不刺眼
+    NumberAnimation on overduePulse {
+        running: card.overdue
+        loops: Animation.Infinite
+        from: 0
+        to: 1
+        duration: 1400
+        easing.type: Easing.InOutSine
+    }
+
     function priorityColor(p) {
         if (p >= 3)
             return Theme.magenta
@@ -55,68 +95,231 @@ Rectangle {
         return Theme.cyan
     }
 
-    // 优先级光条
-    Rectangle {
-        id: priorityBar
-        width: 3
-        height: parent.height - 18
-        radius: 2
-        anchors.left: parent.left
-        anchors.leftMargin: 9
-        anchors.verticalCenter: parent.verticalCenter
-        color: card.priorityColor(card.priority)
-        opacity: cardMouse.containsMouse ? 1.0 : 0.7
+    // ---------- 完成光扫 ----------
+    function playSweep() {
+        if (card.busy)
+            return
+        card.busy = true
+        sweepBand.sweepAnimation.restart()
+        sweepDelay.restart()
+    }
 
-        Behavior on opacity {
-            NumberAnimation { duration: Motion.fast }
+    Timer {
+        id: sweepDelay
+        interval: Motion.enter
+        onTriggered: {
+            card.busy = false
+            card.completeRequested()
         }
     }
 
-    Column {
-        anchors.left: priorityBar.right
-        anchors.leftMargin: 11
-        anchors.right: parent.right
-        anchors.rightMargin: 82
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 7
+    // ---------- 删除故障 ----------
+    function playGlitch() {
+        if (card.busy)
+            return
+        card.busy = true
+        card.glitching = true
+        glitchAnimation.restart()
+        glitchDelay.restart()
+    }
 
-        Text {
-            width: parent.width
-            text: card.title
-            color: Theme.text
-            font.pixelSize: 13
-            font.bold: true
-            elide: Text.ElideRight
+    SequentialAnimation {
+        id: glitchAnimation
+        NumberAnimation { target: card; property: "offsetX"; to: -5; duration: 32 }
+        NumberAnimation { target: card; property: "offsetX"; to: 5; duration: 32 }
+        NumberAnimation { target: card; property: "offsetX"; to: -3; duration: 32 }
+        NumberAnimation { target: card; property: "offsetX"; to: 0; duration: 42 }
+    }
+
+    Timer {
+        id: glitchDelay
+        interval: 220
+        onTriggered: {
+            card.glitching = false
+            card.busy = false
+            card.deleteRequested()
+        }
+    }
+
+    // 卡片内容（整体做位移，承载进场与故障抖动）
+    Item {
+        id: inner
+        anchors.fill: parent
+        x: card.offsetX
+
+        // 优先级光条
+        Rectangle {
+            id: priorityBar
+            width: 3
+            height: parent.height - 18
+            radius: 2
+            anchors.left: parent.left
+            anchors.leftMargin: 9
+            anchors.verticalCenter: parent.verticalCenter
+            color: card.priorityColor(card.priority)
+            opacity: cardMouse.containsMouse ? 1.0 : 0.7
+
+            Behavior on opacity {
+                NumberAnimation { duration: Motion.fast }
+            }
         }
 
-        Row {
-            spacing: 6
+        Column {
+            anchors.left: priorityBar.right
+            anchors.leftMargin: 11
+            anchors.right: parent.right
+            anchors.rightMargin: 82
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 7
 
-            Rectangle {
-                visible: card.tag.length > 0
-                height: 18
-                width: tagText.implicitWidth + 12
-                radius: 5
-                color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.16)
-                border.width: 1
-                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.30)
+            Text {
+                width: parent.width
+                text: card.title
+                color: Theme.text
+                font.pixelSize: 13
+                font.bold: true
+                elide: Text.ElideRight
+            }
+
+            Row {
+                spacing: 6
+
+                Rectangle {
+                    visible: card.tag.length > 0
+                    height: 18
+                    width: tagText.implicitWidth + 12
+                    radius: 5
+                    color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.16)
+                    border.width: 1
+                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.30)
+
+                    Text {
+                        id: tagText
+                        anchors.centerIn: parent
+                        text: card.tag
+                        color: Theme.cyan
+                        font.pixelSize: 10
+                    }
+                }
 
                 Text {
-                    id: tagText
-                    anchors.centerIn: parent
-                    text: card.tag
-                    color: Theme.cyan
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: card.due.length > 0
+                    text: card.due
+                    color: card.overdue ? Theme.danger : Theme.muted
                     font.pixelSize: 10
                 }
             }
+        }
 
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                visible: card.due.length > 0
-                text: card.due
-                color: Theme.muted
-                font.pixelSize: 10
+        // 快捷动作：悬停时渐显
+        Row {
+            id: actions
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: 8
+            spacing: 4
+            z: 3
+            opacity: cardMouse.containsMouse ? 1.0 : 0.0
+            visible: opacity > 0.01
+
+            Behavior on opacity {
+                NumberAnimation { duration: Motion.fast; easing.type: Easing.OutCubic }
             }
+
+            Rectangle {
+                visible: card.taskStatus === "todo"
+                width: 22
+                height: 22
+                radius: 6
+                color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.24)
+                border.width: 1
+                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.35)
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "▶"
+                    color: Theme.cyan
+                    font.pixelSize: 10
+                    font.bold: true
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: card.startRequested()
+                }
+            }
+
+            Rectangle {
+                width: 22
+                height: 22
+                radius: 6
+                color: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.24)
+                border.width: 1
+                border.color: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.35)
+
+                Text {
+                    anchors.centerIn: parent
+                    text: card.taskStatus === "done" ? "↩" : "✓"
+                    color: Theme.success
+                    font.pixelSize: 12
+                    font.bold: true
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: card.taskStatus === "done" ? card.restoreRequested()
+                                                         : card.playSweep()
+                }
+            }
+
+            Rectangle {
+                width: 22
+                height: 22
+                radius: 6
+                color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.24)
+                border.width: 1
+                border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.35)
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "✕"
+                    color: Theme.danger
+                    font.pixelSize: 11
+                    font.bold: true
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: card.playGlitch()
+                }
+            }
+        }
+    }
+
+    // 勾选光扫：一道光带掠过卡片
+    Rectangle {
+        id: sweepBand
+        width: card.width * 0.7
+        height: card.height * 1.8
+        rotation: 18
+        x: -card.width
+        opacity: 0
+        visible: opacity > 0.01
+        z: 4
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "transparent" }
+            GradientStop { position: 0.5; color: Theme.glow }
+            GradientStop { position: 1.0; color: "transparent" }
+        }
+
+        SequentialAnimation {
+            id: sweepAnimation
+            NumberAnimation { target: sweepBand; property: "x"; from: -sweepBand.width; to: card.width; duration: Motion.enter; easing.type: Easing.InOutSine }
+            NumberAnimation { target: sweepBand; property: "opacity"; from: 0.9; to: 0; duration: Motion.enter }
         }
     }
 
@@ -125,6 +328,7 @@ Rectangle {
         id: cardMouse
         anchors.fill: parent
         hoverEnabled: true
+        enabled: !card.busy
         cursorShape: dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
         onDoubleClicked: card.editRequested()
 
@@ -157,93 +361,6 @@ Rectangle {
                 card.dragEnded(p.x, p.y)
             }
             dragging = false
-        }
-    }
-
-    // 快捷动作：悬停时渐显，不再硬切
-    Row {
-        id: actions
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.margins: 8
-        spacing: 4
-        z: 3
-        opacity: cardMouse.containsMouse ? 1.0 : 0.0
-        visible: opacity > 0.01
-
-        Behavior on opacity {
-            NumberAnimation { duration: Motion.fast; easing.type: Easing.OutCubic }
-        }
-
-        Rectangle {
-            visible: card.taskStatus === "todo"
-            width: 22
-            height: 22
-            radius: 6
-            color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.24)
-            border.width: 1
-            border.color: Qt.rgba(0.35, 0.70, 1.00, 0.35)
-
-            Text {
-                anchors.centerIn: parent
-                text: "▶"
-                color: Theme.cyan
-                font.pixelSize: 10
-                font.bold: true
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: card.startRequested()
-            }
-        }
-
-        Rectangle {
-            width: 22
-            height: 22
-            radius: 6
-            color: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.24)
-            border.width: 1
-            border.color: Qt.rgba(0.30, 0.95, 0.80, 0.35)
-
-            Text {
-                anchors.centerIn: parent
-                text: card.taskStatus === "done" ? "↩" : "✓"
-                color: Theme.success
-                font.pixelSize: 12
-                font.bold: true
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: card.taskStatus === "done" ? card.restoreRequested()
-                                                     : card.completeRequested()
-            }
-        }
-
-        Rectangle {
-            width: 22
-            height: 22
-            radius: 6
-            color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.24)
-            border.width: 1
-            border.color: Qt.rgba(1.00, 0.35, 0.55, 0.35)
-
-            Text {
-                anchors.centerIn: parent
-                text: "✕"
-                color: Theme.danger
-                font.pixelSize: 11
-                font.bold: true
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: card.deleteRequested()
-            }
         }
     }
 }

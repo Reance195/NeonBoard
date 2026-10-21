@@ -1,4 +1,4 @@
-import QtQuick
+﻿import QtQuick
 import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -71,6 +71,21 @@ ApplicationWindow {
     property string dragTaskStatus: ""
     property real dragX: 0
     property real dragY: 0
+    // 当前悬停的目标列状态（todo/doing/done），用于目标列呼吸高亮
+    property string dragOverStatus: ""
+
+    // 命中测试：把 root 坐标换算成所在列
+    function columnAt(x, y) {
+        var columns = [todoColumn, doingColumn, doneColumn]
+        for (var i = 0; i < columns.length; ++i) {
+            var column = columns[i]
+            var origin = column.mapToItem(root, 0, 0)
+            if (x >= origin.x && x <= origin.x + column.width
+                    && y >= origin.y && y <= origin.y + column.height)
+                return column
+        }
+        return null
+    }
 
     function beginTaskDrag(id, title, status, x, y) {
         dragTaskId = id
@@ -78,12 +93,15 @@ ApplicationWindow {
         dragTaskStatus = status
         dragX = x
         dragY = y
+        dragOverStatus = status
         dragActive = true
     }
 
     function updateTaskDrag(x, y) {
         dragX = x
         dragY = y
+        var column = columnAt(x, y)
+        dragOverStatus = column ? column.status : ""
     }
 
     function endTaskDrag(x, y) {
@@ -91,18 +109,14 @@ ApplicationWindow {
             return
         dragX = x
         dragY = y
-        var columns = [todoColumn, doingColumn, doneColumn]
-        for (var i = 0; i < columns.length; ++i) {
-            var column = columns[i]
-            var origin = column.mapToItem(root, 0, 0)
-            if (x >= origin.x && x <= origin.x + column.width
-                    && y >= origin.y && y <= origin.y + column.height) {
-                if (column.status !== dragTaskStatus)
-                    taskStore.moveTask(dragTaskId, column.status, -1)
-                break
-            }
+        var column = columnAt(x, y)
+        if (column && column.status !== dragTaskStatus) {
+            taskStore.moveTask(dragTaskId, column.status, -1)
+            // 落位涟漪：让「卡片进了新列」这件事有明确的视觉回响
+            column.ripple()
         }
         dragActive = false
+        dragOverStatus = ""
         dragTaskId = ""
         dragTaskTitle = ""
         dragTaskStatus = ""
@@ -440,19 +454,19 @@ MouseArea {
 
                     StatChip {
                         label: "待办"
-                        value: todoModel.count.toString()
+                        value: todoModel.count
                         accent: Theme.cyan
                     }
 
                     StatChip {
                         label: "进行中"
-                        value: doingModel.count.toString()
+                        value: doingModel.count
                         accent: Theme.violet
                     }
 
                     StatChip {
                         label: "今日完成"
-                        value: taskStore.doneTodayCount.toString()
+                        value: taskStore.doneTodayCount
                         accent: Theme.magenta
                     }
                 }
@@ -510,11 +524,15 @@ MouseArea {
                         taskModel: todoModel
                         searchQuery: searchField.text
                         dragSpace: root
+                        dropTarget: window.dragOverStatus === status
                         onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
                         onStartRequested: function(taskId) { taskStore.moveTask(taskId, "doing", -1) }
                         onCompleteRequested: function(taskId) { taskStore.moveTask(taskId, "done", -1) }
                         onRestoreRequested: function(taskId) { taskStore.moveTask(taskId, "todo", -1) }
                         onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
+                        onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
+                        onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
+                        onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
                     }
 
                     BoardColumn {
@@ -525,11 +543,15 @@ MouseArea {
                         taskModel: doingModel
                         searchQuery: searchField.text
                         dragSpace: root
+                        dropTarget: window.dragOverStatus === status
                         onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
                         onStartRequested: function(taskId) { taskStore.moveTask(taskId, "doing", -1) }
                         onCompleteRequested: function(taskId) { taskStore.moveTask(taskId, "done", -1) }
                         onRestoreRequested: function(taskId) { taskStore.moveTask(taskId, "todo", -1) }
                         onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
+                        onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
+                        onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
+                        onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
                     }
 
                     BoardColumn {
@@ -540,11 +562,15 @@ MouseArea {
                         taskModel: doneModel
                         searchQuery: searchField.text
                         dragSpace: root
+                        dropTarget: window.dragOverStatus === status
                         onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
                         onStartRequested: function(taskId) { taskStore.moveTask(taskId, "doing", -1) }
                         onCompleteRequested: function(taskId) { taskStore.moveTask(taskId, "done", -1) }
                         onRestoreRequested: function(taskId) { taskStore.moveTask(taskId, "todo", -1) }
                         onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
+                        onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
+                        onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
+                        onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
                     }
                 }
             }
@@ -1184,6 +1210,22 @@ MouseArea {
         z: 300
         x: window.dragX - width / 2
         y: window.dragY - height / 2
+        // 拖起放大：从列表里被拎起来的一瞬间
+        scale: 1.04
+        transformOrigin: Item.Center
+
+        Behavior on scale {
+            NumberAnimation { duration: Motion.fast; easing.type: Easing.OutCubic }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: -2
+            radius: 14
+            color: "transparent"
+            border.width: 1
+            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.28)
+        }
 
         Text {
             id: dragGhostText

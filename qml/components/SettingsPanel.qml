@@ -8,6 +8,8 @@ import QtQuick.Layouts
 Rectangle {
     id: panel
 
+    signal openLibraryRequested()
+
     visible: false
     color: Qt.rgba(0.0, 0.0, 0.0, 0.45)
 
@@ -216,6 +218,68 @@ Rectangle {
                     id: rescanHint
                     Layout.fillWidth: true
                     text: "把插件目录放进上面的路径后点「重新扫描插件」"
+                    color: Theme.muted
+                    font.pixelSize: 9
+                    wrapMode: Text.WordWrap
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    spacing: 8
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 30
+                        radius: 8
+                        color: libraryArea.pressed ? Theme.elevated : Theme.card
+                        border.width: 1
+                        border.color: Theme.border
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "打开插件库"
+                            color: Theme.cyan
+                            font.pixelSize: 11
+                        }
+
+                        MouseArea {
+                            id: libraryArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: panel.openLibraryRequested()
+                        }
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "插件市场源"
+                    color: Theme.text
+                    font.pixelSize: 11
+                }
+
+                TextField {
+                    id: marketSourceField
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    text: pluginLibrary.marketSource
+                    color: Theme.text
+                    font.pixelSize: 10
+                    selectByMouse: true
+                    background: Rectangle {
+                        color: Theme.input
+                        radius: 6
+                        border.width: 1
+                        border.color: Theme.border
+                    }
+                    onEditingFinished: pluginLibrary.marketSource = text.trim()
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "在线市场地址（留空则只使用本地插件源）"
                     color: Theme.muted
                     font.pixelSize: 9
                     wrapMode: Text.WordWrap

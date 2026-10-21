@@ -5,7 +5,10 @@
 #include "Metrics.h"
 #include "PluginEventBus.h"
 #include "PluginHost.h"
+#include "PluginLibrary.h"
 #include "PluginLoader.h"
+#include "PluginMarket.h"
+#include "PluginPackage.h"
 #include "PluginRuntime.h"
 #include "RoadmapSync.h"
 #include "SingleInstance.h"
@@ -95,7 +98,11 @@ int main(int argc, char *argv[])
     // 方便应用已在运行时做性能采样或由 Git 钩子投递事件
     const bool utilityMode = arguments.contains(QStringLiteral("--selftest")) || smokeMode || syncMode
         || arguments.contains(QStringLiteral("--emit-hook"))
-        || arguments.contains(QStringLiteral("--emit-hook-file"));
+        || arguments.contains(QStringLiteral("--emit-hook-file"))
+        || arguments.contains(QStringLiteral("--install-plugin-file"))
+        || arguments.contains(QStringLiteral("--market-refresh"))
+        || arguments.contains(QStringLiteral("--market-source"))
+        || arguments.contains(QStringLiteral("--market-install"));
     std::unique_ptr<SingleInstance> singleInstance;
     if (!utilityMode) {
         singleInstance = std::make_unique<SingleInstance>(AppPaths::singleInstanceKey());
@@ -211,6 +218,31 @@ int main(int argc, char *argv[])
         return emitted ? 0 : 2;
     }
 
+    // 本地 .neon 插件包安装：--install-plugin-file <path>
+    // 供脚本化安装与自检使用；包格式见 docs/plugin-api.md
+    const int installPluginFileIndex = arguments.indexOf(QStringLiteral("--install-plugin-file"));
+    if (installPluginFileIndex >= 0) {
+        if (installPluginFileIndex + 1 >= arguments.size()) {
+            qWarning() << "INSTALL-PLUGIN missing package path";
+            return 2;
+        }
+        const QString packagePath = arguments.at(installPluginFileIndex + 1);
+        const QString pluginId = PluginPackage::neonPluginId(packagePath);
+        if (pluginId.isEmpty()) {
+            qWarning().noquote() << "INSTALL-PLUGIN invalid package" << packagePath;
+            return 2;
+        }
+        const QString targetDir = AppPaths::pluginDir() + QLatin1Char('/')
+            + PluginPackage::dirNameForId(pluginId);
+        QString installError;
+        if (!PluginPackage::installNeonFile(packagePath, targetDir, &installError)) {
+            qWarning().noquote() << "INSTALL-PLUGIN FAIL" << installError;
+            return 2;
+        }
+        qInfo().noquote() << "INSTALL-PLUGIN OK" << pluginId << targetDir;
+        return 0;
+    }
+
     if (arguments.contains(QStringLiteral("--selftest"))) {
         const QString id = taskStore.addTask(QStringLiteral("selftest"), QStringLiteral("todo"), 2, QStringLiteral("test"), 0);
         const QVariantMap created = taskStore.taskById(id);
@@ -274,6 +306,8 @@ int main(int argc, char *argv[])
     PluginEventBus pluginEventBus;
     PluginRuntime pluginRuntime(&pluginLoader, &pluginEventBus, &database, &taskStore, &tray);
     PluginHost pluginHost(&pluginRuntime);
+    PluginMarket pluginMarket;
+    PluginLibrary pluginLibrary(&pluginLoader, &pluginMarket, &pluginRuntime, &database);
 
     // 钩子事件队列：与看板库物理隔离，主进程轮询消费后转成插件事件
     HookEventQueue hookQueue(AppPaths::hookDbPath());
@@ -282,6 +316,50 @@ int main(int argc, char *argv[])
         qWarning().noquote() << "HookEventQueue: open failed" << hookQueueError;
     else
         hookQueue.setEventBus(&pluginEventBus);
+
+    // 插件市场命令行：--market-source <url> 设源；--market-refresh 拉索引；
+    // --market-install <id> 装插件。都走同步接口，方便脚本与无头环境验证。
+    const int marketSourceIndex = arguments.indexOf(QStringLiteral("--market-source"));
+    if (marketSourceIndex >= 0) {
+        const QString marketUrl = marketSourceIndex + 1 < arguments.size()
+            ? arguments.at(marketSourceIndex + 1) : QString();
+        if (marketUrl.trimmed().isEmpty()) {
+            qWarning() << "MARKET-SOURCE missing url";
+            return 2;
+        }
+        pluginLibrary.setMarketSource(marketUrl.trimmed());
+        qInfo().noquote() << "MARKET-SOURCE OK" << pluginLibrary.marketSource();
+        return 0;
+    }
+
+    if (arguments.contains(QStringLiteral("--market-refresh"))) {
+        QString marketError;
+        const bool refreshed = pluginLibrary.refreshMarketBlocking(10000, &marketError);
+        if (refreshed) {
+            qInfo().noquote() << "MARKET-REFRESH OK" << pluginMarket.entries().size()
+                              << pluginMarket.statusText();
+            return 0;
+        }
+        qWarning().noquote() << "MARKET-REFRESH FAIL" << marketError;
+        return 2;
+    }
+
+    const int marketInstallIndex = arguments.indexOf(QStringLiteral("--market-install"));
+    if (marketInstallIndex >= 0) {
+        const QString pluginId = marketInstallIndex + 1 < arguments.size()
+            ? arguments.at(marketInstallIndex + 1) : QString();
+        if (pluginId.isEmpty()) {
+            qWarning() << "MARKET-INSTALL missing plugin id";
+            return 2;
+        }
+        QString installError;
+        if (pluginLibrary.installBlocking(pluginId, &installError)) {
+            qInfo().noquote() << "MARKET-INSTALL OK" << pluginId;
+            return 0;
+        }
+        qWarning().noquote() << "MARKET-INSTALL FAIL" << installError;
+        return 2;
+    }
 
     if (singleInstance) {
         QObject::connect(singleInstance.get(), &SingleInstance::showRequested,
@@ -297,6 +375,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("pluginLoader"), &pluginLoader);
     engine.rootContext()->setContextProperty(QStringLiteral("pluginHost"), &pluginHost);
     engine.rootContext()->setContextProperty(QStringLiteral("pluginRuntime"), &pluginRuntime);
+    engine.rootContext()->setContextProperty(QStringLiteral("pluginMarket"), &pluginMarket);
+    engine.rootContext()->setContextProperty(QStringLiteral("pluginLibrary"), &pluginLibrary);
     engine.rootContext()->setContextProperty(QStringLiteral("database"), &database);
     engine.rootContext()->setContextProperty(QStringLiteral("taskStore"), &taskStore);
     engine.rootContext()->setContextProperty(QStringLiteral("todoModel"), &todoModel);
@@ -434,6 +514,11 @@ int main(int argc, char *argv[])
     if (app.arguments().contains(QStringLiteral("--appearance"))) {
         QTimer::singleShot(300, window, [window]() {
             QMetaObject::invokeMethod(window, "openAppearance");
+        });
+    }
+    if (app.arguments().contains(QStringLiteral("--library"))) {
+        QTimer::singleShot(300, window, [window]() {
+            QMetaObject::invokeMethod(window, "openPluginLibrary");
         });
     }
 

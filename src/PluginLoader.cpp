@@ -80,6 +80,7 @@ void PluginLoader::scan()
     QElapsedTimer scanTimer;
     scanTimer.start();
     m_plugins.clear();
+    m_candidates.clear();
     QSet<QString> seenIds;
 
     const QStringList disabledIds = readDisabledList();
@@ -203,12 +204,18 @@ void PluginLoader::scan()
                 plugin[QStringLiteral("error")] = QStringLiteral("插件已禁用");
             }
 
-            if (!id.isEmpty() && seenIds.contains(id))
+            const bool shadowed = !id.isEmpty() && seenIds.contains(id);
+            plugin[QStringLiteral("shadowed")] = shadowed;
+            if (shadowed) {
+                // 同 id 被前面的源覆盖：仍记进候选清单，插件库据此判断「可安装」
+                m_candidates.append(plugin);
                 continue;
+            }
             if (!id.isEmpty())
                 seenIds.insert(id);
 
             m_plugins.append(plugin);
+            m_candidates.append(plugin);
         }
     };
 

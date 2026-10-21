@@ -38,6 +38,7 @@ ApplicationWindow {
     // 设置 / 插件面板均按需加载：首次打开时才构造，避免首帧为低频界面付出代价
     property bool settingsPending: false
     property int pendingPluginIndex: -1
+    property bool libraryPending: false
 
     function openSettings() {
         show()
@@ -65,6 +66,31 @@ ApplicationWindow {
         raise()
         requestActivate()
         openPluginAt(0)
+    }
+
+    // 按插件 id 打开插件面板（插件库用）
+    function openPluginById(pluginId) {
+        var list = pluginLoader.plugins
+        for (var i = 0; i < list.length; ++i) {
+            if (list[i].id === pluginId) {
+                openPluginAt(i)
+                return true
+            }
+        }
+        return false
+    }
+
+    // 打开插件库
+    function openPluginLibrary() {
+        show()
+        raise()
+        requestActivate()
+        if (pluginLibraryLoader.item) {
+            pluginLibraryLoader.item.open()
+        } else {
+            libraryPending = true
+            pluginLibraryLoader.active = true
+        }
     }
 
     // 打开外观面板（供命令行 --appearance 诊断用）
@@ -384,7 +410,7 @@ MouseArea {
                                 hoverEnabled: true
                                 onClicked: {
                                     if (index === 1) {
-                                        window.openPlugins()
+                                        window.openPluginLibrary()
                                     } else if (index === 2) {
                                         window.openSettings()
                                     }
@@ -397,7 +423,7 @@ MouseArea {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        height: 158
+                        Layout.preferredHeight: 210
                         radius: 12
                         color: Theme.panel
                         border.width: 1
@@ -412,7 +438,7 @@ MouseArea {
                                 Layout.fillWidth: true
 
                                 Text {
-                                    text: "插件"
+                                    text: "插件库"
                                     color: Theme.text
                                     font.pixelSize: 11
                                     font.bold: true
@@ -421,52 +447,131 @@ MouseArea {
                                 Item { Layout.fillWidth: true }
 
                                 Text {
-                                    text: pluginLoader.plugins.length
+                                    text: pluginLibrary.entries.length
                                     color: Theme.muted
                                     font.pixelSize: 10
                                 }
                             }
 
-                            Repeater {
-                                model: pluginLoader.plugins
+                            ListView {
+                                id: libraryList
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                clip: true
+                                spacing: 2
+                                model: pluginLibrary.entries
 
                                 delegate: Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 30
+                                    width: libraryList.width
+                                    height: 24
                                     radius: 6
-                                    color: pluginMouse.containsMouse
+                                    color: libraryRowMouse.containsMouse
                                            ? Qt.rgba(1, 1, 1, 0.05)
                                            : "transparent"
 
                                     Text {
                                         anchors.left: parent.left
                                         anchors.leftMargin: 4
-                                        anchors.right: parent.right
+                                        anchors.right: libraryTag.left
                                         anchors.rightMargin: 4
                                         anchors.verticalCenter: parent.verticalCenter
                                         text: modelData.name
-                                        color: modelData.status === "ok" ? Theme.text : Theme.magenta
+                                        color: modelData.installed ? Theme.text : Theme.accent2
                                         font.pixelSize: 11
                                         elide: Text.ElideRight
                                     }
 
+                                    Text {
+                                        id: libraryTag
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 4
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: modelData.installed
+                                              ? (modelData.enabled ? "已装" : "禁用")
+                                              : "可装"
+                                        color: Theme.muted
+                                        font.pixelSize: 9
+                                    }
+
                                     MouseArea {
-                                        id: pluginMouse
+                                        id: libraryRowMouse
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         onClicked: {
-                                            if (modelData.status === "ok")
-                                                window.openPluginAt(index)
+                                            if (modelData.installed)
+                                                window.openPluginById(modelData.id)
+                                            else
+                                                pluginLibrary.install(modelData.id)
                                         }
                                     }
                                 }
                             }
 
                             Text {
-                                visible: pluginLoader.plugins.length === 0
-                                text: "未发现插件"
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: visible ? implicitHeight : 0
+                                visible: pluginLibrary.entries.length === 0
+                                text: "插件库为空"
                                 color: Theme.muted
                                 font.pixelSize: 10
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+
+                                Text {
+                                    text: "刷新市场"
+                                    color: marketBtnMouse.containsMouse ? Theme.cyan : Theme.muted
+                                    font.pixelSize: 9
+                                    MouseArea {
+                                        id: marketBtnMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: pluginMarket.refresh()
+                                    }
+                                }
+
+                                Text {
+                                    text: "重新扫描"
+                                    color: rescanBtnMouse.containsMouse ? Theme.cyan : Theme.muted
+                                    font.pixelSize: 9
+                                    MouseArea {
+                                        id: rescanBtnMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: {
+                                            pluginRuntime.reload()
+                                            pluginLibrary.refresh()
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    text: "打开目录"
+                                    color: dirBtnMouse.containsMouse ? Theme.cyan : Theme.muted
+                                    font.pixelSize: 9
+                                    MouseArea {
+                                        id: dirBtnMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: pluginLibrary.openPluginDir()
+                                    }
+                                }
+
+                                Item { Layout.fillWidth: true }
+
+                                Text {
+                                    text: "详情"
+                                    color: detailBtnMouse.containsMouse ? Theme.cyan : Theme.text
+                                    font.pixelSize: 9
+                                    MouseArea {
+                                        id: detailBtnMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: window.openPluginLibrary()
+                                    }
+                                }
                             }
                         }
                     }
@@ -677,6 +782,30 @@ MouseArea {
             }
         }
 
+        // 插件库面板：按需加载
+        Loader {
+            id: pluginLibraryLoader
+            anchors.fill: parent
+            active: false
+            source: "PluginLibraryPanel.qml"
+            z: 140
+
+            onLoaded: {
+                if (window.libraryPending) {
+                    window.libraryPending = false
+                    item.open()
+                }
+            }
+        }
+
+        // 插件库请求打开某个插件 → 转到插件面板
+        Connections {
+            target: pluginLibrary
+            function onOpenRequested(pluginId) {
+                window.openPluginById(pluginId)
+            }
+        }
+
         // 设置面板：按需加载
         Loader {
             id: settingsLoader
@@ -690,6 +819,9 @@ MouseArea {
                     window.settingsPending = false
                     item.open()
                 }
+                item.openLibraryRequested.connect(function() {
+                    window.openPluginLibrary()
+                })
             }
         }
 

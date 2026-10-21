@@ -1,0 +1,33 @@
+#!/bin/sh
+# ============================================================
+# NeonBoard 仓库宪章 · post-commit
+# 提交后若改动涉及 progress.json，把路线图快照同步进本地看板
+# （仓库 → 看板方向）。看板侧的改动由应用自动写回文件。
+#
+# 说明：
+# - 应用正在运行时不必插手：应用每 15 秒轮询一次文件变化，会自动拉取；
+# - 找不到可执行文件时静默跳过，绝不影响提交本身。
+# ============================================================
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)"
+[ -n "$root" ] || exit 0
+cd "$root" || exit 0
+
+changed="$(git show --name-only --format= HEAD 2>/dev/null | grep -x 'progress.json')"
+[ -n "$changed" ] || exit 0
+
+[ -f "$root/progress.json" ] || exit 0
+
+# 应用在运行就让应用自己轮询，避免两个进程同时写同一个 SQLite 库
+if tasklist /FI "IMAGENAME eq NeonBoard.exe" 2>/dev/null | grep -q "NeonBoard.exe"; then
+    exit 0
+fi
+
+for exe in "$root/build/Release/NeonBoard.exe" "$root/dist/NeonBoard/NeonBoard.exe"; do
+    if [ -f "$exe" ]; then
+        "$exe" --sync-roadmap "$root/progress.json" >/dev/null 2>&1 || true
+        break
+    fi
+done
+
+exit 0

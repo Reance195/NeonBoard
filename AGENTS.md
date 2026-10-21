@@ -225,3 +225,48 @@ $env:NEONBOARD_INSTANCE = "agent-a"
 - 数据层统一用 `NeonBoard.exe --selftest` 自检（utilityMode 跳过单实例限制）。
 - 构建：`cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64`，然后 `cmake --build build --config Release`。
 - 涉及界面的改动在沙箱目录里验收，不要污染真实数据。
+
+---
+
+## 八、计划钩子约定
+
+「提交信息里的 `#短号` → 任务自动流转」这条链路横跨 Git 钩子与插件两端，改动时必须守住下面的边界。
+
+### 8.1 职责分层
+
+| 层 | 位置 | 职责 | 不允许做 |
+| --- | --- | --- | --- |
+| 信号产生 | `.githooks/post-commit` | 从提交信息里挑出 `#短号`，投递事件 | 解析规则、直接改任务、阻塞提交 |
+| 事件队列 | `src/HookEventQueue` | 落 `hooks.db`，主进程轮询消费 | 执行规则 |
+| 规则执行 | `plugins/plan-hook/`（插件 QML） | 解析规则、匹配任务、调用 `moveTaskToEnd` | 直接写 SQL |
+| 任务读写 | `src/PluginContext` / `src/TaskModel` | 统一入口，内存与 DB 同步 | 绕过权限校验 |
+
+**规则只有一份，且只存在于插件 QML（`plugins/plan-hook/rules.js`）**。宿主 C++ 不读 `plan.rules`，也不做兜底解析 —— 否则会出现两套实现漂移。
+
+### 8.2 硬性约束
+
+1. `post-commit` 钩子**永远以 0 退出**：找不到 exe、投递失败、参数异常都不得中断提交。
+2. 事件队列走**独立库** `hooks.db`（`AppPaths::hookDbPath()`），不写 `board.db` —— 投递不得污染看板库，也不得触发模型重置打断用户拖拽。
+3. 规则与插件状态存在 `meta` 表（`plan.rules` / `plugins.disabled`），**不改 `board.db` 的 schema、不升 `user_version`**。
+4. 插件调用任务接口一律走 `pluginHost` 门面，权限按实例校验；后台插件用**子 QML 上下文**注入自己的门面，同名 `pluginHost` 遮蔽全局代理。
+5. `PluginContext::moveTask` 保持「插到目标列最前」的老语义（老插件零改动），追加末尾一律用新增的 `moveTaskToEnd`。
+6. 钩子文件（`.githooks/*`）必须是 **LF + 无 BOM**；改完用 `[System.IO.File]::ReadAllBytes` 校验。
+7. 改动 `.githooks/post-commit` 时注意它同时承担**路线图快照同步**（`--sync-roadmap`），不要覆盖掉那部分逻辑。
+
+### 8.3 标记语法（已冻结）
+
+| 写法 | 效果 |
+| --- | --- |
+| `#T12` | 标题含 `#T12` 的任务转到「进行中」 |
+| `#T12=done` | 转到「已办结」 |
+| `#T12=todo` | 转回「待办」 |
+
+- 短号**整词匹配**（`#T1` 不得命中 `#T12`）、**大小写不敏感**（统一归一为大写）。
+- 任务标识来自**标题内嵌短号**，标记形如 `修复统计芯片刷新 #T12`。
+- 同一短号命中多个任务时全部流转；已在目标列则跳过写库。
+
+### 8.4 验证口径
+
+- 端到端：`NeonBoard.exe --emit-hook-file <tmp>` 投递 → 主进程消费 → 任务换列；应用未运行时投递则下次启动补投递。
+- 注意 `Start-Process -ArgumentList "a b c"` 会按空格拆词，带空格文本必须用 `--emit-hook-file`。
+- 钩子报**退出码 127** 表示 exe 起不来（缺 Qt DLL），设 `NEONBOARD_QT_BIN` 指向 Qt `bin` 目录即可。

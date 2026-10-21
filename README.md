@@ -21,6 +21,8 @@
 - 路线图双向绑定：仓库 `progress.json` 与本地看板自动同步（启动拉取、看板改动写回、提交钩子投递）
 - 系统托盘、全局热键、开机自启、单实例、窗口位置记忆
 - 运行时 QML 插件：权限清单、独立存储、宿主任务 API
+- 插件平台 2.0：apiVersion 2 支持后台常驻插件、事件订阅、meta 共享配置、插件启停与热重载
+- 计划钩子：提交信息里写 `#T12`，标题带 `#T12` 的任务自动转到「进行中」（`#T12=done` / `#T12=todo` 同理），详见 [docs/plan-hook.md](docs/plan-hook.md)
 
 ## 快捷键
 
@@ -57,9 +59,15 @@ dist/NeonBoard/NeonBoard.exe
 插件目录：
 
 ```text
-%APPDATA%\com.lin\NeonBoard\plugins\<plugin-id>\
-<安装目录>\plugins\<plugin-id>\
+%APPDATA%\com.lin\NeonBoard\plugins\<plugin-id>\   ← 用户安装区（唯一可写）
+<安装目录>\plugins\<plugin-id>\                   ← 随安装包分发
+<源码目录>\plugins\<plugin-id>\                   ← 官方插件（只读）
+<源码目录>\plugins-samples\<plugin-id>\           ← 示例插件（只读）
 ```
+
+扫描按上面的顺序进行，靠前优先、同 id 只保留第一个 —— 所以把插件放进用户安装区即可覆盖内置版本。改完插件后在设置面板点「重新扫描插件」即可生效，无需重启。
+
+> 官方插件「计划钩子」放在源码目录的 `plugins/`，**不随安装包分发**，需手工复制到用户安装区。
 
 ## 开发协作
 
@@ -117,6 +125,10 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
              把看板现状写回路线图快照
 --newtask    启动后聚焦快速添加
 --autostart  静默启动到托盘
+--emit-hook <text>
+             把一段文本当作提交信息投递给计划钩子（只投递，规则由插件执行）
+--emit-hook-file <path>
+             同上，从 UTF-8 文件读提交信息（推荐，避免命令行转义问题）
 ```
 
 环境变量：
@@ -126,6 +138,10 @@ NEONBOARD_NO_BG=1   关闭动态霓虹背景（低配 / 排障）
 NEONBOARD_ROADMAP   路线图快照路径（默认自动探测仓库内 progress.json）
 NEONBOARD_ROADMAP_AUTOWRITE=0
                     关闭「看板改动自动写回快照」
+NEONBOARD_DATA_DIR  覆盖数据目录（数据库 / 插件 / 日志 / 界面设置全部落到该目录，
+                    用于多实例隔离与排障）
+NEONBOARD_INSTANCE  单实例标识后缀，允许同机多开（配合 NEONBOARD_DATA_DIR）
+NEONBOARD_QT_BIN    Qt 运行库目录，供 Git 钩子在开发版 exe 上补齐 PATH
 ```
 
 ## 项目结构
@@ -136,7 +152,8 @@ qml/                 QML：主界面、霓虹背景
   theme/             主题与动效单例（Theme / Motion）
   components/        卡片、看板列、统计芯片、窗口按钮、外观面板、设置面板、插件面板、阶段进度条
 shaders/             GLSL Shader
-plugins-samples/     示例插件
+plugins/             官方插件（只读，需手工复制到用户插件目录）
+plugins-samples/     示例插件（只读）
 installer/           Inno Setup 脚本
 scripts/             构建部署脚本
 docs/                截图、迭代路线图与插件文档
@@ -158,13 +175,15 @@ docs/themes/         6 套主题预设实机截图
 
 ## 插件
 
-插件使用 QML 编写，放入插件目录后重启应用生效。详见 [docs/plugin-api.md](docs/plugin-api.md)。
+插件使用 QML 编写，放入插件目录后点「重新扫描插件」生效。详见 [docs/plugin-api.md](docs/plugin-api.md)。
 
-当前 MVP 的插件边界：
+当前插件边界：
 
-- 每个插件提供一个 `main.qml` 侧栏面板
-- 支持权限：`storage`、`notifications`、`tasks.read`、`tasks.write`、`openUrl`
-- 不支持热重载、多槽位、命令注册、HTTP API、插件设置页
+- 面板插件提供 `main.qml`；`apiVersion: 2` 还能加 `background.qml` 常驻后台
+- 支持权限：`storage`、`notifications`、`tasks.read`、`tasks.write`、`openUrl`、`meta`、`events`
+- 支持事件订阅（任务创建 / 更新 / 移动 / 完成 / 删除、提交投递）
+- 支持插件启停、重新扫描（热重载）
+- 不支持 `settings.qml`、命令面板、快捷键注册、HTTP API、插件市场
 - 插件运行在宿主 QML 引擎内，属于受信插件，不是沙箱
 
 ## 已知限制
@@ -173,7 +192,8 @@ docs/themes/         6 套主题预设实机截图
 - 拖拽跨列时落到目标列末尾，不做列内精确插位
 - 手工改 `progress.json` 时请同步抬高该条目的 `updatedAt`，否则会以看板版本为准
 - 安装包未签名，Windows SmartScreen 可能提示
-- 未实现 JSON 导入导出、命令面板、插件热重载
+- 未实现 JSON 导入导出、命令面板、插件市场
+- 计划钩子需先把 `plugins/plan-hook` 复制到用户插件目录才会生效；未安装时提交里的 `#T12` 静默失效
 - Qt 采用 LGPL 动态链接；再分发时需保留 Qt 动态库与许可说明
 
 ## 第三方

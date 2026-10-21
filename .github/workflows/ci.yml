@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Windows 编译与自检
+    runs-on: windows-2022
+    timeout-minutes: 45
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 准备 MSVC 开发环境
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: 安装 Qt 6.8.3
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          # ShaderTools 是独立 addon，缺失会导致 cmake 找不到 Qt6::ShaderTools
+          modules: 'qtshadertools'
+          cache: true
+          cache-key-prefix: 'neonboard-qt'
+
+      - name: 配置 CMake
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+
+      - name: 编译 Release
+        run: cmake --build build --config Release --parallel
+
+      - name: 数据库自检
+        shell: pwsh
+        run: |
+          & .\build\Release\NeonBoard.exe --selftest
+          if ($LASTEXITCODE -ne 0) { throw "自检失败，退出码 $LASTEXITCODE" }
+
+      - name: 冒烟启动并检查日志
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'build\Release\NeonBoard.exe'
+          $log = Join-Path $env:APPDATA 'com.lin\NeonBoard\neonboard.log'
+          if (Test-Path $log) { Remove-Item $log -Force }
+
+          $proc = Start-Process -FilePath $exe -ArgumentList '--smoke' -PassThru
+          $deadline = (Get-Date).AddSeconds(120)
+          while (-not $proc.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 3 }
+          if (-not $proc.HasExited) {
+            Stop-Process -Id $proc.Id -Force
+            throw '冒烟启动超时（120 秒未退出）'
+          }
+          if (-not (Test-Path $log)) { throw '未生成运行日志' }
+
+          $lines = [System.IO.File]::ReadAllLines($log, [System.Text.Encoding]::UTF8)
+          $lines | ForEach-Object { Write-Host $_ }
+
+          # QML 与 C++ 侧的致命问题一律拦截，避免「能编译但跑不起来」
+          $patterns = 'is not a type|is not a member|TypeError|ReferenceError|' +
+                      'Unable to assign|Cannot assign|QQmlApplicationEngine failed|' +
+                      '不是一种类型|不是一个类型|不存在的附加对象|没有安装|' +
+                      'ASSERT|FATAL|Segmentation'
+          $bad = $lines | Where-Object { $_ -match $patterns }
+          if ($bad) { throw ("检测到错误日志：`n" + ($bad -join "`n")) }
+
+      - name: 打包便携版
+        shell: pwsh
+        run: |
+          & pwsh -NoProfile -File scripts\deploy.ps1 -SkipBuild
+          if ($LASTEXITCODE -ne 0) { throw "便携版打包失败，退出码 $LASTEXITCODE" }
+          $exe = Join-Path $PWD 'dist\NeonBoard\NeonBoard.exe'
+          if (-not (Test-Path $exe)) { throw '便携版产物缺失' }

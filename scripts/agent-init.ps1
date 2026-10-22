@@ -28,9 +28,22 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)
-if (-not $repoRoot) { throw '当前目录不是 Git 仓库' }
-$repoRoot = $repoRoot.Trim()
+# 仓库根按**脚本自身路径**定位：新工作区永远开在「脚本所属仓库」下，
+# 避免在别的目录里误开 worktree
+$scriptRepoRoot = $null
+if ($PSScriptRoot) {
+    $candidate = Split-Path -Parent $PSScriptRoot
+    if ($candidate -and (Test-Path -LiteralPath (Join-Path $candidate '.git'))) {
+        $scriptRepoRoot = (Resolve-Path -LiteralPath $candidate).Path
+    }
+}
+if ($scriptRepoRoot) {
+    $repoRoot = $scriptRepoRoot
+} else {
+    $repoRoot = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)
+    if (-not $repoRoot) { throw '当前目录不是 Git 仓库' }
+    $repoRoot = $repoRoot.Trim()
+}
 
 if (-not $Branch) { $Branch = "feature/$Agent" }
 

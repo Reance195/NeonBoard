@@ -26,6 +26,11 @@ Rectangle {
     property string dropAnchorId: ""
     // 指示线画在锚定卡片的下方（true）还是上方（false）
     property bool dropAnchorBelow: false
+    // 快速录入解析预览：实时显示识别出的到期时间、优先级与标签
+    property string parseDue: ""
+    property int parsePriority: -1
+    property var parseTags: []
+    property bool parseHasText: false
 
     signal editRequested(string taskId)
     signal startRequested(string taskId)
@@ -307,6 +312,95 @@ Rectangle {
             }
         }
 
+        // 快速录入解析预览：输入时实时显示识别出的日期、优先级与标签
+        RowLayout {
+            id: parsePreview
+            Layout.fillWidth: true
+            Layout.preferredHeight: 18
+            spacing: 6
+
+            readonly property bool hasInfo: column.parseDue.length > 0
+                                           || column.parsePriority >= 0
+                                           || (column.parseTags && column.parseTags.length > 0)
+
+            Text {
+                visible: !parsePreview.hasInfo
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+                text: column.parseHasText ? "支持 明天 15:00 #标签 !3" : " "
+                color: Theme.muted
+                font.pixelSize: 10
+                elide: Text.ElideRight
+            }
+
+            Rectangle {
+                id: dueChip
+                visible: column.parseDue.length > 0
+                Layout.alignment: Qt.AlignVCenter
+                height: 18
+                width: dueLabel.implicitWidth + 14
+                radius: 9
+                color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.12)
+                border.width: 1
+                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.35)
+
+                Text {
+                    id: dueLabel
+                    anchors.centerIn: parent
+                    text: "⏰ " + column.parseDue
+                    color: Theme.cyan
+                    font.pixelSize: 10
+                }
+            }
+
+            Rectangle {
+                id: priorityChip
+                visible: column.parsePriority >= 0
+                Layout.alignment: Qt.AlignVCenter
+                height: 18
+                width: priorityLabel.implicitWidth + 14
+                radius: 9
+                color: Qt.rgba(priorityChip.accent.r, priorityChip.accent.g, priorityChip.accent.b, 0.12)
+                border.width: 1
+                border.color: Qt.rgba(priorityChip.accent.r, priorityChip.accent.g, priorityChip.accent.b, 0.35)
+
+                readonly property color accent: column.parsePriority >= 3 ? Theme.magenta
+                                                  : column.parsePriority === 2 ? Theme.violet
+                                                  : Theme.cyan
+
+                Text {
+                    id: priorityLabel
+                    anchors.centerIn: parent
+                    text: column.parsePriority >= 3 ? "高优先"
+                        : column.parsePriority === 2 ? "中优先" : "低优先"
+                    color: priorityChip.accent
+                    font.pixelSize: 10
+                }
+            }
+
+            Repeater {
+                model: column.parseTags
+                delegate: Rectangle {
+                    required property var modelData
+                    Layout.alignment: Qt.AlignVCenter
+                    height: 18
+                    width: tagLabel.implicitWidth + 12
+                    radius: 9
+                    color: Theme.ghost
+                    border.width: 1
+                    border.color: Theme.border
+
+                    Text {
+                        id: tagLabel
+                        anchors.centerIn: parent
+                        text: "#" + modelData
+                        color: Theme.muted
+                        font.pixelSize: 10
+                    }
+                }
+            }
+        }
+
         Rectangle {
             Layout.fillWidth: true
             height: 34
@@ -329,6 +423,19 @@ Rectangle {
                 color: Theme.text
                 font.pixelSize: 12
                 background: null
+                onTextChanged: {
+                    column.parseHasText = text.trim().length > 0;
+                    if (!column.taskModel) {
+                        column.parseDue = "";
+                        column.parsePriority = -1;
+                        column.parseTags = [];
+                        return;
+                    }
+                    const info = column.taskModel.previewInput(text);
+                    column.parseDue = info.dueText || "";
+                    column.parsePriority = info.priority !== undefined ? info.priority : -1;
+                    column.parseTags = info.tags || [];
+                }
                 onAccepted: {
                     if (column.taskModel && text.trim().length > 0) {
                         column.taskModel.addTask(text.trim(), column.status, 1, "", 0)

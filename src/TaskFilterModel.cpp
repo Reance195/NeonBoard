@@ -75,6 +75,28 @@ QString TaskFilterModel::idAt(int row) const
     return mapToSource(index(row, 0)).data(TaskModel::IdRole).toString();
 }
 
+TaskModel *TaskFilterModel::sourceTaskModel() const
+{
+    return qobject_cast<TaskModel *>(sourceModel());
+}
+
+QString TaskFilterModel::addTask(const QString &title, const QString &status, int priority,
+                                 const QString &tags, qint64 dueAt) const
+{
+    TaskModel *model = sourceTaskModel();
+    if (!model)
+        return {};
+    return model->addTask(title, status, priority, tags, dueAt);
+}
+
+QVariantMap TaskFilterModel::previewInput(const QString &text) const
+{
+    TaskModel *model = sourceTaskModel();
+    if (!model)
+        return {};
+    return model->previewInput(text);
+}
+
 bool TaskFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const
 {
     const QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);

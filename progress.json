@@ -152,7 +152,7 @@
             "dueAt": 0,
             "id": "cf1180c6-c5be-4640-b619-78c459bb7037",
             "note": "仓库无 tests/ 目录，回归全靠 selftest/smoke 手拍。规划：CTest + 针对 TaskModel/TaskTree/DataPort/PluginPackage 纯逻辑层的单元测试，GitHub Actions PR 质量门禁。路线图未排期的新增方向。",
-            "orderKey": 14336,
+            "orderKey": 30720,
             "priority": 3,
             "stage": "R4",
             "status": "todo",
@@ -171,7 +171,7 @@
             "dueAt": 0,
             "id": "cffdfbbb-46f5-4cae-a2c3-d3e64e0d2047",
             "note": "能力矩阵点名「架构级解锁」但未排期：去掉 CHECK(status) 三列硬约束，引入 board/column 表，单板→多板、三列→N 列；迁移需保证老库照常可开。路线图未排期的新增方向。",
-            "orderKey": 15360,
+            "orderKey": 31744,
             "priority": 3,
             "stage": "R4",
             "status": "todo",
@@ -190,7 +190,7 @@
             "dueAt": 0,
             "id": "a1880fc6-2060-4a72-b445-b3ba81fb8bad",
             "note": "「老版本程序照常打开」写进宪章但无验证手段。规划：SQLite WAL + journal 校验 + 损坏自动恢复流程 + 迁移/向后兼容回归测试。路线图未排期的新增方向。",
-            "orderKey": 16384,
+            "orderKey": 32768,
             "priority": 2,
             "stage": "R4",
             "status": "todo",
@@ -209,7 +209,7 @@
             "dueAt": 0,
             "id": "51a132f8-ee80-40dd-a753-488336b123c9",
             "note": "QSystemTrayIcon 气泡在 Win11 会静默折叠，通知需走 WinRT toast 进通知中心；.neon 插件包注册文件关联（双击安装）；跳转列表最近任务；开机自启开关。路线图未排期的新增方向。",
-            "orderKey": 17408,
+            "orderKey": 33792,
             "priority": 2,
             "stage": "R4",
             "status": "todo",
@@ -228,7 +228,7 @@
             "dueAt": 0,
             "id": "a78db4c2-f1ec-45ba-8c43-915d8ca4bdb5",
             "note": "新用户面对空板零引导。规划：首启动 onboarding 三步引导（录任务 → 拖列 → 装插件）、可选示例数据、任务模板。路线图未排期的新增方向。",
-            "orderKey": 18432,
+            "orderKey": 34816,
             "priority": 1,
             "stage": "R4",
             "status": "todo",
@@ -247,7 +247,7 @@
             "dueAt": 0,
             "id": "39d80b78-a666-49aa-b199-f363c5c2efc6",
             "note": "减弱动效有开关，但缺焦点链、屏幕阅读器支持与纯键盘全操作（命令面板只剩部分入口）。规划：Tab 焦点链梳理 + 高对比度检查 + 键盘操作全覆盖。路线图未排期的新增方向。",
-            "orderKey": 19456,
+            "orderKey": 35840,
             "priority": 1,
             "stage": "R4",
             "status": "todo",
@@ -265,7 +265,7 @@
             "deleted": false,
             "dueAt": 1795536000,
             "id": "90daab15-2707-4716-b687-0cf0d3320ba1",
-            "note": "已完成：apiVersion 2 双兼容 / 后台常驻插件 / 任务事件总线 / meta 共享配置 + 插件启停与热重载 / 插件库与在线市场（.neon 单文件包 + SHA-256 校验 + 原子安装 + 离线缓存）/ 多市场源（仓库简写 Gitee→GitHub / 多源并列合并 + 同 id 取高版本 + 按源缓存与 304）+ 市场发布脚本 publish-market.ps1。待做：settings.qml 与设置页声明、命令与快捷键注册、多槽位、权限授权弹窗与来源提示（已拆为 4 张子卡 #M19-#M22）。",
+            "note": "已完成：apiVersion 2 双兼容 / 后台常驻插件 / 任务事件总线 / meta 共享配置 + 插件启停与热重载 / 插件库与在线市场（.neon 单文件包 + SHA-256 校验 + 原子安装 + 离线缓存）。待做：settings.qml 与设置页声明、命令与快捷键注册、多槽位、权限授权弹窗与来源提示（已拆为 4 张子卡 #M19-#M22）。",
             "orderKey": 9216,
             "priority": 1,
             "stage": "R3",
@@ -274,7 +274,7 @@
                 "R3"
             ],
             "title": "R3 插件平台 2.0",
-            "updatedAt": 1792658781
+            "updatedAt": 1792659912
         },
         {
             "code": "R0-01",
@@ -428,7 +428,7 @@
         },
         {
             "code": "R1-03",
-            "completedAt": 1792654424,
+            "completedAt": 1792659560,
             "createdAt": 1792568900,
             "deleted": false,
             "dueAt": 1793721600,
@@ -442,7 +442,7 @@
                 "R1"
             ],
             "title": "R1 命令面板（Ctrl+K）",
-            "updatedAt": 1792657209
+            "updatedAt": 1792659560
         },
         {
             "code": "R0-07",
@@ -748,25 +748,6 @@
             "updatedAt": 1792588621
         },
         {
-            "code": "R4-01",
-            "completedAt": 1792687537,
-            "createdAt": 1792654294,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "70b49c4e-6102-4d8f-beda-33671c5b739e",
-            "note": "交付完成（origin/main d1b14a6）：① 协议 agent-task-event v1（docs/agent-task-event.md，通用 envelope：agent/sessionId/todoId/title/status）；② NeonBoard 官方插件 plugins/agent-bridge（订阅 agent.task，meta 存映射 agentbridge.<agent>.<sessionId>.<todoId>，无短号新建/流转任务，tags 标注 agent）；③ opencode 适配器 neonboard-todo-bridge（~/.config/opencode/plugins/，监听 todowrite → --emit-hook-file --hook-event agent.task 投递）。宿主小改一处：main.cpp CLI 新增可选 --hook-event 参数（默认仍 hook.commit，plan-hook 不受影响）。验收：沙箱 e2e 新建/流转/幂等单卡一致，selftest=0，smoke=0 零 QML 报错，实机验证通过。已完成 3 / 待做 0",
-            "orderKey": 20480,
-            "priority": 2,
-            "stage": "R4",
-            "status": "done",
-            "tags": [
-                "R4",
-                "agent"
-            ],
-            "title": "R4 Agent 任务桥（通用事件协议 + opencode 适配器）",
-            "updatedAt": 1792687537
-        },
-        {
             "code": "M12",
             "completedAt": 1792588621,
             "createdAt": 1792572839,
@@ -900,14 +881,33 @@
             "updatedAt": 1792588621
         },
         {
+            "code": "R4-01",
+            "completedAt": 1792687537,
+            "createdAt": 1792654294,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "70b49c4e-6102-4d8f-beda-33671c5b739e",
+            "note": "交付完成（origin/main d1b14a6）：① 协议 agent-task-event v1（docs/agent-task-event.md，通用 envelope：agent/sessionId/todoId/title/status）；② NeonBoard 官方插件 plugins/agent-bridge（订阅 agent.task，meta 存映射 agentbridge.<agent>.<sessionId>.<todoId>，无短号新建/流转任务，tags 标注 agent）；③ opencode 适配器 neonboard-todo-bridge（~/.config/opencode/plugins/，监听 todowrite → --emit-hook-file --hook-event agent.task 投递）。宿主小改一处：main.cpp CLI 新增可选 --hook-event 参数（默认仍 hook.commit，plan-hook 不受影响）。验收：沙箱 e2e 新建/流转/幂等单卡一致，selftest=0，smoke=0 零 QML 报错，实机验证通过。已完成 3 / 待做 0",
+            "orderKey": 36864,
+            "priority": 2,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "agent"
+            ],
+            "title": "R4 Agent 任务桥（通用事件协议 + opencode 适配器）",
+            "updatedAt": 1792659954
+        },
+        {
             "code": "R1-07",
-            "completedAt": 1792654424,
-            "createdAt": 1792654424,
+            "completedAt": 1792659560,
+            "createdAt": 1792659560,
             "deleted": false,
             "dueAt": 0,
             "id": "7c1d5e93-4a26-4f8b-9d31-2b6e0a54c7f2",
             "note": "R1-2 交付：新增 src/TaskInputParser 解析中文日期（今天/明天/后天/周五/下周三）、时段（15:00、9点半、下午3点）、标签 #工作、优先级 !2；快速添加框输入时实时预览（到期 / 优先级 / 标签 三个霓虹芯片）。验收：--selftest 解析断言全过、沙箱 --smoke 零 QML 报错、预览芯片截图确认。已完成 1 / 待做 0",
-            "orderKey": 28672,
+            "orderKey": 37888,
             "priority": 2,
             "stage": "R1",
             "status": "done",
@@ -915,10 +915,9 @@
                 "R1"
             ],
             "title": "R1 快速录入解析：中文日期/时段/标签/优先级",
-            "updatedAt": 1792657209
+            "updatedAt": 1792659560
         }
     ],
-    "updated": "2026-10-22T16:58:29",
+    "updated": "2026-10-22T17:05:54",
     "version": 3
 }
-

@@ -57,9 +57,16 @@ function Test-PreviewCapable {
     param([Parameter(Mandatory)][string]$Path)
     # 旧版 exe 不认识 --preview-*，参数会被忽略并直接拉起主窗口（脚本看起来像挂死）。
     # 用二进制里是否含该参数字面量来判断能力，避免踩这个坑。
+    # 注意：QStringLiteral 里的字面量在二进制里是 UTF-16，必须同时查 ASCII 与 UTF-16，
+    # 且比较要用 Ordinal（默认的 IndexOf 是区域比较，行为随 ICU 版本漂移）。
     try {
-        $text = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($Path))
-        return $text.IndexOf('--preview-list') -ge 0
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
+        $needle = '--preview-list'
+        foreach ($encoding in @([System.Text.Encoding]::ASCII, [System.Text.Encoding]::Unicode)) {
+            $text = $encoding.GetString($bytes)
+            if ($text.IndexOf($needle, [System.StringComparison]::Ordinal) -ge 0) { return $true }
+        }
+        return $false
     } catch {
         return $false
     }

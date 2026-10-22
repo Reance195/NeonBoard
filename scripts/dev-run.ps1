@@ -28,9 +28,22 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)
-if (-not $repoRoot) { throw '当前目录不是 Git 仓库' }
-$repoRoot = $repoRoot.Trim()
+# 仓库根按**脚本自身路径**定位：脚本在哪个 worktree 里，沙箱就落在哪个 worktree。
+# 按当前目录定位会在锚点区调用 agent 的脚本时，把沙箱建到锚点里去。
+$scriptRepoRoot = $null
+if ($PSScriptRoot) {
+    $candidate = Split-Path -Parent $PSScriptRoot
+    if ($candidate -and (Test-Path -LiteralPath (Join-Path $candidate '.git'))) {
+        $scriptRepoRoot = (Resolve-Path -LiteralPath $candidate).Path
+    }
+}
+if ($scriptRepoRoot) {
+    $repoRoot = $scriptRepoRoot
+} else {
+    $repoRoot = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)
+    if (-not $repoRoot) { throw '当前目录不是 Git 仓库' }
+    $repoRoot = $repoRoot.Trim()
+}
 
 # agent 身份：显式参数 > 环境变量 > 从 .worktrees/<agent> 路径推断
 if (-not $Agent) { $Agent = $env:NEONBOARD_AGENT_ID }

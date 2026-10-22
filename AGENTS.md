@@ -227,6 +227,11 @@ pwsh -File scripts/git-done.ps1 -Branch fix/stagebar-chip-overflow
   也不存在「谁切了分支把别人的工作区搞乱」的问题。
 - 合并完成后删除已合并的分支（`git branch -d <分支>`）并回收 worktree。
 - 分支按拓扑顺序串行合并（例如 A → B → C）；合并下一个分支前，尚未合并的分支先 `git rebase origin/main`。
+- **脚本定位仓库一律按脚本自身路径**（`<repo>/scripts/` 的上级目录），不按调用方当前目录：
+  否则在锚点区调用 agent worktree 里的脚本，会把锚点误当成本仓库去合并 / 出包（已踩过）。
+  涉及 `git-done.ps1` / `release.ps1` / `dev-run.ps1` / `agent-init.ps1`。
+- **脚本里的原生命令不要让 stderr 打断流程**：MSBuild / ISCC 都往 stderr 写进度，
+  在 `ErrorActionPreference = 'Stop'` 下会被当成终止性错误（已踩过），统一走带日志的调用封装。
 
 ### 7.4 热点文件行段分区
 

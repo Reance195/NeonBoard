@@ -554,7 +554,7 @@
                 "R3",
                 "插件"
             ],
-            "title": "PluginContext：每插件 API 门面 + 权限校验 #M01",
+            "title": "PluginContext：每插件 API 门面 + 权限校验",
             "updatedAt": 1792588621
         },
         {
@@ -573,7 +573,7 @@
                 "R3",
                 "插件"
             ],
-            "title": "PluginHost 改造：服务层 + 前台代理 #M02",
+            "title": "PluginHost 改造：服务层 + 前台代理",
             "updatedAt": 1792588621
         },
         {
@@ -592,7 +592,7 @@
                 "R3",
                 "插件"
             ],
-            "title": "PluginEventBus + PluginRuntime：事件总线与后台运行时 #M03",
+            "title": "PluginEventBus + PluginRuntime：事件总线与后台运行时",
             "updatedAt": 1792588621
         },
         {
@@ -611,7 +611,7 @@
                 "R3",
                 "插件"
             ],
-            "title": "PluginLoader 升级：apiVersion 1|2 + background/contributes #M04",
+            "title": "PluginLoader 升级：apiVersion 1|2 + background/contributes",
             "updatedAt": 1792588621
         },
         {
@@ -630,7 +630,7 @@
                 "R3",
                 "插件"
             ],
-            "title": "TaskModel：任务事件信号 + moveTaskToEnd #M05",
+            "title": "TaskModel：任务事件信号 + moveTaskToEnd",
             "updatedAt": 1792588621
         },
         {
@@ -649,7 +649,7 @@
                 "R3",
                 "插件"
             ],
-            "title": "Database：meta 读写 API #M06",
+            "title": "Database：meta 读写 API",
             "updatedAt": 1792588621
         },
         {
@@ -668,7 +668,7 @@
                 "R3",
                 "计划钩子"
             ],
-            "title": "HookEventQueue：独立 hooks.db 事件队列 #M07",
+            "title": "HookEventQueue：独立 hooks.db 事件队列",
             "updatedAt": 1792588621
         },
         {
@@ -687,7 +687,7 @@
                 "R3",
                 "计划钩子"
             ],
-            "title": "CLI --emit-hook：只投递不执行 #M08",
+            "title": "CLI --emit-hook：只投递不执行",
             "updatedAt": 1792588621
         },
         {
@@ -706,7 +706,7 @@
                 "R3",
                 "计划钩子"
             ],
-            "title": "plan-hook 后台插件：订阅 hook.commit 执行规则 #M09",
+            "title": "plan-hook 后台插件：订阅 hook.commit 执行规则",
             "updatedAt": 1792588621
         },
         {
@@ -725,7 +725,7 @@
                 "R3",
                 "计划钩子"
             ],
-            "title": "规则引擎 rules.js + plan.rules 规则 schema #M10",
+            "title": "规则引擎 rules.js + plan.rules 规则 schema",
             "updatedAt": 1792588621
         },
         {
@@ -744,7 +744,7 @@
                 "R3",
                 "计划钩子"
             ],
-            "title": "plan-hook 面板：规则编辑器 + 手动执行 + 执行记录 #M11",
+            "title": "plan-hook 面板：规则编辑器 + 手动执行 + 执行记录",
             "updatedAt": 1792588621
         },
         {
@@ -763,7 +763,7 @@
                 "R3",
                 "计划钩子"
             ],
-            "title": ".githooks/post-commit：投递 hook 事件 #M12",
+            "title": ".githooks/post-commit：投递 hook 事件",
             "updatedAt": 1792588621
         },
         {
@@ -782,7 +782,7 @@
                 "R3",
                 "插件库"
             ],
-            "title": "插件库侧栏：打开/启用/禁用/安装/卸载/更新 #M13",
+            "title": "插件库侧栏：打开/启用/禁用/安装/卸载/更新",
             "updatedAt": 1792633483
         },
         {
@@ -801,7 +801,7 @@
                 "R3",
                 "插件库"
             ],
-            "title": ".neon 包格式 + PluginMarket：校验与原子安装 #M14",
+            "title": ".neon 包格式 + PluginMarket：校验与原子安装",
             "updatedAt": 1792633483
         },
         {
@@ -820,7 +820,7 @@
                 "R3",
                 "插件库"
             ],
-            "title": "市场源配置：内置 GitHub 默认地址 + 设置可改 #M15",
+            "title": "市场源配置：内置 GitHub 默认地址 + 设置可改",
             "updatedAt": 1792633483
         },
         {
@@ -839,7 +839,7 @@
                 "R3",
                 "插件库"
             ],
-            "title": "plan-hook 一键安装 + 官方源纳入扫描 #M16",
+            "title": "plan-hook 一键安装 + 官方源纳入扫描",
             "updatedAt": 1792633483
         },
         {
@@ -858,7 +858,7 @@
                 "R3",
                 "计划钩子"
             ],
-            "title": "端到端验收：12 条用例 #M17",
+            "title": "端到端验收：12 条用例",
             "updatedAt": 1792588621
         },
         {
@@ -877,7 +877,7 @@
                 "R3",
                 "插件"
             ],
-            "title": "文档同步：plugin-api v2 + plan-hook.md #M18",
+            "title": "文档同步：plugin-api v2 + plan-hook.md",
             "updatedAt": 1792588621
         },
         {
@@ -918,6 +918,7 @@
             "updatedAt": 1792659560
         }
     ],
-    "updated": "2026-10-22T17:05:54",
+    "updated": "2026-10-22T10:18:12",
     "version": 3
 }
+

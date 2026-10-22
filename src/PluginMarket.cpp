@@ -61,6 +61,19 @@ QVariantMap sourceStatus(const QString &spec, const QString &name, bool ok, bool
     return status;
 }
 
+QString resolveDownloadUrl(const QString &download, const QString &indexUrl)
+{
+    const QString text = download.trimmed();
+    if (text.isEmpty())
+        return text;
+    if (text.contains(QStringLiteral("://")))
+        return text; // 已经是完整地址
+    const QUrl base(indexUrl);
+    if (!base.isValid() || base.path().isEmpty())
+        return text;
+    return base.resolved(QUrl(text)).toString();
+}
+
 QVariantList annotateEntries(const QVariantList &list, const QString &name, const QString &spec,
                               const QString &url)
 {
@@ -68,6 +81,8 @@ QVariantList annotateEntries(const QVariantList &list, const QString &name, cons
     result.reserve(list.size());
     for (const QVariant &value : list) {
         QVariantMap entry = value.toMap();
+        const QString download = entry.value(QStringLiteral("download")).toString();
+        entry.insert(QStringLiteral("download"), resolveDownloadUrl(download, url));
         entry.insert(QStringLiteral("marketSource"), name);
         entry.insert(QStringLiteral("marketSpec"), spec);
         entry.insert(QStringLiteral("marketUrl"), url);
@@ -458,15 +473,9 @@ void PluginMarket::finishRefresh()
         if (result.isEmpty())
             continue;
         const QString json = result.value(QStringLiteral("index")).toString();
-        QVariantList list = parseIndex(json);
         const QString sourceName = record.value(QStringLiteral("name")).toString();
-        for (QVariant &item : list) {
-            QVariantMap entry = item.toMap();
-            entry.insert(QStringLiteral("marketSource"), sourceName);
-            entry.insert(QStringLiteral("marketSpec"), spec);
-            entry.insert(QStringLiteral("marketUrl"), result.value(QStringLiteral("url")).toString());
-            item = entry;
-        }
+        const QString sourceUrl = result.value(QStringLiteral("url")).toString();
+        const QVariantList list = annotateEntries(parseIndex(json), sourceName, spec, sourceUrl);
         merged = mergeEntries(merged + list);
         ++okCount;
     }

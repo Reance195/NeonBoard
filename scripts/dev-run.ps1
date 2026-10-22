@@ -8,6 +8,10 @@
       NEONBOARD_ROADMAP_AUTOWRITE=0  关闭看板 → 快照自动写回
       NEONBOARD_AGENT_ID         agent 身份，供脚本登记占用
 
+    可执行文件默认优先用 dist\NeonBoard\NeonBoard.exe（便携版已带 Qt，无需编译），
+    没有才退回 build\Release\NeonBoard.exe；-Exe 可显式指定。
+    只有改了 C++/QML 需要验证时才构建：cmake --build build --config Release
+
     用法：
       pwsh -File scripts/dev-run.ps1
       pwsh -File scripts/dev-run.ps1 -Wait
@@ -52,9 +56,17 @@ $env:NEONBOARD_ROADMAP = (Join-Path $sandbox 'progress.json')
 $env:NEONBOARD_ROADMAP_AUTOWRITE = '0'
 $env:NEONBOARD_AGENT_ID = $Agent
 
-if (-not $Exe) { $Exe = Join-Path $repoRoot 'build\Release\NeonBoard.exe' }
-if (-not (Test-Path -LiteralPath $Exe)) {
-    throw "找不到可执行文件：$Exe`n请先构建：cmake --build build --config Release"
+# 默认优先用便携版（dist 已带 Qt 运行时，不需要编译），没有才退回 build 产物。
+# 只有改了 C++/QML 需要验证时才构建：cmake --build build --config Release
+if (-not $Exe) {
+    $candidates = @(
+        (Join-Path $repoRoot 'dist\NeonBoard\NeonBoard.exe'),
+        (Join-Path $repoRoot 'build\Release\NeonBoard.exe')
+    )
+    $Exe = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+}
+if (-not $Exe -or -not (Test-Path -LiteralPath $Exe)) {
+    throw "找不到可执行文件（dist\NeonBoard 与 build\Release 均不存在）`n请先出包或构建：pwsh -File scripts\deploy.ps1"
 }
 
 Write-Host ("启动 {0}" -f $Exe) -ForegroundColor Cyan

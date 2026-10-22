@@ -11,6 +11,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QList>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QSettings>
 #include <QVariantMap>
@@ -47,6 +48,43 @@ QJsonArray tagsToArray(const QString &tagsJson)
             array.append(value);
     }
     return array;
+}
+
+// 快照短号（如 R3-01）对应的标题标记：#R3-01。
+// 计划钩子按「标题内嵌短号」匹配任务，导入时把 code 嵌进标题尾，
+// 让 git 提交标记 #R3-01 能命中来自路线图快照的卡片。
+bool titleContainsCode(const QString &title, const QString &code)
+{
+    if (code.isEmpty())
+        return false;
+    static const QRegularExpression rx(
+        QStringLiteral("#") + QRegularExpression::escape(code) + QStringLiteral("\\b"),
+        QRegularExpression::CaseInsensitiveOption);
+    return rx.match(title).hasMatch();
+}
+
+QString embedCode(const QString &title, const QString &code)
+{
+    if (titleContainsCode(title, code))
+        return title;
+    const QString trimmed = title.trimmed();
+    if (trimmed.isEmpty())
+        return title;
+    return trimmed + QStringLiteral(" #") + code;
+}
+
+// 导出时把标题里嵌入的快照短号剥掉：快照的 code 只保存在 code 字段里，
+// 标题保持原样，「导入 → 导出」往返不会越嵌越脏。
+QString stripCode(const QString &title, const QString &code)
+{
+    if (code.isEmpty())
+        return title;
+    static thread_local QRegularExpression rx;
+    rx.setPattern(QStringLiteral("\\s*#") + QRegularExpression::escape(code) + QStringLiteral("\\b"));
+    rx.setPatternOptions(QRegularExpression::CaseInsensitiveOption);
+    QString out = title;
+    out.remove(rx);
+    return out.trimmed();
 }
 
 } // namespace
@@ -236,7 +274,8 @@ bool RoadmapSync::importFrom(const QString &filePath, bool force)
         }
 
         QVariantMap fields;
-        fields[QStringLiteral("title")] = item.value(QStringLiteral("title")).toString();
+        // 标题尾嵌入快照短号（幂等，已含则保持原样），供计划钩子按标题匹配
+        fields[QStringLiteral("title")] = embedCode(item.value(QStringLiteral("title")).toString(), code);
         fields[QStringLiteral("note")] = item.value(QStringLiteral("note")).toString();
         fields[QStringLiteral("status")] = item.value(QStringLiteral("status")).toString();
         fields[QStringLiteral("priority")] = item.value(QStringLiteral("priority")).toInt();
@@ -366,6 +405,10 @@ bool RoadmapSync::exportTo(const QString &filePath)
             code = current.value(id).value(QStringLiteral("code")).toString();
         if (!code.isEmpty())
             item[QStringLiteral("code")] = code;
+
+        // 看板标题里嵌入的快照短号只属于看板侧匹配，导出时剥掉，
+        // 保证快照标题与导入前的原始标题一致（往返幂等）
+        item[QStringLiteral("title")] = stripCode(task.value(QStringLiteral("title")).toString(), code);
 
         // 文件里这一条被外部改过 → 原样保留，交给导入流程应用到看板
         const bool external = current.contains(id)

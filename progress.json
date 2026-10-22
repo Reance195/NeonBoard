@@ -38,23 +38,6 @@
             "completedAt": 0,
             "createdAt": 1792568900,
             "deleted": false,
-            "dueAt": 1793376000,
-            "id": "6e16c4e4-6254-4da1-be47-f93a6daad9d2",
-            "note": "parent_id 自关联复用 Task 结构；卡片显示进度环。",
-            "orderKey": 3072,
-            "priority": 2,
-            "stage": "R1",
-            "status": "todo",
-            "tags": [
-                "R1"
-            ],
-            "title": "R1 子任务 + 卡片霓虹进度环",
-            "updatedAt": 1792568900
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
             "dueAt": 1793548800,
             "id": "1e4b499b-940b-4917-8437-0bdbc86ae302",
             "note": "JSON/CSV 导出、导入时支持列映射；每日自动备份到应用数据目录。",
@@ -91,7 +74,7 @@
             "deleted": false,
             "dueAt": 1793721600,
             "id": "abfe0b9c-6ac6-4df8-8bd5-c8071888ae6c",
-            "note": "已完成列内精确插位（R1-1）：TaskModel.moveTaskBefore(id, status, beforeId) 按目标卡片 id 精确插入，拖拽时显示霓虹插入指示线；快照按列内顺序导出以消除无意义 diff。通用撤销（R1-5）待做。",
+            "note": "已完成列内插位（R1-1：TaskModel.moveTaskBefore(id, status, beforeId) 按目标卡片 id 精确插入，拖拽时实时显示霓虹插入指示线）；已完成快速录入解析（R1-2：src/TaskInputParser 解析「明天 15:00 #工作 !2」得到到期时间/标签/优先级，输入时下方实时预览解析结果）。剩余：通用撤销（删除/移动/完成/编辑全部可撤销）。",
             "orderKey": 6144,
             "priority": 2,
             "stage": "R1",
@@ -100,7 +83,7 @@
                 "R1"
             ],
             "title": "R1 列内插位 + 通用撤销",
-            "updatedAt": 1792595167
+            "updatedAt": 1792639151
         },
         {
             "completedAt": 0,
@@ -142,7 +125,7 @@
             "deleted": false,
             "dueAt": 1795536000,
             "id": "90daab15-2707-4716-b687-0cf0d3320ba1",
-            "note": "热重载、设置页、命令注册、多槽位、沙箱与权限提示。",
+            "note": "已完成：apiVersion 2 双兼容 / 后台常驻插件 / 任务事件总线 / meta 共享配置 + 插件启停与热重载 / 插件库与在线市场（.neon 单文件包 + SHA-256 校验 + 原子安装 + 离线缓存）。待做：settings.qml 与设置页声明、命令与快捷键注册、多槽位、权限授权弹窗与来源提示（已拆为 4 张子卡 #M19-#M22）。",
             "orderKey": 9216,
             "priority": 1,
             "stage": "R3",
@@ -151,79 +134,75 @@
                 "R3"
             ],
             "title": "R3 插件平台 2.0",
-            "updatedAt": 1792568900
+            "updatedAt": 1792637108
         },
         {
             "completedAt": 0,
-            "createdAt": 1792572839,
+            "createdAt": 1792637108,
             "deleted": false,
             "dueAt": 1794412799,
-            "id": "189e6f97-d75b-4e27-b8df-643793b37508",
-            "note": "升级现有侧栏插件区：已安装（APPDATA/plugins，唯一可写区）与可安装（随包/官方/示例/市场）分区；底部刷新市场、重新扫描、打开目录。",
-            "orderKey": 22528,
+            "id": "edee6194-747d-4f79-9b28-5957039846eb",
+            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件可声明自己的设置页，宿主设置面板自动聚合展示。",
+            "orderKey": 10240,
             "priority": 2,
             "stage": "R3",
             "status": "todo",
             "tags": [
-                "R3",
-                "插件库"
+                "R3"
             ],
-            "title": "插件库侧栏：打开/启用/禁用/安装/卸载/更新 #M13",
-            "updatedAt": 1792572839
+            "title": "插件 settings.qml + 设置页声明",
+            "updatedAt": 1792637108
         },
         {
             "completedAt": 0,
-            "createdAt": 1792572839,
+            "createdAt": 1792637108,
             "deleted": false,
             "dueAt": 1794412799,
-            "id": "3cbbcee6-85ec-437b-b886-4fbcf1adfccf",
-            "note": "单文件 JSON 包 {manifest, files}；下载后 SHA-256 校验 + manifest.id 一致性 + 防目录穿越；临时目录写完原子替换，失败回滚；索引缓存断网可用。",
-            "orderKey": 23552,
+            "id": "1586cd08-ac57-471d-b178-cbb65874a9b0",
+            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件可注册命令（命令面板 Ctrl+K 调用）与全局快捷键，宿主统一分发与冲突仲裁。",
+            "orderKey": 11264,
             "priority": 2,
             "stage": "R3",
             "status": "todo",
             "tags": [
-                "R3",
-                "插件库"
+                "R3"
             ],
-            "title": ".neon 包格式 + PluginMarket：校验与原子安装 #M14",
-            "updatedAt": 1792572839
+            "title": "插件命令注册 / 快捷键注册",
+            "updatedAt": 1792637108
         },
         {
             "completedAt": 0,
-            "createdAt": 1792572839,
+            "createdAt": 1792637108,
             "deleted": false,
             "dueAt": 1794412799,
-            "id": "20eb6e7d-772c-4aa3-b2a3-28571bd131f8",
-            "note": "设置面板加插件市场源 URL；索引 market.json 拉取后缓存到 APPDATA。",
-            "orderKey": 24576,
-            "priority": 1,
+            "id": "29bc27fb-a04b-4b0a-9dd7-4ff81be7b657",
+            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件可声明多个挂载槽位，不再只有单一 main.qml 面板。",
+            "orderKey": 12288,
+            "priority": 2,
             "stage": "R3",
             "status": "todo",
             "tags": [
-                "R3",
-                "插件库"
+                "R3"
             ],
-            "title": "市场源配置：内置 GitHub 默认地址 + 设置可改 #M15",
-            "updatedAt": 1792572839
+            "title": "插件多槽位（侧栏 + 底部面板 + 卡片字段）",
+            "updatedAt": 1792637108
         },
         {
             "completedAt": 0,
-            "createdAt": 1792572839,
+            "createdAt": 1792637108,
             "deleted": false,
             "dueAt": 1794412799,
-            "id": "55c3f461-b251-4d40-8b28-0b6c9e22676f",
-            "note": "官方插件放仓库 plugins/，插件库中列为可安装；装到 APPDATA/plugins 即生效。",
-            "orderKey": 25600,
-            "priority": 1,
+            "id": "51713f83-0c17-4fcc-8290-994c5e04a504",
+            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件无沙箱，安装/首次调用高危权限时弹窗显式授权并标注来源。",
+            "orderKey": 13312,
+            "priority": 2,
             "stage": "R3",
             "status": "todo",
             "tags": [
-                "R3",
-                "插件库"
+                "R3"
             ],
-            "title": "plan-hook 一键安装 + 官方源纳入扫描 #M16",
-            "updatedAt": 1792572839
+            "title": "插件权限授权弹窗与来源提示",
+            "updatedAt": 1792637108
         },
         {
             "completedAt": 1792568900,
@@ -296,6 +275,23 @@
             ],
             "title": "R0 收尾：落位涟漪 / 勾选光扫 / 删除故障",
             "updatedAt": 1792577522
+        },
+        {
+            "completedAt": 1792637108,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1793376000,
+            "id": "6e16c4e4-6254-4da1-be47-f93a6daad9d2",
+            "note": "已落地：父子关联存独立边表 task_link（不动 task 表结构、不升 user_version，老版本程序照常开库）；子卡自动缩进 + 「↳ 父卡标题」标注；父卡右下角霓虹进度环显示 done/total；列内按父卡分组排序。与原计划差异：parent_id 列方案改为边表实现。",
+            "orderKey": 3072,
+            "priority": 2,
+            "stage": "R1",
+            "status": "done",
+            "tags": [
+                "R1"
+            ],
+            "title": "R1 子任务 + 卡片霓虹进度环",
+            "updatedAt": 1792637108
         },
         {
             "completedAt": 1792568900,
@@ -622,6 +618,78 @@
             "updatedAt": 1792588621
         },
         {
+            "completedAt": 1792633483,
+            "createdAt": 1792572839,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "189e6f97-d75b-4e27-b8df-643793b37508",
+            "note": "升级现有侧栏插件区：已安装（APPDATA/plugins，唯一可写区）与可安装（随包/官方/示例/市场）分区；底部刷新市场、重新扫描、打开目录。",
+            "orderKey": 22528,
+            "priority": 2,
+            "stage": "R3",
+            "status": "done",
+            "tags": [
+                "R3",
+                "插件库"
+            ],
+            "title": "插件库侧栏：打开/启用/禁用/安装/卸载/更新 #M13",
+            "updatedAt": 1792633483
+        },
+        {
+            "completedAt": 1792633483,
+            "createdAt": 1792572839,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "3cbbcee6-85ec-437b-b886-4fbcf1adfccf",
+            "note": "单文件 JSON 包 {manifest, files}；下载后 SHA-256 校验 + manifest.id 一致性 + 防目录穿越；临时目录写完原子替换，失败回滚；索引缓存断网可用。",
+            "orderKey": 23552,
+            "priority": 2,
+            "stage": "R3",
+            "status": "done",
+            "tags": [
+                "R3",
+                "插件库"
+            ],
+            "title": ".neon 包格式 + PluginMarket：校验与原子安装 #M14",
+            "updatedAt": 1792633483
+        },
+        {
+            "completedAt": 1792633483,
+            "createdAt": 1792572839,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "20eb6e7d-772c-4aa3-b2a3-28571bd131f8",
+            "note": "设置面板加插件市场源 URL；索引 market.json 拉取后缓存到 APPDATA。",
+            "orderKey": 24576,
+            "priority": 1,
+            "stage": "R3",
+            "status": "done",
+            "tags": [
+                "R3",
+                "插件库"
+            ],
+            "title": "市场源配置：内置 GitHub 默认地址 + 设置可改 #M15",
+            "updatedAt": 1792633483
+        },
+        {
+            "completedAt": 1792633483,
+            "createdAt": 1792572839,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "55c3f461-b251-4d40-8b28-0b6c9e22676f",
+            "note": "官方插件放仓库 plugins/，插件库中列为可安装；装到 APPDATA/plugins 即生效。",
+            "orderKey": 25600,
+            "priority": 1,
+            "stage": "R3",
+            "status": "done",
+            "tags": [
+                "R3",
+                "插件库"
+            ],
+            "title": "plan-hook 一键安装 + 官方源纳入扫描 #M16",
+            "updatedAt": 1792633483
+        },
+        {
             "completedAt": 1792588621,
             "createdAt": 1792572839,
             "deleted": false,
@@ -658,6 +726,6 @@
             "updatedAt": 1792588621
         }
     ],
-    "updated": "2026-10-21T22:58:41",
+    "updated": "2026-10-22T10:52:47",
     "version": 2
 }

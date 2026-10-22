@@ -116,6 +116,14 @@ def sort_key(item):
 
 
 def main():
+    # Windows 控制台默认是 cp1252，打印中文会直接抛 UnicodeEncodeError，
+    # CI 里正是这样崩的 —— 强制把标准输出切到 UTF-8。
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     parser = argparse.ArgumentParser(description="看板状态派生器")
     parser.add_argument("--repo", default=repo_root(), help="仓库根目录")
     parser.add_argument("--snapshot", default="progress.json", help="快照相对路径")

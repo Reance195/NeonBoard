@@ -59,11 +59,13 @@ QtObject {
             // 映射不存在或卡片已被删除：重新建卡。恰好在 done 态到来时直接建在已办结列。
             var newId = pluginHost.addTask(title, status);
             if (newId && newId.length > 0) {
-                var note = "来自 agent " + agent
-                        + (sessionId.length > 8 ? " · session " + sessionId.substring(0, 8) : "");
-                var fields = { "tags": "agent", "note": note };
-                if (item.note) fields.note += "\n" + String(item.note);
-                pluginHost.updateTask(newId, fields);
+                // note 以协议为准（幂等：重复投递同 item 状态完全收敛）；
+                // 协议没带 note 才写归属说明。归属不再拼在 note 前端，保同步对账干净。
+                var note = (item.note && String(item.note).length > 0)
+                        ? String(item.note)
+                        : ("来自 agent " + agent
+                            + (sessionId.length > 8 ? " · session " + sessionId.substring(0, 8) : ""));
+                pluginHost.updateTask(newId, { "tags": "agent", "note": note });
                 pluginHost.setMetaValue(key, newId);
                 actions += 1;
             }
@@ -72,6 +74,13 @@ QtObject {
 
         if (task.title !== title) {
             pluginHost.updateTask(task.id, { "title": title });
+            actions += 1;
+        }
+        // note 全量对账：协议带 note 且与卡片当前不同才写。
+        // 事件没带 note 时不覆盖 —— 保留人工备注。
+        var incomingNote = (item.note !== undefined && item.note !== null) ? String(item.note) : "";
+        if (incomingNote.length > 0 && String(task.note || "") !== incomingNote) {
+            pluginHost.updateTask(task.id, { "note": incomingNote });
             actions += 1;
         }
         if (task.status !== status) {

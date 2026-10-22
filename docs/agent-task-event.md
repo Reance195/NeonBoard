@@ -46,7 +46,7 @@
 | `items[].id` | ✅ | 上游 todo 的稳定 id（优先上游原生 id；习惯上每轮投递保持一致） |
 | `items[].title` | ✅ | 卡片标题；**不要**内嵌 `#短号` |
 | `items[].status` | 可选 | 上游状态，缺省按 `pending` 处理 |
-| `items[].note` | 可选 | 追加到卡片备注 |
+| `items[].note` | 可选 | 卡片备注全量文本（见下方 note 语义） |
 
 ## 状态映射
 
@@ -63,12 +63,31 @@
 - **身份**：`meta` 键 `agentbridge.<agent>.<sessionId>.<todoId>` 存卡片 uuid。
   标题不带短号；同一 sessionId 内 id 稳定即可幂等。
 - **新建**：映射不存在（或卡片已被删除）→ `addTask` 建卡，打标签 `agent`，
-  备注「来自 agent xxx · session 前8位」，写映射。
-- **流转**：映射存在 → 标题变了 `updateTask`，状态变了 `moveTaskToEnd`；
-  已在目标列则跳过写库。
+  备注：协议带了 `note` 就以 `note` 为准（幂等收敛），没带才写
+  「来自 agent xxx · session 前8位」的归属说明；写映射。
+- **流转**：映射存在 → 标题变了 `updateTask`；`note` 做全量对账——事件带了
+  `note` 且与卡片当前不同才 `updateTask` 覆盖（重复投递完全收敛，永远以最新
+  事件为准），事件没带 `note` 不动卡片备注（保留人工编辑）；状态变了
+  `moveTaskToEnd`；已在目标列则跳过写库。
 - **todo 消失不删卡**：上游清单里去掉的 item，对应卡片保留在看板上（卡片已是
   用户可见实体，不反向删除）。想清理就手工删卡，映射失效后下次投递会重建。
 - **来源徽标**：卡片带 `agent` 标签（短期约定；`agent` 值未单列标签，避免标签爆炸）。
+
+## 结卡闭环（快照自动写回）
+
+任务卡的状态以看板为事实源。agent 结一整条需求时，在事件里投「卡片 id 映射 + status=done
++ note（进度口径文案」，插件把它写进看板 → `src/RoadmapSync` 在 1.5s 防抖后把看板状态
+**自动写回仓库快照 `progress.json`**（v3 格式，程序生成，agent 不再手改该文件）。
+收尾时 `scripts/git-done.ps1` 检测到 progress.json 有未提交变更会自动代提交
+`chore(roadmap): 同步进度快照`。
+
+这条链成立的前提：
+
+1. **事件投递时应用正在运行**（`hooks.db` 只被运行中的主进程轮询消费）；
+   应用没开就投递的话，事件留到下次启动补消费，快照写回要等那一刻。
+2. 快照路径由 `NEONBOARD_ROADMAP` 解析；沙箱运行时写回的是沙箱文件，
+   真实看板对应仓库根 `progress.json`。
+3. progress.json 的写者唯一 = 看板应用。agent / 人不允许手改（曾导致 v2 覆盖 v3 格式退化）。
 
 ## 适配器契约（以 opencode 为例）
 

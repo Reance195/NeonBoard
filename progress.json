@@ -52,21 +52,21 @@
             "updatedAt": 1792568900
         },
         {
-            "completedAt": 0,
+            "completedAt": 1792651110,
             "createdAt": 1792568900,
             "deleted": false,
             "dueAt": 1793721600,
             "id": "abfe0b9c-6ac6-4df8-8bd5-c8071888ae6c",
-            "note": "已完成（R1-1）：moveTaskBefore(id, status, beforeId) 精确插位 + taskIdsInStatus() 与界面同序 + 霓虹插入指示线实时标出落点。验收：selftest 断言通过、实机出图验证。待做：通用撤销（QUndoStack 化删除 / 移动 / 完成 / 编辑）。已完成 1 / 待做 1",
+            "note": "已完成（R1-1 + R1-6）：R1-1 列内精确插位 —— moveTaskBefore(id, status, beforeId) 按目标卡片 id 精确插入 + taskIdsInStatus() 与界面同序 + 霓虹插入指示线实时标出落点。R1-6 通用撤销 —— src/TaskUndo 撤销栈统一收口删除 / 移动 / 完成 / 恢复 / 拖拽改位 / 编辑保存六类操作，Ctrl+Z 或提示条「撤销」逐步回退（上限 50 步），回退走 TaskModel::restorePlacement（状态 + 列内位置 + 完成时间）与 restoreSnapshot（字段快照）；插件写入与路线图快照同步不进栈。验收：selftest 三类撤销断言通过、沙箱 smoke 零 QML 报错、实机 Toast 出图验证。已完成 2 / 待做 0",
             "orderKey": 6144,
             "priority": 2,
             "stage": "R1",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R1"
             ],
             "title": "R1 列内插位 + 通用撤销",
-            "updatedAt": 1792646616
+            "updatedAt": 1792651110
         },
         {
             "completedAt": 0,
@@ -726,7 +726,6 @@
             "updatedAt": 1792588621
         }
     ],
-    "updated": "2026-10-22T13:25:20",
+    "updated": "2026-10-22",
     "version": 2
 }
-

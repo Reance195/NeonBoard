@@ -314,7 +314,7 @@ ApplicationWindow {
             var origin = column.mapToItem(root, 0, 0)
             var drop = column.resolveDrop(y - origin.y)
             // 精确插位：插到落点卡片之前，beforeId 为空则落到列尾
-            if (taskStore.moveTaskBefore(dragTaskId, column.status, drop.beforeId))
+            if (taskUndo.moveTaskBefore(dragTaskId, column.status, drop.beforeId))
                 column.ripple()
         }
         clearDropMarks()
@@ -325,28 +325,38 @@ ApplicationWindow {
         dragTaskStatus = ""
     }
 
-    property var lastDeletedTask: null
-
+    // 所有可撤销操作统一走 taskUndo（删除 / 移动 / 完成 / 编辑）
     function deleteTaskWithUndo(id) {
-        lastDeletedTask = taskStore.removeTask(id)
-        if (lastDeletedTask && lastDeletedTask.id) {
-            undoToast.visible = true
-            undoToastTimer.restart()
-        }
+        taskUndo.deleteTask(id)
     }
 
-    function restoreDeleted() {
-        if (!lastDeletedTask)
-            return
-        taskStore.restoreTask(lastDeletedTask)
-        lastDeletedTask = null
-        undoToast.visible = false
-        undoToastTimer.stop()
+    function undoLastAction() {
+        if (taskUndo.undo()) {
+            undoToast.visible = false
+            undoToastTimer.stop()
+        }
     }
 
     Shortcut {
         sequence: "Ctrl+Z"
-        onActivated: window.restoreDeleted()
+        onActivated: window.undoLastAction()
+    }
+
+    property string undoToastText: "任务已删除"
+
+    // 撤销栈事件驱动提示条：文案随操作类型变化
+    Connections {
+        target: taskUndo
+        function onActionPerformed(description) {
+            window.undoToastText = description
+            undoToast.visible = true
+            undoToastTimer.restart()
+        }
+        function onUndone(description) {
+            window.undoToastText = "已撤销：" + description
+            undoToast.visible = true
+            undoToastTimer.restart()
+        }
     }
 
     Shortcut {
@@ -847,9 +857,9 @@ MouseArea {
                         dragSpace: root
                         dropTarget: window.dragOverStatus === status
                         onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
-                        onStartRequested: function(taskId) { taskStore.moveTask(taskId, "doing", -1) }
-                        onCompleteRequested: function(taskId) { taskStore.moveTask(taskId, "done", -1) }
-                        onRestoreRequested: function(taskId) { taskStore.moveTask(taskId, "todo", -1) }
+                        onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
+                        onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
+                        onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
                         onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
                         onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
                         onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
@@ -867,9 +877,9 @@ MouseArea {
                         dragSpace: root
                         dropTarget: window.dragOverStatus === status
                         onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
-                        onStartRequested: function(taskId) { taskStore.moveTask(taskId, "doing", -1) }
-                        onCompleteRequested: function(taskId) { taskStore.moveTask(taskId, "done", -1) }
-                        onRestoreRequested: function(taskId) { taskStore.moveTask(taskId, "todo", -1) }
+                        onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
+                        onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
+                        onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
                         onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
                         onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
                         onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
@@ -887,9 +897,9 @@ MouseArea {
                         dragSpace: root
                         dropTarget: window.dragOverStatus === status
                         onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
-                        onStartRequested: function(taskId) { taskStore.moveTask(taskId, "doing", -1) }
-                        onCompleteRequested: function(taskId) { taskStore.moveTask(taskId, "done", -1) }
-                        onRestoreRequested: function(taskId) { taskStore.moveTask(taskId, "todo", -1) }
+                        onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
+                        onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
+                        onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
                         onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
                         onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
                         onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
@@ -1065,7 +1075,7 @@ MouseArea {
                 anchors.left: parent.left
                 anchors.leftMargin: 14
                 anchors.verticalCenter: parent.verticalCenter
-                text: "任务已删除"
+                text: window.undoToastText
                 color: Theme.text
                 font.pixelSize: 11
             }
@@ -1093,7 +1103,7 @@ MouseArea {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: window.restoreDeleted()
+                    onClicked: window.undoLastAction()
                 }
             }
         }
@@ -1264,7 +1274,7 @@ MouseArea {
                             if (!isNaN(date.getTime()))
                                 dueAt = Math.floor(date.getTime() / 1000)
                         }
-                        taskStore.updateTask(editor.taskId, {
+                        taskUndo.updateTask(editor.taskId, {
                             title: title,
                             note: noteField.text,
                             priority: editor.priorityValue,

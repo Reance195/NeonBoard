@@ -524,7 +524,7 @@ Rectangle {
                 Item { Layout.fillWidth: true }
 
                 Text {
-                    text: "Ctrl+Z 撤销删除"
+                    text: "Ctrl+Z 撤销上一步"
                     color: Theme.muted
                     font.pixelSize: 9
                 }

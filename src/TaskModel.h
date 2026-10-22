@@ -57,6 +57,11 @@ public:
     Q_INVOKABLE bool deleteTask(const QString &id);
     Q_INVOKABLE QVariantMap removeTask(const QString &id);
     Q_INVOKABLE QString restoreTask(const QVariantMap &task);
+    // 撤销辅助：把任务放回指定状态与列内位置（撤销跨列移动用）
+    Q_INVOKABLE bool restorePlacement(const QString &id, const QString &status,
+                                      qint64 orderKey, qint64 completedAt);
+    // 撤销辅助：按快照回写任务字段（撤销编辑用），任务仍存在，走 UPDATE
+    Q_INVOKABLE bool restoreSnapshot(const QVariantMap &snapshot);
     Q_INVOKABLE bool moveTask(const QString &id, const QString &status, int newIndex);
     // 精确插位：把任务挪到目标状态列中 beforeId 这张卡片之前；beforeId 为空表示追加到列尾
     Q_INVOKABLE bool moveTaskBefore(const QString &id, const QString &status, const QString &beforeId);

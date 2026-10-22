@@ -99,7 +99,7 @@ Rectangle {
                     anchors.margins: 6
                     spacing: 3
 
-                    Row {
+                    RowLayout {
                         spacing: 4
                         width: parent.width
 
@@ -118,12 +118,19 @@ Rectangle {
                             font.bold: true
                         }
 
-                        Item { width: parent.width - 52; height: 1 }
+                        // 弹性占位：把计数推到芯片右缘，位数变化也不会顶出边框
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                        }
 
                         Text {
                             text: chip.modelData.done + "/" + chip.modelData.total
                             color: chip.finished ? chip.accent : Theme.muted
                             font.pixelSize: 10
+                            elide: Text.ElideRight
+                            Layout.minimumWidth: 0
+                            Layout.maximumWidth: 44
                         }
                     }
 

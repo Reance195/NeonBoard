@@ -41,7 +41,16 @@ function Invoke-Git {
     return $output
 }
 
-$repoRoot = (Invoke-Git rev-parse --show-toplevel).Trim()
+# 仓库根按**脚本自身路径**定位（脚本在 <repo>/scripts/ 下），不按当前工作目录 ——
+# 否则从别的目录调用时会把合并动作做进错误的 worktree（踩过：误改了锚点区）。
+$scriptRepoRoot = $null
+if ($PSScriptRoot) {
+    $candidate = Split-Path -Parent $PSScriptRoot
+    if ($candidate -and (Test-Path -LiteralPath (Join-Path $candidate '.git'))) {
+        $scriptRepoRoot = (Resolve-Path -LiteralPath $candidate).Path
+    }
+}
+$repoRoot = if ($scriptRepoRoot) { $scriptRepoRoot } else { (Invoke-Git rev-parse --show-toplevel).Trim() }
 Set-Location -LiteralPath $repoRoot
 Write-Host "仓库目录：$repoRoot" -ForegroundColor DarkGray
 

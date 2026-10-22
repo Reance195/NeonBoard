@@ -38,23 +38,6 @@
             "completedAt": 0,
             "createdAt": 1792568900,
             "deleted": false,
-            "dueAt": 1793548800,
-            "id": "1e4b499b-940b-4917-8437-0bdbc86ae302",
-            "note": "JSON/CSV 导出、导入时支持列映射；每日自动备份到应用数据目录。",
-            "orderKey": 4096,
-            "priority": 2,
-            "stage": "R1",
-            "status": "todo",
-            "tags": [
-                "R1"
-            ],
-            "title": "R1 导入导出 + 自动备份",
-            "updatedAt": 1792568900
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
             "dueAt": 1793721600,
             "id": "00f23528-e400-49bc-8f21-f4193f8c0c1d",
             "note": "模糊搜索任务与命令，支持键盘流操作。",
@@ -74,7 +57,7 @@
             "deleted": false,
             "dueAt": 1793721600,
             "id": "abfe0b9c-6ac6-4df8-8bd5-c8071888ae6c",
-            "note": "已完成列内插位（R1-1：TaskModel.moveTaskBefore(id, status, beforeId) 按目标卡片 id 精确插入，拖拽时实时显示霓虹插入指示线）；已完成快速录入解析（R1-2：src/TaskInputParser 解析「明天 15:00 #工作 !2」得到到期时间/标签/优先级，输入时下方实时预览解析结果）。剩余：通用撤销（删除/移动/完成/编辑全部可撤销）。",
+            "note": "已完成（R1-1）：moveTaskBefore(id, status, beforeId) 精确插位 + taskIdsInStatus() 与界面同序 + 霓虹插入指示线实时标出落点。验收：selftest 断言通过、实机出图验证。待做：通用撤销（QUndoStack 化删除 / 移动 / 完成 / 编辑）。已完成 1 / 待做 1",
             "orderKey": 6144,
             "priority": 2,
             "stage": "R1",
@@ -83,7 +66,7 @@
                 "R1"
             ],
             "title": "R1 列内插位 + 通用撤销",
-            "updatedAt": 1792639151
+            "updatedAt": 1792646616
         },
         {
             "completedAt": 0,
@@ -310,6 +293,23 @@
             ],
             "title": "外观面板：主题/画质/减弱动效",
             "updatedAt": 1792568900
+        },
+        {
+            "completedAt": 1792646616,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1793548800,
+            "id": "1e4b499b-940b-4917-8437-0bdbc86ae302",
+            "note": "已完成（R1-5）：src/DataPort 三格式导出（JSON schemaVersion / Markdown / Todo.txt）；导入按标题匹配已有任务并 upsertTask 落库（不触发快速录入解析）；设置面板「导入导出与备份」区一键导出、选文件导入、立即备份；每天首次启动自动备份 board.db 到 backups/。验收：往返实测 41/41 一致、重复导入幂等不重复、备份文件生成、smoke 零 QML 报错。已完成 6 / 待做 0（导入导出 + 备份）",
+            "orderKey": 4096,
+            "priority": 2,
+            "stage": "R1",
+            "status": "done",
+            "tags": [
+                "R1"
+            ],
+            "title": "R1 导入导出 + 自动备份",
+            "updatedAt": 1792646616
         },
         {
             "completedAt": 1792568900,
@@ -726,6 +726,7 @@
             "updatedAt": 1792588621
         }
     ],
-    "updated": "2026-10-22T10:52:47",
+    "updated": "2026-10-22T13:25:20",
     "version": 2
 }
+

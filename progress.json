@@ -163,6 +163,139 @@
             "updatedAt": 1792637108
         },
         {
+            "code": "R4-05",
+            "completedAt": 0,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "cf1180c6-c5be-4640-b619-78c459bb7037",
+            "note": "仓库无 tests/ 目录，回归全靠 selftest/smoke 手拍。规划：CTest + 针对 TaskModel/TaskTree/DataPort/PluginPackage 纯逻辑层的单元测试，GitHub Actions PR 质量门禁。路线图未排期的新增方向。",
+            "orderKey": 14336,
+            "priority": 3,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4",
+                "质量"
+            ],
+            "title": "R4 自动化测试体系 + CI 质量门禁",
+            "updatedAt": 1792654081
+        },
+        {
+            "code": "R4-03",
+            "completedAt": 0,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "cffdfbbb-46f5-4cae-a2c3-d3e64e0d2047",
+            "note": "能力矩阵点名「架构级解锁」但未排期：去掉 CHECK(status) 三列硬约束，引入 board/column 表，单板→多板、三列→N 列；迁移需保证老库照常可开。路线图未排期的新增方向。",
+            "orderKey": 15360,
+            "priority": 3,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4",
+                "架构"
+            ],
+            "title": "R4 多板 / 自定义列架构解锁",
+            "updatedAt": 1792654081
+        },
+        {
+            "code": "R4-04",
+            "completedAt": 0,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "a1880fc6-2060-4a72-b445-b3ba81fb8bad",
+            "note": "「老版本程序照常打开」写进宪章但无验证手段。规划：SQLite WAL + journal 校验 + 损坏自动恢复流程 + 迁移/向后兼容回归测试。路线图未排期的新增方向。",
+            "orderKey": 16384,
+            "priority": 2,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4",
+                "可靠性"
+            ],
+            "title": "R4 数据可靠性：WAL / 损坏恢复 / 迁移兼容",
+            "updatedAt": 1792654081
+        },
+        {
+            "code": "R4-02",
+            "completedAt": 0,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "51a132f8-ee80-40dd-a753-488336b123c9",
+            "note": "QSystemTrayIcon 气泡在 Win11 会静默折叠，通知需走 WinRT toast 进通知中心；.neon 插件包注册文件关联（双击安装）；跳转列表最近任务；开机自启开关。路线图未排期的新增方向。",
+            "orderKey": 17408,
+            "priority": 2,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4",
+                "系统集成"
+            ],
+            "title": "R4 Windows 原生集成：toast / 文件关联 / 跳转列表",
+            "updatedAt": 1792654081
+        },
+        {
+            "code": "R4-07",
+            "completedAt": 0,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "a78db4c2-f1ec-45ba-8c43-915d8ca4bdb5",
+            "note": "新用户面对空板零引导。规划：首启动 onboarding 三步引导（录任务 → 拖列 → 装插件）、可选示例数据、任务模板。路线图未排期的新增方向。",
+            "orderKey": 18432,
+            "priority": 1,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4",
+                "体验"
+            ],
+            "title": "R4 首次体验引导",
+            "updatedAt": 1792654081
+        },
+        {
+            "code": "R4-06",
+            "completedAt": 0,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "39d80b78-a666-49aa-b199-f363c5c2efc6",
+            "note": "减弱动效有开关，但缺焦点链、屏幕阅读器支持与纯键盘全操作（命令面板只剩部分入口）。规划：Tab 焦点链梳理 + 高对比度检查 + 键盘操作全覆盖。路线图未排期的新增方向。",
+            "orderKey": 19456,
+            "priority": 1,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4",
+                "无障碍"
+            ],
+            "title": "R4 键盘完整性 / 无障碍",
+            "updatedAt": 1792654081
+        },
+        {
+            "code": "R4-01",
+            "completedAt": 0,
+            "createdAt": 1792654294,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "70b49c4e-6102-4d8f-beda-33671c5b739e",
+            "note": "三层结构：① payload 协议 agent-task-event v1（通用：agent/sessionId/todoId/title/state）；② NeonBoard 官方插件 plugins/agent-bridge（agent 无关：订阅事件、meta 存映射、无短号新建/流转任务）；③ opencode 适配器 neonboard-todo-bridge（opencode 专属：监听 todowrite → 协议投递）。宿主零改动，走现成 --emit-hook-file 与 hooks.db 队列。",
+            "orderKey": 20480,
+            "priority": 2,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4",
+                "agent"
+            ],
+            "title": "R4 Agent 任务桥（通用事件协议 + opencode 适配器）",
+            "updatedAt": 1792654294
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -785,6 +918,6 @@
             "updatedAt": 1792657209
         }
     ],
-    "updated": "2026-10-22T16:19:29",
+    "updated": "2026-10-22T16:40:44",
     "version": 3
 }

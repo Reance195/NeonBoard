@@ -41,7 +41,14 @@
         "R3-02": "todo",
         "R3-03": "todo",
         "R3-04": "todo",
-        "R3-05": "todo"
+        "R3-05": "todo",
+        "R4-01": "todo",
+        "R4-02": "todo",
+        "R4-03": "todo",
+        "R4-04": "todo",
+        "R4-05": "todo",
+        "R4-06": "todo",
+        "R4-07": "todo"
     },
     "cards": {
         "M01": {
@@ -254,6 +261,41 @@
             "id": "51713f83-0c17-4fcc-8290-994c5e04a504",
             "stage": "R3",
             "title": "插件权限授权弹窗与来源提示"
+        },
+        "R4-01": {
+            "id": "70b49c4e-6102-4d8f-beda-33671c5b739e",
+            "stage": "R4",
+            "title": "R4 Agent 任务桥（通用事件协议 + opencode 适配器）"
+        },
+        "R4-02": {
+            "id": "51a132f8-ee80-40dd-a753-488336b123c9",
+            "stage": "R4",
+            "title": "R4 Windows 原生集成：toast / 文件关联 / 跳转列表"
+        },
+        "R4-03": {
+            "id": "cffdfbbb-46f5-4cae-a2c3-d3e64e0d2047",
+            "stage": "R4",
+            "title": "R4 多板 / 自定义列架构解锁"
+        },
+        "R4-04": {
+            "id": "a1880fc6-2060-4a72-b445-b3ba81fb8bad",
+            "stage": "R4",
+            "title": "R4 数据可靠性：WAL / 损坏恢复 / 迁移兼容"
+        },
+        "R4-05": {
+            "id": "cf1180c6-c5be-4640-b619-78c459bb7037",
+            "stage": "R4",
+            "title": "R4 自动化测试体系 + CI 质量门禁"
+        },
+        "R4-06": {
+            "id": "39d80b78-a666-49aa-b199-f363c5c2efc6",
+            "stage": "R4",
+            "title": "R4 键盘完整性 / 无障碍"
+        },
+        "R4-07": {
+            "id": "a78db4c2-f1ec-45ba-8c43-915d8ca4bdb5",
+            "stage": "R4",
+            "title": "R4 首次体验引导"
         }
     },
     "version": 1

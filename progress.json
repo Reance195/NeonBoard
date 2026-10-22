@@ -73,24 +73,6 @@
             "updatedAt": 1792568900
         },
         {
-            "code": "R3-01",
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1795536000,
-            "id": "90daab15-2707-4716-b687-0cf0d3320ba1",
-            "note": "已完成：apiVersion 2 双兼容 / 后台常驻插件 / 任务事件总线 / meta 共享配置 + 插件启停与热重载 / 插件库与在线市场（.neon 单文件包 + SHA-256 校验 + 原子安装 + 离线缓存）。待做：settings.qml 与设置页声明、命令与快捷键注册、多槽位、权限授权弹窗与来源提示（已拆为 4 张子卡 #M19-#M22）。",
-            "orderKey": 9216,
-            "priority": 1,
-            "stage": "R3",
-            "status": "todo",
-            "tags": [
-                "R3"
-            ],
-            "title": "R3 插件平台 2.0",
-            "updatedAt": 1792637108
-        },
-        {
             "code": "R3-02",
             "completedAt": 0,
             "createdAt": 1792637108,
@@ -275,6 +257,24 @@
             ],
             "title": "R4 键盘完整性 / 无障碍",
             "updatedAt": 1792654081
+        },
+        {
+            "code": "R3-01",
+            "completedAt": 0,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1795536000,
+            "id": "90daab15-2707-4716-b687-0cf0d3320ba1",
+            "note": "已完成：apiVersion 2 双兼容 / 后台常驻插件 / 任务事件总线 / meta 共享配置 + 插件启停与热重载 / 插件库与在线市场（.neon 单文件包 + SHA-256 校验 + 原子安装 + 离线缓存）。待做：settings.qml 与设置页声明、命令与快捷键注册、多槽位、权限授权弹窗与来源提示（已拆为 4 张子卡 #M19-#M22）。",
+            "orderKey": 9216,
+            "priority": 1,
+            "stage": "R3",
+            "status": "doing",
+            "tags": [
+                "R3"
+            ],
+            "title": "R3 插件平台 2.0",
+            "updatedAt": 1792659912
         },
         {
             "code": "R0-01",
@@ -897,7 +897,7 @@
                 "agent"
             ],
             "title": "R4 Agent 任务桥（通用事件协议 + opencode 适配器）",
-            "updatedAt": 1792687537
+            "updatedAt": 1792659954
         },
         {
             "code": "R1-07",
@@ -918,6 +918,6 @@
             "updatedAt": 1792659560
         }
     ],
-    "updated": "2026-10-22T16:59:20",
+    "updated": "2026-10-22T17:05:54",
     "version": 3
 }

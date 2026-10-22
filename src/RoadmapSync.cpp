@@ -20,8 +20,12 @@
 namespace {
 
 // 快照格式版本：v1 是早期的手工快照（语义 id + 日期字符串），v2 起改为
-// 「看板 UUID 作 id + epoch 时间戳 + 完整字段」，支持双向幂等合并。
-constexpr int kSnapshotVersion = 2;
+// 「看板 UUID 作 id + epoch 时间戳 + 完整字段」，支持双向幂等合并；
+// v3 起每张路线图卡片额外带 code 短号（#R1-03 这类），用于把卡片状态
+// 与 git 提交历史里的 #短号 标记对应起来，状态由 scripts/derive_board_status.py 派生。
+constexpr int kSnapshotVersion = 3;
+constexpr int kSnapshotMinVersion = 2;
+constexpr char kCodeMetaKey[] = "board.codes";
 
 QString compactJson(const QJsonObject &object)
 {
@@ -171,7 +175,7 @@ bool RoadmapSync::importFrom(const QString &filePath, bool force)
     }
 
     const int version = root.value(QStringLiteral("version")).toInt();
-    if (version < kSnapshotVersion) {
+    if (version < kSnapshotMinVersion) {
         setReport(QStringLiteral("路线图文件格式过旧（v%1），请重新导出后再同步").arg(version));
         return false;
     }
@@ -182,6 +186,7 @@ bool RoadmapSync::importFrom(const QString &filePath, bool force)
     int deleted = 0;
     int conflicts = 0;
     m_applying = true;
+    QHash<QString, QString> codes;
 
     // 有基线 = 这个进程之前读过/写过这份文件，能识别「文件被外部改过」，
     // 这类条目一律以文件为准；没有基线（CLI / 首次启动）则退化为
@@ -193,6 +198,10 @@ bool RoadmapSync::importFrom(const QString &filePath, bool force)
         const QString id = item.value(QStringLiteral("id")).toString();
         if (id.isEmpty())
             continue;
+
+        const QString code = item.value(QStringLiteral("code")).toString();
+        if (!code.isEmpty())
+            codes.insert(id, code);
 
         const bool external = hasBaseline
             && (!m_baseline.contains(id)
@@ -249,6 +258,16 @@ bool RoadmapSync::importFrom(const QString &filePath, bool force)
     // 刷新模型并记录基线（load 会触发 countsChanged，导入期间保持 applying 标记）
     m_tasks->load();
     m_applying = false;
+
+    // 卡片短号（#R1-03 这类）持久化到 meta 表，导出时带回快照，
+    // 这样短号不会在「文件 → 看板 → 文件」往返中丢失。
+    if (!codes.isEmpty() && m_database) {
+        const QString key = QString::fromLatin1(kCodeMetaKey);
+        QJsonObject mapping = QJsonDocument::fromJson(m_database->metaValue(key).toUtf8()).object();
+        for (auto it = codes.constBegin(); it != codes.constEnd(); ++it)
+            mapping.insert(it.key(), it.value());
+        m_database->setMetaValue(key, QString::fromUtf8(QJsonDocument(mapping).toJson(QJsonDocument::Compact)));
+    }
     m_baseline.clear();
     for (const QJsonValue &value : items) {
         const QJsonObject item = value.toObject();
@@ -313,6 +332,12 @@ bool RoadmapSync::exportTo(const QString &filePath)
     };
 
     const QVariantList tasks = m_tasks->allTasks();
+    QJsonObject codeMap;
+    if (m_database) {
+        const QString raw = m_database->metaValue(QString::fromLatin1(kCodeMetaKey));
+        if (!raw.isEmpty())
+            codeMap = QJsonDocument::fromJson(raw.toUtf8()).object();
+    }
     for (const QVariant &value : tasks) {
         const QVariantMap task = value.toMap();
         const QString id = task.value(QStringLiteral("id")).toString();
@@ -334,6 +359,13 @@ bool RoadmapSync::exportTo(const QString &filePath)
         item[QStringLiteral("updatedAt")] = static_cast<qint64>(task.value(QStringLiteral("updatedAt")).toLongLong());
         item[QStringLiteral("completedAt")] = static_cast<qint64>(task.value(QStringLiteral("completedAt")).toLongLong());
         item[QStringLiteral("deleted")] = false;
+
+        // 卡片短号：优先取 meta 里的映射，取不到时回退到文件里已有的值
+        QString code = codeMap.value(id).toString();
+        if (code.isEmpty() && current.contains(id))
+            code = current.value(id).value(QStringLiteral("code")).toString();
+        if (!code.isEmpty())
+            item[QStringLiteral("code")] = code;
 
         // 文件里这一条被外部改过 → 原样保留，交给导入流程应用到看板
         const bool external = current.contains(id)

@@ -127,37 +127,54 @@ def resolve_main_ref(root, requested=None):
 def claims_doing(root, claims, main_ref):
     """台账领用登记 → doing。返回 (active: {code: "doing"}, notes)。
 
-    只认 git 事实，登记不需要「释放」动作：
-    - head 不可达 → 分支已放弃，登记失效
-    - head 是主干祖先 → 分支已并入，登记失效（收尾请用提交标记 #code=done）
+    只认 git 事实，登记不需要「释放」动作。四态判定：
+    - claims.branch 的本地 / 远端 ref 都不存在 → 分支已删除（放弃），失效
+    - head 不是该分支当前 tip 的祖先（或相等）→ 分支被 rebase/改写，登记过期失效
+    - head 是主干祖先 → 分支已并入，失效（收尾请用提交标记 #code=done）
     - 其余 → doing 生效
     """
     active = {}
     notes = []
+
+    def ref_tip(ref):
+        out = subprocess.run(
+            ["git", "-C", root, "rev-parse", "--verify", "--quiet", ref + "^{commit}"],
+            capture_output=True, check=False,
+        )
+        if out.returncode != 0:
+            return None
+        return out.stdout.decode("utf-8", "replace").strip()
+
+    def is_ancestor(head, ref):
+        if not ref:
+            return False
+        out = subprocess.run(
+            ["git", "-C", root, "merge-base", "--is-ancestor", head, ref],
+            capture_output=True, check=False,
+        )
+        return out.returncode == 0
+
     for code in sorted(claims or {}):
         info = claims[code] or {}
         head = info.get("head", "")
-        if not head:
-            notes.append("领用 %s 缺 head，忽略" % code)
+        branch = info.get("branch", "")
+        if not head or not branch:
+            notes.append("领用 %s 登记不完整（缺 head 或 branch），忽略" % code)
             continue
-        probe = subprocess.run(
-            ["git", "-C", root, "cat-file", "-e", head + "^{commit}"],
-            capture_output=True, check=False,
-        )
-        if probe.returncode != 0:
-            notes.append("领用 %s 的分支头 %s 不可达（分支已放弃），已忽略" % (code, head[:10]))
+        ref = "refs/heads/%s" % branch
+        if ref_tip(ref) is None:
+            ref = "refs/remotes/%s" % branch
+        if ref_tip(ref) is None:
+            notes.append("领用 %s 的分支 %s 已不存在（放弃或删除），已忽略" % (code, branch))
             continue
-        if main_ref:
-            ancestor = subprocess.run(
-                ["git", "-C", root, "merge-base", "--is-ancestor", head, main_ref],
-                capture_output=True, check=False,
-            )
-            if ancestor.returncode == 0:
-                notes.append(
-                    "领用 %s 的分支已并入 %s，请用提交标记 #%s=done 收尾（或回台账 baseline）"
-                    % (code, main_ref, code)
-                )
-                continue
+        if not is_ancestor(head, ref):
+            # head 不是该分支当前 tip 的祖先：分支被 rebase / 重写，登记过期
+            notes.append("领用 %s 的分支 %s 已推进或重写，旧登记过期，请重新领用" % (code, branch))
+            continue
+        if main_ref and is_ancestor(head, main_ref):
+            notes.append("领用 %s 的分支已并入 %s，请用提交标记 #%s=done 收尾（或回台账 baseline）"
+                         % (code, main_ref, code))
+            continue
         active[code] = "doing"
     return active, notes
 

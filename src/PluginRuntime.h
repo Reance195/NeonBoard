@@ -11,9 +11,11 @@ class Database;
 class PluginContext;
 class PluginEventBus;
 class PluginLoader;
+class QFileSystemWatcher;
 class QQmlApplicationEngine;
 class QQmlComponent;
 class QQmlContext;
+class QTimer;
 class TaskModel;
 class TrayController;
 
@@ -55,12 +57,22 @@ private:
     void connectTaskEvents();
     void refreshContexts();
 
+    void ensureWatcher();
+    void refreshWatchPaths();
+    void onWatchTriggered();
+    void reloadFromDisk();
+    QString computeFingerprint() const;
+
     PluginLoader *m_loader = nullptr;
     PluginEventBus *m_bus = nullptr;
     Database *m_database = nullptr;
     TaskModel *m_tasks = nullptr;
     TrayController *m_tray = nullptr;
     QQmlApplicationEngine *m_engine = nullptr;
+
+    QFileSystemWatcher *m_watcher = nullptr;
+    QTimer *m_reloadDebounce = nullptr;
+    QString m_fingerprint;
 
     QHash<QString, PluginContext *> m_contexts;
     QList<BackgroundEntry> m_background;

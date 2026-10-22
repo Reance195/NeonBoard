@@ -8,10 +8,18 @@
 #include "TrayController.h"
 
 #include <QDebug>
+#include <QDir>
+#include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
+#include <QTimer>
+
+namespace {
+constexpr int kWatchDebounceMs = 400;
+}
 
 PluginRuntime::PluginRuntime(PluginLoader *loader, PluginEventBus *bus, Database *database,
                              TaskModel *tasks, TrayController *tray, QObject *parent)
@@ -29,10 +37,30 @@ void PluginRuntime::attachEngine(QQmlApplicationEngine *engine)
     m_engine = engine;
 }
 
+void PluginRuntime::ensureWatcher()
+{
+    if (!m_watcher) {
+        m_watcher = new QFileSystemWatcher(this);
+        connect(m_watcher, &QFileSystemWatcher::directoryChanged, this,
+                &PluginRuntime::onWatchTriggered);
+        connect(m_watcher, &QFileSystemWatcher::fileChanged, this,
+                &PluginRuntime::onWatchTriggered);
+    }
+    if (!m_reloadDebounce) {
+        m_reloadDebounce = new QTimer(this);
+        m_reloadDebounce->setSingleShot(true);
+        m_reloadDebounce->setInterval(kWatchDebounceMs);
+        connect(m_reloadDebounce, &QTimer::timeout, this, &PluginRuntime::reloadFromDisk);
+    }
+}
+
 void PluginRuntime::start()
 {
     connectTaskEvents();
     loadBackgroundPlugins();
+    ensureWatcher();
+    refreshWatchPaths();
+    m_fingerprint = computeFingerprint();
 }
 
 void PluginRuntime::reload()
@@ -41,7 +69,104 @@ void PluginRuntime::reload()
     if (m_loader)
         m_loader->scan();
     refreshContexts();
+    if (m_engine)
+        m_engine->clearComponentCache();
     loadBackgroundPlugins();
+    refreshWatchPaths();
+    m_fingerprint = computeFingerprint();
+}
+
+void PluginRuntime::refreshWatchPaths()
+{
+    if (!m_watcher || !m_loader)
+        return;
+
+    QStringList wanted;
+    const QStringList roots = m_loader->sourceDirs();
+    for (const QString &rootPath : roots) {
+        const QDir root(rootPath);
+        if (!root.exists())
+            continue;
+        wanted.append(root.absolutePath());
+        const QFileInfoList pluginDirs =
+            root.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+        for (const QFileInfo &pluginDir : pluginDirs) {
+            wanted.append(pluginDir.absoluteFilePath());
+            const QFileInfoList files =
+                QDir(pluginDir.absoluteFilePath()).entryInfoList(QDir::Files, QDir::Name);
+            for (const QFileInfo &file : files)
+                wanted.append(file.absoluteFilePath());
+        }
+    }
+
+    const QStringList current = m_watcher->directories() + m_watcher->files();
+    QStringList added = wanted;
+    for (const QString &path : current)
+        added.removeAll(path);
+    QStringList removed = current;
+    for (const QString &path : wanted)
+        removed.removeAll(path);
+
+    if (!added.isEmpty())
+        m_watcher->addPaths(added);
+    if (!removed.isEmpty())
+        m_watcher->removePaths(removed);
+}
+
+void PluginRuntime::onWatchTriggered()
+{
+    if (m_reloadDebounce)
+        m_reloadDebounce->start();
+}
+
+void PluginRuntime::reloadFromDisk()
+{
+    if (!m_loader)
+        return;
+
+    m_loader->scan();
+    const QString fingerprint = computeFingerprint();
+    if (fingerprint == m_fingerprint) {
+        refreshWatchPaths();
+        return;
+    }
+
+    const QVariantList plugins = m_loader->plugins();
+    qInfo() << "PluginRuntime: plugin directory changed, reloading"
+            << plugins.size() << "plugin(s)";
+    unloadBackgroundPlugins();
+    refreshContexts();
+    if (m_engine)
+        m_engine->clearComponentCache();
+    loadBackgroundPlugins();
+    m_fingerprint = fingerprint;
+    refreshWatchPaths();
+}
+
+QString PluginRuntime::computeFingerprint() const
+{
+    if (!m_loader)
+        return {};
+
+    QStringList parts;
+    const QVariantList plugins = m_loader->plugins();
+    for (const QVariant &value : plugins) {
+        const QVariantMap plugin = value.toMap();
+        const QString dir = plugin.value(QStringLiteral("dir")).toString();
+        qint64 newest = 0;
+        const QFileInfoList files =
+            QDir(dir).entryInfoList(QDir::Files | QDir::NoDotAndDotDot, QDir::Name);
+        for (const QFileInfo &file : files)
+            newest = qMax(newest, file.lastModified().toMSecsSinceEpoch());
+        parts.append(QStringLiteral("%1|%2|%3|%4|%5")
+                         .arg(plugin.value(QStringLiteral("id")).toString(),
+                              plugin.value(QStringLiteral("version")).toString(),
+                              plugin.value(QStringLiteral("status")).toString(),
+                              plugin.value(QStringLiteral("backgroundUrl")).toString(),
+                              QString::number(newest)));
+    }
+    parts.sort();
+    return parts.join(QLatin1Char('\n'));
 }
 
 PluginContext *PluginRuntime::contextFor(const QString &pluginId)
@@ -228,6 +353,8 @@ void PluginRuntime::loadBackgroundPlugins()
 
 void PluginRuntime::unloadBackgroundPlugins()
 {
+    if (!m_background.isEmpty())
+        qInfo() << "PluginRuntime: unloading" << m_background.size() << "background plugin(s)";
     for (const BackgroundEntry &entry : m_background) {
         if (m_bus) {
             if (PluginContext *context = m_contexts.value(entry.pluginId))

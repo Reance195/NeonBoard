@@ -5,6 +5,7 @@
 # 规则：
 #   1. 功能分支必须已合并进 main 才允许推送
 #   2. main 的推送必须是快进，禁止强推覆盖历史
+#   3. 进度快照 progress.json 语义闸门：版本不得降级、卡片数不得减少、code 不得丢失
 # ============================================================
 
 remote_name="$1"
@@ -17,6 +18,66 @@ is_protected() {
     main|master|develop) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+# ============================================================
+# 规则 4：进度快照语义闸门（fail-closed）
+# progress.json 是路线图快照，v3 格式（每张卡带 code 字段）。
+# 写者唯一 = 看板应用（RoadmapSync 自动写回），禁止手改文件。
+# 推送到主分支时校验：版本不得降级、卡片数不得减少、code 字段不得丢失。
+# ============================================================
+check_snapshot() {
+  local local_sha="$1" remote_sha="$2"
+
+  # 任一侧没有快照文件 → 无从校验，放行
+  git cat-file -e "$local_sha:progress.json" 2>/dev/null || return 0
+  git cat-file -e "$remote_sha:progress.json" 2>/dev/null || return 0
+
+  local lv rv
+  lv=$(git show "$local_sha:progress.json" 2>/dev/null | grep -o '"version"[[:space:]]*:[[:space:]]*[0-9]*' | head -1 | grep -o '[0-9]*')
+  rv=$(git show "$remote_sha:progress.json" 2>/dev/null | grep -o '"version"[[:space:]]*:[[:space:]]*[0-9]*' | head -1 | grep -o '[0-9]*')
+  [ -n "$lv" ] || lv=0
+  [ -n "$rv" ] || rv=0
+
+  if [ "$lv" -lt 3 ]; then
+    echo ""
+    echo "==================================================================="
+    echo " ❌ 进度快照版本降级（本地 version=$lv < 3），已阻止推送。"
+    echo "==================================================================="
+    echo ""
+    echo " progress.json 是 v3 格式（每张卡带 code 字段），不得退回 v2。"
+    echo " 正确做法：让看板应用（RoadmapSync）写回快照，不要手改文件。"
+    echo ""
+    exit 1
+  fi
+
+  local li ri lc rc
+  li=$(git show "$local_sha:progress.json" 2>/dev/null | grep -c '"id"[[:space:]]*:')
+  ri=$(git show "$remote_sha:progress.json" 2>/dev/null | grep -c '"id"[[:space:]]*:')
+  lc=$(git show "$local_sha:progress.json" 2>/dev/null | grep -c '"code"[[:space:]]*:')
+  rc=$(git show "$remote_sha:progress.json" 2>/dev/null | grep -c '"code"[[:space:]]*:')
+
+  if [ "$li" -lt "$ri" ]; then
+    echo ""
+    echo "==================================================================="
+    echo " ❌ 进度快照卡片数减少（$li < $ri），已阻止推送。"
+    echo "==================================================================="
+    echo ""
+    echo " 移除的卡片应写成 \"deleted\": true，而不是从快照里删条目。"
+    echo ""
+    exit 1
+  fi
+
+  if [ "$rv" -ge 3 ] && [ "$lc" -lt "$rc" ]; then
+    echo ""
+    echo "==================================================================="
+    echo " ❌ 进度快照 code 字段丢失（$lc < $rc），已阻止推送。"
+    echo "==================================================================="
+    echo ""
+    echo " v3 快照每张卡都带 code；丢失说明用旧格式覆盖了主线快照。"
+    echo ""
+    exit 1
+  fi
 }
 
 # stdin: <local_ref> <local_sha> <remote_ref> <remote_sha>
@@ -56,6 +117,8 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         exit 1
       fi
     fi
+    # 规则 4：进度快照语义闸门（版本 / 卡片数 / code 字段）
+    check_snapshot "$local_sha" "$remote_sha"
     continue
   fi
 

@@ -419,3 +419,41 @@ CI 侧同样走这条路：`.github/workflows/release.yml` 在打 tag 或手动�
 - 成环：`setParent(A, B)` 后 `setParent(B, A)` 必须返回 `false`（不落库）。
 - 删子卡 → `task_link` 里对应边消失。
 - 界面：子卡显示 `↳ 父卡标题` 且左缩进，父卡右下角显示进度环 + `done/total`。
+
+## 十一、进度快照与结卡闭环约定
+
+`progress.json` 是路线图快照（**v3 格式**：每张卡带 `code` 字段）。**写者唯一 = 看板应用**（`src/RoadmapSync` 自动写回），
+agent **禁止手改**快照文件 —— 手改已造成过 v2 覆盖 v3 的事故。
+
+### 11.1 职责分层
+
+| 层 | 位置 | 职责 | 不允许做 |
+| --- | --- | --- | --- |
+| 事件协议 | `docs/agent-task-event.md` | `agent-task-event v1` envelope 定义（agent / sessionId / items[id,title,status,note]） | 私造第二套格式 |
+| 投递 | `src/main.cpp` CLI `--emit-hook-file <f> --hook-event agent.task` | 事件落 `hooks.db`（独立事件名，与 `hook.commit` 隔离） | 复用 `hook.commit`（会误伤 plan-hook） |
+| 消费 | `plugins/agent-bridge/`（官方插件） | 解析 payload、维护 `agentbridge.<agent>.<sessionId>.<todoId>` → task uuid 映射、建卡/流转/对账 note | 直接写 SQL、改 `board.db` schema |
+| 写回 | `src/RoadmapSync` | 看板侧改动 1.5 s 防抖后写回 `progress.json`（v3） | 手写文件 |
+| 代提交 | `scripts/git-done.ps1` step1 | 提交**仅** `progress.json` 的未提交改动（固定信息 `chore(roadmap): 同步进度快照`） | 连同其它文件一起提交（fail-closed） |
+| 闸门 | `.githooks/pre-push` 规则 4 | 推 main 时校验快照：version ≥ 3、卡片数不减少、`code` 不丢 | 绕过（`--no-verify`） |
+
+### 11.2 硬性约束
+
+1. **写者唯一**：快照只由看板应用写回。agent 改卡片状态/备注 → 走事件 → 插件改库 → 应用写回文件；
+   **不要**用脚本直接改 `progress.json`。
+2. **结卡必须走闭环**：更新需求卡的 `status` / `note`（含「已完成 X / 待做 Y」）时，投 `agent-task-event v1` 事件，
+   由 `plugins/agent-bridge` 消费后写库，应用自动落快照。
+3. **事件名必须隔离**：agent 事件用 `agent.task`；`hook.commit` 只归 plan-hook（`#短号` 规则）。
+4. **note 语义是全量**：`item.note` 为空表示「不更新备注」，非空表示**全量覆盖**（不是追加）。
+5. **快照格式不得降级**：`version` 保持 3、每张卡保留 `code`；移除的卡写 `"deleted": true` 而不是删条目。
+6. **未提交只允许是快照**：`git-done.ps1` 只代提交 `progress.json`；存在其它未提交改动时**拒绝合并**（退出码 1）。
+
+### 11.3 验证口径
+
+- 闭环：投递 `agent-task-event` → 插件日志出现「新建/更新 N」→ `board.db` 卡片 `status`/`note` 正确 →
+  快照 `version=3`、`items` 增加、卡 `status=done`、`note` 与事件一致。
+- 幂等：同一 `sessionId` + `todoId` 重复投递 → 卡片数不增、只对账更新。
+- 提交：仅快照未提交时跑 `git-done.ps1` → 自动生成 `chore(roadmap): 同步进度快照` 提交并合并；
+  混入其它文件 → 退出码 1 且不产生新提交。
+- 闸门：向 main 推送 v2 快照 / 卡片数减少 / 丢 `code` → `pre-push` 拒绝并打印原因。
+- **验证事件消费必须用常驻实例**：`--smoke` 的 4 秒窗口不够（`HookEventQueue` 一投出即 `markDelivered`，
+  插件后台未 ready 时事件会被丢弃）。

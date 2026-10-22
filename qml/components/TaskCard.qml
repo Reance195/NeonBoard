@@ -30,6 +30,7 @@ Rectangle {
     property real offsetX: 0         // 进场位移 / 故障抖动用
     property real overduePulse: 0
     property real enterOpacity: 0    // 进场淡入，拖起时再整体压暗
+    property bool highlight: false   // 命令面板跳转定位时高亮
 
     signal editRequested()
     signal completeRequested()
@@ -43,8 +44,10 @@ Rectangle {
     height: 82
     radius: 12
     color: cardMouse.containsMouse ? Theme.cardHover : Theme.card
-    border.width: 1
+    border.width: card.highlight ? 2 : 1
     border.color: {
+        if (card.highlight)
+            return Theme.cyan
         if (card.glitching)
             return Theme.danger
         if (card.overdue)

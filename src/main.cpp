@@ -274,6 +274,17 @@ int main(int argc, char *argv[])
         ok = taskStore.moveTaskBefore(insC, QStringLiteral("todo"), QString()) && ok;
         const QStringList tailIds = taskStore.taskIdsInStatus(QStringLiteral("todo"));
         ok = tailIds.last() == insC && ok;
+        // 主/子任务关联：建边 → 父卡统计 → 成环拒绝 → 删子卡清边
+        const QString linkParent = taskStore.addTask(QStringLiteral("selftest-parent"), QStringLiteral("todo"), 2, QString(), 0);
+        const QString linkChild = taskStore.addTask(QStringLiteral("selftest-child"), QStringLiteral("todo"), 2, QString(), 0);
+        ok = taskTree.setParent(linkChild, linkParent) && ok;
+        const QVariantMap linkStats = taskTree.childStats(linkParent);
+        qInfo() << "SELFTEST link" << linkStats.value("total").toInt() << linkStats.value("done").toInt();
+        ok = linkStats.value("total").toInt() == 1 && ok;
+        ok = !taskTree.setParent(linkParent, linkChild) && ok;   // 成环必须被拒
+        taskStore.deleteTask(linkChild);
+        ok = taskTree.parentId(linkChild).isEmpty() && ok;       // 删子卡要清边
+        taskStore.deleteTask(linkParent);
         taskStore.deleteTask(insA);
         taskStore.deleteTask(insB);
         taskStore.deleteTask(insC);

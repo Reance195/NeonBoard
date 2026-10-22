@@ -12,6 +12,9 @@ Rectangle {
     z: 140
     color: Qt.rgba(0, 0, 0, 0.55)
 
+    // 安装/更新完成后请求宿主弹出权限授权框
+    signal permissionRequested(string pluginId)
+
     function open() {
         visible = true
         pluginLibrary.refresh()
@@ -19,6 +22,12 @@ Rectangle {
 
     function close() {
         visible = false
+    }
+
+    // 装完立刻检查新插件声明的权限，缺授权就交给宿主弹窗
+    function checkPermissions(pluginId) {
+        if (pluginRuntime.missingPermissions(pluginId).length > 0)
+            permissionRequested(pluginId)
     }
 
     function sourceStatusText(spec) {
@@ -479,7 +488,10 @@ Rectangle {
                                             id: installMouse
                                             anchors.fill: parent
                                             hoverEnabled: true
-                                            onClicked: pluginLibrary.install(modelData.id)
+                                            onClicked: {
+                                                if (pluginLibrary.install(modelData.id))
+                                                    libraryPanel.checkPermissions(modelData.id)
+                                            }
                                         }
                                     }
 
@@ -492,7 +504,10 @@ Rectangle {
                                             id: updateMouse
                                             anchors.fill: parent
                                             hoverEnabled: true
-                                            onClicked: pluginLibrary.update(modelData.id)
+                                            onClicked: {
+                                                if (pluginLibrary.update(modelData.id))
+                                                    libraryPanel.checkPermissions(modelData.id)
+                                            }
                                         }
                                     }
 

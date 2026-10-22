@@ -1,10 +1,10 @@
 # NeonBoard 插件 API（apiVersion 1 / 2）
 
-NeonBoard 的插件是运行时加载的 QML 面板，使用宿主提供的 `pluginHost` 访问任务、存储、通知与事件。
+NeonBoard 的插件是运行时加载的 QML 组件，使用宿主提供的 `pluginHost` 访问任务、存储、通知与事件。除主面板 `main.qml` 外，插件还可以贡献设置页、三种界面槽位与命令 / 快捷键。
 
 > 安全边界：插件运行在宿主 QML 引擎内，**不是沙箱**。权限清单只约束 `pluginHost` API，无法阻止 QML 使用 Qt 自带的其他能力。只安装自己信任的插件。
 
-**版本兼容**：宿主同时接受 `apiVersion: 1` 与 `apiVersion: 2`。v1 插件无需任何改动即可继续运行；v2 在 v1 基础上追加「后台常驻」「事件订阅」「meta 读写」三项能力。
+**版本兼容**：宿主同时接受 `apiVersion: 1` 与 `apiVersion: 2`。v1 插件无需任何改动即可继续运行；v2 在 v1 基础上追加「后台常驻」「事件订阅」「meta 读写」「设置页 / 槽位 / 命令」四组能力。
 
 ## 目录结构
 
@@ -13,6 +13,10 @@ plugins/<plugin-id>/
   plugin.json        清单（必填）
   main.qml           面板入口（必填）
   background.qml     后台常驻入口（可选，apiVersion 2）
+  settings.qml       设置页（可选，apiVersion 2）
+  sidebar.qml        侧栏槽位（可选，apiVersion 2）
+  bottom.qml         底部面板槽位（可选，apiVersion 2）
+  card.qml           任务卡槽位（可选，apiVersion 2）
   rules.js           任意 JS 资源，可被两个 QML 用 import "rules.js" as X 共用
 ```
 
@@ -38,10 +42,24 @@ plugins/<plugin-id>/
   "description": "一个示例插件",
   "main": "main.qml",
   "background": "background.qml",
+  "settings": "settings.qml",
   "permissions": ["storage", "notifications", "tasks.read"],
   "contributes": {
     "events": ["hook.commit"],
-    "commands": [{ "id": "timer.start", "title": "开始计时" }]
+    "slots": {
+      "sidebar": "sidebar.qml",
+      "bottom": "bottom.qml",
+      "card": "card.qml"
+    },
+    "commands": [
+      {
+        "id": "timer.start",
+        "title": "开始计时",
+        "category": "计时器",
+        "description": "启动一轮 25 分钟专注计时",
+        "shortcut": "Ctrl+Shift+T"
+      }
+    ]
   }
 }
 ```
@@ -55,9 +73,11 @@ plugins/<plugin-id>/
 | `description` | 否 | 描述 |
 | `main` | 是 | 相对插件目录的 QML 入口，必须存在 |
 | `background` | 否 | 后台常驻入口（apiVersion 2），必须存在 |
+| `settings` | 否 | 设置页入口（apiVersion 2），必须存在；也可写在 `contributes.settings` |
 | `permissions` | 否 | 权限字符串数组，缺省为空 |
 | `contributes.events` | 否 | 声明要订阅的宿主事件名（apiVersion 2） |
-| `contributes.commands` | 否 | 声明可注册的命令（apiVersion 2，当前仅声明与展示） |
+| `contributes.slots` | 否 | 槽位入口：`sidebar` / `bottom` / `card`，文件必须存在（apiVersion 2） |
+| `contributes.commands` | 否 | 命令列表：`id` / `title` / `category` / `description` / `shortcut`（apiVersion 2） |
 
 ## 加载与生命周期
 
@@ -66,23 +86,37 @@ plugins/<plugin-id>/
 3. 宿主调用 `pluginHost.activate(id)`，然后加载 `main.qml`。
 4. 关闭面板时调用 `pluginHost.deactivate()` 并卸载 QML。
 5. 声明了 `background` 的插件在启动时**额外**常驻加载，不依赖面板是否打开。
-6. 设置面板的「重新扫描插件」会重建全部插件上下文与后台实例。
+6. 设置面板的「插件设置」区按需加载各插件的 `settings.qml`；侧栏 / 底部 / 卡片槽位在主界面加载时按需展开。
+7. 插件命令被触发时，若插件还没运行，命令会**排队**并自动打开该插件面板，面板加载完成后再投递。
+8. 设置面板的「重新扫描插件」会重建全部插件上下文与后台实例。
 
 前台插件的 QML 通过全局上下文对象 `pluginHost` 访问宿主，它始终指向当前激活的插件。后台插件则运行在**独立的子 QML 上下文**里，同名的 `pluginHost` 被替换成它自己的门面对象——因此权限天然隔离，后台插件拿不到前台插件的权限。
 
 ## 权限
 
-| 权限 | 允许的 API |
-| --- | --- |
-| `storage` | `storageGet` / `storageSet` / `storageRemove` |
-| `tasks.read` | `tasks()` |
-| `tasks.write` | `addTask` / `updateTask` / `moveTask` / `moveTaskToEnd` / `deleteTask` |
-| `notifications` | `notify()` |
-| `openUrl` | `openUrl()`，仅 `http` / `https` |
-| `meta` | `metaValue` / `setMetaValue` / `removeMetaValue`（apiVersion 2） |
-| `events` | `subscribe()` / `subscriptions()`（apiVersion 2） |
+### 权限清单
 
-未授权时不会抛异常：读操作返回空字符串 / 空数组 / `false`，写操作返回 `false`，`notify` 不执行，并在日志里写一条 `PluginContext: permission denied ...`。
+| 权限 | 允许的 API | 风险 |
+| --- | --- | --- |
+| `storage` | `storageGet` / `storageSet` / `storageRemove` | 低 |
+| `tasks.read` | `tasks()` | 低 |
+| `tasks.write` | `addTask` / `updateTask` / `moveTask` / `moveTaskToEnd` / `deleteTask` | 高 |
+| `notifications` | `notify()` | 低 |
+| `openUrl` | `openUrl()`，仅 `http` / `https` | 中 |
+| `meta` | `metaValue` / `setMetaValue` / `removeMetaValue`（apiVersion 2） | 高（跨插件共享区） |
+| `events` | `subscribe()` / `subscriptions()`（apiVersion 2） | 低 |
+
+### 声明与授权
+
+manifest 里的 `permissions` 只是**声明**，真正调用 API 还要求**已授权**：
+
+- 授权结果存在 meta 表 `plugins.grants`，格式为 `{ "<pluginId>": ["storage", ...] }`。
+- **祖父条款**：升级到带授权机制的版本时，已装插件会按自己的声明权限**一次性预授予**，老插件（如计划钩子、任务桥）不需要重新点一遍。
+- 新安装 / 更新插件后，若存在未授予的声明权限，宿主弹出授权框：展示插件名、来源（用户安装 / 随包 / 官方 / 示例）、每项权限的说明与风险等级。
+- 插件首次调用未授权 API 时同样会请求授权；同一插件同一权限**每次会话只弹一次**，拒绝后本次会话不再打扰。
+- 用户点「允许」后立即写库并生效；点「拒绝」或关闭弹窗则保持未授权。
+
+未授权时不会抛异常：读操作返回空字符串 / 空数组 / `false`，写操作返回 `false`，`notify` 不执行，并在日志里写一条 `PluginContext: permission not granted ...`；权限根本没声明时日志写 `permission not declared ...`。
 
 ## pluginHost API
 
@@ -204,6 +238,95 @@ Connections {
 | `task.removed` | `{id}` | 任务被删除或清空 |
 | `hook.commit` | `{text, ts}` | Git 提交信息投递（见 [plan-hook.md](plan-hook.md)） |
 
+### 命令回调（apiVersion 2）
+
+```qml
+Connections {
+    target: pluginHost
+    function onCommandInvoked(commandId) {
+        console.log("收到命令:", commandId)
+    }
+}
+```
+
+命令触发后，宿主把 `commandId` 投递给该插件对应的 `pluginHost`——前台面板、后台实例、槽位与设置页都能收到。插件尚未运行时命令会排队，等面板或后台实例就绪后再投递。
+
+## 设置页、槽位与命令（apiVersion 2）
+
+### 设置页
+
+```json
+{ "settings": "settings.qml" }
+```
+
+设置页会聚合进宿主设置面板的「插件设置」区，**默认折叠、展开时才加载**。根节点可以直接接收宿主注入的门面：
+
+```qml
+import QtQuick
+import QtQuick.Layouts
+
+ColumnLayout {
+    property var host   // 宿主注入：绑定到本插件的 pluginHost
+
+    Text { text: "插件：" + host.pluginId }
+}
+```
+
+`host` 与面板里的全局 `pluginHost` 能力完全一致，但**只作用于本插件**（不需要先 activate），权限仍按本插件的授权校验。
+
+### 槽位
+
+```json
+{
+  "contributes": {
+    "slots": {
+      "sidebar": "sidebar.qml",
+      "bottom": "bottom.qml",
+      "card": "card.qml"
+    }
+  }
+}
+```
+
+| 槽位 | 位置 | 注入内容 |
+| --- | --- | --- |
+| `sidebar` | 左侧栏导航与插件库卡片之间 | `host` |
+| `bottom` | 看板三列下方的通栏区域 | `host` |
+| `card` | 每张任务卡底部扩展区 | `host` + `taskId`（任务 id，字符串） |
+
+槽位根节点按需声明注入属性，宿主加载后自动赋值：
+
+```qml
+import QtQuick
+
+Rectangle {
+    property var host
+    property string taskId   // 仅 card 槽位有值
+
+    implicitHeight: 40
+    // …
+}
+```
+
+槽位高度取根节点的 `implicitHeight`；`card` 槽位会让任务卡自动增高，不占用原有的 82 高度区域。
+
+### 命令与快捷键
+
+```json
+{
+  "contributes": {
+    "commands": [
+      { "id": "timer.start", "title": "开始计时", "category": "计时器",
+        "description": "启动一轮 25 分钟专注计时", "shortcut": "Ctrl+Shift+T" }
+    ]
+  }
+}
+```
+
+- 命令自动进入 `Ctrl+K` 命令面板，分类缺省为「插件」。
+- `shortcut` 支持 `Ctrl / Alt / Shift / Meta` 组合，键名可写 `A`–`Z`、`0`–`9`、`F1`–`F24`、`Esc`、`Enter`、`Space`、`Tab`、`Up`/`Down`/`Left`/`Right` 等；大小写与顺序无关，宿主会规范化。
+- 宿主保留 `Ctrl+Z`、`Ctrl+N`、`Ctrl+K`、`Ctrl+,`；与其他插件撞车时**先注册者生效**，冲突项的快捷键自动置空并在命令面板里标注「快捷键冲突」。
+
 ## 最小示例
 
 `main.qml`：
@@ -275,6 +398,17 @@ pluginLoader.disabledPlugins                 // 被禁用的插件 id 列表
 pluginRuntime.reload()                       // 卸载并重建所有插件上下文与后台实例
 pluginRuntime.backgroundCount                // 常驻后台插件数
 pluginRuntime.backgroundPlugins              // 后台插件 id 列表
+pluginRuntime.pluginCommands                 // 全部插件命令（含 shortcut / conflict 仲裁结果）
+pluginRuntime.settingsPages                  // 设置页列表 {pluginId, pluginName, url, sourceLabel}
+pluginRuntime.sidebarSlotItems               // 侧栏槽位项（bottomSlotItems / cardSlotItems 同理）
+pluginRuntime.slotItems("card")              // 按槽位名查询
+pluginRuntime.hostFor("com.example.timer")   // 取绑定到指定插件的 pluginHost 门面
+pluginRuntime.invokeCommand(id, commandId)   // 触发命令；返回 false 表示已排队
+pluginRuntime.dispatchPending(id)            // 投递该插件排队中的命令，返回投递数
+pluginRuntime.isRunning(id)                  // 插件当前是否在运行（面板打开 / 后台常驻）
+pluginRuntime.missingPermissions(id)         // 声明但未授权的权限
+pluginRuntime.grantPermissions(id, names)    // 授予权限（写 meta 并刷新界面）
+pluginRuntime.permissionPrompt(id)           // 授权弹窗数据（名称 / 来源 / 风险说明）
 ```
 
 禁用清单存在 `meta` 表的 `plugins.disabled` 键下（JSON 数组），禁用中的插件 `status` 为 `disabled`，不会加载。
@@ -429,6 +563,7 @@ pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
 --market-refresh               拉取所有启用源的索引并合并（失败时降级到缓存）
 --market-install <id>          从市场安装指定插件
 --install-plugin-url <url>     直接从 .neon 链接安装（可加 #sha256=...）
+--plugin-report                输出插件平台清单 JSON（插件 / 命令 / 槽位 / 设置页 / 授权缺口）
 ```
 
 这些参数都走 `utilityMode`，不占用单实例，可在应用运行时或无界面环境下调用，退出码 `0` 成功 / `2` 失败。
@@ -442,14 +577,15 @@ v1 插件**不需要改动**，直接照常工作。若要用上 v2 能力：
 3. 需要订阅事件就加 `permissions: ["events"]`，并声明 `contributes.events`。
 4. 需要共享配置就加 `permissions: ["meta"]`。
 5. 在 `background.qml` 里用 `pluginHost.subscribe([...])` 订阅，`eventReceived` 接收。
+6. 需要设置页 / 槽位 / 命令，按上文的 `settings`、`contributes.slots`、`contributes.commands` 声明（同样走 apiVersion 2）。
 
 行为差异只有一处需要注意：v2 的后台插件拥有**独立的** `pluginHost` 门面（权限按自己的 manifest 校验），而 v1 时代所有插件共享同一个全局上下文。
 
 ## 当前限制
 
-- 每个插件只有一个 `main.qml` 面板，没有 `settings.qml`
-- `contributes.commands` 目前只做声明与展示，命令面板尚未实现
-- 没有快捷键注册
+- 槽位只有 `sidebar` / `bottom` / `card` 三个固定位置，不能自定义顺序
+- 设置页只做聚合展示，宿主不提供统一的设置项控件样式
+- 命令只支持「触发」语义，没有参数输入与撤销
 - 没有插件 HTTP API 或网络白名单
 - 插件市场只支持 `.neon` 单文件包（JSON），不支持 zip 等压缩包格式
 - 官方插件（`plugins/` 目录）不随安装包分发，发布态需从市场获取或手工复制到用户插件目录

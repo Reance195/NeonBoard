@@ -33,6 +33,9 @@
 #include <QFontMetrics>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMessageBox>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -40,6 +43,7 @@
 #include <QQuickWindow>
 #include <QScreen>
 #include <QSettings>
+#include <QStringConverter>
 #include <QTextStream>
 #include <QTimer>
 #include <QUrl>
@@ -112,7 +116,8 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--market-source"))
         || arguments.contains(QStringLiteral("--market-sources"))
         || arguments.contains(QStringLiteral("--market-install"))
-        || arguments.contains(QStringLiteral("--install-plugin-url"));
+        || arguments.contains(QStringLiteral("--install-plugin-url"))
+        || arguments.contains(QStringLiteral("--plugin-report"));
     std::unique_ptr<SingleInstance> singleInstance;
     if (!utilityMode) {
         singleInstance = std::make_unique<SingleInstance>(AppPaths::singleInstanceKey());
@@ -463,6 +468,53 @@ int main(int argc, char *argv[])
     PluginHost pluginHost(&pluginRuntime);
     PluginMarket pluginMarket;
     PluginLibrary pluginLibrary(&pluginLoader, &pluginMarket, &pluginRuntime, &database);
+
+    // --plugin-report：输出插件平台表面清单（插件 / 命令 / 槽位 / 设置页 / 授权缺口），
+    // 走 stdout JSON，方便脚本与无头环境验收。
+    if (arguments.contains(QStringLiteral("--plugin-report"))) {
+        QJsonArray plugins;
+        for (const QVariant &entry : pluginLoader.plugins()) {
+            const QVariantMap map = entry.toMap();
+            const QString id = map.value(QStringLiteral("id")).toString();
+            QJsonObject item;
+            item.insert(QStringLiteral("id"), id);
+            item.insert(QStringLiteral("name"), map.value(QStringLiteral("name")).toString());
+            item.insert(QStringLiteral("version"), map.value(QStringLiteral("version")).toString());
+            item.insert(QStringLiteral("status"), map.value(QStringLiteral("status")).toString());
+            item.insert(QStringLiteral("source"), map.value(QStringLiteral("source")).toString());
+            QJsonArray permissions;
+            for (const QVariant &permission : map.value(QStringLiteral("permissions")).toList())
+                permissions.append(permission.toString());
+            item.insert(QStringLiteral("permissions"), permissions);
+            QJsonArray missing;
+            for (const QString &permission : pluginRuntime.missingPermissions(id))
+                missing.append(permission);
+            item.insert(QStringLiteral("missingPermissions"), missing);
+            plugins.append(item);
+        }
+
+        QJsonObject slotMap;
+        slotMap.insert(QStringLiteral("sidebar"),
+                       QJsonArray::fromVariantList(pluginRuntime.sidebarSlotItems()));
+        slotMap.insert(QStringLiteral("bottom"),
+                       QJsonArray::fromVariantList(pluginRuntime.bottomSlotItems()));
+        slotMap.insert(QStringLiteral("card"),
+                       QJsonArray::fromVariantList(pluginRuntime.cardSlotItems()));
+
+        QJsonObject report;
+        report.insert(QStringLiteral("plugins"), plugins);
+        report.insert(QStringLiteral("commands"),
+                      QJsonArray::fromVariantList(pluginRuntime.pluginCommands()));
+        report.insert(QStringLiteral("settingsPages"),
+                      QJsonArray::fromVariantList(pluginRuntime.settingsPages()));
+        report.insert(QStringLiteral("slots"), slotMap);
+
+        QTextStream out(stdout);
+        out.setEncoding(QStringConverter::Utf8);
+        out << QString::fromUtf8(QJsonDocument(report).toJson(QJsonDocument::Indented));
+        out.flush();
+        return 0;
+    }
 
     // 钩子事件队列：与看板库物理隔离，主进程轮询消费后转成插件事件
     HookEventQueue hookQueue(AppPaths::hookDbPath());

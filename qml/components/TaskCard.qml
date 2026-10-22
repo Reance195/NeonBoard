@@ -24,6 +24,9 @@ Rectangle {
     // 拖拽坐标基准（由外部注入主内容区域）
     property Item dragSpace: null
 
+    // 卡片槽位（插件 contributes.slots.card）展开后占用的额外高度
+    readonly property real cardSlotExtra: cardSlot.implicitHeight > 0 ? cardSlot.implicitHeight + 8 : 0
+
     // 逾期：due 形如 "MM-dd"，同年按字典序比较即可
     readonly property bool overdue: {
         if (due.length !== 5)
@@ -50,7 +53,7 @@ Rectangle {
     signal dragMoved(real x, real y)
     signal dragEnded(real x, real y)
 
-    height: 82
+    height: 82 + card.cardSlotExtra
     radius: 12
     color: cardMouse.containsMouse ? Theme.cardHover : Theme.card
     border.width: card.highlight ? 2 : 1
@@ -161,7 +164,9 @@ Rectangle {
     // 卡片内容（整体做位移，承载进场与故障抖动）
     Item {
         id: inner
-        anchors.fill: parent
+        width: parent.width
+        height: 82
+        anchors.top: parent.top
         x: card.offsetX
 
         // 优先级光条
@@ -463,5 +468,18 @@ Rectangle {
             }
             dragging = false
         }
+    }
+
+    // 卡片插件槽位：插件可往卡片底部追加自己的字段
+    PluginSlot {
+        id: cardSlot
+        slotName: "card"
+        taskId: card.taskId
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.leftMargin: 14
+        anchors.rightMargin: 14
+        anchors.bottomMargin: 8
     }
 }

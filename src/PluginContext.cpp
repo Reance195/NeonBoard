@@ -36,15 +36,39 @@ PluginContext::PluginContext(const QString &pluginId,
 
 bool PluginContext::hasPermission(const QString &permission) const
 {
-    return !permission.isEmpty() && m_permissions.contains(permission);
+    // 语义：声明 + 已授权，才是「当前可用」
+    if (permission.isEmpty() || !m_permissions.contains(permission))
+        return false;
+    return isGranted(permission);
+}
+
+bool PluginContext::isGranted(const QString &permission) const
+{
+    if (!m_grantQuery)
+        return true;
+    return m_grantQuery(permission);
+}
+
+void PluginContext::setPermissionHooks(std::function<bool(const QString &)> query,
+                                       std::function<void(const QString &)> request)
+{
+    m_grantQuery = std::move(query);
+    m_grantRequest = std::move(request);
 }
 
 bool PluginContext::require(const QString &permission) const
 {
-    if (hasPermission(permission))
-        return true;
-    qWarning() << "PluginContext: permission denied" << permission << "for" << m_pluginId;
-    return false;
+    if (permission.isEmpty() || !m_permissions.contains(permission)) {
+        qWarning() << "PluginContext: permission not declared" << permission << "for" << m_pluginId;
+        return false;
+    }
+    if (!isGranted(permission)) {
+        qWarning() << "PluginContext: permission not granted" << permission << "for" << m_pluginId;
+        if (m_grantRequest)
+            m_grantRequest(permission);
+        return false;
+    }
+    return true;
 }
 
 QString PluginContext::storageGet(const QString &key) const
@@ -174,6 +198,13 @@ QStringList PluginContext::subscriptions() const
 void PluginContext::deliverEvent(const QString &name, const QVariantMap &payload)
 {
     emit eventReceived(name, payload);
+}
+
+void PluginContext::deliverCommand(const QString &commandId)
+{
+    if (commandId.isEmpty())
+        return;
+    emit commandInvoked(commandId);
 }
 
 void PluginContext::updateManifest(const QString &name, const QString &version,

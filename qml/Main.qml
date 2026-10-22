@@ -1,4 +1,5 @@
 import QtQuick
+import QtQml
 import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -92,6 +93,24 @@ ApplicationWindow {
         return false
     }
 
+    // 运行插件命令：插件在跑就直接投递；不在跑就打开插件面板，面板加载后补投递
+    function runPluginCommand(pluginId, commandId) {
+        if (!pluginRuntime.invokeCommand(pluginId, commandId)) {
+            window.closeAllPanels()
+            window.openPluginById(pluginId)
+        }
+    }
+
+    // 权限授权弹窗：按需加载，首次弹出时才构造
+    function presentPermissionPrompt(pluginId) {
+        if (permissionDialogLoader.item) {
+            permissionDialogLoader.item.present(pluginId)
+            return
+        }
+        permissionDialogLoader.pendingPluginId = pluginId
+        permissionDialogLoader.active = true
+    }
+
     // 打开插件库
     function openPluginLibrary() {
         show()
@@ -176,6 +195,22 @@ ApplicationWindow {
                     })
                 })(tasks[j])
             }
+        }
+
+        // 插件命令：manifest 的 contributes.commands，由宿主统一聚合
+        var pluginCommands = pluginRuntime.pluginCommands
+        for (var p = 0; p < pluginCommands.length; ++p) {
+            (function(cmd) {
+                var label = cmd.title && cmd.title.length > 0 ? cmd.title : cmd.id
+                var subtitle = cmd.description && cmd.description.length > 0
+                        ? cmd.description : cmd.pluginName
+                if (cmd.shortcut && cmd.shortcut.length > 0)
+                    subtitle += " · " + cmd.shortcut
+                if (cmd.conflict)
+                    subtitle += " · 快捷键冲突"
+                add(label, cmd.category && cmd.category.length > 0 ? cmd.category : "插件",
+                    subtitle, function() { window.runPluginCommand(cmd.pluginId, cmd.id) })
+            })(pluginCommands[p])
         }
 
         return cmds
@@ -377,6 +412,19 @@ ApplicationWindow {
         }
     }
 
+    // 插件快捷键：manifest 声明，宿主统一仲裁；冲突的已被插件运行时置空
+    Instantiator {
+        model: pluginRuntime.pluginCommands
+
+        delegate: Shortcut {
+            required property var modelData
+
+            sequence: modelData.shortcut ? modelData.shortcut : ""
+            enabled: sequence.length > 0
+            onActivated: window.runPluginCommand(modelData.pluginId, modelData.id)
+        }
+    }
+
     // 阶段统计：任务数据变化时重算里程碑完成度
     Connections {
         target: taskStore
@@ -570,6 +618,12 @@ MouseArea {
                     }
 
                     Item { Layout.fillHeight: true }
+
+                    PluginSlot {
+                        slotName: "sidebar"
+                        Layout.fillWidth: true
+                        Layout.topMargin: 4
+                    }
 
                     Rectangle {
                         Layout.fillWidth: true
@@ -906,6 +960,15 @@ MouseArea {
                         onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
                     }
                 }
+
+                // 底部插件槽位：插件声明的底部面板
+                PluginSlot {
+                    slotName: "bottom"
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 20
+                    Layout.rightMargin: 20
+                    Layout.bottomMargin: 12
+                }
             }
         }
 
@@ -945,6 +1008,9 @@ MouseArea {
                     window.libraryPending = false
                     item.open()
                 }
+                item.permissionRequested.connect(function(pluginId) {
+                    window.presentPermissionPrompt(pluginId)
+                })
             }
         }
 
@@ -981,6 +1047,31 @@ MouseArea {
             anchors.fill: parent
             commandProvider: window.buildCommands
             z: 400
+        }
+
+        // 插件权限授权弹窗：安装插件后或首次调用高危能力时弹出
+        Loader {
+            id: permissionDialogLoader
+            anchors.fill: parent
+            active: false
+            source: "PluginPermissionDialog.qml"
+            z: 350
+
+            property string pendingPluginId: ""
+
+            onLoaded: {
+                if (pendingPluginId.length > 0) {
+                    item.present(pendingPluginId)
+                    pendingPluginId = ""
+                }
+            }
+        }
+
+        Connections {
+            target: pluginRuntime
+            function onPermissionRequested(pluginId, permission) {
+                window.presentPermissionPrompt(pluginId)
+            }
         }
 
         Item {

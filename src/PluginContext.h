@@ -6,6 +6,8 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+#include <functional>
+
 class Database;
 class PluginEventBus;
 class TaskModel;
@@ -42,6 +44,11 @@ public:
     bool isBackground() const { return m_background; }
 
     Q_INVOKABLE bool hasPermission(const QString &permission) const;
+    Q_INVOKABLE bool isGranted(const QString &permission) const;
+
+    // 权限授予查询 / 授权请求回调，由 PluginRuntime 注入
+    void setPermissionHooks(std::function<bool(const QString &)> query,
+                            std::function<void(const QString &)> request);
 
     Q_INVOKABLE QString storageGet(const QString &key) const;
     Q_INVOKABLE bool storageSet(const QString &key, const QString &value);
@@ -68,11 +75,13 @@ public:
     Q_INVOKABLE QStringList subscriptions() const;
 
     void deliverEvent(const QString &name, const QVariantMap &payload);
+    void deliverCommand(const QString &commandId);
     void updateManifest(const QString &name, const QString &version,
                         const QStringList &permissions);
 
 signals:
     void eventReceived(const QString &name, const QVariantMap &payload);
+    void commandInvoked(const QString &commandId);
     void manifestChanged();
 
 private:
@@ -89,4 +98,7 @@ private:
     TaskModel *m_tasks = nullptr;
     TrayController *m_tray = nullptr;
     PluginEventBus *m_bus = nullptr;
+
+    std::function<bool(const QString &)> m_grantQuery;
+    std::function<void(const QString &)> m_grantRequest;
 };

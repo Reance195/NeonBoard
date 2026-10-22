@@ -5,15 +5,39 @@
 
 #include <QDebug>
 
-PluginHost::PluginHost(PluginRuntime *runtime, QObject *parent)
+PluginHost::PluginHost(PluginRuntime *runtime, const QString &boundPluginId, QObject *parent)
     : QObject(parent)
     , m_runtime(runtime)
+    , m_boundId(boundPluginId)
 {
+    if (m_runtime) {
+        connect(m_runtime, &PluginRuntime::commandDelivered, this,
+                [this](const QString &pluginId, const QString &commandId) {
+            if (!m_boundId.isEmpty()) {
+                if (pluginId != m_boundId)
+                    return;
+            } else {
+                PluginContext *context = active();
+                if (!context || context->pluginId() != pluginId)
+                    return;
+            }
+            emit commandInvoked(commandId);
+        });
+    }
 }
 
 PluginContext *PluginHost::active() const
 {
-    return m_runtime ? m_runtime->activeContext() : nullptr;
+    if (!m_runtime)
+        return nullptr;
+    if (!m_boundId.isEmpty())
+        return m_runtime->contextFor(m_boundId);
+    return m_runtime->activeContext();
+}
+
+QString PluginHost::boundPluginId() const
+{
+    return m_boundId;
 }
 
 QString PluginHost::pluginId() const

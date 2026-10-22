@@ -1,0 +1,26 @@
+{
+  "id": "com.lin.surfaces",
+  "name": "多表面示例",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "description": "演示设置页、侧栏/底部/卡片槽位与命令注册",
+  "main": "main.qml",
+  "settings": "settings.qml",
+  "permissions": [],
+  "contributes": {
+    "commands": [
+      {
+        "id": "hello",
+        "title": "多表面示例：打招呼",
+        "category": "示例",
+        "description": "演示插件命令与快捷键注册",
+        "shortcut": "Ctrl+Shift+T"
+      }
+    ],
+    "slots": {
+      "sidebar": "sidebar.qml",
+      "bottom": "bottom.qml",
+      "card": "card.qml"
+    }
+  }
+}

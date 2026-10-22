@@ -94,6 +94,15 @@ dist/NeonBoard/NeonBoard.exe
 pwsh -File scripts/git-done.ps1
 ```
 
+多个代理（多个 AI 会话）同时改本仓库时，仓库根目录归本人专用，代理一律在 `.worktrees/<agent>/` 下开工：
+
+```powershell
+pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx   # 开区（基于 origin/main）
+pwsh -File scripts/dev-run.ps1 -Wait -AppArgs --smoke                  # 沙箱运行，不污染真实数据
+pwsh -File scripts/git-done.ps1 -Branch feature/xxx -RemoveWorktree     # 合并 + 推送 + 回收工作区
+pwsh -File scripts/release.ps1                                          # 五道闸门出包
+```
+
 逐步操作与钩子排查见 [docs/git-workflow.md](docs/git-workflow.md)，贡献约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 开发构建
@@ -182,7 +191,7 @@ shaders/             GLSL Shader
 plugins/             官方插件（只读，需手工复制到用户插件目录）
 plugins-samples/     示例插件（只读）
 installer/           Inno Setup 脚本
-scripts/             构建部署脚本
+scripts/             构建部署与多代理协作脚本（agent-init / dev-run / release 等）
 docs/                截图、迭代路线图与插件文档
 docs/themes/         6 套主题预设实机截图
 .github/workflows/   GitHub Actions 持续集成流水线
@@ -202,6 +211,9 @@ docs/themes/         6 套主题预设实机截图
 本机运行 exe 时需要 Qt 的 DLL 在 `PATH` 中（CI 里由流水线注入 `$env:QT_ROOT_DIR\bin`）。
 
 本地脚本 `scripts/deploy.ps1` 的工具定位顺序为「环境变量 → PATH → 已知安装路径」，因此在 CI 与本机都能直接运行。
+
+另有出包流水线 `.github/workflows/release.yml`：打 `v*` 标签或手动触发时，在 `windows-2022` 上跑完构建与自检，
+用 Inno Setup 生成安装包并上传构建制品；打标签时同时发布 GitHub Release。
 
 ## 插件
 

@@ -33,6 +33,31 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   fi
 
   branch=$(echo "$local_ref" | sed 's#^refs/heads/##')
+  remote_branch=$(echo "$remote_ref" | sed 's#^refs/heads/##')
+
+  # ---- 规则 3：推送到主分支（含 git push origin HEAD:main 的合并推送）----
+  # 多代理并行时，合并不再依赖主 worktree：agent 在自己的 worktree 里
+  # 基于 origin/main 做 --no-ff 合并后，直接把结果快进推送到主分支。
+  # 这类推送的目标就是主分支，因此按快进规则校验后放行。
+  if is_protected "$remote_branch"; then
+    if [ "$remote_sha" != "$zero" ]; then
+      if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+        echo ""
+        echo "==================================================================="
+        echo " ❌ 推送到主分支 '$remote_branch' 不是快进更新，已阻止。"
+        echo "==================================================================="
+        echo ""
+        echo " 请先拉取远程最新提交并重新合并："
+        echo "   git fetch origin"
+        echo "   git rebase origin/$remote_branch"
+        echo ""
+        echo " 严禁对主分支使用 --force / --force-with-lease。"
+        echo ""
+        exit 1
+      fi
+    fi
+    continue
+  fi
 
   # ---- 规则 2：主分支推送必须快进 ----
   if is_protected "$branch"; then

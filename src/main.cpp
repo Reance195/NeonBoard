@@ -11,6 +11,7 @@
 #include "PluginPackage.h"
 #include "PluginRuntime.h"
 #include "RoadmapSync.h"
+#include "DataPort.h"
 #include "SingleInstance.h"
 #include "SplashWindow.h"
 #include "TaskFilterModel.h"
@@ -96,9 +97,13 @@ int main(int argc, char *argv[])
     const bool smokeMode = arguments.contains(QStringLiteral("--smoke"));
     const bool syncMode = arguments.contains(QStringLiteral("--sync-roadmap"))
         || arguments.contains(QStringLiteral("--export-roadmap"));
+    const bool dataMode = arguments.contains(QStringLiteral("--export-tasks"))
+        || arguments.contains(QStringLiteral("--import-tasks"))
+        || arguments.contains(QStringLiteral("--backup"));
     // 诊断模式（自检 / 冒烟 / 路线图同步 / 钩子投递）不受单实例限制，
     // 方便应用已在运行时做性能采样或由 Git 钩子投递事件
     const bool utilityMode = arguments.contains(QStringLiteral("--selftest")) || smokeMode || syncMode
+        || dataMode
         || arguments.contains(QStringLiteral("--emit-hook"))
         || arguments.contains(QStringLiteral("--emit-hook-file"))
         || arguments.contains(QStringLiteral("--install-plugin-file"))
@@ -164,6 +169,52 @@ int main(int argc, char *argv[])
 
     // 路线图快照同步：仓库 progress.json ↔ 本地看板
     RoadmapSync roadmap(&database, &taskStore);
+
+    // 数据导入导出与自动备份
+    DataPort dataPort(&database, &taskStore);
+
+    {
+        const int exportIndex = arguments.indexOf(QStringLiteral("--export-tasks"));
+        const int importIndex = arguments.indexOf(QStringLiteral("--import-tasks"));
+        const bool backupMode = arguments.contains(QStringLiteral("--backup"));
+        if (exportIndex >= 0 || importIndex >= 0 || backupMode) {
+            QString message;
+            bool ok = false;
+            if (backupMode) {
+                message = dataPort.backupNow();
+                ok = message.isEmpty();
+                if (ok)
+                    qInfo().noquote() << "BACKUP OK" << dataPort.backupDir();
+            } else if (exportIndex >= 0) {
+                QString path;
+                if (exportIndex + 1 < arguments.size())
+                    path = arguments.at(exportIndex + 1);
+                QString format = QStringLiteral("json");
+                if (exportIndex + 2 < arguments.size())
+                    format = arguments.at(exportIndex + 2);
+                if (path.isEmpty())
+                    path = dataPort.defaultPath(format);
+                message = dataPort.exportTasks(path, format);
+                ok = message.isEmpty();
+                if (ok)
+                    qInfo().noquote() << "EXPORT OK" << path;
+            } else {
+                QString path;
+                if (importIndex + 1 < arguments.size())
+                    path = arguments.at(importIndex + 1);
+                QString format = QStringLiteral("auto");
+                if (importIndex + 2 < arguments.size())
+                    format = arguments.at(importIndex + 2);
+                message = dataPort.importTasks(path, format);
+                ok = message.isEmpty();
+                if (ok)
+                    qInfo().noquote() << "IMPORT OK" << path;
+            }
+            if (!ok)
+                qWarning().noquote() << "DATA FAIL" << message;
+            return ok ? 0 : 4;
+        }
+    }
 
     const int syncIndex = arguments.indexOf(QStringLiteral("--sync-roadmap"));
     const int exportIndex = arguments.indexOf(QStringLiteral("--export-roadmap"));
@@ -357,6 +408,15 @@ int main(int argc, char *argv[])
             qWarning().noquote() << "Roadmap: sync failed" << roadmap.path() << roadmap.lastReport();
     }
 
+    // 每日首次启动自动备份数据库（先落 WAL 再复制，保证备份完整）
+    {
+        const QString backupMessage = dataPort.backupIfNeeded();
+        if (backupMessage.isEmpty())
+            qInfo().noquote() << "Backup: daily snapshot ready" << dataPort.backupDir();
+        else
+            qWarning().noquote() << "Backup failed" << backupMessage;
+    }
+
     Metrics metrics;
     QObject::connect(&metrics, &Metrics::startupMeasured, [&boot]() {
         qInfo() << "BOOT firstframe" << boot.elapsed();
@@ -448,6 +508,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("doneModel"), &doneModel);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);
+engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     // 启动即可按里程碑过滤看板：--stage R0
     const int stageIndex = arguments.indexOf(QStringLiteral("--stage"));
     QString initialStage;

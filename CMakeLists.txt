@@ -22,7 +22,10 @@ qt_add_executable(NeonBoard
     src/PluginLoader.h src/PluginLoader.cpp
     src/PluginHost.h src/PluginHost.cpp
     src/TaskModel.h src/TaskModel.cpp
-    src/TaskInputParser.h src/TaskInputParser.cpp
+    src/TaskInputParser.h
+    src/TaskInputParser.cpp
+    src/DataPort.h
+    src/DataPort.cpp
     src/TaskFilterModel.h src/TaskFilterModel.cpp
     src/SingleInstance.h src/SingleInstance.cpp
     src/SplashWindow.h src/SplashWindow.cpp

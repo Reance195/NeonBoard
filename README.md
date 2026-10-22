@@ -29,6 +29,7 @@
 - 运行时 QML 插件：权限清单、独立存储、宿主任务 API
 - 插件平台 2.0：apiVersion 2 支持后台常驻插件、事件订阅、meta 共享配置、插件启停与热重载
 - 计划钩子：提交信息里写 `#T12`，标题带 `#T12` 的任务自动转到「进行中」（`#T12=done` / `#T12=todo` 同理），详见 [docs/plan-hook.md](docs/plan-hook.md)
+- 数据导入导出与自动备份：JSON / Markdown / Todo.txt 三种格式，设置面板一键导出、选择文件导入；每天首次启动自动把 `board.db` 备份一份到 `backups/` 目录
 - 插件库：侧栏汇总「已装 / 可装」插件，支持打开、启用、禁用、安装、卸载、更新
 - 在线市场：按 JSON 索引拉取 `.neon` 单文件插件包，SHA-256 校验后原子安装；断网时自动降级到本地缓存索引
 
@@ -149,6 +150,11 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
              拉取市场索引（失败时降级到本地缓存，退出码 0 成功 / 2 失败）
 --market-install <id>
              从市场安装指定插件（校验 SHA-256 后原子安装）
+--export-tasks [path] [format]
+             导出任务数据（format 取 json / markdown / todo，缺省用数据目录下的默认文件名）
+--import-tasks <path> [format]
+             导入任务数据（format 取 auto / json / markdown / todo，按标题匹配已有任务）
+--backup   立即把当前 board.db 备份到 backups/ 目录
 ```
 
 环境变量：
@@ -167,7 +173,7 @@ NEONBOARD_QT_BIN    Qt 运行库目录，供 Git 钩子在开发版 exe 上补�
 ## 项目结构
 
 ```text
-src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置、路线图同步
+src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置、路线图同步、数据导入导出
 qml/                 QML：主界面、霓虹背景
   theme/             主题与动效单例（Theme / Motion）
   components/        卡片、看板列、统计芯片、窗口按钮、外观面板、设置面板、插件面板、阶段进度条
@@ -255,7 +261,8 @@ docs/themes/         6 套主题预设实机截图
 - 快速录入解析只识别中文与阿拉伯数字的常见写法（今天 / 明天 / 后天 / 下周三 / 15:00 / 3点半 / 下午3点 / #标签 / !1-!3），不解析英文日期与自然语言长句
 - 手工改 `progress.json` 时请同步抬高该条目的 `updatedAt`，否则会以看板版本为准
 - 安装包未签名，Windows SmartScreen 可能提示
-- 未实现 JSON 导入导出、命令面板
+- Todo.txt 格式只带标题、标签与备注，不含优先级与到期日；需要完整备份请用 JSON 格式
+- 导入按标题匹配已有任务（存在则更新），而路线图快照按 id 匹配；若两者同时存在同一张卡，可能各生成一份
 - 计划钩子需先把 `plugins/plan-hook` 复制到用户插件目录才会生效；未安装时提交里的 `#T12` 静默失效
 - 插件市场的默认索引地址是占位用的 GitHub 地址，实际使用前需在插件库或设置面板里改成真实市场地址
 - Qt 采用 LGPL 动态链接；再分发时需保留 Qt 动态库与许可说明

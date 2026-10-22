@@ -92,7 +92,9 @@ function Invoke-NativeLogged {
             Push-Location -LiteralPath $WorkingDirectory
         }
         try {
-            & $FilePath @Arguments 2>&1 | Tee-Object -FilePath $LogPath
+            # Tee-Object 会把日志写进成功流，必须再用 Out-Host 吃掉，
+            # 否则函数返回值会变成「日志文本 + 退出码」的数组（已踩过）
+            & $FilePath @Arguments 2>&1 | Tee-Object -FilePath $LogPath | Out-Host
         } finally {
             if ($WorkingDirectory) { Pop-Location }
         }

@@ -17,6 +17,7 @@
 #include "TaskFilterModel.h"
 #include "TaskModel.h"
 #include "TaskTree.h"
+#include "TaskUndo.h"
 #include "TrayController.h"
 #include "UiSettings.h"
 #include "WindowController.h"
@@ -163,6 +164,9 @@ int main(int argc, char *argv[])
 
     TaskModel taskStore(&database);
     taskStore.load();
+
+    // 通用撤销栈：删除 / 移动 / 完成 / 编辑 四类用户操作统一可撤销
+    TaskUndo taskUndo(&taskStore);
 
     // 主任务 / 子任务关联（边表 task_link，不动 task 表结构）
     TaskTree taskTree(&database, &taskStore);
@@ -369,6 +373,25 @@ int main(int argc, char *argv[])
         ok = parsedTask.value("tagsFull").toString().contains(QStringLiteral("测试")) && ok;
         ok = parsedTask.value("dueAt").toLongLong() > 0 && ok;
         taskStore.deleteTask(parsedId);
+        // 通用撤销：删除 / 移动 / 编辑 三类操作都能回退到操作前的状态
+        const QString undoId = taskStore.addTask(QStringLiteral("selftest-undo"), QStringLiteral("todo"), 1,
+                                                 QStringLiteral("undo"), 0);
+        ok = taskUndo.deleteTask(undoId) && ok;
+        ok = taskStore.taskById(undoId).isEmpty() && ok;
+        ok = taskUndo.undo() && ok;
+        ok = taskStore.taskById(undoId).value("title").toString() == QStringLiteral("selftest-undo") && ok;
+        ok = taskUndo.moveTask(undoId, QStringLiteral("doing"), -1) && ok;
+        ok = taskStore.taskById(undoId).value("status").toString() == QStringLiteral("doing") && ok;
+        ok = taskUndo.undo() && ok;
+        ok = taskStore.taskById(undoId).value("status").toString() == QStringLiteral("todo") && ok;
+        ok = taskUndo.updateTask(undoId, {{QStringLiteral("title"), QStringLiteral("selftest-undo-edited")},
+                                          {QStringLiteral("priority"), 3}}) && ok;
+        ok = taskStore.taskById(undoId).value("title").toString() == QStringLiteral("selftest-undo-edited") && ok;
+        ok = taskUndo.undo() && ok;
+        ok = taskStore.taskById(undoId).value("title").toString() == QStringLiteral("selftest-undo")
+             && taskStore.taskById(undoId).value("priority").toInt() == 1 && ok;
+        qInfo() << "SELFTEST undo" << taskUndo.canUndo();
+        taskStore.deleteTask(undoId);
         const QVariantMap removed = taskStore.removeTask(id);
         ok = !removed.isEmpty() && ok;
         const QString restoredId = taskStore.restoreTask(removed);
@@ -502,6 +525,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("pluginLibrary"), &pluginLibrary);
     engine.rootContext()->setContextProperty(QStringLiteral("database"), &database);
     engine.rootContext()->setContextProperty(QStringLiteral("taskStore"), &taskStore);
+    engine.rootContext()->setContextProperty(QStringLiteral("taskUndo"), &taskUndo);
     engine.rootContext()->setContextProperty(QStringLiteral("taskTree"), &taskTree);
     engine.rootContext()->setContextProperty(QStringLiteral("todoModel"), &todoModel);
     engine.rootContext()->setContextProperty(QStringLiteral("doingModel"), &doingModel);

@@ -613,6 +613,107 @@ QString TaskModel::restoreTask(const QVariantMap &task)
     return restored.id;
 }
 
+bool TaskModel::restorePlacement(const QString &id, const QString &status,
+                                 qint64 orderKey, qint64 completedAt)
+{
+    const int row = findRow(id);
+    if (row < 0)
+        return false;
+
+    QString target = status;
+    if (target != QLatin1String("todo")
+        && target != QLatin1String("doing")
+        && target != QLatin1String("done")) {
+        target = QStringLiteral("todo");
+    }
+
+    Task updated = m_tasks.at(row);
+    const QString previousStatus = updated.status;
+    updated.status = target;
+    updated.orderKey = orderKey > 0 ? orderKey : nextOrderKey(target);
+    updated.completedAt = target == QLatin1String("done") ? completedAt : 0;
+    updated.updatedAt = QDateTime::currentSecsSinceEpoch();
+
+    const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "UPDATE task SET status = ?, order_key = ?, updated_at = ?, completed_at = ? "
+        "WHERE id = ?"));
+    query.addBindValue(updated.status);
+    query.addBindValue(updated.orderKey);
+    query.addBindValue(updated.updatedAt);
+    query.addBindValue(updated.completedAt);
+    query.addBindValue(updated.id);
+    if (!query.exec()) {
+        qWarning() << "TaskModel: restorePlacement failed:" << query.lastError().text();
+        return false;
+    }
+
+    m_tasks[row] = updated;
+    emit dataChanged(index(row), index(row),
+                     { StatusRole, OrderKeyRole, UpdatedAtRole, CompletedAtRole });
+    emit countsChanged();
+    m_database->refreshStats();
+    emit taskUpdated(updated.id);
+    if (previousStatus != updated.status)
+        emit taskMoved(updated.id, previousStatus, updated.status);
+    return true;
+}
+
+bool TaskModel::restoreSnapshot(const QVariantMap &snapshot)
+{
+    const QString id = snapshot.value(QStringLiteral("id")).toString();
+    const int row = findRow(id);
+    if (row < 0)
+        return false;
+
+    Task updated = m_tasks.at(row);
+    updated.title = snapshot.value(QStringLiteral("title")).toString().trimmed();
+    if (updated.title.isEmpty())
+        return false;
+    updated.note = nonNull(snapshot.value(QStringLiteral("note")).toString());
+    updated.priority = qBound(0, snapshot.value(QStringLiteral("priority")).toInt(), 3);
+    updated.tags = normalizeTags(snapshot.value(QStringLiteral("tags")).toString());
+    updated.dueAt = snapshot.value(QStringLiteral("dueAt")).toLongLong();
+    updated.orderKey = snapshot.value(QStringLiteral("orderKey")).toLongLong();
+    if (updated.orderKey <= 0)
+        updated.orderKey = nextOrderKey(updated.status);
+    updated.completedAt = updated.status == QLatin1String("done")
+        ? snapshot.value(QStringLiteral("completedAt")).toLongLong() : 0;
+    updated.updatedAt = QDateTime::currentSecsSinceEpoch();
+
+    const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "UPDATE task SET title = ?, note = ?, status = ?, priority = ?, tags = ?, "
+        "order_key = ?, due_at = ?, updated_at = ?, completed_at = ? WHERE id = ?"));
+    query.addBindValue(updated.title);
+    query.addBindValue(nonNull(updated.note));
+    query.addBindValue(updated.status);
+    query.addBindValue(updated.priority);
+    query.addBindValue(nonNull(updated.tags));
+    query.addBindValue(updated.orderKey);
+    query.addBindValue(updated.dueAt);
+    query.addBindValue(updated.updatedAt);
+    query.addBindValue(updated.completedAt);
+    query.addBindValue(updated.id);
+    if (!query.exec()) {
+        qWarning() << "TaskModel: restoreSnapshot failed:" << query.lastError().text();
+        return false;
+    }
+
+    m_tasks[row] = updated;
+    QVector<int> roles;
+    const auto names = roleNames();
+    for (auto it = names.cbegin(); it != names.cend(); ++it)
+        roles.append(it.key());
+    emit dataChanged(index(row), index(row), roles);
+    emit countsChanged();
+    m_database->refreshStats();
+    emit taskUpdated(updated.id);
+    return true;
+}
+
 bool TaskModel::moveTask(const QString &id, const QString &status, int newIndex)
 {
     const int row = findRow(id);

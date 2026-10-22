@@ -298,6 +298,42 @@ pwsh -File scripts/release.ps1
 CI 侧同样走这条路：`.github/workflows/release.yml` 在打 tag 或手动触发时出安装包并上传 artifact，
 交付物只有 CI 一处产出，本地 `dist/` 仅作调试用途。
 
+### 7.9 预览中心（多代理成果即时可见）
+
+agent 的改动**不必等合并就能看**。主线实例内置「预览中心」面板（侧栏第 4 项），
+实时列出所有 worktree，并可一键构建 / 启停。
+
+| 层 | 位置 | 职责 |
+| --- | --- | --- |
+| 采集 | `src/PreviewHub` | 解析 `git worktree list --porcelain`，采集分支 / HEAD / 脏状态 / 已构建时间 |
+| 构建 | `src/PreviewHub` | 异步调 cmake（configure → build 两阶段），日志进面板 |
+| 实例 | `src/PreviewHub` | 以沙箱环境变量启动各 worktree 的 exe，登记 pid |
+| 展示 | `qml/components/PreviewPanel.qml` | 预览中心面板（只用 `Theme.xxx` 令牌） |
+| 命令行 | `scripts/preview.ps1` | `List` / `Build` / `Start` / `Stop` 四个动作 |
+
+```powershell
+pwsh -File scripts/preview.ps1 -Action List
+pwsh -File scripts/preview.ps1 -Action Build -Agent agent-c
+pwsh -File scripts/preview.ps1 -Action Start -Agent agent-c
+pwsh -File scripts/preview.ps1 -Action Stop  -Agent agent-c
+```
+
+硬性约束：
+
+1. **只有主线实例能当宿主**：设置了 `NEONBOARD_AGENT_ID` 的预览实例**不再扫描 worktree**，
+   也不写运行时文件，避免多实例互相踩。预览中心入口也只在主线实例侧栏出现。
+2. **预览实例必须沙箱隔离**：启动时注入 `NEONBOARD_DATA_DIR` / `NEONBOARD_INSTANCE` /
+   `NEONBOARD_ROADMAP`（落在该 worktree 的 `.sandbox/`）/ `NEONBOARD_ROADMAP_AUTOWRITE=0` /
+   `NEONBOARD_AGENT_ID`，**绝不碰真实数据目录与仓库根的 `progress.json`**。
+3. **运行时文件用原子写**：`<git-common-dir>/preview-runtime.json` 用 `QSaveFile` 落盘，
+   防止主线与预览实例并发写坏 JSON。
+4. **脱离启动不能攥着调用方句柄**：`startDetached` 必须配 `QProcess::nullDevice()` 标准流 +
+   Windows 下 `setCreateProcessArgumentsModifier` 设 `DETACHED_PROCESS` 且 `inheritHandles=false`，
+   否则脚本会因管道等不到 EOF 而挂死（已踩过）。
+5. **CLI 结果走 stdout**：exe 是 GUI 子系统，`qInfo()` 只进日志文件；`--preview-*` 必须用
+   `emitCliLine()` 写 stdout，脚本才读得到。
+6. **多实例可区分**：窗口标题与托盘 tooltip 带 agent 标签（`NeonBoard · agent-c`）。
+
 ---
 
 ## 八、计划钩子约定

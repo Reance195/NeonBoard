@@ -88,6 +88,16 @@ void TrayController::showMessage(const QString &title, const QString &body)
         m_tray->showMessage(title, body, QSystemTrayIcon::Information, 3000);
 }
 
+void TrayController::setInstanceLabel(const QString &label)
+{
+    m_instanceLabel = label.trimmed();
+    const QString title = m_instanceLabel.isEmpty() ? QStringLiteral("NeonBoard") : m_instanceLabel;
+    if (m_tray)
+        m_tray->setToolTip(title);
+    if (m_showAction)
+        m_showAction->setText(QStringLiteral("显示 %1").arg(title));
+}
+
 bool TrayController::isAutostart() const
 {
     QSettings run(QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"),

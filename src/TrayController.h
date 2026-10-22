@@ -16,6 +16,8 @@ public:
 
     void updateStats(int todo, int doing, int doneToday);
     void showMessage(const QString &title, const QString &body);
+    // 实例标签（多预览实例并行时用于区分托盘项）
+    void setInstanceLabel(const QString &label);
 
     Q_INVOKABLE bool isAutostart() const;
     Q_INVOKABLE void setAutostart(bool enabled);
@@ -36,4 +38,5 @@ private:
     QAction *m_hideAction = nullptr;
     QAction *m_statsAction = nullptr;
     QAction *m_autostartAction = nullptr;
+    QString m_instanceLabel;
 };

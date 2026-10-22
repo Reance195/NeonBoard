@@ -86,6 +86,20 @@ function Get-EntryAgeMinutes {
     return ((Get-Date) - $since).TotalMinutes
 }
 
+function Get-PreviewRuntime {
+    $dir = (& git rev-parse --path-format=absolute --git-common-dir 2>$null | Select-Object -First 1)
+    if (-not $dir) { return $null }
+    $path = Join-Path $dir.Trim() 'preview-runtime.json'
+    if (-not (Test-Path -LiteralPath $path)) { return $null }
+    try {
+        $raw = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+        if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
+        return (ConvertFrom-Json -InputObject $raw)
+    } catch {
+        return $null
+    }
+}
+
 if (-not $Agent) { $Agent = $env:NEONBOARD_AGENT_ID }
 
 switch ($Action) {
@@ -102,6 +116,20 @@ switch ($Action) {
             Write-Host ("  {0,-8} : {1}  (pid {2}, {3} 分钟前)  {4}" -f $key, $entry.agent, $entry.pid, $age, $entry.task) -ForegroundColor Yellow
         }
         Write-Host ("  状态文件 : {0}" -f (Get-StatePath)) -ForegroundColor DarkGray
+
+        # 预览实例登记（由 PreviewHub 写入，这里只做展示，不重复解析逻辑）
+        $runtime = Get-PreviewRuntime
+        $agents = $null
+        if ($runtime -and ($runtime.PSObject.Properties.Name -contains 'agents')) { $agents = $runtime.agents }
+        if ($agents) {
+            Write-Host '预览实例：' -ForegroundColor DarkGray
+            foreach ($prop in $agents.PSObject.Properties) {
+                $entry = $prop.Value
+                Write-Host ("  {0,-10} : pid {1}  {2}  {3}" -f $prop.Name, $entry.pid, $entry.startedAt, $entry.exe) -ForegroundColor Cyan
+            }
+        } else {
+            Write-Host '  (暂无运行中的预览实例)' -ForegroundColor DarkGray
+        }
         exit 0
     }
 

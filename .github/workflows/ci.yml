@@ -3,12 +3,15 @@ name: CI
 on:
   push:
     branches: [ main ]
+    # CI 自动回写的快照提交不再触发流水线，避免自激循环
+    paths-ignore:
+      - 'progress.json'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -23,6 +26,9 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          # 看板状态派生器要读完整提交历史（状态来自 #短号 标记），不能只取最近一次提交
+          fetch-depth: 0
 
       - name: 准备 MSVC 开发环境
         uses: ilammy/msvc-dev-cmd@v1
@@ -103,6 +109,35 @@ jobs:
           $exe = Join-Path $PWD 'dist\NeonBoard\NeonBoard.exe'
           $proc = Start-Process -FilePath $exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow
           if ($proc.ExitCode -ne 0) { throw "便携版自检失败，退出码 $($proc.ExitCode)" }
+
+      - name: 看板状态一致性校验
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: |
+          # progress.json 里的 status 是派生产物：由 git 提交信息里的 #短号=状态
+          # 与 docs/board-ledger.json 台账共同推导，CI 独占写回。
+          # 快照与推导结果不一致 → 阻塞合并，必须先跑：
+          #   python scripts/derive_board_status.py --write
+          python scripts/derive_board_status.py --check
+          if ($LASTEXITCODE -ne 0) { throw '看板状态与提交历史/台账不一致，请运行 python scripts/derive_board_status.py --write 后提交' }
+
+      - name: 自动回写看板状态
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          # 主线合并后由 CI 统一回写快照状态，特性分支完全不碰 progress.json，
+          # 多代理并行也不会产生快照冲突。
+          python scripts/derive_board_status.py --write
+          if ($LASTEXITCODE -ne 0) { throw '看板状态派生失败' }
+          git config user.name  'neonboard-ci'
+          git config user.email 'neonboard-ci@users.noreply.github.com'
+          git add progress.json
+          if (git diff --cached --quiet) {
+            Write-Host '看板状态无变化，无需回写'
+            exit 0
+          }
+          git commit -m 'ci(board): 自动回写看板状态'
+          git push origin HEAD:main
 
       - name: 上传便携版产物
         uses: actions/upload-artifact@v4

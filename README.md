@@ -25,6 +25,7 @@
 - 三个面板互斥：同一时刻只显示一个；点击外观面板外部区域即关闭
 - 里程碑进度条：按 R0 / R1 / R2 / R3 聚合看板完成度，一眼看出哪个阶段收口了；点击阶段即按阶段过滤看板
 - 路线图双向绑定：仓库 `progress.json` 与本地看板自动同步（启动拉取、看板改动写回、提交钩子投递）
+- 看板状态派生：卡片状态不再手写，由 `git` 提交信息里的 `#R1-03=done` 与台账 `docs/board-ledger.json` 共同推导，CI 在主线合并后自动回写快照并校验一致性（详见 [docs/board-sync.md](docs/board-sync.md)）
 - 主任务 / 子任务关联：子卡自动缩进并标注「↳ 父卡标题」，父卡右下角显示子任务完成度进度环；关联关系存本地边表，不改任务表结构
 - 系统托盘、全局热键、开机自启、单实例、窗口位置记忆
 - 运行时 QML 插件：权限清单、独立存储、宿主任务 API
@@ -192,7 +193,10 @@ plugins/             官方插件（只读，需手工复制到用户插件目�
 plugins-samples/     示例插件（只读）
 installer/           Inno Setup 脚本
 scripts/             构建部署与多代理协作脚本（agent-init / dev-run / release 等）
+  derive_board_status.py  看板状态派生器：从提交历史 + 台账推导卡片状态
 docs/                截图、迭代路线图与插件文档
+docs/board-ledger.json 看板卡片台账（短号 ↔ 卡片 id / 标题 / 初始状态）
+docs/board-sync.md   看板状态派生与一致性机制说明
 docs/themes/         6 套主题预设实机截图
 .github/workflows/   GitHub Actions 持续集成流水线
 ```
@@ -207,6 +211,7 @@ docs/themes/         6 套主题预设实机截图
 4. `--smoke` 冒烟启动，并扫描运行日志，出现 QML / C++ 错误即判定失败
 5. `scripts/deploy.ps1 -SkipBuild` 打包便携版，校验产物存在，并验证便携版可脱离本机 Qt 独立运行
 6. 上传便携版产物为构建制品（artifact 名 `NeonBoard-windows-x64`，保留 30 天），可在 Actions 页面直接下载解压使用
+7. 看板状态闸门：PR 分支上校验 `progress.json` 的卡片状态与「提交历史 + 台账」是否一致，不一致直接拦住合并；合并到 `main` 后由 CI 自动回写快照状态（特性分支完全不碰 `progress.json`，多代理并行零冲突）
 
 本机运行 exe 时需要 Qt 的 DLL 在 `PATH` 中（CI 里由流水线注入 `$env:QT_ROOT_DIR\bin`）。
 

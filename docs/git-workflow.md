@@ -180,6 +180,21 @@ pwsh -File scripts/release.ps1
 
 > CI 侧同样出包：`.github/workflows/release.yml` 在打 `v*` 标签或手动触发时生成安装包并上传制品。
 
+### 6. 交付需求时顺手更新看板状态
+
+看板卡片的 `status` **不是手写的**，而是从提交信息里的短号派生出来的：
+
+```text
+feat(board): 支持列内精确插位 #R1-04=done
+```
+
+- 短号查 `docs/board-ledger.json`；
+- **特性分支不要手工改 `progress.json`** —— 它是派生器 + CI 独占写的派生产物，合并到 `main` 后由 CI 自动回写；
+- 本地想先看派生结果：`python scripts/derive_board_status.py --check`（校验）/ `--write`（写回）；
+- PR 上若快照与派生结果不一致，CI 会直接拦住合并。
+
+完整机制见 [docs/board-sync.md](docs/board-sync.md)。
+
 ---
 
 ## 四、钩子拦截与排查

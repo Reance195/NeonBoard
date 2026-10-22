@@ -15,6 +15,7 @@
 #include "SplashWindow.h"
 #include "TaskFilterModel.h"
 #include "TaskModel.h"
+#include "TaskTree.h"
 #include "TrayController.h"
 #include "UiSettings.h"
 #include "WindowController.h"
@@ -158,6 +159,9 @@ int main(int argc, char *argv[])
     TaskModel taskStore(&database);
     taskStore.load();
 
+    // 主任务 / 子任务关联（边表 task_link，不动 task 表结构）
+    TaskTree taskTree(&database, &taskStore);
+
     // 路线图快照同步：仓库 progress.json ↔ 本地看板
     RoadmapSync roadmap(&database, &taskStore);
 
@@ -187,6 +191,9 @@ int main(int argc, char *argv[])
     todoModel.setStatus(QStringLiteral("todo"));
     doingModel.setStatus(QStringLiteral("doing"));
     doneModel.setStatus(QStringLiteral("done"));
+    todoModel.setTaskTree(&taskTree);
+    doingModel.setTaskTree(&taskTree);
+    doneModel.setTaskTree(&taskTree);
 
     // 钩子事件投递：--emit-hook <text> / --emit-hook-file <path>
     // 只把提交信息写进事件队列，不在这里执行规则 —— 规则由主进程里的插件执行。
@@ -267,6 +274,17 @@ int main(int argc, char *argv[])
         ok = taskStore.moveTaskBefore(insC, QStringLiteral("todo"), QString()) && ok;
         const QStringList tailIds = taskStore.taskIdsInStatus(QStringLiteral("todo"));
         ok = tailIds.last() == insC && ok;
+        // 主/子任务关联：建边 → 父卡统计 → 成环拒绝 → 删子卡清边
+        const QString linkParent = taskStore.addTask(QStringLiteral("selftest-parent"), QStringLiteral("todo"), 2, QString(), 0);
+        const QString linkChild = taskStore.addTask(QStringLiteral("selftest-child"), QStringLiteral("todo"), 2, QString(), 0);
+        ok = taskTree.setParent(linkChild, linkParent) && ok;
+        const QVariantMap linkStats = taskTree.childStats(linkParent);
+        qInfo() << "SELFTEST link" << linkStats.value("total").toInt() << linkStats.value("done").toInt();
+        ok = linkStats.value("total").toInt() == 1 && ok;
+        ok = !taskTree.setParent(linkParent, linkChild) && ok;   // 成环必须被拒
+        taskStore.deleteTask(linkChild);
+        ok = taskTree.parentId(linkChild).isEmpty() && ok;       // 删子卡要清边
+        taskStore.deleteTask(linkParent);
         taskStore.deleteTask(insA);
         taskStore.deleteTask(insB);
         taskStore.deleteTask(insC);
@@ -424,6 +442,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("pluginLibrary"), &pluginLibrary);
     engine.rootContext()->setContextProperty(QStringLiteral("database"), &database);
     engine.rootContext()->setContextProperty(QStringLiteral("taskStore"), &taskStore);
+    engine.rootContext()->setContextProperty(QStringLiteral("taskTree"), &taskTree);
     engine.rootContext()->setContextProperty(QStringLiteral("todoModel"), &todoModel);
     engine.rootContext()->setContextProperty(QStringLiteral("doingModel"), &doingModel);
     engine.rootContext()->setContextProperty(QStringLiteral("doneModel"), &doneModel);

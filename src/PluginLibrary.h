@@ -39,10 +39,12 @@ public:
     QString statusText() const { return m_statusText; }
 
     Q_INVOKABLE void refresh();
-    Q_INVOKABLE bool install(const QString &pluginId, QString *error);
-    Q_INVOKABLE bool uninstall(const QString &pluginId, QString *error);
-    Q_INVOKABLE bool setEnabled(const QString &pluginId, bool enabled, QString *error);
-    Q_INVOKABLE bool update(const QString &pluginId, QString *error);
+    // 注意：QML 调用时不能带 QString* 出参（QML 传不了指针，少传参数会报
+    // "Insufficient arguments"），失败原因统一走 statusText + operationFinished 信号。
+    Q_INVOKABLE bool install(const QString &pluginId);
+    Q_INVOKABLE bool uninstall(const QString &pluginId);
+    Q_INVOKABLE bool setEnabled(const QString &pluginId, bool enabled);
+    Q_INVOKABLE bool update(const QString &pluginId);
     Q_INVOKABLE bool openPluginDir();
     Q_INVOKABLE void requestOpen(const QString &pluginId);
 
@@ -62,6 +64,7 @@ signals:
 private:
     void rebuild();
     void setStatusText(const QString &text);
+    bool reportFailure(const QString &pluginId, const QString &action, const QString &message);
     QString localSourceDir(const QString &pluginId) const;
     QString marketDownloadUrl(const QString &pluginId) const;
     QString marketSha256(const QString &pluginId) const;

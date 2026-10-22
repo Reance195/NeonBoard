@@ -373,30 +373,41 @@ bool PluginLibrary::installBlocking(const QString &pluginId, QString *error)
     return true;
 }
 
-bool PluginLibrary::install(const QString &pluginId, QString *error)
+bool PluginLibrary::reportFailure(const QString &pluginId, const QString &action, const QString &message)
 {
-    if (pluginId.isEmpty()) {
-        if (error)
-            *error = QStringLiteral("插件 id 为空");
-        return false;
-    }
+    setStatusText(message);
+    emit operationFinished(pluginId, action, false, message);
+    return false;
+}
+
+bool PluginLibrary::install(const QString &pluginId)
+{
+    if (pluginId.isEmpty())
+        return reportFailure(pluginId, QStringLiteral("install"), QStringLiteral("插件 id 为空"));
     if (m_loader && m_loader->isPluginEnabled(pluginId) == false) {
         // 已安装但被禁用：直接启用即可
         if (m_loader->setPluginEnabled(pluginId, true) && m_runtime)
             m_runtime->reload();
         rebuild();
+        setStatusText(QStringLiteral("已启用 %1").arg(pluginId));
+        emit operationFinished(pluginId, QStringLiteral("install"), true, QStringLiteral("已启用"));
         return true;
     }
     const QString url = marketDownloadUrl(pluginId);
-    if (!url.isEmpty())
-        return installFromMarket(pluginId, error);
-    if (!installFromLocalSource(pluginId, error)) {
+    if (!url.isEmpty()) {
+        QString error;
+        if (!installFromMarket(pluginId, &error))
+            return reportFailure(pluginId, QStringLiteral("install"), error);
+        setStatusText(QStringLiteral("正在下载 %1…").arg(pluginId));
+        return true;
+    }
+    QString error;
+    if (!installFromLocalSource(pluginId, &error)) {
         // 本地没有这个插件：多半是市场索引还没拉取，触发一次刷新让用户重试
         if (m_market)
             m_market->refresh();
-        if (error)
-            *error = QStringLiteral("本地未找到该插件，已刷新市场索引，请重试");
-        return false;
+        return reportFailure(pluginId, QStringLiteral("install"),
+                             QStringLiteral("本地未找到该插件，已刷新市场索引，请重试"));
     }
     if (m_runtime)
         m_runtime->reload();
@@ -405,24 +416,19 @@ bool PluginLibrary::install(const QString &pluginId, QString *error)
     return true;
 }
 
-bool PluginLibrary::uninstall(const QString &pluginId, QString *error)
+bool PluginLibrary::uninstall(const QString &pluginId)
 {
-    if (pluginId.isEmpty()) {
-        if (error)
-            *error = QStringLiteral("插件 id 为空");
-        return false;
-    }
+    if (pluginId.isEmpty())
+        return reportFailure(pluginId, QStringLiteral("uninstall"), QStringLiteral("插件 id 为空"));
     // 只允许删用户安装区里的副本，官方源/示例源是只读的
     const QString target = AppPaths::pluginDir() + QLatin1Char('/') + dirNameForId(pluginId);
     if (!QDir(target).exists()) {
-        if (error)
-            *error = QStringLiteral("该插件不在用户安装区，无需卸载");
-        return false;
+        return reportFailure(pluginId, QStringLiteral("uninstall"),
+                             QStringLiteral("该插件不在用户安装区，无需卸载"));
     }
     if (!QDir(target).removeRecursively()) {
-        if (error)
-            *error = QStringLiteral("无法删除目录：%1").arg(target);
-        return false;
+        return reportFailure(pluginId, QStringLiteral("uninstall"),
+                             QStringLiteral("无法删除目录：%1").arg(target));
     }
     setStatusText(QStringLiteral("已卸载 %1").arg(pluginId));
     if (m_runtime)
@@ -432,18 +438,12 @@ bool PluginLibrary::uninstall(const QString &pluginId, QString *error)
     return true;
 }
 
-bool PluginLibrary::setEnabled(const QString &pluginId, bool enabled, QString *error)
+bool PluginLibrary::setEnabled(const QString &pluginId, bool enabled)
 {
-    if (!m_loader) {
-        if (error)
-            *error = QStringLiteral("插件加载器不可用");
-        return false;
-    }
-    if (!m_loader->setPluginEnabled(pluginId, enabled)) {
-        if (error)
-            *error = QStringLiteral("无法更新禁用清单");
-        return false;
-    }
+    if (!m_loader)
+        return reportFailure(pluginId, QStringLiteral("enable"), QStringLiteral("插件加载器不可用"));
+    if (!m_loader->setPluginEnabled(pluginId, enabled))
+        return reportFailure(pluginId, QStringLiteral("enable"), QStringLiteral("无法更新禁用清单"));
     if (m_runtime)
         m_runtime->reload();
     rebuild();
@@ -452,7 +452,7 @@ bool PluginLibrary::setEnabled(const QString &pluginId, bool enabled, QString *e
     return true;
 }
 
-bool PluginLibrary::update(const QString &pluginId, QString *error)
+bool PluginLibrary::update(const QString &pluginId)
 {
     const QString marketVer = marketVersion(pluginId);
     QString localVer;
@@ -464,10 +464,8 @@ bool PluginLibrary::update(const QString &pluginId, QString *error)
         }
     }
     if (!marketVer.isEmpty() && versionGreaterThan(marketVer, localVer))
-        return install(pluginId, error);
-    if (error)
-        *error = QStringLiteral("已是最新版本");
-    return false;
+        return install(pluginId);
+    return reportFailure(pluginId, QStringLiteral("update"), QStringLiteral("已是最新版本"));
 }
 
 bool PluginLibrary::openPluginDir()

@@ -12,6 +12,15 @@ Rectangle {
     property string taskId: ""
     property string taskStatus: "todo"
 
+    // 主任务 / 子任务关联（数据来自 taskTree 门面：独立边表 task_link）
+    readonly property string parentTitle: taskTree.parentTitle(taskId)
+    readonly property var childStats: {
+        var rev = taskTree.revision   // 建立依赖：关联或子任务状态变化时重算
+        return taskTree.childStats(taskId)
+    }
+    readonly property bool hasParent: parentTitle.length > 0
+    readonly property bool hasChildren: childStats.total > 0
+
     // 拖拽坐标基准（由外部注入主内容区域）
     property Item dragSpace: null
 
@@ -172,9 +181,21 @@ Rectangle {
             }
         }
 
+        // 归属竖线：有父任务时贴在左侧，提示「这张属于上面那张」
+        Rectangle {
+            visible: card.hasParent
+            width: 1.5
+            height: parent.height - 22
+            radius: 1
+            anchors.left: parent.left
+            anchors.leftMargin: 3
+            anchors.verticalCenter: parent.verticalCenter
+            color: Qt.rgba(Theme.accent3.r, Theme.accent3.g, Theme.accent3.b, 0.45)
+        }
+
         Column {
             anchors.left: priorityBar.right
-            anchors.leftMargin: 11
+            anchors.leftMargin: 11 + (card.hasParent ? 13 : 0)
             anchors.right: parent.right
             anchors.rightMargin: 82
             anchors.verticalCenter: parent.verticalCenter
@@ -191,6 +212,26 @@ Rectangle {
 
             Row {
                 spacing: 6
+
+                Rectangle {
+                    visible: card.hasParent
+                    height: 18
+                    width: parentChipText.width + 12
+                    radius: 5
+                    color: Qt.rgba(Theme.accent3.r, Theme.accent3.g, Theme.accent3.b, 0.14)
+                    border.width: 1
+                    border.color: Qt.rgba(Theme.accent3.r, Theme.accent3.g, Theme.accent3.b, 0.28)
+
+                    Text {
+                        id: parentChipText
+                        anchors.centerIn: parent
+                        width: Math.min(implicitWidth, 190)
+                        text: "↳ " + card.parentTitle
+                        color: Theme.accent3
+                        font.pixelSize: 10
+                        elide: Text.ElideRight
+                    }
+                }
 
                 Rectangle {
                     visible: card.tag.length > 0
@@ -304,6 +345,58 @@ Rectangle {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: card.playGlitch()
                 }
+            }
+        }
+
+        // 子任务进度环：父卡右下角显示「已完成/总数」
+        Item {
+            id: subtaskProgress
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.rightMargin: 10
+            anchors.bottomMargin: 8
+            height: 22
+            width: progressRing.width + 5 + progressText.width
+            visible: card.hasChildren
+            onVisibleChanged: progressRing.requestPaint()
+
+            Canvas {
+                id: progressRing
+                width: 20
+                height: 20
+                anchors.verticalCenter: parent.verticalCenter
+                // 关联或子任务状态变化时重绘
+                property int statsRev: taskTree.revision
+                onStatsRevChanged: requestPaint()
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.clearRect(0, 0, width, height)
+                    var cx = width / 2
+                    var cy = height / 2
+                    var r = width / 2 - 2.5
+                    ctx.lineWidth = 2.5
+                    ctx.strokeStyle = Theme.border
+                    ctx.beginPath()
+                    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+                    ctx.stroke()
+                    if (card.childStats.total > 0) {
+                        ctx.strokeStyle = Theme.accent
+                        ctx.beginPath()
+                        ctx.arc(cx, cy, r, -Math.PI / 2,
+                                -Math.PI / 2 + Math.PI * 2 * (card.childStats.done / card.childStats.total))
+                        ctx.stroke()
+                    }
+                }
+            }
+
+            Text {
+                id: progressText
+                anchors.left: progressRing.right
+                anchors.leftMargin: 5
+                anchors.verticalCenter: parent.verticalCenter
+                text: card.childStats.done + "/" + card.childStats.total
+                color: Theme.muted
+                font.pixelSize: 10
             }
         }
     }

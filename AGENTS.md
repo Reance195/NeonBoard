@@ -150,6 +150,7 @@ AI 代理在本仓库干活时：
 4. 合并前自检：`cmake --build build --config Release` 通过，且 `NeonBoard.exe --selftest` 无报错。
 5. 不擅自提交 `build/`、`dist/`、日志；不擅自改动用户全局 Git 配置。
 6. 涉及界面行为的改动，同步更新 `README.md` 中对应描述（如功能项、快捷键、已知限制）。
+7. **收尾必须核对「需求卡」进度**：合并前对照 `docs/iteration-roadmap.md` 里对应阶段的验收项**逐条打勾**，把「已完成 X / 待做 Y」写回需求卡的 `note`，并同步该卡在看板上的状态。**禁止用「子任务全部 done」代替「需求已交付」** —— 子任务做完只说明父需求的某几项落地了，父需求要等验收项逐条满足才能结掉。
 
 ---
 
@@ -211,20 +212,28 @@ cd .worktrees/agent-a
 | --- | --- |
 | `NEONBOARD_DATA_DIR` | 数据库、插件目录、日志、界面设置（主题/画质/动效）全部落到该目录 |
 | `NEONBOARD_INSTANCE` | 单实例本地服务器 key 加后缀，允许多个实例同时跑 |
+| `NEONBOARD_ROADMAP` | 路线图快照文件路径（默认从 exe 目录向上探测仓库根的 `progress.json`） |
+| `NEONBOARD_ROADMAP_AUTOWRITE` | 设为 `0` 关闭看板 → 快照的自动写回 |
 
 ```powershell
 $env:NEONBOARD_DATA_DIR = "$PWD\.sandbox"
 $env:NEONBOARD_INSTANCE = "agent-a"
+$env:NEONBOARD_ROADMAP  = "$PWD\.sandbox\progress.json"   # 沙箱跑应用必设
 .\build\Release\NeonBoard.exe
 ```
 
 未设置时行为与原来完全一致，不影响正常用户。
+
+> **沙箱跑应用必须设 `NEONBOARD_ROADMAP`**：路线图快照默认从 exe 目录向上找仓库根的 `progress.json`，
+> 沙箱应用会把沙箱看板状态写回仓库快照（已踩过：测试卡进了仓库 `progress.json`）。
+> 设成沙箱内的路径即可彻底隔离。
 
 ### 7.6 验证口径
 
 - 数据层统一用 `NeonBoard.exe --selftest` 自检（utilityMode 跳过单实例限制）。
 - 构建：`cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64`，然后 `cmake --build build --config Release`。
 - 涉及界面的改动在沙箱目录里验收，不要污染真实数据。
+- 跑完应用检查 `git status`：沙箱跑应用若未设 `NEONBOARD_ROADMAP`，`progress.json` 会被写脏，记得 `git checkout -- progress.json` 还原。
 
 ---
 
@@ -305,3 +314,41 @@ $env:NEONBOARD_INSTANCE = "agent-a"
 - **必须覆盖的失败用例**：篡改 `sha256` → 退出码 2 且**包未落盘**；`files` 里含 `../../evil.qml` → 退出码 2 且**没有 evil.qml 落盘**；断网 → `--market-refresh` 退出码 0 且提示离线模式、缓存文件存在。
 - 起本地市场用 `python -m http.server`；测断网前先确认 8731 端口没有**残留**服务在监听（`Get-NetTCPConnection -LocalPort 8731 -State Listen`），否则断网用例会假通过。
 - 日志断言要取**最后一条**匹配，不要取第一条。
+
+---
+
+## 十、主任务与子任务约定
+
+看板支持「主任务 → 子任务」的父子关联，并在卡片上把关联关系显性化（子卡缩进 + 归属标识，父卡显示子任务完成度进度环）。
+
+### 10.1 职责分层
+
+| 层 | 位置 | 职责 | 不允许做 |
+| --- | --- | --- | --- |
+| 存储 | `board.db` 的 `task_link` 表 | 存「边」：`child_id → parent_id` | 往 `task` 表加 `parent_id` 列 |
+| 门面 | `src/TaskTree.{h,cpp}` | 父卡 / 子卡查询、完成度统计、防环、增删边 | 在别处直接写 `task_link` |
+| 排序 | `src/TaskFilterModel::lessThan` | 按「父卡分组」排，子任务紧跟父卡 | 改 `TaskModel::moveTask` 的既有语义 |
+| 展示 | `qml/components/TaskCard.qml` | 归属竖线 + 缩进、`↳ 父卡` chip、父卡进度环 | 写死颜色（只能用 `Theme.xxx` 令牌） |
+
+### 10.2 硬性约束
+
+1. **关联关系只存边表**：`task_link(child_id TEXT PRIMARY KEY, parent_id TEXT NOT NULL, created_at INTEGER)`。
+   **禁止**往 `task` 表加列、**禁止**升 `user_version` —— 老版本程序要能照常打开同一个库。
+   建表语句在 `Database::open()` 里无条件 `CREATE TABLE IF NOT EXISTS`（`IF NOT EXISTS` 幂等，不影响旧库）。
+2. **所有关联读写走 `TaskTree` 公开 API**（`setParent` / `clearParent` / `parentId` / `parentTitle` / `childStats`），
+   QML 侧通过上下文属性 `taskTree` 调用；禁止在 QML 或别的类里直接拼 `task_link` 的 SQL。
+3. **必须防自环与成环**：`setParent` 要沿父链上溯，发现成环直接返回 `false` 并拒绝落库。
+4. **任务删除要清边**：`TaskTree` 订阅 `TaskModel::taskRemoved`，删任务时同步删掉指向它的边和它指向父卡的边。
+5. **列内排序按父卡分组**：`TaskFilterModel::lessThan` 先比「父卡 order_key」，再比「是否子卡」（父在前），最后比自身 `order_key`。
+   分组只影响展示顺序，**不重算 `order_key`**，也不改 `TaskModel::moveTask` 的老语义。
+6. **`progress.json` 快照不含关联边**：快照只存任务字段，父子关系只存本地 `board.db`；
+   跨机协作需要另行导出关联边，不要假装快照能带过去。
+7. **需求卡要带进度口径**：父卡 `note` 里写「已完成 X / 待做 Y」，让进度直接落在需求卡上（配合第五节第 7 条）。
+
+### 10.3 验证口径
+
+- `--selftest` 能开库并建出 `task_link` 表；`NeonBoard.exe --selftest` 退出码 0。
+- 建 3 个子卡 → 父卡 `taskTree.childStats(parentId)` 返回 `total=3`，`done` 随子卡状态变化。
+- 成环：`setParent(A, B)` 后 `setParent(B, A)` 必须返回 `false`（不落库）。
+- 删子卡 → `task_link` 里对应边消失。
+- 界面：子卡显示 `↳ 父卡标题` 且左缩进，父卡右下角显示进度环 + `done/total`。

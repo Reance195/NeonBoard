@@ -11,7 +11,8 @@ ApplicationWindow {
     minimumWidth: 900
     minimumHeight: 600
     visible: false
-    title: "NeonBoard"
+    // 窗口标题带 agent 标签：多个预览实例并行时能一眼分清谁是谁
+    title: previewHub.instanceLabel
     color: Theme.bg
     flags: Qt.FramelessWindowHint | Qt.Window | Qt.NoDropShadowWindowHint
 
@@ -39,6 +40,9 @@ ApplicationWindow {
     property bool settingsPending: false
     property int pendingPluginIndex: -1
     property bool libraryPending: false
+    // 预览中心：仅主线实例有入口，面板同样按需加载
+    property bool previewPending: false
+    property bool previewOpen: false
 
     // 面板互斥：同一时刻只保留一个浮层，避免外观/插件/设置面板叠在一起
     function closeAllPanels() {
@@ -48,6 +52,9 @@ ApplicationWindow {
             pluginPanelLoader.item.close()
         if (settingsLoader.item)
             settingsLoader.item.close()
+        if (previewLoader.item)
+            previewLoader.item.close()
+        window.previewOpen = false
     }
 
     function openSettings() {
@@ -60,6 +67,22 @@ ApplicationWindow {
         } else {
             settingsPending = true
             settingsLoader.active = true
+        }
+    }
+
+    // 预览中心：列出各 agent 工作区，可一键构建并启动隔离的预览实例
+    function openPreview() {
+        show()
+        raise()
+        requestActivate()
+        closeAllPanels()
+        previewOpen = true
+        previewHub.refresh()
+        if (previewLoader.item) {
+            previewLoader.item.open()
+        } else {
+            previewPending = true
+            previewLoader.active = true
         }
     }
 
@@ -532,17 +555,20 @@ MouseArea {
                     Item { Layout.preferredHeight: 8 }
 
                     Repeater {
-                        model: ["看板", "插件", "设置"]
+                        // 预览中心只在主线实例出现：agent 沙箱实例里再嵌套预览入口只会混淆
+                        model: previewHub.hostInstance
+                               ? ["看板", "插件", "设置", "预览"]
+                               : ["看板", "插件", "设置"]
 
                         delegate: Rectangle {
                             Layout.fillWidth: true
                             height: 34
                             radius: 8
-                            color: index === 0
+                            color: (index === 0 || (index === 3 && window.previewOpen))
                                    ? Theme.accentSoft
                                    : (navMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04)
                                                              : "transparent")
-                            border.width: index === 0 ? 1 : 0
+                            border.width: (index === 0 || (index === 3 && window.previewOpen)) ? 1 : 0
                             border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22)
 
                             Text {
@@ -550,7 +576,8 @@ MouseArea {
                                 anchors.leftMargin: 10
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: modelData
-                                color: index === 0 ? Theme.cyan : Theme.muted
+                                color: (index === 0 || (index === 3 && window.previewOpen))
+                                       ? Theme.cyan : Theme.muted
                                 font.pixelSize: 13
                             }
 
@@ -563,6 +590,8 @@ MouseArea {
                                         window.openPluginLibrary()
                                     } else if (index === 2) {
                                         window.openSettings()
+                                    } else if (index === 3) {
+                                        window.openPreview()
                                     }
                                 }
                             }
@@ -972,6 +1001,22 @@ MouseArea {
                 item.openLibraryRequested.connect(function() {
                     window.openPluginLibrary()
                 })
+            }
+        }
+
+        // 预览中心面板：按需加载（仅主线实例有入口）
+        Loader {
+            id: previewLoader
+            anchors.fill: parent
+            active: false
+            source: "PreviewPanel.qml"
+            z: 145
+
+            onLoaded: {
+                if (window.previewPending) {
+                    window.previewPending = false
+                    item.open()
+                }
             }
         }
 

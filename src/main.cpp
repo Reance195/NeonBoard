@@ -10,6 +10,7 @@
 #include "PluginMarket.h"
 #include "PluginPackage.h"
 #include "PluginRuntime.h"
+#include "PreviewHub.h"
 #include "RoadmapSync.h"
 #include "DataPort.h"
 #include "SingleInstance.h"
@@ -43,6 +44,7 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QUrl>
+#include <cstdio>
 #include <memory>
 
 static void neonboardLogHandler(QtMsgType, const QMessageLogContext &, const QString &message)
@@ -60,6 +62,16 @@ static void neonboardLogHandler(QtMsgType, const QMessageLogContext &, const QSt
                << message << '\n';
         stream.flush();
     }
+}
+
+// 命令行结果直接写 stdout：exe 是 GUI 子系统，qInfo 只进日志文件，
+// 脚本要读结果必须走标准输出
+static void emitCliLine(const QString &line)
+{
+    const QByteArray bytes = line.toUtf8();
+    std::fwrite(bytes.constData(), 1, static_cast<size_t>(bytes.size()), stdout);
+    std::fputc('\n', stdout);
+    std::fflush(stdout);
 }
 
 int main(int argc, char *argv[])
@@ -110,7 +122,11 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--install-plugin-file"))
         || arguments.contains(QStringLiteral("--market-refresh"))
         || arguments.contains(QStringLiteral("--market-source"))
-        || arguments.contains(QStringLiteral("--market-install"));
+        || arguments.contains(QStringLiteral("--market-install"))
+        || arguments.contains(QStringLiteral("--preview-list"))
+        || arguments.contains(QStringLiteral("--preview-build"))
+        || arguments.contains(QStringLiteral("--preview-start"))
+        || arguments.contains(QStringLiteral("--preview-stop"));
     std::unique_ptr<SingleInstance> singleInstance;
     if (!utilityMode) {
         singleInstance = std::make_unique<SingleInstance>(AppPaths::singleInstanceKey());
@@ -454,6 +470,9 @@ int main(int argc, char *argv[])
     PluginHost pluginHost(&pluginRuntime);
     PluginMarket pluginMarket;
     PluginLibrary pluginLibrary(&pluginLoader, &pluginMarket, &pluginRuntime, &database);
+    // 预览中心：发现各 agent 工作区，一键构建并启动隔离的预览实例
+    PreviewHub previewHub;
+    tray.setInstanceLabel(previewHub.instanceLabel());
 
     // 钩子事件队列：与看板库物理隔离，主进程轮询消费后转成插件事件
     HookEventQueue hookQueue(AppPaths::hookDbPath());
@@ -507,6 +526,81 @@ int main(int argc, char *argv[])
         return 2;
     }
 
+    // 预览中心命令行：--preview-list 列工作区；--preview-build <id> 构建；
+    // --preview-start <id> 启动预览实例；--preview-stop <id> 停止实例。
+    // 命令行进程跑完即退，不该把自己登记成“运行中的实例”。
+    previewHub.setSelfRegisterEnabled(false);
+    if (arguments.contains(QStringLiteral("--preview-list"))) {
+        previewHub.refresh();
+        qInfo().noquote() << "PREVIEW-LIST" << previewHub.listJson();
+        emitCliLine(previewHub.listJson());
+        return 0;
+    }
+
+    const int previewBuildIndex = arguments.indexOf(QStringLiteral("--preview-build"));
+    if (previewBuildIndex >= 0) {
+        const QString agentId = previewBuildIndex + 1 < arguments.size()
+            ? arguments.at(previewBuildIndex + 1) : QString();
+        if (agentId.isEmpty()) {
+            qWarning() << "PREVIEW-BUILD missing agent id";
+            emitCliLine(QStringLiteral("FAIL --preview-build missing agent id"));
+            return 2;
+        }
+        previewHub.refresh();
+        QString buildError;
+        if (previewHub.buildBlocking(agentId, &buildError)) {
+            qInfo().noquote() << "PREVIEW-BUILD OK" << agentId;
+            emitCliLine(QStringLiteral("OK %1").arg(agentId));
+            return 0;
+        }
+        qWarning().noquote() << "PREVIEW-BUILD FAIL" << agentId << buildError;
+        emitCliLine(QStringLiteral("FAIL %1 %2").arg(agentId, buildError));
+        return 2;
+    }
+
+    const int previewStartIndex = arguments.indexOf(QStringLiteral("--preview-start"));
+    if (previewStartIndex >= 0) {
+        const QString agentId = previewStartIndex + 1 < arguments.size()
+            ? arguments.at(previewStartIndex + 1) : QString();
+        if (agentId.isEmpty()) {
+            qWarning() << "PREVIEW-START missing agent id";
+            emitCliLine(QStringLiteral("FAIL --preview-start missing agent id"));
+            return 2;
+        }
+        previewHub.setDetachOnStart(true);
+        previewHub.refresh();
+        QString startError;
+        if (previewHub.startBlocking(agentId, &startError)) {
+            qInfo().noquote() << "PREVIEW-START OK" << agentId;
+            emitCliLine(QStringLiteral("OK %1").arg(agentId));
+            return 0;
+        }
+        qWarning().noquote() << "PREVIEW-START FAIL" << agentId << startError;
+        emitCliLine(QStringLiteral("FAIL %1 %2").arg(agentId, startError));
+        return 2;
+    }
+
+    const int previewStopIndex = arguments.indexOf(QStringLiteral("--preview-stop"));
+    if (previewStopIndex >= 0) {
+        const QString agentId = previewStopIndex + 1 < arguments.size()
+            ? arguments.at(previewStopIndex + 1) : QString();
+        if (agentId.isEmpty()) {
+            qWarning() << "PREVIEW-STOP missing agent id";
+            emitCliLine(QStringLiteral("FAIL --preview-stop missing agent id"));
+            return 2;
+        }
+        previewHub.refresh();
+        QString stopError;
+        if (previewHub.stopBlocking(agentId, &stopError)) {
+            qInfo().noquote() << "PREVIEW-STOP OK" << agentId;
+            emitCliLine(QStringLiteral("OK %1").arg(agentId));
+            return 0;
+        }
+        qWarning().noquote() << "PREVIEW-STOP FAIL" << agentId << stopError;
+        emitCliLine(QStringLiteral("FAIL %1 %2").arg(agentId, stopError));
+        return 2;
+    }
+
     if (singleInstance) {
         QObject::connect(singleInstance.get(), &SingleInstance::showRequested,
                          &windowController, &WindowController::showAndActivate);
@@ -533,6 +627,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);
 engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
+    engine.rootContext()->setContextProperty(QStringLiteral("previewHub"), &previewHub);
     // 启动即可按里程碑过滤看板：--stage R0
     const int stageIndex = arguments.indexOf(QStringLiteral("--stage"));
     QString initialStage;

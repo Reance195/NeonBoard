@@ -33,6 +33,7 @@
 - 数据导入导出与自动备份：JSON / Markdown / Todo.txt 三种格式，设置面板一键导出、选择文件导入；每天首次启动自动把 `board.db` 备份一份到 `backups/` 目录
 - 插件库：侧栏汇总「已装 / 可装」插件，支持打开、启用、禁用、安装、卸载、更新
 - 在线市场：按 JSON 索引拉取 `.neon` 单文件插件包，SHA-256 校验后原子安装；断网时自动降级到本地缓存索引
+- 预览中心（多代理开发）：主线侧栏「预览」实时列出所有 worktree（分支 / HEAD / 脏状态 / 是否已构建 / 是否在跑），一键构建、启动、停止各 agent 的预览实例；预览实例跑在各自 worktree 的沙箱里，与真实数据完全隔离，窗口标题带 agent 标签便于区分
 
 ## 快捷键
 
@@ -99,9 +100,13 @@ pwsh -File scripts/git-done.ps1
 ```powershell
 pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx   # 开区（基于 origin/main）
 pwsh -File scripts/dev-run.ps1 -Wait -AppArgs --smoke                  # 沙箱运行，不污染真实数据
+pwsh -File scripts/preview.ps1 -Action List                            # 看各 agent 工作区/构建/运行状态
 pwsh -File scripts/git-done.ps1 -Branch feature/xxx -RemoveWorktree     # 合并 + 推送 + 回收工作区
 pwsh -File scripts/release.ps1                                          # 五道闸门出包
 ```
+
+> 预览中心让「每个 agent 的成果即时可见」：主线实例的侧栏「预览」面板，或上面的 `preview.ps1`，
+> 都能直接构建并启动某个 agent 的预览实例，**不必等所有 agent 合并完**。
 
 逐步操作与钩子排查见 [docs/git-workflow.md](docs/git-workflow.md)，贡献约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
@@ -183,15 +188,15 @@ NEONBOARD_QT_BIN    Qt 运行库目录，供 Git 钩子在开发版 exe 上补�
 ## 项目结构
 
 ```text
-src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置、路线图同步、数据导入导出
+src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置、路线图同步、数据导入导出、预览中心
 qml/                 QML：主界面、霓虹背景
   theme/             主题与动效单例（Theme / Motion）
-  components/        卡片、看板列、统计芯片、窗口按钮、外观面板、设置面板、插件面板、阶段进度条
+  components/        卡片、看板列、统计芯片、窗口按钮、外观面板、设置面板、插件面板、阶段进度条、预览中心面板
 shaders/             GLSL Shader
 plugins/             官方插件（只读，需手工复制到用户插件目录）
 plugins-samples/     示例插件（只读）
 installer/           Inno Setup 脚本
-scripts/             构建部署与多代理协作脚本（agent-init / dev-run / release 等）
+scripts/             构建部署与多代理协作脚本（agent-init / dev-run / preview / release 等）
 docs/                截图、迭代路线图与插件文档
 docs/themes/         6 套主题预设实机截图
 .github/workflows/   GitHub Actions 持续集成流水线

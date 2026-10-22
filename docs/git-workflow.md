@@ -180,6 +180,26 @@ pwsh -File scripts/release.ps1
 
 > CI 侧同样出包：`.github/workflows/release.yml` 在打 `v*` 标签或手动触发时生成安装包并上传制品。
 
+### 6. 预览中心（成果即时可见，不用等合并）
+
+agent 的改动只要**构建过**，主线实例就能直接跑起来看，不必等所有 agent 合并完。
+
+应用内：主线窗口侧栏第 4 项「预览」→ 列出所有 worktree → 点「构建 / 启动 / 停止」。
+
+命令行：
+
+```powershell
+pwsh -File scripts/preview.ps1 -Action List                    # 清单
+pwsh -File scripts/preview.ps1 -Action Build -Agent agent-c    # 构建
+pwsh -File scripts/preview.ps1 -Action Start -Agent agent-c    # 启动预览实例
+pwsh -File scripts/preview.ps1 -Action Stop  -Agent agent-c    # 停止
+```
+
+- 预览实例跑在**该 worktree 的沙箱**里（`.sandbox/`），与真实数据、仓库根 `progress.json` 完全隔离。
+- 窗口标题与托盘 tooltip 带 agent 标签（`NeonBoard · agent-c`），多个实例一眼分清。
+- 运行登记在 `<git-common-dir>/preview-runtime.json`；`scripts/agent-workspace.ps1 -Action Status`
+  的「预览实例」段落会一并显示。
+
 ---
 
 ## 四、钩子拦截与排查

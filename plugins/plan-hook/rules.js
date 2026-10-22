@@ -15,7 +15,7 @@ var DEFAULT_RULES = {
     "defaultStatus": "doing",
     "match": {
         "field": "title",
-        "pattern": "#([A-Za-z][A-Za-z0-9]*)(?:=(todo|doing|done))?"
+        "pattern": "#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)?)(?:=(todo|doing|done))?"
     },
     "statusMap": {
         "todo": "todo",
@@ -26,8 +26,8 @@ var DEFAULT_RULES = {
     "onAlreadyInTarget": "skip"
 };
 
-var MARKER_PATTERN = /#([A-Za-z][A-Za-z0-9]*)(?:=(todo|doing|done))?/g;
-var CODE_PATTERN = /#([A-Za-z][A-Za-z0-9]*)/g;
+var MARKER_PATTERN = /#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)?)(?:=(todo|doing|done))?/g;
+var CODE_PATTERN = /#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)?)/g;
 
 function defaultRules() {
     return JSON.parse(JSON.stringify(DEFAULT_RULES));

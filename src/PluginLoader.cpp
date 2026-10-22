@@ -55,6 +55,16 @@ PluginLoader::PluginLoader(Database *database, QObject *parent)
     scan();
 }
 
+QStringList PluginLoader::sourceDirs() const
+{
+    return {
+        m_pluginDir,
+        QCoreApplication::applicationDirPath() + QStringLiteral("/plugins"),
+        QStringLiteral(NEONBOARD_SOURCE_DIR) + QStringLiteral("/plugins"),
+        QStringLiteral(NEONBOARD_SOURCE_DIR) + QStringLiteral("/plugins-samples"),
+    };
+}
+
 QStringList PluginLoader::disabledPlugins() const
 {
     return readDisabledList();
@@ -219,13 +229,10 @@ void PluginLoader::scan()
         }
     };
 
-    scanDirectory(m_pluginDir, QStringLiteral("appdata"));
-    scanDirectory(QCoreApplication::applicationDirPath() + QStringLiteral("/plugins"),
-                  QStringLiteral("appdir"));
-    scanDirectory(QStringLiteral(NEONBOARD_SOURCE_DIR) + QStringLiteral("/plugins"),
-                  QStringLiteral("official"));
-    scanDirectory(QStringLiteral(NEONBOARD_SOURCE_DIR) + QStringLiteral("/plugins-samples"),
-                  QStringLiteral("sample"));
+    const QStringList roots = sourceDirs();
+    const char *sources[] = {"appdata", "appdir", "official", "sample"};
+    for (int i = 0; i < roots.size(); ++i)
+        scanDirectory(roots.at(i), QString::fromLatin1(sources[i]));
 
     qInfo() << "PluginLoader: scanned" << m_plugins.size() << "plugin(s) from" << m_pluginDir
             << "in" << scanTimer.elapsed() << "ms";

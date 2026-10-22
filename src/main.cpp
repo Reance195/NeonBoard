@@ -110,7 +110,9 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--install-plugin-file"))
         || arguments.contains(QStringLiteral("--market-refresh"))
         || arguments.contains(QStringLiteral("--market-source"))
-        || arguments.contains(QStringLiteral("--market-install"));
+        || arguments.contains(QStringLiteral("--market-sources"))
+        || arguments.contains(QStringLiteral("--market-install"))
+        || arguments.contains(QStringLiteral("--install-plugin-url"));
     std::unique_ptr<SingleInstance> singleInstance;
     if (!utilityMode) {
         singleInstance = std::make_unique<SingleInstance>(AppPaths::singleInstanceKey());
@@ -463,18 +465,50 @@ int main(int argc, char *argv[])
     else
         hookQueue.setEventBus(&pluginEventBus);
 
-    // 插件市场命令行：--market-source <url> 设源；--market-refresh 拉索引；
-    // --market-install <id> 装插件。都走同步接口，方便脚本与无头环境验证。
-    const int marketSourceIndex = arguments.indexOf(QStringLiteral("--market-source"));
-    if (marketSourceIndex >= 0) {
-        const QString marketUrl = marketSourceIndex + 1 < arguments.size()
-            ? arguments.at(marketSourceIndex + 1) : QString();
-        if (marketUrl.trimmed().isEmpty()) {
-            qWarning() << "MARKET-SOURCE missing url";
-            return 2;
+    // 插件市场命令行：--market-source <spec>... 设源（可重复、可逗号分隔）；
+    // --market-sources 列出当前源；--market-refresh 拉索引；
+    // --market-install <id> 装插件；--install-plugin-url <url> 直链安装。
+    // 都走同步接口，方便脚本与无头环境验证。
+    QStringList marketSpecs;
+    for (int i = 0; i < arguments.size(); ++i) {
+        if (arguments.at(i) != QStringLiteral("--market-source"))
+            continue;
+        if (i + 1 >= arguments.size())
+            break;
+        const QStringList parts =
+            arguments.at(i + 1).split(QLatin1Char(','), Qt::SkipEmptyParts);
+        for (const QString &part : parts) {
+            const QString trimmed = part.trimmed();
+            if (!trimmed.isEmpty() && !marketSpecs.contains(trimmed))
+                marketSpecs.append(trimmed);
         }
-        pluginLibrary.setMarketSource(marketUrl.trimmed());
-        qInfo().noquote() << "MARKET-SOURCE OK" << pluginLibrary.marketSource();
+    }
+    if (!marketSpecs.isEmpty()) {
+        QVariantList sources;
+        for (const QString &spec : marketSpecs) {
+            QVariantMap record;
+            record.insert(QStringLiteral("spec"), spec);
+            record.insert(QStringLiteral("name"), QString());
+            record.insert(QStringLiteral("enabled"), true);
+            sources.append(record);
+        }
+        pluginMarket.setSources(sources);
+        qInfo().noquote() << "MARKET-SOURCE OK" << sources.size() << "source(s)"
+                          << marketSpecs.join(QStringLiteral(", "));
+        return 0;
+    }
+
+    if (arguments.contains(QStringLiteral("--market-sources"))) {
+        const QVariantList sources = pluginLibrary.marketSources();
+        qInfo().noquote() << "MARKET-SOURCES" << sources.size();
+        for (const QVariant &value : sources) {
+            const QVariantMap record = value.toMap();
+            qInfo().noquote() << "  " << record.value(QStringLiteral("name")).toString()
+                              << "|" << record.value(QStringLiteral("spec")).toString()
+                              << (record.value(QStringLiteral("enabled")).toBool()
+                                      ? QStringLiteral("|enabled")
+                                      : QStringLiteral("|disabled"));
+        }
         return 0;
     }
 
@@ -484,6 +518,13 @@ int main(int argc, char *argv[])
         if (refreshed) {
             qInfo().noquote() << "MARKET-REFRESH OK" << pluginMarket.entries().size()
                               << pluginMarket.statusText();
+            for (const QVariant &value : pluginMarket.sourceStatuses()) {
+                const QVariantMap status = value.toMap();
+                qInfo().noquote() << "MARKET-SOURCE" << status.value(QStringLiteral("name")).toString()
+                                  << (status.value(QStringLiteral("ok")).toBool() ? QStringLiteral("OK")
+                                                                                : QStringLiteral("FAIL"))
+                                  << status.value(QStringLiteral("message")).toString();
+            }
             return 0;
         }
         qWarning().noquote() << "MARKET-REFRESH FAIL" << marketError;
@@ -504,6 +545,23 @@ int main(int argc, char *argv[])
             return 0;
         }
         qWarning().noquote() << "MARKET-INSTALL FAIL" << installError;
+        return 2;
+    }
+
+    const int directInstallIndex = arguments.indexOf(QStringLiteral("--install-plugin-url"));
+    if (directInstallIndex >= 0) {
+        const QString packageUrl = directInstallIndex + 1 < arguments.size()
+            ? arguments.at(directInstallIndex + 1) : QString();
+        if (packageUrl.trimmed().isEmpty()) {
+            qWarning() << "INSTALL-PLUGIN-URL missing url";
+            return 2;
+        }
+        QString installError;
+        if (pluginLibrary.installFromUrlBlocking(packageUrl.trimmed(), &installError)) {
+            qInfo().noquote() << "INSTALL-PLUGIN-URL OK" << packageUrl.trimmed();
+            return 0;
+        }
+        qWarning().noquote() << "INSTALL-PLUGIN-URL FAIL" << installError;
         return 2;
     }
 

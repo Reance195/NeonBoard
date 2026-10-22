@@ -21,6 +21,32 @@ Rectangle {
         visible = false
     }
 
+    function sourceStatusText(spec) {
+        var list = pluginMarket.sourceStatuses
+        for (var i = 0; i < list.length; ++i) {
+            if (list[i].spec === spec)
+                return (list[i].ok ? (list[i].cached ? "缓存" : "已更新") : "失败") + " " + (list[i].message || "")
+        }
+        return ""
+    }
+
+    function addSource() {
+        var spec = newSourceField.text.trim()
+        if (spec.length === 0)
+            return
+        pluginLibrary.addMarketSource(spec, "")
+        newSourceField.text = ""
+        pluginMarket.refresh()
+    }
+
+    function installDirect() {
+        var url = directUrlField.text.trim()
+        if (url.length === 0)
+            return
+        pluginLibrary.installFromUrl(url)
+        directUrlField.text = ""
+    }
+
     MouseArea {
         anchors.fill: parent
         onClicked: libraryPanel.close()
@@ -90,7 +116,7 @@ Rectangle {
                 color: Theme.border
             }
 
-            // ---------- 市场源 + 操作按钮 ----------
+            // ---------- 市场源管理 ----------
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 6
@@ -101,22 +127,13 @@ Rectangle {
                     font.pixelSize: 10
                 }
 
-                TextField {
-                    id: marketSourceField
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 28
-                    text: pluginLibrary.marketSource
-                    color: Theme.text
+                Text {
+                    text: pluginLibrary.marketSources.length + " 个"
+                    color: Theme.muted
                     font.pixelSize: 10
-                    selectByMouse: true
-                    background: Rectangle {
-                        color: Theme.input
-                        radius: 6
-                        border.width: 1
-                        border.color: Theme.border
-                    }
-                    onEditingFinished: pluginLibrary.marketSource = text.trim()
                 }
+
+                Item { Layout.fillWidth: true }
 
                 Text {
                     text: "刷新市场"
@@ -131,50 +148,185 @@ Rectangle {
                 }
             }
 
-            RowLayout {
+            // 源列表（可滚动，最多占 130px）
+            ScrollView {
                 Layout.fillWidth: true
-                spacing: 14
+                Layout.maximumHeight: 130
+                Layout.minimumHeight: 26
+                clip: true
+                contentWidth: availableWidth
 
-                Text {
-                    text: "重新扫描"
-                    color: rescanMouse.containsMouse ? Theme.cyan : Theme.text
-                    font.pixelSize: 11
-                    MouseArea {
-                        id: rescanMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            pluginRuntime.reload()
-                            pluginLibrary.refresh()
+                ColumnLayout {
+                    width: bodyLayout.width
+                    spacing: 4
+
+                    Repeater {
+                        model: pluginLibrary.marketSources
+
+                        delegate: Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 26
+                            radius: 6
+                            color: Theme.card
+                            border.width: 1
+                            border.color: Theme.border
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                spacing: 6
+
+                                Rectangle {
+                                    width: 6
+                                    height: 6
+                                    radius: 3
+                                    color: modelData.enabled ? Theme.success : Theme.muted
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.name + "  " + modelData.spec
+                                    color: modelData.enabled ? Theme.text : Theme.muted
+                                    font.pixelSize: 10
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    text: libraryPanel.sourceStatusText(modelData.spec)
+                                    color: Theme.muted
+                                    font.pixelSize: 9
+                                }
+
+                                Text {
+                                    text: "↑"
+                                    color: srcUpMouse.containsMouse ? Theme.cyan : Theme.muted
+                                    font.pixelSize: 11
+                                    MouseArea {
+                                        id: srcUpMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: pluginLibrary.moveMarketSource(index, index - 1)
+                                    }
+                                }
+
+                                Text {
+                                    text: "↓"
+                                    color: srcDownMouse.containsMouse ? Theme.cyan : Theme.muted
+                                    font.pixelSize: 11
+                                    MouseArea {
+                                        id: srcDownMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: pluginLibrary.moveMarketSource(index, index + 1)
+                                    }
+                                }
+
+                                Text {
+                                    text: modelData.enabled ? "停用" : "启用"
+                                    color: srcToggleMouse.containsMouse ? Theme.cyan : Theme.muted
+                                    font.pixelSize: 10
+                                    MouseArea {
+                                        id: srcToggleMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: pluginLibrary.setMarketSourceEnabled(index, !modelData.enabled)
+                                    }
+                                }
+
+                                Text {
+                                    text: "✕"
+                                    color: srcDelMouse.containsMouse ? Theme.danger : Theme.muted
+                                    font.pixelSize: 11
+                                    MouseArea {
+                                        id: srcDelMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: pluginLibrary.removeMarketSource(index)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
+            }
 
-                Text {
-                    text: "打开插件目录"
-                    color: dirMouse.containsMouse ? Theme.cyan : Theme.text
-                    font.pixelSize: 11
-                    MouseArea {
-                        id: dirMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: pluginLibrary.openPluginDir()
+            // 添加源
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                TextField {
+                    id: newSourceField
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    text: ""
+                    placeholderText: "owner/repo 或 https://host/path/market.json"
+                    color: Theme.text
+                    font.pixelSize: 10
+                    selectByMouse: true
+                    background: Rectangle {
+                        color: Theme.input
+                        radius: 6
+                        border.width: 1
+                        border.color: Theme.border
                     }
+                    onAccepted: libraryPanel.addSource()
                 }
 
-                Item { Layout.fillWidth: true }
-
                 Text {
-                    text: pluginLibrary.entries.length + " 项"
-                    color: Theme.muted
-                    font.pixelSize: 10
+                    text: "添加源"
+                    color: addSourceMouse.containsMouse ? Theme.cyan : Theme.text
+                    font.pixelSize: 11
+                    MouseArea {
+                        id: addSourceMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: libraryPanel.addSource()
+                    }
                 }
             }
 
-            Rectangle {
+            // ---------- 从链接安装 ----------
+            RowLayout {
                 Layout.fillWidth: true
-                height: 1
-                color: Theme.border
+                spacing: 6
+
+                Text {
+                    text: "链接安装"
+                    color: Theme.muted
+                    font.pixelSize: 10
+                }
+
+                TextField {
+                    id: directUrlField
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    text: ""
+                    placeholderText: "https://host/plugin.neon（可加 #sha256=...）"
+                    color: Theme.text
+                    font.pixelSize: 10
+                    selectByMouse: true
+                    background: Rectangle {
+                        color: Theme.input
+                        radius: 6
+                        border.width: 1
+                        border.color: Theme.border
+                    }
+                    onAccepted: libraryPanel.installDirect()
+                }
+
+                Text {
+                    text: "安装"
+                    color: directInstallMouse.containsMouse ? Theme.cyan : Theme.text
+                    font.pixelSize: 11
+                    MouseArea {
+                        id: directInstallMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: libraryPanel.installDirect()
+                    }
+                }
             }
 
             // ---------- 插件列表 ----------

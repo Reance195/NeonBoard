@@ -13,11 +13,15 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QVariantList>
 
 namespace {
 
 constexpr auto kMarketSourceMetaKey = "plugin.market.source";
+constexpr auto kMarketSourcesMetaKey = "plugin.market.sources";
 
 QString dirNameForId(const QString &id)
 {
@@ -39,14 +43,8 @@ PluginLibrary::PluginLibrary(PluginLoader *loader,
 {
     if (m_market) {
         connect(m_market, &PluginMarket::entriesChanged, this, &PluginLibrary::rebuild);
-        connect(m_market, &PluginMarket::sourceChanged, this, &PluginLibrary::rebuild);
-        // 恢复上次保存的市场地址
-        if (m_database) {
-            const QString saved =
-                m_database->metaValue(QString::fromLatin1(kMarketSourceMetaKey));
-            if (!saved.trimmed().isEmpty())
-                m_market->setSource(saved);
-        }
+        connect(m_market, &PluginMarket::sourcesChanged, this, &PluginLibrary::onMarketSourcesChanged);
+        loadMarketSources();
     }
     if (m_loader)
         connect(m_loader, &PluginLoader::pluginsChanged, this, &PluginLibrary::rebuild);
@@ -56,6 +54,11 @@ PluginLibrary::PluginLibrary(PluginLoader *loader,
 QString PluginLibrary::marketSource() const
 {
     return m_market ? m_market->source() : QString();
+}
+
+QVariantList PluginLibrary::marketSources() const
+{
+    return m_market ? m_market->sources() : QVariantList();
 }
 
 QString PluginLibrary::marketStatus() const
@@ -69,10 +72,220 @@ void PluginLibrary::setMarketSource(const QString &url)
         return;
     const QString trimmed = url.trimmed();
     m_market->setSource(trimmed);
-    if (m_database)
-        m_database->setMetaValue(QString::fromLatin1(kMarketSourceMetaKey), trimmed);
+    saveMarketSources();
     emit marketSourceChanged();
     rebuild();
+}
+
+void PluginLibrary::loadMarketSources()
+{
+    if (!m_market)
+        return;
+    QVariantList sources;
+    if (m_database) {
+        const QString raw = m_database->metaValue(QString::fromLatin1(kMarketSourcesMetaKey));
+        if (!raw.trimmed().isEmpty()) {
+            const QJsonDocument document = QJsonDocument::fromJson(raw.toUtf8());
+            if (document.isArray()) {
+                for (const QJsonValue &value : document.array()) {
+                    const QJsonObject item = value.toObject();
+                    const QString spec = item.value(QStringLiteral("spec")).toString().trimmed();
+                    if (spec.isEmpty())
+                        continue;
+                    QVariantMap record;
+                    record.insert(QStringLiteral("spec"), spec);
+                    record.insert(QStringLiteral("name"), item.value(QStringLiteral("name")).toString());
+                    record.insert(QStringLiteral("enabled"),
+                                  item.value(QStringLiteral("enabled")).toBool(true));
+                    sources.append(record);
+                }
+            }
+        }
+        // 旧版单源配置迁移成源列表
+        if (sources.isEmpty()) {
+            const QString legacy = m_database->metaValue(QString::fromLatin1(kMarketSourceMetaKey));
+            if (!legacy.trimmed().isEmpty()) {
+                QVariantMap record;
+                record.insert(QStringLiteral("spec"), legacy.trimmed());
+                record.insert(QStringLiteral("name"), QString());
+                record.insert(QStringLiteral("enabled"), true);
+                sources.append(record);
+            }
+        }
+    }
+    if (sources.isEmpty())
+        return; // 没有配置就用内置默认源
+    m_market->setSources(sources);
+}
+
+void PluginLibrary::saveMarketSources()
+{
+    if (!m_market || !m_database)
+        return;
+    QJsonArray array;
+    for (const QVariant &value : m_market->sources()) {
+        const QVariantMap record = value.toMap();
+        QJsonObject item;
+        item.insert(QStringLiteral("spec"), record.value(QStringLiteral("spec")).toString());
+        item.insert(QStringLiteral("name"), record.value(QStringLiteral("name")).toString());
+        item.insert(QStringLiteral("enabled"), record.value(QStringLiteral("enabled")).toBool());
+        array.append(item);
+    }
+    m_database->setMetaValue(QString::fromLatin1(kMarketSourcesMetaKey),
+                             QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact)));
+}
+
+void PluginLibrary::onMarketSourcesChanged()
+{
+    saveMarketSources();
+    emit marketSourceChanged();
+    emit marketSourcesChanged();
+    rebuild();
+}
+
+bool PluginLibrary::addMarketSource(const QString &spec, const QString &name)
+{
+    if (!m_market)
+        return false;
+    if (!m_market->addSource(spec, name)) {
+        setStatusText(m_market->statusText());
+        return false;
+    }
+    setStatusText(QStringLiteral("已添加市场源"));
+    return true;
+}
+
+bool PluginLibrary::removeMarketSource(int index)
+{
+    if (!m_market)
+        return false;
+    if (!m_market->removeSource(index))
+        return false;
+    setStatusText(QStringLiteral("已移除市场源"));
+    return true;
+}
+
+bool PluginLibrary::setMarketSourceEnabled(int index, bool enabled)
+{
+    if (!m_market)
+        return false;
+    if (!m_market->setSourceEnabled(index, enabled))
+        return false;
+    return true;
+}
+
+bool PluginLibrary::moveMarketSource(int from, int to)
+{
+    if (!m_market)
+        return false;
+    if (!m_market->moveSource(from, to))
+        return false;
+    setStatusText(QStringLiteral("已调整市场源优先级"));
+    return true;
+}
+
+bool PluginLibrary::installFromUrl(const QString &url)
+{
+    if (!m_market)
+        return false;
+    QString target = url.trimmed();
+    if (target.isEmpty()) {
+        setStatusText(QStringLiteral("链接为空"));
+        return false;
+    }
+    QString sha256;
+    const int hashAt = target.indexOf(QStringLiteral("#sha256="));
+    if (hashAt >= 0) {
+        sha256 = target.mid(hashAt + 8).trimmed().toLower();
+        target = target.left(hashAt);
+    }
+    if (target.isEmpty()) {
+        setStatusText(QStringLiteral("链接为空"));
+        return false;
+    }
+
+    const QString tempFile = QDir(QDir::tempPath()).filePath(QStringLiteral("neonboard-direct.neon"));
+    m_market->downloadPackage(target, sha256, tempFile);
+    connect(m_market, &PluginMarket::packageReady, this,
+            [this, tempFile](const QString &file, bool ok, const QString &message) {
+                Q_UNUSED(file)
+                if (!ok) {
+                    setStatusText(message);
+                    emit operationFinished(QString(), QStringLiteral("install"), false, message);
+                    QFile::remove(tempFile);
+                    return;
+                }
+                const QString pluginId = PluginPackage::neonPluginId(tempFile);
+                if (pluginId.isEmpty()) {
+                    const QString text = QStringLiteral("包格式非法：缺少 manifest.id");
+                    setStatusText(text);
+                    emit operationFinished(QString(), QStringLiteral("install"), false, text);
+                    QFile::remove(tempFile);
+                    return;
+                }
+                const QString targetDir =
+                    AppPaths::pluginDir() + QLatin1Char('/') + dirNameForId(pluginId);
+                QString installError;
+                if (!PluginPackage::installNeonFile(tempFile, targetDir, &installError)) {
+                    setStatusText(installError);
+                    emit operationFinished(pluginId, QStringLiteral("install"), false, installError);
+                    QFile::remove(tempFile);
+                    return;
+                }
+                QFile::remove(tempFile);
+                setStatusText(QStringLiteral("已安装 %1").arg(pluginId));
+                if (m_runtime)
+                    m_runtime->reload();
+                rebuild();
+                emit operationFinished(pluginId, QStringLiteral("install"), true, QStringLiteral("安装成功"));
+            },
+            Qt::SingleShotConnection);
+    return true;
+}
+
+bool PluginLibrary::installFromUrlBlocking(const QString &url, QString *error)
+{
+    if (!m_market) {
+        if (error)
+            *error = QStringLiteral("市场模块不可用");
+        return false;
+    }
+    QString target = url.trimmed();
+    if (target.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("链接为空");
+        return false;
+    }
+    QString sha256;
+    const int hashAt = target.indexOf(QStringLiteral("#sha256="));
+    if (hashAt >= 0) {
+        sha256 = target.mid(hashAt + 8).trimmed().toLower();
+        target = target.left(hashAt);
+    }
+    const QString tempFile = QDir(QDir::tempPath()).filePath(QStringLiteral("neonboard-direct.neon"));
+    if (!m_market->downloadPackageBlocking(target, sha256, tempFile, error)) {
+        QFile::remove(tempFile);
+        return false;
+    }
+    const QString pluginId = PluginPackage::neonPluginId(tempFile);
+    if (pluginId.isEmpty()) {
+        QFile::remove(tempFile);
+        if (error)
+            *error = QStringLiteral("包格式非法：缺少 manifest.id");
+        return false;
+    }
+    const QString targetDir = AppPaths::pluginDir() + QLatin1Char('/') + dirNameForId(pluginId);
+    if (!PluginPackage::installNeonFile(tempFile, targetDir, error)) {
+        QFile::remove(tempFile);
+        return false;
+    }
+    QFile::remove(tempFile);
+    setStatusText(QStringLiteral("已安装 %1").arg(pluginId));
+    if (m_runtime)
+        m_runtime->reload();
+    rebuild();
+    emit operationFinished(pluginId, QStringLiteral("install"), true, QStringLiteral("安装成功"));
+    return true;
 }
 
 void PluginLibrary::setStatusText(const QString &text)
@@ -157,6 +370,7 @@ void PluginLibrary::rebuild()
             merged.insert(QStringLiteral("marketVersion"), item.value(QStringLiteral("version")));
             merged.insert(QStringLiteral("marketDescription"),
                           item.value(QStringLiteral("description")));
+            merged.insert(QStringLiteral("marketSource"), item.value(QStringLiteral("marketSource")));
             if (merged.value(QStringLiteral("description")).toString().isEmpty())
                 merged.insert(QStringLiteral("description"), item.value(QStringLiteral("description")));
             entries[at] = merged;
@@ -176,6 +390,7 @@ void PluginLibrary::rebuild()
         entry.insert(QStringLiteral("origin"), QStringLiteral("market"));
         entry.insert(QStringLiteral("hasMarket"), true);
         entry.insert(QStringLiteral("marketVersion"), item.value(QStringLiteral("version")));
+        entry.insert(QStringLiteral("marketSource"), item.value(QStringLiteral("marketSource")));
         entries.append(entry);
     }
 

@@ -10,11 +10,49 @@ Rectangle {
 
     signal openLibraryRequested()
 
+    // 面板内复用的小按钮
+    component DataButton: Rectangle {
+        id: btn
+        property string label: ""
+        property color accentColor: Theme.cyan
+        signal triggered()
+
+        height: 30
+        radius: 8
+        color: btnMouse.pressed ? Theme.elevated : Theme.card
+        border.width: 1
+        border.color: btnMouse.containsMouse
+                         ? Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.55)
+                         : Theme.border
+
+        Text {
+            anchors.centerIn: parent
+            text: btn.label
+            color: btn.accentColor
+            font.pixelSize: 11
+        }
+
+        MouseArea {
+            id: btnMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: btn.triggered()
+        }
+    }
+
+    // 导入来源：数据目录下已导出的文件 + 手动输入路径
+    function refreshExports() {
+        exportCombo.model = dataPort.listExports()
+        if (exportCombo.model.length > 0 && exportCombo.currentIndex < 0)
+            exportCombo.currentIndex = 0
+    }
     visible: false
     color: Qt.rgba(0.0, 0.0, 0.0, 0.45)
 
     function open() {
         visible = true
+        refreshExports()
     }
 
     function close() {
@@ -28,7 +66,7 @@ Rectangle {
 
     Rectangle {
         width: Math.min(520, parent.width - 48)
-        height: 400
+        height: Math.min(560, parent.height - 48)
         anchors.centerIn: parent
         radius: 16
         color: Theme.panelSolid
@@ -37,10 +75,17 @@ Rectangle {
 
         MouseArea { anchors.fill: parent }
 
-        ColumnLayout {
+        ScrollView {
+            id: scroller
             anchors.fill: parent
             anchors.margins: 20
-            spacing: 14
+            clip: true
+            contentWidth: availableWidth
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+            ColumnLayout {
+                width: scroller.availableWidth
+                spacing: 14
 
             RowLayout {
                 Layout.fillWidth: true
@@ -169,6 +214,186 @@ Rectangle {
                 spacing: 3
 
                 Text {
+                    text: "导入导出与备份"
+                    color: Theme.text
+                    font.pixelSize: 13
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "备份目录 " + dataPort.backupDir
+                    color: Theme.muted
+                    font.pixelSize: 10
+                    elide: Text.ElideMiddle
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 6
+                    spacing: 8
+
+                    DataButton {
+                        label: "导出 JSON"
+                        Layout.fillWidth: true
+                        onTriggered: {
+                            var path = dataPort.defaultPath("json")
+                            var error = dataPort.exportTasks(path, "json")
+                            dataHint.text = error.isEmpty() ? "已导出：" + path : "导出失败：" + error
+                        }
+                    }
+
+                    DataButton {
+                        label: "导出 Markdown"
+                        Layout.fillWidth: true
+                        onTriggered: {
+                            var path = dataPort.defaultPath("markdown")
+                            var error = dataPort.exportTasks(path, "markdown")
+                            dataHint.text = error.isEmpty() ? "已导出：" + path : "导出失败：" + error
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    ComboBox {
+                        id: exportCombo
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 90
+                        Layout.preferredHeight: 30
+                        model: []
+                        font.pixelSize: 10
+                        displayText: (currentIndex >= 0 && currentText.length > 0)
+                                     ? currentText.split(/[\\/]/).pop()
+                                     : "（数据目录下暂无导出文件）"
+
+                        contentItem: Text {
+                            leftPadding: 8
+                            rightPadding: 20
+                            text: exportCombo.displayText
+                            color: Theme.text
+                            font: exportCombo.font
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideMiddle
+                        }
+
+                        background: Rectangle {
+                            radius: 8
+                            color: Theme.input
+                            border.width: 1
+                            border.color: Theme.border
+                        }
+
+                        delegate: ItemDelegate {
+                            width: exportCombo.width
+                            height: 28
+                            contentItem: Text {
+                                text: modelData
+                                color: Theme.text
+                                font.pixelSize: 10
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideMiddle
+                                leftPadding: 6
+                            }
+                            background: Rectangle {
+                                color: parent.highlighted ? Theme.accentSoft : "transparent"
+                            }
+                        }
+
+                        popup: Popup {
+                            y: exportCombo.height + 2
+                            width: exportCombo.width
+                            implicitHeight: contentItem.implicitHeight
+                            padding: 1
+                            contentItem: ListView {
+                                clip: true
+                                implicitHeight: contentHeight
+                                model: exportCombo.popup.visible ? exportCombo.delegateModel : null
+                                currentIndex: exportCombo.highlightedIndex
+                                ScrollIndicator.vertical: ScrollIndicator {}
+                            }
+                            background: Rectangle {
+                                radius: 8
+                                color: Theme.panelSolid
+                                border.width: 1
+                                border.color: Theme.border
+                            }
+                        }
+                    }
+
+                    DataButton {
+                        label: "导入所选"
+                        Layout.preferredWidth: 84
+                        onTriggered: {
+                            if (exportCombo.currentIndex < 0) {
+                                dataHint.text = "请先选择要导入的文件"
+                                return
+                            }
+                            var path = exportCombo.currentText
+                            var error = dataPort.importTasks(path, "auto")
+                            dataHint.text = error.isEmpty() ? "导入完成：" + path : "导入失败：" + error
+                        }
+                    }
+
+                    DataButton {
+                        label: "立即备份"
+                        accentColor: Theme.success
+                        Layout.preferredWidth: 84
+                        onTriggered: {
+                            var error = dataPort.backupNow()
+                            dataHint.text = error.isEmpty()
+                                            ? "备份完成：" + dataPort.backupDir
+                                            : "备份失败：" + error
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    TextField {
+                        id: importPathField
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 28
+                        placeholderText: "或粘贴文件完整路径后回车导入"
+                        color: Theme.text
+                        font.pixelSize: 10
+                        selectByMouse: true
+                        background: Rectangle {
+                            color: Theme.input
+                            radius: 6
+                            border.width: 1
+                            border.color: Theme.border
+                        }
+                        onAccepted: {
+                            var path = text.trim()
+                            if (path.length === 0) {
+                                dataHint.text = "请输入文件路径"
+                                return
+                            }
+                            var error = dataPort.importTasks(path, "auto")
+                            dataHint.text = error.isEmpty() ? "导入完成：" + path : "导入失败：" + error
+                        }
+                    }
+                }
+
+                Text {
+                    id: dataHint
+                    Layout.fillWidth: true
+                    text: "支持 JSON / Markdown / Todo.txt 三种格式；每天首次启动自动备份一次数据库。"
+                    color: Theme.muted
+                    font.pixelSize: 9
+                    wrapMode: Text.WordWrap
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 3
+
+                Text {
                     text: "插件"
                     color: Theme.text
                     font.pixelSize: 13
@@ -286,10 +511,9 @@ Rectangle {
                 }
             }
 
-            Item { Layout.fillHeight: true }
-
             RowLayout {
                 Layout.fillWidth: true
+                Layout.topMargin: 4
 
                 Text {
                     text: "NeonBoard 0.1.0 · Qt 6.8 · SQLite"
@@ -304,6 +528,7 @@ Rectangle {
                     color: Theme.muted
                     font.pixelSize: 9
                 }
+            }
             }
         }
     }

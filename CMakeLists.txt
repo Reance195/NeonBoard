@@ -36,6 +36,7 @@ qt_add_executable(NeonBoard
     src/PluginMarket.h src/PluginMarket.cpp
     src/PluginPackage.h src/PluginPackage.cpp
     src/PluginLibrary.h src/PluginLibrary.cpp
+    src/TaskTree.h src/TaskTree.cpp
     resources/neonboard.rc
 )
 

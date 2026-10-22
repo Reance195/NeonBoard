@@ -5,6 +5,8 @@
 
 class TaskModel;
 
+class TaskTree;
+
 class TaskFilterModel : public QSortFilterProxyModel
 {
     Q_OBJECT
@@ -27,6 +29,9 @@ public:
     void setStage(const QString &stage);
 
     int count() const;
+
+    // 注入主/子任务关联表：子任务按父卡分组，紧跟父卡排列
+    void setTaskTree(TaskTree *tree);
 
     Q_INVOKABLE QString idAt(int row) const;
     // 代理模型不自带写入能力，统一转发到源 TaskModel
@@ -54,4 +59,5 @@ private:
     QString m_status;
     QString m_search;
     QString m_stage;
+    TaskTree *m_tree = nullptr;
 };

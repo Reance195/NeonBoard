@@ -1,6 +1,7 @@
 #include "TaskFilterModel.h"
 
 #include "TaskModel.h"
+#include "TaskTree.h"
 
 TaskFilterModel::TaskFilterModel(QObject *parent)
     : QSortFilterProxyModel(parent)
@@ -68,6 +69,22 @@ void TaskFilterModel::setStage(const QString &stage)
     emit countChanged();
 }
 
+void TaskFilterModel::setTaskTree(TaskTree *tree)
+{
+    if (m_tree == tree)
+        return;
+    if (m_tree)
+        m_tree->disconnect(this);
+    m_tree = tree;
+    if (m_tree) {
+        connect(m_tree, &TaskTree::changed, this, [this]() {
+            invalidate();
+            emit countChanged();
+        });
+    }
+    invalidate();
+}
+
 QString TaskFilterModel::idAt(int row) const
 {
     if (row < 0 || row >= rowCount())
@@ -120,9 +137,25 @@ bool TaskFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceP
 
 bool TaskFilterModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
 {
+    const QString leftId = left.data(TaskModel::IdRole).toString();
+    const QString rightId = right.data(TaskModel::IdRole).toString();
     const qint64 leftKey = left.data(TaskModel::OrderKeyRole).toLongLong();
     const qint64 rightKey = right.data(TaskModel::OrderKeyRole).toLongLong();
+
+    // 有主/子关联时按「父卡分组」排：同一父卡的子任务紧跟父卡，
+    // 分组之间仍按父卡的 order_key 先后。
+    if (m_tree) {
+        const qint64 leftGroup = m_tree->groupOrderKey(leftId);
+        const qint64 rightGroup = m_tree->groupOrderKey(rightId);
+        if (leftGroup != rightGroup)
+            return leftGroup < rightGroup;
+        const bool leftChild = m_tree->isChild(leftId);
+        const bool rightChild = m_tree->isChild(rightId);
+        if (leftChild != rightChild)
+            return !leftChild; // 父卡排在自己的子任务前面
+    }
+
     if (leftKey != rightKey)
         return leftKey < rightKey;
-    return left.data(TaskModel::IdRole).toString() < right.data(TaskModel::IdRole).toString();
+    return leftId < rightId;
 }

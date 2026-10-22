@@ -112,6 +112,21 @@ bool Database::open(QString *error)
         return false;
     }
 
+    // 主任务 / 子任务关联边表：独立表，不动 task 表结构、不升 user_version，
+    // 老版本程序开同一个库也不受影响（认不出这张表而已）。
+    if (!exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS task_link ("
+            "  child_id TEXT PRIMARY KEY,"
+            "  parent_id TEXT NOT NULL,"
+            "  created_at INTEGER NOT NULL DEFAULT 0"
+            ")"), error)) {
+        return false;
+    }
+    if (!exec(QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_task_link_parent ON task_link(parent_id)"), error)) {
+        return false;
+    }
+
     refreshStats();
     return true;
 }

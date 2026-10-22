@@ -1,6 +1,7 @@
 ﻿#include "TaskModel.h"
 
 #include "Database.h"
+#include "TaskInputParser.h"
 
 #include <QDate>
 #include <QDateTime>
@@ -8,6 +9,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QRegularExpression>
+#include <QSet>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -369,7 +371,9 @@ QVariantMap TaskModel::stageStats() const
 QString TaskModel::addTask(const QString &title, const QString &status, int priority,
                            const QString &tags, qint64 dueAt)
 {
-    const QString cleanTitle = title.trimmed();
+    // 快速录入解析：标题里的日期/时间/标签/优先级标记会被拆出来
+    const ParsedTaskInput parsed = TaskInputParser::parse(title, QDateTime::currentDateTime());
+    QString cleanTitle = parsed.title.isEmpty() ? title.trimmed() : parsed.title;
     if (cleanTitle.isEmpty())
         return {};
 
@@ -386,10 +390,10 @@ QString TaskModel::addTask(const QString &title, const QString &status, int prio
     task.title = cleanTitle;
     task.note = QStringLiteral("");
     task.status = cleanStatus;
-    task.priority = qBound(0, priority, 3);
-    task.tags = normalizeTags(tags);
+    task.priority = parsed.priority >= 0 ? parsed.priority : qBound(0, priority, 3);
+    task.tags = mergeTags(tags, parsed.tags);
     task.orderKey = nextOrderKey(cleanStatus);
-    task.dueAt = dueAt;
+    task.dueAt = parsed.dueAt > 0 ? parsed.dueAt : dueAt;
     task.createdAt = now;
     task.updatedAt = now;
     task.completedAt = cleanStatus == QLatin1String("done") ? now : 0;
@@ -844,6 +848,49 @@ QString TaskModel::normalizeTags(const QString &tags)
             array.append(value);
     }
     return QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact));
+}
+
+QString TaskModel::mergeTags(const QString &baseTags, const QStringList &extraTags)
+{
+    QJsonArray array;
+    QSet<QString> seen;
+
+    const QJsonDocument document = QJsonDocument::fromJson(normalizeTags(baseTags).toUtf8());
+    if (document.isArray()) {
+        const QJsonArray base = document.array();
+        for (const QJsonValue &value : base) {
+            const QString tag = value.toString().trimmed();
+            if (tag.isEmpty() || seen.contains(tag))
+                continue;
+            seen.insert(tag);
+            array.append(tag);
+        }
+    }
+    for (const QString &raw : extraTags) {
+        const QString tag = raw.trimmed();
+        if (tag.isEmpty() || seen.contains(tag))
+            continue;
+        seen.insert(tag);
+        array.append(tag);
+    }
+    return QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact));
+}
+
+QVariantMap TaskModel::previewInput(const QString &text) const
+{
+    const ParsedTaskInput parsed = TaskInputParser::parse(text, QDateTime::currentDateTime());
+    QVariantMap result;
+    result.insert(QStringLiteral("title"),
+                  parsed.title.isEmpty() ? text.trimmed() : parsed.title);
+    result.insert(QStringLiteral("tags"), parsed.tags);
+    result.insert(QStringLiteral("priority"), parsed.priority);
+    result.insert(QStringLiteral("dueAt"), parsed.dueAt);
+    result.insert(QStringLiteral("dueText"),
+                  parsed.dueAt > 0 ? QDateTime::fromSecsSinceEpoch(parsed.dueAt)
+                                        .toString(QStringLiteral("MM-dd HH:mm"))
+                                  : QString());
+    result.insert(QStringLiteral("hasDue"), parsed.dueAt > 0);
+    return result;
 }
 
 QString TaskModel::firstTag(const QString &tags)

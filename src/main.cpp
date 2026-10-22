@@ -20,6 +20,7 @@
 #include "WindowController.h"
 
 #include <QApplication>
+#include <QDate>
 #include <QDateTime>
 #include <QDebug>
 #include <QElapsedTimer>
@@ -269,6 +270,36 @@ int main(int argc, char *argv[])
         taskStore.deleteTask(insA);
         taskStore.deleteTask(insB);
         taskStore.deleteTask(insC);
+        // 快速录入解析：日期/时间/标签/优先级标记被拆出来，标题只留正文
+        const QVariantMap p1 = taskStore.previewInput(QStringLiteral("明天 15:00 #工作 !3 评审方案"));
+        const QDateTime due1 = QDateTime::fromSecsSinceEpoch(p1.value("dueAt").toLongLong());
+        ok = p1.value("title").toString() == QStringLiteral("评审方案") && ok;
+        ok = p1.value("priority").toInt() == 3 && ok;
+        ok = p1.value("tags").toStringList().contains(QStringLiteral("工作")) && ok;
+        ok = due1.date() == QDate::currentDate().addDays(1)
+             && due1.time().hour() == 15 && due1.time().minute() == 0 && ok;
+        const QVariantMap p2 = taskStore.previewInput(QStringLiteral("周五 18:30 复盘"));
+        const QDateTime due2 = QDateTime::fromSecsSinceEpoch(p2.value("dueAt").toLongLong());
+        ok = p2.value("title").toString() == QStringLiteral("复盘") && ok;
+        ok = due2.time().hour() == 18 && due2.time().minute() == 30 && ok;
+        const QVariantMap p3 = taskStore.previewInput(QStringLiteral("普通任务"));
+        ok = p3.value("title").toString() == QStringLiteral("普通任务")
+             && !p3.value("hasDue").toBool() && p3.value("priority").toInt() < 0 && ok;
+        const QVariantMap p4 = taskStore.previewInput(QStringLiteral("下周三 上午9点 汇报"));
+        const QDateTime due4 = QDateTime::fromSecsSinceEpoch(p4.value("dueAt").toLongLong());
+        ok = p4.value("title").toString() == QStringLiteral("汇报") && ok;
+        ok = due4.date().dayOfWeek() == 3 && due4.time().hour() == 9 && ok;
+        qInfo() << "SELFTEST parse" << p1.value("title").toString() << p1.value("dueText").toString()
+                << p2.value("dueText").toString() << p4.value("dueText").toString();
+        // 解析结果真正落库：addTask 走同一套解析
+        const QString parsedId = taskStore.addTask(QStringLiteral("解析入库 明天 10:00 #测试 !2"),
+                                                   QStringLiteral("todo"), 1, QString(), 0);
+        const QVariantMap parsedTask = taskStore.taskById(parsedId);
+        ok = parsedTask.value("title").toString() == QStringLiteral("解析入库") && ok;
+        ok = parsedTask.value("priority").toInt() == 2 && ok;
+        ok = parsedTask.value("tagsFull").toString().contains(QStringLiteral("测试")) && ok;
+        ok = parsedTask.value("dueAt").toLongLong() > 0 && ok;
+        taskStore.deleteTask(parsedId);
         const QVariantMap removed = taskStore.removeTask(id);
         ok = !removed.isEmpty() && ok;
         const QString restoredId = taskStore.restoreTask(removed);

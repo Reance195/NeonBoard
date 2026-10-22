@@ -68,6 +68,8 @@ public:
     Q_INVOKABLE QVariantList allTasks() const;
     // 按指定 id 幂等写入（不存在则插入，存在则按字段更新），用于路线图快照同步
     Q_INVOKABLE QString upsertTask(const QString &id, const QVariantMap &fields);
+    // 快速录入预览：把输入文本拆成标题/标签/优先级/到期时间，供界面实时提示
+    Q_INVOKABLE QVariantMap previewInput(const QString &text) const;
     // 按里程碑标签（首个标签形如 R0/R1/R2/R3）聚合各阶段的任务完成度
     Q_INVOKABLE QVariantMap stageStats() const;
 
@@ -99,6 +101,7 @@ private:
     QVector<qint64> orderKeys(const QString &status, const QString &excludeId) const;
     bool renumberStatus(const QString &status);
     static QString normalizeTags(const QString &tags);
+    static QString mergeTags(const QString &baseTags, const QStringList &extraTags);
     static QString firstTag(const QString &tags);
     static QString dueText(qint64 dueAt);
     // 里程碑标签：首个标签形如 R0/R1/R2/R3 时返回该阶段，否则归入「其他」

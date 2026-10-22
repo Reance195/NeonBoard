@@ -285,7 +285,6 @@ ApplicationWindow {
         pluginLoader.scan()
     }
 
-
     Rectangle {
         id: root
         anchors.fill: parent

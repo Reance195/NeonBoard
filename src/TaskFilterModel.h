@@ -1,6 +1,9 @@
 #pragma once
 
 #include <QSortFilterProxyModel>
+#include <QVariantMap>
+
+class TaskModel;
 
 class TaskFilterModel : public QSortFilterProxyModel
 {
@@ -26,6 +29,14 @@ public:
     int count() const;
 
     Q_INVOKABLE QString idAt(int row) const;
+    // 代理模型不自带写入能力，统一转发到源 TaskModel
+    Q_INVOKABLE QString addTask(const QString &title,
+                                const QString &status = QStringLiteral("todo"),
+                                int priority = 1,
+                                const QString &tags = QString(),
+                                qint64 dueAt = 0) const;
+    // 快速录入解析预览（转发到源 TaskModel）
+    Q_INVOKABLE QVariantMap previewInput(const QString &text) const;
 
 signals:
     void statusChanged();
@@ -38,6 +49,8 @@ protected:
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
 
 private:
+    TaskModel *sourceTaskModel() const;
+
     QString m_status;
     QString m_search;
     QString m_stage;

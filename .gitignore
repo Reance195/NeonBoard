@@ -55,6 +55,8 @@ Makefile.*
 .worktrees/
 # agent 沙箱数据目录（NEONBOARD_DATA_DIR 指向的位置）
 .sandbox/
+# agent 沙箱环境脚本（scripts/agent-init.ps1 生成）
+.agent-env.ps1
 
 # ===== 运行时数据（本地数据库等）=====
 *.db

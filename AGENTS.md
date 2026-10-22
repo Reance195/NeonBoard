@@ -97,11 +97,17 @@ chore(git): 初始化分支工作流与钩子
 pwsh -File scripts/git-done.ps1
 ```
 
+脚本默认走 **remote 模式**：在当前 worktree 里基于 `origin/main` 建临时分支，
+`git merge --no-ff` 合并后快进推送 `origin HEAD:main`。
+**合并不需要在主 worktree 执行**（详见第七节 7.3），多代理并行时互不干扰。
+
 等价的手工步骤：
 
 ```powershell
-git switch main
+git fetch origin
+git switch -c merge/<简述> origin/main
 git merge --no-ff feature/<简述>     # 必须 --no-ff，保留分支合并痕迹
+git push origin HEAD:main             # 快进推送，禁止强推
 git branch -d feature/<简述>
 ```
 
@@ -123,7 +129,7 @@ git branch -d feature/<简述>
 | --- | --- | --- |
 | `pre-commit` | 在 `main`/`master`/`develop` 上提交；分支名缺少规范前缀 | `git commit --no-verify`（仅限紧急情况） |
 | `commit-msg` | 提交信息不符合 `<type>(<scope>): <subject>` 格式（`merge` 类型与 Git 自动生成的合并信息除外） | `git commit --no-verify` |
-| `pre-push` | 推送尚未合并进 `main` 的分支；主分支非快进推送 | 需先合并回 `main` |
+| `pre-push` | 推送尚未合并进 `main` 的分支；推送到 `main` 时非快进（含 `git push origin HEAD:main` 的合并推送） | 需先合并回 `main` |
 | `post-merge` | ——（仅提示可清理的已合并分支） | —— |
 
 `pre-commit` 在**合并冲突解决**、**rebase 续行**、**cherry-pick 续行**等中间态会自动放行，
@@ -166,26 +172,57 @@ AI 代理在本仓库干活时：
 
 多个 AI 代理（或多个会话）同时改这个仓库时，必须按下述约定协作，否则改动会互相覆盖。
 
-### 7.1 一 agent 一 worktree 一分支
+### 7.1 三区模型：锚点区 / 开发区 / 发布区
 
-worktree 放在仓库内的 `.worktrees/` 下（已在 `.gitignore` 中排除）：
+| 区 | 位置 | 允许的动作 | 禁止的动作 |
+| --- | --- | --- | --- |
+| 锚点区 | 仓库根目录 | 林先生本人看代码、跑 IDE、手动发布 | **任何 agent 在此改代码 / 切分支 / 提交 / 构建** |
+| 开发区 | `.worktrees/<agent>/` | agent 的全部改动、构建、沙箱运行 | 共享 `build/` `dist/`、使用真实数据目录 |
+| 发布区 | 某个 worktree 的 `dist/` | `scripts/release.ps1` 独占出包 | 两个 agent 同时出包 |
+
+锚点区的 `.git` 是所有 worktree 共享的元数据目录，但**工作区本身不属于任何 agent**。
+需要登记占用时走脚本，别口头约定：
 
 ```powershell
-# 主 worktree 留在仓库根目录，归用户 / 协调者使用
-git worktree add .worktrees/agent-a -b feature/<简述> main
-cd .worktrees/agent-a
+pwsh -File scripts/agent-workspace.ps1 -Action Status
+pwsh -File scripts/agent-workspace.ps1 -Action Claim  -Agent agent-c -Scope root -Task "阶段条修复"
+pwsh -File scripts/agent-workspace.ps1 -Action Release -Agent agent-c -Scope root
+```
+
+### 7.2 一 agent 一 worktree 一分支
+
+`main` 分支已被锚点区 checkout，Git 不允许同一分支在两个 worktree 同时检出，
+所以新工作区必须基于**远端引用** `origin/main` 建立。用脚本开区，别手敲 `git worktree add`：
+
+```powershell
+pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch fix/stagebar-chip-overflow
+cd .worktrees/agent-c
+. .\.agent-env.ps1        # 注入沙箱环境变量
 ```
 
 - 同一分支禁止在两个 worktree 同时检出（Git 天然强制）。
-- 每个 worktree 拥有独立的 `build/` 目录，体积较大，不要共享。
+- 每个 worktree 拥有独立的 `build/` `dist/` `.sandbox/`，体积较大，不要共享。
+- worktree 用完必须回收：`git worktree remove .worktrees/<agent>`
+  （`git-done.ps1 -RemoveWorktree` 会自动回收）。
 
-### 7.2 合并只在主 worktree，严格串行
+### 7.3 合并不再依赖主 worktree
 
-- 所有合并动作在**主 worktree**（仓库根目录）执行。
-- 分支按拓扑顺序串行合并（例如 A → B → C）；合并下一个分支前，尚未合并的分支先 `git rebase main`。
-- 合并完成后删除已合并的分支（`git branch -d <分支>`）。
+合并**不需要**在锚点区执行。agent 在自己的 worktree 里跑：
 
-### 7.3 热点文件行段分区
+```powershell
+pwsh -File scripts/git-done.ps1 -Branch fix/stagebar-chip-overflow
+```
+
+脚本内部流程：`git fetch origin` → 基于 `origin/main` 建临时分支 `merge/<slug>` →
+`git merge --no-ff <分支>` → `git push origin HEAD:main`（**快进推送**，不是强推）。
+
+- 串行化由远端的快进保护天然完成：两个 agent 同时推，后一个会被 non-fast-forward 拒绝，
+  重新同步后再合即可 —— 因此**根目录永远不需要被任何 agent 占用**，
+  也不存在「谁切了分支把别人的工作区搞乱」的问题。
+- 合并完成后删除已合并的分支（`git branch -d <分支>`）并回收 worktree。
+- 分支按拓扑顺序串行合并（例如 A → B → C）；合并下一个分支前，尚未合并的分支先 `git rebase origin/main`。
+
+### 7.4 热点文件行段分区
 
 同一份文件被多个分支改动时，按行段划归不同代理，**同一时段只允许一个代理改同一段**：
 
@@ -197,43 +234,63 @@ cd .worktrees/agent-a
 
 冲突分三类：A 追加型（串行合并后自动消失）、B 同区块改写（靠分区规避）、C 同一行（rerere + 手工解兜底）。
 
-### 7.4 解冲突纪律
+### 7.5 解冲突纪律
 
 1. 先 `git diff` 看清对方改了什么，再动手；
 2. 手工合并，**禁止** `git checkout --ours/--theirs` 盲解；
 3. 解完 `git add` + `git rebase --continue`；
-4. 仓库已启用 `rerere`（`rerere.enabled` / `rerere.autoupdate`），同种冲突第二次会自动复用上次的解法。
+4. 仓库需开启 `rerere`（`git config core.rerere.enabled true`、`core.rerere.autoupdate true`，
+   仓库级配置，不动用户全局配置），同种冲突第二次会自动复用上次的解法。
 
-### 7.5 沙箱隔离开关
+### 7.6 沙箱隔离开关
 
-多个 agent 各自编译出独立的 `NeonBoard.exe`，默认会读写**同一份** `%APPDATA%\com.lin\NeonBoard\board.db`，从而互相污染（自检任务、界面改状态、插件安装目录全部串味）。启动前设置沙箱变量即可完全隔离：
+多个 agent 各自编译出独立的 `NeonBoard.exe`，默认会读写**同一份** `%APPDATA%\com.lin\NeonBoard\board.db`，
+从而互相污染（自检任务、界面改状态、插件安装目录全部串味）。设置沙箱变量即可完全隔离：
 
 | 环境变量 | 作用 |
 | --- | --- |
-| `NEONBOARD_DATA_DIR` | 数据库、插件目录、日志、界面设置（主题/画质/动效）全部落到该目录 |
+| `NEONBOARD_DATA_DIR` | 数据库、插件目录、日志、界面设置（主题/画质/动效）、`hooks.db` 全部落到该目录 |
 | `NEONBOARD_INSTANCE` | 单实例本地服务器 key 加后缀，允许多个实例同时跑 |
 | `NEONBOARD_ROADMAP` | 路线图快照文件路径（默认从 exe 目录向上探测仓库根的 `progress.json`） |
 | `NEONBOARD_ROADMAP_AUTOWRITE` | 设为 `0` 关闭看板 → 快照的自动写回 |
+| `NEONBOARD_AGENT_ID` | agent 身份，供工作区占用登记与沙箱实例名使用 |
+
+**别手设变量，用统一入口**（它会同时设置以上变量并把沙箱落在当前 worktree 内）：
 
 ```powershell
-$env:NEONBOARD_DATA_DIR = "$PWD\.sandbox"
-$env:NEONBOARD_INSTANCE = "agent-a"
-$env:NEONBOARD_ROADMAP  = "$PWD\.sandbox\progress.json"   # 沙箱跑应用必设
-.\build\Release\NeonBoard.exe
+pwsh -File scripts/dev-run.ps1            # 沙箱启动，不污染真实数据
+pwsh -File scripts/dev-run.ps1 -Wait      # 前台运行（配合 --smoke 等参数）
 ```
 
 未设置时行为与原来完全一致，不影响正常用户。
 
 > **沙箱跑应用必须设 `NEONBOARD_ROADMAP`**：路线图快照默认从 exe 目录向上找仓库根的 `progress.json`，
 > 沙箱应用会把沙箱看板状态写回仓库快照（已踩过：测试卡进了仓库 `progress.json`）。
-> 设成沙箱内的路径即可彻底隔离。
+> `dev-run.ps1` 已把它固定到沙箱内，并默认关闭自动写回。
 
-### 7.6 验证口径
+### 7.7 验证口径
 
 - 数据层统一用 `NeonBoard.exe --selftest` 自检（utilityMode 跳过单实例限制）。
 - 构建：`cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64`，然后 `cmake --build build --config Release`。
 - 涉及界面的改动在沙箱目录里验收，不要污染真实数据。
 - 跑完应用检查 `git status`：沙箱跑应用若未设 `NEONBOARD_ROADMAP`，`progress.json` 会被写脏，记得 `git checkout -- progress.json` 还原。
+
+### 7.8 发布闸门
+
+出包只有一个入口 `scripts/release.ps1`，五道闸门任一不过立即中止，不留半成品：
+
+1. **发布锁**：独占 `dist/`，别人正在出包时直接中止；
+2. **HEAD 必须等于 `origin/main`**：发布物必须来自最新主线；
+3. **工作区干净**：不允许把未提交内容打进安装包；
+4. **Release 构建 + `--selftest` 自检**通过；
+5. **产物带 `dist/BUILD-INFO.txt`**（commit / 分支 / 时间 / SHA256），安装包可溯源。
+
+```powershell
+pwsh -File scripts/release.ps1
+```
+
+CI 侧同样走这条路：`.github/workflows/release.yml` 在打 tag 或手动触发时出安装包并上传 artifact，
+交付物只有 CI 一处产出，本地 `dist/` 仅作调试用途。
 
 ---
 

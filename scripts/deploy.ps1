@@ -1,11 +1,14 @@
 param(
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    # 多代理并行时把产物写进自己的 worktree，避免抢占共享的 dist/
+    [string]$BuildDir = '',
+    [string]$OutDir = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$build = Join-Path $root 'build'
-$dist = Join-Path $root 'dist\NeonBoard'
+$build = if ($BuildDir) { [System.IO.Path]::GetFullPath($BuildDir) } else { Join-Path $root 'build' }
+$dist = if ($OutDir) { [System.IO.Path]::GetFullPath($OutDir) } else { Join-Path $root 'dist\NeonBoard' }
 
 # 工具定位顺序：环境变量 -> PATH -> 已知安装路径
 # CI（GitHub Actions）里 Qt 由 install-qt-action 安装，cmake 来自 PATH，

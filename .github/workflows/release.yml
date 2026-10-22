@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '发布标签（留空则只产出 artifact，不发 Release）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: 打包安装包
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 准备 MSVC 编译环境
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: 安装 Qt 6.8.3
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtshadertools'
+          cache: true
+          cache-key-prefix: 'neonboard-qt'
+
+      - name: 安装 Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: 配置 CMake
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+
+      - name: 构建 Release
+        run: cmake --build build --config Release --parallel
+
+      - name: 数据层自检
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:QT_ROOT_DIR\bin;$env:PATH"
+          $exe = Join-Path $PWD 'build\Release\NeonBoard.exe'
+          $proc = Start-Process -FilePath $exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow `
+            -RedirectStandardOutput selftest.out -RedirectStandardError selftest.err
+          Get-Content selftest.out -ErrorAction SilentlyContinue
+          Get-Content selftest.err -ErrorAction SilentlyContinue
+          if ($proc.ExitCode -ne 0) { throw "自检失败：$($proc.ExitCode)" }
+
+      - name: 生成便携版
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts\deploy.ps1 -SkipBuild
+
+      - name: 编译安装包
+        shell: pwsh
+        run: |
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path -LiteralPath $iscc)) { $iscc = 'C:\Program Files\Inno Setup 6\ISCC.exe' }
+          if (-not (Test-Path -LiteralPath $iscc)) { throw '找不到 ISCC（Inno Setup 编译器）' }
+          $outDir = Join-Path $PWD 'dist'
+          & $iscc installer\neonboard.iss "/O$outDir"
+          if ($LASTEXITCODE -ne 0) { throw "安装包编译失败：$LASTEXITCODE" }
+
+      - name: 写溯源信息
+        shell: pwsh
+        run: |
+          $commit = (git rev-parse HEAD).Trim()
+          $exeHash = (Get-FileHash -LiteralPath 'build\Release\NeonBoard.exe' -Algorithm SHA256).Hash
+          $lines = @(
+            'NeonBoard build info',
+            "generated : $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))",
+            "commit    : $commit",
+            "exe sha256: $exeHash"
+          )
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'dist\BUILD-INFO.txt'), (($lines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeonBoard-setup-${{ github.sha }}
+          path: |
+            dist/NeonBoard-Setup-*.exe
+            dist/BUILD-INFO.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 发布 GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/NeonBoard-Setup-*.exe
+            dist/BUILD-INFO.txt
+          generate_release_notes: true

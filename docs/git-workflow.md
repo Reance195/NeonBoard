@@ -74,19 +74,25 @@ git commit -m "feat(board): 增加卡片按标签筛选"
 
 ### 3. 收尾：合并回主分支
 
-推荐一键脚本：
+推荐一键脚本（默认 remote 模式，**不需要切到 `main`**）：
 
 ```powershell
 pwsh -File scripts/git-done.ps1
 ```
 
-它会自动完成：检查工作区干净 → 切回 `main` → `git merge --no-ff` → 删除功能分支。
+它会自动完成：检查工作区干净 → `git fetch origin` → 基于 `origin/main` 建临时分支 `merge/<简述>`
+→ `git merge --no-ff` → `git push origin HEAD:main`（快进推送）→ 删除功能分支。
+
+> 合并动作在**当前 worktree** 内完成，仓库根目录不用被占用，多代理并行互不干扰。
+> 想沿用「在 `main` 上本地合并」的旧流程，加 `-Mode local`。
 
 手工等价步骤：
 
 ```powershell
-git switch main
+git fetch origin
+git switch -c merge/task-tag-filter origin/main
 git merge --no-ff feature/task-tag-filter    # 必须 --no-ff
+git push origin HEAD:main                     # 快进推送，禁止强推
 git branch -d feature/task-tag-filter        # 删除已合并分支
 ```
 
@@ -112,7 +118,71 @@ git push -u origin main
 
 ---
 
-## 三、钩子拦截与排查
+## 三、多代理并行协作
+
+多个 AI 代理（或多个会话）同时改本仓库时，**仓库根目录不再归属任何代理**，改用「三区模型」：
+
+| 区 | 位置 | 归属 |
+| --- | --- | --- |
+| 锚点区 | 仓库根目录 | 林先生本人（看代码 / 跑 IDE / 手动发布），**任何 agent 禁入** |
+| 开发区 | `.worktrees/<agent>/` | 每个 agent 自己的分支、构建与沙箱 |
+| 发布区 | 某个 worktree 的 `dist/` | `scripts/release.ps1` 独占出包 |
+
+### 1. 开区
+
+```powershell
+pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx
+cd .worktrees/agent-c
+. .\.agent-env.ps1          # 注入沙箱环境变量
+```
+
+脚本基于 `origin/main` 建分支（**不能用 `main`**：`main` 已被锚点区检出，Git 不允许同一分支在两个 worktree 同时存在），
+并顺手建好 `.sandbox/` 沙箱目录与 `.agent-env.ps1`。
+
+### 2. 沙箱运行（不污染真实数据）
+
+```powershell
+pwsh -File scripts/dev-run.ps1 -Wait -AppArgs --smoke
+```
+
+自动注入 `NEONBOARD_DATA_DIR` / `NEONBOARD_INSTANCE` / `NEONBOARD_ROADMAP` /
+`NEONBOARD_ROADMAP_AUTOWRITE=0` / `NEONBOARD_AGENT_ID` 五个变量，
+数据库、插件、日志、`hooks.db`、路线图快照全部落在本 worktree 的 `.sandbox/` 里。
+
+### 3. 占用登记（可选，防撞车）
+
+```powershell
+pwsh -File scripts/agent-workspace.ps1 -Action Status
+pwsh -File scripts/agent-workspace.ps1 -Action Claim  -Agent agent-c -Scope root -Task "阶段条修复"
+pwsh -File scripts/agent-workspace.ps1 -Action Release -Agent agent-c -Scope root
+```
+
+状态文件在 `<git-common-dir>/agent-workspace.json`（所有 worktree 共享），带文件锁；
+被占用时退出码为 `3`。
+
+### 4. 合并回 main（不必占用根目录）
+
+```powershell
+pwsh -File scripts/git-done.ps1 -Branch feature/xxx -RemoveWorktree
+```
+
+在自己的 worktree 里完成 fetch → 合并 → 快进推送。两个代理同时推时，
+后一个会被远端的 non-fast-forward 保护拒绝，重新同步后再合即可 —— 这就是串行化保证。
+
+### 5. 出包
+
+```powershell
+pwsh -File scripts/release.ps1
+```
+
+五道闸门：发布锁 → HEAD 必须等于 `origin/main` → 工作区干净 → Release 构建 + `--selftest`
+→ 产出 `dist/BUILD-INFO.txt`（commit / 分支 / 时间 / SHA256）。任一不过立即中止。
+
+> CI 侧同样出包：`.github/workflows/release.yml` 在打 `v*` 标签或手动触发时生成安装包并上传制品。
+
+---
+
+## 四、钩子拦截与排查
 
 仓库钩子位于 `.githooks/`，通过 `core.hooksPath` 启用。共 4 个：
 
@@ -169,7 +239,7 @@ Windows 上钩子文件必须是 **LF 换行 + 无 BOM**，否则 `sh` 无法解
 
 ---
 
-## 四、常用命令速查
+## 五、常用命令速查
 
 ```powershell
 # 看当前状态
@@ -204,7 +274,7 @@ git stash pop
 
 ---
 
-## 五、FAQ
+## 六、FAQ
 
 **Q：为什么强制 `--no-ff`？**
 

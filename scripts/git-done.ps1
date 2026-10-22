@@ -46,12 +46,31 @@ Set-Location -LiteralPath $repoRoot
 Write-Host "仓库目录：$repoRoot" -ForegroundColor DarkGray
 
 # ---- 1. 工作区必须干净 ----
-$status = Invoke-Git status --porcelain
-if ($status) {
-    Write-Host "`n✗ 当前工作区有未提交改动，请先提交：" -ForegroundColor Red
-    $status | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow }
+# 结卡自动化闭环：看板应用（RoadmapSync）会把卡片状态自动写回 progress.json，
+# agent 收尾时该文件常处于未提交态。它不是 agent 手改的产物，而是单写者（应用）
+# 自动写回的快照 —— 由本脚本代为提交；其余任何未提交改动仍然拒绝（fail-closed）。
+$status = @(Invoke-Git status --porcelain)
+$snapshotLines = @($status | Where-Object { $_ -match '(^\S+\s+|\s)progress\.json$' })
+$otherLines    = @($status | Where-Object { $snapshotLines -notcontains $_ })
+
+if ($otherLines.Count -gt 0) {
+    Write-Host "`n✗ 当前工作区有未提交改动（progress.json 之外的也会一并拦下），请先提交：" -ForegroundColor Red
+    $otherLines | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow }
     Write-Host "`n参考：git add -A ; git commit -m 'feat(scope): 说明'`n" -ForegroundColor Yellow
     exit 1
+}
+
+if ($snapshotLines.Count -gt 0) {
+    Write-Host "→ 检测到 progress.json 未提交（RoadmapSync 自动写回），代为提交快照 ..." -ForegroundColor Cyan
+    Invoke-Git add progress.json | Out-Null
+    try {
+        Invoke-Git commit -m 'chore(roadmap): 同步进度快照' | Out-Null
+        Write-Host "✓ 快照已提交：chore(roadmap): 同步进度快照" -ForegroundColor Green
+    } catch {
+        Write-Host "`n✗ progress.json 提交失败（commit-msg 钩子或其它原因），请手工处理：" -ForegroundColor Red
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        exit 1
+    }
 }
 
 # ---- 2. 确认要合并的分支 ----

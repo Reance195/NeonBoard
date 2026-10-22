@@ -99,11 +99,14 @@ pwsh -File scripts/git-done.ps1
 多个代理（多个 AI 会话）同时改本仓库时，仓库根目录归本人专用，代理一律在 `.worktrees/<agent>/` 下开工：
 
 ```powershell
-pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx   # 开区（基于 origin/main）
+pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx -Card R3-01  # 开区+领任务：卡片自动转「进行中」
 pwsh -File scripts/dev-run.ps1 -Wait -AppArgs --smoke                  # 沙箱运行，不污染真实数据
 pwsh -File scripts/git-done.ps1 -Branch feature/xxx -RemoveWorktree     # 合并 + 推送 + 回收工作区
 pwsh -File scripts/release.ps1                                          # 五道闸门出包
 ```
+
+> `-Card <路线图短号>` 可省：开区即领用，claims 登记（台账 + 提交信息 `#短号=doing`）让对应卡片自动转「进行中」，
+> 分支合并或放弃后登记自动失效回退；结项用提交信息 `#短号=done`。详见 docs/git-workflow.md。
 
 逐步操作与钩子排查见 [docs/git-workflow.md](docs/git-workflow.md)，贡献约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 

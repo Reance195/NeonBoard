@@ -139,6 +139,20 @@ cd .worktrees/agent-c
 脚本基于 `origin/main` 建分支（**不能用 `main`**：`main` 已被锚点区检出，Git 不允许同一分支在两个 worktree 同时存在），
 并顺手建好 `.sandbox/` 沙箱目录与 `.agent-env.ps1`。
 
+**领任务时带上 `-Card <路线图短号>`**（如 `-Card R3-01`）：开区即领用，无需再手工把卡拖到「进行中」——
+
+```powershell
+pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/task-tags -Card R3-01
+```
+
+- 短号必须在 `docs/board-ledger.json` 的 `cards` 里登记过（台账是唯一身份来源）；
+- 登记写法：`claims[<短号>] = {agent, branch, head, claimedAt}`，落在**本 worktree** 的台账副本，随 feature 分支提交；
+- 登记推送前钩子就会投递 `#<短号>=doing`（看板在跑立即生效，不在跑启动时补投递），合并回 `main` 后派生器按台账 claims 派生 `doing`；
+- 派生优先级：**提交信息显式标记 > 领用登记 > baseline**；
+- **释放不需要任何操作**：分支被合并进主干（head 变祖先）或分支被删除（ref 消失）、或分支被 rebase 重写（head 不再是 tip 祖先）时登记自动失效回退；
+- 收尾结项仍用提交标记：`feat: xxx done #R3-01=done`；
+- 若短号已被另一分支领用则拒绝（防双领）。
+
 ### 2. 沙箱运行（不污染真实数据）
 
 ```powershell

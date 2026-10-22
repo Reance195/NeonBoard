@@ -195,11 +195,17 @@ pwsh -File scripts/agent-workspace.ps1 -Action Release -Agent agent-c -Scope roo
 所以新工作区必须基于**远端引用** `origin/main` 建立。用脚本开区，别手敲 `git worktree add`：
 
 ```powershell
-pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch fix/stagebar-chip-overflow
+pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch fix/stagebar-chip-overflow -Card R3-01
 cd .worktrees/agent-c
 . .\.agent-env.ps1        # 注入沙箱环境变量
 ```
 
+- `-Card <路线图短号>`：开区即领用。该短号必须在台账 `cards` 里登记过；
+  脚本会写 `claims[<短号>]={agent,branch,head,claimedAt}` 进**本 worktree** 的台账副本
+  （随 feature 分支提交），并投递 `#<短号>=doing`（`chore(claim):` 空提交 + `--emit-hook-file` 双通道，幂等）。
+- **卡片「进行中」不靠手工拖**：派生器按 claims 派生 doing，优先级为
+  提交信息显式标记 > claims 领用 > baseline；分支被合并 / 删除 / rebase 重写时登记自动失效回退。
+- 结项仍用提交标记 `#<短号>=done`；防双领：短号已被其它分支领用时开区直接报错。
 - 同一分支禁止在两个 worktree 同时检出（Git 天然强制）。
 - 每个 worktree 拥有独立的 `build/` `dist/` `.sandbox/`，体积较大，不要共享。
 - worktree 用完必须回收：`git worktree remove .worktrees/<agent>`

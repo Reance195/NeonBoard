@@ -22,6 +22,7 @@ class PluginLibrary : public QObject
     Q_OBJECT
     Q_PROPERTY(QVariantList entries READ entries NOTIFY entriesChanged)
     Q_PROPERTY(QString marketSource READ marketSource WRITE setMarketSource NOTIFY marketSourceChanged)
+    Q_PROPERTY(QVariantList marketSources READ marketSources NOTIFY marketSourcesChanged)
     Q_PROPERTY(QString marketStatus READ marketStatus NOTIFY entriesChanged)
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusTextChanged)
 
@@ -35,6 +36,8 @@ public:
     QVariantList entries() const { return m_entries; }
     QString marketSource() const;
     void setMarketSource(const QString &url);
+    /** 市场源列表，元素为 {spec, name, enabled} */
+    QVariantList marketSources() const;
     QString marketStatus() const;
     QString statusText() const { return m_statusText; }
 
@@ -48,15 +51,28 @@ public:
     Q_INVOKABLE bool openPluginDir();
     Q_INVOKABLE void requestOpen(const QString &pluginId);
 
+    // ---- 市场源管理 ----
+    /** 添加市场源：spec 支持 owner/repo 简写、完整 URL、本地目录 */
+    Q_INVOKABLE bool addMarketSource(const QString &spec, const QString &name = QString());
+    Q_INVOKABLE bool removeMarketSource(int index);
+    Q_INVOKABLE bool setMarketSourceEnabled(int index, bool enabled);
+    Q_INVOKABLE bool moveMarketSource(int from, int to);
+
+    /** 从直链安装 .neon 包（可在 URL 后用 #sha256=<hex> 指定校验值） */
+    Q_INVOKABLE bool installFromUrl(const QString &url);
+
     // ---- 同步接口（命令行 / 无界面环境用）----
     /** 同步拉取市场索引 */
     bool refreshMarketBlocking(int timeoutMs, QString *error);
     /** 同步安装插件（市场包或本地源） */
     bool installBlocking(const QString &pluginId, QString *error);
+    /** 同步从直链安装 .neon 包 */
+    bool installFromUrlBlocking(const QString &url, QString *error);
 
 signals:
     void entriesChanged();
     void marketSourceChanged();
+    void marketSourcesChanged();
     void statusTextChanged();
     void operationFinished(const QString &pluginId, const QString &action, bool ok, const QString &message);
     void openRequested(const QString &pluginId);
@@ -65,6 +81,9 @@ private:
     void rebuild();
     void setStatusText(const QString &text);
     bool reportFailure(const QString &pluginId, const QString &action, const QString &message);
+    void loadMarketSources();
+    void saveMarketSources();
+    void onMarketSourcesChanged();
     QString localSourceDir(const QString &pluginId) const;
     QString marketDownloadUrl(const QString &pluginId) const;
     QString marketSha256(const QString &pluginId) const;

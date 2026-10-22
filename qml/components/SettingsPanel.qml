@@ -485,26 +485,35 @@ Rectangle {
                     font.pixelSize: 11
                 }
 
-                TextField {
-                    id: marketSourceField
+                RowLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 28
-                    text: pluginLibrary.marketSource
-                    color: Theme.text
-                    font.pixelSize: 10
-                    selectByMouse: true
-                    background: Rectangle {
-                        color: Theme.input
-                        radius: 6
-                        border.width: 1
-                        border.color: Theme.border
+                    spacing: 8
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: pluginLibrary.marketSources.length + " 个源 · "
+                              + (pluginLibrary.marketSource || "未配置")
+                        color: Theme.muted
+                        font.pixelSize: 10
+                        elide: Text.ElideRight
                     }
-                    onEditingFinished: pluginLibrary.marketSource = text.trim()
+
+                    Text {
+                        text: "管理源…"
+                        color: marketManageMouse.containsMouse ? Theme.cyan : Theme.text
+                        font.pixelSize: 11
+                        MouseArea {
+                            id: marketManageMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: panel.openLibraryRequested()
+                        }
+                    }
                 }
 
                 Text {
                     Layout.fillWidth: true
-                    text: "在线市场地址（留空则只使用本地插件源）"
+                    text: "支持 owner/repo 简写（自动尝试 Gitee → GitHub）与完整 market.json 地址，多源并列生效"
                     color: Theme.muted
                     font.pixelSize: 9
                     wrapMode: Text.WordWrap

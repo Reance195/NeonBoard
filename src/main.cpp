@@ -255,6 +255,13 @@ int main(int argc, char *argv[])
     // 走 utilityMode：应用正在运行时也能投递。
     const int emitHookIndex = arguments.indexOf(QStringLiteral("--emit-hook"));
     const int emitHookFileIndex = arguments.indexOf(QStringLiteral("--emit-hook-file"));
+    // --hook-event <name>：可选投递事件名，默认 hook.commit。
+    // 让其他来源（如 agent.task 事件域）复用同一条投递链路而不污染计划钩子的解析。
+    const int eventNameIndex = arguments.indexOf(QStringLiteral("--hook-event"));
+    QString eventName = QStringLiteral("hook.commit");
+    if (eventNameIndex >= 0 && eventNameIndex + 1 < arguments.size()
+        && !arguments.at(eventNameIndex + 1).trimmed().isEmpty())
+        eventName = arguments.at(eventNameIndex + 1).trimmed();
     if (emitHookIndex >= 0 || emitHookFileIndex >= 0) {
         QString payloadText;
         if (emitHookFileIndex >= 0 && emitHookFileIndex + 1 < arguments.size()) {
@@ -273,7 +280,7 @@ int main(int argc, char *argv[])
         HookEventQueue emitQueue(AppPaths::hookDbPath());
         QString emitError;
         const bool emitted = emitQueue.open(&emitError)
-            && emitQueue.enqueue(QStringLiteral("hook.commit"),
+            && emitQueue.enqueue(eventName,
                                   {{QStringLiteral("text"), payloadText},
                                    {QStringLiteral("ts"), QDateTime::currentMSecsSinceEpoch()}},
                                   &emitError);

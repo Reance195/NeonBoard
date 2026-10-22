@@ -32,6 +32,7 @@
 - 计划钩子：提交信息里写 `#T12`，标题带 `#T12` 的任务自动转到「进行中」（`#T12=done` / `#T12=todo` 同理），详见 [docs/plan-hook.md](docs/plan-hook.md)
 - 数据导入导出与自动备份：JSON / Markdown / Todo.txt 三种格式，设置面板一键导出、选择文件导入；每天首次启动自动把 `board.db` 备份一份到 `backups/` 目录
 - 插件库：侧栏汇总「已装 / 可装」插件，支持打开、启用、禁用、安装、卸载、更新
+- 多市场源：支持仓库简写（Gitee → GitHub 自动回退）、完整地址与本地目录，多源并列合并、同 id 取高版本，并可从 `.neon` 链接直接安装
 - 在线市场：按 JSON 索引拉取 `.neon` 单文件插件包，SHA-256 校验后原子安装；断网时自动降级到本地缓存索引
 
 ## 快捷键
@@ -154,12 +155,17 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
 --library    启动后打开插件库
 --install-plugin-file <path>
              从本地 .neon 包安装插件（原子安装，退出码 0 成功 / 2 失败）
---market-source <url>
-             设置插件市场索引地址（同时写入 meta，可离线复用）
+--market-source <spec>
+             设置插件市场源（可重复多次或用逗号分隔；spec 支持 owner/repo 简写、
+             完整 market.json 地址、本地目录；同时写入 meta，可离线复用）
+--market-sources
+             列出当前已配置的市场源
 --market-refresh
-             拉取市场索引（失败时降级到本地缓存，退出码 0 成功 / 2 失败）
+             拉取所有启用源的市场索引并合并（失败时降级到本地缓存，退出码 0 成功 / 2 失败）
 --market-install <id>
              从市场安装指定插件（校验 SHA-256 后原子安装）
+--install-plugin-url <url>
+             直接从 .neon 包链接安装（可加 #sha256=... 指定校验值，退出码 0 成功 / 2 失败）
 --export-tasks [path] [format]
              导出任务数据（format 取 json / markdown / todo，缺省用数据目录下的默认文件名）
 --import-tasks <path> [format]
@@ -265,7 +271,30 @@ docs/themes/         6 套主题预设实机截图
 
 安装时依次做四道校验：包格式合法 → `manifest.id` 与请求一致 → SHA-256 与索引一致（索引给了才校验）→ 文件路径不越界（禁绝对路径、反斜杠与 `..`）。全部通过后先落到临时目录，再原子替换目标目录，失败自动回滚。
 
-市场地址默认指向仓库内置的 GitHub 地址，可在插件库或设置面板里改成任意 URL；索引会缓存到 `%APPDATA%\com.lin\NeonBoard\market-cache.json`，断网时用缓存索引继续浏览。
+### 多市场源
+
+市场源可以配多个，**并列生效**：同一个 id 的插件取版本高者，条目上会标出来自哪个源。源地址支持三种写法：
+
+| 写法 | 例子 | 说明 |
+| --- | --- | --- |
+| 仓库简写 | `lin-schenglin/neonboard-market` | 客户端依次尝试 Gitee → GitHub 的 `market.json` |
+| 完整地址 | `https://host/path/market.json` | 直接拉这个文件 |
+| 本地目录 | `D:\market` 或 `file:///D:/market` | 读目录下的 `market.json` |
+
+每个源各自缓存（`market-cache.json` 里按源分条记录，带 ETag / Last-Modified / 拉取时间，TTL 默认 6 小时），断网时各自降级到自己的缓存，互不影响。索引里的 `download` 可以只写文件名，客户端会按索引所在目录解析成完整地址。
+
+插件库面板里可以添加 / 停用 / 删除 / 调整顺序（顺序即优先级），并显示每个源的状态（已更新 / 缓存 / 失败）；也可以直接粘贴 `.neon` 链接安装。
+
+### 发布一个市场源
+
+仓库带发布脚本，把插件目录打成 `.neon` 包并写进市场索引：
+
+```powershell
+pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
+    -OutputDir D:\market -DownloadBase https://gitee.com/<owner>/<repo>/raw/main
+```
+
+脚本会读 `plugin.json`、把插件文件打成单文件 `.neon`、算 SHA-256 与体积、更新 `market.json`（保留其他条目，`signature` 字段位留空待以后接上）。
 
 ## 已知限制
 
@@ -278,7 +307,7 @@ docs/themes/         6 套主题预设实机截图
 - Todo.txt 格式只带标题、标签与备注，不含优先级与到期日；需要完整备份请用 JSON 格式
 - 导入按标题匹配已有任务（存在则更新），而路线图快照按 id 匹配；若两者同时存在同一张卡，可能各生成一份
 - 计划钩子需先把 `plugins/plan-hook` 复制到用户插件目录才会生效；未安装时提交里的 `#T12` 静默失效
-- 插件市场的默认索引地址是占位用的 GitHub 地址，实际使用前需在插件库或设置面板里改成真实市场地址
+- 插件市场默认源是仓库简写（`Reance195/neonboard-market`），仓库地址未定前请在插件库或设置面板里改成真实市场地址；索引签名校验暂未实现（`signature` 字段位已预留）
 - Qt 采用 LGPL 动态链接；再分发时需保留 Qt 动态库与许可说明
 
 ## 第三方

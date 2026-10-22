@@ -345,9 +345,19 @@ pluginMarket.refresh()            // 拉取索引（失败降级到缓存）
 - `files` 是「相对路径 → 文件内容」的映射，安装时逐个落盘。
 - 路径必须安全：不允许绝对路径、反斜杠、`..`；只允许单层子目录。
 
-### 市场索引
+### 市场源（多源并列）
 
-索引是一个 JSON 文件，默认地址写在 `PluginMarket::defaultSource()`（占位用的 GitHub 地址，**实际使用前需在插件库或设置面板改成真实地址**）：
+市场源可以配多个，**并列生效**：刷新时按源顺序逐个拉取，条目按 `id` 合并，同 id 取版本高者；条目上带 `marketSource` / `marketSpec` / `marketUrl` 三个字段，说明它来自哪个源。源列表存在 meta 表 `plugin.market.sources`（JSON 数组），老版本只写过 `plugin.market.source` 单地址的会自动迁移。
+
+源地址支持三种写法（`PluginMarket::resolveCandidates`）：
+
+| 写法 | 例子 | 展开成 |
+| --- | --- | --- |
+| 仓库简写 | `lin-schenglin/neonboard-market` | `https://gitee.com/<owner>/<repo>/raw/main/market.json` → `https://raw.githubusercontent.com/<owner>/<repo>/main/market.json`（前者失败才用后者） |
+| 完整地址 | `https://host/path/market.json` | 原样使用 |
+| 本地目录 / 文件 | `D:\market`、`file:///D:/market` | 读 `<目录>/market.json` |
+
+索引是一个 JSON 文件，默认源写在 `PluginMarket::defaultSource()`（仓库简写，**仓库地址未定前需在插件库或设置面板改成真实地址**）：
 
 ```json
 {
@@ -369,7 +379,7 @@ pluginMarket.refresh()            // 拉取索引（失败降级到缓存）
 }
 ```
 
-`sha256` 给了就强制校验；`download` 必须是可直接下载 `.neon` 的 URL。
+`sha256` 给了就强制校验；`download` 写完整 URL 即可，也可以只写文件名（如 `timer.neon`），客户端会按**索引所在目录**解析成完整地址。索引顶层预留了 `signature` 字段（minisign 格式），本轮**不校验**，以后接上不改协议。
 
 ### 四道校验
 
@@ -382,18 +392,43 @@ pluginMarket.refresh()            // 拉取索引（失败降级到缓存）
 
 落盘时先写进临时目录（`.neon-stage-XXXXXX`），再**原子替换**目标目录：旧目录先改名成 `.backup`，替换失败则回滚，成功后删除 `.backup`。
 
-### 离线降级
+### 缓存与离线降级
 
-市场索引拉取成功后缓存到 `%APPDATA%\com.lin\NeonBoard\market-cache.json`。下次拉取失败（断网、超时、地址写错）时自动读取缓存，状态提示为「离线模式，使用缓存索引」，插件库照常可用。
+市场索引缓存到 `%APPDATA%\com.lin\NeonBoard\market-cache.json`，格式为：
 
-### 相关命令行
+```json
+{
+  "version": 2,
+  "sources": [
+    { "spec": "<源地址>", "url": "<实际索引地址>", "index": "<索引 JSON 原文>",
+      "etag": "", "lastModified": "", "fetchedAt": 1792655000 }
+  ]
+}
+```
+
+**每个源一条记录**，互不覆盖；老版本写过的「裸索引 JSON」（顶层有 `plugins` 数组）仍能读。刷新时带 `If-None-Match` / `If-Modified-Since`，服务端回 `304` 就直接用缓存（状态提示「索引未变化（304）」）；TTL 内（默认 6 小时）且未强制刷新时也直接用缓存不发请求。某个源拉取失败（断网、超时、地址写错）时**只降级这个源**到它自己的缓存，其他源照常生效。
+
+### 发布一个市场源
+
+仓库带发布脚本，把插件目录打成 `.neon` 包并写进市场索引：
+
+```powershell
+pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
+    -OutputDir D:\market -DownloadBase https://gitee.com/<owner>/<repo>/raw/main
+```
+
+脚本读 `plugin.json` → 把插件文件打成单文件 `.neon` → 算 SHA-256 与体积 → 更新 `market.json`（保留其他条目，`signature` 字段位留空）。`-RemoveStale` 可清理索引里已不存在的旧包。
+
+### 边界
 
 ```text
 --library                      启动后打开插件库
 --install-plugin-file <path>   从本地 .neon 包安装插件
---market-source <url>          设置市场索引地址（写入 meta）
---market-refresh               拉取市场索引（失败时降级到缓存）
+--market-source <spec>         设置市场源（可重复 / 逗号分隔，写入 meta）
+--market-sources               列出当前市场源
+--market-refresh               拉取所有启用源的索引并合并（失败时降级到缓存）
 --market-install <id>          从市场安装指定插件
+--install-plugin-url <url>     直接从 .neon 链接安装（可加 #sha256=...）
 ```
 
 这些参数都走 `utilityMode`，不占用单实例，可在应用运行时或无界面环境下调用，退出码 `0` 成功 / `2` 失败。

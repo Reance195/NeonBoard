@@ -359,10 +359,12 @@ CI 侧同样走这条路：`.github/workflows/release.yml` 在打 tag 或手动�
 2. **四道校验缺一不可**：包格式合法 → `manifest.id` 与请求 id 一致 → SHA-256 与索引一致（索引给了才校验）→ `files` 每个键是安全相对路径（禁绝对路径、反斜杠、`..`，只允许单层子目录）。任何一道不过就整单失败，**不落任何文件**。
 3. **原子安装**：先写临时目录（`.neon-stage-XXXXXX` / `.copy-stage-XXXXXX`），再原子替换目标目录；旧目录先改名 `.backup`，替换失败回滚，成功后删 `.backup`。**禁止**直接往目标目录里逐个写文件。
 4. **`.neon` 是单文件 JSON**：`{manifest:{...}, files:{相对路径:文件内容}}`；`manifest` 落盘为 `plugin.json`。**不要**引入 zip / minizip / 外部解压命令，保持零第三方依赖与跨平台。
-5. **市场源可配置**：地址存 `meta` 表 `plugin.market.source`，内置默认值是**占位用**的 GitHub 地址（`PluginMarket::defaultSource()`），用户可在插件库或设置面板改。**改默认地址时同步改 README 与本节**。
-6. **离线降级**：索引拉取成功后缓存到 `market-cache.json`；拉取失败读缓存并在状态里说明「离线模式，使用缓存索引」，不得让插件库整体不可用。
-7. **安装/卸载后必须 `PluginRuntime::reload()`**，并刷新插件库条目，否则界面与实际不一致。
-8. **官方插件不随安装包分发**：`plugins/`（官方源）不进 `dist`，发布态靠市场获取或用户手工复制；`scripts/deploy.ps1` 只复制 `plugins-samples/`。
+5. **市场源可配置且可多个**：源列表存 `meta` 表 `plugin.market.sources`（JSON 数组），老版本单地址 `plugin.market.source` 自动迁移；内置默认值是**仓库简写**（`PluginMarket::defaultSource()`），用户可在插件库或设置面板改。**改默认源时同步改 README 与本节**。
+6. **多源并列合并**：源地址支持仓库简写（`owner/repo`，客户端按 Gitee → GitHub 依次尝试）、完整 URL、本地目录；刷新时按源顺序逐个拉取，条目按 `id` 合并、**同 id 取版本高者**，条目带 `marketSource` 标记来源。
+7. **每个源各自缓存**：缓存文件 `market-cache.json` 格式为 `{version:2, sources:[{spec,url,index,etag,lastModified,fetchedAt}]}`，**按源分条记录、互不覆盖**；请求带 `If-None-Match` / `If-Modified-Since`，`304` 直接用缓存；某个源拉取失败**只降级这个源**到自己的缓存，不得让插件库整体不可用。
+8. **发布侧走脚本**：市场包由 `scripts/publish-market.ps1` 生成（读 `plugin.json` → 打 `.neon` → 算 SHA-256 → 更新 `market.json`）；索引里 `download` 可只写文件名，客户端按索引所在目录解析。索引顶层预留 `signature` 字段位，**本轮不校验签名**，以后接上不改协议。
+9. **安装/卸载后必须 `PluginRuntime::reload()`**，并刷新插件库条目，否则界面与实际不一致。
+10. **官方插件不随安装包分发**：`plugins/`（官方源）不进 `dist`，发布态靠市场获取或用户手工复制；`scripts/deploy.ps1` 只复制 `plugins-samples/`。
 
 ### 9.3 验证口径
 
@@ -371,6 +373,7 @@ CI 侧同样走这条路：`.github/workflows/release.yml` 在打 tag 或手动�
 - **必须覆盖的失败用例**：篡改 `sha256` → 退出码 2 且**包未落盘**；`files` 里含 `../../evil.qml` → 退出码 2 且**没有 evil.qml 落盘**；断网 → `--market-refresh` 退出码 0 且提示离线模式、缓存文件存在。
 - 起本地市场用 `python -m http.server`；测断网前先确认 8731 端口没有**残留**服务在监听（`Get-NetTCPConnection -LocalPort 8731 -State Listen`），否则断网用例会假通过。
 - 日志断言要取**最后一条**匹配，不要取第一条。
+- 多源专项：两个源各放一个同 id 不同版本的插件 → 刷新后条目数应为「去重后的总数」且取高版本；坏源 + 好源同时配 → 刷新仍 exit 0；只留旧的 `plugin.market.source` → 能自动迁移成一个源；`--install-plugin-url` 直链装 + `#sha256=` 校验值错 → exit 2 且不落盘。
 
 ---
 

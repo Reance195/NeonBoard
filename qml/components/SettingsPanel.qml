@@ -518,6 +518,93 @@ Rectangle {
                     font.pixelSize: 9
                     wrapMode: Text.WordWrap
                 }
+
+                Text {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 6
+                    text: "插件设置"
+                    color: Theme.text
+                    font.pixelSize: 11
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    visible: pluginRuntime.settingsPages.length === 0
+                    text: "当前没有插件提供设置页（manifest 里声明 settings 即可出现在这里）"
+                    color: Theme.muted
+                    font.pixelSize: 9
+                    wrapMode: Text.WordWrap
+                }
+
+                Repeater {
+                    model: pluginRuntime.settingsPages
+
+                    Rectangle {
+                        id: settingsPageRow
+                        required property var modelData
+
+                        Layout.fillWidth: true
+                        implicitHeight: settingsPageColumn.implicitHeight + 20
+                        radius: 8
+                        color: Theme.card
+                        border.width: 1
+                        border.color: settingsPageRow.expanded ? Theme.borderStrong : Theme.border
+
+                        property bool expanded: false
+
+                        ColumnLayout {
+                            id: settingsPageColumn
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: 10
+                            spacing: 6
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: settingsPageRow.modelData.pluginName
+                                    color: Theme.text
+                                    font.pixelSize: 11
+                                }
+
+                                Text {
+                                    text: settingsPageRow.modelData.sourceLabel
+                                    color: Theme.muted
+                                    font.pixelSize: 9
+                                }
+
+                                Text {
+                                    text: settingsPageRow.expanded ? "收起" : "展开"
+                                    color: Theme.cyan
+                                    font.pixelSize: 10
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: settingsPageRow.expanded = !settingsPageRow.expanded
+                                    }
+                                }
+                            }
+
+                            Loader {
+                                id: settingsPageLoader
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: item ? item.implicitHeight : 0
+                                active: settingsPageRow.expanded
+                                source: settingsPageRow.modelData.url
+
+                                onLoaded: {
+                                    if (item && item.host !== undefined)
+                                        item.host = pluginRuntime.hostFor(settingsPageRow.modelData.pluginId)
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             RowLayout {

@@ -17,11 +17,13 @@ class PluginHost : public QObject
     Q_PROPERTY(bool active READ isActive NOTIFY pluginIdChanged)
 
 public:
-    explicit PluginHost(PluginRuntime *runtime, QObject *parent = nullptr);
+    explicit PluginHost(PluginRuntime *runtime, const QString &boundPluginId = QString(),
+                        QObject *parent = nullptr);
 
     QString pluginId() const;
     QStringList permissions() const;
     bool isActive() const;
+    QString boundPluginId() const;
 
     Q_INVOKABLE bool activate(const QString &pluginId);
     Q_INVOKABLE void deactivate();
@@ -53,9 +55,11 @@ public:
 
 signals:
     void pluginIdChanged();
+    void commandInvoked(const QString &commandId);
 
 private:
     PluginContext *active() const;
 
     PluginRuntime *m_runtime = nullptr;
+    QString m_boundId;
 };

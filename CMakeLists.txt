@@ -90,6 +90,8 @@ set_source_files_properties(qml/components/StageBar.qml PROPERTIES QT_RESOURCE_A
 set_source_files_properties(qml/components/PluginLibraryPanel.qml PROPERTIES QT_RESOURCE_ALIAS "PluginLibraryPanel.qml")
 set_source_files_properties(qml/components/CommandPalette.qml PROPERTIES QT_RESOURCE_ALIAS "CommandPalette.qml")
 set_source_files_properties(qml/components/PreviewPanel.qml PROPERTIES QT_RESOURCE_ALIAS "PreviewPanel.qml")
+set_source_files_properties(qml/components/PluginSlot.qml PROPERTIES QT_RESOURCE_ALIAS "PluginSlot.qml")
+set_source_files_properties(qml/components/PluginPermissionDialog.qml PROPERTIES QT_RESOURCE_ALIAS "PluginPermissionDialog.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -111,6 +113,8 @@ qt_add_qml_module(NeonBoard
     qml/components/CommandPalette.qml
         qml/components/PluginLibraryPanel.qml
         qml/components/PreviewPanel.qml
+        qml/components/PluginSlot.qml
+        qml/components/PluginPermissionDialog.qml
 )
 
 qt_add_resources(NeonBoard "icons"

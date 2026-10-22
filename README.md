@@ -11,7 +11,7 @@
 - 待办 / 进行中 / 已办结三列看板，SQLite 本地持久化
 - 快速添加（Enter）、双击编辑、优先级、标签、截止日期
 - 快速录入解析：直接输入 `明天 15:00 #工作 !3`，自动拆出到期时间、标签与优先级，输入时下方实时预览解析结果
-- 命令面板 `Ctrl+K`：一条输入框搞定新建任务、按标题跳转到卡片、切换 6 套主题、按阶段过滤、打开插件库 / 设置 / 外观面板
+- 命令面板 `Ctrl+K`：一条输入框搞定新建任务、按标题跳转到卡片、切换 6 套主题、按阶段过滤、打开插件库 / 设置 / 外观面板、调用插件命令
 - 搜索、统计芯片、完成 / 恢复 / 删除
 - 删除后 5 秒内可撤销，或按 `Ctrl+Z`
 - 通用撤销：删除 / 移动 / 完成 / 恢复 / 拖拽改位 / 编辑保存全部进同一条撤销栈，`Ctrl+Z` 或提示条「撤销」逐步回退（最多 50 步）
@@ -29,7 +29,7 @@
 - 主任务 / 子任务关联：子卡自动缩进并标注「↳ 父卡标题」，父卡右下角显示子任务完成度进度环；关联关系存本地边表，不改任务表结构
 - 系统托盘、全局热键、开机自启、单实例、窗口位置记忆
 - 运行时 QML 插件：权限清单、独立存储、宿主任务 API
-- 插件平台 2.0：apiVersion 2 支持后台常驻插件、事件订阅、meta 共享配置、插件启停与热重载
+- 插件平台 2.0：后台常驻插件、事件订阅、meta 共享配置、设置页、侧栏 / 底部 / 卡片三种槽位、命令与快捷键注册、权限授权弹窗、插件启停与热重载
 - 计划钩子：提交信息里写 `#T12`，标题带 `#T12` 的任务自动转到「进行中」（`#T12=done` / `#T12=todo` 同理，`#R3-01` 这类连字符路线图短号同样生效），详见 [docs/plan-hook.md](docs/plan-hook.md)
 - 数据导入导出与自动备份：JSON / Markdown / Todo.txt 三种格式，设置面板一键导出、选择文件导入；每天首次启动自动把 `board.db` 备份一份到 `backups/` 目录
 - 插件库：侧栏汇总「已装 / 可装」插件，支持打开、启用、禁用、安装、卸载、更新
@@ -48,6 +48,8 @@
 | `Ctrl+,` | 打开设置 |
 | `Enter` | 提交快速添加 |
 | `Esc` | 清空搜索 / 关闭弹窗 |
+
+插件可以通过 `contributes.commands[].shortcut` 声明自己的快捷键（如 `Ctrl+Shift+T`）；与宿主或其他插件冲突时该快捷键自动禁用，命令仍可从 `Ctrl+K` 命令面板调用。
 
 ## 运行
 
@@ -149,6 +151,8 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
 --appearance 启动后打开外观面板（主题 / 画质 / 减弱动效）
 --palette [query]
              启动后打开命令面板，可带预填关键字
+--plugin-report
+             输出插件平台清单（插件 / 命令 / 槽位 / 设置页 / 授权缺口）JSON 到标准输出
 --stage <R0|R1|R2|R3>
              启动后按里程碑过滤看板（不填则显示全部）
 --sync-roadmap [path]
@@ -243,12 +247,15 @@ docs/themes/         6 套主题预设实机截图
 当前插件边界：
 
 - 面板插件提供 `main.qml`；`apiVersion: 2` 还能加 `background.qml` 常驻后台
-- 支持权限：`storage`、`notifications`、`tasks.read`、`tasks.write`、`openUrl`、`meta`、`events`
+- 每个插件可声明 `settings: "settings.qml"`，自动聚合进设置面板的「插件设置」区
+- 槽位：`contributes.slots` 可提供 `sidebar` / `bottom` / `card` 三个界面位（`card` 会接管每张任务卡的扩展区，拿到 `taskId`）
+- 命令：`contributes.commands` 声明 `id / title / category / description / shortcut`，进 `Ctrl+K` 命令面板并可注册快捷键
+- 支持权限：`storage`、`notifications`、`tasks.read`、`tasks.write`、`openUrl`、`meta`、`events`；新装插件首次调用高危权限时弹窗显式授权，来源与风险一并展示
 - 支持事件订阅（任务创建 / 更新 / 移动 / 完成 / 删除、提交投递）
 - 支持插件启停、重新扫描（热重载）
 - 支持插件库与在线市场：`.neon` 单文件包（JSON）→ SHA-256 校验 → 临时目录原子替换安装
-- 不支持 `settings.qml`、命令面板、快捷键注册、HTTP API
-- 插件运行在宿主 QML 引擎内，属于受信插件，不是沙箱
+- 不支持插件 HTTP API；插件运行在宿主 QML 引擎内，属于受信插件，不是沙箱
+- 示例插件 `plugins-samples/surfaces/` 演示设置页、三种槽位与命令注册
 
 ### 在线市场
 

@@ -104,6 +104,10 @@ void PluginLoader::scan()
             plugin.insert(QStringLiteral("error"), QString());
             plugin.insert(QStringLiteral("mainUrl"), QString());
             plugin.insert(QStringLiteral("backgroundUrl"), QString());
+            plugin.insert(QStringLiteral("settings"), QString());
+            plugin.insert(QStringLiteral("settingsUrl"), QString());
+            plugin.insert(QStringLiteral("slots"), QVariantMap());
+            plugin.insert(QStringLiteral("slotUrls"), QVariantMap());
             plugin.insert(QStringLiteral("source"), source);
             plugin.insert(QStringLiteral("baseUrl"),
                           QUrl::fromLocalFile(pluginDir + QLatin1Char('/')).toString());
@@ -160,13 +164,36 @@ void PluginLoader::scan()
                 const QJsonObject command = value.toObject();
                 if (command.isEmpty())
                     continue;
+                const QString commandId = command.value(QStringLiteral("id")).toString().trimmed();
+                if (commandId.isEmpty())
+                    continue;
                 contributedCommands.append(QVariantMap{
-                    {QStringLiteral("id"), command.value(QStringLiteral("id")).toString()},
-                    {QStringLiteral("title"), command.value(QStringLiteral("title")).toString()}
+                    {QStringLiteral("id"), commandId},
+                    {QStringLiteral("title"), command.value(QStringLiteral("title")).toString()},
+                    {QStringLiteral("category"), command.value(QStringLiteral("category")).toString()},
+                    {QStringLiteral("description"), command.value(QStringLiteral("description")).toString()},
+                    {QStringLiteral("shortcut"), command.value(QStringLiteral("shortcut")).toString()}
                 });
             }
             plugin[QStringLiteral("events")] = contributedEvents;
             plugin[QStringLiteral("commands")] = contributedCommands;
+
+            // 设置页：顶层 settings 或 contributes.settings，两者取先声明者
+            QString settingsPath = object.value(QStringLiteral("settings")).toString().trimmed();
+            if (settingsPath.isEmpty())
+                settingsPath = contributes.value(QStringLiteral("settings")).toString().trimmed();
+            plugin[QStringLiteral("settings")] = settingsPath;
+
+            // 多槽位：contributes.slots = { sidebar|bottom|card: 相对路径 }
+            QVariantMap slotPaths;
+            const QJsonObject slotObject = contributes.value(QStringLiteral("slots")).toObject();
+            const QStringList knownSlots{QStringLiteral("sidebar"), QStringLiteral("bottom"),
+                                         QStringLiteral("card")};
+            for (const QString &slotName : knownSlots) {
+                const QString slotPath = slotObject.value(slotName).toString().trimmed();
+                if (!slotPath.isEmpty())
+                    slotPaths.insert(slotName, slotPath);
+            }
 
             if (id.isEmpty()) {
                 plugin[QStringLiteral("status")] = QStringLiteral("error");
@@ -194,6 +221,45 @@ void PluginLoader::scan()
                     } else {
                         plugin[QStringLiteral("backgroundUrl")] =
                             QUrl::fromLocalFile(backgroundInfo.absoluteFilePath()).toString();
+                    }
+                }
+
+                // 设置页与槽位文件必须落盘存在，缺失视同入口缺失（整插件异常）
+                if (plugin[QStringLiteral("status")] == QStringLiteral("ok")) {
+                    const auto surfaceUrl = [&pluginDir](const QString &relative) -> QString {
+                        const QFileInfo info(pluginDir + QLatin1Char('/') + relative);
+                        if (!info.exists() || !info.isFile())
+                            return QString();
+                        return QUrl::fromLocalFile(info.absoluteFilePath()).toString();
+                    };
+
+                    if (!settingsPath.isEmpty()) {
+                        const QString url = surfaceUrl(settingsPath);
+                        if (url.isEmpty()) {
+                            plugin[QStringLiteral("status")] = QStringLiteral("error");
+                            plugin[QStringLiteral("error")] =
+                                QStringLiteral("设置页文件不存在: %1").arg(settingsPath);
+                        } else {
+                            plugin[QStringLiteral("settingsUrl")] = url;
+                        }
+                    }
+
+                    if (plugin[QStringLiteral("status")] == QStringLiteral("ok")
+                        && !slotPaths.isEmpty()) {
+                        QVariantMap slotUrls;
+                        for (auto it = slotPaths.constBegin(); it != slotPaths.constEnd(); ++it) {
+                            const QString url = surfaceUrl(it.value().toString());
+                            if (url.isEmpty()) {
+                                plugin[QStringLiteral("status")] = QStringLiteral("error");
+                                plugin[QStringLiteral("error")] =
+                                    QStringLiteral("槽位文件不存在: %1 (%2)")
+                                        .arg(it.value().toString(), it.key());
+                                break;
+                            }
+                            slotUrls.insert(it.key(), url);
+                        }
+                        if (plugin[QStringLiteral("status")] == QStringLiteral("ok"))
+                            plugin[QStringLiteral("slotUrls")] = slotUrls;
                     }
                 }
             }

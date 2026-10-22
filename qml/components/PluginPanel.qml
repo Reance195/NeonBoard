@@ -14,12 +14,16 @@ Rectangle {
     border.width: 1
     border.color: Theme.border
 
+    // 当前打开的插件 id：关闭时清空，命令补投递也靠它定位
+    property string currentPluginId: ""
+
     function open() {
         visible = true
     }
 
     function close() {
         visible = false
+        currentPluginId = ""
         pluginContent.source = ""
         pluginHost.deactivate()
     }
@@ -34,6 +38,7 @@ Rectangle {
             pluginContent.source = ""
             return
         }
+        currentPluginId = plugin.id
         title.text = plugin.name
         pluginContent.source = ""
         pluginContent.source = plugin.mainUrl
@@ -120,6 +125,12 @@ Rectangle {
             id: pluginContent
             Layout.fillWidth: true
             Layout.fillHeight: true
+
+            // 插件界面就绪后补投递排队中的命令（快捷键/命令面板触发的）
+            onLoaded: {
+                if (panel.currentPluginId.length > 0)
+                    pluginRuntime.dispatchPending(panel.currentPluginId)
+            }
         }
 
         Text {

@@ -43,6 +43,7 @@ ApplicationWindow {
     // 面板互斥：同一时刻只保留一个浮层，避免外观/插件/设置面板叠在一起
     function closeAllPanels() {
         themePicker.open = false
+        commandPalette.close()
         if (pluginPanelLoader.item)
             pluginPanelLoader.item.close()
         if (settingsLoader.item)
@@ -111,6 +112,93 @@ ApplicationWindow {
         requestActivate()
         closeAllPanels()
         themePicker.open = true
+    }
+
+    // 打开命令面板（供命令行 --palette 诊断用）
+    function openPalette(query) {
+        show()
+        raise()
+        requestActivate()
+        closeAllPanels()
+        commandPalette.open()
+        if (query)
+            commandPalette.setQuery(query)
+    }
+
+    function statusLabel(status) {
+        if (status === "doing")
+            return "进行中"
+        if (status === "done")
+            return "已办结"
+        return "待办"
+    }
+
+    // 命令面板数据源：固定命令 + 任务跳转
+    function buildCommands(query) {
+        var q = (query || "").trim().toLowerCase()
+        var cmds = []
+
+        function add(title, category, subtitle, fn) {
+            if (q.length > 0 && title.toLowerCase().indexOf(q) < 0 && subtitle.toLowerCase().indexOf(q) < 0)
+                return
+            cmds.push({ title: title, category: category, subtitle: subtitle, run: fn })
+        }
+
+        add("新建任务", "操作", "聚焦快速添加输入框", function() { window.focusNewTask() })
+        add("打开插件面板", "面板", "当前插件内容", function() { window.openPlugins() })
+        add("打开插件库", "面板", "已装 / 可装插件", function() { window.openPluginLibrary() })
+        add("打开设置面板", "面板", "热键 / 数据路径 / 开机自启", function() { window.openSettings() })
+        add("打开外观面板", "面板", "主题预设 / 画质 / 减弱动效", function() { window.openAppearance() })
+        add("查看全部阶段", "视图", "清除阶段过滤", function() { window.setStageFilter("") })
+        add("只看 R0 阶段", "视图", "炫酷地基", function() { window.setStageFilter("R0") })
+        add("只看 R1 阶段", "视图", "日常底座", function() { window.setStageFilter("R1") })
+        add("只看 R2 阶段", "视图", "记忆点", function() { window.setStageFilter("R2") })
+        add("只看 R3 阶段", "视图", "生态", function() { window.setStageFilter("R3") })
+
+        for (var i = 0; i < Theme.presets.length; ++i) {
+            (function(p) {
+                add("切换主题：" + p.name, "主题", p.desc, function() { Theme.applyPresetByKey(p.key, true) })
+            })(Theme.presets[i])
+        }
+
+        if (q.length > 0) {
+            var tasks = taskStore.allTasks()
+            for (var j = 0; j < tasks.length; ++j) {
+                (function(t) {
+                    var title = t.title ? t.title : ""
+                    if (title.toLowerCase().indexOf(q) < 0)
+                        return
+                    cmds.push({
+                        title: "跳转到：" + title,
+                        category: "任务",
+                        subtitle: window.statusLabel(t.status),
+                        run: function() { window.jumpToTask(t.id) }
+                    })
+                })(tasks[j])
+            }
+        }
+
+        return cmds
+    }
+
+    // 跳转到指定任务：清除过滤 → 定位到所在列 → 高亮闪烁
+    function jumpToTask(taskId) {
+        searchField.text = ""
+        window.setStageFilter("")
+        var tasks = taskStore.allTasks()
+        var status = "todo"
+        for (var i = 0; i < tasks.length; ++i) {
+            if (tasks[i].id === taskId) {
+                status = tasks[i].status
+                break
+            }
+        }
+        var column = todoColumn
+        if (status === "doing")
+            column = doingColumn
+        else if (status === "done")
+            column = doneColumn
+        column.flashTask(taskId)
     }
 
     property bool dragActive: false
@@ -269,6 +357,14 @@ ApplicationWindow {
     Shortcut {
         sequence: "Ctrl+,"
         onActivated: window.openSettings()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+K"
+        onActivated: {
+            window.closeAllPanels()
+            commandPalette.open()
+        }
     }
 
     // 阶段统计：任务数据变化时重算里程碑完成度
@@ -867,6 +963,14 @@ MouseArea {
                     window.openPluginLibrary()
                 })
             }
+        }
+
+        // 命令面板：Ctrl+K 呼出，按需构造
+        CommandPalette {
+            id: commandPalette
+            anchors.fill: parent
+            commandProvider: window.buildCommands
+            z: 400
         }
 
         Item {

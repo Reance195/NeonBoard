@@ -32,6 +32,20 @@ Rectangle {
     property var parseTags: []
     property bool parseHasText: false
 
+    property string highlightId: ""
+
+    function flashTask(taskId) {
+        highlightId = taskId
+        for (var i = 0; i < list.count; i++) {
+            var item = list.itemAtIndex(i)
+            if (item && item.taskId === taskId) {
+                list.positionViewAtIndex(i, ListView.Center)
+                break
+            }
+        }
+        highlightTimer.restart()
+    }
+
     signal editRequested(string taskId)
     signal startRequested(string taskId)
     signal completeRequested(string taskId)
@@ -62,6 +76,12 @@ Rectangle {
 
     onDropAnchorIdChanged: refreshDropLine()
     onDropAnchorBelowChanged: refreshDropLine()
+
+    Timer {
+        id: highlightTimer
+        interval: 1800
+        onTriggered: column.highlightId = ""
+    }
 
     // 拖入呼吸：仅在被拖拽悬停时循环
     NumberAnimation on dropPulse {
@@ -220,6 +240,7 @@ Rectangle {
                 delegate: TaskCard {
                     width: list.width
                     title: model.title
+                    highlight: column.highlightId === model.id
                     tag: model.tag
                     priority: model.priority
                     due: model.due

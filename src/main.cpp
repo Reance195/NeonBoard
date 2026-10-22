@@ -561,6 +561,17 @@ int main(int argc, char *argv[])
             QMetaObject::invokeMethod(window, "openAppearance");
         });
     }
+    {
+        const int paletteIndex = app.arguments().indexOf(QStringLiteral("--palette"));
+        if (paletteIndex >= 0) {
+            const QString query = (paletteIndex + 1 < app.arguments().size())
+                                      ? app.arguments().at(paletteIndex + 1)
+                                      : QString();
+            QTimer::singleShot(300, window, [window, query]() {
+                QMetaObject::invokeMethod(window, "openPalette", Q_ARG(QVariant, query));
+            });
+        }
+    }
     if (app.arguments().contains(QStringLiteral("--library"))) {
         QTimer::singleShot(300, window, [window]() {
             QMetaObject::invokeMethod(window, "openPluginLibrary");

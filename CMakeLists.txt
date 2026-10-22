@@ -82,6 +82,7 @@ set_source_files_properties(qml/components/PluginPanel.qml PROPERTIES QT_RESOURC
 set_source_files_properties(qml/components/AppearancePanel.qml PROPERTIES QT_RESOURCE_ALIAS "AppearancePanel.qml")
 set_source_files_properties(qml/components/StageBar.qml PROPERTIES QT_RESOURCE_ALIAS "StageBar.qml")
 set_source_files_properties(qml/components/PluginLibraryPanel.qml PROPERTIES QT_RESOURCE_ALIAS "PluginLibraryPanel.qml")
+set_source_files_properties(qml/components/CommandPalette.qml PROPERTIES QT_RESOURCE_ALIAS "CommandPalette.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -98,8 +99,9 @@ qt_add_qml_module(NeonBoard
         qml/components/ThemePicker.qml
         qml/components/SettingsPanel.qml
         qml/components/PluginPanel.qml
-        qml/components/AppearancePanel.qml
-        qml/components/StageBar.qml
+    qml/components/AppearancePanel.qml
+    qml/components/StageBar.qml
+    qml/components/CommandPalette.qml
         qml/components/PluginLibraryPanel.qml
 )
 

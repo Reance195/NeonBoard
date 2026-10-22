@@ -9,8 +9,18 @@
 
 派生规则：
   status(code) = git 历史中最后一次出现的 `#code=状态` 标记
-                 没有标记时退回 ledger.baseline[code]
-                 台账里也没有时为 todo
+              > 台账 claims 里登记未释放的领用（agent 开分支时登记，领用即 doing）
+              > 退回 ledger.baseline[code]
+              > 台账里也没有时为 todo
+
+「领用 → doing」只认 git 事实，不新增防御面：
+  claims[code] = {agent, branch, head, claimedAt}，由 scripts/agent-init.ps1 -Card 在
+  开 worktree 时登记进自己 worktree 的台账副本，随 feature 分支提交、合并后进入主线。
+  派生时只按 head 位置判定：
+  - head 是主干的祖先（分支已合并）→ 登记失效，提示用 `#code=done` 收尾
+  - head 在 git 里不可达（分支已放弃）→ 登记失效
+  - 其余 → doing 生效
+  因此领用登记不需要「释放」动作：分支合并或丢弃后自动失效。
 
 于是状态变更永远有据可查：要么在提交信息里（代码事实），要么在台账里（显式声明），
 不存在「悄悄改了快照」这条路径 —— 派生器 --check 会把不一致直接报出来。
@@ -102,9 +112,62 @@ def derive_status(root, known_codes):
     return derived, unknown, warnings
 
 
-def status_of(code, derived, baseline):
+def resolve_main_ref(root, requested=None):
+    """确定 claims 失效判定用的主干参照：显式请求 → origin/main → main。"""
+    for ref in ([requested] if requested else []) + ["origin/main", "main"]:
+        out = subprocess.run(
+            ["git", "-C", root, "cat-file", "-e", ref + "^{commit}"],
+            capture_output=True, check=False,
+        )
+        if out.returncode == 0:
+            return ref
+    return None
+
+
+def claims_doing(root, claims, main_ref):
+    """台账领用登记 → doing。返回 (active: {code: "doing"}, notes)。
+
+    只认 git 事实，登记不需要「释放」动作：
+    - head 不可达 → 分支已放弃，登记失效
+    - head 是主干祖先 → 分支已并入，登记失效（收尾请用提交标记 #code=done）
+    - 其余 → doing 生效
+    """
+    active = {}
+    notes = []
+    for code in sorted(claims or {}):
+        info = claims[code] or {}
+        head = info.get("head", "")
+        if not head:
+            notes.append("领用 %s 缺 head，忽略" % code)
+            continue
+        probe = subprocess.run(
+            ["git", "-C", root, "cat-file", "-e", head + "^{commit}"],
+            capture_output=True, check=False,
+        )
+        if probe.returncode != 0:
+            notes.append("领用 %s 的分支头 %s 不可达（分支已放弃），已忽略" % (code, head[:10]))
+            continue
+        if main_ref:
+            ancestor = subprocess.run(
+                ["git", "-C", root, "merge-base", "--is-ancestor", head, main_ref],
+                capture_output=True, check=False,
+            )
+            if ancestor.returncode == 0:
+                notes.append(
+                    "领用 %s 的分支已并入 %s，请用提交标记 #%s=done 收尾（或回台账 baseline）"
+                    % (code, main_ref, code)
+                )
+                continue
+        active[code] = "doing"
+    return active, notes
+
+
+def status_of(code, derived, claims_active, baseline):
+    # 优先级：提交历史显式标记 > 领用登记 > 台账 baseline > todo
     if code in derived:
         return derived[code]
+    if code in claims_active:
+        return claims_active[code]
     if code in baseline:
         return baseline[code]
     return "todo"
@@ -131,6 +194,10 @@ def main():
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true", help="只校验，不写文件")
     mode.add_argument("--write", action="store_true", help="把派生结果写回快照")
+    parser.add_argument(
+        "--main-ref", default=None,
+        help="claims 失效判定用的主干引用（默认依次尝试 origin/main、main）",
+    )
     args = parser.parse_args()
 
     root = os.path.abspath(args.repo)
@@ -165,6 +232,12 @@ def main():
     if unknown:
         problems.append("提交信息里出现台账未登记的路线图短号：%s" % "、".join(sorted(unknown)))
 
+    claims = ledger.get("claims") or {}
+    main_ref = resolve_main_ref(root, args.main_ref)
+    claims_active, claim_notes = claims_doing(root, claims, main_ref)
+    for line in claim_notes:
+        sys.stderr.write("[派生器] 提示：%s\n" % line)
+
     by_id = {}
     for item in items:
         by_id[item.get("id", "")] = item
@@ -185,7 +258,7 @@ def main():
     for code in sorted(cards):
         card = cards[code]
         card_id = card.get("id", "")
-        want = status_of(code, derived, baseline)
+        want = status_of(code, derived, claims_active, baseline)
         item = by_id.get(card_id)
         if item is None:
             if args.check:

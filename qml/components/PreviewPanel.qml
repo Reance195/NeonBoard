@@ -32,8 +32,8 @@ Rectangle {
     Rectangle {
         id: panelBody
         anchors.centerIn: parent
-        width: Math.min(760, parent.width - 48)
-        height: Math.min(620, parent.height - 48)
+        width: Math.min(780, parent.width - 40)
+        height: Math.min(640, parent.height - 32)
         radius: 14
         color: Theme.panelSolid
         border.width: 1
@@ -112,6 +112,8 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.minimumHeight: 120
+                // 内容不足时收缩到实际高度，避免大片空白
+                Layout.maximumHeight: agentList.contentHeight + 16
                 radius: 10
                 color: Theme.panel
                 border.width: 1
@@ -125,10 +127,16 @@ Rectangle {
                     clip: true
                     model: previewHub.agents
 
+                    ScrollBar.vertical: ScrollBar {
+                        width: 6
+                        policy: agentList.contentHeight > agentList.height
+                                ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                    }
+
                     delegate: Rectangle {
                         required property var modelData
                         width: agentList.width
-                        height: 72
+                        height: 64
                         radius: 8
                         color: Theme.card
                         border.width: 1
@@ -136,7 +144,7 @@ Rectangle {
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: 10
+                            anchors.margins: 8
                             spacing: 10
 
                             // 名称 / 分支 / 最近提交
@@ -212,18 +220,24 @@ Rectangle {
                             // 状态
                             ColumnLayout {
                                 Layout.alignment: Qt.AlignVCenter
+                                Layout.preferredWidth: Math.max(builtText.implicitWidth,
+                                                                runText.implicitWidth)
                                 spacing: 2
 
                                 Text {
+                                    id: builtText
                                     text: modelData.built ? "已构建 " + modelData.builtAt : "未构建"
                                     color: modelData.built ? Theme.success : Theme.muted
                                     font.pixelSize: 10
+                                    wrapMode: Text.NoWrap
                                 }
 
                                 Text {
+                                    id: runText
                                     text: modelData.running ? "运行中  pid " + modelData.pid : "未运行"
                                     color: modelData.running ? Theme.cyan : Theme.muted
                                     font.pixelSize: 10
+                                    wrapMode: Text.NoWrap
                                 }
                             }
 
@@ -285,9 +299,11 @@ Rectangle {
             }
 
             // ---------- 构建日志 ----------
+            // 没有日志时整块不占位，把高度让给列表
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 130
+                Layout.preferredHeight: 110
+                visible: logArea.text.length > 0
                 radius: 10
                 color: Theme.panel
                 border.width: 1
@@ -321,6 +337,8 @@ Rectangle {
             }
 
             // ---------- 状态行 ----------
+            Item { Layout.fillHeight: true; Layout.preferredHeight: 0 }
+
             Text {
                 Layout.fillWidth: true
                 text: previewHub.statusText

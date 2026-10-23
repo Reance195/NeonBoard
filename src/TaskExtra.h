@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QDateTime>
+#include <QHash>
 #include <QObject>
 #include <QVariantList>
 #include <QVariantMap>
@@ -33,6 +35,15 @@ public:
     // 标记已通知（防重复触发）
     Q_INVOKABLE bool markNotified(const QString &taskId);
 
+    // 按 RRULE 计算 from 之后的下一期时刻。
+    // v1 子集：FREQ=DAILY|WEEKLY|MONTHLY|YEARLY + INTERVAL=n + BYDAY（仅 WEEKLY）；
+    // 月末钳制（1/31 + 1月 = 2/28）；解析不了返回无效 QDateTime。
+    static QDateTime nextOccurrence(const QString &rrule, const QDateTime &from);
+
+    // 取走 originalId 完成时派生的「下一期」卡 id（并清除记录）；空串表示没有。
+    // 供撤销栈在回退完成操作时连带删除派生卡。
+    Q_INVOKABLE QString takeSpawned(const QString &originalId);
+
     // {remindAt, notifiedAt, rrule}；无行返回全零 / 空
     Q_INVOKABLE QVariantMap extraOf(const QString &taskId) const;
 
@@ -49,9 +60,11 @@ signals:
 private:
     QVariantMap rowOf(const QString &taskId) const;
     void removeRowFor(const QString &taskId);
+    void onTaskCompleted(const QString &taskId);
     void bump();
 
     Database *m_database = nullptr;
     TaskModel *m_tasks = nullptr;
+    QHash<QString, QString> m_spawned;   // 原卡 id -> 完成时派生的下一期卡 id
     int m_revision = 0;
 };

@@ -19,6 +19,12 @@ Rectangle {
         return taskTree.childStats(taskId)
     }
     readonly property bool hasParent: parentTitle.length > 0
+
+    // 重复规则（数据来自 taskExtra 门面：独立侧表 task_extra）
+    readonly property string rrule: {
+        var rev = taskExtra.revision   // 建立依赖：侧表变化时重算
+        return taskExtra.extraOf(taskId).rrule
+    }
     readonly property bool hasChildren: childStats.total > 0
 
     // 拖拽坐标基准（由外部注入主内容区域）
@@ -254,6 +260,14 @@ Rectangle {
                         color: Theme.cyan
                         font.pixelSize: 10
                     }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: card.rrule.length > 0
+                    text: "↻"
+                    color: Theme.muted
+                    font.pixelSize: 10
                 }
 
                 Text {

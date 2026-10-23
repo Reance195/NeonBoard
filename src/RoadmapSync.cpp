@@ -63,16 +63,26 @@ bool titleContainsCode(const QString &title, const QString &code)
     return rx.match(title).hasMatch();
 }
 
+// 清掉标题尾部孤立的 "#"：旧版本对「无短号」的卡片也会嵌入空标记（title + " #"），
+// 这份脏数据会被写回快照。只认「前置空白 + 尾部 #」，避免误伤 C# / F# 这类正常标题。
+QString stripTrailingEmptyMarker(const QString &title)
+{
+    static const QRegularExpression rx(QStringLiteral("\\s+#\\s*$"));
+    QString out = title;
+    out.remove(rx);
+    return out.trimmed();
+}
+
 QString embedCode(const QString &title, const QString &code)
 {
+    const QString clean = stripTrailingEmptyMarker(title);
     if (code.isEmpty())
+        return clean;
+    if (titleContainsCode(clean, code))
+        return clean;
+    if (clean.isEmpty())
         return title;
-    if (titleContainsCode(title, code))
-        return title;
-    const QString trimmed = title.trimmed();
-    if (trimmed.isEmpty())
-        return title;
-    return trimmed + QStringLiteral(" #") + code;
+    return clean + QStringLiteral(" #") + code;
 }
 
 // 导出时把标题里嵌入的快照短号剥掉：快照的 code 只保存在 code 字段里，
@@ -80,13 +90,13 @@ QString embedCode(const QString &title, const QString &code)
 QString stripCode(const QString &title, const QString &code)
 {
     if (code.isEmpty())
-        return title;
+        return stripTrailingEmptyMarker(title);
     static thread_local QRegularExpression rx;
     rx.setPattern(QStringLiteral("\\s*#") + QRegularExpression::escape(code) + QStringLiteral("\\b"));
     rx.setPatternOptions(QRegularExpression::CaseInsensitiveOption);
     QString out = title;
     out.remove(rx);
-    return out.trimmed();
+    return stripTrailingEmptyMarker(out);
 }
 
 } // namespace

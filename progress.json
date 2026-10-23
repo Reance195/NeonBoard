@@ -80,7 +80,7 @@
             "dueAt": 0,
             "id": "cf1180c6-c5be-4640-b619-78c459bb7037",
             "note": "仓库无 tests/ 目录，回归全靠 selftest/smoke 手拍。规划：CTest + 针对 TaskModel/TaskTree/DataPort/PluginPackage 纯逻辑层的单元测试，GitHub Actions PR 质量门禁。路线图未排期的新增方向。",
-            "orderKey": 30720,
+            "orderKey": 14336,
             "priority": 3,
             "stage": "R4",
             "status": "todo",
@@ -99,7 +99,7 @@
             "dueAt": 0,
             "id": "cffdfbbb-46f5-4cae-a2c3-d3e64e0d2047",
             "note": "能力矩阵点名「架构级解锁」但未排期：去掉 CHECK(status) 三列硬约束，引入 board/column 表，单板→多板、三列→N 列；迁移需保证老库照常可开。路线图未排期的新增方向。",
-            "orderKey": 31744,
+            "orderKey": 15360,
             "priority": 3,
             "stage": "R4",
             "status": "todo",
@@ -118,7 +118,7 @@
             "dueAt": 0,
             "id": "a1880fc6-2060-4a72-b445-b3ba81fb8bad",
             "note": "「老版本程序照常打开」写进宪章但无验证手段。规划：SQLite WAL + journal 校验 + 损坏自动恢复流程 + 迁移/向后兼容回归测试。路线图未排期的新增方向。",
-            "orderKey": 32768,
+            "orderKey": 16384,
             "priority": 2,
             "stage": "R4",
             "status": "todo",
@@ -137,7 +137,7 @@
             "dueAt": 0,
             "id": "51a132f8-ee80-40dd-a753-488336b123c9",
             "note": "QSystemTrayIcon 气泡在 Win11 会静默折叠，通知需走 WinRT toast 进通知中心；.neon 插件包注册文件关联（双击安装）；跳转列表最近任务；开机自启开关。路线图未排期的新增方向。",
-            "orderKey": 33792,
+            "orderKey": 17408,
             "priority": 2,
             "stage": "R4",
             "status": "todo",
@@ -156,7 +156,7 @@
             "dueAt": 0,
             "id": "a78db4c2-f1ec-45ba-8c43-915d8ca4bdb5",
             "note": "新用户面对空板零引导。规划：首启动 onboarding 三步引导（录任务 → 拖列 → 装插件）、可选示例数据、任务模板。路线图未排期的新增方向。",
-            "orderKey": 34816,
+            "orderKey": 18432,
             "priority": 1,
             "stage": "R4",
             "status": "todo",
@@ -175,7 +175,7 @@
             "dueAt": 0,
             "id": "39d80b78-a666-49aa-b199-f363c5c2efc6",
             "note": "减弱动效有开关，但缺焦点链、屏幕阅读器支持与纯键盘全操作（命令面板只剩部分入口）。规划：Tab 焦点链梳理 + 高对比度检查 + 键盘操作全覆盖。路线图未排期的新增方向。",
-            "orderKey": 35840,
+            "orderKey": 19456,
             "priority": 1,
             "stage": "R4",
             "status": "todo",
@@ -185,6 +185,23 @@
             ],
             "title": "R4 键盘完整性 / 无障碍",
             "updatedAt": 1792654081
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792719894,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "ba779441-f1f4-400a-8ef3-8f7c222de0ac",
+            "note": "来自 agent opencode · session ses_ea37",
+            "orderKey": 20480,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "台账加 claims 段设计 + Release 时清除登记",
+            "updatedAt": 1792719894
         },
         {
             "completedAt": 0,
@@ -202,7 +219,7 @@
                 "可靠性",
                 "agent"
             ],
-            "title": "R4 快照写回防降级：保留未知字段 # #",
+            "title": "R4 快照写回防降级：保留未知字段 #",
             "updatedAt": 1792721852
         },
         {
@@ -221,7 +238,7 @@
                 "可靠性",
                 "agent"
             ],
-            "title": "R4 事件队列不丢事件：无订阅者可重投 # #",
+            "title": "R4 事件队列不丢事件：无订阅者可重投 #",
             "updatedAt": 1792721853
         },
         {
@@ -240,7 +257,7 @@
                 "工程",
                 "agent"
             ],
-            "title": "R4 构建脚本封装 scripts/build.ps1 # #",
+            "title": "R4 构建脚本封装 scripts/build.ps1 #",
             "updatedAt": 1792721853
         },
         {
@@ -259,8 +276,25 @@
                 "协作",
                 "agent"
             ],
-            "title": "R4 工作区防双领：agent-init 强制 -Card # #",
+            "title": "R4 工作区防双领：agent-init 强制 -Card #",
             "updatedAt": 1792721853
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792724521,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "4e25a849-d397-4949-8bfb-2cd7b94162be",
+            "note": "来自 agent opencode · session ses_e9d8",
+            "orderKey": 40960,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "agent-bridge 支持 item.tags（让新卡落入 R4 阶段）",
+            "updatedAt": 1792724521
         },
         {
             "code": "R4-08",
@@ -279,6 +313,142 @@
             ],
             "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分",
             "updatedAt": 1792726694
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792724522,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "f729db7a-7fc1-4a78-9970-9e0b1e81c927",
+            "note": "来自 agent opencode · session ses_e9d8",
+            "orderKey": 41984,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "投递 agent.task 事件建 4 张修复计划卡",
+            "updatedAt": 1792724522
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792724522,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "94adc980-d5bc-49c2-84b7-a42e42179ac2",
+            "note": "来自 agent opencode · session ses_e9d8",
+            "orderKey": 43008,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "验证快照：items 49→53、tags 含 R4、ver=3",
+            "updatedAt": 1792724522
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792724522,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "eef2a0b6-b56e-481e-9b04-0424e49755c4",
+            "note": "来自 agent opencode · session ses_e9d8",
+            "orderKey": 44032,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "提交 + git-done 合并 + 回收 worktree",
+            "updatedAt": 1792724522
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792724523,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "0125a04b-9a08-405b-812b-29db1c481a76",
+            "note": "来自 agent opencode · session ses_e9d8",
+            "orderKey": 45056,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "增量构建 worktree exe",
+            "updatedAt": 1792724523
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792724524,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "4ede4874-f126-4d12-9a4e-b096fc5049f0",
+            "note": "来自 agent opencode · session ses_e9d8",
+            "orderKey": 46080,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "沙箱 e2e：脏标题自动清理 + 写回快照",
+            "updatedAt": 1792724524
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792724524,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "fa04a5cf-9053-4047-950c-fe617e6d61db",
+            "note": "来自 agent opencode · session ses_e9d8",
+            "orderKey": 47104,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "沙箱 e2e：taskId 接管已有卡（不新建）",
+            "updatedAt": 1792724524
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792724521,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "4caf6380-403d-42d5-911a-53a42c6ffaf1",
+            "note": "来自 agent opencode · session ses_e9d8",
+            "orderKey": 10240,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "doing",
+            "tags": [
+                "agent"
+            ],
+            "title": "开 worktree chore/plan-fix-cards",
+            "updatedAt": 1792724521
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792724523,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "2f52f942-129e-40f3-821c-8a63537a9d90",
+            "note": "来自 agent opencode · session ses_e9d8",
+            "orderKey": 11264,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "doing",
+            "tags": [
+                "agent"
+            ],
+            "title": "修 RoadmapSync embedCode/stripCode 空 code 分支",
+            "updatedAt": 1792724523
         },
         {
             "code": "R0-01",
@@ -842,6 +1012,25 @@
             "updatedAt": 1792588621
         },
         {
+            "code": "R4-01",
+            "completedAt": 1792687537,
+            "createdAt": 1792654294,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "70b49c4e-6102-4d8f-beda-33671c5b739e",
+            "note": "交付完成（origin/main d1b14a6）：① 协议 agent-task-event v1（docs/agent-task-event.md，通用 envelope：agent/sessionId/todoId/title/status）；② NeonBoard 官方插件 plugins/agent-bridge（订阅 agent.task，meta 存映射 agentbridge.<agent>.<sessionId>.<todoId>，无短号新建/流转任务，tags 标注 agent）；③ opencode 适配器 neonboard-todo-bridge（~/.config/opencode/plugins/，监听 todowrite → --emit-hook-file --hook-event agent.task 投递）。宿主小改一处：main.cpp CLI 新增可选 --hook-event 参数（默认仍 hook.commit，plan-hook 不受影响）。验收：沙箱 e2e 新建/流转/幂等单卡一致，selftest=0，smoke=0 零 QML 报错，实机验证通过。已完成 3 / 待做 0",
+            "orderKey": 20480,
+            "priority": 2,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "agent"
+            ],
+            "title": "R4 Agent 任务桥（通用事件协议 + opencode 适配器）",
+            "updatedAt": 1792687537
+        },
+        {
             "code": "M12",
             "completedAt": 1792588621,
             "createdAt": 1792572839,
@@ -975,33 +1164,14 @@
             "updatedAt": 1792588621
         },
         {
-            "code": "R4-01",
-            "completedAt": 1792687537,
-            "createdAt": 1792654294,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "70b49c4e-6102-4d8f-beda-33671c5b739e",
-            "note": "交付完成（origin/main d1b14a6）：① 协议 agent-task-event v1（docs/agent-task-event.md，通用 envelope：agent/sessionId/todoId/title/status）；② NeonBoard 官方插件 plugins/agent-bridge（订阅 agent.task，meta 存映射 agentbridge.<agent>.<sessionId>.<todoId>，无短号新建/流转任务，tags 标注 agent）；③ opencode 适配器 neonboard-todo-bridge（~/.config/opencode/plugins/，监听 todowrite → --emit-hook-file --hook-event agent.task 投递）。宿主小改一处：main.cpp CLI 新增可选 --hook-event 参数（默认仍 hook.commit，plan-hook 不受影响）。验收：沙箱 e2e 新建/流转/幂等单卡一致，selftest=0，smoke=0 零 QML 报错，实机验证通过。已完成 3 / 待做 0",
-            "orderKey": 36864,
-            "priority": 2,
-            "stage": "R4",
-            "status": "done",
-            "tags": [
-                "R4",
-                "agent"
-            ],
-            "title": "R4 Agent 任务桥（通用事件协议 + opencode 适配器）",
-            "updatedAt": 1792659954
-        },
-        {
             "code": "R1-07",
             "completedAt": 1792659560,
-            "createdAt": 1792659560,
+            "createdAt": 1792654424,
             "deleted": false,
             "dueAt": 0,
             "id": "7c1d5e93-4a26-4f8b-9d31-2b6e0a54c7f2",
             "note": "R1-2 交付：新增 src/TaskInputParser 解析中文日期（今天/明天/后天/周五/下周三）、时段（15:00、9点半、下午3点）、标签 #工作、优先级 !2；快速添加框输入时实时预览（到期 / 优先级 / 标签 三个霓虹芯片）。验收：--selftest 解析断言全过、沙箱 --smoke 零 QML 报错、预览芯片截图确认。已完成 1 / 待做 0",
-            "orderKey": 37888,
+            "orderKey": 28672,
             "priority": 2,
             "stage": "R1",
             "status": "done",
@@ -1010,8 +1180,162 @@
             ],
             "title": "R1 快速录入解析：中文日期/时段/标签/优先级",
             "updatedAt": 1792659560
+        },
+        {
+            "completedAt": 1792719894,
+            "createdAt": 1792719894,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "250e90a9-5398-4d5f-a707-c5726c6b80e2",
+            "note": "来自 agent opencode · session ses_ea37",
+            "orderKey": 29696,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "开 worktree + 分支 feature/branch-claim-derive",
+            "updatedAt": 1792719894
+        },
+        {
+            "completedAt": 1792719894,
+            "createdAt": 1792719894,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "5714f5e5-2058-44a8-99e4-d488157af746",
+            "note": "来自 agent opencode · session ses_ea37",
+            "orderKey": 30720,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "agent-init.ps1 加 -Card 参数（校验台账→登记 claims→投递 doing）",
+            "updatedAt": 1792719894
+        },
+        {
+            "completedAt": 1792719894,
+            "createdAt": 1792719894,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "a06676c8-bb1b-4b4d-9ad7-aaa797950cd1",
+            "note": "来自 agent opencode · session ses_ea37",
+            "orderKey": 31744,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "派生器叠加 claims 规则（登记未释放 → doing，提交历史显式标记优先）",
+            "updatedAt": 1792719894
+        },
+        {
+            "completedAt": 1792719894,
+            "createdAt": 1792719894,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "07612e4c-d299-4361-bc5e-e0daa683cdc6",
+            "note": "来自 agent opencode · session ses_ea37",
+            "orderKey": 32768,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "验证：--check 四态 + agent-init 干跑（agent-e2e）",
+            "updatedAt": 1792719894
+        },
+        {
+            "completedAt": 1792719894,
+            "createdAt": 1792719894,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "7c943cf9-18f9-43ec-9f9d-69db6c72cd8d",
+            "note": "来自 agent opencode · session ses_ea37",
+            "orderKey": 33792,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "提交合并回 main + 回收 worktree",
+            "updatedAt": 1792719894
+        },
+        {
+            "completedAt": 1792719894,
+            "createdAt": 1792719894,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "f747059b-6582-477d-a14c-a487dc3101bd",
+            "note": "来自 agent opencode · session ses_ea37",
+            "orderKey": 34816,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "插件热插拔：PluginLoader/Runtime 实现 + 构建",
+            "updatedAt": 1792719894
+        },
+        {
+            "completedAt": 1792719894,
+            "createdAt": 1792719894,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "1278020c-5b3d-49f6-9497-c6034cddaa96",
+            "note": "来自 agent opencode · session ses_ea37",
+            "orderKey": 35840,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "沙箱验证热插拔（新增/修改/删除自动重载）",
+            "updatedAt": 1792719894
+        },
+        {
+            "completedAt": 1792719894,
+            "createdAt": 1792719894,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "6f43785f-e6d3-4034-8909-cdc4f9998988",
+            "note": "来自 agent opencode · session ses_ea37",
+            "orderKey": 36864,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "文档同步（README/plugin-api/AGENTS 9.2）",
+            "updatedAt": 1792719894
+        },
+        {
+            "completedAt": 1792719894,
+            "createdAt": 1792719894,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "3cf2b03d-8a4d-47dc-a628-b5c2b0920d73",
+            "note": "来自 agent opencode · session ses_ea37",
+            "orderKey": 37888,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "提交合并推送 + 回收 agent-hot worktree",
+            "updatedAt": 1792719894
         }
     ],
-    "updated": "2026-10-23T11:38:14",
+    "updated": "2026-10-23T11:49:38",
     "version": 3
 }
+

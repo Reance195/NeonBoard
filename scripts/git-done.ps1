@@ -1,4 +1,4 @@
-<#
+﻿<#
     NeonBoard 多代理合并助手 —— 合并分支回主分支并清理
 
     两种模式：
@@ -18,6 +18,7 @@
       pwsh -File scripts/git-done.ps1 -RemoveWorktree .worktrees/agent-c
       pwsh -File scripts/git-done.ps1 -Mode local
       pwsh -File scripts/git-done.ps1 -KeepBranch
+      pwsh -File scripts/git-done.ps1 -SkipClaimCheck      # 纯文档/杂务分支跳过领用闸门
 #>
 [CmdletBinding()]
 param(
@@ -25,6 +26,7 @@ param(
     [ValidateSet('remote', 'local')]
     [string]$Mode = 'remote',
     [switch]$KeepBranch,
+    [switch]$SkipClaimCheck,
     [switch]$RemoveWorktree,
     [string]$MainBranch = 'main',
     [string]$Worktree = ''
@@ -103,6 +105,21 @@ if ($Mode -eq 'remote') {
     # ---- 3. remote 模式：临时分支 + 快进推送，不碰主 worktree ----
     Invoke-Git fetch origin --quiet | Out-Null
     $originMain = (Invoke-Git rev-parse "origin/$MainBranch").Trim()
+
+    # 领用闸门：分支必须先在服务端占位 refs/claims/<短号>（agent-init 领用时创建）。
+    # 没有占位 = 绕过领用直接开工，默认不允许合并；纯文档/杂务分支显式 -SkipClaimCheck。
+    if (-not $SkipClaimCheck) {
+        Write-Host '· 领用闸门：校验服务端 claim ref ...' -ForegroundColor DarkGray
+        & git fetch origin '+refs/claims/*:refs/claims/*' 2>&1 | Out-Null
+        & python (Join-Path $repoRoot 'scripts\check_claim_refs.py') --base "origin/$MainBranch" --head $Branch
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "`n✗ 领用闸门未通过：分支缺少服务端 claim ref 占位。" -ForegroundColor Red
+            Write-Host '  先用 scripts/agent-init.ps1 -Card <短号> 领用；纯文档/杂务分支可加 -SkipClaimCheck。' -ForegroundColor Yellow
+            exit 1
+        }
+    } else {
+        Write-Host '· 已跳过领用闸门（-SkipClaimCheck）' -ForegroundColor Yellow
+    }
 
     $tmp = 'merge/' + ($Branch -replace '[^A-Za-z0-9]+', '-')
     & git rev-parse --verify -q $tmp | Out-Null

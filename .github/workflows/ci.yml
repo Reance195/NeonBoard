@@ -30,6 +30,15 @@ jobs:
           # 看板状态派生器要读完整提交历史（状态来自 #短号 标记），不能只取最近一次提交
           fetch-depth: 0
 
+      - name: 领用闸门（服务端 claim ref）
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: |
+          # 领用是服务端占位：分支必须在 refs/claims/<短号> 上占过位，
+          # 否则说明绕过了 agent-init 直接建分支 —— 一律不准合入。
+          git fetch origin '+refs/claims/*:refs/claims/*'
+          python scripts/check_claim_refs.py --base "origin/${{ github.base_ref }}" --head HEAD
+
       - name: 准备 MSVC 开发环境
         uses: ilammy/msvc-dev-cmd@v1
         with:

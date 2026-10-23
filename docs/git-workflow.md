@@ -154,6 +154,10 @@ pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/task-tags -Card
 - **释放不需要任何操作**：分支被合并进主干（head 变祖先）或分支被删除（ref 消失）、或分支被 rebase 重写（head 不再是 tip 祖先）时登记自动失效回退；
 - 收尾结项仍用提交标记：`feat: xxx done #R3-01=done`；
 - 若短号已被另一分支领用则拒绝（防双领）。
+- **服务端占位（硬门）**：领用时脚本会推 `refs/claims/<短号>`（值=领用提交，非强推）；同名 ref 已存在则 push 被服务端拒绝，
+  所以「谁先占谁得」，并发领取也不会双领。领子卡前用 `ls-remote` 查父卡占位；领用需要联网，离线失败。
+- **CI 闸门**：PR 会跑 `scripts/check_claim_refs.py`，要求分支历史里有领用提交、且 `refs/claims/<短号>` 指向的提交是该分支祖先；
+  绕过脚本直接建分支的分支无法合入。仓库需在 Ruleset 里禁止 `refs/claims/**` 的强推/删除，锁死占位。
 
 ### 2. 沙箱运行（不污染真实数据）
 
@@ -184,6 +188,9 @@ pwsh -File scripts/git-done.ps1 -Branch feature/xxx -RemoveWorktree
 
 在自己的 worktree 里完成 fetch → 合并 → 快进推送。两个代理同时推时，
 后一个会被远端的 non-fast-forward 保护拒绝，重新同步后再合即可 —— 这就是串行化保证。
+
+合并前自动执行**领用闸门**：`refs/claims/<短号>` 必须存在并对应分支里的领用提交，否则拒绝合并。
+纯文档/杂务分支用 `-SkipClaimCheck` 显式跳过。分支 rebase 后领用提交被改写时，闸门按提交信息放行并提示。
 
 ### 5. 出包
 

@@ -17,6 +17,8 @@
         # 大任务（R#-#）可随时领；小任务（M##）仅当其父任务尚未被任何人认领时才可单独领。
         # 分支头脱离主干的期间内该卡为 doing（派生器按 head 位置判定），
         # 分支合并或丢弃后登记自动失效，收尾用提交标记 #<code>=done。
+        # 硬门：领用时会向服务端推 refs/claims/<code> 占位（非强推），
+        # 同名 ref 已存在即被拒绝；领子卡前先 ls-remote 父卡占位。需联网。
 #>
 [CmdletBinding()]
 param(
@@ -151,6 +153,31 @@ if not re.match(r"^R\d+-\d+$", code):
         sys.stderr.write("[领用] 子卡 %s 的父任务未在台账登记，禁止单独领用\n" % code)
         sys.exit(4)
 
+# 服务端硬门：refs/claims/<短号> 唯一占位（非强推）。本地台账/远端分支扫描都可能漏，
+# 只有服务端 ref 的创建是原子的：同名 ref 已存在时 push 会被拒绝，绕不过。
+def _git(args):
+    return subprocess.run(["git", "-C", root] + args, capture_output=True)
+
+claim_ref = "refs/claims/%s" % code
+if parent_code:
+    probe = _git(["ls-remote", "--exit-code", "origin", "refs/claims/%s" % parent_code])
+    if probe.returncode == 0:
+        sys.stderr.write("[领用] 父任务 %s 已被认领（服务端 refs/claims/%s 存在），不能单独领用子卡 %s\n"
+                         % (parent_code, parent_code, code))
+        sys.exit(3)
+    if probe.returncode != 2:
+        sys.stderr.write("[领用] 无法访问 origin 校验父任务占位（退出码 %d），领用需联网\n" % probe.returncode)
+        sys.exit(5)
+
+head_sha = subprocess.check_output(["git", "-C", root, "rev-parse", "HEAD"]).decode().strip()
+pushed = _git(["push", "origin", "%s:%s" % (head_sha, claim_ref)])
+if pushed.returncode != 0:
+    detail = (pushed.stderr or pushed.stdout).decode("utf-8", "replace").strip()
+    sys.stderr.write("[领用] 服务端占位失败（%s）：短号 %s 可能已被认领，或网络不可用\n%s\n"
+                     % (claim_ref, code, detail))
+    sys.exit(3)
+print("[领用] 服务端已占位 %s" % claim_ref)
+
 # 防双领：origin/main 与所有远端分支头里的台账，若同短号已被其它分支领用 → 拒绝
 refs = ["origin/main"]
 out = subprocess.run(
@@ -202,8 +229,7 @@ data.setdefault("claims", {})
 data["claims"][code] = {
     "agent": agent,
     "branch": branch,
-    "head": subprocess.check_output(
-        ["git", "-C", root, "rev-parse", "HEAD"]).decode().strip(),
+    "head": head_sha,
     "claimedAt": int(time.time()),
 }
 with open(tmp, "w", encoding="utf-8", newline="\n") as fh:

@@ -203,6 +203,8 @@ cd .worktrees/agent-c
 - `-Card <路线图短号>`：开区即领用。该短号必须在台账 `cards` 里登记过；
   脚本会写 `claims[<短号>]={agent,branch,head,claimedAt}` 进**本 worktree** 的台账副本
   （随 feature 分支提交），并投递 `#<短号>=doing`（`chore(claim):` 空提交 + `--emit-hook-file` 双通道，幂等）。
+- **领用粒度**：大任务（`R#-#`）可随时领；小任务（`M##`）**只有父任务尚未被任何人认领**时才允许单独领用
+  （父卡由 `board.db` 的 `task_link` 映射到台账，父卡已被领用即拒绝）。
 - **卡片「进行中」不靠手工拖**：派生器按 claims 派生 doing，优先级为
   提交信息显式标记 > claims 领用 > baseline；分支被合并 / 删除 / rebase 重写时登记自动失效回退。
 - 结项仍用提交标记 `#<短号>=done`；防双领：短号已被其它分支领用时开区直接报错。

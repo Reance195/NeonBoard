@@ -1273,8 +1273,20 @@ MouseArea {
             noteField.text = task.note
             priorityValue = Math.max(1, Math.min(3, Number(task.priority) || 1))
             dueField.text = task.due || ""
+            const extra = taskExtra.extraOf(id)
+            remindField.text = formatRemind(extra ? extra.remindAt : 0)
             open()
             titleField.forceActiveFocus()
+        }
+
+        // 提醒时刻 → "YYYY-MM-DD HH:mm"（本地时区）
+        function formatRemind(epoch) {
+            if (!epoch || epoch <= 0)
+                return ""
+            const d = new Date(epoch * 1000)
+            function p(n) { return n < 10 ? "0" + n : "" + n }
+            return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate())
+                   + " " + p(d.getHours()) + ":" + p(d.getMinutes())
         }
 
         background: Rectangle {
@@ -1382,6 +1394,32 @@ MouseArea {
                 Layout.fillWidth: true
                 spacing: 8
 
+                Text {
+                    text: "提醒"
+                    color: Theme.muted
+                    font.pixelSize: 12
+                }
+
+                TextField {
+                    id: remindField
+                    Layout.fillWidth: true
+                    placeholderText: "提醒时间 YYYY-MM-DD HH:mm（留空则逾期时提醒一次）"
+                    placeholderTextColor: Theme.muted
+                    color: Theme.text
+                    font.pixelSize: 12
+                    background: Rectangle {
+                        color: Theme.elevated
+                        radius: 8
+                        border.width: 1
+                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
                 Button {
                     text: "删除"
                     onClicked: {
@@ -1416,6 +1454,15 @@ MouseArea {
                             priority: editor.priorityValue,
                             dueAt: dueAt
                         })
+                        // 提醒走侧表 task_extra（不进撤销栈，与插件写入/快照同步同口径）
+                        let remindAt = 0
+                        const rawRemind = remindField.text.trim()
+                        if (rawRemind.length > 0) {
+                            const rd = new Date(rawRemind.replace(" ", "T"))
+                            if (!isNaN(rd.getTime()))
+                                remindAt = Math.floor(rd.getTime() / 1000)
+                        }
+                        taskExtra.setReminder(editor.taskId, remindAt)
                         editor.close()
                     }
                 }
@@ -1473,6 +1520,40 @@ MouseArea {
             font.bold: true
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
+        }
+    }
+
+    // 提醒辉光：提醒触发时窗口边缘一次性脉冲（ReminderScheduler::fired）
+    Rectangle {
+        id: reminderGlow
+        z: 100
+        anchors.fill: parent
+        anchors.margins: 1
+        radius: 12
+        color: "transparent"
+        border.width: 3
+        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, glowLevel)
+        property real glowLevel: 0
+
+        NumberAnimation on glowLevel {
+            id: glowFade
+            from: 0.85
+            to: 0
+            duration: 1400
+            easing.type: Easing.OutCubic
+            running: false
+        }
+
+        function pulse() {
+            glowLevel = 0.85
+            glowFade.restart()
+        }
+    }
+
+    Connections {
+        target: reminderScheduler
+        function onFired(taskId, title) {
+            reminderGlow.pulse()
         }
     }
 }

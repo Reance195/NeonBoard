@@ -202,7 +202,7 @@
                 "可靠性",
                 "agent"
             ],
-            "title": "R4 快照写回防降级：保留未知字段 # #",
+            "title": "R4 快照写回防降级：保留未知字段",
             "updatedAt": 1792721852
         },
         {
@@ -221,7 +221,7 @@
                 "可靠性",
                 "agent"
             ],
-            "title": "R4 事件队列不丢事件：无订阅者可重投 # #",
+            "title": "R4 事件队列不丢事件：无订阅者可重投",
             "updatedAt": 1792721853
         },
         {
@@ -240,7 +240,7 @@
                 "工程",
                 "agent"
             ],
-            "title": "R4 构建脚本封装 scripts/build.ps1 # #",
+            "title": "R4 构建脚本封装 scripts/build.ps1",
             "updatedAt": 1792721853
         },
         {
@@ -259,7 +259,7 @@
                 "协作",
                 "agent"
             ],
-            "title": "R4 工作区防双领：agent-init 强制 -Card # #",
+            "title": "R4 工作区防双领：agent-init 强制 -Card",
             "updatedAt": 1792721853
         },
         {
@@ -1012,6 +1012,7 @@
             "updatedAt": 1792659560
         }
     ],
-    "updated": "2026-10-23T11:38:14",
+    "updated": "2026-10-23T09:27:56",
     "version": 3
 }
+

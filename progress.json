@@ -306,7 +306,7 @@
             "deleted": false,
             "dueAt": 1793030400,
             "id": "76d2a804-c2f8-4173-8b90-2d0a49a876f0",
-            "note": "remind_at + notified_at 防重复；托盘气泡 + 窗口边缘辉光；启动补发漏提醒。",
+            "note": "已完成：侧表 task_extra(remind_at/notified_at，不动 task 表结构) + TaskExtra 门面 + ReminderScheduler 30s 轮询；托盘通知 + 窗口边缘辉光；启动补发漏提醒；未设提醒的逾期任务到期提醒一次；e2e 五用例（漏提醒/未来/逾期/已通知/已完成）全过。待做：无。",
             "orderKey": 1024,
             "priority": 3,
             "stage": "R1",
@@ -315,7 +315,7 @@
                 "R1"
             ],
             "title": "R1 提醒 + 逾期提醒",
-            "updatedAt": 1792754068
+            "updatedAt": 1792763947
         },
         {
             "code": "R1-02",
@@ -324,7 +324,7 @@
             "deleted": false,
             "dueAt": 1793203200,
             "id": "562f52c5-9119-4c08-8547-85963ec542c6",
-            "note": "存标准 RRULE 字符串，不自造格式，便于日后导出 ICS / 对接 CalDAV。",
+            "note": "已完成：RRULE 原样存储（v1 子集 FREQ+INTERVAL+BYDAY，月末钳制）；完成时自动派生下一期（继承标题/备注/优先级/标签/提醒偏移）；派生卡进撤销栈（撤销完成连带删除）；卡片 ↻ 标识；selftest 断言 + 冒烟验证通过。待做：COUNT/UNTIL（v2）。",
             "orderKey": 2048,
             "priority": 2,
             "stage": "R1",
@@ -333,7 +333,7 @@
                 "R1"
             ],
             "title": "R1 重复任务（RFC 5545 RRULE）",
-            "updatedAt": 1792763806
+            "updatedAt": 1792763947
         },
         {
             "code": "R0-03",
@@ -1335,6 +1335,7 @@
             "updatedAt": 1792748226
         }
     ],
-    "updated": "2026-10-23T13:56:46",
+    "updated": "2026-10-23T21:59:09",
     "version": 3
 }
+

@@ -95,7 +95,9 @@ QtObject {
         return null;
     }
 
-    // 应用一条 todo：无映射则建卡（打 agent 标签），有映射则同步标题与状态
+    // 应用一条 todo：item.taskId 可显式指定已有卡片（补卡 / 接管人工卡），
+    // 命中后补写映射，让后续同 todoId 的事件继续按映射对账；
+    // 其次按 meta 映射查找；都没有则建卡（打 agent 标签）。
     function applyItem(agent, sessionId, item) {
         var todoId = item.id !== undefined ? String(item.id) : "";
         if (todoId.length === 0)
@@ -106,8 +108,13 @@ QtObject {
         var status = statusOf(item.status);
 
         var key = mapKey(agent, sessionId, todoId);
-        var mapped = pluginHost.metaValue(key, "");
-        var task = (mapped.length > 0) ? findTask(mapped) : null;
+        var explicitId = (item.taskId !== undefined && item.taskId !== null)
+                ? String(item.taskId).trim() : "";
+        var task = (explicitId.length > 0) ? findTask(explicitId) : null;
+        if (task === null) {
+            var mapped = pluginHost.metaValue(key, "");
+            task = (mapped.length > 0) ? findTask(mapped) : null;
+        }
         var actions = 0;
 
         if (task === null) {
@@ -150,6 +157,9 @@ QtObject {
             pluginHost.moveTaskToEnd(task.id, status);
             actions += 1;
         }
+        // 显式 taskId 命中后登记映射，后续同 todoId 事件走映射对账
+        if (explicitId.length > 0 && pluginHost.metaValue(key, "") !== String(task.id))
+            pluginHost.setMetaValue(key, String(task.id));
         return actions;
     }
 

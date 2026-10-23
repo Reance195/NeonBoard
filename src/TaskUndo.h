@@ -6,6 +6,7 @@
 #include <QVector>
 
 class TaskModel;
+class TaskExtra;
 
 // 通用撤销门面：把「删除 / 移动 / 完成 / 编辑」四类用户操作收进同一条撤销栈。
 // 插件写入（PluginContext）与路线图快照同步（RoadmapSync）直连 TaskModel，不进本栈，
@@ -18,6 +19,9 @@ class TaskUndo : public QObject
 
 public:
     explicit TaskUndo(TaskModel *tasks, QObject *parent = nullptr);
+
+    // 注入任务附加属性门面：撤销「完成」时连带删除重复任务派生的下一期卡
+    void setTaskExtra(TaskExtra *extra);
 
     // 以下方法执行操作并记录一条可撤销记录
     Q_INVOKABLE bool deleteTask(const QString &id);
@@ -62,6 +66,7 @@ private:
     bool revert(const Entry &entry);
 
     TaskModel *m_tasks = nullptr;
+    TaskExtra *m_extra = nullptr;
     QVector<Entry> m_stack;
     QString m_lastAction;
 };

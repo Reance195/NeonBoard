@@ -1,5 +1,6 @@
 #include "TaskUndo.h"
 
+#include "TaskExtra.h"
 #include "TaskModel.h"
 
 #include <QDebug>
@@ -8,6 +9,11 @@ TaskUndo::TaskUndo(TaskModel *tasks, QObject *parent)
     : QObject(parent)
     , m_tasks(tasks)
 {
+}
+
+void TaskUndo::setTaskExtra(TaskExtra *extra)
+{
+    m_extra = extra;
 }
 
 bool TaskUndo::deleteTask(const QString &id)
@@ -164,12 +170,20 @@ bool TaskUndo::revert(const Entry &entry)
     case Kind::Deleted:
         // 删除撤销：整行按原样插回（沿用 removeTask 提供的完整快照）
         return !m_tasks->restoreTask(entry.payload).isEmpty();
-    case Kind::Moved:
+    case Kind::Moved: {
         // 移动撤销：状态、列内位置、完成时间一并回到原值
-        return m_tasks->restorePlacement(entry.id,
-                                         entry.payload.value(QStringLiteral("status")).toString(),
-                                         entry.payload.value(QStringLiteral("orderKey")).toLongLong(),
-                                         entry.payload.value(QStringLiteral("completedAt")).toLongLong());
+        const bool ok = m_tasks->restorePlacement(entry.id,
+                                                  entry.payload.value(QStringLiteral("status")).toString(),
+                                                  entry.payload.value(QStringLiteral("orderKey")).toLongLong(),
+                                                  entry.payload.value(QStringLiteral("completedAt")).toLongLong());
+        // 撤销「完成」时连带删除重复任务派生的下一期卡
+        if (ok && m_extra) {
+            const QString spawned = m_extra->takeSpawned(entry.id);
+            if (!spawned.isEmpty())
+                m_tasks->deleteTask(spawned);
+        }
+        return ok;
+    }
     case Kind::Edited:
         return m_tasks->restoreSnapshot(entry.payload);
     }

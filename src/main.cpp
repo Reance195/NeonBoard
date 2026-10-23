@@ -198,6 +198,7 @@ int main(int argc, char *argv[])
 
     // 任务附加属性（提醒 / 重复）：侧表 task_extra，不动 task 表结构
     TaskExtra taskExtra(&database, &taskStore);
+    taskUndo.setTaskExtra(&taskExtra);
 
     // 路线图快照同步：仓库 progress.json ↔ 本地看板
     RoadmapSync roadmap(&database, &taskStore);
@@ -448,6 +449,51 @@ int main(int argc, char *argv[])
         taskStore.deleteTask(extraId);
         ok = taskExtra.extraOf(extraId).value("remindAt").toLongLong() == 0 && ok;  // 删任务要清行
         qInfo() << "SELFTEST extra" << taskExtra.revision();
+        // RRULE 下一期：DAILY / INTERVAL / WEEKLY+BYDAY / 月末钳制 / 非法规则
+        ok = TaskExtra::nextOccurrence(QStringLiteral("FREQ=DAILY"),
+                                        QDateTime(QDate(2026, 10, 23), QTime(15, 0)))
+               .date() == QDate(2026, 10, 24) && ok;
+        ok = TaskExtra::nextOccurrence(QStringLiteral("FREQ=DAILY;INTERVAL=7"),
+                                        QDateTime(QDate(2026, 10, 23), QTime(9, 0)))
+               .date() == QDate(2026, 10, 30) && ok;
+        // 2026-10-23 是周五；BYDAY=MO → 下周一 10-26
+        ok = TaskExtra::nextOccurrence(QStringLiteral("FREQ=WEEKLY;BYDAY=MO"),
+                                        QDateTime(QDate(2026, 10, 23), QTime(9, 0)))
+               .date() == QDate(2026, 10, 26) && ok;
+        // 月末钳制：2027-01-31 + 1月 = 02-28（2027 非闰年）
+        ok = TaskExtra::nextOccurrence(QStringLiteral("FREQ=MONTHLY"),
+                                        QDateTime(QDate(2027, 1, 31), QTime(9, 0)))
+               .date() == QDate(2027, 2, 28) && ok;
+        ok = TaskExtra::nextOccurrence(QStringLiteral("FREQ=FOO"),
+                                        QDateTime(QDate(2026, 10, 23), QTime(9, 0))).isNull() && ok;
+        qInfo() << "SELFTEST rrule";
+        // 完成重复任务派生下一期；撤销完成连带删除派生卡
+        const QString recId = taskStore.addTask(QStringLiteral("selftest-recurring"),
+                                                 QStringLiteral("todo"), 1, QString(), 0);
+        ok = taskExtra.setRrule(recId, QStringLiteral("FREQ=DAILY")) && ok;
+        const int beforeSpawn = taskStore.count();
+        ok = taskUndo.moveTask(recId, QStringLiteral("done"), -1) && ok;
+        ok = taskStore.count() == beforeSpawn + 1 && ok;
+        // 找派生卡：同标题的新卡（不消费 takeSpawned 映射，留给撤销路径）
+        QString spawnedId;
+        for (const QVariant &value : taskStore.allTasks()) {
+            const QVariantMap t = value.toMap();
+            if (t.value(QStringLiteral("title")).toString() == QStringLiteral("selftest-recurring")
+                && t.value(QStringLiteral("id")).toString() != recId)
+                spawnedId = t.value(QStringLiteral("id")).toString();
+        }
+        ok = !spawnedId.isEmpty() && ok;
+        if (!spawnedId.isEmpty()) {
+            const QVariantMap spawned = taskStore.taskById(spawnedId);
+            ok = spawned.value("status").toString() == QStringLiteral("todo")
+                 && spawned.value("dueAt").toLongLong() > 0 && ok;
+            ok = taskExtra.extraOf(spawnedId).value("rrule").toString() == QStringLiteral("FREQ=DAILY") && ok;
+        }
+        ok = taskUndo.undo() && ok;
+        ok = taskStore.taskById(recId).value("status").toString() == QStringLiteral("todo") && ok;
+        ok = spawnedId.isEmpty() || taskStore.taskById(spawnedId).isEmpty() && ok;  // 派生卡已删
+        qInfo() << "SELFTEST recurring" << spawnedId;
+        taskStore.deleteTask(recId);
         ok = taskStore.deleteTask(id) && ok;
         qInfo() << "SELFTEST result" << (ok ? "OK" : "FAIL") << "remaining" << taskStore.count();
         return ok ? 0 : 2;

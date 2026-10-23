@@ -1275,6 +1275,7 @@ MouseArea {
             dueField.text = task.due || ""
             const extra = taskExtra.extraOf(id)
             remindField.text = formatRemind(extra ? extra.remindAt : 0)
+            rruleField.text = extra ? extra.rrule : ""
             open()
             titleField.forceActiveFocus()
         }
@@ -1420,6 +1421,59 @@ MouseArea {
                 Layout.fillWidth: true
                 spacing: 8
 
+                Text {
+                    text: "重复"
+                    color: Theme.muted
+                    font.pixelSize: 12
+                }
+
+                Repeater {
+                    model: [["每天", "FREQ=DAILY"], ["每周", "FREQ=WEEKLY"], ["每月", "FREQ=MONTHLY"]]
+                    delegate: Rectangle {
+                        width: 44
+                        height: 28
+                        radius: 8
+                        color: rruleField.text === modelData[1]
+                               ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.48)
+                               : Theme.input
+                        border.width: 1
+                        border.color: rruleField.text === modelData[1] ? Theme.cyan : Theme.border
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData[0]
+                            color: rruleField.text === modelData[1] ? Theme.text : Theme.muted
+                            font.pixelSize: 11
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: rruleField.text = (rruleField.text === modelData[1]) ? "" : modelData[1]
+                        }
+                    }
+                }
+
+                TextField {
+                    id: rruleField
+                    Layout.fillWidth: true
+                    placeholderText: "重复规则（RRULE，如 FREQ=DAILY;INTERVAL=2）"
+                    placeholderTextColor: Theme.muted
+                    color: Theme.text
+                    font.pixelSize: 12
+                    background: Rectangle {
+                        color: Theme.elevated
+                        radius: 8
+                        border.width: 1
+                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
                 Button {
                     text: "删除"
                     onClicked: {
@@ -1463,6 +1517,8 @@ MouseArea {
                                 remindAt = Math.floor(rd.getTime() / 1000)
                         }
                         taskExtra.setReminder(editor.taskId, remindAt)
+                        // 重复规则走侧表 task_extra（RRULE 原样存，不自造格式）
+                        taskExtra.setRrule(editor.taskId, rruleField.text.trim())
                         editor.close()
                     }
                 }

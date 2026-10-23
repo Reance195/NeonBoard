@@ -208,6 +208,10 @@ cd .worktrees/agent-c
 - **卡片「进行中」不靠手工拖**：派生器按 claims 派生 doing，优先级为
   提交信息显式标记 > claims 领用 > baseline；分支被合并 / 删除 / rebase 重写时登记自动失效回退。
 - 结项仍用提交标记 `#<短号>=done`；防双领：短号已被其它分支领用时开区直接报错。
+- **领用的硬门在服务端**：`-Card` 会先推 `refs/claims/<短号>`（非强推；同名 ref 已存在即被拒绝），
+  领子卡前先 `ls-remote` 父卡占位。本地台账 `claims` 只是投影，服务端 ref 才是唯一事实源。
+  仓库 Ruleset 必须禁止 `refs/claims/**` 的强推与删除，否则可被 `--force` 绕过；领用需联网，离线直接失败（fail-closed）。
+  PR 的 CI「领用闸门」（`scripts/check_claim_refs.py`）校验 claim ref 存在且指向分支历史，未领用的分支不准合入。
 - 同一分支禁止在两个 worktree 同时检出（Git 天然强制）。
 - 每个 worktree 拥有独立的 `build/` `dist/` `.sandbox/`，体积较大，不要共享。
 - worktree 用完必须回收：`git worktree remove .worktrees/<agent>`
@@ -223,6 +227,8 @@ pwsh -File scripts/git-done.ps1 -Branch fix/stagebar-chip-overflow
 
 脚本内部流程：`git fetch origin` → 基于 `origin/main` 建临时分支 `merge/<slug>` →
 `git merge --no-ff <分支>` → `git push origin HEAD:main`（**快进推送**，不是强推）。
+合并前还会跑**领用闸门**：分支必须带服务端 `refs/claims/<短号>` 占位，否则拒绝合并；
+纯文档/杂务分支显式加 `-SkipClaimCheck` 跳过（会打印警告）。
 
 - 串行化由远端的快进保护天然完成：两个 agent 同时推，后一个会被 non-fast-forward 拒绝，
   重新同步后再合即可 —— 因此**根目录永远不需要被任何 agent 占用**，

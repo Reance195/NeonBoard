@@ -65,6 +65,8 @@ bool titleContainsCode(const QString &title, const QString &code)
 
 QString embedCode(const QString &title, const QString &code)
 {
+    if (code.isEmpty())
+        return title;
     if (titleContainsCode(title, code))
         return title;
     const QString trimmed = title.trimmed();

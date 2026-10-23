@@ -280,23 +280,6 @@
             "updatedAt": 1792721853
         },
         {
-            "completedAt": 0,
-            "createdAt": 1792724521,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "4e25a849-d397-4949-8bfb-2cd7b94162be",
-            "note": "来自 agent opencode · session ses_e9d8",
-            "orderKey": 40960,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "agent-bridge 支持 item.tags（让新卡落入 R4 阶段）",
-            "updatedAt": 1792724521
-        },
-        {
             "code": "R4-08",
             "completedAt": 0,
             "createdAt": 1792726694,
@@ -313,142 +296,6 @@
             ],
             "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分",
             "updatedAt": 1792726694
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792724522,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "f729db7a-7fc1-4a78-9970-9e0b1e81c927",
-            "note": "来自 agent opencode · session ses_e9d8",
-            "orderKey": 41984,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "投递 agent.task 事件建 4 张修复计划卡",
-            "updatedAt": 1792724522
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792724522,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "94adc980-d5bc-49c2-84b7-a42e42179ac2",
-            "note": "来自 agent opencode · session ses_e9d8",
-            "orderKey": 43008,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "验证快照：items 49→53、tags 含 R4、ver=3",
-            "updatedAt": 1792724522
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792724522,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "eef2a0b6-b56e-481e-9b04-0424e49755c4",
-            "note": "来自 agent opencode · session ses_e9d8",
-            "orderKey": 44032,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "提交 + git-done 合并 + 回收 worktree",
-            "updatedAt": 1792724522
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792724523,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "0125a04b-9a08-405b-812b-29db1c481a76",
-            "note": "来自 agent opencode · session ses_e9d8",
-            "orderKey": 45056,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "增量构建 worktree exe",
-            "updatedAt": 1792724523
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792724524,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "4ede4874-f126-4d12-9a4e-b096fc5049f0",
-            "note": "来自 agent opencode · session ses_e9d8",
-            "orderKey": 46080,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "沙箱 e2e：脏标题自动清理 + 写回快照",
-            "updatedAt": 1792724524
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792724524,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "fa04a5cf-9053-4047-950c-fe617e6d61db",
-            "note": "来自 agent opencode · session ses_e9d8",
-            "orderKey": 47104,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "沙箱 e2e：taskId 接管已有卡（不新建）",
-            "updatedAt": 1792724524
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792724521,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "4caf6380-403d-42d5-911a-53a42c6ffaf1",
-            "note": "来自 agent opencode · session ses_e9d8",
-            "orderKey": 10240,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "doing",
-            "tags": [
-                "agent"
-            ],
-            "title": "开 worktree chore/plan-fix-cards",
-            "updatedAt": 1792724521
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792724523,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "2f52f942-129e-40f3-821c-8a63537a9d90",
-            "note": "来自 agent opencode · session ses_e9d8",
-            "orderKey": 11264,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "doing",
-            "tags": [
-                "agent"
-            ],
-            "title": "修 RoadmapSync embedCode/stripCode 空 code 分支",
-            "updatedAt": 1792724523
         },
         {
             "code": "R0-01",
@@ -1333,9 +1180,162 @@
             ],
             "title": "提交合并推送 + 回收 agent-hot worktree",
             "updatedAt": 1792719894
+        },
+        {
+            "completedAt": 1792748224,
+            "createdAt": 1792724521,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "4caf6380-403d-42d5-911a-53a42c6ffaf1",
+            "note": "已完成：分支 chore/plan-fix-cards 已合入（c2d3248），worktree 已回收",
+            "orderKey": 38912,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "开 worktree chore/plan-fix-cards",
+            "updatedAt": 1792748224
+        },
+        {
+            "completedAt": 1792748225,
+            "createdAt": 1792724523,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "2f52f942-129e-40f3-821c-8a63537a9d90",
+            "note": "已完成：空短号修复已合入（bc5e88d），尾部空 # 清理已合入（f2e9dba）",
+            "orderKey": 39936,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "修 RoadmapSync embedCode/stripCode 空 code 分支",
+            "updatedAt": 1792748225
+        },
+        {
+            "completedAt": 1792748226,
+            "createdAt": 1792724521,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "4e25a849-d397-4949-8bfb-2cd7b94162be",
+            "note": "已完成：item.tags 支持已合入主线（tagsOf / tagsEqual 全量对账）",
+            "orderKey": 40960,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "agent-bridge 支持 item.tags（让新卡落入 R4 阶段）",
+            "updatedAt": 1792748226
+        },
+        {
+            "completedAt": 1792748226,
+            "createdAt": 1792724522,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "f729db7a-7fc1-4a78-9970-9e0b1e81c927",
+            "note": "已完成：4 张 R4 修复计划卡已投递建卡",
+            "orderKey": 41984,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "投递 agent.task 事件建 4 张修复计划卡",
+            "updatedAt": 1792748226
+        },
+        {
+            "completedAt": 1792748226,
+            "createdAt": 1792724522,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "94adc980-d5bc-49c2-84b7-a42e42179ac2",
+            "note": "已完成：快照校验通过（ver=3、R4 标签在、卡片数随建卡增长）",
+            "orderKey": 43008,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "验证快照：items 49→53、tags 含 R4、ver=3",
+            "updatedAt": 1792748226
+        },
+        {
+            "completedAt": 1792748226,
+            "createdAt": 1792724522,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "eef2a0b6-b56e-481e-9b04-0424e49755c4",
+            "note": "已完成：提交 + git-done 合并 + worktree 回收全部完成",
+            "orderKey": 44032,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "提交 + git-done 合并 + 回收 worktree",
+            "updatedAt": 1792748226
+        },
+        {
+            "completedAt": 1792748226,
+            "createdAt": 1792724523,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "0125a04b-9a08-405b-812b-29db1c481a76",
+            "note": "已完成：worktree 增量构建通过，selftest 退出码 0",
+            "orderKey": 45056,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "增量构建 worktree exe",
+            "updatedAt": 1792748226
+        },
+        {
+            "completedAt": 1792748226,
+            "createdAt": 1792724524,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "4ede4874-f126-4d12-9a4e-b096fc5049f0",
+            "note": "已完成：脏标题清理后快照写回，0 个 # 结尾标题",
+            "orderKey": 46080,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "沙箱 e2e：脏标题自动清理 + 写回快照",
+            "updatedAt": 1792748226
+        },
+        {
+            "completedAt": 1792748226,
+            "createdAt": 1792724524,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "fa04a5cf-9053-4047-950c-fe617e6d61db",
+            "note": "已完成：本事件即 taskId 接管 e2e——9 卡按 uuid 命中对账，未新建卡",
+            "orderKey": 47104,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "沙箱 e2e：taskId 接管已有卡（不新建）",
+            "updatedAt": 1792748226
         }
     ],
-    "updated": "2026-10-23T11:49:38",
+    "updated": "2026-10-23T17:37:08",
     "version": 3
 }
 

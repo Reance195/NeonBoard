@@ -3,7 +3,7 @@
 # NeonBoard 仓库钩子 —— pre-push
 # 作用：确保「未合并回主分支」的成果不会被推走
 # 规则：
-#   1. 功能分支必须已合并进 main 才允许推送
+#   1. 功能分支必须已合并进 main 才允许推送（refs/claims/* 领用占位除外）
 #   2. main 的推送必须是快进，禁止强推覆盖历史
 #   3. 进度快照 progress.json 语义闸门：版本不得降级、卡片数不得减少、code 不得丢失
 # ============================================================
@@ -92,6 +92,12 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   if [ "$local_sha" = "$zero" ]; then
     continue
   fi
+
+  # 领用占位 refs/claims/<短号> 是服务端占用 ref（agent-init 领用时推送），
+  # 不是分支推送，不受「必须合并进 main」限制。
+  case "$remote_ref" in
+    refs/claims/*) continue ;;
+  esac
 
   branch=$(echo "$local_ref" | sed 's#^refs/heads/##')
   remote_branch=$(echo "$remote_ref" | sed 's#^refs/heads/##')

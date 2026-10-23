@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R1-01",
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1793030400,
-            "id": "76d2a804-c2f8-4173-8b90-2d0a49a876f0",
-            "note": "remind_at + notified_at 防重复；托盘气泡 + 窗口边缘辉光；启动补发漏提醒。",
-            "orderKey": 1024,
-            "priority": 3,
-            "stage": "R1",
-            "status": "todo",
-            "tags": [
-                "R1"
-            ],
-            "title": "R1 提醒 + 逾期提醒",
-            "updatedAt": 1792568900
-        },
-        {
             "code": "R1-02",
             "completedAt": 0,
             "createdAt": 1792568900,
@@ -334,6 +316,24 @@
             ],
             "title": "路线图进度上板：里程碑可视化",
             "updatedAt": 1792581455
+        },
+        {
+            "code": "R1-01",
+            "completedAt": 1792754068,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1793030400,
+            "id": "76d2a804-c2f8-4173-8b90-2d0a49a876f0",
+            "note": "remind_at + notified_at 防重复；托盘气泡 + 窗口边缘辉光；启动补发漏提醒。",
+            "orderKey": 1024,
+            "priority": 3,
+            "stage": "R1",
+            "status": "done",
+            "tags": [
+                "R1"
+            ],
+            "title": "R1 提醒 + 逾期提醒",
+            "updatedAt": 1792754068
         },
         {
             "code": "R0-03",
@@ -1335,7 +1335,6 @@
             "updatedAt": 1792748226
         }
     ],
-    "updated": "2026-10-23T17:37:08",
+    "updated": "2026-10-23T11:14:28",
     "version": 3
 }
-

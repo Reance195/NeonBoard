@@ -31,6 +31,61 @@ QtObject {
         return metaPrefix + agent + "." + sessionId + "." + todoId;
     }
 
+    // tags 集合比较（忽略顺序与大小写），避免无实质变化时反复写库
+    function splitTags(raw) {
+        var out = [];
+        var parts = String(raw || "").split(",");
+        for (var i = 0; i < parts.length; i++) {
+            var t = parts[i].trim().toLowerCase();
+            if (t.length > 0)
+                out.push(t);
+        }
+        out.sort();
+        return out;
+    }
+
+    function tagsEqual(a, b) {
+        return splitTags(a).join(",") === splitTags(b).join(",");
+    }
+
+    // 协议是否显式声明了 tags（未声明时不覆盖人工标签）
+    function declaredTags(item) {
+        if (item.tags === undefined || item.tags === null)
+            return false;
+        if (Array.isArray(item.tags))
+            return item.tags.length > 0;
+        return String(item.tags).trim().length > 0;
+    }
+
+    // 协议可选 tags（数组或逗号串）：保持原顺序（首个标签决定阶段归属），
+    // 末尾补 agent 标记便于筛选；未声明时只打 agent。
+    function tagsOf(item) {
+        var list = [];
+        var raw = item.tags;
+        if (Array.isArray(raw)) {
+            for (var i = 0; i < raw.length; i++) {
+                var t = String(raw[i] || "").trim();
+                if (t.length > 0)
+                    list.push(t);
+            }
+        } else if (raw !== undefined && raw !== null) {
+            var parts = String(raw).split(",");
+            for (var j = 0; j < parts.length; j++) {
+                var p = parts[j].trim();
+                if (p.length > 0)
+                    list.push(p);
+            }
+        }
+        var hasAgent = false;
+        for (var k = 0; k < list.length; k++) {
+            if (list[k].toLowerCase() === "agent")
+                hasAgent = true;
+        }
+        if (!hasAgent)
+            list.push("agent");
+        return list.join(",");
+    }
+
     function findTask(taskId) {
         var list = pluginHost.tasks();
         for (var i = 0; i < list.length; i++) {
@@ -65,7 +120,7 @@ QtObject {
                         ? String(item.note)
                         : ("来自 agent " + agent
                             + (sessionId.length > 8 ? " · session " + sessionId.substring(0, 8) : ""));
-                pluginHost.updateTask(newId, { "tags": "agent", "note": note });
+                pluginHost.updateTask(newId, { "tags": tagsOf(item), "note": note });
                 pluginHost.setMetaValue(key, newId);
                 actions += 1;
             }
@@ -82,6 +137,14 @@ QtObject {
         if (incomingNote.length > 0 && String(task.note || "") !== incomingNote) {
             pluginHost.updateTask(task.id, { "note": incomingNote });
             actions += 1;
+        }
+        // tags 全量对账：协议显式声明 tags 才覆盖，未声明时保留人工标签。
+        if (declaredTags(item)) {
+            var incomingTags = tagsOf(item);
+            if (!tagsEqual(task.tags, incomingTags)) {
+                pluginHost.updateTask(task.id, { "tags": incomingTags });
+                actions += 1;
+            }
         }
         if (task.status !== status) {
             pluginHost.moveTaskToEnd(task.id, status);

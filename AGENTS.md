@@ -227,6 +227,11 @@ pwsh -File scripts/git-done.ps1 -Branch fix/stagebar-chip-overflow
   也不存在「谁切了分支把别人的工作区搞乱」的问题。
 - 合并完成后删除已合并的分支（`git branch -d <分支>`）并回收 worktree。
 - 分支按拓扑顺序串行合并（例如 A → B → C）；合并下一个分支前，尚未合并的分支先 `git rebase origin/main`。
+- **脚本定位仓库一律按脚本自身路径**（`<repo>/scripts/` 的上级目录），不按调用方当前目录：
+  否则在锚点区调用 agent worktree 里的脚本，会把锚点误当成本仓库去合并 / 出包（已踩过）。
+  涉及 `git-done.ps1` / `release.ps1` / `dev-run.ps1` / `agent-init.ps1`。
+- **脚本里的原生命令不要让 stderr 打断流程**：MSBuild / ISCC 都往 stderr 写进度，
+  在 `ErrorActionPreference = 'Stop'` 下会被当成终止性错误（已踩过），统一走带日志的调用封装。
 
 ### 7.4 热点文件行段分区
 
@@ -406,7 +411,7 @@ pwsh -File scripts/preview.ps1 -Action Stop  -Agent agent-c
 6. **多源并列合并**：源地址支持仓库简写（`owner/repo`，客户端按 Gitee → GitHub 依次尝试）、完整 URL、本地目录；刷新时按源顺序逐个拉取，条目按 `id` 合并、**同 id 取版本高者**，条目带 `marketSource` 标记来源。
 7. **每个源各自缓存**：缓存文件 `market-cache.json` 格式为 `{version:2, sources:[{spec,url,index,etag,lastModified,fetchedAt}]}`，**按源分条记录、互不覆盖**；请求带 `If-None-Match` / `If-Modified-Since`，`304` 直接用缓存；某个源拉取失败**只降级这个源**到自己的缓存，不得让插件库整体不可用。
 8. **发布侧走脚本**：市场包由 `scripts/publish-market.ps1` 生成（读 `plugin.json` → 打 `.neon` → 算 SHA-256 → 更新 `market.json`）；索引里 `download` 可只写文件名，客户端按索引所在目录解析。索引顶层预留 `signature` 字段位，**本轮不校验签名**，以后接上不改协议。
-9. **安装/卸载后必须 `PluginRuntime::reload()`**，并刷新插件库条目，否则界面与实际不一致。
+9. **安装/卸载后必须 `PluginRuntime::reload()`**，并刷新插件库条目，否则界面与实际不一致；运行时另有目录监视自动热插拔（四个源目录 + 各插件子目录，约 400 ms 防抖），显式调用仍是兜底。
 10. **官方插件不随安装包分发**：`plugins/`（官方源）不进 `dist`，发布态靠市场获取或用户手工复制；`scripts/deploy.ps1` 只复制 `plugins-samples/`。
 
 ### 9.3 验证口径

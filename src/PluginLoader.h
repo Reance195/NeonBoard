@@ -25,6 +25,8 @@ public:
     /** 扫描到的全部插件条目（含被同 id 覆盖掉的），供插件库区分「已装」与「可安装」 */
     QVariantList candidates() const { return m_candidates; }
     QString pluginDir() const { return m_pluginDir; }
+    /** 四个插件源目录（用户安装区 / 程序目录 / 官方源 / 示例源），供热插拔监视使用 */
+    QStringList sourceDirs() const;
     QStringList disabledPlugins() const;
 
     Q_INVOKABLE void scan();

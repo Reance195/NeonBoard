@@ -25,9 +25,22 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)
-if (-not $repoRoot) { throw '当前目录不是 Git 仓库' }
-$repoRoot = $repoRoot.Trim()
+# 仓库根按**脚本自身路径**定位（脚本位于 <repo>/scripts/），不按调用方当前目录：
+# 否则在锚点区调用 agent worktree 里的脚本，会把锚点误当成本仓库来出包
+$scriptRepoRoot = $null
+if ($PSScriptRoot) {
+    $candidate = Split-Path -Parent $PSScriptRoot
+    if ($candidate -and (Test-Path -LiteralPath (Join-Path $candidate '.git'))) {
+        $scriptRepoRoot = (Resolve-Path -LiteralPath $candidate).Path
+    }
+}
+if ($scriptRepoRoot) {
+    $repoRoot = $scriptRepoRoot
+} else {
+    $repoRoot = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)
+    if (-not $repoRoot) { throw '当前目录不是 Git 仓库' }
+    $repoRoot = $repoRoot.Trim()
+}
 
 $build = Join-Path $repoRoot 'build'
 $dist = Join-Path $repoRoot 'dist'
@@ -61,6 +74,45 @@ $iscc = Resolve-Tool -Name 'ISCC' -EnvVar $env:NEONBOARD_ISCC -Fallbacks @(
     "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
 )
 
+function Invoke-NativeLogged {
+    # 统一跑原生命令：stderr 一律并入日志文件，并且临时放宽 ErrorActionPreference。
+    # MSBuild / ISCC 都会往 stderr 写进度信息，在 ErrorActionPreference=Stop 下
+    # 会把整段输出当成终止性错误，导致出包脚本半路夭折（已踩过）。
+    param(
+        [Parameter(Mandatory)][string]$FilePath,
+        [string[]]$Arguments = @(),
+        [string]$WorkingDirectory = '',
+        [string]$LogPath = ''
+    )
+    if (-not $LogPath) { $LogPath = Join-Path $repoRoot 'build\release-native.log' }
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        if ($WorkingDirectory) {
+            Push-Location -LiteralPath $WorkingDirectory
+        }
+        try {
+            # Tee-Object 会把日志写进成功流，必须再用 Out-Host 吃掉，
+            # 否则函数返回值会变成「日志文本 + 退出码」的数组（已踩过）
+            & $FilePath @Arguments 2>&1 | Tee-Object -FilePath $LogPath | Out-Host
+        } finally {
+            if ($WorkingDirectory) { Pop-Location }
+        }
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+    return $code
+}
+
+function Show-LogTail {
+    param([string]$LogPath, [int]$Lines = 40)
+    if (-not (Test-Path -LiteralPath $LogPath)) { return }
+    Write-Host "· 日志尾部（$LogPath）：" -ForegroundColor DarkGray
+    Get-Content -LiteralPath $LogPath -Tail $Lines -ErrorAction SilentlyContinue |
+        ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+}
+
 # ---- 闸门 1：发布锁 ----
 $workspace = Join-Path $PSScriptRoot 'agent-workspace.ps1'
 & $workspace -Action Claim -Agent $Agent -Scope release -Task "发布出包"
@@ -87,8 +139,15 @@ try {
     # ---- 闸门 4：构建 + 自检 ----
     if (-not $SkipBuild) {
         Write-Host '· 构建 Release ...' -ForegroundColor Cyan
-        & $cmake --build $build --config Release
-        if ($LASTEXITCODE -ne 0) { throw "Release 构建失败：$LASTEXITCODE" }
+        $buildLog = Join-Path $repoRoot 'build\release-build.log'
+        $buildExit = Invoke-NativeLogged -FilePath $cmake `
+            -Arguments @('--build', $build, '--config', 'Release') `
+            -WorkingDirectory $repoRoot -LogPath $buildLog
+        if ($buildExit -ne 0) {
+            Show-LogTail -LogPath $buildLog
+            throw "Release 构建失败：$buildExit"
+        }
+        Write-Host '  构建日志：build\release-build.log' -ForegroundColor DarkGray
     }
 
     $exe = Join-Path $build 'Release\NeonBoard.exe'
@@ -111,8 +170,10 @@ try {
         New-Item -ItemType Directory -Path $selfTestDir -Force | Out-Null
         $env:NEONBOARD_DATA_DIR = $selfTestDir
         $env:NEONBOARD_INSTANCE = "$Agent-release-selftest"
-        & $exe --selftest
-        if ($LASTEXITCODE -ne 0) { throw "自检失败：$LASTEXITCODE" }
+        # 自检 exe 是 GUI 子系统，输出只进日志文件；退出码才是判据
+        $selfTestExit = Invoke-NativeLogged -FilePath $exe -Arguments @('--selftest') `
+            -WorkingDirectory $repoRoot -LogPath (Join-Path $repoRoot 'build\release-selftest.log')
+        if ($selfTestExit -ne 0) { throw "自检失败：$selfTestExit" }
         Remove-Item Env:\NEONBOARD_DATA_DIR -ErrorAction SilentlyContinue
         Remove-Item Env:\NEONBOARD_INSTANCE -ErrorAction SilentlyContinue
     }
@@ -127,8 +188,14 @@ try {
     if (-not $SkipInstaller) {
         if (-not $iscc) { throw '找不到 ISCC（Inno Setup 编译器），可用 -SkipInstaller 跳过安装包' }
         Write-Host '· 编译安装包 ...' -ForegroundColor Cyan
-        & $iscc (Join-Path $repoRoot 'installer\neonboard.iss') "/O$dist"
-        if ($LASTEXITCODE -ne 0) { throw "安装包编译失败：$LASTEXITCODE" }
+        $isccLog = Join-Path $repoRoot 'build\release-iscc.log'
+        $isccExit = Invoke-NativeLogged -FilePath $iscc `
+            -Arguments @((Join-Path $repoRoot 'installer\neonboard.iss'), "/O$dist") `
+            -WorkingDirectory $repoRoot -LogPath $isccLog
+        if ($isccExit -ne 0) {
+            Show-LogTail -LogPath $isccLog
+            throw "安装包编译失败：$isccExit"
+        }
         $setup = Get-ChildItem -LiteralPath $dist -Filter 'NeonBoard-Setup-*.exe' -ErrorAction SilentlyContinue |
                  Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if (-not $setup) { throw '安装包未生成' }

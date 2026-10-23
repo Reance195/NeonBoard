@@ -147,6 +147,7 @@ pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/task-tags -Card
 ```
 
 - 短号必须在 `docs/board-ledger.json` 的 `cards` 里登记过（台账是唯一身份来源）；
+- **领用粒度**：大任务（`R#-#`）可随时领；小任务（`M##`）只有在父任务**尚未被任何人认领**时才允许单独领用——父卡由 `board.db` 的 `task_link` 映射，父卡已被领用则直接拒绝；
 - 登记写法：`claims[<短号>] = {agent, branch, head, claimedAt}`，落在**本 worktree** 的台账副本，随 feature 分支提交；
 - 登记推送前钩子就会投递 `#<短号>=doing`（看板在跑立即生效，不在跑启动时补投递），合并回 `main` 后派生器按台账 claims 派生 `doing`；
 - 派生优先级：**提交信息显式标记 > 领用登记 > baseline**；

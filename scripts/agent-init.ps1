@@ -1,4 +1,4 @@
-<#
+﻿<#
     为某个 agent 创建独立工作区
 
     产出：
@@ -14,6 +14,7 @@
       pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx -Base origin/main
       pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx -Card R3-01
         # -Card <路线图短号>：领用登记 → 台账 claims → 看板卡自动转「进行中」。
+        # 大任务（R#-#）可随时领；小任务（M##）仅当其父任务尚未被任何人认领时才可单独领。
         # 分支头脱离主干的期间内该卡为 doing（派生器按 head 位置判定），
         # 分支合并或丢弃后登记自动失效，收尾用提交标记 #<code>=done。
 #>
@@ -80,7 +81,9 @@ $envContent = @(
 ) -join "`n"
 [System.IO.File]::WriteAllText($envFile, $envContent, (New-Object System.Text.UTF8Encoding($false)))
 
-# ---------- 领用登记（-Card <路线图短号>） ----------
+# ---------- 领用登记（-Card <短号>） ----------
+# 领用规则：大任务（R#-#）直接领；小任务（M##）必须父任务未被任何人认领，
+# 父任务映射取自 board.db 的 task_link（child_id -> parent_id）与台账 cards[].id。
 # 流程：
 #   1) 空提交 `chore(claim): 领取 #<code> 实施任务` —— 信息里的 #<code> 会触发
 #      post-commit 钩子投递（无 = 默认 doing），同时给出分支第一个提交的 head
@@ -94,6 +97,10 @@ if ($Card) {
         throw "领用失败：-Card 需为路线图短号（如 R3-01 / M19），收到：$Card"
     }
 
+    # 子卡领用需要读本地看板的父子边；数据目录优先沙箱变量
+    $boardDataDir = if ($env:NEONBOARD_DATA_DIR) { $env:NEONBOARD_DATA_DIR } else { Join-Path $env:APPDATA 'com.lin\NeonBoard' }
+    $boardDb = Join-Path $boardDataDir 'board.db'
+
     Write-Host ("· 领用 {0}：登记 ↔ 看板卡转「进行中」" -f $code) -ForegroundColor Cyan
     Push-Location $worktree
     try {
@@ -105,17 +112,44 @@ if ($Card) {
         # 2) 校验 + 防双领 + 写本 worktree 台账副本
         $claimPy = Join-Path $env:TEMP ("neonboard-claim-{0}.py" -f $Agent)
         $pySource = @'
-import json, os, subprocess, sys, time
+import json, os, re, sqlite3, subprocess, sys, time
 
 root = os.path.abspath(sys.argv[1])
-code, agent, branch = sys.argv[2], sys.argv[3], sys.argv[4]
+code, agent, branch, board_db = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
 ledger = os.path.join(root, "docs", "board-ledger.json")
 tmp = ledger + ".tmp"
 
 data = json.load(open(ledger, encoding="utf-8"))
-if code not in (data.get("cards") or {}):
+cards = data.get("cards") or {}
+if code not in cards:
     sys.stderr.write("[领用] 台账未登记短号：%s\n" % code)
     sys.exit(2)
+
+# 小任务（M##）只有在父任务未被任何人认领时才允许单独领用
+parent_code = None
+if not re.match(r"^R\d+-\d+$", code):
+    child_id = (cards.get(code) or {}).get("id", "")
+    if not child_id:
+        sys.stderr.write("[领用] 子卡 %s 缺少卡片 id，无法确定父任务，拒绝领用\n" % code)
+        sys.exit(4)
+    if not os.path.exists(board_db):
+        sys.stderr.write("[领用] 无法确定子卡的父任务：board.db 不存在（%s）\n" % board_db)
+        sys.exit(4)
+    try:
+        con = sqlite3.connect("file:%s?mode=ro" % board_db.replace("\\", "/"), uri=True)
+        row = con.execute("SELECT parent_id FROM task_link WHERE child_id = ?", (child_id,)).fetchone()
+        con.close()
+    except sqlite3.Error as exc:
+        sys.stderr.write("[领用] 读取看板父子关系失败：%s\n" % exc)
+        sys.exit(4)
+    if not row:
+        sys.stderr.write("[领用] 子卡 %s 未关联父任务，禁止单独领用\n" % code)
+        sys.exit(4)
+    by_id = {v.get("id", ""): k for k, v in cards.items()}
+    parent_code = by_id.get(row[0], "")
+    if not parent_code:
+        sys.stderr.write("[领用] 子卡 %s 的父任务未在台账登记，禁止单独领用\n" % code)
+        sys.exit(4)
 
 # 防双领：origin/main 与所有远端分支头里的台账，若同短号已被其它分支领用 → 拒绝
 refs = ["origin/main"]
@@ -144,6 +178,26 @@ if taken:
     sys.stderr.write("[领用] 短号 %s 已被其它分支领用：%s\n" % (code, "、".join(taken)))
     sys.exit(3)
 
+if parent_code:
+    parent_taken = []
+    for ref in refs:
+        tree = subprocess.run(
+            ["git", "-C", root, "show", "%s:docs/board-ledger.json" % ref],
+            capture_output=True, check=False)
+        if tree.returncode != 0:
+            continue
+        try:
+            other = json.loads(tree.stdout.decode("utf-8", "replace"))
+        except ValueError:
+            continue
+        claim = (other.get("claims") or {}).get(parent_code)
+        if claim and claim.get("branch") != branch:
+            parent_taken.append("%s@%s" % (parent_code, ref))
+    if parent_taken:
+        sys.stderr.write("[领用] 父任务 %s 已被认领（%s），不能单独领用子卡 %s\n"
+                         % (parent_code, "、".join(parent_taken), code))
+        sys.exit(3)
+
 data.setdefault("claims", {})
 data["claims"][code] = {
     "agent": agent,
@@ -156,11 +210,13 @@ with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
     json.dump(data, fh, indent=4, sort_keys=True, ensure_ascii=False)
     fh.write("\n")
 os.replace(tmp, ledger)
-print("[领用] %s ← %s（%s %s）已登记，合并/放弃分支后自动失效" % (code, branch, agent, ""))
+print("[领用] %s ← %s（%s %s）已登记，合并/放弃分支后自动失效%s"
+      % (code, branch, agent, "",
+         ("，父任务 %s 未被认领" % parent_code) if parent_code else ""))
 '@
         [System.IO.File]::WriteAllText($claimPy, $pySource, (New-Object System.Text.UTF8Encoding($false)))
         try {
-            & python $claimPy $worktree $code $Agent $Branch
+            & python $claimPy $worktree $code $Agent $Branch $boardDb
             if ($LASTEXITCODE -ne 0) { throw "领用登记失败：python 退出码 $LASTEXITCODE" }
         } finally {
             Remove-Item -LiteralPath $claimPy -ErrorAction SilentlyContinue

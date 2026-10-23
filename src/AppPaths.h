@@ -20,4 +20,9 @@ public:
     static QString singleInstanceKey();
     // 当前是否处于沙箱隔离状态
     static bool isolated();
+    // 可执行文件位于 .worktrees/<id>/ 下时返回 <id>，否则返回空：
+    // 用于在忘记设 NEONBOARD_DATA_DIR 时自动落沙箱，避免写脏真实数据
+    static QString worktreeAgentId();
+    // 可执行文件所属 worktree 的绝对路径，不在 worktree 内时返回空
+    static QString worktreeRoot();
 };

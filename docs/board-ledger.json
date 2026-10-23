@@ -311,6 +311,12 @@
             "branch": "feature/task-reminder",
             "claimedAt": 1792750592,
             "head": "c17937d3563803378ad8af268d15009524ed9531"
+        },
+        "R1-02": {
+            "agent": "agent-r1",
+            "branch": "feature/recurring-tasks",
+            "claimedAt": 1792754200,
+            "head": "d79245f6b31e4f6f01616bd0a2499433701a7d9b"
         }
     },
     "version": 1

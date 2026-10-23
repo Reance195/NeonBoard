@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R1-02",
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1793203200,
-            "id": "562f52c5-9119-4c08-8547-85963ec542c6",
-            "note": "存标准 RRULE 字符串，不自造格式，便于日后导出 ICS / 对接 CalDAV。",
-            "orderKey": 2048,
-            "priority": 2,
-            "stage": "R1",
-            "status": "todo",
-            "tags": [
-                "R1"
-            ],
-            "title": "R1 重复任务（RFC 5545 RRULE）",
-            "updatedAt": 1792568900
-        },
-        {
             "code": "R2-01",
             "completedAt": 0,
             "createdAt": 1792568900,
@@ -334,6 +316,24 @@
             ],
             "title": "R1 提醒 + 逾期提醒",
             "updatedAt": 1792754068
+        },
+        {
+            "code": "R1-02",
+            "completedAt": 1792763806,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1793203200,
+            "id": "562f52c5-9119-4c08-8547-85963ec542c6",
+            "note": "存标准 RRULE 字符串，不自造格式，便于日后导出 ICS / 对接 CalDAV。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "R1",
+            "status": "done",
+            "tags": [
+                "R1"
+            ],
+            "title": "R1 重复任务（RFC 5545 RRULE）",
+            "updatedAt": 1792763806
         },
         {
             "code": "R0-03",
@@ -1335,6 +1335,6 @@
             "updatedAt": 1792748226
         }
     ],
-    "updated": "2026-10-23T11:14:28",
+    "updated": "2026-10-23T13:56:46",
     "version": 3
 }

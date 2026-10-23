@@ -259,6 +259,82 @@
             "updatedAt": 1792654081
         },
         {
+            "completedAt": 0,
+            "createdAt": 1792721607,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "50d0ea28-ecbb-4d64-923e-7e2cac57feef",
+            "note": "已发生过的真实事故：旧版程序写回 progress.json 时按『已知字段重建』，把 v3 的 code 字段整片抹掉。方案：RoadmapSync 写回时先从磁盘读旧记录，按 id 合并——不认识的字段原样保留，只覆盖本程序负责的字段；导出时也保留。验收：用旧版 exe 写回后 code 计数不变；--selftest 增加未知字段保留断言。",
+            "orderKey": 36864,
+            "priority": 1,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4",
+                "可靠性",
+                "agent"
+            ],
+            "title": "R4 快照写回防降级：保留未知字段",
+            "updatedAt": 1792721852
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792721607,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "c42ac4b0-4e60-4587-8e7f-5968a6884fb0",
+            "note": "根因：HookEventQueue::poll 一投出即 markDelivered，subscribers==0 也标已投递，插件 ready 前的事件被白发丢弃（必须用常驻实例才能验证就是这个原因）。方案：无订阅者时不置 delivered，保留待投；加最大重试次数与 TTL 防积压，超过上限记为 failed 并记日志。验收：应用启动 1s 内投递的事件在插件 ready（约 20s）后仍被消费；hooks.db delivered 仅在真正投出后为 1。",
+            "orderKey": 37888,
+            "priority": 1,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4",
+                "可靠性",
+                "agent"
+            ],
+            "title": "R4 事件队列不丢事件：无订阅者可重投",
+            "updatedAt": 1792721853
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792721608,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "12092ae2-b98c-4dcf-8914-0e8f697e9c7a",
+            "note": "痛点：cmake 不在 PATH、Qt bin 不注入导致 0xC0000135、configure 首建 142-260s 反复撞 900s 超时、白构建（锚点区 exe 已比 origin/main 新仍重编）。方案：自动定位 VS 内置 cmake、注入 Qt bin 到 PATH、configure/build 走 Start-Process 后台 + 轮询日志输出进度，支持 -SkipIfFresh（比对锚点区 exe mtime 与 origin/main tip）。验收：一条命令产出 Release exe 并跑 --selftest；-SkipIfFresh 时明确跳过并给原因。",
+            "orderKey": 38912,
+            "priority": 1,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4",
+                "工程",
+                "agent"
+            ],
+            "title": "R4 构建脚本封装 scripts/build.ps1",
+            "updatedAt": 1792721853
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792721608,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "72ca7dfd-15f9-4016-84b9-f9220d3655db",
+            "note": "风险：多 agent 并行时同一张卡可能被两个分支同时领用，看板状态互相覆盖。方案：agent-init 的 -Card 改为必填并校验短号在台账存在；扫描所有 worktree 的台账 claims，发现同卡已被其它分支领用直接报错退出；worktree 回收时释放 claim。验收：同卡第二个 worktree 开区被拒并打印占用者。",
+            "orderKey": 39936,
+            "priority": 1,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4",
+                "协作",
+                "agent"
+            ],
+            "title": "R4 工作区防双领：agent-init 强制 -Card",
+            "updatedAt": 1792721853
+        },
+        {
             "code": "R3-01",
             "completedAt": 0,
             "createdAt": 1792568900,
@@ -918,7 +994,7 @@
             "updatedAt": 1792659560
         }
     ],
-    "updated": "2026-10-22T10:18:12",
+    "updated": "2026-10-23T10:17:35",
     "version": 3
 }
 

@@ -73,78 +73,6 @@
             "updatedAt": 1792568900
         },
         {
-            "code": "R3-02",
-            "completedAt": 0,
-            "createdAt": 1792637108,
-            "deleted": false,
-            "dueAt": 1794412799,
-            "id": "edee6194-747d-4f79-9b28-5957039846eb",
-            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件可声明自己的设置页，宿主设置面板自动聚合展示。",
-            "orderKey": 10240,
-            "priority": 2,
-            "stage": "R3",
-            "status": "todo",
-            "tags": [
-                "R3"
-            ],
-            "title": "插件 settings.qml + 设置页声明",
-            "updatedAt": 1792637108
-        },
-        {
-            "code": "R3-03",
-            "completedAt": 0,
-            "createdAt": 1792637108,
-            "deleted": false,
-            "dueAt": 1794412799,
-            "id": "1586cd08-ac57-471d-b178-cbb65874a9b0",
-            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件可注册命令（命令面板 Ctrl+K 调用）与全局快捷键，宿主统一分发与冲突仲裁。",
-            "orderKey": 11264,
-            "priority": 2,
-            "stage": "R3",
-            "status": "todo",
-            "tags": [
-                "R3"
-            ],
-            "title": "插件命令注册 / 快捷键注册",
-            "updatedAt": 1792637108
-        },
-        {
-            "code": "R3-04",
-            "completedAt": 0,
-            "createdAt": 1792637108,
-            "deleted": false,
-            "dueAt": 1794412799,
-            "id": "29bc27fb-a04b-4b0a-9dd7-4ff81be7b657",
-            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件可声明多个挂载槽位，不再只有单一 main.qml 面板。",
-            "orderKey": 12288,
-            "priority": 2,
-            "stage": "R3",
-            "status": "todo",
-            "tags": [
-                "R3"
-            ],
-            "title": "插件多槽位（侧栏 + 底部面板 + 卡片字段）",
-            "updatedAt": 1792637108
-        },
-        {
-            "code": "R3-05",
-            "completedAt": 0,
-            "createdAt": 1792637108,
-            "deleted": false,
-            "dueAt": 1794412799,
-            "id": "51713f83-0c17-4fcc-8290-994c5e04a504",
-            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件无沙箱，安装/首次调用高危权限时弹窗显式授权并标注来源。",
-            "orderKey": 13312,
-            "priority": 2,
-            "stage": "R3",
-            "status": "todo",
-            "tags": [
-                "R3"
-            ],
-            "title": "插件权限授权弹窗与来源提示",
-            "updatedAt": 1792637108
-        },
-        {
             "code": "R4-05",
             "completedAt": 0,
             "createdAt": 1792654081,
@@ -274,7 +202,7 @@
                 "可靠性",
                 "agent"
             ],
-            "title": "R4 快照写回防降级：保留未知字段 #",
+            "title": "R4 快照写回防降级：保留未知字段 # #",
             "updatedAt": 1792721852
         },
         {
@@ -293,7 +221,7 @@
                 "可靠性",
                 "agent"
             ],
-            "title": "R4 事件队列不丢事件：无订阅者可重投 #",
+            "title": "R4 事件队列不丢事件：无订阅者可重投 # #",
             "updatedAt": 1792721853
         },
         {
@@ -312,7 +240,7 @@
                 "工程",
                 "agent"
             ],
-            "title": "R4 构建脚本封装 scripts/build.ps1 #",
+            "title": "R4 构建脚本封装 scripts/build.ps1 # #",
             "updatedAt": 1792721853
         },
         {
@@ -331,26 +259,8 @@
                 "协作",
                 "agent"
             ],
-            "title": "R4 工作区防双领：agent-init 强制 -Card #",
+            "title": "R4 工作区防双领：agent-init 强制 -Card # #",
             "updatedAt": 1792721853
-        },
-        {
-            "code": "R3-01",
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1795536000,
-            "id": "90daab15-2707-4716-b687-0cf0d3320ba1",
-            "note": "已完成：apiVersion 2 双兼容 / 后台常驻插件 / 任务事件总线 / meta 共享配置 + 插件启停与热重载 / 插件库与在线市场（.neon 单文件包 + SHA-256 校验 + 原子安装 + 离线缓存）。待做：settings.qml 与设置页声明、命令与快捷键注册、多槽位、权限授权弹窗与来源提示（已拆为 4 张子卡 #M19-#M22）。",
-            "orderKey": 9216,
-            "priority": 1,
-            "stage": "R3",
-            "status": "doing",
-            "tags": [
-                "R3"
-            ],
-            "title": "R3 插件平台 2.0",
-            "updatedAt": 1792659912
         },
         {
             "code": "R0-01",
@@ -615,6 +525,24 @@
             "updatedAt": 1792577522
         },
         {
+            "code": "R3-01",
+            "completedAt": 1792723371,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1795536000,
+            "id": "90daab15-2707-4716-b687-0cf0d3320ba1",
+            "note": "已完成：apiVersion 2 双兼容 / 后台常驻插件 / 任务事件总线 / meta 共享配置 + 插件启停与热重载 / 插件库与在线市场（.neon 单文件包 + SHA-256 校验 + 原子安装 + 离线缓存）。待做：settings.qml 与设置页声明、命令与快捷键注册、多槽位、权限授权弹窗与来源提示（已拆为 4 张子卡 #M19-#M22）。",
+            "orderKey": 9216,
+            "priority": 1,
+            "stage": "R3",
+            "status": "done",
+            "tags": [
+                "R3"
+            ],
+            "title": "R3 插件平台 2.0",
+            "updatedAt": 1792723371
+        },
+        {
             "code": "M01",
             "completedAt": 1792588621,
             "createdAt": 1792572839,
@@ -632,6 +560,42 @@
             ],
             "title": "PluginContext：每插件 API 门面 + 权限校验",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "R3-02",
+            "completedAt": 1792723371,
+            "createdAt": 1792637108,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "edee6194-747d-4f79-9b28-5957039846eb",
+            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件可声明自己的设置页，宿主设置面板自动聚合展示。",
+            "orderKey": 10240,
+            "priority": 2,
+            "stage": "R3",
+            "status": "done",
+            "tags": [
+                "R3"
+            ],
+            "title": "插件 settings.qml + 设置页声明",
+            "updatedAt": 1792723371
+        },
+        {
+            "code": "R3-03",
+            "completedAt": 1792723371,
+            "createdAt": 1792637108,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "1586cd08-ac57-471d-b178-cbb65874a9b0",
+            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件可注册命令（命令面板 Ctrl+K 调用）与全局快捷键，宿主统一分发与冲突仲裁。",
+            "orderKey": 11264,
+            "priority": 2,
+            "stage": "R3",
+            "status": "done",
+            "tags": [
+                "R3"
+            ],
+            "title": "插件命令注册 / 快捷键注册",
+            "updatedAt": 1792723371
         },
         {
             "code": "M02",
@@ -653,6 +617,24 @@
             "updatedAt": 1792588621
         },
         {
+            "code": "R3-04",
+            "completedAt": 1792723371,
+            "createdAt": 1792637108,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "29bc27fb-a04b-4b0a-9dd7-4ff81be7b657",
+            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件可声明多个挂载槽位，不再只有单一 main.qml 面板。",
+            "orderKey": 12288,
+            "priority": 2,
+            "stage": "R3",
+            "status": "done",
+            "tags": [
+                "R3"
+            ],
+            "title": "插件多槽位（侧栏 + 底部面板 + 卡片字段）",
+            "updatedAt": 1792723371
+        },
+        {
             "code": "M03",
             "completedAt": 1792588621,
             "createdAt": 1792572839,
@@ -670,6 +652,24 @@
             ],
             "title": "PluginEventBus + PluginRuntime：事件总线与后台运行时",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "R3-05",
+            "completedAt": 1792723371,
+            "createdAt": 1792637108,
+            "deleted": false,
+            "dueAt": 1794412799,
+            "id": "51713f83-0c17-4fcc-8290-994c5e04a504",
+            "note": "归属需求：R3 插件平台 2.0（90daab15-2707-4716-b687-0cf0d3320ba1）。插件无沙箱，安装/首次调用高危权限时弹窗显式授权并标注来源。",
+            "orderKey": 13312,
+            "priority": 2,
+            "stage": "R3",
+            "status": "done",
+            "tags": [
+                "R3"
+            ],
+            "title": "插件权限授权弹窗与来源提示",
+            "updatedAt": 1792723371
         },
         {
             "code": "M04",
@@ -994,7 +994,6 @@
             "updatedAt": 1792659560
         }
     ],
-    "updated": "2026-10-23T02:24:52",
+    "updated": "2026-10-23T02:42:51",
     "version": 3
 }
-

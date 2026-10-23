@@ -1,17 +1,43 @@
 #include "AppPaths.h"
 
+#include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QStandardPaths>
 
 namespace {
 const char *kDataDirVar = "NEONBOARD_DATA_DIR";
 const char *kInstanceVar = "NEONBOARD_INSTANCE";
 const char *kBaseInstanceKey = "com.lin.NeonBoard.single-instance";
+const char *kWorktreeMarker = "/.worktrees/";
+}
+
+QString AppPaths::worktreeRoot()
+{
+    static const QString cached = [] {
+        const QString appDir =
+            QDir::fromNativeSeparators(QCoreApplication::applicationDirPath());
+        const int at = appDir.indexOf(QLatin1String(kWorktreeMarker));
+        if (at < 0)
+            return QString();
+        const QString rest = appDir.mid(at + QLatin1String(kWorktreeMarker).size());
+        const int slash = rest.indexOf(QLatin1Char('/'));
+        if (slash <= 0)
+            return QString();
+        return appDir.left(at) + QLatin1String(kWorktreeMarker) + rest.left(slash);
+    }();
+    return cached;
+}
+
+QString AppPaths::worktreeAgentId()
+{
+    const QString root = worktreeRoot();
+    return root.isEmpty() ? QString() : QFileInfo(root).fileName();
 }
 
 bool AppPaths::isolated()
 {
-    return !qEnvironmentVariableIsEmpty(kDataDirVar);
+    return !qEnvironmentVariableIsEmpty(kDataDirVar) || !worktreeRoot().isEmpty();
 }
 
 QString AppPaths::dataDir()
@@ -19,6 +45,14 @@ QString AppPaths::dataDir()
     const QString override = qEnvironmentVariable(kDataDirVar);
     if (!override.isEmpty()) {
         const QString dir = QDir::fromNativeSeparators(override);
+        QDir().mkpath(dir);
+        return dir;
+    }
+    // 护栏：worktree 里的可执行文件默认落自己的 .sandbox，
+    // 避免忘记设 NEONBOARD_DATA_DIR 时把测试任务写进真实数据目录。
+    const QString worktree = worktreeRoot();
+    if (!worktree.isEmpty()) {
+        const QString dir = worktree + QStringLiteral("/.sandbox");
         QDir().mkpath(dir);
         return dir;
     }
@@ -46,7 +80,9 @@ QString AppPaths::hookDbPath()
 QString AppPaths::singleInstanceKey()
 {
     QString key = QString::fromLatin1(kBaseInstanceKey);
-    const QString suffix = qEnvironmentVariable(kInstanceVar);
+    QString suffix = qEnvironmentVariable(kInstanceVar);
+    if (suffix.isEmpty())
+        suffix = worktreeAgentId();
     if (!suffix.isEmpty()) {
         key += QLatin1Char('.');
         key += suffix;

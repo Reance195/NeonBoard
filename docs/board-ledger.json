@@ -300,9 +300,17 @@
         },
         "R4-08": {
             "id": "6067b32f-68b8-4b07-a63b-d8ad54fd153d",
+            "note": "已完成 0 / 待做：Ninja 构建器接入、编译缓存（sccache/ccache）、Defender 排除 build 目录、Main.qml 拆分；保留 QML 预编译不动（启动速度优先）。",
             "stage": "R4",
-            "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分",
-            "note": "已完成 0 / 待做：Ninja 构建器接入、编译缓存（sccache/ccache）、Defender 排除 build 目录、Main.qml 拆分；保留 QML 预编译不动（启动速度优先）。"
+            "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分"
+        }
+    },
+    "claims": {
+        "R1-01": {
+            "agent": "agent-r1",
+            "branch": "feature/task-reminder",
+            "claimedAt": 1792750592,
+            "head": "c17937d3563803378ad8af268d15009524ed9531"
         }
     },
     "version": 1

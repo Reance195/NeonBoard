@@ -127,6 +127,20 @@ bool Database::open(QString *error)
         return false;
     }
 
+    // 任务附加属性侧表（提醒 / 重复）：独立表，不往 task 表加列、不升 user_version，
+    // 老版本程序开同一个库也不受影响（认不出这张表而已）。
+    // rrule 列为重复任务（RFC 5545 RRULE）预留，提醒功能只读写 remind_at / notified_at。
+    if (!exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS task_extra ("
+            "  task_id TEXT PRIMARY KEY,"
+            "  remind_at INTEGER NOT NULL DEFAULT 0,"
+            "  notified_at INTEGER NOT NULL DEFAULT 0,"
+            "  rrule TEXT NOT NULL DEFAULT '',"
+            "  created_at INTEGER NOT NULL DEFAULT 0"
+            ")"), error)) {
+        return false;
+    }
+
     refreshStats();
     return true;
 }

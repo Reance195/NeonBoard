@@ -18,7 +18,9 @@
 #include "TaskFilterModel.h"
 #include "TaskModel.h"
 #include "TaskTree.h"
+#include "TaskExtra.h"
 #include "TaskUndo.h"
+#include "ReminderScheduler.h"
 #include "TrayController.h"
 #include "UiSettings.h"
 #include "WindowController.h"
@@ -193,6 +195,9 @@ int main(int argc, char *argv[])
 
     // 主任务 / 子任务关联（边表 task_link，不动 task 表结构）
     TaskTree taskTree(&database, &taskStore);
+
+    // 任务附加属性（提醒 / 重复）：侧表 task_extra，不动 task 表结构
+    TaskExtra taskExtra(&database, &taskStore);
 
     // 路线图快照同步：仓库 progress.json ↔ 本地看板
     RoadmapSync roadmap(&database, &taskStore);
@@ -428,6 +433,21 @@ int main(int argc, char *argv[])
         qInfo() << "SELFTEST restore" << restoredId << taskStore.taskById(id).value("status").toString();
         ok = restoredId == id
              && taskStore.taskById(id).value("status").toString() == QStringLiteral("doing") && ok;
+        // 任务附加属性：设提醒 → 读回 → 标记已通知 → 清提醒 → 删任务清行
+        const QString extraId = taskStore.addTask(QStringLiteral("selftest-extra"), QStringLiteral("todo"), 1, QString(), 0);
+        ok = taskExtra.setReminder(extraId, QDateTime::currentSecsSinceEpoch() + 3600) && ok;
+        {
+            const QVariantMap extra = taskExtra.extraOf(extraId);
+            ok = extra.value("remindAt").toLongLong() > 0
+                 && extra.value("notifiedAt").toLongLong() == 0 && ok;
+        }
+        ok = taskExtra.markNotified(extraId) && ok;
+        ok = taskExtra.extraOf(extraId).value("notifiedAt").toLongLong() > 0 && ok;
+        ok = taskExtra.setReminder(extraId, 0) && ok;
+        ok = taskExtra.extraOf(extraId).value("remindAt").toLongLong() == 0 && ok;
+        taskStore.deleteTask(extraId);
+        ok = taskExtra.extraOf(extraId).value("remindAt").toLongLong() == 0 && ok;  // 删任务要清行
+        qInfo() << "SELFTEST extra" << taskExtra.revision();
         ok = taskStore.deleteTask(id) && ok;
         qInfo() << "SELFTEST result" << (ok ? "OK" : "FAIL") << "remaining" << taskStore.count();
         return ok ? 0 : 2;
@@ -478,6 +498,8 @@ int main(int argc, char *argv[])
     WindowController windowController;
     Hotkey hotkey;
     TrayController tray;
+    // 提醒调度器：30s 轮询，托盘通知 + 窗口辉光；启动后先查一轮补发漏提醒
+    ReminderScheduler reminderScheduler(&taskExtra, &tray);
     PluginLoader pluginLoader(&database);
     PluginEventBus pluginEventBus;
     PluginRuntime pluginRuntime(&pluginLoader, &pluginEventBus, &database, &taskStore, &tray);
@@ -738,6 +760,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskStore"), &taskStore);
     engine.rootContext()->setContextProperty(QStringLiteral("taskUndo"), &taskUndo);
     engine.rootContext()->setContextProperty(QStringLiteral("taskTree"), &taskTree);
+    engine.rootContext()->setContextProperty(QStringLiteral("taskExtra"), &taskExtra);
+    engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);
     engine.rootContext()->setContextProperty(QStringLiteral("todoModel"), &todoModel);
     engine.rootContext()->setContextProperty(QStringLiteral("doingModel"), &doingModel);
     engine.rootContext()->setContextProperty(QStringLiteral("doneModel"), &doneModel);
@@ -812,6 +836,8 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     metrics.markWindow(window);
     windowController.attach(window);
     hotkey.install(window);
+    // 窗口就绪后再启动提醒调度：首查补发漏提醒时 QML 辉光已能接住信号
+    reminderScheduler.start(30000);
     qInfo() << "BOOT attached" << boot.elapsed();
     splashStage(0.95, QStringLiteral("FINALIZING"), 40);
 

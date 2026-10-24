@@ -96,11 +96,29 @@ void TrayController::showMessage(const QString &title, const QString &body)
 void TrayController::setInstanceLabel(const QString &label)
 {
     m_instanceLabel = label.trimmed();
-    const QString title = m_instanceLabel.isEmpty() ? QStringLiteral("NeonBoard") : m_instanceLabel;
-    if (m_tray)
-        m_tray->setToolTip(title);
+    m_baseTitle = m_instanceLabel.isEmpty() ? QStringLiteral("NeonBoard") : m_instanceLabel;
+    applyTooltip();
     if (m_showAction)
-        m_showAction->setText(QStringLiteral("显示 %1").arg(title));
+        m_showAction->setText(QStringLiteral("显示 %1").arg(m_baseTitle));
+}
+
+void TrayController::setFocusRemaining(int seconds)
+{
+    m_focusRemaining = qMax(0, seconds);
+    applyTooltip();
+}
+
+void TrayController::applyTooltip()
+{
+    if (!m_tray)
+        return;
+    QString tip = m_baseTitle;
+    if (m_focusRemaining > 0) {
+        tip += QStringLiteral(" · 专注 %1:%2")
+                   .arg(m_focusRemaining / 60, 2, 10, QChar('0'))
+                   .arg(m_focusRemaining % 60, 2, 10, QChar('0'));
+    }
+    m_tray->setToolTip(tip);
 }
 
 bool TrayController::isAutostart() const

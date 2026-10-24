@@ -18,6 +18,7 @@
 #include "TaskFilterModel.h"
 #include "TaskModel.h"
 #include "TaskTree.h"
+#include "TaskStats.h"
 #include "TaskExtra.h"
 #include "TaskUndo.h"
 #include "ReminderScheduler.h"
@@ -196,6 +197,9 @@ int main(int argc, char *argv[])
 
     // 主任务 / 子任务关联（边表 task_link，不动 task 表结构）
     TaskTree taskTree(&database, &taskStore);
+
+    // 完成统计（热力图 / 连续天数 / 周吞吐）：只读任务表，不建新表
+    TaskStats taskStats(&database, &taskStore);
 
     // 任务附加属性（提醒 / 重复）：侧表 task_extra，不动 task 表结构
     TaskExtra taskExtra(&database, &taskStore);
@@ -807,6 +811,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskStore"), &taskStore);
     engine.rootContext()->setContextProperty(QStringLiteral("taskUndo"), &taskUndo);
     engine.rootContext()->setContextProperty(QStringLiteral("taskTree"), &taskTree);
+    engine.rootContext()->setContextProperty(QStringLiteral("taskStats"), &taskStats);
     engine.rootContext()->setContextProperty(QStringLiteral("taskExtra"), &taskExtra);
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);
     engine.rootContext()->setContextProperty(QStringLiteral("todoModel"), &todoModel);

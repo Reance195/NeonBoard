@@ -18,6 +18,8 @@ public:
     void showMessage(const QString &title, const QString &body);
     // 实例标签（多预览实例并行时用于区分托盘项）
     void setInstanceLabel(const QString &label);
+    // 专注倒计时：秒数 <= 0 表示结束，恢复基础 tooltip
+    Q_INVOKABLE void setFocusRemaining(int seconds);
 
     Q_INVOKABLE bool isAutostart() const;
     Q_INVOKABLE void setAutostart(bool enabled);
@@ -31,6 +33,7 @@ signals:
 
 private:
     void refreshAutostartAction();
+    void applyTooltip();
 
     bool m_headless = false;
     QSystemTrayIcon *m_tray = nullptr;
@@ -40,4 +43,6 @@ private:
     QAction *m_statsAction = nullptr;
     QAction *m_autostartAction = nullptr;
     QString m_instanceLabel;
+    QString m_baseTitle = QStringLiteral("NeonBoard");
+    int m_focusRemaining = 0;
 };

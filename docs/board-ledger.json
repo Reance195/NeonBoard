@@ -318,6 +318,12 @@
             "claimedAt": 1792754200,
             "head": "d79245f6b31e4f6f01616bd0a2499433701a7d9b"
         },
+        "R2-01": {
+            "agent": "agent-r2b",
+            "branch": "feature/focus-stats",
+            "claimedAt": 1792845356,
+            "head": "53705cdf391e951287dfffea5923975c552cba48"
+        },
         "R2-02": {
             "agent": "agent-r2",
             "branch": "feature/shader-scene",

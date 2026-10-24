@@ -33,6 +33,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QFont>
 #include <QFontDatabase>
 #include <QFontMetrics>
@@ -48,7 +49,10 @@
 #include <QQuickWindow>
 #include <QScreen>
 #include <QSettings>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QStringConverter>
+#include <QTemporaryDir>
 #include <QTextStream>
 #include <QTimer>
 #include <QUrl>
@@ -188,6 +192,13 @@ int main(int argc, char *argv[])
         return 1;
     }
     qInfo().noquote() << "Database:" << database.path();
+    if (database.recoveredFromCorruption() && !utilityMode) {
+        QMessageBox::warning(nullptr,
+                             QStringLiteral("NeonBoard"),
+                             QStringLiteral("看板数据库文件损坏，已重建空库。\n"
+                                            "原文件已备份到：\n%1\n\n原因：%2")
+                                 .arg(database.recoveryBackup(), database.recoveryReason()));
+    }
     qInfo() << "BOOT db" << boot.elapsed();
     splashStage(0.36, QStringLiteral("OPENING LOCAL STORE"), 70);
 
@@ -575,6 +586,70 @@ int main(int argc, char *argv[])
             ok = pending == 1 && ok;
         }
         ok = taskStore.deleteTask(id) && ok;
+        // 数据可靠性：WAL 生效 + quick_check + 旧库迁移 + 损坏库自动备份重建
+        {
+            QSqlDatabase conn = QSqlDatabase::database(database.connectionName());
+            QSqlQuery walQuery(conn);
+            ok = walQuery.exec(QStringLiteral("PRAGMA journal_mode")) && walQuery.next()
+                 && walQuery.value(0).toString().compare(QStringLiteral("wal"), Qt::CaseInsensitive) == 0
+                 && ok;
+            QSqlQuery checkQuery(conn);
+            ok = checkQuery.exec(QStringLiteral("PRAGMA quick_check")) && checkQuery.next()
+                 && checkQuery.value(0).toString().compare(QStringLiteral("ok"), Qt::CaseInsensitive) == 0
+                 && ok;
+            qInfo() << "SELFTEST integrity" << (ok ? "OK" : "FAIL");
+        }
+        {
+            QTemporaryDir tmp;
+            ok = tmp.isValid() && ok;
+            if (tmp.isValid()) {
+                // 旧库迁移：user_version=0（早期版本）的库要能升到 1，且已有 meta 数据保留
+                const QString legacyPath = tmp.filePath(QStringLiteral("legacy.db"));
+                {
+                    QSqlDatabase legacy = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                                                    QStringLiteral("selftest_legacy"));
+                    legacy.setDatabaseName(legacyPath);
+                    ok = legacy.open() && ok;
+                    QSqlQuery query(legacy);
+                    ok = query.exec(QStringLiteral(
+                             "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")) && ok;
+                    ok = query.exec(QStringLiteral(
+                             "INSERT INTO meta (key, value) VALUES ('legacy', '1')")) && ok;
+                    legacy.close();
+                }
+                QSqlDatabase::removeDatabase(QStringLiteral("selftest_legacy"));
+
+                Database migrated;
+                QString migrateError;
+                ok = migrated.open(&migrateError, legacyPath) && ok;
+                ok = migrated.metaValue(QStringLiteral("legacy")) == QStringLiteral("1") && ok;
+                ok = migrated.setMetaValue(QStringLiteral("after"), QStringLiteral("ok"))
+                     && migrated.metaValue(QStringLiteral("after")) == QStringLiteral("ok") && ok;
+                qInfo() << "SELFTEST migrate" << (ok ? "OK" : "FAIL") << migrateError;
+            }
+        }
+        {
+            QTemporaryDir tmp;
+            ok = tmp.isValid() && ok;
+            if (tmp.isValid()) {
+                const QString badPath = tmp.filePath(QStringLiteral("bad.db"));
+                QFile bad(badPath);
+                ok = bad.open(QIODevice::WriteOnly) && ok;
+                bad.write(QByteArray(4096, '\x5A'));
+                bad.close();
+
+                Database recovered;
+                QString recoverError;
+                ok = recovered.open(&recoverError, badPath) && ok;
+                ok = recovered.recoveredFromCorruption() && ok;
+                ok = QFileInfo::exists(recovered.recoveryBackup()) && ok;
+                ok = !recovered.recoveryReason().isEmpty() && ok;
+                ok = recovered.setMetaValue(QStringLiteral("probe"), QStringLiteral("1"))
+                     && recovered.metaValue(QStringLiteral("probe")) == QStringLiteral("1") && ok;
+                qInfo() << "SELFTEST recover" << (ok ? "OK" : "FAIL")
+                        << recovered.recoveryBackup() << recoverError;
+            }
+        }
         qInfo() << "SELFTEST result" << (ok ? "OK" : "FAIL") << "remaining" << taskStore.count();
         return ok ? 0 : 2;
     }

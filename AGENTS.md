@@ -22,7 +22,13 @@ NeonBoard 是赛博霓虹风格的三列个人任务看板。
   | `scripts/` | 构建部署脚本与 Git 助手脚本 |
   | `docs/` | 设计文档、截图、插件 API 文档 |
 
-- 构建命令：
+- 构建命令（推荐走一键脚本，自动探测 CMake 与 Qt）：
+
+  ```powershell
+  pwsh -File scripts/build.ps1 -SelfTest
+  ```
+
+  等价手敲命令：
 
   ```powershell
   cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `

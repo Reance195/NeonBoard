@@ -130,6 +130,19 @@ pwsh -File scripts/release.ps1                                          # 五道
 
 依赖：Qt 6.8.3 MSVC 2022 x64、Visual Studio 2022 BuildTools、CMake 3.21+。
 
+一键构建（自动探测 CMake 与 Qt，可选构建后自检）：
+
+```powershell
+pwsh -File scripts/build.ps1              # Release 构建
+pwsh -File scripts/build.ps1 -SelfTest    # 构建后跑 --selftest（沙箱数据目录）
+pwsh -File scripts/build.ps1 -Config Debug -Clean
+```
+
+常用参数：`-QtRoot <路径>` 指定 Qt、`-BuildDir` 换输出目录、`-Reconfigure` 强制重新配置、
+`-Jobs N` 限制并行度、`-Target NeonBoardHost` 只构建子目标。
+
+手敲等价命令：
+
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
   -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64

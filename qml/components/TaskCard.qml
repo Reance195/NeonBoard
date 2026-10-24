@@ -49,8 +49,10 @@ Rectangle {
     property real overduePulse: 0
     property real enterOpacity: 0    // 进场淡入，拖起时再整体压暗
     property bool highlight: false   // 命令面板跳转定位时高亮
+    property bool selected: false    // 键盘导航选中态（描边 + 左侧指示条）
 
     signal editRequested()
+    signal selectionRequested()
     signal completeRequested()
     signal restoreRequested()
     signal startRequested()
@@ -62,8 +64,10 @@ Rectangle {
     height: 82 + card.cardSlotExtra
     radius: 12
     color: cardMouse.containsMouse ? Theme.cardHover : Theme.card
-    border.width: card.highlight ? 2 : 1
+    border.width: (card.selected || card.highlight) ? 2 : 1
     border.color: {
+        if (card.selected)
+            return Theme.cyan
         if (card.highlight)
             return Theme.cyan
         if (card.glitching)
@@ -94,6 +98,47 @@ Rectangle {
     }
 
     Component.onCompleted: card.enterOpacity = 1
+
+    // ---------- 无障碍 ----------
+    // 读屏软件按「列表项」朗读卡片；键盘选中态同步给辅助技术
+    Accessible.role: Accessible.ListItem
+    Accessible.name: card.title.length > 0 ? card.title : "未命名任务"
+    Accessible.description: {
+        var parts = []
+        parts.push(card.taskStatus === "done" ? "已完成" : (card.taskStatus === "doing" ? "进行中" : "待办"))
+        if (card.priority >= 3)
+            parts.push("高优先级")
+        else if (card.priority === 2)
+            parts.push("中优先级")
+        if (card.due.length > 0)
+            parts.push("到期 " + card.due)
+        if (card.tag.length > 0)
+            parts.push("标签 " + card.tag)
+        return parts.join("，")
+    }
+    Accessible.focusable: true
+    Accessible.selectable: true
+    Accessible.selected: card.selected
+    Accessible.onPressAction: card.editRequested()
+
+    // 键盘选中指示条：左缘霓虹竖线
+    Rectangle {
+        z: 10
+        width: 3
+        radius: 2
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.topMargin: 9
+        anchors.bottomMargin: 9
+        color: Theme.cyan
+        opacity: card.selected ? 1 : 0
+        visible: opacity > 0.01
+
+        Behavior on opacity {
+            NumberAnimation { duration: Motion.fast }
+        }
+    }
 
     // 进场：从右侧滑入并淡入（新建与撤销恢复共用）
     NumberAnimation on offsetX {
@@ -450,7 +495,11 @@ Rectangle {
         hoverEnabled: true
         enabled: !card.busy
         cursorShape: dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
-        onDoubleClicked: card.editRequested()
+            onDoubleClicked: card.editRequested()
+            onClicked: {
+                if (!dragging)
+                    card.selectionRequested()
+            }
 
         property point pressPoint
         property bool dragging: false

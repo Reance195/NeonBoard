@@ -34,6 +34,115 @@ Rectangle {
 
     property string highlightId: ""
 
+    // 键盘导航：当前列内选中的任务 id（空表示未选中）
+    property string selectedId: ""
+    // 列序号（Main.qml 注入，左右键切换列时使用）
+    property int columnIndex: 0
+
+    signal selectionChanged(string taskId)
+    signal columnMoveRequested(int targetIndex)
+
+    function taskIds() {
+        return taskStore.taskIdsInStatus(column.status)
+    }
+
+    function focusList() {
+        list.forceActiveFocus()
+    }
+
+    function selectId(taskId) {
+        if (column.selectedId === taskId)
+            return
+        column.selectedId = taskId
+        column.selectionChanged(taskId)
+        var ids = column.taskIds()
+        var idx = ids.indexOf(taskId)
+        if (idx >= 0)
+            list.positionViewAtIndex(idx, ListView.Contain)
+    }
+
+    function selectFirst() {
+        var ids = column.taskIds()
+        if (ids.length === 0) {
+            column.selectedId = ""
+            column.selectionChanged("")
+            return
+        }
+        var target = (column.selectedId.length > 0 && ids.indexOf(column.selectedId) >= 0)
+                   ? column.selectedId : ids[0]
+        column.selectId(target)
+    }
+
+    function selectByOffset(delta) {
+        var ids = column.taskIds()
+        if (ids.length === 0) {
+            column.selectedId = ""
+            column.selectionChanged("")
+            return
+        }
+        var idx = ids.indexOf(column.selectedId)
+        if (idx < 0)
+            idx = delta > 0 ? -1 : 0
+        idx = Math.max(0, Math.min(ids.length - 1, idx + delta))
+        column.selectId(ids[idx])
+    }
+
+    // 列内键盘：上下选卡、回车编辑、空格完成/恢复、Delete 删除、Esc 取消选中
+    function handleKey(event) {
+        if (column.selectedId.length === 0 && event.key === Qt.Key_Down) {
+            column.selectFirst()
+            event.accepted = true
+            return
+        }
+        switch (event.key) {
+        case Qt.Key_Down:
+            column.selectByOffset(1)
+            event.accepted = true
+            break
+        case Qt.Key_Up:
+            column.selectByOffset(-1)
+            event.accepted = true
+            break
+        case Qt.Key_Left:
+            column.columnMoveRequested(column.columnIndex - 1)
+            event.accepted = true
+            break
+        case Qt.Key_Right:
+            column.columnMoveRequested(column.columnIndex + 1)
+            event.accepted = true
+            break
+        case Qt.Key_Return:
+        case Qt.Key_Enter:
+            if (column.selectedId.length > 0) {
+                column.editRequested(column.selectedId)
+                event.accepted = true
+            }
+            break
+        case Qt.Key_Space:
+            if (column.selectedId.length > 0) {
+                if (column.status === "done")
+                    column.restoreRequested(column.selectedId)
+                else
+                    column.completeRequested(column.selectedId)
+                event.accepted = true
+            }
+            break
+        case Qt.Key_Delete:
+            if (column.selectedId.length > 0) {
+                column.deleteRequested(column.selectedId)
+                event.accepted = true
+            }
+            break
+        case Qt.Key_Escape:
+            if (column.selectedId.length > 0) {
+                column.selectedId = ""
+                column.selectionChanged("")
+                event.accepted = true
+            }
+            break
+        }
+    }
+
     function flashTask(taskId) {
         highlightId = taskId
         for (var i = 0; i < list.count; i++) {
@@ -81,6 +190,17 @@ Rectangle {
         id: highlightTimer
         interval: 1800
         onTriggered: column.highlightId = ""
+    }
+
+    // 选中卡片被删除或移出本列后，清空选中态，避免指示条悬空
+    Connections {
+        target: column.taskModel
+        function onCountChanged() {
+            if (column.selectedId.length > 0 && column.taskIds().indexOf(column.selectedId) < 0) {
+                column.selectedId = ""
+                column.selectionChanged("")
+            }
+        }
     }
 
     // 拖入呼吸：仅在被拖拽悬停时循环
@@ -236,17 +356,25 @@ Rectangle {
                 spacing: 8
                 boundsBehavior: Flickable.StopAtBounds
                 model: column.taskModel
+                activeFocusOnTab: true
+                Keys.onPressed: function(event) { column.handleKey(event) }
+
+                Accessible.role: Accessible.List
+                Accessible.name: column.title + "列，共 " + (column.taskModel ? column.taskModel.count : 0) + " 个任务"
+                Accessible.description: "用上下方向键选择任务，回车编辑，空格完成，Delete 删除"
 
                 delegate: TaskCard {
                     width: list.width
                     title: model.title
                     highlight: column.highlightId === model.id
+                    selected: column.selectedId === model.id
                     tag: model.tag
                     priority: model.priority
                     due: model.due
                     taskId: model.id
                     taskStatus: model.status
                     dragSpace: column.dragSpace
+                    onSelectionRequested: column.selectId(model.id)
                     onEditRequested: column.editRequested(model.id)
                     onStartRequested: column.startRequested(model.id)
                     onCompleteRequested: column.completeRequested(model.id)

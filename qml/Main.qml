@@ -98,6 +98,17 @@ ApplicationWindow {
         }
     }
 
+    // 键盘导航：把焦点交给指定列并选中首张卡（左右方向键跨列）
+    function focusColumn(targetIndex) {
+        var cols = [todoColumn, doingColumn, doneColumn]
+        var i = Math.max(0, Math.min(cols.length - 1, targetIndex))
+        var target = cols[i]
+        if (!target)
+            return
+        target.focusList()
+        target.selectFirst()
+    }
+
     // 面板互斥：同一时刻只保留一个浮层，避免外观/插件/设置面板叠在一起
     function closeAllPanels() {
         themePicker.open = false
@@ -494,6 +505,22 @@ ApplicationWindow {
     Shortcut {
         sequence: "Ctrl+Shift+F"
         onActivated: window.toggleFocusMode()
+    }
+
+    // 键盘导航入口：Alt+1/2/3 聚焦对应列，随后上下选卡、左右跨列
+    Shortcut {
+        sequence: "Alt+1"
+        onActivated: window.focusColumn(0)
+    }
+
+    Shortcut {
+        sequence: "Alt+2"
+        onActivated: window.focusColumn(1)
+    }
+
+    Shortcut {
+        sequence: "Alt+3"
+        onActivated: window.focusColumn(2)
     }
 
     // 插件快捷键：manifest 声明，宿主统一仲裁；冲突的已被插件运行时置空
@@ -1140,6 +1167,8 @@ MouseArea {
 
                     BoardColumn {
                         id: todoColumn
+                        columnIndex: 0
+                        onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
                         title: "待办"
                         accent: Theme.cyan
                         status: "todo"
@@ -1161,6 +1190,8 @@ MouseArea {
                     BoardColumn {
                         title: "进行中"
                         id: doingColumn
+                        columnIndex: 1
+                        onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
                         accent: Theme.violet
                         status: "doing"
                         taskModel: doingModel
@@ -1181,6 +1212,8 @@ MouseArea {
                     BoardColumn {
                         title: "已办结"
                         id: doneColumn
+                        columnIndex: 2
+                        onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
                         accent: Theme.magenta
                         status: "done"
                         taskModel: doneModel

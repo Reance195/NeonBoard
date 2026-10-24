@@ -2,46 +2,175 @@
 
 #include "AppPaths.h"
 
+#include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QUuid>
+
+// SQLite 文件头固定为 "SQLite format 3\0"；随机字节 / 空文件不满足，用于区分
+//「文件坏了」和「打不开但文件还在」（后者可能是权限问题，不能擅自动备份）。
+static bool hasSqliteHeader(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return false;
+    const QByteArray header = file.read(16);
+    return header == QByteArrayLiteral("SQLite format 3\0");
+}
 
 Database::Database(QObject *parent)
     : QObject(parent)
-    , m_connectionName(QStringLiteral("neonboard"))
 {
 }
 
 Database::~Database()
 {
+    closeConnection();
+}
+
+void Database::closeConnection()
+{
     if (m_db.isOpen())
         m_db.close();
     m_db = QSqlDatabase();
-    QSqlDatabase::removeDatabase(m_connectionName);
+    if (!m_connectionName.isEmpty()) {
+        QSqlDatabase::removeDatabase(m_connectionName);
+        m_connectionName.clear();
+    }
 }
 
-bool Database::open(QString *error)
+bool Database::openConnection(QString *error)
 {
-    const QString dir = AppPaths::dataDir();
-    if (dir.isEmpty()) {
-        if (error)
-            *error = QStringLiteral("无法获取应用数据目录");
-        return false;
+    // 连接名唯一：自检 / 测试可能同时开多个库，固定名会互相顶掉。
+    if (m_connectionName.isEmpty()) {
+        m_connectionName = QStringLiteral("neonboard_")
+            + QUuid::createUuid().toString(QUuid::WithoutBraces);
     }
-    if (!QDir().mkpath(dir)) {
-        if (error)
-            *error = QStringLiteral("无法创建目录：%1").arg(dir);
-        return false;
-    }
-
-    m_path = dir + QStringLiteral("/board.db");
     m_db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), m_connectionName);
     m_db.setDatabaseName(m_path);
     if (!m_db.open()) {
         if (error)
             *error = m_db.lastError().text();
         return false;
+    }
+    return true;
+}
+
+bool Database::integrityOk(QString *reason) const
+{
+    if (!m_db.isOpen())
+        return false;
+
+    QSqlQuery query(m_db);
+    if (!query.exec(QStringLiteral("PRAGMA quick_check")) || !query.next()) {
+        if (reason)
+            *reason = query.lastError().text();
+        return false;
+    }
+    const QString result = query.value(0).toString();
+    if (result.compare(QStringLiteral("ok"), Qt::CaseInsensitive) != 0) {
+        if (reason)
+            *reason = result;
+        return false;
+    }
+    return true;
+}
+
+bool Database::recoverCorrupt(const QString &reason, QString *error)
+{
+    closeConnection();
+
+    const QString stamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss"));
+    QString backup = m_path + QStringLiteral(".corrupt-") + stamp;
+    int attempt = 1;
+    while (QFile::exists(backup))
+        backup = m_path + QStringLiteral(".corrupt-") + stamp + QLatin1Char('-')
+            + QString::number(attempt++);
+
+    if (!QFile::rename(m_path, backup)) {
+        if (error)
+            *error = QStringLiteral("数据库已损坏，且备份到 %1 失败").arg(backup);
+        return false;
+    }
+    // WAL 边车文件跟随主库一起挪走，否则新库会读进旧的 WAL 内容。
+    for (const char *suffix : {"-wal", "-shm"}) {
+        const QString sidecar = m_path + QLatin1String(suffix);
+        if (QFile::exists(sidecar))
+            QFile::rename(sidecar, backup + QLatin1String(suffix));
+    }
+
+    if (!openConnection(error))
+        return false;
+
+    m_recovered = true;
+    m_recoveryBackup = backup;
+    m_recoveryReason = reason;
+    qWarning().noquote() << "Database: corrupted file backed up to" << backup
+                         << "reason:" << reason;
+    return true;
+}
+
+bool Database::open(QString *error, const QString &pathOverride)
+{
+    closeConnection();
+    m_recovered = false;
+    m_recoveryBackup.clear();
+    m_recoveryReason.clear();
+
+    QString path = pathOverride;
+    if (path.isEmpty()) {
+        const QString dir = AppPaths::dataDir();
+        if (dir.isEmpty()) {
+            if (error)
+                *error = QStringLiteral("无法获取应用数据目录");
+            return false;
+        }
+        if (!QDir().mkpath(dir)) {
+            if (error)
+                *error = QStringLiteral("无法创建目录：%1").arg(dir);
+            return false;
+        }
+        path = dir + QStringLiteral("/board.db");
+    } else {
+        path = QFileInfo(path).absoluteFilePath();
+        const QString dir = QFileInfo(path).absolutePath();
+        if (!QDir().mkpath(dir)) {
+            if (error)
+                *error = QStringLiteral("无法创建目录：%1").arg(dir);
+            return false;
+        }
+    }
+
+    m_path = path;
+    const bool existed = QFileInfo::exists(m_path);
+
+    QString openError;
+    bool opened = openConnection(&openError);
+    QString integrityReason;
+    if (opened && !integrityOk(&integrityReason)) {
+        closeConnection();
+        opened = false;
+        openError = integrityReason;
+    }
+
+    if (!opened) {
+        if (!existed || !hasSqliteHeader(m_path)) {
+            // 新库打不开 = 环境问题；文件还在但不认识 = 损坏，两种情况分开处理。
+            if (existed && !hasSqliteHeader(m_path)) {
+                if (!recoverCorrupt(openError, error))
+                    return false;
+            } else {
+                if (error)
+                    *error = openError;
+                return false;
+            }
+        } else if (!recoverCorrupt(openError, error)) {
+            return false;
+        }
     }
 
     if (!execQuery(QStringLiteral("PRAGMA journal_mode=WAL"), error))
@@ -139,6 +268,13 @@ bool Database::open(QString *error)
             "  created_at INTEGER NOT NULL DEFAULT 0"
             ")"), error)) {
         return false;
+    }
+
+    if (m_recovered) {
+        setMetaValue(QStringLiteral("db.recovered_at"),
+                     QString::number(QDateTime::currentSecsSinceEpoch()));
+        setMetaValue(QStringLiteral("db.recovered_backup"), m_recoveryBackup);
+        setMetaValue(QStringLiteral("db.recovered_reason"), m_recoveryReason);
     }
 
     refreshStats();

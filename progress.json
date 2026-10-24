@@ -165,7 +165,7 @@
                 "可靠性",
                 "agent"
             ],
-            "title": "R4 快照写回防降级：保留未知字段 #",
+            "title": "R4 快照写回防降级：保留未知字段",
             "updatedAt": 1792721852
         },
         {
@@ -184,7 +184,7 @@
                 "可靠性",
                 "agent"
             ],
-            "title": "R4 事件队列不丢事件：无订阅者可重投 #",
+            "title": "R4 事件队列不丢事件：无订阅者可重投",
             "updatedAt": 1792721853
         },
         {
@@ -203,7 +203,7 @@
                 "工程",
                 "agent"
             ],
-            "title": "R4 构建脚本封装 scripts/build.ps1 #",
+            "title": "R4 构建脚本封装 scripts/build.ps1",
             "updatedAt": 1792721853
         },
         {
@@ -222,7 +222,7 @@
                 "协作",
                 "agent"
             ],
-            "title": "R4 工作区防双领：agent-init 强制 -Card #",
+            "title": "R4 工作区防双领：agent-init 强制 -Card",
             "updatedAt": 1792721853
         },
         {
@@ -242,24 +242,6 @@
             ],
             "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分",
             "updatedAt": 1792726694
-        },
-        {
-            "code": "R1-01",
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1793030400,
-            "id": "76d2a804-c2f8-4173-8b90-2d0a49a876f0",
-            "note": "已完成：侧表 task_extra(remind_at/notified_at，不动 task 表结构) + TaskExtra 门面 + ReminderScheduler 30s 轮询；托盘通知 + 窗口边缘辉光；启动补发漏提醒；未设提醒的逾期任务到期提醒一次；e2e 五用例（漏提醒/未来/逾期/已通知/已完成）全过。待做：无。",
-            "orderKey": 1024,
-            "priority": 3,
-            "stage": "R1",
-            "status": "doing",
-            "tags": [
-                "R1"
-            ],
-            "title": "R1 提醒 + 逾期提醒",
-            "updatedAt": 1792842000
         },
         {
             "code": "R0-01",
@@ -298,6 +280,24 @@
             ],
             "title": "路线图进度上板：里程碑可视化",
             "updatedAt": 1792581455
+        },
+        {
+            "code": "R1-01",
+            "completedAt": 1792845600,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1793030400,
+            "id": "76d2a804-c2f8-4173-8b90-2d0a49a876f0",
+            "note": "已完成：侧表 task_extra(remind_at/notified_at，不动 task 表结构) + TaskExtra 门面 + ReminderScheduler 30s 轮询；托盘通知 + 窗口边缘辉光；启动补发漏提醒；未设提醒的逾期任务到期提醒一次；e2e 五用例（漏提醒/未来/逾期/已通知/已完成）全过。待做：无。",
+            "orderKey": 1024,
+            "priority": 3,
+            "stage": "R1",
+            "status": "done",
+            "tags": [
+                "R1"
+            ],
+            "title": "R1 提醒 + 逾期提醒",
+            "updatedAt": 1792845600
         },
         {
             "code": "R1-02",
@@ -1333,26 +1333,8 @@
             ],
             "title": "沙箱 e2e：taskId 接管已有卡（不新建）",
             "updatedAt": 1792748226
-        },
-        {
-            "completedAt": 1792843807,
-            "createdAt": 1792843807,
-            "deleted": true,
-            "dueAt": 0,
-            "id": "54d558df-8305-4628-a3d2-c56c6a4327f0",
-            "note": "已完成 3 / 待做 0。① iState：进行中负载（doingCount/6 饱和）驱动背景网格流速与亮度；② iBurst：勾选完成时能量环由中心扩散一次（减弱动效下关闭）；③ iFocus：专注模式背景压暗 + 单束跟随鼠标追光，Ctrl+Shift+F 切换并显示退出徽标。验收：selftest=0、smoke=0 且 QML 无报错 fps 60.1、沙箱建 6 张 doing 卡实测 iState=1、专注模式截图确认。完整专注流程（倒计时环 / 托盘剩余时间）留给 R2-01。",
-            "orderKey": 48128,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "done",
-            "tags": [
-                "agent"
-            ],
-            "title": "R2 Shader 场景化 + 记忆点 #",
-            "updatedAt": 1792844475
         }
     ],
-    "updated": "2026-10-24T20:21:15",
+    "updated": "2026-10-24T12:40:00",
     "version": 3
 }
-

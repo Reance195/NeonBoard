@@ -292,6 +292,21 @@ Rectangle {
                                         }
                                     }
                                 }
+
+                                Text {
+                                    text: "出包"
+                                    color: packageMouse.containsMouse ? Theme.cyan : Theme.text
+                                    font.pixelSize: 11
+                                    MouseArea {
+                                        id: packageMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: {
+                                            previewPanel.logAgentId = modelData.id
+                                            previewHub.enqueuePackage(modelData.id)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -332,6 +347,44 @@ Rectangle {
                         color: Theme.muted
                         font.pixelSize: 10
                         font.family: "Consolas"
+                    }
+                }
+            }
+
+            // ---------- 打包队列 ----------
+            RowLayout {
+                Layout.fillWidth: true
+                visible: previewHub.packageQueue.length > 0
+                spacing: 8
+
+                Text {
+                    Layout.fillWidth: true
+                    text: {
+                        var queue = previewHub.packageQueue
+                        var parts = []
+                        for (var i = 0; i < queue.length; ++i) {
+                            var job = queue[i]
+                            var mark = job.state === "done" ? "✓"
+                                     : job.state === "failed" ? "✗"
+                                     : job.state === "running" ? "▶" : "…"
+                            parts.push(mark + " " + job.agentId)
+                        }
+                        return "打包队列：" + parts.join("   ")
+                    }
+                    color: Theme.muted
+                    font.pixelSize: 10
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    text: "清除已完成"
+                    color: clearPackageMouse.containsMouse ? Theme.cyan : Theme.muted
+                    font.pixelSize: 10
+                    MouseArea {
+                        id: clearPackageMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: previewHub.clearFinishedPackages()
                     }
                 }
             }

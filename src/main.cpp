@@ -133,6 +133,7 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--install-plugin-url"))
         || arguments.contains(QStringLiteral("--preview-list"))
         || arguments.contains(QStringLiteral("--preview-build"))
+        || arguments.contains(QStringLiteral("--preview-package"))
         || arguments.contains(QStringLiteral("--preview-start"))
         || arguments.contains(QStringLiteral("--preview-stop"))
         || arguments.contains(QStringLiteral("--plugin-report"));
@@ -744,8 +745,28 @@ int main(int argc, char *argv[])
         return 2;
     }
 
-    const int previewStartIndex = arguments.indexOf(QStringLiteral("--preview-start"));
-    if (previewStartIndex >= 0) {
+    const int previewPackageIndex = arguments.indexOf(QStringLiteral("--preview-package"));
+    if (previewPackageIndex >= 0) {
+        const QString agentId = previewPackageIndex + 1 < arguments.size()
+            ? arguments.at(previewPackageIndex + 1) : QString();
+        if (agentId.isEmpty()) {
+            qWarning() << "PREVIEW-PACKAGE missing agent id";
+            emitCliLine(QStringLiteral("FAIL --preview-package missing agent id"));
+            return 2;
+        }
+        previewHub.refresh();
+        QString packageError;
+        if (previewHub.packageBlocking(agentId, &packageError)) {
+            qInfo().noquote() << "PREVIEW-PACKAGE OK" << agentId;
+            emitCliLine(QStringLiteral("OK %1").arg(agentId));
+            return 0;
+        }
+        qWarning().noquote() << "PREVIEW-PACKAGE FAIL" << agentId << packageError;
+        emitCliLine(QStringLiteral("FAIL %1 %2").arg(agentId, packageError));
+        return 2;
+    }
+
+    const int previewStartIndex = arguments.indexOf(QStringLiteral("--preview-start"));    if (previewStartIndex >= 0) {
         const QString agentId = previewStartIndex + 1 < arguments.size()
             ? arguments.at(previewStartIndex + 1) : QString();
         if (agentId.isEmpty()) {

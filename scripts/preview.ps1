@@ -6,15 +6,16 @@
 
     用法：
       pwsh -File scripts/preview.ps1 -Action List
-      pwsh -File scripts/preview.ps1 -Action Build -Agent agent-c
-      pwsh -File scripts/preview.ps1 -Action Start -Agent agent-c
-      pwsh -File scripts/preview.ps1 -Action Stop  -Agent agent-c
+      pwsh -File scripts/preview.ps1 -Action Build   -Agent agent-c
+      pwsh -File scripts/preview.ps1 -Action Package -Agent agent-c
+      pwsh -File scripts/preview.ps1 -Action Start   -Agent agent-c
+      pwsh -File scripts/preview.ps1 -Action Stop    -Agent agent-c
 
     退出码：0 成功 / 2 失败
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('List', 'Build', 'Start', 'Stop')]
+    [ValidateSet('List', 'Build', 'Package', 'Start', 'Stop')]
     [string]$Action = 'List',
     [string]$Agent = '',
     [string]$Exe = '',
@@ -54,14 +55,14 @@ function Get-QtBinDir {
 }
 
 function Test-PreviewCapable {
-    param([Parameter(Mandatory)][string]$Path)
+    param([Parameter(Mandatory)][string]$Path, [string]$Needle = '--preview-list')
     # 旧版 exe 不认识 --preview-*，参数会被忽略并直接拉起主窗口（脚本看起来像挂死）。
     # 用二进制里是否含该参数字面量来判断能力，避免踩这个坑。
     # 注意：QStringLiteral 里的字面量在二进制里是 UTF-16，必须同时查 ASCII 与 UTF-16，
     # 且比较要用 Ordinal（默认的 IndexOf 是区域比较，行为随 ICU 版本漂移）。
     try {
         $bytes = [System.IO.File]::ReadAllBytes($Path)
-        $needle = '--preview-list'
+        $needle = $Needle
         foreach ($encoding in @([System.Text.Encoding]::ASCII, [System.Text.Encoding]::Unicode)) {
             $text = $encoding.GetString($bytes)
             if ($text.IndexOf($needle, [System.StringComparison]::Ordinal) -ge 0) { return $true }
@@ -73,6 +74,7 @@ function Test-PreviewCapable {
 }
 
 function Resolve-PreviewExe {
+    param([string]$Needle = '--preview-list')
     $candidates = @()
     if ($Exe) {
         if (-not (Test-Path -LiteralPath $Exe)) { throw "找不到可执行文件：$Exe" }
@@ -98,9 +100,9 @@ function Resolve-PreviewExe {
         $key = (Resolve-Path -LiteralPath $candidate).Path
         if ($seen.ContainsKey($key)) { continue }
         $seen[$key] = $true
-        if (Test-PreviewCapable -Path $key) { return $key }
+        if (Test-PreviewCapable -Path $key -Needle $Needle) { return $key }
     }
-    throw '找不到支持预览中心的 NeonBoard.exe（构建版本过旧），请重新构建或在 -Exe 里显式指定'
+    throw "找不到支持该操作的 NeonBoard.exe（$Needle，构建版本过旧），请重新构建或在 -Exe 里显式指定"
 }
 
 function Read-SharedFile {
@@ -117,9 +119,9 @@ function Read-SharedFile {
 }
 
 function Invoke-PreviewCli {
-    param([Parameter(Mandatory)][string[]]$CliArgs, [int]$WaitSeconds = 120)
+    param([Parameter(Mandatory)][string[]]$CliArgs, [int]$WaitSeconds = 120, [string]$Needle = '--preview-list')
 
-    $exePath = Resolve-PreviewExe
+    $exePath = Resolve-PreviewExe -Needle $Needle
     $qtBin = Get-QtBinDir
     if ($qtBin) { $env:PATH = "$qtBin;$env:PATH" }
     $env:NEONBOARD_REPO_ROOT = $script:AnchorRoot
@@ -189,13 +191,20 @@ switch ($Action) {
     default {
         if (-not $Agent) { throw '必须提供 -Agent（工作区 ID，可用 -Action List 查看）' }
         $cliArgs = switch ($Action) {
-            'Build' { @('--preview-build', $Agent) }
-            'Start' { @('--preview-start', $Agent) }
-            'Stop'  { @('--preview-stop', $Agent) }
+            'Build'   { @('--preview-build', $Agent) }
+            'Package' { @('--preview-package', $Agent) }
+            'Start'   { @('--preview-start', $Agent) }
+            'Stop'    { @('--preview-stop', $Agent) }
         }
-        $wait = if ($Action -eq 'Build') { $TimeoutSeconds } else { 120 }
+        $needle = switch ($Action) {
+            'Build'   { '--preview-build' }
+            'Package' { '--preview-package' }
+            'Start'   { '--preview-start' }
+            'Stop'    { '--preview-stop' }
+        }
+        $wait = if ($Action -eq 'Build' -or $Action -eq 'Package') { $TimeoutSeconds } else { 120 }
         Write-Host ("→ {0} {1}" -f $Action, $Agent) -ForegroundColor DarkGray
-        $result = Invoke-PreviewCli -CliArgs $cliArgs -WaitSeconds $wait
+        $result = Invoke-PreviewCli -CliArgs $cliArgs -WaitSeconds $wait -Needle $needle
         $output = $result.StdOut.Trim()
         if ($result.ExitCode -eq 0) {
             Write-Host ("✓ {0} {1} 完成{2}" -f $Action, $Agent, $(if ($output) { "：$output" } else { '' })) -ForegroundColor Green

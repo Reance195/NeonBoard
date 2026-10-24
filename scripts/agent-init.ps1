@@ -10,13 +10,14 @@
     Git 不允许同一分支在两个 worktree 同时检出，用远端引用建分支才能完全绕开根目录。
 
     用法：
-      pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch fix/stagebar-chip-overflow
-      pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx -Base origin/main
-      pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx -Card R3-01
-        # -Card <路线图短号>：领用登记 → 台账 claims → 看板卡自动转「进行中」。
+      pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch fix/stagebar-chip-overflow -Card R3-01
+      pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx -Base origin/main -Card M19
+      pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch chore/xxx -Card none
+        # -Card 必填：领用期间该卡在台账 claims 里占位，看板卡自动转「进行中」。
         # 大任务（R#-#）可随时领；小任务（M##）仅当其父任务尚未被任何人认领时才可单独领。
         # 分支头脱离主干的期间内该卡为 doing（派生器按 head 位置判定），
         # 分支合并或丢弃后登记自动失效，收尾用提交标记 #<code>=done。
+        # 确实不需要领用任何卡片时显式写 -Card none —— 强制表态，避免漏填导致双领。
         # 硬门：领用时会向服务端推 refs/claims/<code> 占位（非强推），
         # 同名 ref 已存在即被拒绝；领子卡前先 ls-remote 父卡占位。需联网。
 #>
@@ -25,7 +26,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Agent,
     [string]$Branch = '',
     [string]$Base = 'origin/main',
-    [string]$Card = '',
+    [Parameter(Mandatory = $true)][string]$Card = '',
     [switch]$NoFetch
 )
 
@@ -49,6 +50,14 @@ if ($scriptRepoRoot) {
 }
 
 if (-not $Branch) { $Branch = "feature/$Agent" }
+
+# -Card none：显式声明「本次不领用任何卡片」。
+# 之所以强制表态，是因为漏填时脚本无法区分「忘了」和「不需要」，
+# 多代理并行时漏填就会出现两个人同时改同一张卡却都不占位。
+if ($Card -and $Card.Trim() -ieq 'none') {
+    Write-Host '· 本次未领用任何卡片（-Card none）' -ForegroundColor Yellow
+    $Card = ''
+}
 
 $worktree = Join-Path (Join-Path $repoRoot '.worktrees') $Agent
 
@@ -225,7 +234,36 @@ if parent_code:
                          % (parent_code, "、".join(parent_taken), code))
         sys.exit(3)
 
+# 清理失效登记：分支已被删除、或已合并进 origin/main 的领用不再需要占位。
+# 不清会让短号被永久「占用」，后来者无法领用同一张卡（worktree 回收时也没人负责删登记）。
 data.setdefault("claims", {})
+stale = []
+for stale_code, stale_claim in list(data["claims"].items()):
+    if stale_code == code:
+        continue
+    stale_branch = (stale_claim or {}).get("branch", "")
+    if not stale_branch:
+        stale.append(stale_code)
+        continue
+    if stale_branch == branch:
+        continue
+    exists = subprocess.run(
+        ["git", "-C", root, "show-ref", "--verify", "--quiet", "refs/heads/%s" % stale_branch],
+        capture_output=True, check=False)
+    if exists.returncode != 0:
+        stale.append(stale_code)
+        continue
+    merged = subprocess.run(
+        ["git", "-C", root, "merge-base", "--is-ancestor",
+         "refs/heads/%s" % stale_branch, "origin/main"],
+        capture_output=True, check=False)
+    if merged.returncode == 0:
+        stale.append(stale_code)
+for stale_code in stale:
+    data["claims"].pop(stale_code, None)
+if stale:
+    print("[领用] 清理失效登记：%s" % "、".join(sorted(stale)))
+
 data["claims"][code] = {
     "agent": agent,
     "branch": branch,

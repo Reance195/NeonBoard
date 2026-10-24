@@ -212,7 +212,8 @@ cd .worktrees/agent-c
 . .\.agent-env.ps1        # 注入沙箱环境变量
 ```
 
-- `-Card <路线图短号>`：开区即领用。该短号必须在台账 `cards` 里登记过；
+- `-Card <路线图短号>`：**必填**，开区即领用（无对应卡片时显式写 `-Card none`，
+  不允许省略——「漏填」和「不需要」必须能区分）。该短号必须在台账 `cards` 里登记过；
   脚本会写 `claims[<短号>]={agent,branch,head,claimedAt}` 进**本 worktree** 的台账副本
   （随 feature 分支提交），并投递 `#<短号>=doing`（`chore(claim):` 空提交 + `--emit-hook-file` 双通道，幂等）。
 - **领用粒度**：大任务（`R#-#`）可随时领；小任务（`M##`）**只有父任务尚未被任何人认领**时才允许单独领用

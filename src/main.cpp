@@ -30,6 +30,7 @@
 #include <QDate>
 #include <QDateTime>
 #include <QDebug>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFont>
@@ -500,6 +501,79 @@ int main(int argc, char *argv[])
         ok = spawnedId.isEmpty() || taskStore.taskById(spawnedId).isEmpty() && ok;  // 派生卡已删
         qInfo() << "SELFTEST recurring" << spawnedId;
         taskStore.deleteTask(recId);
+        // 快照写回防降级：本程序不认识的字段（根级 / 条目级）必须原样保留。
+        // 历史事故：旧版按「已知字段重建」把 v3 的 code 整片抹掉。
+        {
+            const QString snapPath = QDir(QDir::tempPath())
+                                         .filePath(QStringLiteral("neonboard-selftest-snapshot.json"));
+            const QString keepId = taskStore.addTask(QStringLiteral("selftest-snapshot"),
+                                                     QStringLiteral("todo"), 1, QString(), 0);
+            const QJsonObject seedItem{
+                {QStringLiteral("id"), keepId},
+                {QStringLiteral("title"), QStringLiteral("selftest-snapshot")},
+                {QStringLiteral("status"), QStringLiteral("todo")},
+                {QStringLiteral("priority"), 1},
+                {QStringLiteral("unknownCustomField"), QStringLiteral("keep-me")},
+            };
+            const QJsonObject seedRoot{
+                {QStringLiteral("version"), 3},
+                {QStringLiteral("updated"), QStringLiteral("2026-01-01T00:00:00")},
+                {QStringLiteral("signature"), QStringLiteral("keep-root-signature")},
+                {QStringLiteral("items"), QJsonArray{seedItem}},
+            };
+            QFile seed(snapPath);
+            if (seed.open(QIODevice::WriteOnly)) {
+                seed.write(QJsonDocument(seedRoot).toJson(QJsonDocument::Indented));
+                seed.close();
+            }
+            ok = roadmap.exportTo(snapPath) && ok;
+            QJsonObject outRoot;
+            QFile snapshot(snapPath);
+            if (snapshot.open(QIODevice::ReadOnly)) {
+                outRoot = QJsonDocument::fromJson(snapshot.readAll()).object();
+                snapshot.close();
+            }
+            QJsonObject outItem;
+            const QJsonArray outItems = outRoot.value(QStringLiteral("items")).toArray();
+            for (const QJsonValue &value : outItems) {
+                if (value.toObject().value(QStringLiteral("id")).toString() == keepId) {
+                    outItem = value.toObject();
+                    break;
+                }
+            }
+            const QString keptRoot = outRoot.value(QStringLiteral("signature")).toString();
+            const QString keptItem = outItem.value(QStringLiteral("unknownCustomField")).toString();
+            ok = keptRoot == QStringLiteral("keep-root-signature") && ok;
+            ok = keptItem == QStringLiteral("keep-me") && ok;
+            qInfo() << "SELFTEST snapshot-preserve" << keptRoot << keptItem;
+            QFile::remove(snapPath);
+            taskStore.deleteTask(keepId);
+        }
+        // 事件队列不丢事件：没有订阅者时不得标记已投递，应保留待重投。
+        {
+            const QString hookPath = QDir(QDir::tempPath())
+                                         .filePath(QStringLiteral("neonboard-selftest-hooks.db"));
+            QFile::remove(hookPath);
+            int pending = -1;
+            {
+                HookEventQueue probe(hookPath);
+                QString hookError;
+                ok = probe.open(&hookError) && ok;
+                PluginEventBus emptyBus;
+                probe.setEventBus(&emptyBus);
+                ok = probe.enqueue(QStringLiteral("agent.task"),
+                                   {{QStringLiteral("text"), QStringLiteral("selftest")}}, &hookError)
+                     && ok;
+                probe.start(50);
+                probe.stop();
+                pending = probe.pendingCount();
+            }
+            QFile::remove(hookPath);
+            QFile::remove(hookPath + QStringLiteral("-wal"));
+            QFile::remove(hookPath + QStringLiteral("-shm"));
+            qInfo() << "SELFTEST hook-retry pending" << pending;
+            ok = pending == 1 && ok;
+        }
         ok = taskStore.deleteTask(id) && ok;
         qInfo() << "SELFTEST result" << (ok ? "OK" : "FAIL") << "remaining" << taskStore.count();
         return ok ? 0 : 2;

@@ -99,6 +99,19 @@ QString stripCode(const QString &title, const QString &code)
     return stripTrailingEmptyMarker(out);
 }
 
+// 写回时把磁盘上已有、但本程序这一轮没有生成的字段原样带回。
+// 历史事故：旧版程序按「已知字段重建」条目，把 v3 的 code 整片抹掉；
+// 以后快照再加新字段时，老版本程序写回也不该丢数据。
+QJsonObject preserveExistingFields(const QJsonObject &generated, const QJsonObject &existing)
+{
+    QJsonObject merged = generated;
+    for (auto it = existing.constBegin(); it != existing.constEnd(); ++it) {
+        if (!merged.contains(it.key()))
+            merged.insert(it.key(), it.value());
+    }
+    return merged;
+}
+
 } // namespace
 
 RoadmapSync::RoadmapSync(Database *database, TaskModel *tasks, QObject *parent)
@@ -429,6 +442,10 @@ bool RoadmapSync::exportTo(const QString &filePath)
         if (external) {
             item = current.value(id);
             ++conflicts;
+        } else if (current.contains(id)) {
+            // 未外部改动：以看板生成的字段为准，但文件里本程序不认识的字段
+            // （如 code 短号、外部工具附加的自定义字段）原样保留
+            item = preserveExistingFields(item, current.value(id));
         }
 
         appendEntry(item.value(QStringLiteral("status")).toString(),
@@ -480,6 +497,14 @@ bool RoadmapSync::exportTo(const QString &filePath)
     out[QStringLiteral("version")] = kSnapshotVersion;
     out[QStringLiteral("updated")] = QDateTime::currentDateTime().toString(Qt::ISODate);
     out[QStringLiteral("items")] = items;
+    // 顶层未知字段（例如市场索引同款 signature 预留位、外部工具附加的元信息）
+    // 同样原样保留，只有本程序负责的 version/updated/items 会被重写。
+    for (auto it = root.constBegin(); it != root.constEnd(); ++it) {
+        if (it.key() != QStringLiteral("version") && it.key() != QStringLiteral("updated")
+            && it.key() != QStringLiteral("items")) {
+            out.insert(it.key(), it.value());
+        }
+    }
 
     // 内容没有实质变化就不动文件：避免每轮轮询都改写 mtime 与 updated 字段，
     // 否则会污染 git diff，还会触发「导入→重载→再导出」的自激循环。

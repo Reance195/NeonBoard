@@ -132,10 +132,13 @@ git push -u origin main
 ### 1. 开区
 
 ```powershell
-pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx
+pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx -Card R3-01
 cd .worktrees/agent-c
 . .\.agent-env.ps1          # 注入沙箱环境变量
 ```
+
+`-Card` 是**必填**参数：确实没有对应卡片时显式写 `-Card none`（脚本会打印警告并跳过领用），
+不允许省略——多代理并行时「漏填」和「不需要」必须能区分开，否则会出现两人改同一张卡却都不占位。
 
 脚本基于 `origin/main` 建分支（**不能用 `main`**：`main` 已被锚点区检出，Git 不允许同一分支在两个 worktree 同时存在），
 并顺手建好 `.sandbox/` 沙箱目录与 `.agent-env.ps1`。
@@ -152,6 +155,7 @@ pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/task-tags -Card
 - 登记推送前钩子就会投递 `#<短号>=doing`（看板在跑立即生效，不在跑启动时补投递），合并回 `main` 后派生器按台账 claims 派生 `doing`；
 - 派生优先级：**提交信息显式标记 > 领用登记 > baseline**；
 - **释放不需要任何操作**：分支被合并进主干（head 变祖先）或分支被删除（ref 消失）、或分支被 rebase 重写（head 不再是 tip 祖先）时登记自动失效回退；
+  台账里这些失效 `claims` 条目由下一次 `agent-init.ps1` 开区时统一清理，避免短号被永久占用；
 - 收尾结项仍用提交标记：`feat: xxx done #R3-01=done`；
 - 若短号已被另一分支领用则拒绝（防双领）。
 - **服务端占位（硬门）**：领用时脚本会推 `refs/claims/<短号>`（值=领用提交，非强推）；同名 ref 已存在则 push 被服务端拒绝，

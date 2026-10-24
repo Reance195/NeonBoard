@@ -45,11 +45,57 @@ ApplicationWindow {
     property bool previewPending: false
     property bool previewOpen: false
 
-    // 专注模式：背景压暗 + 追光（完整倒计时流程留给 R2-01）
+    // 专注模式：倒计时环 + 背景压暗 + 托盘剩余时间（R2-01）
     property bool focusMode: false
+    property int focusTotal: 0
+    property int focusRemaining: 0
+    property bool focusPaused: false
 
+    function startFocus(minutes) {
+        window.focusTotal = Math.max(1, minutes) * 60
+        window.focusRemaining = window.focusTotal
+        window.focusPaused = false
+        window.focusMode = true
+        tray.setFocusRemaining(window.focusRemaining)
+    }
+
+    function stopFocus(completed) {
+        window.focusMode = false
+        window.focusPaused = false
+        window.focusRemaining = 0
+        window.focusTotal = 0
+        tray.setFocusRemaining(0)
+        if (completed) {
+            background.burst()
+            tray.showMessage("专注结束", "这一轮已完成，起身活动一下")
+        }
+    }
+
+    function toggleFocusPause() {
+        window.focusPaused = !window.focusPaused
+    }
+
+    // 快捷键与命令面板：运行中则退出，未运行直接开 25 分钟
     function toggleFocusMode() {
-        window.focusMode = !window.focusMode
+        if (window.focusMode)
+            window.stopFocus(false)
+        else
+            window.startFocus(25)
+    }
+
+    Timer {
+        id: focusTimer
+        interval: 1000
+        repeat: true
+        running: window.focusMode && !window.focusPaused
+        onTriggered: {
+            if (window.focusRemaining > 0) {
+                window.focusRemaining -= 1
+                tray.setFocusRemaining(window.focusRemaining)
+            }
+            if (window.focusRemaining <= 0)
+                window.stopFocus(true)
+        }
     }
 
     // 面板互斥：同一时刻只保留一个浮层，避免外观/插件/设置面板叠在一起
@@ -198,7 +244,9 @@ ApplicationWindow {
         add("打开插件库", "面板", "已装 / 可装插件", function() { window.openPluginLibrary() })
         add("打开设置面板", "面板", "热键 / 数据路径 / 开机自启", function() { window.openSettings() })
         add("打开外观面板", "面板", "主题预设 / 画质 / 减弱动效", function() { window.openAppearance() })
-        add("切换专注模式", "视图", window.focusMode ? "退出追光背景" : "压暗背景，只留一束追光", function() { window.toggleFocusMode() })
+        add("切换专注模式", "视图", window.focusMode ? "结束本轮专注" : "开始 25 分钟专注", function() { window.toggleFocusMode() })
+        add("专注 45 分钟", "视图", "压暗背景 + 倒计时环 + 托盘剩余时间", function() { window.startFocus(45) })
+        add("专注 60 分钟", "视图", "深度工作一轮", function() { window.startFocus(60) })
         add("查看全部阶段", "视图", "清除阶段过滤", function() { window.setStageFilter("") })
         add("只看 R0 阶段", "视图", "炫酷地基", function() { window.setStageFilter("R0") })
         add("只看 R1 阶段", "视图", "日常底座", function() { window.setStageFilter("R1") })
@@ -918,6 +966,100 @@ MouseArea {
                         value: taskStore.doneTodayCount
                         accent: Theme.magenta
                     }
+
+                    Rectangle {
+                        Layout.preferredWidth: 78
+                        Layout.preferredHeight: 36
+                        radius: 8
+                        color: focusBtnMouse.containsMouse || window.focusMode
+                               ? Theme.accentSoft
+                               : Theme.input
+                        border.width: 1
+                        border.color: window.focusMode
+                                      ? Qt.rgba(Theme.magenta.r, Theme.magenta.g, Theme.magenta.b, 0.45)
+                                      : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22)
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: window.focusMode ? "专注中" : "专注"
+                            color: window.focusMode ? Theme.magenta : Theme.cyan
+                            font.pixelSize: 11
+                        }
+
+                        MouseArea {
+                            id: focusBtnMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                if (window.focusMode)
+                                    window.toggleFocusPause()
+                                else
+                                    focusMenu.open()
+                            }
+                        }
+                    }
+                }
+
+                Popup {
+                    id: focusMenu
+                    parent: window.contentItem
+                    x: Math.max(20, window.width - width - 40)
+                    y: 96
+                    width: 160
+                    padding: 8
+                    modal: false
+                    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+                    background: Rectangle {
+                        radius: 10
+                        color: Theme.panel
+                        border.width: 1
+                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.25)
+                    }
+
+                    Column {
+                        spacing: 4
+                        width: parent.availableWidth
+
+                        Text {
+                            text: "选择专注时长"
+                            color: Theme.muted
+                            font.pixelSize: 9
+                            leftPadding: 4
+                            bottomPadding: 2
+                        }
+
+                        Repeater {
+                            model: [25, 45, 60]
+
+                            delegate: Rectangle {
+                                required property int modelData
+                                width: parent.width
+                                height: 28
+                                radius: 6
+                                color: pickMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 6
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: modelData + " 分钟"
+                                    color: Theme.text
+                                    font.pixelSize: 11
+                                }
+
+                                MouseArea {
+                                    id: pickMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        focusMenu.close()
+                                        window.startFocus(modelData)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 RowLayout {
@@ -962,6 +1104,28 @@ MouseArea {
                             }
                             Keys.onEscapePressed: text = ""
                         }
+                    }
+                }
+
+                // 统计横幅：热力图 + 连续天数 + 周吞吐（数据来自 taskStats，只读任务表）
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 20
+                    Layout.rightMargin: 20
+                    Layout.preferredHeight: 84
+                    radius: 12
+                    color: Theme.panel
+                    border.width: 1
+                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.12)
+
+                    ActivityHeatmap {
+                        anchors.fill: parent
+                        anchors.margins: 9
+                        cells: taskStats.heatmap
+                        weekly: taskStats.weekly
+                        streak: taskStats.streakDays
+                        totalDone: taskStats.totalDone
+                        bestDay: taskStats.bestDay
                     }
                 }
 
@@ -1129,6 +1293,21 @@ MouseArea {
                     item.open()
                 }
             }
+        }
+
+        // 专注倒计时环：悬浮右下，结束后自动收起
+        FocusRing {
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.rightMargin: 24
+            anchors.bottomMargin: 24
+            visible: window.focusMode
+            z: 300
+            total: window.focusTotal
+            remaining: window.focusRemaining
+            paused: window.focusPaused
+            onStopRequested: window.stopFocus(false)
+            onPauseToggleRequested: window.toggleFocusPause()
         }
 
         // 命令面板：Ctrl+K 呼出，按需构造

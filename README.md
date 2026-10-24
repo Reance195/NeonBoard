@@ -238,6 +238,9 @@ docs/themes/         6 套主题预设实机截图
 `--hosted` 由宿主注入：渲染进程在该模式下不创建系统托盘、不注册全局热键，避免与宿主争抢。
 单独运行 `NeonBoard.exe` 仍是完整的单进程模式，行为与之前一致。
 
+安装包与桌面快捷方式启动 `NeonBoardHost.exe --open`（已常驻时直接唤起窗口，否则拉起渲染进程）；
+「开机自启」写注册表时也优先指向 `NeonBoardHost.exe`，不再让自启拉起全量 QML 进程。
+
 ## 持续集成
 
 仓库内置 GitHub Actions 流水线（`.github/workflows/ci.yml`），推送或合并到 `main` 时自动在 `windows-2022` 上执行：

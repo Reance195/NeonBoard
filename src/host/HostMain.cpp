@@ -2,9 +2,11 @@
 #include "SingleInstance.h"
 
 #include <QCoreApplication>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QProcess>
+#include <QSettings>
 #include <QTimer>
 
 #include <windows.h>
@@ -57,6 +59,41 @@ HWND findRendererWindow()
 }
 
 void startRenderer();
+
+bool isAutostart()
+{
+    QSettings run(QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"),
+                  QSettings::NativeFormat);
+    return run.contains(QStringLiteral("NeonBoard"));
+}
+
+void setAutostart(bool enabled)
+{
+    QSettings run(QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"),
+                  QSettings::NativeFormat);
+    if (enabled) {
+        const QString command = QStringLiteral("\"%1\"")
+                                    .arg(QDir::toNativeSeparators(QCoreApplication::applicationFilePath()));
+        run.setValue(QStringLiteral("NeonBoard"), command);
+    } else {
+        run.remove(QStringLiteral("NeonBoard"));
+    }
+}
+
+void showBoard()
+{
+    if (!g_renderer || g_renderer->state() == QProcess::NotRunning) {
+        startRenderer();
+        return;
+    }
+    HWND hwnd = findRendererWindow();
+    if (!hwnd) {
+        startRenderer();
+        return;
+    }
+    ShowWindow(hwnd, SW_SHOW);
+    SetForegroundWindow(hwnd);
+}
 
 void toggleBoard()
 {
@@ -148,7 +185,9 @@ void showTrayMenu()
 {
     HMENU menu = CreatePopupMenu();
     AppendMenuW(menu, MF_STRING, 1, L"打开 NeonBoard");
-    AppendMenuW(menu, MF_STRING, 2, L"退出");
+    AppendMenuW(menu, MF_STRING | (isAutostart() ? MF_CHECKED : 0), 2, L"开机自启");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, 3, L"退出");
     POINT pt{};
     GetCursorPos(&pt);
     SetForegroundWindow(g_hostWindow);
@@ -156,8 +195,10 @@ void showTrayMenu()
                                     pt.x, pt.y, 0, g_hostWindow, nullptr);
     DestroyMenu(menu);
     if (cmd == 1)
-        toggleBoard();
+        showBoard();
     else if (cmd == 2)
+        setAutostart(!isAutostart());
+    else if (cmd == 3)
         quitHost();
 }
 
@@ -222,7 +263,9 @@ int main(int argc, char **argv)
     SetTimer(g_hostWindow, kIdleTimerId, kIdleCheckMs, nullptr);
 
     QObject::connect(&instance, &SingleInstance::showRequested, qApp,
-                     []() { toggleBoard(); });
+                     []() { showBoard(); });
+    if (QCoreApplication::arguments().contains(QStringLiteral("--open")))
+        QTimer::singleShot(0, qApp, []() { showBoard(); });
     QObject::connect(qApp, &QCoreApplication::aboutToQuit, qApp, []() {
         if (g_renderer && g_renderer->state() != QProcess::NotRunning)
             g_renderer->kill();

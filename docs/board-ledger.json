@@ -49,7 +49,8 @@
         "R4-05": "todo",
         "R4-06": "todo",
         "R4-07": "todo",
-        "R4-08": "todo"
+        "R4-08": "todo",
+        "R4-10": "todo"
     },
     "cards": {
         "M01": {
@@ -303,6 +304,11 @@
             "note": "已完成 0 / 待做：Ninja 构建器接入、编译缓存（sccache/ccache）、Defender 排除 build 目录、Main.qml 拆分；保留 QML 预编译不动（启动速度优先）。",
             "stage": "R4",
             "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分"
+        },
+        "R4-10": {
+            "id": "53ff86c6-3082-4479-b24a-c6928fd2b44b",
+            "stage": "R4",
+            "title": "R4 任务治理：任务先行，禁止无任务改代码"
         }
     },
     "claims": {

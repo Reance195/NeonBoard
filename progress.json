@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R2-01",
-            "completedAt": 0,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1794326400,
-            "id": "5424c1dd-7581-4c6c-a441-108774588d81",
-            "note": "全屏专注计时视图；任务完成率/时长图表。",
-            "orderKey": 7168,
-            "priority": 1,
-            "stage": "R2",
-            "status": "todo",
-            "tags": [
-                "R2"
-            ],
-            "title": "R2 专注模式 + 统计可视化",
-            "updatedAt": 1792568900
-        },
-        {
             "code": "R4-05",
             "completedAt": 0,
             "createdAt": 1792654081,
@@ -502,6 +484,24 @@
             ],
             "title": "颜色令牌化：零硬编码",
             "updatedAt": 1792568900
+        },
+        {
+            "code": "R2-01",
+            "completedAt": 1792849210,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1794326400,
+            "id": "5424c1dd-7581-4c6c-a441-108774588d81",
+            "note": "全屏专注计时视图；任务完成率/时长图表。",
+            "orderKey": 7168,
+            "priority": 1,
+            "stage": "R2",
+            "status": "done",
+            "tags": [
+                "R2"
+            ],
+            "title": "R2 专注模式 + 统计可视化",
+            "updatedAt": 1792849210
         },
         {
             "code": "R0-09",
@@ -1335,6 +1335,6 @@
             "updatedAt": 1792748226
         }
     ],
-    "updated": "2026-10-24T12:40:00",
+    "updated": "2026-10-24T13:40:10",
     "version": 3
 }

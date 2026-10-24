@@ -306,41 +306,11 @@
         }
     },
     "claims": {
-        "R1-01": {
-            "agent": "agent-r1",
-            "branch": "feature/task-reminder",
-            "claimedAt": 1792750592,
-            "head": "c17937d3563803378ad8af268d15009524ed9531"
-        },
-        "R1-02": {
-            "agent": "agent-r1",
-            "branch": "feature/recurring-tasks",
-            "claimedAt": 1792754200,
-            "head": "d79245f6b31e4f6f01616bd0a2499433701a7d9b"
-        },
-        "R2-01": {
-            "agent": "agent-r2b",
-            "branch": "feature/focus-stats",
-            "claimedAt": 1792845356,
-            "head": "53705cdf391e951287dfffea5923975c552cba48"
-        },
-        "R2-02": {
-            "agent": "agent-r2",
-            "branch": "feature/shader-scene",
-            "claimedAt": 1792841922,
-            "head": "fe29cb5d31a74afd157c4e0161a873a99a717d33"
-        },
-        "R4-04": {
-            "agent": "agent-r4e",
-            "branch": "feature/data-reliability",
-            "claimedAt": 1792853665,
-            "head": "10d2fbb122f9412bd932ecdf5833c0975f8a2879"
-        },
-        "R4-06": {
-            "agent": "agent-r4c",
-            "branch": "feature/keyboard-a11y",
-            "claimedAt": 1792850068,
-            "head": "3e4c791286974939fdccf8da6d7f0cef95f01af0"
+        "R4-07": {
+            "agent": "agent-r4f",
+            "branch": "feature/onboarding",
+            "claimedAt": 1792856153,
+            "head": "66799ed5e767bbb9764831a2ed9706cd67a0234d"
         }
     },
     "version": 1

@@ -39,25 +39,6 @@
             "updatedAt": 1792654081
         },
         {
-            "code": "R4-04",
-            "completedAt": 0,
-            "createdAt": 1792654081,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "a1880fc6-2060-4a72-b445-b3ba81fb8bad",
-            "note": "「老版本程序照常打开」写进宪章但无验证手段。规划：SQLite WAL + journal 校验 + 损坏自动恢复流程 + 迁移/向后兼容回归测试。路线图未排期的新增方向。",
-            "orderKey": 16384,
-            "priority": 2,
-            "stage": "R4",
-            "status": "todo",
-            "tags": [
-                "R4",
-                "可靠性"
-            ],
-            "title": "R4 数据可靠性：WAL / 损坏恢复 / 迁移兼容",
-            "updatedAt": 1792654081
-        },
-        {
             "code": "R4-02",
             "completedAt": 0,
             "createdAt": 1792654081,
@@ -685,6 +666,25 @@
             ],
             "title": "HookEventQueue：独立 hooks.db 事件队列",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "R4-04",
+            "completedAt": 1792855830,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "a1880fc6-2060-4a72-b445-b3ba81fb8bad",
+            "note": "「老版本程序照常打开」写进宪章但无验证手段。规划：SQLite WAL + journal 校验 + 损坏自动恢复流程 + 迁移/向后兼容回归测试。路线图未排期的新增方向。",
+            "orderKey": 16384,
+            "priority": 2,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "可靠性"
+            ],
+            "title": "R4 数据可靠性：WAL / 损坏恢复 / 迁移兼容",
+            "updatedAt": 1792855830
         },
         {
             "code": "M08",
@@ -1454,7 +1454,6 @@
             "updatedAt": 1792855061
         }
     ],
-    "updated": "2026-10-24T23:17:46",
+    "updated": "2026-10-24T15:30:30",
     "version": 3
 }
-

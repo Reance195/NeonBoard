@@ -329,6 +329,12 @@
             "branch": "feature/shader-scene",
             "claimedAt": 1792841922,
             "head": "fe29cb5d31a74afd157c4e0161a873a99a717d33"
+        },
+        "R4-06": {
+            "agent": "agent-r4c",
+            "branch": "feature/keyboard-a11y",
+            "claimedAt": 1792850068,
+            "head": "3e4c791286974939fdccf8da6d7f0cef95f01af0"
         }
     },
     "version": 1

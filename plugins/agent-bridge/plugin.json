@@ -1,7 +1,7 @@
 {
     "id": "com.lin.agent-bridge",
     "name": "Agent 任务桥",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "apiVersion": 2,
     "description": "消费 agent.task 事件域的 agent-task-event v1 载荷（由各 AI Agent 的适配器投递），自动在看板新建与流转任务；与具体 Agent 无关。",
     "main": "main.qml",

@@ -342,6 +342,12 @@
             "branch": "feature/keyboard-a11y",
             "claimedAt": 1792850068,
             "head": "3e4c791286974939fdccf8da6d7f0cef95f01af0"
+        },
+        "R4-09": {
+            "agent": "agent-flow",
+            "branch": "feature/task-flow-automation",
+            "claimedAt": 1792855065,
+            "head": "fbecca0b66dba9106bb998a2a31d836ca24f7f48"
         }
     },
     "version": 1

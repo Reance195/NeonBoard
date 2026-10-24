@@ -42,8 +42,11 @@ signals:
 
 private:
     bool ensureSchema(QString *error);
+    bool ensureColumns(QString *error);
     void poll();
     bool markDelivered(qint64 id);
+    bool bumpAttempt(qint64 id, int attempts, qint64 attemptedAt);
+    bool markFailed(qint64 id);
     void trim();
 
     QSqlDatabase m_db;

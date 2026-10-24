@@ -330,6 +330,12 @@
             "claimedAt": 1792841922,
             "head": "fe29cb5d31a74afd157c4e0161a873a99a717d33"
         },
+        "R4-04": {
+            "agent": "agent-r4e",
+            "branch": "feature/data-reliability",
+            "claimedAt": 1792853665,
+            "head": "10d2fbb122f9412bd932ecdf5833c0975f8a2879"
+        },
         "R4-06": {
             "agent": "agent-r4c",
             "branch": "feature/keyboard-a11y",

@@ -2,6 +2,7 @@
 #define MyAppVersion "0.1.0"
 #define MyAppPublisher "Lin"
 #define MyAppExeName "NeonBoard.exe"
+#define MyAppHostName "NeonBoardHost.exe"
 
 [Setup]
 AppId={{8E3B6A2C-9F4D-4C1A-9B7E-2D5F6A8C1E30}
@@ -36,12 +37,12 @@ Type: filesandordirs; Name: "{app}\plugins\hello"
 Source: "..\dist\NeonBoard\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
-Name: "{group}\NeonBoard"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\NeonBoard"; Filename: "{app}\{#MyAppHostName}"; Parameters: "--open"
 Name: "{group}\Uninstall NeonBoard"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\NeonBoard"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{userdesktop}\NeonBoard"; Filename: "{app}\{#MyAppHostName}"; Parameters: "--open"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch NeonBoard"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppHostName}"; Parameters: "--open"; Description: "Launch NeonBoard"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"

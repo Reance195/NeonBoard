@@ -3,6 +3,7 @@
 #include <QAction>
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QIcon>
 #include <QMenu>
 #include <QPainter>
@@ -114,8 +115,12 @@ void TrayController::setAutostart(bool enabled)
     QSettings run(QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"),
                   QSettings::NativeFormat);
     if (enabled) {
-        const QString command = QStringLiteral("\"%1\" --autostart")
-                                    .arg(QDir::toNativeSeparators(QCoreApplication::applicationFilePath()));
+        QString exePath = QDir(QCoreApplication::applicationDirPath())
+                              .filePath(QStringLiteral("NeonBoardHost.exe"));
+        if (!QFileInfo::exists(exePath))
+            exePath = QCoreApplication::applicationFilePath();
+        const QString command = QStringLiteral("\"%1\"")
+                                    .arg(QDir::toNativeSeparators(exePath));
         run.setValue(QStringLiteral("NeonBoard"), command);
     } else {
         run.remove(QStringLiteral("NeonBoard"));

@@ -96,25 +96,6 @@
             "updatedAt": 1792654081
         },
         {
-            "code": "R4-06",
-            "completedAt": 0,
-            "createdAt": 1792654081,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "39d80b78-a666-49aa-b199-f363c5c2efc6",
-            "note": "减弱动效有开关，但缺焦点链、屏幕阅读器支持与纯键盘全操作（命令面板只剩部分入口）。规划：Tab 焦点链梳理 + 高对比度检查 + 键盘操作全覆盖。路线图未排期的新增方向。",
-            "orderKey": 19456,
-            "priority": 1,
-            "stage": "R4",
-            "status": "todo",
-            "tags": [
-                "R4",
-                "无障碍"
-            ],
-            "title": "R4 键盘完整性 / 无障碍",
-            "updatedAt": 1792654081
-        },
-        {
             "completedAt": 0,
             "createdAt": 1792719894,
             "deleted": false,
@@ -874,6 +855,25 @@
             "updatedAt": 1792588621
         },
         {
+            "code": "R4-06",
+            "completedAt": 1792851261,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "39d80b78-a666-49aa-b199-f363c5c2efc6",
+            "note": "减弱动效有开关，但缺焦点链、屏幕阅读器支持与纯键盘全操作（命令面板只剩部分入口）。规划：Tab 焦点链梳理 + 高对比度检查 + 键盘操作全覆盖。路线图未排期的新增方向。",
+            "orderKey": 19456,
+            "priority": 1,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "无障碍"
+            ],
+            "title": "R4 键盘完整性 / 无障碍",
+            "updatedAt": 1792851261
+        },
+        {
             "code": "M11",
             "completedAt": 1792588621,
             "createdAt": 1792572839,
@@ -1335,6 +1335,6 @@
             "updatedAt": 1792748226
         }
     ],
-    "updated": "2026-10-24T13:40:10",
+    "updated": "2026-10-24T14:14:21",
     "version": 3
 }

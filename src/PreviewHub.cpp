@@ -18,7 +18,9 @@
 #include <QProcessEnvironment>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QTextStream>
 #include <QTimer>
+#include <QVariantMap>
 
 namespace {
 
@@ -27,7 +29,8 @@ const char *kAgentIdVar = "NEONBOARD_AGENT_ID";
 const char *kCmakeVar = "NEONBOARD_CMAKE";
 const char *kQtPrefixVar = "NEONBOARD_QT_PREFIX";
 
-QString runCommand(const QString &program, const QStringList &args, const QString &cwd, bool *ok)
+QString runCommand(const QString &program, const QStringList &args, const QString &cwd, bool *ok,
+                   int timeoutMs = 20000)
 {
     if (ok)
         *ok = false;
@@ -37,7 +40,7 @@ QString runCommand(const QString &program, const QStringList &args, const QStrin
     proc.start(program, args);
     if (!proc.waitForStarted(8000))
         return QString();
-    if (!proc.waitForFinished(20000)) {
+    if (!proc.waitForFinished(timeoutMs)) {
         proc.kill();
         proc.waitForFinished(2000);
         return QString();
@@ -532,9 +535,9 @@ bool PreviewHub::runConfigure(const AgentInfo &agent, const BuildSettings &setti
     args << QStringLiteral("-S") << agent.path
          << QStringLiteral("-B") << agent.path + QStringLiteral("/build")
          << QStringLiteral("-G") << settings.generator;
-    if (settings.generator.contains(QStringLiteral("Visual Studio")))
-        args << QStringLiteral("-A") << settings.platform;
-    args << QStringLiteral("-DCMAKE_PREFIX_PATH=") + settings.qtPrefix;
+        if (settings.generator.contains(QStringLiteral("Visual Studio")))
+            args << QStringLiteral("-A") << settings.platform;
+        args << (QStringLiteral("-DCMAKE_PREFIX_PATH=") + settings.qtPrefix);
 
     QProcess proc;
     proc.setWorkingDirectory(agent.path);
@@ -905,4 +908,348 @@ bool PreviewHub::buildBlocking(const QString &agentId, QString *error)
         return false;
     scan();
     return true;
+}
+
+bool PreviewHub::packageBlocking(const QString &agentId, QString *error)
+{
+    if (!findAgent(agentId)) {
+        if (error)
+            *error = QStringLiteral("未知工作区：%1").arg(agentId);
+        return false;
+    }
+    if (!buildBlocking(agentId, error))
+        return false;
+
+    const AgentInfo *fresh = findAgent(agentId);
+    if (!fresh) {
+        if (error)
+            *error = QStringLiteral("工作区已消失：%1").arg(agentId);
+        return false;
+    }
+
+    QString out = packageOutputDir(agentId);
+    if (!preparePackageDir(*fresh, &out, error))
+        return false;
+
+    const BuildSettings settings = resolveBuildSettings();
+    const QString windeployqt = resolveWindeployqt(settings);
+    if (windeployqt.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("找不到 windeployqt，可设置 NEONBOARD_WINDEPLOYQT");
+        return false;
+    }
+
+    QStringList args;
+    args << QStringLiteral("--release") << QStringLiteral("--qmldir")
+         << fresh->path + QStringLiteral("/qml") << QStringLiteral("--compiler-runtime")
+         << out + QStringLiteral("/NeonBoard.exe");
+    bool ok = false;
+    runCommand(windeployqt, args, out, &ok, 600000);
+    if (!ok) {
+        if (error)
+            *error = QStringLiteral("windeployqt 执行失败");
+        return false;
+    }
+    return true;
+}
+
+namespace {
+
+bool copyTree(const QString &source, const QString &target)
+{
+    QDir sourceDir(source);
+    if (!sourceDir.exists())
+        return true;
+    if (!QDir().mkpath(target))
+        return false;
+    const QFileInfoList entries =
+        sourceDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QFileInfo &entry : entries) {
+        const QString destination = target + QStringLiteral("/") + entry.fileName();
+        if (entry.isDir()) {
+            if (!copyTree(entry.absoluteFilePath(), destination))
+                return false;
+        } else if (!QFile::copy(entry.absoluteFilePath(), destination)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+QString packageStepLabel(const QString &step)
+{
+    if (step == QStringLiteral("configure"))
+        return QStringLiteral("配置");
+    if (step == QStringLiteral("build"))
+        return QStringLiteral("构建");
+    if (step == QStringLiteral("deploy"))
+        return QStringLiteral("部署运行库");
+    return step;
+}
+
+} // namespace
+
+QVariantList PreviewHub::packageQueue() const
+{
+    QVariantList list;
+    for (const PackageJob &job : m_packageQueue) {
+        QVariantMap item;
+        item.insert(QStringLiteral("agentId"), job.agentId);
+        item.insert(QStringLiteral("state"), job.state);
+        item.insert(QStringLiteral("message"), job.message);
+        item.insert(QStringLiteral("outputDir"), job.outputDir);
+        item.insert(QStringLiteral("queuedAt"), job.queuedAt);
+        item.insert(QStringLiteral("finishedAt"), job.finishedAt);
+        list.append(item);
+    }
+    return list;
+}
+
+PreviewHub::PackageJob *PreviewHub::currentPackage()
+{
+    for (PackageJob &job : m_packageQueue) {
+        if (job.state == QStringLiteral("running"))
+            return &job;
+    }
+    return nullptr;
+}
+
+bool PreviewHub::enqueuePackage(const QString &agentId)
+{
+    if (!findAgent(agentId)) {
+        setStatus(QStringLiteral("未知工作区：%1").arg(agentId));
+        return false;
+    }
+    for (const PackageJob &job : m_packageQueue) {
+        if (job.agentId == agentId
+            && (job.state == QStringLiteral("queued") || job.state == QStringLiteral("running"))) {
+            setStatus(QStringLiteral("%1 已在打包队列中").arg(agentId));
+            return false;
+        }
+    }
+    PackageJob job;
+    job.agentId = agentId;
+    job.state = QStringLiteral("queued");
+    job.queuedAt = QDateTime::currentDateTime().toString(Qt::ISODate);
+    m_packageQueue.append(job);
+    emit packageQueueChanged();
+    setStatus(QStringLiteral("%1 已加入打包队列").arg(agentId));
+    startNextPackage();
+    return true;
+}
+
+void PreviewHub::clearFinishedPackages()
+{
+    for (int i = m_packageQueue.size() - 1; i >= 0; --i) {
+        const QString state = m_packageQueue.at(i).state;
+        if (state == QStringLiteral("done") || state == QStringLiteral("failed"))
+            m_packageQueue.removeAt(i);
+    }
+    emit packageQueueChanged();
+}
+
+QString PreviewHub::packageOutputDir(const QString &agentId) const
+{
+    return m_anchorRoot + QStringLiteral("/dist/packages/") + agentId;
+}
+
+QString PreviewHub::resolveWindeployqt(const BuildSettings &settings) const
+{
+    const QString fromEnv = qEnvironmentVariable("NEONBOARD_WINDEPLOYQT").trimmed();
+    if (!fromEnv.isEmpty() && QFileInfo::exists(fromEnv))
+        return fromEnv;
+    const QString inPrefix = settings.qtPrefix + QStringLiteral("/bin/windeployqt.exe");
+    if (QFileInfo::exists(inPrefix))
+        return inPrefix;
+    return QStandardPaths::findExecutable(QStringLiteral("windeployqt"));
+}
+
+void PreviewHub::startNextPackage()
+{
+    if (m_packageProc)
+        return;
+    int index = -1;
+    for (int i = 0; i < m_packageQueue.size(); ++i) {
+        if (m_packageQueue.at(i).state == QStringLiteral("queued")) {
+            index = i;
+            break;
+        }
+    }
+    if (index < 0)
+        return;
+
+    m_packageQueue[index].state = QStringLiteral("running");
+    const QString agentId = m_packageQueue.at(index).agentId;
+    m_logs[agentId].clear();
+    emit packageQueueChanged();
+
+    const AgentInfo *info = findAgent(agentId);
+    if (!info) {
+        finishPackage(false, QStringLiteral("工作区已消失"));
+        return;
+    }
+    packageStep(QFileInfo::exists(info->path + QStringLiteral("/build/CMakeCache.txt"))
+                    ? QStringLiteral("build")
+                    : QStringLiteral("configure"));
+}
+
+void PreviewHub::packageStep(const QString &step)
+{
+    PackageJob *job = currentPackage();
+    if (!job)
+        return;
+    const QString agentId = job->agentId;
+    const AgentInfo *info = findAgent(agentId);
+    if (!info) {
+        finishPackage(false, QStringLiteral("工作区已消失"));
+        return;
+    }
+
+    const BuildSettings settings = resolveBuildSettings();
+    QString program = settings.cmake;
+    QStringList args;
+    QString workDir = info->path;
+
+    if (step == QStringLiteral("configure")) {
+        args << QStringLiteral("-S") << info->path << QStringLiteral("-B")
+             << info->path + QStringLiteral("/build") << QStringLiteral("-G")
+             << settings.generator;
+        if (settings.generator.contains(QStringLiteral("Visual Studio")))
+            args << QStringLiteral("-A") << settings.platform;
+        args << QStringLiteral("-DCMAKE_PREFIX_PATH=") + settings.qtPrefix;
+    } else if (step == QStringLiteral("build")) {
+        args << QStringLiteral("--build") << info->path + QStringLiteral("/build")
+             << QStringLiteral("--config") << QStringLiteral("Release");
+    } else if (step == QStringLiteral("deploy")) {
+        program = resolveWindeployqt(settings);
+        if (program.isEmpty()) {
+            finishPackage(false, QStringLiteral("找不到 windeployqt，可设置 NEONBOARD_WINDEPLOYQT"));
+            return;
+        }
+        workDir = job->outputDir;
+        args << QStringLiteral("--release") << QStringLiteral("--qmldir")
+             << info->path + QStringLiteral("/qml") << QStringLiteral("--compiler-runtime")
+             << job->outputDir + QStringLiteral("/NeonBoard.exe");
+    } else {
+        finishPackage(false, QStringLiteral("未知打包阶段：%1").arg(step));
+        return;
+    }
+
+    m_packageStep = step;
+    setStatus(QStringLiteral("%1 打包中（%2）").arg(agentId, packageStepLabel(step)));
+
+    auto *proc = new QProcess(this);
+    m_packageProc = proc;
+    proc->setWorkingDirectory(workDir);
+    proc->setProcessChannelMode(QProcess::MergedChannels);
+    connect(proc, &QProcess::readyReadStandardOutput, this, [this, agentId, proc]() {
+        appendLog(agentId, QString::fromUtf8(proc->readAllStandardOutput()));
+    });
+    connect(proc, &QProcess::finished, this, [this, agentId, step, proc](int exitCode, QProcess::ExitStatus) {
+        appendLog(agentId, QString::fromUtf8(proc->readAllStandardOutput()));
+        m_packageProc = nullptr;
+        proc->deleteLater();
+        if (exitCode != 0) {
+            finishPackage(false, QStringLiteral("%1 阶段失败（exit %2）")
+                                     .arg(packageStepLabel(step))
+                                     .arg(exitCode));
+            return;
+        }
+        if (step == QStringLiteral("configure")) {
+            packageStep(QStringLiteral("build"));
+        } else if (step == QStringLiteral("build")) {
+            const AgentInfo *agent = findAgent(agentId);
+            if (!agent) {
+                finishPackage(false, QStringLiteral("工作区已消失"));
+                return;
+            }
+            PackageJob *job = currentPackage();
+            QString out = job ? job->outputDir : QString();
+            if (out.isEmpty())
+                out = packageOutputDir(agentId);
+            QString error;
+            if (!preparePackageDir(*agent, &out, &error)) {
+                finishPackage(false, error.isEmpty() ? QStringLiteral("准备出包目录失败") : error);
+                return;
+            }
+            if (job)
+                job->outputDir = out;
+            packageStep(QStringLiteral("deploy"));
+        } else {
+            PackageJob *done = currentPackage();
+            finishPackage(true, done ? done->outputDir : QString());
+        }
+    });
+    proc->start(program, args);
+}
+
+bool PreviewHub::preparePackageDir(const AgentInfo &agent, QString *outDir, QString *error)
+{
+    QString out = outDir ? *outDir : QString();
+    if (out.isEmpty())
+        out = packageOutputDir(agent.id);
+
+    QDir dir(out);
+    if (dir.exists() && !dir.removeRecursively()) {
+        out = out + QStringLiteral("-")
+              + QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss"));
+    }
+    if (!QDir().mkpath(out)) {
+        if (error)
+            *error = QStringLiteral("无法创建出包目录：%1").arg(out);
+        return false;
+    }
+    if (outDir)
+        *outDir = out;
+
+    const QString releaseDir = agent.path + QStringLiteral("/build/Release");
+    const QStringList binaries{QStringLiteral("NeonBoard.exe"), QStringLiteral("NeonBoardHost.exe")};
+    for (const QString &name : binaries) {
+        const QString source = releaseDir + QStringLiteral("/") + name;
+        if (!QFileInfo::exists(source)) {
+            if (error)
+                *error = QStringLiteral("构建产物缺失：%1").arg(source);
+            return false;
+        }
+        if (!QFile::copy(source, out + QStringLiteral("/") + name)) {
+            if (error)
+                *error = QStringLiteral("复制失败：%1").arg(name);
+            return false;
+        }
+    }
+
+    const QString samples = agent.path + QStringLiteral("/plugins-samples");
+    if (!copyTree(samples, out + QStringLiteral("/plugins"))) {
+        if (error)
+            *error = QStringLiteral("复制示例插件失败");
+        return false;
+    }
+
+    QFile infoFile(out + QStringLiteral("/BUILD-INFO.txt"));
+    if (infoFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream stream(&infoFile);
+        stream << "agent: " << agent.id << "\n"
+               << "branch: " << agent.branch << "\n"
+               << "commit: " << agent.head << "\n"
+               << "subject: " << agent.subject << "\n"
+               << "built: " << QDateTime::currentDateTime().toString(Qt::ISODate) << "\n";
+    }
+    return true;
+}
+
+void PreviewHub::finishPackage(bool ok, const QString &message)
+{
+    PackageJob *job = currentPackage();
+    if (!job)
+        return;
+    job->state = ok ? QStringLiteral("done") : QStringLiteral("failed");
+    job->message = message;
+    job->finishedAt = QDateTime::currentDateTime().toString(Qt::ISODate);
+    const QString agentId = job->agentId;
+    m_packageStep.clear();
+    emit packageQueueChanged();
+    appendLog(agentId, QStringLiteral("\n=== 打包%1：%2 ===\n")
+                           .arg(ok ? QStringLiteral("完成") : QStringLiteral("失败"), message));
+    setStatus(QStringLiteral("%1 打包%2").arg(agentId, ok ? QStringLiteral("完成") : QStringLiteral("失败")));
+    QTimer::singleShot(0, this, &PreviewHub::startNextPackage);
 }

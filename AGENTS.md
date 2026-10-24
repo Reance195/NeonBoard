@@ -319,16 +319,17 @@ agent 的改动**不必等合并就能看**。主线实例内置「预览中心�
 | 层 | 位置 | 职责 |
 | --- | --- | --- |
 | 采集 | `src/PreviewHub` | 解析 `git worktree list --porcelain`，采集分支 / HEAD / 脏状态 / 已构建时间 |
-| 构建 | `src/PreviewHub` | 异步调 cmake（configure → build 两阶段），日志进面板 |
+| 构建 | `src/PreviewHub` | 异步调 cmake（configure → build 两阶段），日志进面板；另含串行「出包队列」（build → 复制 exe/示例插件 → windeployqt） |
 | 实例 | `src/PreviewHub` | 以沙箱环境变量启动各 worktree 的 exe，登记 pid |
 | 展示 | `qml/components/PreviewPanel.qml` | 预览中心面板（只用 `Theme.xxx` 令牌） |
-| 命令行 | `scripts/preview.ps1` | `List` / `Build` / `Start` / `Stop` 四个动作 |
+| 命令行 | `scripts/preview.ps1` | `List` / `Build` / `Package` / `Start` / `Stop` 五个动作 |
 
 ```powershell
 pwsh -File scripts/preview.ps1 -Action List
-pwsh -File scripts/preview.ps1 -Action Build -Agent agent-c
-pwsh -File scripts/preview.ps1 -Action Start -Agent agent-c
-pwsh -File scripts/preview.ps1 -Action Stop  -Agent agent-c
+pwsh -File scripts/preview.ps1 -Action Build   -Agent agent-c
+pwsh -File scripts/preview.ps1 -Action Package -Agent agent-c
+pwsh -File scripts/preview.ps1 -Action Start   -Agent agent-c
+pwsh -File scripts/preview.ps1 -Action Stop    -Agent agent-c
 ```
 
 硬性约束：
@@ -346,6 +347,8 @@ pwsh -File scripts/preview.ps1 -Action Stop  -Agent agent-c
 5. **CLI 结果走 stdout**：exe 是 GUI 子系统，`qInfo()` 只进日志文件；`--preview-*` 必须用
    `emitCliLine()` 写 stdout，脚本才读得到。
 6. **多实例可区分**：窗口标题与托盘 tooltip 带 agent 标签（`NeonBoard · agent-c`）。
+7. **出包只写 `dist/packages/<agent>/`**：不覆盖锚点的 `dist/NeonBoard/`（避免锁住正在使用的安装目录）；
+   多个出包任务必须串行（队列），同一 agent 已在队列中时不得重复入队。
 
 ---
 

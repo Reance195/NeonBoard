@@ -40,7 +40,7 @@
 - 插件库：侧栏汇总「已装 / 可装」插件，支持打开、启用、禁用、安装、卸载、更新
 - 多市场源：支持仓库简写（Gitee → GitHub 自动回退）、完整地址与本地目录，多源并列合并、同 id 取高版本，并可从 `.neon` 链接直接安装
 - 在线市场：按 JSON 索引拉取 `.neon` 单文件插件包，SHA-256 校验后原子安装；断网时自动降级到本地缓存索引
-- 预览中心（多代理开发）：主线侧栏「预览」实时列出所有 worktree（分支 / HEAD / 脏状态 / 是否已构建 / 是否在跑），一键构建、启动、停止各 agent 的预览实例；预览实例跑在各自 worktree 的沙箱里，与真实数据完全隔离，窗口标题带 agent 标签便于区分
+- 预览中心（多代理开发）：主线侧栏「预览」实时列出所有 worktree（分支 / HEAD / 脏状态 / 是否已构建 / 是否在跑），一键构建、启动、停止各 agent 的预览实例；预览实例跑在各自 worktree 的沙箱里，与真实数据完全隔离，窗口标题带 agent 标签便于区分。面板还可把某个工作区「出包」：构建 → 复制 exe 与示例插件 → `windeployqt` 部署运行库，产物落 `dist/packages/<agent>/`，多个出包任务按队列串行执行（不占用当前安装目录）
 
 ## 快捷键
 
@@ -111,6 +111,7 @@ pwsh -File scripts/git-done.ps1
 pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx -Card R3-01  # 开区+领任务：卡片自动转「进行中」
 pwsh -File scripts/dev-run.ps1 -Wait -AppArgs --smoke                  # 沙箱运行，不污染真实数据
 pwsh -File scripts/preview.ps1 -Action List                            # 看各 agent 工作区/构建/运行状态
+pwsh -File scripts/preview.ps1 -Action Package -Agent agent-c          # 把该工作区出成独立运行包
 pwsh -File scripts/git-done.ps1 -Branch feature/xxx -RemoveWorktree     # 合并 + 推送 + 回收工作区
 pwsh -File scripts/release.ps1                                          # 五道闸门出包
 ```
@@ -123,6 +124,8 @@ pwsh -File scripts/release.ps1                                          # 五道
 >
 > 预览中心让「每个 agent 的成果即时可见」：主线实例的侧栏「预览」面板，或上面的 `preview.ps1`，
 > 都能直接构建并启动某个 agent 的预览实例，**不必等所有 agent 合并完**。
+> 「出包」是面板里的队列动作：同一时间只跑一个，产物在 `dist/packages/<agent>/`，
+> 包含 exe、宿主、Qt 运行库、示例插件与 `BUILD-INFO.txt`，不碰正在使用的安装目录。
 
 逐步操作与钩子排查见 [docs/git-workflow.md](docs/git-workflow.md)，贡献约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 

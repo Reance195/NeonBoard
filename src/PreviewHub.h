@@ -26,6 +26,7 @@ class PreviewHub : public QObject
     Q_PROPERTY(bool available READ available NOTIFY agentsChanged)
     Q_PROPERTY(QString instanceLabel READ instanceLabel CONSTANT)
     Q_PROPERTY(bool hostInstance READ hostInstance CONSTANT)
+    Q_PROPERTY(QVariantList packageQueue READ packageQueue NOTIFY packageQueueChanged)
 
 public:
     explicit PreviewHub(QObject *parent = nullptr);
@@ -47,10 +48,15 @@ public:
     Q_INVOKABLE bool start(const QString &agentId);
     Q_INVOKABLE bool stop(const QString &agentId);
     Q_INVOKABLE QString buildLog(const QString &agentId) const;
+    // 打包队列：统一出包入口，串行执行，产物落 dist/packages/<agent>/
+    QVariantList packageQueue() const;
+    Q_INVOKABLE bool enqueuePackage(const QString &agentId);
+    Q_INVOKABLE void clearFinishedPackages();
 
     // 命令行模式（scripts/preview.ps1 走这条路，避免两套扫描逻辑）
     QString listJson() const;
     bool buildBlocking(const QString &agentId, QString *error);
+    bool packageBlocking(const QString &agentId, QString *error);
     bool startBlocking(const QString &agentId, QString *error);
     bool stopBlocking(const QString &agentId, QString *error);
     // 命令行模式：实例脱离本进程，命令退出后继续运行
@@ -62,6 +68,7 @@ public:
 signals:
     void agentsChanged();
     void statusChanged();
+    void packageQueueChanged();
 
 private:
     struct AgentInfo {
@@ -93,6 +100,15 @@ private:
         QString exe;
     };
 
+    struct PackageJob {
+        QString agentId;
+        QString state;
+        QString message;
+        QString outputDir;
+        QString queuedAt;
+        QString finishedAt;
+    };
+
     // —— 仓库定位 ——
     QString anchorRoot() const;
     QString commonGitDir() const;
@@ -118,6 +134,15 @@ private:
     // —— 运行实例 ——
     bool spawnInstance(const AgentInfo &agent, QString *error);
 
+    // —— 打包队列 ——
+    void startNextPackage();
+    void packageStep(const QString &step);
+    void finishPackage(bool ok, const QString &message);
+    bool preparePackageDir(const AgentInfo &agent, QString *outDir, QString *error);
+    QString packageOutputDir(const QString &agentId) const;
+    QString resolveWindeployqt(const BuildSettings &settings) const;
+    PackageJob *currentPackage();
+
     const AgentInfo *findAgent(const QString &agentId) const;
     void setStatus(const QString &status);
 
@@ -127,6 +152,9 @@ private:
     QHash<QString, QProcess *> m_builds;
     QHash<QString, QString> m_buildStage;
     QHash<QString, QString> m_logs;
+    QVector<PackageJob> m_packageQueue;
+    QProcess *m_packageProc = nullptr;
+    QString m_packageStep;
     QString m_status;
     QString m_instanceLabel;
     QString m_selfId;

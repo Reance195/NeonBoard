@@ -45,6 +45,13 @@ ApplicationWindow {
     property bool previewPending: false
     property bool previewOpen: false
 
+    // 专注模式：背景压暗 + 追光（完整倒计时流程留给 R2-01）
+    property bool focusMode: false
+
+    function toggleFocusMode() {
+        window.focusMode = !window.focusMode
+    }
+
     // 面板互斥：同一时刻只保留一个浮层，避免外观/插件/设置面板叠在一起
     function closeAllPanels() {
         themePicker.open = false
@@ -191,6 +198,7 @@ ApplicationWindow {
         add("打开插件库", "面板", "已装 / 可装插件", function() { window.openPluginLibrary() })
         add("打开设置面板", "面板", "热键 / 数据路径 / 开机自启", function() { window.openSettings() })
         add("打开外观面板", "面板", "主题预设 / 画质 / 减弱动效", function() { window.openAppearance() })
+        add("切换专注模式", "视图", window.focusMode ? "退出追光背景" : "压暗背景，只留一束追光", function() { window.toggleFocusMode() })
         add("查看全部阶段", "视图", "清除阶段过滤", function() { window.setStageFilter("") })
         add("只看 R0 阶段", "视图", "炫酷地基", function() { window.setStageFilter("R0") })
         add("只看 R1 阶段", "视图", "日常底座", function() { window.setStageFilter("R1") })
@@ -435,6 +443,11 @@ ApplicationWindow {
         }
     }
 
+    Shortcut {
+        sequence: "Ctrl+Shift+F"
+        onActivated: window.toggleFocusMode()
+    }
+
     // 插件快捷键：manifest 声明，宿主统一仲裁；冲突的已被插件运行时置空
     Instantiator {
         model: pluginRuntime.pluginCommands
@@ -453,6 +466,10 @@ ApplicationWindow {
         target: taskStore
         function onCountsChanged() {
             window.stageStats = taskStore.stageStats()
+        }
+        // 完成任务时背景爆发一次能量脉冲
+        function onTaskCompleted(id) {
+            background.burst()
         }
     }
 
@@ -479,11 +496,39 @@ ApplicationWindow {
                 anchors.fill: parent
                 active: window.active
                 visible: !noBackground
+                iState: Math.min(1, taskStore.doingCount / 6)
+                iFocus: window.focusMode ? 1 : 0
             }
 
             Rectangle {
                 anchors.fill: parent
                 color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.28)
+            }
+        }
+
+        // 专注模式提示：背景已压暗成追光，告知退出方式
+        Rectangle {
+            id: focusBadge
+
+            anchors.top: parent.top
+            anchors.topMargin: 48
+            anchors.horizontalCenter: parent.horizontalCenter
+            z: 30
+            visible: window.focusMode
+            width: focusBadgeText.implicitWidth + 30
+            height: 28
+            radius: 14
+            color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.72)
+            border.width: 1
+            border.color: Theme.violet
+
+            Text {
+                id: focusBadgeText
+
+                anchors.centerIn: parent
+                text: "专注模式 · Ctrl+Shift+F 退出"
+                color: Theme.violet
+                font.pixelSize: 11
             }
         }
 

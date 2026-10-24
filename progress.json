@@ -96,99 +96,6 @@
             "updatedAt": 1792654081
         },
         {
-            "completedAt": 0,
-            "createdAt": 1792719894,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "ba779441-f1f4-400a-8ef3-8f7c222de0ac",
-            "note": "来自 agent opencode · session ses_ea37",
-            "orderKey": 20480,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "台账加 claims 段设计 + Release 时清除登记",
-            "updatedAt": 1792719894
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792721607,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "50d0ea28-ecbb-4d64-923e-7e2cac57feef",
-            "note": "已发生过的真实事故：旧版程序写回 progress.json 时按『已知字段重建』，把 v3 的 code 字段整片抹掉。方案：RoadmapSync 写回时先从磁盘读旧记录，按 id 合并——不认识的字段原样保留，只覆盖本程序负责的字段；导出时也保留。验收：用旧版 exe 写回后 code 计数不变；--selftest 增加未知字段保留断言。",
-            "orderKey": 36864,
-            "priority": 1,
-            "stage": "R4",
-            "status": "todo",
-            "tags": [
-                "R4",
-                "可靠性",
-                "agent"
-            ],
-            "title": "R4 快照写回防降级：保留未知字段",
-            "updatedAt": 1792721852
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792721607,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "c42ac4b0-4e60-4587-8e7f-5968a6884fb0",
-            "note": "根因：HookEventQueue::poll 一投出即 markDelivered，subscribers==0 也标已投递，插件 ready 前的事件被白发丢弃（必须用常驻实例才能验证就是这个原因）。方案：无订阅者时不置 delivered，保留待投；加最大重试次数与 TTL 防积压，超过上限记为 failed 并记日志。验收：应用启动 1s 内投递的事件在插件 ready（约 20s）后仍被消费；hooks.db delivered 仅在真正投出后为 1。",
-            "orderKey": 37888,
-            "priority": 1,
-            "stage": "R4",
-            "status": "todo",
-            "tags": [
-                "R4",
-                "可靠性",
-                "agent"
-            ],
-            "title": "R4 事件队列不丢事件：无订阅者可重投",
-            "updatedAt": 1792721853
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792721608,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "12092ae2-b98c-4dcf-8914-0e8f697e9c7a",
-            "note": "痛点：cmake 不在 PATH、Qt bin 不注入导致 0xC0000135、configure 首建 142-260s 反复撞 900s 超时、白构建（锚点区 exe 已比 origin/main 新仍重编）。方案：自动定位 VS 内置 cmake、注入 Qt bin 到 PATH、configure/build 走 Start-Process 后台 + 轮询日志输出进度，支持 -SkipIfFresh（比对锚点区 exe mtime 与 origin/main tip）。验收：一条命令产出 Release exe 并跑 --selftest；-SkipIfFresh 时明确跳过并给原因。",
-            "orderKey": 38912,
-            "priority": 1,
-            "stage": "R4",
-            "status": "todo",
-            "tags": [
-                "R4",
-                "工程",
-                "agent"
-            ],
-            "title": "R4 构建脚本封装 scripts/build.ps1",
-            "updatedAt": 1792721853
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792721608,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "72ca7dfd-15f9-4016-84b9-f9220d3655db",
-            "note": "风险：多 agent 并行时同一张卡可能被两个分支同时领用，看板状态互相覆盖。方案：agent-init 的 -Card 改为必填并校验短号在台账存在；扫描所有 worktree 的台账 claims，发现同卡已被其它分支领用直接报错退出；worktree 回收时释放 claim。验收：同卡第二个 worktree 开区被拒并打印占用者。",
-            "orderKey": 39936,
-            "priority": 1,
-            "stage": "R4",
-            "status": "todo",
-            "tags": [
-                "R4",
-                "协作",
-                "agent"
-            ],
-            "title": "R4 工作区防双领：agent-init 强制 -Card",
-            "updatedAt": 1792721853
-        },
-        {
             "code": "R4-08",
             "completedAt": 0,
             "createdAt": 1792726694,
@@ -465,24 +372,6 @@
             ],
             "title": "颜色令牌化：零硬编码",
             "updatedAt": 1792568900
-        },
-        {
-            "code": "R2-01",
-            "completedAt": 1792849210,
-            "createdAt": 1792568900,
-            "deleted": false,
-            "dueAt": 1794326400,
-            "id": "5424c1dd-7581-4c6c-a441-108774588d81",
-            "note": "全屏专注计时视图；任务完成率/时长图表。",
-            "orderKey": 7168,
-            "priority": 1,
-            "stage": "R2",
-            "status": "done",
-            "tags": [
-                "R2"
-            ],
-            "title": "R2 专注模式 + 统计可视化",
-            "updatedAt": 1792849210
         },
         {
             "code": "R0-09",
@@ -853,25 +742,6 @@
             ],
             "title": "规则引擎 rules.js + plan.rules 规则 schema",
             "updatedAt": 1792588621
-        },
-        {
-            "code": "R4-06",
-            "completedAt": 1792851261,
-            "createdAt": 1792654081,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "39d80b78-a666-49aa-b199-f363c5c2efc6",
-            "note": "减弱动效有开关，但缺焦点链、屏幕阅读器支持与纯键盘全操作（命令面板只剩部分入口）。规划：Tab 焦点链梳理 + 高对比度检查 + 键盘操作全覆盖。路线图未排期的新增方向。",
-            "orderKey": 19456,
-            "priority": 1,
-            "stage": "R4",
-            "status": "done",
-            "tags": [
-                "R4",
-                "无障碍"
-            ],
-            "title": "R4 键盘完整性 / 无障碍",
-            "updatedAt": 1792851261
         },
         {
             "code": "M11",
@@ -1333,8 +1203,258 @@
             ],
             "title": "沙箱 e2e：taskId 接管已有卡（不新建）",
             "updatedAt": 1792748226
+        },
+        {
+            "code": "R2-01",
+            "completedAt": 1792849210,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 1794326400,
+            "id": "5424c1dd-7581-4c6c-a441-108774588d81",
+            "note": "全屏专注计时视图；任务完成率/时长图表。",
+            "orderKey": 48128,
+            "priority": 1,
+            "stage": "R2",
+            "status": "done",
+            "tags": [
+                "R2"
+            ],
+            "title": "R2 专注模式 + 统计可视化",
+            "updatedAt": 1792849210
+        },
+        {
+            "completedAt": 1792849808,
+            "createdAt": 1792849311,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "ea8303ff-ea76-4bbe-84eb-f169d288fb2d",
+            "note": "来自 agent opencode · session ses_e928",
+            "orderKey": 49152,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "间隔加 ±20% 随机抖动（定时任务后端 + 手动抢号前端）",
+            "updatedAt": 1792849808
+        },
+        {
+            "completedAt": 1792849808,
+            "createdAt": 1792849311,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "65f43c28-52de-4bac-948b-2e833653d019",
+            "note": "来自 agent opencode · session ses_e928",
+            "orderKey": 50176,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "HTTP 层全局限速（5 QPS）",
+            "updatedAt": 1792849808
+        },
+        {
+            "completedAt": 1792849809,
+            "createdAt": 1792849312,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "afc04ed8-e431-4d72-beb4-13da6b71c948",
+            "note": "来自 agent opencode · session ses_e928",
+            "orderKey": 51200,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "指定日期不再查询总号源，仅明细；不限日期保持先查总号源",
+            "updatedAt": 1792849809
+        },
+        {
+            "completedAt": 1792849809,
+            "createdAt": 1792849312,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "7e1d0897-6947-4d0f-ac1a-ced4206b9d08",
+            "note": "来自 agent opencode · session ses_e928",
+            "orderKey": 52224,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "错误分类并写入日志",
+            "updatedAt": 1792849809
+        },
+        {
+            "completedAt": 1792849809,
+            "createdAt": 1792849312,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "e8a793cb-8c2c-40e9-88a9-51a0fed9a4cf",
+            "note": "来自 agent opencode · session ses_e928",
+            "orderKey": 53248,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "页面展示定时任务运行日志与最近失败原因",
+            "updatedAt": 1792849809
+        },
+        {
+            "completedAt": 1792849809,
+            "createdAt": 1792849313,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "1bcf628c-afcb-49fe-98df-6d8507f0200c",
+            "note": "来自 agent opencode · session ses_e928",
+            "orderKey": 54272,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "通用 Webhook 抢到通知（设置项 + 发送）",
+            "updatedAt": 1792849809
+        },
+        {
+            "completedAt": 1792849877,
+            "createdAt": 1792849313,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "497dfd84-66ec-4f74-b0cc-50d0eb45503b",
+            "note": "来自 agent opencode · session ses_e928",
+            "orderKey": 55296,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "构建、测试、提交并部署",
+            "updatedAt": 1792849877
+        },
+        {
+            "completedAt": 1792850012,
+            "createdAt": 1792721608,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "12092ae2-b98c-4dcf-8914-0e8f697e9c7a",
+            "note": "已完成 1 / 待做 0：scripts/build.ps1 封装一键构建（自动探测 CMake 与 Qt、-Clean/-Reconfigure/-SelfTest/-Jobs/-Target，自检固定沙箱数据目录），README 与 AGENTS.md 的构建入口同步改为脚本优先。实测全新构建 + --selftest 通过。",
+            "orderKey": 56320,
+            "priority": 1,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "工程",
+                "agent"
+            ],
+            "title": "R4 构建脚本封装 scripts/build.ps1",
+            "updatedAt": 1792850012
+        },
+        {
+            "code": "R4-06",
+            "completedAt": 1792850781,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "39d80b78-a666-49aa-b199-f363c5c2efc6",
+            "note": "已完成 4 / 待做 0：①纯键盘全操作（Alt+1/2/3 聚焦列、↑↓ 选卡、←→ 跨列、Enter 编辑、Space 完成/恢复、Delete 删除、Esc 取消选中）；②ListView 纳入 Tab 焦点链，卡片选中态用霓虹描边 + 左缘竖线保证焦点可见；③卡片补 Accessible 语义（role/name/描述状态·优先级·到期·选中，onPressAction 打开编辑）；④高对比度核对：深色底上青色描边与正文对比度足够，如需独立高对比主题另开卡。README 快捷键表同步更新。",
+            "orderKey": 57344,
+            "priority": 1,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "无障碍"
+            ],
+            "title": "R4 键盘完整性 / 无障碍",
+            "updatedAt": 1792850781
+        },
+        {
+            "completedAt": 1792855060,
+            "createdAt": 1792721607,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "50d0ea28-ecbb-4d64-923e-7e2cac57feef",
+            "note": "已完成 2 / 待做 0。RoadmapSync::exportTo 写回时按 id 把磁盘旧条目里本程序不认识的字段合回生成条目（未外部改动时），顶层非 version/updated/items 字段也原样保留，signature 之类的预留位不再被抹掉。--selftest 新增 snapshot-preserve 断言：根级 signature 与条目级 unknownCustomField 写回后仍在，实测 OK。",
+            "orderKey": 58368,
+            "priority": 1,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "可靠性",
+                "agent"
+            ],
+            "title": "R4 快照写回防降级：保留未知字段",
+            "updatedAt": 1792855060
+        },
+        {
+            "completedAt": 1792855060,
+            "createdAt": 1792721607,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "c42ac4b0-4e60-4587-8e7f-5968a6884fb0",
+            "note": "已完成 3 / 待做 0。hook_event 表新增 attempts/last_attempt_at/failed 三列，老库启动时 ALTER 补齐；poll 在无订阅者时不再 markDelivered，改为按 1s→10s 退避重投，累计 60 次或超过 24h TTL 才标 failed 并告警；trim 不再清理未投递事件；pendingCount 排除 failed。验证：selftest hook-retry pending 1；端到端在启动 300ms 内投递 agent.task，插件 ready 后成功消费，hooks.db delivered=1。",
+            "orderKey": 59392,
+            "priority": 1,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "可靠性",
+                "agent"
+            ],
+            "title": "R4 事件队列不丢事件：无订阅者可重投",
+            "updatedAt": 1792855060
+        },
+        {
+            "completedAt": 1792855061,
+            "createdAt": 1792721608,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "72ca7dfd-15f9-4016-84b9-f9220d3655db",
+            "note": "已完成 2 / 待做 0。agent-init.ps1 的 -Card 改为必填，漏填直接报「缺少必需参数 Card」退出码 1；确实不领卡时显式写 -Card none，脚本打印黄色警告且不产生 claim 提交。防双领沿用服务端 refs/claims/<短号> 硬门 + 台账 claims 扫描。",
+            "orderKey": 60416,
+            "priority": 1,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "协作",
+                "agent"
+            ],
+            "title": "R4 工作区防双领：agent-init 强制 -Card",
+            "updatedAt": 1792855061
+        },
+        {
+            "completedAt": 1792855061,
+            "createdAt": 1792719894,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "ba779441-f1f4-400a-8ef3-8f7c222de0ac",
+            "note": "已完成 2 / 待做 0。台账 claims 段继续保存 {agent,branch,head,claimedAt} 投影，服务端 refs/claims/<短号> 为唯一事实源；释放改为开区时统一清理——分支已删除或已并入 origin/main 的登记自动移除，不在 git-done 里为清理额外提交。干跑清理出 5 条失效登记（R1-01/R1-02/R2-01/R2-02/R4-06），判定正确。",
+            "orderKey": 61440,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "R4 台账 claims 段设计 + 释放登记",
+            "updatedAt": 1792855061
         }
     ],
-    "updated": "2026-10-24T14:14:21",
+    "updated": "2026-10-24T23:17:46",
     "version": 3
 }
+

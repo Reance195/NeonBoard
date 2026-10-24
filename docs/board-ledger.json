@@ -347,6 +347,12 @@
             "branch": "feature/keyboard-a11y",
             "claimedAt": 1792850068,
             "head": "3e4c791286974939fdccf8da6d7f0cef95f01af0"
+        },
+        "R4-10": {
+            "agent": "agent-gov",
+            "branch": "chore/task-governance",
+            "claimedAt": 1792856108,
+            "head": "896057c"
         }
     },
     "version": 1

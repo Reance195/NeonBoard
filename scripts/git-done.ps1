@@ -19,6 +19,7 @@
       pwsh -File scripts/git-done.ps1 -Mode local
       pwsh -File scripts/git-done.ps1 -KeepBranch
       pwsh -File scripts/git-done.ps1 -SkipClaimCheck      # 纯文档/杂务分支跳过领用闸门
+      pwsh -File scripts/git-done.ps1 -SkipAnchorSync      # 合并后不快进锚点区
 #>
 [CmdletBinding()]
 param(
@@ -27,6 +28,7 @@ param(
     [string]$Mode = 'remote',
     [switch]$KeepBranch,
     [switch]$SkipClaimCheck,
+    [switch]$SkipAnchorSync,
     [switch]$RemoveWorktree,
     [string]$MainBranch = 'main',
     [string]$Worktree = ''
@@ -41,6 +43,97 @@ function Invoke-Git {
         throw ("git {0} 执行失败（{1}）：`n{2}" -f ($args -join ' '), $code, ($output -join "`n"))
     }
     return $output
+}
+
+# 原生命令（git status/merge/stash）的 stderr 不能打断流程：MSBuild 之外，
+# git 也会往 stderr 写进度（宪章 7.3）。统一走这里，用退出码判定成功与否。
+function Invoke-GitQuiet {
+    param([string[]]$GitArgs)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $out = & git @GitArgs 2>&1
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+    return [pscustomobject]@{ Code = $code; Output = @($out) }
+}
+
+# 主 worktree（锚点区）永远是 `git worktree list --porcelain` 的第一块。
+function Get-AnchorWorktree {
+    $blocks = ((& git worktree list --porcelain) -join "`n") -split "`n`n"
+    foreach ($block in $blocks) {
+        $m = [regex]::Match($block, '(?m)^worktree (.+)$')
+        if ($m.Success) { return $m.Groups[1].Value.Trim() }
+    }
+    return $null
+}
+
+# 合并推送成功后，把锚点区快进到最新 main —— 否则林先生回到根目录看到的还是旧代码。
+# 只做 fast-forward：锚点有本地提交 / 非 main / 有 progress.json 之外的改动时一律跳过。
+# progress.json 是应用自动写回的快照，允许临时 stash 后还原，不丢数据。
+function Sync-AnchorWorktree {
+    param([string]$Main, [string]$CurrentRoot)
+    $anchor = Get-AnchorWorktree
+    if (-not $anchor) { return }
+    try {
+        $anchor = [System.IO.Path]::GetFullPath($anchor)
+        $current = [System.IO.Path]::GetFullPath($CurrentRoot)
+    } catch {
+        return
+    }
+    if ($anchor -eq $current) {
+        Write-Host '· 锚点同步：当前就在锚点区，跳过' -ForegroundColor DarkGray
+        return
+    }
+    if (-not (Test-Path -LiteralPath $anchor)) { return }
+
+    $branchRes = Invoke-GitQuiet @('-C', $anchor, 'symbolic-ref', '--quiet', '--short', 'HEAD')
+    $anchorBranch = if ($branchRes.Code -eq 0) { ($branchRes.Output | Select-Object -First 1).ToString().Trim() } else { '' }
+    if ($anchorBranch -ne $Main) {
+        Write-Host ("· 锚点同步：锚点区当前分支是 '{0}'，跳过" -f $anchorBranch) -ForegroundColor DarkGray
+        return
+    }
+
+    $dirtyRes = Invoke-GitQuiet @('-C', $anchor, 'status', '--porcelain')
+    $dirty = @($dirtyRes.Output | Where-Object { $_ -and $_.ToString().Trim() -ne '' })
+    $snapshotOnly = $dirty.Count -gt 0 -and @($dirty | Where-Object { $_.ToString() -notmatch '(^\S+\s+|\s)progress\.json$' }).Count -eq 0
+    if ($dirty.Count -gt 0 -and -not $snapshotOnly) {
+        Write-Host ("· 锚点同步：锚点区有未提交改动（{0} 项），跳过快进" -f $dirty.Count) -ForegroundColor Yellow
+        return
+    }
+
+    $stashed = $false
+    if ($snapshotOnly) {
+        Write-Host '· 锚点同步：临时暂存 progress.json ...' -ForegroundColor DarkGray
+        $stashRes = Invoke-GitQuiet @('-C', $anchor, 'stash', 'push', '-q', '-m', 'git-done 锚点同步临时暂存', '--', 'progress.json')
+        $stashed = ($stashRes.Code -eq 0)
+        if (-not $stashed) {
+            Write-Host '· 锚点同步：暂存失败，跳过快进' -ForegroundColor Yellow
+            return
+        }
+    }
+
+    Write-Host ("· 锚点同步：快进 {0} → origin/{1}" -f $anchor, $Main) -ForegroundColor DarkGray
+    $mergeRes = Invoke-GitQuiet @('-C', $anchor, 'merge', '--ff-only', "origin/$Main")
+    $mergeOk = ($mergeRes.Code -eq 0)
+    if (-not $mergeOk) {
+        $mergeRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+    }
+
+    if ($stashed) {
+        $popRes = Invoke-GitQuiet @('-C', $anchor, 'stash', 'pop', '-q')
+        if ($popRes.Code -ne 0) {
+            Write-Host '   ⚠ progress.json 还原冲突，改动保留在 stash 中（git stash list）' -ForegroundColor Yellow
+        }
+    }
+
+    if ($mergeOk) {
+        Write-Host '✓ 锚点区已同步到最新 main' -ForegroundColor Green
+    } else {
+        Write-Host '· 锚点同步未完成（本地提交 / 未跟踪文件冲突），不影响远端合并' -ForegroundColor Yellow
+    }
 }
 
 # 仓库根按**脚本自身路径**定位（脚本在 <repo>/scripts/ 下），不按当前工作目录 ——
@@ -153,6 +246,12 @@ if ($Mode -eq 'remote') {
 
     $merged = (Invoke-Git rev-parse HEAD).Trim()
     Write-Host ("✓ 已推送到 origin/{0}（{1}）" -f $MainBranch, $merged.Substring(0, 7)) -ForegroundColor Green
+
+    if (-not $SkipAnchorSync) {
+        Sync-AnchorWorktree -Main $MainBranch -CurrentRoot $repoRoot
+    } else {
+        Write-Host '· 已跳过锚点同步（-SkipAnchorSync）' -ForegroundColor Yellow
+    }
 
     # ---- 4. 清理：先回收 worktree（解除分支占用），再删分支 ----
     $wtPath = $Worktree

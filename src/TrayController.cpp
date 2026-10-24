@@ -11,9 +11,13 @@
 #include <QSettings>
 #include <QSystemTrayIcon>
 
-TrayController::TrayController(QObject *parent)
+TrayController::TrayController(bool headless, QObject *parent)
     : QObject(parent)
+    , m_headless(headless)
 {
+    if (m_headless)
+        return;
+
     QIcon icon(QStringLiteral(":/icons/neonboard.svg"));
     if (icon.isNull()) {
         QPixmap pixmap(32, 32);

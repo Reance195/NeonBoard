@@ -146,6 +146,7 @@ int main(int argc, char *argv[])
     }
 
     const bool silentStart = arguments.contains(QStringLiteral("--autostart"));
+    const bool hosted = arguments.contains(QStringLiteral("--hosted"));
     std::unique_ptr<SplashWindow> splash;
     if (!utilityMode && !smokeMode && !silentStart) {
         splash = std::make_unique<SplashWindow>();
@@ -543,7 +544,7 @@ int main(int argc, char *argv[])
     UiSettings uiSettings;
     WindowController windowController;
     Hotkey hotkey;
-    TrayController tray;
+    TrayController tray(hosted);
     // 提醒调度器：30s 轮询，托盘通知 + 窗口辉光；启动后先查一轮补发漏提醒
     ReminderScheduler reminderScheduler(&taskExtra, &tray);
     PluginLoader pluginLoader(&database);
@@ -881,7 +882,8 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
 
     metrics.markWindow(window);
     windowController.attach(window);
-    hotkey.install(window);
+    if (!hosted)
+        hotkey.install(window);
     // 窗口就绪后再启动提醒调度：首查补发漏提醒时 QML 辉光已能接住信号
     reminderScheduler.start(30000);
     qInfo() << "BOOT attached" << boot.elapsed();

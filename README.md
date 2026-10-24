@@ -224,6 +224,18 @@ docs/themes/         6 套主题预设实机截图
 .github/workflows/   GitHub Actions 持续集成流水线
 ```
 
+## 宿主进程
+
+托盘常驻与界面渲染拆成两个进程：
+
+| 进程 | 可执行文件 | 职责 | 常驻内存 |
+| --- | --- | --- | --- |
+| 宿主 | `NeonBoardHost.exe` | Win32 托盘、全局热键 `Ctrl+Shift+Space`、单实例、按需拉起/回收渲染进程 | 约 6 MB |
+| 渲染 | `NeonBoard.exe --hosted` | QML 看板界面，关窗后 60 秒无操作自动退出，内存归零 | 约 140 MB（仅展开时） |
+
+`--hosted` 由宿主注入：渲染进程在该模式下不创建系统托盘、不注册全局热键，避免与宿主争抢。
+单独运行 `NeonBoard.exe` 仍是完整的单进程模式，行为与之前一致。
+
 ## 持续集成
 
 仓库内置 GitHub Actions 流水线（`.github/workflows/ci.yml`），推送或合并到 `main` 时自动在 `windows-2022` 上执行：

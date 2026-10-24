@@ -49,7 +49,8 @@
         "R4-05": "todo",
         "R4-06": "todo",
         "R4-07": "todo",
-        "R4-08": "todo"
+        "R4-08": "todo",
+        "R4-09": "todo"
     },
     "cards": {
         "M01": {
@@ -303,6 +304,12 @@
             "note": "已完成 0 / 待做：Ninja 构建器接入、编译缓存（sccache/ccache）、Defender 排除 build 目录、Main.qml 拆分；保留 QML 预编译不动（启动速度优先）。",
             "stage": "R4",
             "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分"
+        },
+        "R4-09": {
+            "id": "f1b3f7e5-ad1c-4872-95fc-b95f00e49cd4",
+            "note": "目标：agent 只负责领任务、干活、提交，其余看板全自动。范围：派生器支持扫描各 worktree 台账并输出 JSON；看板内定时派生并应用状态（领用即进行中），卡片显示领用人/分支 chip；顶部「＋ 新建」弹窗统一任务入口（列/父卡/解析预览）。验收：agent 领卡后看板卡自动转进行中并显示 agent 标签；合并后自动结卡；新建弹窗可建卡并落到指定列。",
+            "stage": "R4",
+            "title": "R4 任务流转自动化：领用可见 + 统一新建入口"
         }
     },
     "claims": {

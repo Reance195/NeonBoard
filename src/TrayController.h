@@ -11,7 +11,7 @@ class TrayController : public QObject
     Q_OBJECT
 
 public:
-    explicit TrayController(QObject *parent = nullptr);
+    explicit TrayController(bool headless = false, QObject *parent = nullptr);
     ~TrayController() override;
 
     void updateStats(int todo, int doing, int doneToday);
@@ -32,6 +32,7 @@ signals:
 private:
     void refreshAutostartAction();
 
+    bool m_headless = false;
     QSystemTrayIcon *m_tray = nullptr;
     QMenu *m_menu = nullptr;
     QAction *m_showAction = nullptr;

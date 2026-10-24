@@ -56,6 +56,7 @@ if (Test-Path -LiteralPath $dist) {
 }
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $build 'Release\NeonBoard.exe') -Destination $dist
+Copy-Item -LiteralPath (Join-Path $build 'Release\NeonBoardHost.exe') -Destination $dist
 
 $previousErrorAction = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'

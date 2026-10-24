@@ -137,3 +137,30 @@ set_target_properties(NeonBoard PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE FALSE
 )
+
+qt_add_executable(NeonBoardHost
+    src/host/HostMain.cpp
+    src/AppPaths.h src/AppPaths.cpp
+    src/SingleInstance.h src/SingleInstance.cpp
+)
+
+target_link_libraries(NeonBoardHost PRIVATE
+    Qt6::Core
+    Qt6::Network
+    user32
+    shell32
+)
+
+target_compile_definitions(NeonBoardHost PRIVATE
+    NEONBOARD_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
+
+if (MSVC)
+    target_compile_options(NeonBoardHost PRIVATE /utf-8)
+endif()
+
+set_target_properties(NeonBoardHost PROPERTIES
+    WIN32_EXECUTABLE TRUE
+    MACOSX_BUNDLE FALSE
+)
+target_include_directories(NeonBoardHost PRIVATE src)

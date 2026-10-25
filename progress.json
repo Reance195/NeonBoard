@@ -95,6 +95,24 @@
             "updatedAt": 1792726694
         },
         {
+            "code": "R4-10",
+            "completedAt": 0,
+            "createdAt": 1792856056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "53ff86c6-3082-4479-b24a-c6928fd2b44b",
+            "note": "",
+            "orderKey": 41984,
+            "priority": 2,
+            "stage": "R4",
+            "status": "todo",
+            "tags": [
+                "R4"
+            ],
+            "title": "R4 任务治理：任务先行，禁止无任务改代码",
+            "updatedAt": 1792856056
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -669,7 +687,7 @@
         },
         {
             "code": "R4-04",
-            "completedAt": 1792855830,
+            "completedAt": 1792856056,
             "createdAt": 1792654081,
             "deleted": false,
             "dueAt": 0,
@@ -684,7 +702,7 @@
                 "可靠性"
             ],
             "title": "R4 数据可靠性：WAL / 损坏恢复 / 迁移兼容",
-            "updatedAt": 1792855830
+            "updatedAt": 1792856056
         },
         {
             "code": "M08",
@@ -1454,6 +1472,6 @@
             "updatedAt": 1792855061
         }
     ],
-    "updated": "2026-10-24T15:30:30",
+    "updated": "2026-10-24T23:34:16",
     "version": 3
 }

@@ -75,4 +75,18 @@ if echo "$first_line" | grep -qE '^[a-zA-Z]+\(\):' ; then
   exit 1
 fi
 
+# ---- 规则 3：代码改动必须关联任务卡 ----
+# 豁免只看路径（docs/ scripts/ .githooks/ .github/ *.md 等），不看人怎么声明；
+# feat/fix/refactor/perf/test 即使只碰豁免路径也必须有卡。
+if command -v python >/dev/null 2>&1; then
+  repo_top=$(git rev-parse --show-toplevel 2>/dev/null)
+  if [ -n "$repo_top" ] && [ -f "$repo_top/scripts/task_gate.py" ]; then
+    python "$repo_top/scripts/task_gate.py" message --file "$message_file" || exit 1
+  fi
+else
+  echo ""
+  echo " ⚠ 未找到 python，跳过任务关联校验（任务闸门依赖 python，请安装后重试）"
+  echo ""
+fi
+
 exit 0

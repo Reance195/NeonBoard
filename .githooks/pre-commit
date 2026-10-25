@@ -89,4 +89,19 @@ if [ -n "$current_branch" ]; then
   fi
 fi
 
+# ---- 规则 3：agent 工作区不得改动台账的任务定义（任务只能由人授权）----
+# 台账 docs/board-ledger.json 里，cards（id/title/stage）与 baseline 只能由林先生在
+# 锚点区维护；agent 只能写 claims 领用登记与卡片 note 交付说明。
+# 没有这条，agent 可以先往台账塞一张卡再「合法」领用，所有领用闸门都变成自证。
+if command -v python >/dev/null 2>&1; then
+  repo_top=$(git rev-parse --show-toplevel 2>/dev/null)
+  if [ -n "$repo_top" ] && [ -f "$repo_top/scripts/task_gate.py" ]; then
+    python "$repo_top/scripts/task_gate.py" ledger || exit 1
+  fi
+else
+  echo ""
+  echo " ⚠ 未找到 python，跳过台账保护校验（任务闸门依赖 python，请安装后重试）"
+  echo ""
+fi
+
 exit 0

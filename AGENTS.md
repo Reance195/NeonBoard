@@ -125,6 +125,23 @@ git branch -d feature/<简述>
 `main` 上只允许出现合并提交或文档/构建类的合并提交，不允许直接改代码提交。
 主分支推送必须是快进，禁止 `--force`。
 
+### 条款 6 —— 任务先行：没有任务不许改代码
+
+**动代码之前必须先持有任务卡，并完成服务端领用占位。** 顺序不可颠倒：
+
+1. 卡片由林先生在台账 `docs/board-ledger.json` 的 `cards` 里登记。
+   **agent 不得自行加卡、改卡的标题/阶段、改 `baseline`** —— 否则就是自授权，
+   所有领用闸门都会退化成自证；agent 只能写 `claims` 领用登记与卡片 `note` 交付说明。
+2. 用 `scripts/agent-init.ps1 -Card <短号>` 开区，脚本会推 `refs/claims/<短号>` 完成领用；
+   `baseline=<短号> done` 的卡已完成，**拒绝重新领用**。
+3. 提交信息必须带 `#<短号>`：触及代码路径的提交，没有短号直接在 `commit-msg` 被拒。
+4. 推送 `main` 时逐个提交复核短号与 claim ref，手搓分支、手工 `merge --no-ff` 后直推同样绕不过。
+
+「杂务分支免领用」不再靠 `-SkipClaimCheck` 自报，而是按 diff 路径自动判定：
+改动全部落在 `docs/` `scripts/` `.githooks/` `.github/` 或 `*.md` 才算杂务，其余一律要有卡。
+唯一的规则实现是 `scripts/task_gate.py`（`scope` / `message` / `ledger` / `push` 四个子命令），
+钩子与 `git-done.ps1` 都调它，**不要在多处重复实现判定逻辑**。
+
 ---
 
 ## 三、钩子强制说明
@@ -133,13 +150,17 @@ git branch -d feature/<简述>
 
 | 钩子 | 拦截的行为 | 绕过方式 |
 | --- | --- | --- |
-| `pre-commit` | 在 `main`/`master`/`develop` 上提交；分支名缺少规范前缀 | `git commit --no-verify`（仅限紧急情况） |
-| `commit-msg` | 提交信息不符合 `<type>(<scope>): <subject>` 格式（`merge` 类型与 Git 自动生成的合并信息除外） | `git commit --no-verify` |
-| `pre-push` | 推送尚未合并进 `main` 的分支；推送到 `main` 时非快进（含 `git push origin HEAD:main` 的合并推送） | 需先合并回 `main` |
+| `pre-commit` | 在 `main`/`master`/`develop` 上提交；分支名缺少规范前缀；agent 工作区改动台账 `cards`/`baseline` | `git commit --no-verify`（仅限紧急情况） |
+| `commit-msg` | 提交信息不符合 `<type>(<scope>): <subject>` 格式（`merge` 类型与 Git 自动生成的合并信息除外）；代码改动未关联台账短号 | `git commit --no-verify` |
+| `pre-push` | 推送尚未合并进 `main` 的分支；推送到 `main` 时非快进、快照降级；**推送范围内触及代码的提交缺短号或缺 claim ref**（无 python 时 fail-closed） | 需先领用任务卡 |
 | `post-merge` | ——（仅提示可清理的已合并分支） | —— |
 
 `pre-commit` 在**合并冲突解决**、**rebase 续行**、**cherry-pick 续行**等中间态会自动放行，
 不会阻断正常合并流程。
+
+任务闸门（`scripts/task_gate.py`）的豁免只看路径，不看人怎么声明：
+`docs/` `scripts/` `.githooks/` `.github/` 下的文件与 `*.md`、`progress.json` 等算杂务；
+`feat` / `fix` / `refactor` / `perf` / `test` 类型即使只改杂务文件，也必须有短号。
 
 ---
 
@@ -216,6 +237,8 @@ cd .worktrees/agent-c
   不允许省略——「漏填」和「不需要」必须能区分）。该短号必须在台账 `cards` 里登记过；
   脚本会写 `claims[<短号>]={agent,branch,head,claimedAt}` 进**本 worktree** 的台账副本
   （随 feature 分支提交），并投递 `#<短号>=doing`（`chore(claim):` 空提交 + `--emit-hook-file` 双通道，幂等）。
+  `-Card none` **只适用于纯文档/脚本杂务**：不会获得 claim ref，一旦触及代码路径，
+  `commit-msg` 与 `pre-push` 会直接拒绝。
 - **领用粒度**：大任务（`R#-#`）可随时领；小任务（`M##`）**只有父任务尚未被任何人认领**时才允许单独领用
   （父卡由 `board.db` 的 `task_link` 映射到台账，父卡已被领用即拒绝）。
 - **卡片「进行中」不靠手工拖**：派生器按 claims 派生 doing，优先级为
@@ -241,7 +264,8 @@ pwsh -File scripts/git-done.ps1 -Branch fix/stagebar-chip-overflow
 脚本内部流程：`git fetch origin` → 基于 `origin/main` 建临时分支 `merge/<slug>` →
 `git merge --no-ff <分支>` → `git push origin HEAD:main`（**快进推送**，不是强推）。
 合并前还会跑**领用闸门**：分支必须带服务端 `refs/claims/<短号>` 占位，否则拒绝合并；
-纯文档/杂务分支显式加 `-SkipClaimCheck` 跳过（会打印警告）。
+纯文档/杂务分支按 diff 路径自动豁免（`scripts/task_gate.py scope` 判定为 `exempt`）。
+`-SkipClaimCheck` 已废弃，保留参数只为兼容旧脚本，**不再能放行任何代码改动**。
 
 - 串行化由远端的快进保护天然完成：两个 agent 同时推，后一个会被 non-fast-forward 拒绝，
   重新同步后再合即可 —— 因此**根目录永远不需要被任何 agent 占用**，

@@ -40,6 +40,8 @@ compile_commands.json
 # ===== Qt / CMake 生成物 =====
 moc_*.cpp
 moc_*.h
+# Q_OBJECT 定义在 .cpp 时 moc 的产物（AUTOMOC 进 build 目录；手工 moc 会落在源码旁）
+*.moc
 qrc_*.cpp
 ui_*.h
 *_autogen/

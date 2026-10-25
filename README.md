@@ -160,12 +160,30 @@ pwsh -File scripts/build.ps1 -Generator VS   # 回退 Visual Studio / MSBuild �
 
 常用参数：`-QtRoot <路径>` 指定 Qt、`-BuildDir` 换输出目录、`-Generator Ninja|VS` 选生成器、`-Reconfigure` 强制重新配置、`-Jobs N` 限制并行度、`-Target NeonBoardHost` 只构建子目标。
 
+### 单元测试
+
+纯逻辑层（快速录入解析、插件包校验/安装）用 Qt Test 覆盖，由 CTest 统一调度。
+测试目标默认随构建一起编译（`BUILD_TESTING` 默认 ON），编译不过即等于门禁失败。
+
+```powershell
+pwsh -File scripts/build.ps1 -SelfTest          # 构建 + 自检
+ctest --test-dir build -C Release --output-on-failure   # 跑单元测试
+ctest --test-dir build -C Release -R taskinputparser -V  # 只跑单个用例并看详细输出
+```
+
+- 用例位置：`tests/`，命名 `tst_<模块>.cpp`，在 `tests/CMakeLists.txt` 用 `neonboard_add_test(<模块>)` 登记。
+- 收录原则：只收**不依赖数据库 / 窗口 / QML 引擎**的纯逻辑模块，保证无时序抖动；涉及 `Database` 的门面后续按同样方式建独立临时库测试。
+- 断言基准时间固定（如 `2026-10-25 10:00`），相对日期与「已过时刻顺延」等规则跨机器可复现。
+- 新增测试后用 `-DBUILD_TESTING=OFF` 可跳过，仅出包时使用。
+- CI 门禁顺序：**编译 → 单元测试 → 数据库自检 → 冒烟启动 → 看板一致性**，任一步失败即阻断合入。
+
 VS / MSBuild 生成器（多配置，exe 落在 `build/Release/`）的手敲等价命令：
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
-  -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64
+  -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64 -DBUILD_TESTING=ON
 cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
 
 生成便携目录：

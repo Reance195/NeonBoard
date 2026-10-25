@@ -96,7 +96,7 @@
         },
         {
             "code": "R4-10",
-            "completedAt": 1792897523,
+            "completedAt": 0,
             "createdAt": 1792856056,
             "deleted": false,
             "dueAt": 0,
@@ -1490,6 +1490,7 @@
             "updatedAt": 1792856056
         }
     ],
-    "updated": "2026-10-25T03:27:23",
+    "updated": "2026-10-25T06:48:19",
     "version": 3
 }
+

@@ -248,6 +248,17 @@ cd .worktrees/agent-c
   领子卡前先 `ls-remote` 父卡占位。本地台账 `claims` 只是投影，服务端 ref 才是唯一事实源。
   仓库 Ruleset 必须禁止 `refs/claims/**` 的强推与删除，否则可被 `--force` 绕过；领用需联网，离线直接失败（fail-closed）。
   PR 的 CI「领用闸门」（`scripts/check_claim_refs.py`）校验 claim ref 存在且指向分支历史，未领用的分支不准合入。
+
+#### 7.2.1 认领占位 `refs/claims/*` 的生命周期与硬约束（含当前缺口）
+
+服务端占位（`refs/claims/<短号>`）是双领防护的唯一事实源，但当前实现在「创建 / 同步 / 删除」三端都存在缺口，已核实如下：
+
+- **认领唯一入口**：所有认领必须且只能通过 `scripts/agent-init.ps1 -Card` 完成。**禁止手工 `git update-ref refs/claims/<短号>` 建本地占位来绕过 origin push** —— 早期部分认领这样做了，导致 origin 至今无任何 `refs/claims/*`（已核实 `git ls-remote origin refs/claims/*` 为空），服务端双领硬门事实上从未生效。本地 `refs/claims/*` 由 `git-done.ps1` / `task_gate.py` / `check_claim_refs.py` 执行 `git fetch origin '+refs/claims/*:refs/claims/*'` 从 origin 镜像回来，历史残留会被反复拉回，属孤儿占位，不得作为认领依据。
+- **fail-closed 必须联网**：`agent-init` 推 `refs/claims/<短号>` 到 origin 失败时 `sys.exit(3)` 硬阻（已实现）。agent 运行环境**必须具备 origin 写权限**；本地存在 `refs/claims/*` **不构成**有效认领，必须以 `git ls-remote origin refs/claims/<短号>` 服务端可达为准。离线 / 无写权限时认领直接失败，不得降级为「仅本地占位」。
+- **worktree 分支必须推 origin**：认领的 `fix/*` / `feature/*` 分支**必须推送到 origin** —— 不仅为 CI，更为 claim ref 指向的 commit object 在 origin 可达；否则 `ls-remote origin refs/claims/<短号>` 引用的提交在 origin 不可达，CI 领用闸门（`check_claim_refs.py`）无法校验。当前 `feature/onboarding`（R4-07）从未推 origin 即为一例。
+- **合并后必须释放占位（机制缺口，待补脚本）**：任务卡合入 `main`、本地分支删除后，**必须** `git push origin --delete refs/claims/<短号>` 并本地 `git update-ref -d refs/claims/<短号>` 释放服务端占位。`agent-init.ps1` 当前只清本地台账 `claims`，**不删 origin ref**，导致合并后占位永久残留，会误拦后续对该卡的重新认领。待办：在 `git-done.ps1` 合并收尾步补「占位释放」（释放前先 `git ls-remote origin` 确认 ref 仍存在、且所有相关 worktree 分支已合并删除）。
+- **本地孤儿 ref 清理**：任何「本地有 `refs/claims/<短号>` 但 `git ls-remote origin` 无对应 ref」的状态视为异常孤儿，应 `git update-ref -d` 删除本地项，并不得在本地保留为占位依据。
+
 - 同一分支禁止在两个 worktree 同时检出（Git 天然强制）。
 - 每个 worktree 拥有独立的 `build/` `dist/` `.sandbox/`，体积较大，不要共享。
 - worktree 用完必须回收：`git worktree remove .worktrees/<agent>`

@@ -95,22 +95,58 @@
             "updatedAt": 1792726694
         },
         {
-            "code": "R4-10",
+            "code": "R4-09",
             "completedAt": 0,
-            "createdAt": 1792856056,
+            "createdAt": 1792854977,
             "deleted": false,
             "dueAt": 0,
-            "id": "53ff86c6-3082-4479-b24a-c6928fd2b44b",
-            "note": "",
-            "orderKey": 41984,
+            "id": "6c9c13a0-0c5f-43b8-9809-ec3933978800",
+            "note": "目标：agent 只负责领任务、干活、提交，其余看板全自动。范围：派生器支持扫描各 worktree 台账并输出 JSON；看板内定时派生并应用状态（领用即进行中），卡片显示领用人/分支 chip；顶部「＋ 新建」弹窗统一任务入口（列/父卡/解析预览）。验收：agent 领卡后看板卡自动转进行中并显示 agent 标签；合并后自动结卡；新建弹窗可建卡并落到指定列。",
+            "orderKey": 1024,
             "priority": 2,
             "stage": "R4",
-            "status": "todo",
+            "status": "doing",
+            "tags": [
+                "R4"
+            ],
+            "title": "R4 任务流转自动化：领用可见 + 统一新建入口",
+            "updatedAt": 1792855910
+        },
+        {
+            "code": "R4-09",
+            "completedAt": 0,
+            "createdAt": 1792855035,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "f1b3f7e5-ad1c-4872-95fc-b95f00e49cd4",
+            "note": "目标：agent 只负责领任务、干活、提交，其余看板全自动。范围：派生器支持扫描各 worktree 台账并输出 JSON；看板内定时派生并应用状态（领用即进行中），卡片显示领用人/分支 chip；顶部「＋ 新建」弹窗统一任务入口（列/父卡/解析预览）。验收：agent 领卡后看板卡自动转进行中并显示 agent 标签；合并后自动结卡；新建弹窗可建卡并落到指定列。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "R4",
+            "status": "doing",
+            "tags": [
+                "R4"
+            ],
+            "title": "R4 任务流转自动化：领用可见 + 统一新建入口",
+            "updatedAt": 1792855910
+        },
+        {
+            "code": "R4-09",
+            "completedAt": 0,
+            "createdAt": 1792855847,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "e37df1a0-e9c3-4b12-89e4-94100ff53622",
+            "note": "",
+            "orderKey": 3072,
+            "priority": 2,
+            "stage": "R4",
+            "status": "doing",
             "tags": [
                 "R4"
             ],
             "title": "R4 任务治理：任务先行，禁止无任务改代码",
-            "updatedAt": 1792856056
+            "updatedAt": 1792855911
         },
         {
             "code": "R0-01",
@@ -684,25 +720,6 @@
             ],
             "title": "HookEventQueue：独立 hooks.db 事件队列",
             "updatedAt": 1792588621
-        },
-        {
-            "code": "R4-04",
-            "completedAt": 1792856056,
-            "createdAt": 1792654081,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "a1880fc6-2060-4a72-b445-b3ba81fb8bad",
-            "note": "「老版本程序照常打开」写进宪章但无验证手段。规划：SQLite WAL + journal 校验 + 损坏自动恢复流程 + 迁移/向后兼容回归测试。路线图未排期的新增方向。",
-            "orderKey": 16384,
-            "priority": 2,
-            "stage": "R4",
-            "status": "done",
-            "tags": [
-                "R4",
-                "可靠性"
-            ],
-            "title": "R4 数据可靠性：WAL / 损坏恢复 / 迁移兼容",
-            "updatedAt": 1792856056
         },
         {
             "code": "M08",
@@ -1470,8 +1487,46 @@
             ],
             "title": "R4 台账 claims 段设计 + 释放登记",
             "updatedAt": 1792855061
+        },
+        {
+            "code": "R4-04",
+            "completedAt": 1792856056,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "a1880fc6-2060-4a72-b445-b3ba81fb8bad",
+            "note": "「老版本程序照常打开」写进宪章但无验证手段。规划：SQLite WAL + journal 校验 + 损坏自动恢复流程 + 迁移/向后兼容回归测试。路线图未排期的新增方向。",
+            "orderKey": 63488,
+            "priority": 2,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "可靠性"
+            ],
+            "title": "R4 数据可靠性：WAL / 损坏恢复 / 迁移兼容",
+            "updatedAt": 1792856056
+        },
+        {
+            "code": "R4-10",
+            "completedAt": 1792897523,
+            "createdAt": 1792856056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "53ff86c6-3082-4479-b24a-c6928fd2b44b",
+            "note": "已完成 4/4：① 新增 scripts/task_gate.py（scope/message/ledger/push 四子命令，任务闸门唯一规则实现）；② pre-commit 禁止 agent 工作区改台账 cards/baseline；③ commit-msg 代码改动必须带台账短号；④ pre-push 推 main 逐提交校验短号 + claim ref（无 python 时 fail-closed）。另：git-done 领用闸门改为按 diff 路径自动豁免（-SkipClaimCheck 废弃）、agent-init 拒绝领用 baseline=done 的卡。自测通过：scope 对 src 改动输出 code、对文档输出 exempt；message 无卡拒绝 / 带 #R4-10 通过；ledger 拦下台账改标题；pre-commit 实测拦截成功。待做 0/4。已知遗留：claim ref 永久占位无释放机制；改动内容与卡不符仅告警不硬拦。",
+            "orderKey": 64512,
+            "priority": 2,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4"
+            ],
+            "title": "R4 任务治理：任务先行，禁止无任务改代码",
+            "updatedAt": 1792897523
         }
     ],
-    "updated": "2026-10-24T23:34:16",
+    "updated": "2026-10-25T11:05:25",
     "version": 3
 }
+

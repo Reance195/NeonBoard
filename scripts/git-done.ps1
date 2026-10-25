@@ -196,9 +196,11 @@ function Invoke-ClaimRefCleanup {
         $isAnc = $false
         try { & git merge-base --is-ancestor $sha ('origin/' + $Main) 2>$null; $isAnc = ($LASTEXITCODE -eq 0) } catch { $isAnc = $false }
         if ($isAnc) { Release-ClaimRef $ref; continue }
-        # 未合入：认领分支已不存在（孤儿 / 历史残留）则释放；否则保留（开发中）
-        $branch = if ($claimBranches.ContainsKey($code)) { $claimBranches[$code] } else { $null }
-        if (Test-ClaimBranchGone $branch) { Release-ClaimRef $ref }
+        # 未合入：仅当该 code 在台账中登记过、且其认领分支已不存在（孤儿 / 历史残留）时才释放；
+        # 台账未登记的 code（可能是其它机制认领的活动卡）一律保守保留，绝不误删。
+        if ($claimBranches.ContainsKey($code) -and (Test-ClaimBranchGone $claimBranches[$code])) {
+            Release-ClaimRef $ref
+        }
     }
 }
 

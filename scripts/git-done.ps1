@@ -136,6 +136,72 @@ function Sync-AnchorWorktree {
     }
 }
 
+# 合并收尾：释放已合并 / 孤儿任务的认领占位（refs/claims/<短号>）。
+# 判据（满足任一即释放）：
+#   1) 占位指向的提交已是 origin/<Main> 的祖先（任务已合入主线）；
+#   2) 台账 claims 中该卡的认领分支已不存在（本地 / 远端均无），属历史残留孤儿。
+# 二者都不满足（分支仍存在且未合入，如开发中的卡）则保留，可被领用闸门正常校验。
+# 历史缺口：agent-init 仅清本地台账 claims、从不删 origin ref，导致合并后占位永久残留、
+# 误拦重新认领；本函数补齐「释放」环节（宪章 AGENTS.md §7.2.1 第 4/5 条）。
+# 注意：若 origin 删除因离线失败，下次脚本领用闸门的 fetch 会把 origin 残留镜像回本地，
+# 故离线时仅清本地，联网后由下次运行彻底清 origin。
+function Release-ClaimRef {
+    param([string]$Ref)
+    & git update-ref -d $Ref 2>$null
+    Write-Host ('· 认领占位清理：本地释放 {0}' -f $Ref) -ForegroundColor DarkGray
+    $del = Invoke-GitQuiet @('push', 'origin', '--delete', $Ref)
+    if ($del.Code -eq 0) {
+        Write-Host ('✓ 认领占位清理：服务端释放 {0}' -f $Ref) -ForegroundColor Green
+    } else {
+        Write-Host ('· 认领占位清理：服务端 {0} 删除失败（离线或本就不存在），联网后下次运行再清' -f $Ref) -ForegroundColor Yellow
+    }
+}
+
+function Test-ClaimBranchGone {
+    param([string]$Branch)
+    if (-not $Branch) { return $true }
+    $r1 = Invoke-GitQuiet @('rev-parse', '--verify', '-q', $Branch)
+    if ($r1.Code -eq 0) { return $false }
+    $r2 = Invoke-GitQuiet @('rev-parse', '--verify', '-q', ('origin/' + $Branch))
+    return ($r2.Code -ne 0)
+}
+
+function Invoke-ClaimRefCleanup {
+    param([string]$Main)
+    # for-each-ref 可靠枚举整命名空间（git show-ref 的 pattern 匹配对松散引用不稳定，会漏列）
+    $refs = @(& git for-each-ref --format='%(objectname) %(refname)' 'refs/claims/*' 2>$null)
+    if ($refs.Count -eq 0) { return }
+    $originMain = $null
+    try { $originMain = (Invoke-Git rev-parse --verify -q "origin/$Main").Trim() } catch { $originMain = $null }
+    if (-not $originMain) {
+        Write-Host ('· 认领占位清理：origin/{0} 不可达，跳过（联网后下次运行再清）' -f $Main) -ForegroundColor Yellow
+        return
+    }
+    # 台账 claims 映射 code -> branch，用于判断认领分支是否已删除
+    $ledger = $null
+    $ledgerPath = Join-Path $repoRoot 'docs/board-ledger.json'
+    if (Test-Path -LiteralPath $ledgerPath) {
+        try { $ledger = (Get-Content -LiteralPath $ledgerPath -Raw -Encoding utf8 | ConvertFrom-Json) } catch { $ledger = $null }
+    }
+    $claimBranches = @{}
+    if ($ledger -and $ledger.claims) {
+        foreach ($k in $ledger.claims.PSObject.Properties.Name) {
+            $claimBranches[$k] = if ($ledger.claims.$k) { $ledger.claims.$k.branch } else { $null }
+        }
+    }
+    foreach ($line in $refs) {
+        $parts = ($line -split ' ')
+        $sha = $parts[0]; $ref = $parts[1]
+        $code = $ref -replace '^refs/claims/',''
+        $isAnc = $false
+        try { & git merge-base --is-ancestor $sha ('origin/' + $Main) 2>$null; $isAnc = ($LASTEXITCODE -eq 0) } catch { $isAnc = $false }
+        if ($isAnc) { Release-ClaimRef $ref; continue }
+        # 未合入：认领分支已不存在（孤儿 / 历史残留）则释放；否则保留（开发中）
+        $branch = if ($claimBranches.ContainsKey($code)) { $claimBranches[$code] } else { $null }
+        if (Test-ClaimBranchGone $branch) { Release-ClaimRef $ref }
+    }
+}
+
 # 仓库根按**脚本自身路径**定位（脚本在 <repo>/scripts/ 下），不按当前工作目录 ——
 # 否则从别的目录调用时会把合并动作做进错误的 worktree（踩过：误改了锚点区）。
 $scriptRepoRoot = $null
@@ -261,6 +327,9 @@ if ($Mode -eq 'remote') {
     $merged = (Invoke-Git rev-parse HEAD).Trim()
     Write-Host ("✓ 已推送到 origin/{0}（{1}）" -f $MainBranch, $merged.Substring(0, 7)) -ForegroundColor Green
 
+    # 合并收尾：释放已合入主线的认领占位（refs/claims/*），避免永久残留误拦重新认领。
+    Invoke-ClaimRefCleanup -Main $MainBranch
+
     if (-not $SkipAnchorSync) {
         Sync-AnchorWorktree -Main $MainBranch -CurrentRoot $repoRoot
     } else {
@@ -323,6 +392,10 @@ try {
     Write-Host "`n解决后：git add -A ; git commit ; git branch -d $Branch`n" -ForegroundColor Yellow
     exit 1
 }
+
+# 合并收尾：本模式未自动推送，origin/main 尚未含本次合并，认领占位暂不释放
+# （其 head 尚未成为 origin/main 的祖先）；推送后由 remote 模式或下次运行释放。
+Invoke-ClaimRefCleanup -Main $MainBranch
 
 if (-not $KeepBranch) {
     Write-Host "· 删除分支 $Branch" -ForegroundColor DarkGray

@@ -1,25 +1,6 @@
 {
     "items": [
         {
-            "code": "R4-05",
-            "completedAt": 0,
-            "createdAt": 1792654081,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "cf1180c6-c5be-4640-b619-78c459bb7037",
-            "note": "仓库无 tests/ 目录，回归全靠 selftest/smoke 手拍。规划：CTest + 针对 TaskModel/TaskTree/DataPort/PluginPackage 纯逻辑层的单元测试，GitHub Actions PR 质量门禁。路线图未排期的新增方向。",
-            "orderKey": 14336,
-            "priority": 3,
-            "stage": "R4",
-            "status": "todo",
-            "tags": [
-                "R4",
-                "质量"
-            ],
-            "title": "R4 自动化测试体系 + CI 质量门禁",
-            "updatedAt": 1792654081
-        },
-        {
             "code": "R4-03",
             "completedAt": 0,
             "createdAt": 1792654081,
@@ -75,24 +56,6 @@
             ],
             "title": "R4 首次体验引导",
             "updatedAt": 1792654081
-        },
-        {
-            "code": "R4-08",
-            "completedAt": 0,
-            "createdAt": 1792726694,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "6067b32f-68b8-4b07-a63b-d8ad54fd153d",
-            "note": "已完成 0 / 待做：Ninja 构建器接入、编译缓存（sccache/ccache）、Defender 排除 build 目录、Main.qml 拆分；保留 QML 预编译不动（启动速度优先）。",
-            "orderKey": 40960,
-            "priority": 2,
-            "stage": "R4",
-            "status": "todo",
-            "tags": [
-                "R4"
-            ],
-            "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分",
-            "updatedAt": 1792726694
         },
         {
             "code": "R0-01",
@@ -630,6 +593,25 @@
             "updatedAt": 1792588621
         },
         {
+            "code": "R4-05",
+            "completedAt": 1792942397,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "cf1180c6-c5be-4640-b619-78c459bb7037",
+            "note": "仓库无 tests/ 目录，回归全靠 selftest/smoke 手拍。规划：CTest + 针对 TaskModel/TaskTree/DataPort/PluginPackage 纯逻辑层的单元测试，GitHub Actions PR 质量门禁。路线图未排期的新增方向。",
+            "orderKey": 14336,
+            "priority": 3,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "质量"
+            ],
+            "title": "R4 自动化测试体系 + CI 质量门禁",
+            "updatedAt": 1792942397
+        },
+        {
             "code": "M06",
             "completedAt": 1792588621,
             "createdAt": 1792572839,
@@ -1084,6 +1066,24 @@
             "updatedAt": 1792748226
         },
         {
+            "code": "R4-08",
+            "completedAt": 1792942397,
+            "createdAt": 1792726694,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "6067b32f-68b8-4b07-a63b-d8ad54fd153d",
+            "note": "已完成 0 / 待做：Ninja 构建器接入、编译缓存（sccache/ccache）、Defender 排除 build 目录、Main.qml 拆分；保留 QML 预编译不动（启动速度优先）。",
+            "orderKey": 40960,
+            "priority": 2,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4"
+            ],
+            "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分",
+            "updatedAt": 1792942397
+        },
+        {
             "code": "R4-09",
             "completedAt": 1792897811,
             "createdAt": 1792855035,
@@ -1490,6 +1490,6 @@
             "updatedAt": 1792928574
         }
     ],
-    "updated": "2026-10-25T11:42:54",
+    "updated": "2026-10-25T15:33:17",
     "version": 3
 }

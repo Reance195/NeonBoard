@@ -30,11 +30,14 @@ ApplicationWindow {
             taskEditorLoader.item.openFor(id)
     }
 
-    function focusNewTask() {
+    // 统一新建入口：顶部按钮 / Ctrl+N / 命令面板 / 托盘共用同一弹窗
+    function openTaskComposer(status) {
         show()
         raise()
         requestActivate()
-        todoColumn.focusQuickAdd()
+        taskComposerLoader.active = true
+        if (taskComposerLoader.item)
+            taskComposerLoader.item.openComposer(status || "todo")
     }
 
     // 设置 / 插件面板均按需加载：首次打开时才构造，避免首帧为低频界面付出代价
@@ -250,7 +253,7 @@ ApplicationWindow {
             cmds.push({ title: title, category: category, subtitle: subtitle, run: fn })
         }
 
-        add("新建任务", "操作", "聚焦快速添加输入框", function() { window.focusNewTask() })
+        add("新建任务", "操作", "选列 / 挂父卡 / 预览解析", function() { window.openTaskComposer("todo") })
         add("打开插件面板", "面板", "当前插件内容", function() { window.openPlugins() })
         add("打开插件库", "面板", "已装 / 可装插件", function() { window.openPluginLibrary() })
         add("打开设置面板", "面板", "热键 / 数据路径 / 开机自启", function() { window.openSettings() })
@@ -486,7 +489,7 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Ctrl+N"
-        onActivated: window.focusNewTask()
+        onActivated: window.openTaskComposer("todo")
     }
 
     Shortcut {
@@ -684,6 +687,38 @@ MouseArea {
                 anchors.right: windowButtons.left
                 anchors.rightMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Rectangle {
+                id: newTaskButton
+                anchors.right: themePicker.left
+                anchors.rightMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
+                width: newTaskLabel.implicitWidth + 22
+                height: 26
+                radius: 8
+                color: newTaskMouse.containsMouse
+                       ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22)
+                       : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.10)
+                border.width: 1
+                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+
+                Text {
+                    id: newTaskLabel
+                    anchors.centerIn: parent
+                    text: "＋ 新建"
+                    color: Theme.cyan
+                    font.pixelSize: 11
+                    font.bold: true
+                }
+
+                MouseArea {
+                    id: newTaskMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: window.openTaskComposer("todo")
+                }
             }
         }
 
@@ -1792,6 +1827,17 @@ MouseArea {
         id: taskEditorLoader
         active: false
         sourceComponent: taskEditorComponent
+    }
+
+    Component {
+        id: taskComposerComponent
+        TaskComposer {}
+    }
+
+    Loader {
+        id: taskComposerLoader
+        active: false
+        sourceComponent: taskComposerComponent
     }
 
     Rectangle {

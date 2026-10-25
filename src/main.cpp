@@ -11,6 +11,7 @@
 #include "PluginPackage.h"
 #include "PluginRuntime.h"
 #include "PreviewHub.h"
+#include "BoardSync.h"
 #include "RoadmapSync.h"
 #include "DataPort.h"
 #include "SingleInstance.h"
@@ -220,6 +221,9 @@ int main(int argc, char *argv[])
 
     // 路线图快照同步：仓库 progress.json ↔ 本地看板
     RoadmapSync roadmap(&database, &taskStore);
+
+    // 多工作区领用同步：扫描锚点与各 worktree 台账，把「谁在领哪张卡」反映到看板
+    BoardSync boardSync(&database, &taskStore);
 
     // 数据导入导出与自动备份
     DataPort dataPort(&database, &taskStore);
@@ -682,6 +686,13 @@ int main(int argc, char *argv[])
             qWarning().noquote() << "Roadmap: sync failed" << roadmap.path() << roadmap.lastReport();
     }
 
+    // 领用同步：启动即扫一次，之后每 5 秒轮询各 worktree 台账
+    QTimer claimPoll;
+    claimPoll.setInterval(5000);
+    QObject::connect(&claimPoll, &QTimer::timeout, &boardSync, [&boardSync]() { boardSync.refresh(); });
+    claimPoll.start();
+    boardSync.refresh();
+
     // 每日首次启动自动备份数据库（先落 WAL 再复制，保证备份完整）
     {
         const QString backupMessage = dataPort.backupIfNeeded();
@@ -983,6 +994,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskTree"), &taskTree);
     engine.rootContext()->setContextProperty(QStringLiteral("taskStats"), &taskStats);
     engine.rootContext()->setContextProperty(QStringLiteral("taskExtra"), &taskExtra);
+    engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);
     engine.rootContext()->setContextProperty(QStringLiteral("todoModel"), &todoModel);
     engine.rootContext()->setContextProperty(QStringLiteral("doingModel"), &doingModel);
@@ -1075,7 +1087,8 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     QObject::connect(&tray, &TrayController::newTaskRequested, &windowController,
                      &WindowController::showAndActivate);
     QObject::connect(&tray, &TrayController::newTaskRequested, window, [window]() {
-        QMetaObject::invokeMethod(window, "focusNewTask");
+            QMetaObject::invokeMethod(window, "openTaskComposer",
+                                      Q_ARG(QVariant, QStringLiteral("todo")));
     });
     QObject::connect(&tray, &TrayController::settingsRequested, &windowController,
                      &WindowController::showAndActivate);
@@ -1113,7 +1126,8 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     }
     if (app.arguments().contains(QStringLiteral("--newtask"))) {
         QTimer::singleShot(300, window, [window]() {
-            QMetaObject::invokeMethod(window, "focusNewTask");
+        QMetaObject::invokeMethod(window, "openTaskComposer",
+                                  Q_ARG(QVariant, QStringLiteral("todo")));
         });
     }
     if (app.arguments().contains(QStringLiteral("--plugins"))) {

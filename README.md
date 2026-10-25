@@ -177,6 +177,13 @@ ctest --test-dir build -C Release -R taskinputparser -V  # 只跑单个用例并
 - 新增测试后用 `-DBUILD_TESTING=OFF` 可跳过，仅出包时使用。
 - CI 门禁顺序：**编译 → 单元测试 → 数据库自检 → 冒烟启动 → 看板一致性**，任一步失败即阻断合入。
 
+### Windows 原生集成
+
+- **应用标识**：启动即设置 AppUserModelID（`com.lin.neonboard`），任务栏分组与通知归属才对得上；安装器写快捷方式必须用同一值。
+- **`.neon` 文件关联**：`NeonBoard.exe --register-file-assoc` 注册（只写 HKCU、无需管理员），之后双击插件包即安装；`--assoc-status` 查看、`--unregister-file-assoc` 还原。
+
+细节、注册表键位与未实现项（跳转列表 / WinRT toast）见 [docs/windows-integration.md](docs/windows-integration.md)。
+
 VS / MSBuild 生成器（多配置，exe 落在 `build/Release/`）的手敲等价命令：
 
 ```powershell

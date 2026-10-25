@@ -56,6 +56,7 @@ qt_add_executable(NeonBoard
     src/PreviewHub.h src/PreviewHub.cpp
     src/TaskStats.h src/TaskStats.cpp
     src/BoardSync.h src/BoardSync.cpp
+    src/WindowsIntegration.h src/WindowsIntegration.cpp
     resources/neonboard.rc
 )
 
@@ -71,6 +72,8 @@ target_link_libraries(NeonBoard PRIVATE
     Qt6::ShaderTools
     Psapi
     Dwmapi
+    # R4-02：SetCurrentProcessExplicitAppUserModelID / SHChangeNotify
+    Shell32
 )
 
 target_compile_definitions(NeonBoard PRIVATE

@@ -14,6 +14,7 @@ NeonBoard 的回归风险集中在两处：**输入解析**（用户随手一句
 | --- | --- | --- |
 | `tst_taskinputparser` | `src/TaskInputParser.cpp` | 优先级（数字/中文）、标签去重、绝对/相对日期、星期（裸周几顺延、下周）、时刻（24 小时、24:00 边界、上午/下午/中午换算）、「只给时刻且已过 → 顺延」、标题清理 |
 | `tst_pluginpackage` | `src/PluginPackage.cpp` | 包合法性校验（非 JSON / 缺 manifest / 缺 files / 空 id）、`id → 目录名`、manifest 与 files 落盘、**目录穿越拒绝**、覆盖安装整体替换 |
+| `tst_windowsintegration` | `src/WindowsIntegration.cpp` | AUMID 契约稳定性、`shell\open\command` 引号与 `%1` 占位保留、`--install-plugin-file` 参数提取、关联状态结构。**只读**，不做任何注册表写入 |
 
 ## 结构
 

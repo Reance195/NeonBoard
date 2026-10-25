@@ -186,3 +186,12 @@ set_target_properties(NeonBoardHost PROPERTIES
     MACOSX_BUNDLE FALSE
 )
 target_include_directories(NeonBoardHost PRIVATE src)
+
+# 自动化测试（R4-05）：include(CTest) 提供 BUILD_TESTING 开关与 test 目标，
+# 默认开启，因此 CI 与本地 `cmake --build` 都会编译测试目标 —— 编译失败即等于
+# 质量门禁失败，不存在「测试代码烂掉但没人发现」的窗口。
+# 只想快速出包时可加 -DBUILD_TESTING=OFF 跳过。
+include(CTest)
+if (BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

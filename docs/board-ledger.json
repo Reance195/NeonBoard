@@ -319,11 +319,11 @@
         }
     },
     "claims": {
-        "R4-08": {
-            "agent": "agent-r4",
-            "branch": "feature/r4-08-build-speedup",
-            "claimedAt": 1792932584,
-            "head": "64384f8c108143245416d3a5b8af12dd97c985c2"
+        "R4-05": {
+            "agent": "agent-r4t",
+            "branch": "feature/r4-05-test-suite",
+            "claimedAt": 1792940975,
+            "head": "427508fea9781c7402405c772cc12e9c43a069da"
         }
     },
     "version": 1

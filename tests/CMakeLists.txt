@@ -30,3 +30,13 @@ neonboard_add_test(tst_taskinputparser
 neonboard_add_test(tst_pluginpackage
     ${CMAKE_SOURCE_DIR}/src/PluginPackage.cpp
 )
+
+# R4-02：文件关联 / 应用标识。只验证纯逻辑与只读查询，
+# 写入注册表的动作不进测试（否则跑测试就改了开发机设置）。
+neonboard_add_test(tst_windowsintegration
+    ${CMAKE_SOURCE_DIR}/src/WindowsIntegration.cpp
+)
+if (WIN32)
+    # SetCurrentProcessExplicitAppUserModelID / SHChangeNotify
+    target_link_libraries(tst_windowsintegration PRIVATE Shell32)
+endif()

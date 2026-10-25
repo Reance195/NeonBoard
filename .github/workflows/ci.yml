@@ -57,10 +57,19 @@ jobs:
           cache-key-prefix: 'neonboard-qt'
 
       - name: 配置 CMake
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}" -DBUILD_TESTING=ON
 
       - name: 编译 Release
         run: cmake --build build --config Release --parallel
+
+      - name: 单元测试（质量门禁）
+        shell: pwsh
+        run: |
+          # 门禁定位：纯逻辑层（解析器 / 插件包）回归前移到单元测试，
+          # 不再依赖「起 GUI 跑一遍」才能发现逻辑退化。
+          $env:PATH = "$env:QT_ROOT_DIR\bin;$env:PATH"
+          ctest --test-dir build -C Release --output-on-failure
+          if ($LASTEXITCODE -ne 0) { throw '单元测试未通过，禁止合入' }
 
       - name: 数据库自检
         shell: pwsh

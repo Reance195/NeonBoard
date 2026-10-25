@@ -1336,23 +1336,23 @@
         },
         {
             "code": "R4-09",
-            "completedAt": 0,
+            "completedAt": 1792897811,
             "createdAt": 1792855035,
             "deleted": false,
             "dueAt": 0,
             "id": "f1b3f7e5-ad1c-4872-95fc-b95f00e49cd4",
-            "note": "目标：agent 只负责领任务、干活、提交，其余看板全自动。范围：派生器支持扫描各 worktree 台账并输出 JSON；看板内定时派生并应用状态（领用即进行中），卡片显示领用人/分支 chip；顶部「＋ 新建」弹窗统一任务入口（列/父卡/解析预览）。验收：agent 领卡后看板卡自动转进行中并显示 agent 标签；合并后自动结卡；新建弹窗可建卡并落到指定列。",
+            "note": "已完成：BoardSync 扫描锚点与各 worktree 台账 claims，活跃领用（分支未合并）自动把待办卡转进行中且同一领用只转一次；TaskCard 显示 ◈ agent chip，合并后转灰；顶部「＋ 新建」/Ctrl+N/命令面板/托盘统一打开 TaskComposer（选列/挂父卡/解析预览）。验证：--selftest 退出码 0、smoke 中 R4-09 自动 doing、UIA 端到端建卡落库。待做：本地结卡仍依赖 CI 派生器（提交 #短号=done 后由 CI 回写）。",
             "orderKey": 41984,
             "priority": 2,
             "stage": "R4",
-            "status": "todo",
+            "status": "done",
             "tags": [
                 "R4"
             ],
             "title": "R4 任务流转自动化：领用可见 + 统一新建入口",
-            "updatedAt": 1792855035
+            "updatedAt": 1792897811
         }
     ],
-    "updated": "2026-10-24T14:14:21",
+    "updated": "2026-10-25T11:10:33",
     "version": 3
 }

@@ -45,6 +45,7 @@ qt_add_executable(NeonBoard
     src/ReminderScheduler.h src/ReminderScheduler.cpp
     src/PreviewHub.h src/PreviewHub.cpp
     src/TaskStats.h src/TaskStats.cpp
+    src/BoardSync.h src/BoardSync.cpp
     resources/neonboard.rc
 )
 
@@ -97,6 +98,7 @@ set_source_files_properties(qml/components/PluginSlot.qml PROPERTIES QT_RESOURCE
 set_source_files_properties(qml/components/PluginPermissionDialog.qml PROPERTIES QT_RESOURCE_ALIAS "PluginPermissionDialog.qml")
 set_source_files_properties(qml/components/ActivityHeatmap.qml PROPERTIES QT_RESOURCE_ALIAS "ActivityHeatmap.qml")
 set_source_files_properties(qml/components/FocusRing.qml PROPERTIES QT_RESOURCE_ALIAS "FocusRing.qml")
+set_source_files_properties(qml/components/TaskComposer.qml PROPERTIES QT_RESOURCE_ALIAS "TaskComposer.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -122,6 +124,7 @@ qt_add_qml_module(NeonBoard
         qml/components/PluginPermissionDialog.qml
         qml/components/ActivityHeatmap.qml
         qml/components/FocusRing.qml
+        qml/components/TaskComposer.qml
 )
 
 qt_add_resources(NeonBoard "icons"

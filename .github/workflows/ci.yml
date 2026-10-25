@@ -155,3 +155,46 @@ jobs:
           path: dist/NeonBoard
           if-no-files-found: error
           retention-days: 30
+
+  # R4-08：单独验证 build.ps1 的 Ninja 生成器路径 + sccache 编译缓存。
+  # 与主构建（MSBuild）隔离：continue-on-error 使其只作信号、不阻断合并，
+  # 避免 CI 环境偶发问题误伤主线合入。产物落在 build-ninja/（Ninja 单配置）。
+  ninja-build:
+    name: Ninja 生成器验证（R4-08）
+    runs-on: windows-2022
+    continue-on-error: true
+    timeout-minutes: 30
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 准备 MSVC 开发环境
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: 安装 Qt 6.8.3
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtshadertools'
+          cache: true
+          cache-key-prefix: 'neonboard-qt'
+
+      - name: 安装 Ninja 与 sccache
+        shell: pwsh
+        run: choco install ninja sccache -y --no-progress
+
+      - name: build.ps1 以 Ninja 构建（含 sccache）
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/build.ps1 -Config Release -QtRoot "${{ env.QT_ROOT_DIR }}" -BuildDir build-ninja
+
+      - name: 校验 Ninja 产物
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'build-ninja\NeonBoard.exe'
+          if (-not (Test-Path $exe)) { throw "Ninja 构建未生成 $exe" }
+          Write-Host "Ninja 产物就绪：$exe" -ForegroundColor Green

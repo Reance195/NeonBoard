@@ -585,29 +585,8 @@ ApplicationWindow {
         }
 
         // 专注模式提示：背景已压暗成追光，告知退出方式
-        Rectangle {
-            id: focusBadge
-
-            anchors.top: parent.top
-            anchors.topMargin: 48
-            anchors.horizontalCenter: parent.horizontalCenter
-            z: 30
-            visible: window.focusMode
-            width: focusBadgeText.implicitWidth + 30
-            height: 28
-            radius: 14
-            color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.72)
-            border.width: 1
-            border.color: Theme.violet
-
-            Text {
-                id: focusBadgeText
-
-                anchors.centerIn: parent
-                text: "专注模式 · Ctrl+Shift+F 退出"
-                color: Theme.violet
-                font.pixelSize: 11
-            }
+        FocusBadge {
+            focusMode: window.focusMode
         }
 
         // 外观面板展开时，点击面板之外区域即关闭（z 低于标题栏，面板本体不受影响）
@@ -659,27 +638,9 @@ MouseArea {
                 }
             }
 
-            Row {
+            WindowButtons {
                 id: windowButtons
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 0
-
-                WinButton {
-                    glyph: "—"
-                    onClicked: windowController.minimize()
-                }
-
-                WinButton {
-                    glyph: windowController.maximized ? "❐" : "□"
-                    onClicked: windowController.toggleMaximize()
-                }
-
-                WinButton {
-                    glyph: "✕"
-                    danger: true
-                    onClicked: window.hide()
-                }
+                onCloseRequested: window.hide()
             }
 
             ThemePicker {

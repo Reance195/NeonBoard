@@ -12,6 +12,16 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS
 
 qt_standard_project_setup()
 
+# 编译缓存（R4-08）：本机装有 sccache 时，将其作为 C/C++ 编译器启动器包裹 cl.exe，
+# 复用未变动的翻译单元编译结果，显著加速增量 / 重复构建（与 Ninja 生成器配合最佳）。
+# 未安装 sccache 时 find_program 返回空，此处自动跳过，不影响任何现有构建路径。
+find_program(NEONBOARD_SCCACHE NAMES sccache)
+if (NEONBOARD_SCCACHE)
+    set(CMAKE_C_COMPILER_LAUNCHER "${NEONBOARD_SCCACHE}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${NEONBOARD_SCCACHE}")
+    message(STATUS "NeonBoard: 启用 sccache 编译缓存 (${NEONBOARD_SCCACHE})")
+endif()
+
 qt_add_executable(NeonBoard
     src/main.cpp
     src/Database.h src/Database.cpp
@@ -99,6 +109,8 @@ set_source_files_properties(qml/components/PluginPermissionDialog.qml PROPERTIES
 set_source_files_properties(qml/components/ActivityHeatmap.qml PROPERTIES QT_RESOURCE_ALIAS "ActivityHeatmap.qml")
 set_source_files_properties(qml/components/FocusRing.qml PROPERTIES QT_RESOURCE_ALIAS "FocusRing.qml")
 set_source_files_properties(qml/components/TaskComposer.qml PROPERTIES QT_RESOURCE_ALIAS "TaskComposer.qml")
+set_source_files_properties(qml/components/FocusBadge.qml PROPERTIES QT_RESOURCE_ALIAS "FocusBadge.qml")
+set_source_files_properties(qml/components/WindowButtons.qml PROPERTIES QT_RESOURCE_ALIAS "WindowButtons.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -125,6 +137,8 @@ qt_add_qml_module(NeonBoard
         qml/components/ActivityHeatmap.qml
         qml/components/FocusRing.qml
         qml/components/TaskComposer.qml
+        qml/components/FocusBadge.qml
+        qml/components/WindowButtons.qml
 )
 
 qt_add_resources(NeonBoard "icons"

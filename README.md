@@ -145,18 +145,22 @@ pwsh -File scripts/release.ps1                                          # 五道
 
 依赖：Qt 6.8.3 MSVC 2022 x64、Visual Studio 2022 BuildTools、CMake 3.21+。
 
-一键构建（自动探测 CMake 与 Qt，可选构建后自检）：
+一键构建（默认 **Ninja** 生成器，增量更快、可配合 sccache；自动探测 CMake / Qt / Ninja，可选构建后自检）：
 
 ```powershell
-pwsh -File scripts/build.ps1              # Release 构建
-pwsh -File scripts/build.ps1 -SelfTest    # 构建后跑 --selftest（沙箱数据目录）
+pwsh -File scripts/build.ps1                 # Release 构建（Ninja）
+pwsh -File scripts/build.ps1 -SelfTest       # 构建后跑 --selftest（沙箱数据目录）
 pwsh -File scripts/build.ps1 -Config Debug -Clean
+pwsh -File scripts/build.ps1 -Generator VS   # 回退 Visual Studio / MSBuild 生成器
 ```
 
-常用参数：`-QtRoot <路径>` 指定 Qt、`-BuildDir` 换输出目录、`-Reconfigure` 强制重新配置、
-`-Jobs N` 限制并行度、`-Target NeonBoardHost` 只构建子目标。
+- 生成器：默认 **Ninja**（单配置，exe 落在 `build/` 根）；不在 MSVC 开发者环境时脚本会自动定位并导入 `vcvars64`，探测不到 Ninja 时自动回退 VS。
+- 编译缓存：本机装有 `sccache` 时由 CMake 自动启用（跳过未变动的翻译单元重编），无需额外配置。
+- 构建加速：以**管理员** PowerShell 运行 `pwsh -File scripts/add-defender-exclusion.ps1`，把 `build/`、`dist/` 加入 Windows Defender 排除项，减少实时扫描对编译 I/O 的影响（可 `-Remove` 还原、`-WhatIf` 预览）。
 
-手敲等价命令：
+常用参数：`-QtRoot <路径>` 指定 Qt、`-BuildDir` 换输出目录、`-Generator Ninja|VS` 选生成器、`-Reconfigure` 强制重新配置、`-Jobs N` 限制并行度、`-Target NeonBoardHost` 只构建子目标。
+
+VS / MSBuild 生成器（多配置，exe 落在 `build/Release/`）的手敲等价命令：
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `

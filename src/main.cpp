@@ -16,6 +16,7 @@
 #include "DataPort.h"
 #include "SingleInstance.h"
 #include "SplashWindow.h"
+#include "WindowsIntegration.h"
 #include "TaskFilterModel.h"
 #include "TaskModel.h"
 #include "TaskTree.h"
@@ -105,6 +106,8 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationDomain(QStringLiteral("com.lin.neonboard"));
     QCoreApplication::setApplicationName(QStringLiteral("NeonBoard"));
     QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+    // 任务栏分组与通知归属：必须早于任何窗口创建（R4-02）
+    WindowsIntegration::applyAppUserModelId();
     qInstallMessageHandler(neonboardLogHandler);
 
     QSettings::setDefaultFormat(QSettings::IniFormat);
@@ -143,7 +146,10 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--preview-package"))
         || arguments.contains(QStringLiteral("--preview-start"))
         || arguments.contains(QStringLiteral("--preview-stop"))
-        || arguments.contains(QStringLiteral("--plugin-report"));
+        || arguments.contains(QStringLiteral("--plugin-report"))
+        || arguments.contains(QStringLiteral("--register-file-assoc"))
+        || arguments.contains(QStringLiteral("--unregister-file-assoc"))
+        || arguments.contains(QStringLiteral("--assoc-status"));
     std::unique_ptr<SingleInstance> singleInstance;
     if (!utilityMode) {
         singleInstance = std::make_unique<SingleInstance>(AppPaths::singleInstanceKey());
@@ -337,6 +343,35 @@ int main(int argc, char *argv[])
                                   &emitError);
         qInfo().noquote() << "EMIT-HOOK" << (emitted ? "OK" : "FAIL") << emitError;
         return emitted ? 0 : 2;
+    }
+
+    // Windows 原生集成（R4-02）：.neon 文件关联的注册 / 注销 / 状态查询。
+    // 只写 HKCU，不需要管理员；注册后双击插件包即走 --install-plugin-file。
+    if (arguments.contains(QStringLiteral("--assoc-status"))) {
+        const QVariantMap status = WindowsIntegration::associationStatus();
+        emitCliLine(status.value(QStringLiteral("registered")).toBool()
+                        ? QStringLiteral("OK registered")
+                        : QStringLiteral("OK not-registered"));
+        emitCliLine(QStringLiteral("class: %1")
+                        .arg(status.value(QStringLiteral("classRoot")).toString()));
+        emitCliLine(QStringLiteral("command: %1")
+                        .arg(status.value(QStringLiteral("command")).toString()));
+        return 0;
+    }
+    if (arguments.contains(QStringLiteral("--register-file-assoc"))
+        || arguments.contains(QStringLiteral("--unregister-file-assoc"))) {
+        const bool registering = arguments.contains(QStringLiteral("--register-file-assoc"));
+        QString assocError;
+        const bool assocOk = registering
+            ? WindowsIntegration::registerFileAssociations(&assocError)
+            : WindowsIntegration::unregisterFileAssociations(&assocError);
+        if (!assocOk) {
+            qWarning().noquote() << "ASSOC FAIL" << assocError;
+            emitCliLine(QStringLiteral("FAIL %1").arg(assocError));
+            return 2;
+        }
+        emitCliLine(QStringLiteral("OK"));
+        return 0;
     }
 
     // 本地 .neon 插件包安装：--install-plugin-file <path>

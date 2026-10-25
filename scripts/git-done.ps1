@@ -18,7 +18,7 @@
       pwsh -File scripts/git-done.ps1 -RemoveWorktree .worktrees/agent-c
       pwsh -File scripts/git-done.ps1 -Mode local
       pwsh -File scripts/git-done.ps1 -KeepBranch
-      pwsh -File scripts/git-done.ps1 -SkipClaimCheck      # 纯文档/杂务分支跳过领用闸门
+      pwsh -File scripts/git-done.ps1 -SkipClaimCheck      # 已废弃：不再能放行代码改动
       pwsh -File scripts/git-done.ps1 -SkipAnchorSync      # 合并后不快进锚点区
 #>
 [CmdletBinding()]
@@ -199,19 +199,33 @@ if ($Mode -eq 'remote') {
     Invoke-Git fetch origin --quiet | Out-Null
     $originMain = (Invoke-Git rev-parse "origin/$MainBranch").Trim()
 
-    # 领用闸门：分支必须先在服务端占位 refs/claims/<短号>（agent-init 领用时创建）。
-    # 没有占位 = 绕过领用直接开工，默认不允许合并；纯文档/杂务分支显式 -SkipClaimCheck。
-    if (-not $SkipClaimCheck) {
+    # 领用闸门：分支必须先有服务端 claim ref 占位（agent-init 领用时创建）。
+    # 豁免不再靠自报：按 diff 路径自动判定，改动全部落在 docs/ scripts/ .githooks/
+    # .github/ *.md 等豁免路径才算杂务分支，其它一律要求 claim ref。
+    # -SkipClaimCheck 仅为兼容旧脚本保留，已不能放行任何代码改动。
+    $claimExempt = $false
+    $gateScript = Join-Path $repoRoot 'scripts\task_gate.py'
+    if (Test-Path -LiteralPath $gateScript) {
+        $scopeOut = & python $gateScript scope --base "origin/$MainBranch" --head $Branch 2>$null
+        if ($LASTEXITCODE -eq 0 -and (($scopeOut -join ' ').Trim() -eq 'exempt')) {
+            $claimExempt = $true
+        }
+    }
+
+    if ($claimExempt) {
+        Write-Host '· 领用闸门：改动全在豁免路径（文档/脚本/钩子），免 claim ref' -ForegroundColor DarkGray
+    } else {
+        if ($SkipClaimCheck) {
+            Write-Host '· 警告：-SkipClaimCheck 已废弃，本次仍按实际改动校验 claim ref' -ForegroundColor Yellow
+        }
         Write-Host '· 领用闸门：校验服务端 claim ref ...' -ForegroundColor DarkGray
         & git fetch origin '+refs/claims/*:refs/claims/*' 2>&1 | Out-Null
         & python (Join-Path $repoRoot 'scripts\check_claim_refs.py') --base "origin/$MainBranch" --head $Branch
         if ($LASTEXITCODE -ne 0) {
             Write-Host "`n✗ 领用闸门未通过：分支缺少服务端 claim ref 占位。" -ForegroundColor Red
-            Write-Host '  先用 scripts/agent-init.ps1 -Card <短号> 领用；纯文档/杂务分支可加 -SkipClaimCheck。' -ForegroundColor Yellow
+            Write-Host '  先用 scripts/agent-init.ps1 -Card <短号> 领用；纯文档/杂务分支无需手动豁免。' -ForegroundColor Yellow
             exit 1
         }
-    } else {
-        Write-Host '· 已跳过领用闸门（-SkipClaimCheck）' -ForegroundColor Yellow
     }
 
     $tmp = 'merge/' + ($Branch -replace '[^A-Za-z0-9]+', '-')

@@ -136,6 +136,14 @@ if code not in cards:
     sys.stderr.write("[领用] 台账未登记短号：%s\n" % code)
     sys.exit(2)
 
+# 已完成的卡不允许重新领用：done 表示验收项已逐条满足并合并，再领用只能说明
+# 这次改动没有对应任务，属于「先写代码后找卡」。真要继续做请新开卡。
+baseline = data.get("baseline") or {}
+if baseline.get(code) == "done":
+    sys.stderr.write("[领用] 卡片 %s 已完成（baseline=done），不允许重新领用\n" % code)
+    sys.stderr.write("        如需继续改动，请在台账新开一张卡再领用。\n")
+    sys.exit(6)
+
 # 小任务（M##）只有在父任务未被任何人认领时才允许单独领用
 parent_code = None
 if not re.match(r"^R\d+-\d+$", code):

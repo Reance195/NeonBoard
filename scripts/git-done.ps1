@@ -70,7 +70,7 @@ function Get-AnchorWorktree {
     return $null
 }
 
-# 合并推送成功后，把锚点区快进到最新 main —— 否则林先生回到根目录看到的还是旧代码。
+# 合并推送成功后，把锚点区快进到最新 main —— 否则维护者回到根目录看到的还是旧代码。
 # 只做 fast-forward：锚点有本地提交 / 非 main / 有 progress.json 之外的改动时一律跳过。
 # progress.json 是应用自动写回的快照，允许临时 stash 后还原，不丢数据。
 function Sync-AnchorWorktree {

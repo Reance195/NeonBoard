@@ -125,7 +125,7 @@ git push -u origin main
 
 | 区 | 位置 | 归属 |
 | --- | --- | --- |
-| 锚点区 | 仓库根目录 | 林先生本人（看代码 / 跑 IDE / 手动发布），**任何 agent 禁入** |
+| 锚点区 | 仓库根目录 | 维护者本人（看代码 / 跑 IDE / 手动发布），**任何 agent 禁入** |
 | 开发区 | `.worktrees/<agent>/` | 每个 agent 自己的分支、构建与沙箱 |
 | 发布区 | 某个 worktree 的 `dist/` | `scripts/release.ps1` 独占出包 |
 
@@ -365,8 +365,8 @@ sh .githooks/pre-commit
 可以先建一个本地裸仓库当"远程"：
 
 ```powershell
-git init --bare E:\mine\neonboard-backup.git
-git remote add backup E:/mine/neonboard-backup.git
+git init --bare D:\neonboard-backup.git
+git remote add backup D:/neonboard-backup.git
 git push -u backup main
 ```
 

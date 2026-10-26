@@ -167,7 +167,7 @@ def cmd_message(args):
     if not codes:
         fail(
             "本次改动触及代码路径，提交信息必须带任务号（如 `feat(board): 增加筛选 #R4-10`）。\n"
-            "  —— 没有任务就不改代码；先由林先生在台账里立卡，再用 agent-init 领用。"
+            "  —— 没有任务就不改代码；先由维护者在台账里立卡，再用 agent-init 领用。"
         )
 
     known = ledger_codes(":0")
@@ -184,7 +184,7 @@ def cmd_message(args):
 def cmd_ledger(args):
     top = git("rev-parse", "--show-toplevel").stdout.strip()
     if ".worktrees" not in normalize(top):
-        return 0  # 锚点区是林先生的，不受此限
+        return 0  # 锚点区是维护者的，不受此限
 
     old = read_ledger("HEAD")
     if old is None:
@@ -232,7 +232,7 @@ def cmd_ledger(args):
             sys.stderr.write("  - %s\n" % line)
         sys.stderr.write(
             "  允许的只有：claims 领用登记、卡片 note 交付说明。\n"
-            "  立卡 / 改状态基线属于人工授权动作，请在锚点区由林先生完成。\n"
+            "  立卡 / 改状态基线属于人工授权动作，请在锚点区由维护者完成。\n"
         )
         return 1
     return 0

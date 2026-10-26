@@ -158,7 +158,6 @@ pwsh -File scripts/build.ps1 -Generator VS   # 回退 Visual Studio / MSBuild �
 
 - 生成器：默认 **Ninja**（单配置，exe 落在 `build/` 根）；不在 MSVC 开发者环境时脚本会自动定位并导入 `vcvars64`，探测不到 Ninja 时自动回退 VS。
 - 编译缓存：本机装有 `sccache` 时由 CMake 自动启用（跳过未变动的翻译单元重编），无需额外配置。
-- 构建加速：以**管理员** PowerShell 运行 `pwsh -File scripts/add-defender-exclusion.ps1`，把 `build/`、`dist/` 加入 Windows Defender 排除项，减少实时扫描对编译 I/O 的影响（可 `-Remove` 还原、`-WhatIf` 预览）。
 
 常用参数：`-QtRoot <路径>` 指定 Qt、`-BuildDir` 换输出目录、`-Generator Ninja|VS` 选生成器、`-Reconfigure` 强制重新配置、`-Jobs N` 限制并行度、`-Target NeonBoardHost` 只构建子目标。
 
@@ -206,7 +205,7 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
 生成安装包：
 
 ```powershell
-& "C:\Users\lschenglin\AppData\Local\Programs\Inno Setup 6\ISCC.exe" installer\neonboard.iss
+& "ISCC.exe" installer\neonboard.iss   # ISCC 需在 PATH 中，或写 ISCC 安装目录下的绝对路径
 ```
 
 调试参数：
@@ -390,7 +389,7 @@ docs/themes/         6 套主题预设实机截图
 
 | 写法 | 例子 | 说明 |
 | --- | --- | --- |
-| 仓库简写 | `lin-schenglin/neonboard-market` | 客户端依次尝试 Gitee → GitHub 的 `market.json` |
+| 仓库简写 | `owner/neonboard-market` | 客户端依次尝试 Gitee → GitHub 的 `market.json` |
 | 完整地址 | `https://host/path/market.json` | 直接拉这个文件 |
 | 本地目录 | `D:\market` 或 `file:///D:/market` | 读目录下的 `market.json` |
 

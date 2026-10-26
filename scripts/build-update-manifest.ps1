@@ -86,17 +86,12 @@ if ($portableEntry) { $artifacts += $portableEntry }
 
 if ($artifacts.Count -eq 0) { throw '没有任何产物被写入清单（路径都不存在）。' }
 
-# 回退到 Releases API 时，客户端从说明里抓校验值 —— 这里把两行附上去
-$hashLines = @()
-if ($setupEntry) { $hashLines += "setup-sha256: $($setupEntry.sha256)" }
-if ($portableEntry) { $hashLines += "portable-sha256: $($portableEntry.sha256)" }
-if ($hashLines.Count -gt 0) {
-    $notesText = if ([string]::IsNullOrWhiteSpace($notesText)) {
-        $hashLines -join "`n"
-    } else {
-        ($notesText + "`n`n" + ($hashLines -join "`n"))
-    }
-}
+# 注意：校验值只写进 artifacts 字段，不再往 notes 里拼。
+# 客户端读 update.json 时直接用 artifacts[].sha256；只有「回退到 GitHub Releases API」
+# 那条路才需要从说明文本里抓 setup-sha256 / portable-sha256，
+# 而那条路拿到的是 Release 正文，不是这份清单 —— 所以两行校验值由 release.yml
+# 写进 Release 正文。之前把它们拼进 notes，等于写错了地方：
+# 清单路径用不上，Settings 面板还会把这两行当作「更新日志」显示给用户。
 
 $manifest = [ordered]@{
     version     = 1

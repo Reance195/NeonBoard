@@ -1058,7 +1058,9 @@ int main(int argc, char *argv[])
 
     if (arguments.contains(QStringLiteral("--check-update"))) {
         QString checkError;
-        if (!updateManager.checkBlocking(15000, &checkError)) {
+        // 用默认总预算（25 秒）：候选源串行 + 单源 6 秒看门狗，最坏 ≈18 秒。
+        // 这里写死过 15 秒，配 10 秒单源超时时，挂住的 raw 源会把兜底源挤掉。
+        if (!updateManager.checkBlocking(UpdateManager::kDefaultCheckTimeoutMs, &checkError)) {
             qWarning().noquote() << "CHECK-UPDATE FAIL" << checkError;
             emitCliLine(QStringLiteral("FAIL %1").arg(checkError));
             return 2;

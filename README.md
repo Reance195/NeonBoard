@@ -446,7 +446,7 @@ pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
 - Todo.txt 格式只带标题、标签与备注，不含优先级与到期日；需要完整备份请用 JSON 格式
 - 导入按标题匹配已有任务（存在则更新），而路线图快照按 id 匹配；若两者同时存在同一张卡，可能各生成一份
 - 计划钩子需先把 `plugins/plan-hook` 复制到用户插件目录才会生效；未安装时提交里的 `#T12` 静默失效
-- 插件市场默认源是仓库简写（`Reance195/neonboard-market`），仓库地址未定前请在插件库或设置面板里改成真实市场地址；索引签名校验暂未实现（`signature` 字段位已预留）
+- 插件市场默认源是仓库简写（`Reance195/neonboard-market`，索引仓库见 <https://github.com/Reance195/neonboard-market>），Gitee 拉取失败时自动回退 GitHub raw；索引签名校验暂未实现（`signature` 字段位已预留）
 - Qt 采用 LGPL 动态链接；再分发时需保留 Qt 动态库与许可说明
 
 ## 第三方

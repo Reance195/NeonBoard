@@ -491,7 +491,7 @@ pluginMarket.refresh()            // 拉取索引（失败降级到缓存）
 | 完整地址 | `https://host/path/market.json` | 原样使用 |
 | 本地目录 / 文件 | `D:\market`、`file:///D:/market` | 读 `<目录>/market.json` |
 
-索引是一个 JSON 文件，默认源写在 `PluginMarket::defaultSource()`（仓库简写，**仓库地址未定前需在插件库或设置面板改成真实地址**）：
+索引是一个 JSON 文件，默认源写在 `PluginMarket::defaultSource()`（仓库简写 `Reance195/neonboard-market`，索引仓库见 <https://github.com/Reance195/neonboard-market>）：
 
 ```json
 {

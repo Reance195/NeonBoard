@@ -79,6 +79,26 @@ jobs:
           & $iscc installer\neonboard.iss "/O$outDir"
           if ($LASTEXITCODE -ne 0) { throw "安装包编译失败：$LASTEXITCODE" }
 
+      - name: 验证便携包可独立运行
+        shell: pwsh
+        run: |
+          # 两道门，缺一不可：
+          # 1) 拒绝 0 字节 DLL —— windeployqt 偶尔只建文件不写内容（Qt6Qml.dll 踩过），
+          #    这种包装到用户机器上会启动即崩，且连日志都不会打一行，事后极难定位；
+          # 2) 便携包必须能自己跑起来 —— 自带 Qt 运行库，不注入 PATH，等同用户真实环境。
+          $dist = Join-Path $PWD 'dist\NeonBoard'
+          $empty = Get-ChildItem -LiteralPath $dist -Recurse -File -Include '*.dll','*.exe' |
+            Where-Object { $_.Length -eq 0 }
+          if ($empty) {
+            $names = ($empty | ForEach-Object { "  " + $_.FullName }) -join "`n"
+            throw "部署目录存在 0 字节文件，发布中止：`n$names"
+          }
+
+          $exe = Join-Path $dist 'NeonBoard.exe'
+          $proc = Start-Process -FilePath $exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow
+          if ($proc.ExitCode -ne 0) { throw "便携包自检失败，退出码 $($proc.ExitCode)" }
+          Write-Host '便携包自检通过' -ForegroundColor Green
+
       - name: 解析版本号与便携包
         shell: pwsh
         run: |

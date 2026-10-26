@@ -1,9 +1,9 @@
 #define MyAppName "NeonBoard"
-; 版本号的唯一来源是 CMakeLists 的 project(VERSION)：构建脚本解析后以
-; /DMyAppVersion=<版本> 传入。下面的默认值只在手工编译安装包时兜底，
-; 发版请改 CMakeLists，不要只改这里（否则安装包版本与程序自报版本会分叉）。
+; 版本号唯一来源是 CMakeLists.txt 的 project(NeonBoard VERSION x.y.z)：scripts/release.ps1
+; 与 .github/workflows/release.yml 解析后以 /DMyAppVersion=<x.y.z> 传入。本文件不写版本字面量 ——
+; 写死一处就多一个漏改点，而漏改的后果是「装上了新版却仍自报旧版本」，更新检查会判「已是最新」。
 #ifndef MyAppVersion
-#define MyAppVersion "0.1.1"
+  #error MyAppVersion is not defined: build via scripts/release.ps1 or pass /DMyAppVersion=<x.y.z>
 #endif
 #define MyAppPublisher "Lin"
 #define MyAppExeName "NeonBoard.exe"

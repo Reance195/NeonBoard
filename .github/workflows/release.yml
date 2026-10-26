@@ -236,5 +236,24 @@ jobs:
             exit 0
           }
           git commit -m "chore(release): 同步软件更新清单至 $env:RELEASE_VERSION"
-          git push origin "HEAD:refs/heads/main"
+          # main 在打包的十几分钟里很可能已被别的自动化（看板回写、CI 修复）推进，
+          # 直接推会被 "fetch first" 拒掉 —— v0.1.1 发布时就踩了这个：Release 出好了，
+          # 但清单没回到仓库，客户端读 raw 拿到的还是旧版本、判定「已是最新」。
+          # 所以先 fetch + rebase 到最新 main 再推，并重试几次防止又被人抢跑。
+          $pushed = $false
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            git fetch origin main
+            if ($LASTEXITCODE -ne 0) { Start-Sleep -Seconds 5; continue }
+            # rebase 只重放这一个提交，tag 上的其他内容不会进 main
+            git rebase origin/main
+            if ($LASTEXITCODE -ne 0) {
+              git rebase --abort 2>$null
+              throw 'update.json 提交 rebase 到 origin/main 失败'
+            }
+            git push origin "HEAD:refs/heads/main"
+            if ($LASTEXITCODE -eq 0) { $pushed = $true; break }
+            Write-Host "第 $attempt 次推送被拒，重新同步后重试"
+            Start-Sleep -Seconds 5
+          }
+          if (-not $pushed) { throw '回写 update.json 失败：origin/main 持续前进，已重试 3 次' }
           Write-Host "已回写 update.json（$env:RELEASE_VERSION）"

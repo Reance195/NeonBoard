@@ -6,6 +6,7 @@
 
 class QNetworkAccessManager;
 class QNetworkReply;
+class QTimer;
 
 /**
  * 软件更新：清单拉取 → 版本比较 → 下载校验 → 安装 / 自替换。
@@ -192,6 +193,8 @@ private:
 
     QNetworkAccessManager *m_network = nullptr;
     QNetworkReply *m_reply = nullptr;
+    /** 产物下载的「无数据」看门狗：收到字节就续命，超时 abort 当前请求 */
+    QTimer *m_stallTimer = nullptr;
     Purpose m_purpose = Purpose::Manifest;
     // 安装形态判定要查注册表，进程生命周期内不会变，缓存一次
     mutable QString m_installKindCache;

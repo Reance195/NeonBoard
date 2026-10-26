@@ -340,10 +340,10 @@
     },
     "claims": {
         "R5-03": {
-            "agent": "agent-r5w",
-            "branch": "chore/release-wrapup",
-            "claimedAt": 1793017332,
-            "head": "9602b6c5466274a2afb0b408363e1e1f689f45cb"
+            "agent": "agent-r5x",
+            "branch": "fix/update-artifact-write",
+            "claimedAt": 1793018890,
+            "head": "06fa1d061d28c7775db4caf7e014a2ef2b47cd34"
         }
     },
     "version": 1

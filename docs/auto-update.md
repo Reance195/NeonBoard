@@ -168,3 +168,11 @@ pwsh -File scripts/build-update-manifest.ps1 -Version 0.2.0 `
 - 便携版更新的执行日志：`%TEMP%\neonboard-update.log`（脚本自己写的）。
 - 想完整走一遍流程又不想真装：把源指到本地 `update.json`，检查与下载校验都能验证；
   **别在常用目录里触发「立即更新」**，便携版会真的覆盖 exe。
+- 下载卡在 0% 不动：产物下载有「60 秒没有任何字节就中止」的判定（`kDownloadStallMs`），
+  超时会报「下载超时（60 秒没有收到数据）」。如果检查能通过、下载必挂，先用
+  `--update-source <本地路径>` 换传输路径验证一遍，多半是本机代理/证书链的问题
+  （实测 GitHub 资产地址在开启代理时可能连上即静默，而 API 与清单地址正常）。
+- 静默安装「跑完没效果」：安装器是 detached 启动的，它结束后才替换文件。若此时仍有
+  残留的 `NeonBoardHost.exe` 占着安装目录，Inno 的 `CloseApplications` 关不掉它，
+  `/SUPPRESSMSGBOXES` 又会把「文件被占用」的询问压掉，表现为安装静默放弃。
+  排障时先确认没有残留进程，再看注册表 `DisplayVersion` 是否变化。

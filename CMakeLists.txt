@@ -38,6 +38,7 @@ qt_add_executable(NeonBoard
     src/DataPort.h
     src/DataPort.cpp
     src/TaskFilterModel.h src/TaskFilterModel.cpp
+    src/BoardColumns.h src/BoardColumns.cpp
     src/SingleInstance.h src/SingleInstance.cpp
     src/AppActions.h src/AppActions.cpp
     src/SplashWindow.h src/SplashWindow.cpp

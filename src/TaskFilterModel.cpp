@@ -113,12 +113,12 @@ TaskModel *TaskFilterModel::sourceTaskModel() const
 }
 
 QString TaskFilterModel::addTask(const QString &title, const QString &status, int priority,
-                                 const QString &tags, qint64 dueAt) const
+                                 const QString &tags, qint64 dueAt, const QString &columnId) const
 {
     TaskModel *model = sourceTaskModel();
     if (!model)
         return {};
-    return model->addTask(title, status, priority, tags, dueAt);
+    return model->addTask(title, status, priority, tags, dueAt, columnId);
 }
 
 QVariantMap TaskFilterModel::previewInput(const QString &text) const

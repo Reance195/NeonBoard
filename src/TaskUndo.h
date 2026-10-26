@@ -33,6 +33,14 @@ public:
                                     const QString &status,
                                     const QString &beforeId,
                                     const QString &description = QString());
+    // 按列移动（动态列用）：status 由列推导，撤销时连列一起回滚
+    Q_INVOKABLE bool moveTaskToColumn(const QString &id,
+                                      const QString &columnId,
+                                      const QString &description = QString());
+    Q_INVOKABLE bool moveTaskBeforeColumn(const QString &id,
+                                          const QString &columnId,
+                                          const QString &beforeId,
+                                          const QString &description = QString());
     Q_INVOKABLE bool updateTask(const QString &id,
                                 const QVariantMap &fields,
                                 const QString &description = QString());

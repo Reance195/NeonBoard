@@ -68,7 +68,7 @@ P2 炫酷生态
 | 提醒 / 逾期 | 只有 `due_at` 展示，无通知 | 几乎全部具备 | 必补 |
 | 重复任务 | 无 | Tasks / Vikunja / Task Coach | 必补（用 RRULE） |
 | 子任务 / 清单 | 无 | Kanri / Vikunja / Wekan / Kanboard | 必补 |
-| 多板 / 自定义列 | 固定三列（DB schema v2 已去掉 `CHECK(status)`，改由 `board` / `board_column` + `task.column_id` 承载；UI 仍是三列） | Kanri / Focalboard / Vikunja | 架构级解锁（R4-03，进行中） |
+| 多板 / 自定义列 | 列已由库驱动：`board` / `board_column` + `task.column_id` 承载列结构，界面按 `order_key` 用 `Repeater` 出列（不再写死三列）；同状态可挂多列、列内排序各自独立。**列管理 UI（增删改名调序）与多板切换尚未做** | Kanri / Focalboard / Vikunja | 架构已解锁（R4-03 批次一~三） |
 | 导入导出 / 备份 | 无（README 已列为限制） | Kanri / Vikunja | 必补（信任感） |
 | 命令面板 / 键盘流 | 仅全局热键 + 少量快捷键 | Super Productivity / Kanri | 必补 |
 | 日历 / 时间线 | 无 | Vikunja / Focalboard / yamlist | 可选 |

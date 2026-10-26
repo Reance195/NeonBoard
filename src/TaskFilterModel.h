@@ -40,12 +40,14 @@ public:
     void setTaskTree(TaskTree *tree);
 
     Q_INVOKABLE QString idAt(int row) const;
-    // 代理模型不自带写入能力，统一转发到源 TaskModel
+    // 代理模型不自带写入能力，统一转发到源 TaskModel。
+    // columnId 非空时落在该列（动态列快速录入用），否则按 status 落默认列。
     Q_INVOKABLE QString addTask(const QString &title,
                                 const QString &status = QStringLiteral("todo"),
                                 int priority = 1,
                                 const QString &tags = QString(),
-                                qint64 dueAt = 0) const;
+                                qint64 dueAt = 0,
+                                const QString &columnId = QString()) const;
     // 快速录入解析预览（转发到源 TaskModel）
     Q_INVOKABLE QVariantMap previewInput(const QString &text) const;
 

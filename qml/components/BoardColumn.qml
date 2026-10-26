@@ -10,6 +10,9 @@ Rectangle {
     property string title: ""
     property color accent: Theme.cyan
     property var taskModel
+    // 列 id（schema v2）。非空时列内排序 / 快速录入 / 落点计算都按列走，
+    // 空串表示退化模式（列 id 对不上），退回按 status 处理。
+    property string columnId: ""
     property string status: "todo"
     // 搜索关键字（由上层注入，用于空态文案判断）
     property string searchQuery: ""
@@ -43,6 +46,8 @@ Rectangle {
     signal columnMoveRequested(int targetIndex)
 
     function taskIds() {
+        if (column.columnId.length > 0)
+            return taskStore.taskIdsInColumn(column.columnId)
         return taskStore.taskIdsInStatus(column.status)
     }
 
@@ -237,7 +242,7 @@ Rectangle {
     // 解析拖拽落点：yInColumn 为列内坐标，返回 { beforeId, anchorId, below }
     // beforeId 为空串表示插到列尾；anchorId 为空串表示指示线画在列尾
     function resolveDrop(yInColumn) {
-        var fullIds = taskStore.taskIdsInStatus(column.status)
+        var fullIds = column.taskIds()
         if (fullIds.length === 0)
             return { beforeId: "", anchorId: "", below: false }
 
@@ -587,7 +592,8 @@ Rectangle {
                 }
                 onAccepted: {
                     if (column.taskModel && text.trim().length > 0) {
-                        column.taskModel.addTask(text.trim(), column.status, 1, "", 0)
+                        column.taskModel.addTask(text.trim(), column.status, 1, "", 0,
+                                                 column.columnId)
                         text = ""
                     }
                 }

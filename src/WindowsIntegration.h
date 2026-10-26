@@ -3,6 +3,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
+#include <QVector>
 
 // Windows 原生集成（R4-02）：进程身份、文件关联、跳转列表。
 //
@@ -39,5 +40,24 @@ bool unregisterFileAssociations(QString *error);
 // 当前注册状态：{registered, classRoot, extension, command, expectedCommand}
 // 只读，不产生任何写入 —— 供 --assoc-status 与排障使用。
 QVariantMap associationStatus();
+
+// ---- 跳转列表（任务栏右键菜单里的自定义任务）----
+
+// 一个任务项：title 显示在右键菜单里，arguments 是点击后传给本进程的命令行。
+// 二者的联系是硬约束 —— 参数必须是冷启动认得的开关（--newtask 等），
+// 否则点击后只会亮一下窗口，等于装饰。
+struct JumpListTask
+{
+    QString title;
+    QString arguments;
+};
+
+// 任务项定义（纯数据，顺序即菜单里的顺序）。
+// 单测守着"参数是已知开关"，避免改动后与 AppActions 脱节。
+QVector<JumpListTask> jumpListTasks();
+
+// 把任务项写进系统跳转列表。Windows 专用；其他平台返回 false 并说明原因。
+// fail-soft：系统调用失败只写日志，调用方无需处理（跳转列表只是锦上添花）。
+bool applyJumpList(QString *error);
 
 } // namespace WindowsIntegration

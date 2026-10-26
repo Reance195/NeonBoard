@@ -1,4 +1,5 @@
 #include "AppPaths.h"
+#include "AppActions.h"
 #include "Database.h"
 #include "HookEventQueue.h"
 #include "Hotkey.h"
@@ -150,16 +151,25 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--register-file-assoc"))
         || arguments.contains(QStringLiteral("--unregister-file-assoc"))
         || arguments.contains(QStringLiteral("--assoc-status"));
+    // 冷启动请求的动作（面板开关）。二次启动走同一条分发路径，见下方 dispatch：
+    // 跳转列表/托盘/命令行只是「请求已在运行的实例做某事」的不同入口，
+    // 各写一套必然分叉（典型症状：托盘能开新建面板、跳转列表点了只亮窗口）。
+    const QString startupAction = AppActions::fromArguments(arguments);
+    const bool silentStart = arguments.contains(QStringLiteral("--autostart"));
+
     std::unique_ptr<SingleInstance> singleInstance;
     if (!utilityMode) {
-        singleInstance = std::make_unique<SingleInstance>(AppPaths::singleInstanceKey());
+        // 二次启动要把「用户想干什么」原样转给主实例：双击/跳转列表带具体动作；
+        // 开机自启再起一份则发 noop —— 主实例已在运行，不该莫名弹窗。
+        singleInstance = std::make_unique<SingleInstance>(
+            AppPaths::singleInstanceKey(),
+            silentStart ? QString::fromLatin1(AppActions::kNoop) : startupAction);
         if (!singleInstance->isPrimary())
             return 0;
     } else if (smokeMode) {
         qInfo() << "BOOT smoke bypass single instance";
     }
 
-    const bool silentStart = arguments.contains(QStringLiteral("--autostart"));
     const bool hosted = arguments.contains(QStringLiteral("--hosted"));
     std::unique_ptr<SplashWindow> splash;
     if (!utilityMode && !smokeMode && !silentStart) {
@@ -1007,11 +1017,6 @@ int main(int argc, char *argv[])
         return 2;
     }
 
-    if (singleInstance) {
-        QObject::connect(singleInstance.get(), &SingleInstance::showRequested,
-                         &windowController, &WindowController::showAndActivate);
-    }
-
     QQmlApplicationEngine engine;
     pluginRuntime.attachEngine(&engine);
     engine.rootContext()->setContextProperty(QStringLiteral("metrics"), &metrics);
@@ -1111,6 +1116,33 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     qInfo() << "BOOT attached" << boot.elapsed();
     splashStage(0.95, QStringLiteral("FINALIZING"), 40);
 
+    // 动作分发：冷启动参数与二次启动（本地管道）共用这一条路径。
+    // delayMs 用于等 QML 首帧稳定；热实例窗口已就绪，不需要等。
+    const auto dispatch = [window, &windowController](const QString &action, int delayMs) {
+        if (action == QLatin1String(AppActions::kNoop))
+            return; // 静默拉起：主实例已在运行，不打扰用户
+        const AppActions::Target target = AppActions::targetFor(action);
+        windowController.showAndActivate();
+        if (target.method.isEmpty())
+            return; // show（或只认识"亮窗口"的动作）到此为止
+        QTimer::singleShot(delayMs, window, [window, target]() {
+            const QByteArray method = target.method.toUtf8();
+            if (target.hasArgument)
+                QMetaObject::invokeMethod(window, method.constData(),
+                                          Q_ARG(QVariant, target.argument));
+            else
+                QMetaObject::invokeMethod(window, method.constData());
+        });
+    };
+
+    if (singleInstance) {
+        // 二次启动：动作来自本地管道，等价于用户此刻在界面上点了一下，立即执行。
+        // 注意这里必须等窗口建好再连 —— 启动瞬间（仍在 splash 里）到达的请求
+        // 会丢面板动作，只保留"亮窗口"的最终效果（主实例本来就会显示自己）。
+        QObject::connect(singleInstance.get(), &SingleInstance::actionRequested, window,
+                         [dispatch](const QString &action) { dispatch(action, 0); });
+    }
+
     QObject::connect(&hotkey, &Hotkey::activated, &windowController,
                      &WindowController::toggleVisibility);
     QObject::connect(&tray, &TrayController::showRequested, &windowController,
@@ -1140,8 +1172,20 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
         hotkey.uninstall();
     });
 
-    const bool autostart = app.arguments().contains(QStringLiteral("--autostart"));
-    if (autostart) {
+#ifdef Q_OS_WIN
+    // 跳转列表（任务栏右键）：装完任务项后由系统持久化，与本次启动无关。
+    // 延到事件循环里做，避免和首帧渲染抢 COM/注册表；失败只记日志（fail-soft）。
+    QTimer::singleShot(0, &app, []() {
+        QString jumpListError;
+        if (WindowsIntegration::applyJumpList(&jumpListError)) {
+            qInfo() << "JUMPLIST applied" << WindowsIntegration::jumpListTasks().size();
+        } else {
+            qWarning().noquote() << "JUMPLIST skipped:" << jumpListError;
+        }
+    });
+#endif
+
+    if (silentStart) {
         QTimer::singleShot(0, window, [window]() { window->hide(); });
         tray.showMessage(QStringLiteral("NeonBoard"),
                          QStringLiteral("正在后台运行，按 Ctrl+Shift+Space 唤起"));
@@ -1150,46 +1194,10 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
             splash->finish();
             splash.reset();
         }
-        windowController.showAndActivate();
+        // 显示窗口 + 按需直接打开命令行指定的面板（--newtask/--settings/...）。
+        // 300ms 是留给入场动画的量，热实例（二次启动）不需要等。
+        dispatch(startupAction, 300);
         qInfo() << "BOOT shown" << boot.elapsed();
-    }
-
-    if (app.arguments().contains(QStringLiteral("--settings"))) {
-        QTimer::singleShot(300, window, [window]() {
-            QMetaObject::invokeMethod(window, "openSettings");
-        });
-    }
-    if (app.arguments().contains(QStringLiteral("--newtask"))) {
-        QTimer::singleShot(300, window, [window]() {
-        QMetaObject::invokeMethod(window, "openTaskComposer",
-                                  Q_ARG(QVariant, QStringLiteral("todo")));
-        });
-    }
-    if (app.arguments().contains(QStringLiteral("--plugins"))) {
-        QTimer::singleShot(300, window, [window]() {
-            QMetaObject::invokeMethod(window, "openPlugins");
-        });
-    }
-    if (app.arguments().contains(QStringLiteral("--appearance"))) {
-        QTimer::singleShot(300, window, [window]() {
-            QMetaObject::invokeMethod(window, "openAppearance");
-        });
-    }
-    {
-        const int paletteIndex = app.arguments().indexOf(QStringLiteral("--palette"));
-        if (paletteIndex >= 0) {
-            const QString query = (paletteIndex + 1 < app.arguments().size())
-                                      ? app.arguments().at(paletteIndex + 1)
-                                      : QString();
-            QTimer::singleShot(300, window, [window, query]() {
-                QMetaObject::invokeMethod(window, "openPalette", Q_ARG(QVariant, query));
-            });
-        }
-    }
-    if (app.arguments().contains(QStringLiteral("--library"))) {
-        QTimer::singleShot(300, window, [window]() {
-            QMetaObject::invokeMethod(window, "openPluginLibrary");
-        });
     }
 
     const bool smoke = app.arguments().contains(QStringLiteral("--smoke"));

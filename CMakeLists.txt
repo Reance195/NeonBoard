@@ -39,6 +39,7 @@ qt_add_executable(NeonBoard
     src/DataPort.cpp
     src/TaskFilterModel.h src/TaskFilterModel.cpp
     src/SingleInstance.h src/SingleInstance.cpp
+    src/AppActions.h src/AppActions.cpp
     src/SplashWindow.h src/SplashWindow.cpp
     src/UiSettings.h src/UiSettings.cpp
     src/AppPaths.h src/AppPaths.cpp
@@ -74,6 +75,8 @@ target_link_libraries(NeonBoard PRIVATE
     Dwmapi
     # R4-02：SetCurrentProcessExplicitAppUserModelID / SHChangeNotify
     Shell32
+    # R4-02：跳转列表的 COM（CoInitializeEx / CoCreateInstance / CoTaskMemAlloc）
+    Ole32
 )
 
 target_compile_definitions(NeonBoard PRIVATE
@@ -167,6 +170,7 @@ qt_add_executable(NeonBoardHost
     src/host/HostMain.cpp
     src/AppPaths.h src/AppPaths.cpp
     src/SingleInstance.h src/SingleInstance.cpp
+    src/AppActions.h src/AppActions.cpp
 )
 
 target_link_libraries(NeonBoardHost PRIVATE

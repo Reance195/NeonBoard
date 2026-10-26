@@ -1,6 +1,9 @@
 #include "WindowsIntegration.h"
 
+#include "AppActions.h"
+
 #include <QDir>
+#include <QSet>
 #include <QTest>
 
 // 只测纯逻辑与只读查询：任何写入注册表的动作都不进单元测试，
@@ -16,6 +19,7 @@ private slots:
     void packagePathFromArgs_data();
     void packagePathFromArgs();
     void associationStatusIsReadOnly();
+    void jumpListTasksAreClickable();
 };
 
 void TestWindowsIntegration::appUserModelIdIsStable()
@@ -87,6 +91,30 @@ void TestWindowsIntegration::associationStatusIsReadOnly()
              QStringLiteral("NeonBoard.PluginPackage"));
     // registered 必须是布尔，不能是"空/非空"这种模糊语义
     QCOMPARE(status.value(QStringLiteral("registered")).typeId(), static_cast<int>(QMetaType::Bool));
+}
+
+void TestWindowsIntegration::jumpListTasksAreClickable()
+{
+    const QVector<WindowsIntegration::JumpListTask> tasks = WindowsIntegration::jumpListTasks();
+    QVERIFY2(!tasks.isEmpty(), "跳转列表至少要有一个任务项");
+
+    QSet<QString> seen;
+    for (const WindowsIntegration::JumpListTask &task : tasks) {
+        // 标题是菜单里唯一的可读文字：缺了会全部显示成 exe 名
+        QVERIFY2(!task.title.isEmpty(), qPrintable(task.arguments));
+        QVERIFY2(task.arguments.startsWith(QLatin1String("--")),
+                 qPrintable(task.arguments));
+        // 参数重复 = 两项行为完全一样，用户会以为是 bug
+        QVERIFY2(!seen.contains(task.arguments), qPrintable(task.arguments));
+        seen.insert(task.arguments);
+
+        // 关键断言：点击后必须真的做点什么。参数若与动作层脱节（拼错/改过名），
+        // 菜单就退化成"点了只亮窗口"的装饰。
+        const QString action = AppActions::fromArguments(
+            QStringList{QStringLiteral("NeonBoard.exe"), task.arguments});
+        QVERIFY2(action != QLatin1String(AppActions::kShow), qPrintable(task.arguments));
+        QVERIFY2(!AppActions::targetFor(action).method.isEmpty(), qPrintable(task.arguments));
+    }
 }
 
 QTEST_GUILESS_MAIN(TestWindowsIntegration)

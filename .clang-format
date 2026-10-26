@@ -1,0 +1,65 @@
+# NeonBoard C++ 格式约定（clang-format 18+）
+# 与现有代码风格一致：4 空格缩进、函数/结构体大括号另起一行、控制语句大括号同行、列宽 100
+BasedOnStyle: LLVM
+Language: Cpp
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+
+AccessModifierOffset: -4
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterControlStatement: Never
+  AfterNamespace: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: None
+
+PointerAlignment: Right
+ReferenceAlignment: Right
+
+AlignAfterOpenBracket: Align
+AlignOperands: true
+BreakBeforeBinaryOperators: NonAssignment
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+
+BreakConstructorInitializers: BeforeColon
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+PackConstructorInitializers: Never
+
+IncludeBlocks: Preserve
+SortIncludes: CaseSensitive
+
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+Cpp11BracedListStyle: true
+Standard: c++20
+
+FixNamespaceComments: true
+MaxEmptyLinesToKeep: 1
+SeparateDefinitionBlocks: Leave
+
+
+
+
+

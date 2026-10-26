@@ -36,6 +36,16 @@ jobs:
           # 看板状态派生器要读完整提交历史（状态来自 #短号 标记），不能只取最近一次提交
           fetch-depth: 0
 
+      - name: 代码格式检查（clang-format，棘轮：只查本次改动的 C++ 文件）
+        # 先作为信号运行（非阻塞）：现存历史文件未做一次性重排，
+        # 等格式基线稳定后把 continue-on-error 去掉即为硬门禁。
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          python -m pip install --quiet clang-format
+          $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
+          pwsh -NoProfile -File scripts/check-format.ps1 -Base $base
+
       - name: 领用闸门（服务端 claim ref）
         if: github.event_name == 'pull_request'
         shell: pwsh

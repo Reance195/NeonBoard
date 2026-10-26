@@ -350,7 +350,8 @@ feat(board): 支持列内精确插位 #R1-04=done
 ## 7. P3 战略（有余力再做）
 
 - **同步**：不做 CRDT。做“单板一文件 + OneDrive / Syncthing / WebDAV 备份”，对齐 Kanri 哲学。
-- **系统集成**：ICS 日历订阅（Outlook/Google）、GitHub/Jira Issue 只读导入、Windows 通知/跳转列表。
+- **系统集成**：ICS 日历订阅（Outlook/Google）、GitHub/Jira Issue 只读导入；Windows 侧的任务栏
+  跳转列表、二次启动动作转发、`.neon` 文件关联已落地（R4-02），剩下富 toast（WinRT `ToastNotification`）。
 - **i18n**：中英双语起步，低成本扩受众。
 - **AI 走插件**：任务拆解、周报生成、自动打标签（AppFlowy / SiYuan 已在做，我们用插件试水，不进核心）。
 

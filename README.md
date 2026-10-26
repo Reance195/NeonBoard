@@ -6,6 +6,26 @@
 
 ![NeonBoard](docs/screenshot.png)
 
+## 下载安装
+
+| 方式 | 文件 | 说明 |
+| --- | --- | --- |
+| **安装版（推荐）** | [`NeonBoard-Setup-<版本>.exe`](https://github.com/Reance195/NeonBoard/releases/latest) | 双击安装，开始菜单启动，支持静默自动更新 |
+| **便携版** | [`NeonBoard-<版本>-portable.zip`](https://github.com/Reance195/NeonBoard/releases/latest) | 解压即用，可放 U 盘，不写系统目录 |
+
+- 系统要求：Windows 10 1809 及以上（x64）
+- 首次启动约 5–9 秒（Splash 先出现），之后热启动稳定在 1.2–1.4 秒
+- 安装包未签名，SmartScreen 提示时选「更多信息 → 仍要运行」
+- 数据存于 `%APPDATA%\com.lin\NeonBoard\board.db`，升级与卸载都不会丢
+
+### 30 秒上手
+
+1. 启动后空看板会弹出三步引导，可一键载入三张示例卡
+2. 直接输入 `明天 15:00 #工作 !3` 回车，日期 / 标签 / 优先级自动解析
+3. 常用快捷键：`Ctrl+K` 命令面板、`Ctrl+Shift+F` 专注计时、`Ctrl+Z` 撤销
+
+> 从源码构建见 [AGENTS.md](AGENTS.md)；插件开发见 [docs/plugin-api.md](docs/plugin-api.md)。
+
 ## 功能
 
 - 待办 / 进行中 / 已办结三列看板，SQLite 本地持久化

@@ -324,6 +324,13 @@
             "title": "R5 软件自动更新：检查 / 校验 / 静默升级 / 便携版自更新"
         }
     },
-    "claims": {},
+    "claims": {
+        "R5-01": {
+            "agent": "agent-r5u",
+            "branch": "feature/app-update",
+            "claimedAt": 1793006669,
+            "head": "9fe6e5a49d8c223a49ba2b2b6b1fa6cadd90cbee"
+        }
+    },
     "version": 1
 }

@@ -11,6 +11,25 @@ Rectangle {
 
     signal finished()
     signal sampleRequested()
+    // 点模板：带上预填标题直接开新建面板（空板上「不知道写什么」的那一步）
+    signal templateRequested(string title)
+
+    readonly property var templates: [
+        "周报：本周完成 / 下周计划",
+        "会议记录：议题 / 结论 / 行动项",
+        "Bug：现象 / 复现步骤 / 期望"
+    ]
+
+    // 从命令面板「重看新手引导」进来时用：回到第一页，标记状态不动
+    function restart() {
+        step = 0
+    }
+
+    // 无障碍：整个浮层当作一个对话框播报，读屏用户至少知道当前停在哪一步
+    Accessible.role: Accessible.Dialog
+    Accessible.name: root.steps[root.step].title
+    Accessible.description: "首启动引导，第 " + (root.step + 1) + " / "
+                            + root.steps.length + " 步，Esc 可跳过"
 
     readonly property var steps: [
         {
@@ -117,6 +136,45 @@ Rectangle {
                 }
             }
 
+            // 任务模板：空板上最常见的三个「不知道写什么」，点一下预填
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                visible: root.step === 0
+
+                Repeater {
+                    model: root.templates
+
+                    delegate: Rectangle {
+                        required property string modelData
+
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 28
+                        radius: 7
+                        color: tplMouse.containsMouse ? Theme.cardHover : Theme.input
+                        border.width: 1
+                        border.color: Theme.border
+
+                        Text {
+                            anchors.centerIn: parent
+                            width: parent.width - 12
+                            text: modelData.split("：")[0]
+                            color: Theme.muted
+                            font.pixelSize: 10
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+
+                        MouseArea {
+                            id: tplMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: root.templateRequested(modelData)
+                        }
+                    }
+                }
+            }
+
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 32
@@ -137,7 +195,12 @@ Rectangle {
                     id: seedMouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: root.sampleRequested()
+                    // 载入示例卡后直接进入下一步：用户手上已经有牌可拖，
+                    // 引导该讲「怎么拖」而不是停在「先建一条」
+                    onClicked: {
+                        root.sampleRequested()
+                        root.step = Math.min(root.step + 1, root.steps.length - 1)
+                    }
                 }
             }
 

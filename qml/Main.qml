@@ -31,13 +31,13 @@ ApplicationWindow {
     }
 
     // 统一新建入口：顶部按钮 / Ctrl+N / 命令面板 / 托盘共用同一弹窗
-    function openTaskComposer(status) {
+    function openTaskComposer(status, draftTitle) {
         show()
         raise()
         requestActivate()
         taskComposerLoader.active = true
         if (taskComposerLoader.item)
-            taskComposerLoader.item.openComposer(status || "todo")
+            taskComposerLoader.item.openComposer(status || "todo", draftTitle || "")
     }
 
     // 设置 / 插件面板均按需加载：首次打开时才构造，避免首帧为低频界面付出代价
@@ -62,7 +62,15 @@ ApplicationWindow {
         uiSettings.onboardingDone = true
     }
 
+    // 命令面板里的「重看新手引导」：不改完成标记，只是把浮层再开一次
+    function replayOnboarding() {
+        onboarding.restart()
+        window.closeAllPanels()
+        window.onboardVisible = true
+    }
+
     // 示例卡：让新用户一上手就能试拖拽，随时可删
+    // 都落到「待办」列：引导第二步讲的就是把它们往右拖
     function addSampleTasks() {
         taskStore.addTask("试用：按 Ctrl+N 快速记一条任务", "todo", 1, "引导", 0)
         taskStore.addTask("把这张卡拖到「进行中」", "todo", 2, "引导", 0)
@@ -290,6 +298,7 @@ ApplicationWindow {
         add("打开插件库", "面板", "已装 / 可装插件", function() { window.openPluginLibrary() })
         add("打开设置面板", "面板", "热键 / 数据路径 / 开机自启", function() { window.openSettings() })
         add("打开外观面板", "面板", "主题预设 / 画质 / 减弱动效", function() { window.openAppearance() })
+        add("重看新手引导", "帮助", "三步说明：录任务 / 拖列 / 装插件", function() { window.replayOnboarding() })
         add("切换专注模式", "视图", window.focusMode ? "结束本轮专注" : "开始 25 分钟专注", function() { window.toggleFocusMode() })
         add("专注 45 分钟", "视图", "压暗背景 + 倒计时环 + 托盘剩余时间", function() { window.startFocus(45) })
         add("专注 60 分钟", "视图", "深度工作一轮", function() { window.startFocus(60) })
@@ -598,8 +607,12 @@ ApplicationWindow {
         stageStats = taskStore.stageStats()
         setStageFilter(initialStage)
         pluginLoader.scan()
-        // 老用户（已有卡片）不弹引导；空板 + 未完成过引导才弹
-        window.onboardVisible = !uiSettings.onboardingDone && taskStore.count === 0
+        // 判定收在 UiSettings::shouldOnboard（未完成过 且 空板）：老用户换机重装
+        // 也该直接看到自己的看板，而不是被三步说明挡在门外
+        window.onboardVisible = uiSettings.shouldOnboard(taskStore.count)
+        // 一行诊断：出问题时能直接从日志看出「该弹没弹 / 不该弹却弹了」
+        console.info("ONBOARD", window.onboardVisible ? "show" : "skip",
+                     "tasks", taskStore.count, "done", uiSettings.onboardingDone)
     }
 
     Rectangle {
@@ -1378,12 +1391,19 @@ MouseArea {
 
         // 首启动引导：录任务 → 拖列 → 装插件（可用「跳过」直接收尾）
         OnboardingOverlay {
+            id: onboarding
             anchors.fill: parent
             z: 500
             visible: window.onboardVisible
+            // 已经有卡就不再提供「载入示例卡」：那是空板才需要的脚手架
             canSeed: taskStore.count === 0
             onFinished: window.finishOnboarding()
             onSampleRequested: window.addSampleTasks()
+            // 点模板 = 结束引导 + 直接开新建面板（文案已预填，改完回车即可）
+            onTemplateRequested: function(title) {
+                window.finishOnboarding()
+                window.openTaskComposer("todo", title)
+            }
         }
 
         // 专注倒计时环：悬浮右下，结束后自动收起

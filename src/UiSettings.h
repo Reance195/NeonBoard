@@ -4,10 +4,8 @@
 #include <QSettings>
 #include <QString>
 
-#include <memory>
-
-// 界面偏好持久化（主题预设 / 画质档 / 减弱动效）。
-// 用 QSettings 落地为 ini，与窗口几何等既有设置同源。
+// 界面偏好持久化（主题预设 / 画质档 / 减弱动效 / 首启动引导标记）。
+// 用 QSettings 落地为 ini，与窗口几何等既有设置同源（沙箱路径由 main.cpp 统一改）。
 class UiSettings : public QObject
 {
     Q_OBJECT
@@ -28,9 +26,13 @@ public:
     bool reducedMotion() const;
     void setReducedMotion(bool enabled);
 
-    // 首启动引导是否已完成（跳过也算完成，避免每次启动再弹）
+    // 首启动引导是否已完成（「跳过」也算完成，避免每次启动再弹）
     bool onboardingDone() const;
     void setOnboardingDone(bool done);
+
+    // 是否该弹引导：未完成过 且 看板为空。判定放 C++ 而不是 QML，
+    // 是为了让「线上到底该不该弹」有单测可覆盖，而不是只能靠肉眼点。
+    Q_INVOKABLE bool shouldOnboard(int taskCount) const;
 
 signals:
     void themePresetChanged();
@@ -39,9 +41,7 @@ signals:
     void onboardingDoneChanged();
 
 private:
-    // 沙箱/开发运行（AppPaths::isolated）落到 <dataDir>/ui-settings.ini，
-    // 正常用户仍走注册表，与既有行为一致。
-    std::unique_ptr<QSettings> m_settings;
+    QSettings m_settings;
     QString m_themePreset;
     int m_quality;
     bool m_reducedMotion;

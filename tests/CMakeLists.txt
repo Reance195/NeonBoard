@@ -89,3 +89,12 @@ target_link_libraries(tst_boardcolumns PRIVATE Qt6::Sql)
 neonboard_add_test(tst_uisettings
     ${CMAKE_SOURCE_DIR}/src/UiSettings.cpp
 )
+
+# R5-01：软件更新的纯逻辑（版本比较 / 清单解析 / 相对地址 / 自更新脚本 / 包根定位）。
+# 下载与安装要联网并替换进程自身，不进自动化测试。
+neonboard_add_test(tst_updatemanager
+    ${CMAKE_SOURCE_DIR}/src/UpdateManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+)
+# QNetworkAccessManager 与 QDesktopServices
+target_link_libraries(tst_updatemanager PRIVATE Qt6::Network Qt6::Gui)

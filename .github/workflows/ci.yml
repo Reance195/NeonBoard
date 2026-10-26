@@ -3,9 +3,11 @@ name: CI
 on:
   push:
     branches: [ main ]
-    # CI 自动回写的快照提交不再触发流水线，避免自激循环
+    # CI 自动回写的快照提交不再触发流水线，避免自激循环；
+    # update.json 由发布流水线回写，同样不该触发一次完整构建
     paths-ignore:
       - 'progress.json'
+      - 'update.json'
   pull_request:
     branches: [ main ]
   workflow_dispatch:

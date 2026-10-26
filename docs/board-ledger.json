@@ -320,10 +320,18 @@
         },
         "R5-01": {
             "id": "99162cf1-b09a-4841-a449-1c2e91541aca",
+            "note": "已完成 9 / 待做 0。① 清单拉取：update.json 主源（Gitee raw → GitHub raw 候选）+ GitHub Releases API 兜底，清单缓存 6 小时、全源失败时离线降级；② 语义化版本比较，容忍 v 前缀与预发布后缀（0.2.0-beta.1 < 0.2.0）；③ 下载后先验 SHA-256 再落地，清单未提供校验值即中止并明确报错，绝不静默放行；④ 安装版（注册表 AppId {8E3B6A2C-…}_is1 判定）走 /VERYSILENT /NORESTART 静默升级；⑤ 便携版下载 zip → 解压 → 生成纯 ASCII 自更新脚本 → 主程序退出后 robocopy 覆盖并重新拉起；⑥ 三个入口：设置面板分区（检查 / 立即更新 / 下载页 / 跳过此版本 / 自动检查开关）、命令面板「检查软件更新」、托盘提示；⑦ 命令行 --check-update / --update-source / --update-sources（属 utilityMode，应用运行时也能查）；⑧ 发布侧 scripts/build-update-manifest.ps1 + release.yml 打便携 zip、生成 update.json、随 Release 上传并回写仓库（客户端默认读 raw）；⑨ 单测 tst_updatemanager 18 例（全量 9/9 通过）、--selftest OK、--smoke 零 QML 报错，README / docs/auto-update.md / 路线图已同步。未实跑项：真实端到端升级 —— 便携版覆盖 exe 会动当前运行目录，只在本机假清单上验证到「下载 + 校验」为止；安装版静默升级依赖已发布安装包，待首个 v* 标签实跑。已知限制：清单签名校验未实现（只做产物 SHA-256）；默认源仓库地址未定前需手工改。",
             "stage": "R5",
             "title": "R5 软件自动更新：检查 / 校验 / 静默升级 / 便携版自更新"
         }
     },
-    "claims": {},
+    "claims": {
+        "R5-01": {
+            "agent": "agent-r5u",
+            "branch": "feature/app-update",
+            "claimedAt": 1793006669,
+            "head": "9fe6e5a49d8c223a49ba2b2b6b1fa6cadd90cbee"
+        }
+    },
     "version": 1
 }

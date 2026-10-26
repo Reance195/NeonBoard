@@ -40,6 +40,7 @@
 - 插件平台 2.0：apiVersion 2 支持后台常驻插件、事件订阅、meta 共享配置、设置页、侧栏 / 底部 / 卡片三种槽位、命令与快捷键注册、权限授权弹窗、插件启停与热重载；插件目录热插拔，新增 / 覆盖 / 删除插件后自动重扫重载，无需重启
 - 计划钩子：提交信息里写 `#T12`，标题带 `#T12` 的任务自动转到「进行中」（`#T12=done` / `#T12=todo` 同理，`#R3-01` 这类连字符路线图短号同样生效），详见 [docs/plan-hook.md](docs/plan-hook.md)
 - 数据导入导出与自动备份：JSON / Markdown / Todo.txt 三种格式，设置面板一键导出、选择文件导入；每天首次启动自动把 `board.db` 备份一份到 `backups/` 目录
+- 软件自动更新：启动后静默检查（最长 20 小时一次）、设置面板手动检查、命令面板「检查软件更新」；下载后先验 SHA-256 再落地 —— 安装版走静默升级，便携版由自更新脚本在程序退出后替换文件并重新拉起。清单为仓库 `update.json`（Gitee → GitHub 兜底），拉不到时回退 GitHub Releases API，详见 [docs/auto-update.md](docs/auto-update.md)
 - 数据可靠性：SQLite 走 WAL（读写并发、异常退出不易损坏），启动时 `PRAGMA quick_check` 做完整性校验；检测到库文件损坏会自动备份为 `board.db.corrupt-<时间戳>` 并重建空库，弹窗告知备份路径；早期版本的库（`user_version=0`）打开时自动迁移，已有数据保留
 - 插件库：侧栏汇总「已装 / 可装」插件，支持打开、启用、禁用、安装、卸载、更新
 - 多市场源：支持仓库简写（Gitee → GitHub 自动回退）、完整地址与本地目录，多源并列合并、同 id 取高版本，并可从 `.neon` 链接直接安装
@@ -253,6 +254,12 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
 --import-tasks <path> [format]
              导入任务数据（format 取 auto / json / markdown / todo，按标题匹配已有任务）
 --backup   立即把当前 board.db 备份到 backups/ 目录
+--check-update
+             检查一次软件更新，打印当前版本 / 最新版本 / 安装形态 / 状态
+--update-source <url|owner/repo|本地路径>
+             设置更新清单源（同时写入设置，可离线复用）
+--update-sources
+             列出当前已配置的更新清单源
 ```
 
 环境变量：
@@ -271,7 +278,7 @@ NEONBOARD_QT_BIN    Qt 运行库目录，供 Git 钩子在开发版 exe 上补�
 ## 项目结构
 
 ```text
-src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置、路线图同步、数据导入导出、预览中心
+src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置、路线图同步、数据导入导出、预览中心、软件更新
 qml/                 QML：主界面、霓虹背景
   theme/             主题与动效单例（Theme / Motion）
   components/        卡片、看板列、统计芯片、窗口按钮、外观面板、设置面板、插件面板、阶段进度条、预览中心面板
@@ -321,6 +328,8 @@ docs/themes/         6 套主题预设实机截图
 
 另有出包流水线 `.github/workflows/release.yml`：打 `v*` 标签或手动触发时，在 `windows-2022` 上跑完构建与自检，
 用 Inno Setup 生成安装包并上传构建制品；打标签时同时发布 GitHub Release。
+发布时还会把便携目录打成 zip、用 `scripts/build-update-manifest.ps1` 生成 `update.json`（含两个产物的 SHA-256），
+随 Release 上传并**提交回仓库** —— 客户端默认从 raw 读清单，只挂在 Release 资产上读不到。
 
 ## 插件
 
@@ -410,6 +419,9 @@ pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
 - 提醒按 30 秒轮询粒度触发（到点后最迟 30 秒内通知）；应用完全关闭期间不推送系统通知，启动后补发
 - 重复任务 v1 支持 RRULE 子集：`FREQ=DAILY|WEEKLY|MONTHLY|YEARLY` + `INTERVAL=n` + `BYDAY`（仅 WEEKLY）；`COUNT` / `UNTIL` / 其它 BYxxx 暂不支持（规则原样存储，日后扩展不影响数据）；月末自动钳制（1/31 + 1月 = 2/28）
 - 安装包未签名，Windows SmartScreen 可能提示
+- 更新清单默认源是仓库 raw（Gitee → GitHub），仓库地址未定前请用设置面板或 `--update-source` 改成真实地址；清单签名校验暂未实现（`update.json` 只做 SHA-256 产物校验）
+- 便携版自更新依赖系统 `robocopy`，覆盖过程写在 `%TEMP%\neonboard-update.log`；更新只替换程序文件，不动数据目录（`board.db` / 插件 / 设置都不受影响）
+- 更新检查在启动后延迟 8 秒且最长 20 小时一次，想立刻确认请用设置面板或 `--check-update`
 - Todo.txt 格式只带标题、标签与备注，不含优先级与到期日；需要完整备份请用 JSON 格式
 - 导入按标题匹配已有任务（存在则更新），而路线图快照按 id 匹配；若两者同时存在同一张卡，可能各生成一份
 - 计划钩子需先把 `plugins/plan-hook` 复制到用户插件目录才会生效；未安装时提交里的 `#T12` 静默失效

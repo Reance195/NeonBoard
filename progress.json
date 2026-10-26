@@ -11,12 +11,12 @@
             "orderKey": 1024,
             "priority": 2,
             "stage": "R5",
-            "status": "doing",
+            "status": "todo",
             "tags": [
                 "R5"
             ],
             "title": "R5 发布 v0.1.1：版本号单源化 + 端到端升级验证",
-            "updatedAt": 1793016648
+            "updatedAt": 1793017222
         },
         {
             "code": "R0-01",
@@ -1663,7 +1663,6 @@
             "updatedAt": 1792982914
         }
     ],
-    "updated": "2026-10-26T20:10:49",
+    "updated": "2026-10-26T12:20:22",
     "version": 3
 }
-

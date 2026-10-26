@@ -1,25 +1,6 @@
 {
     "items": [
         {
-            "code": "R4-07",
-            "completedAt": 0,
-            "createdAt": 1792654081,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "a78db4c2-f1ec-45ba-8c43-915d8ca4bdb5",
-            "note": "新用户面对空板零引导。规划：首启动 onboarding 三步引导（录任务 → 拖列 → 装插件）、可选示例数据、任务模板。路线图未排期的新增方向。",
-            "orderKey": 18432,
-            "priority": 1,
-            "stage": "R4",
-            "status": "todo",
-            "tags": [
-                "R4",
-                "体验"
-            ],
-            "title": "R4 首次体验引导",
-            "updatedAt": 1792654081
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -685,6 +666,25 @@
             ],
             "title": "plan-hook 后台插件：订阅 hook.commit 执行规则",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "R4-07",
+            "completedAt": 1793005909,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "a78db4c2-f1ec-45ba-8c43-915d8ca4bdb5",
+            "note": "新用户面对空板零引导。规划：首启动 onboarding 三步引导（录任务 → 拖列 → 装插件）、可选示例数据、任务模板。路线图未排期的新增方向。",
+            "orderKey": 18432,
+            "priority": 1,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "体验"
+            ],
+            "title": "R4 首次体验引导",
+            "updatedAt": 1793005909
         },
         {
             "code": "M10",
@@ -1609,6 +1609,6 @@
             "updatedAt": 1792982914
         }
     ],
-    "updated": "2026-10-26T08:22:26",
+    "updated": "2026-10-26T09:11:49",
     "version": 3
 }

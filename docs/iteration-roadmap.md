@@ -68,7 +68,7 @@ P2 炫酷生态
 | 提醒 / 逾期 | 只有 `due_at` 展示，无通知 | 几乎全部具备 | 必补 |
 | 重复任务 | 无 | Tasks / Vikunja / Task Coach | 必补（用 RRULE） |
 | 子任务 / 清单 | 无 | Kanri / Vikunja / Wekan / Kanboard | 必补 |
-| 多板 / 自定义列 | 列已由库驱动：`board` / `board_column` + `task.column_id` 承载列结构，界面按 `order_key` 用 `Repeater` 出列（不再写死三列）；同状态可挂多列、列内排序各自独立。列管理面板已落地：看板行尾「＋ 列」可增列（选三态）/ 改名 / 左右调序 / 删列（卡片自动迁到同状态另一列，某状态最后一列禁止删除）。**多板切换（UI + 切板上下文）尚未做** | Kanri / Focalboard / Vikunja | 列已完整可配置（R4-03 批次一~三）；多板是下一步 |
+| 多板 / 自定义列 | 列已由库驱动：`board` / `board_column` + `task.column_id` 承载列结构，界面按 `order_key` 用 `Repeater` 出列（不再写死三列）；同状态可挂多列、列内排序各自独立。列管理面板已落地：看板行尾「＋ 列」可增列（选三态）/ 改名 / 左右调序 / 删列（卡片自动迁到同状态另一列，某状态最后一列禁止删除）。**多板切换（UI + 切板上下文）尚未做** | Kanri / Focalboard / Vikunja | **列已完整可配置（R4-03 已结项）**；多板切换拆成后续卡（`board` 表已就位） |
 | 导入导出 / 备份 | 无（README 已列为限制） | Kanri / Vikunja | 必补（信任感） |
 | 命令面板 / 键盘流 | 仅全局热键 + 少量快捷键 | Super Productivity / Kanri | 必补 |
 | 日历 / 时间线 | 无 | Vikunja / Focalboard / yamlist | 可选 |
@@ -314,6 +314,7 @@ feat(board): 支持列内精确插位 #R1-04=done
 | 命令面板 | Super Productivity / Kanri | **已完成（R1-3）**：`Ctrl+K` 呼出；一条输入框聚合新建任务、按标题跳转到卡片（定位并高亮闪烁）、切换 6 套主题、按阶段过滤、打开插件库 / 设置 / 外观面板；`↑↓` 选择、`Enter` 执行、`Esc` 关闭 | S–M |
 | 列内精确插位 | ~~现状“落列尾”（已知限制）~~ | **已完成（R1-1）**：`moveTaskBefore(id, status, beforeId)` 按目标卡片 id 精确插入；`taskIdsInStatus()` 提供与界面一致的 order_key 排序；拖拽时用霓虹横线实时标出落点 | S |
 | 通用撤销 | ~~现状只撤销删除~~ | **已完成（R1-6）**：`src/TaskUndo` 撤销栈统一收口删除 / 移动 / 完成 / 恢复 / 拖拽改位 / 编辑保存六类用户操作，`Ctrl+Z` 或提示条「撤销」逐步回退（上限 50 步）；回退走 `TaskModel::restorePlacement`（状态 + 列内位置 + 完成时间）与 `restoreSnapshot`（字段快照）；插件写入与路线图快照同步不进栈 | M |
+| 多板切换 | Kanri / Focalboard | **未开工（R4-03 的后续）**：`board` 表与 `board_column.board_id` 已就位、`BoardColumns` 按板读列，但界面只有一个默认板。待做：板选择器、建板 / 改名 / 删板、切板上下文（列集合 / 任务过滤 / 撤销栈按板隔离）、快速录入与拖拽落点的归属判定 | M |
 
 ## 5. P1 炫酷记忆点
 

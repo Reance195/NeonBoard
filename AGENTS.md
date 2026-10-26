@@ -534,8 +534,13 @@ agent **禁止手改**快照文件 —— 手改已造成过 v2 覆盖 v3 的事
 | 投递 | `src/main.cpp` CLI `--emit-hook-file <f> --hook-event agent.task` | 事件落 `hooks.db`（独立事件名，与 `hook.commit` 隔离） | 复用 `hook.commit`（会误伤 plan-hook） |
 | 消费 | `plugins/agent-bridge/`（官方插件） | 解析 payload、维护 `agentbridge.<agent>.<sessionId>.<todoId>` → task uuid 映射、建卡/流转/对账 note | 直接写 SQL、改 `board.db` schema |
 | 写回 | `src/RoadmapSync` | 看板侧改动 1.5 s 防抖后写回 `progress.json`（v3） | 手写文件 |
-| 代提交 | `scripts/git-done.ps1` step1 | 提交**仅** `progress.json` 的未提交改动（固定信息 `chore(roadmap): 同步进度快照`） | 连同其它文件一起提交（fail-closed） |
+| 代提交 | `scripts/git-done.ps1` step1 | 提交**仅** `progress.json` 的未提交改动（固定信息 `chore(roadmap): 同步进度快照`）；提交前先跑 `derive_board_status.py --write` 把状态对齐到 git 事实 | 连同其它文件一起提交（fail-closed）；把应用写回的过期状态原样推上 main |
 | 闸门 | `.githooks/pre-push` 规则 4 | 推 main 时校验快照：version ≥ 3、卡片数不减少、`code` 不丢 | 绕过（`--no-verify`） |
+
+> **为什么代提交前要校正**：应用写回的是它内存里的状态，可能落后于本分支的 `#code=done` 标记
+> （已踩过：R4-02 已 done，快照却被写回 `doing`，一路推到 main 后靠 CI 的 `derive --write` 才纠正）。
+> 派生器只改状态的 `status` 字段、保留应用生成的其它卡片，无实质变化不落盘；
+> 它失败时不阻断合并（落 main 后 CI 还会再纠正），但必须打警告，不许静默推过期快照。
 
 ### 11.2 硬性约束
 

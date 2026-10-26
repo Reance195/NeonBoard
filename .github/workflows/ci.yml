@@ -46,6 +46,15 @@ jobs:
           $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
           pwsh -NoProfile -File scripts/check-format.ps1 -Base $base
 
+      - name: 任务卡范围检查（棘轮：卡片声明 scope 后才生效）
+        # 与格式检查一样先作信号：存量卡片逐步补 scope，
+        # 缺失时脚本只告警不拦截；全部补齐后去掉 continue-on-error 即硬门禁。
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
+          python scripts/check_scope.py --base $base
+
       - name: 领用闸门（服务端 claim ref）
         if: github.event_name == 'pull_request'
         shell: pwsh

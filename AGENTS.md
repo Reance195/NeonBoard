@@ -142,6 +142,12 @@ git branch -d feature/<简述>
 唯一的规则实现是 `scripts/task_gate.py`（`scope` / `message` / `ledger` / `push` 四个子命令），
 钩子与 `git-done.ps1` 都调它，**不要在多处重复实现判定逻辑**。
 
+5. 卡片应声明 `acceptance`（可执行验收项）与 `scope`（允许改动的路径 glob），
+   规范见 `docs/task-card.md`。`agent-init.ps1 -Card <短号>` 会把它们注入工作区的
+   `.agent-env.ps1`（`$env:NB_ACCEPTANCE` / `$env:NB_SCOPE` / `$env:NB_DEPENDS`），
+   收尾统一跑 `pwsh -File scripts/verify.ps1`，CI 用 `scripts/check_scope.py` 拦越界改动。
+   存量卡片未补字段时不拦截，补齐后生效（棘轮）。
+
 ---
 
 ## 三、钩子强制说明

@@ -318,13 +318,6 @@
             "title": "R4 任务治理：任务先行，禁止无任务改代码"
         }
     },
-    "claims": {
-        "R4-02": {
-            "agent": "agent-win2",
-            "branch": "feature/r4-02-native-shell",
-            "claimedAt": 1792980079,
-            "head": "b71b6d81b6d798a91b2640ac2a6c2347f311dad4"
-        }
-    },
+    "claims": {},
     "version": 1
 }

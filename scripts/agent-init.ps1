@@ -195,7 +195,60 @@ if pushed.returncode != 0:
     sys.exit(3)
 print("[领用] 服务端已占位 %s" % claim_ref)
 
-# 防双领：origin/main 与所有远端分支头里的台账，若同短号已被其它分支领用 → 拒绝
+# 判活：分支是否还在（本地 heads 或远端跟踪）、服务端占位是否还在。
+# 失效登记的判据是「三处皆无」——已合并删分支、放弃后删分支都属此列；
+# 只要还有一处存在就当仍被占用，宁可拦错也不放开双领。
+def branch_exists(name):
+    if not name:
+        return False
+    for ref in ("refs/heads/" + name, "refs/remotes/origin/" + name):
+        probe = subprocess.run(
+            ["git", "-C", root, "show-ref", "--verify", "--quiet", ref],
+            capture_output=True, check=False)
+        if probe.returncode == 0:
+            return True
+    return False
+
+_branch_ref_cache = {}
+def existing_branch_ref(name):
+    if name in _branch_ref_cache:
+        return _branch_ref_cache[name]
+    found = None
+    for ref in ("refs/heads/" + name, "refs/remotes/origin/" + name):
+        probe = subprocess.run(
+            ["git", "-C", root, "show-ref", "--verify", "--quiet", ref],
+            capture_output=True, check=False)
+        if probe.returncode == 0:
+            found = ref
+            break
+    _branch_ref_cache[name] = found
+    return found
+
+_claim_ref_cache = {}
+def claim_ref_exists(target):
+    if target in _claim_ref_cache:
+        return _claim_ref_cache[target]
+    probe = subprocess.run(
+        ["git", "-C", root, "ls-remote", "--exit-code", "origin",
+         "refs/claims/%s" % target],
+        capture_output=True, check=False)
+    # 0 = 命中（仍占位）；2 = 无匹配（已释放）；其余（128 等）= 远端不可达，
+    # 无法确认是否已释放，保守当作仍被占。
+    alive = probe.returncode != 2
+    _claim_ref_cache[target] = alive
+    return alive
+
+def claim_is_stale(claim, target):
+    # 分支与占位都不在了才算失效：历史缺口是「分支删了、登记留着」，
+    # 这类残留曾把同一张卡的重新领用挡在防双领校验上（R4-02 踩过两次）。
+    if not claim:
+        return True
+    if branch_exists(claim.get("branch", "")):
+        return False
+    return not claim_ref_exists(target)
+
+# 防双领：origin/main 与所有远端分支头里的台账，若同短号已被其它分支领用 → 拒绝。
+# 失效登记（分支已删且服务端占位已释放）不算占位，否则没人能再领同一张卡。
 refs = ["origin/main"]
 out = subprocess.run(
     ["git", "-C", root, "for-each-ref", "--format=%(refname)", "refs/remotes/origin"],
@@ -204,7 +257,9 @@ if out.returncode == 0:
     for line in out.stdout.decode("utf-8", "replace").splitlines():
         if line and not line.endswith("/HEAD"):
             refs.append(line.strip())
+
 taken = []
+parent_taken = []
 for ref in refs:
     tree = subprocess.run(
         ["git", "-C", root, "show", "%s:docs/board-ledger.json" % ref],
@@ -216,31 +271,20 @@ for ref in refs:
     except ValueError:
         continue
     claim = (other.get("claims") or {}).get(code)
-    if claim and claim.get("branch") != branch:
+    if claim and claim.get("branch") != branch and not claim_is_stale(claim, code):
         taken.append("%s@%s" % (code, ref))
+    if parent_code:
+        parent_claim = (other.get("claims") or {}).get(parent_code)
+        if (parent_claim and parent_claim.get("branch") != branch
+                and not claim_is_stale(parent_claim, parent_code)):
+            parent_taken.append("%s@%s" % (parent_code, ref))
 if taken:
     sys.stderr.write("[领用] 短号 %s 已被其它分支领用：%s\n" % (code, "、".join(taken)))
     sys.exit(3)
-
-if parent_code:
-    parent_taken = []
-    for ref in refs:
-        tree = subprocess.run(
-            ["git", "-C", root, "show", "%s:docs/board-ledger.json" % ref],
-            capture_output=True, check=False)
-        if tree.returncode != 0:
-            continue
-        try:
-            other = json.loads(tree.stdout.decode("utf-8", "replace"))
-        except ValueError:
-            continue
-        claim = (other.get("claims") or {}).get(parent_code)
-        if claim and claim.get("branch") != branch:
-            parent_taken.append("%s@%s" % (parent_code, ref))
-    if parent_taken:
-        sys.stderr.write("[领用] 父任务 %s 已被认领（%s），不能单独领用子卡 %s\n"
-                         % (parent_code, "、".join(parent_taken), code))
-        sys.exit(3)
+if parent_taken:
+    sys.stderr.write("[领用] 父任务 %s 已被认领（%s），不能单独领用子卡 %s\n"
+                     % (parent_code, "、".join(parent_taken), code))
+    sys.exit(3)
 
 # 清理失效登记：分支已被删除、或已合并进 origin/main 的领用不再需要占位。
 # 不清会让短号被永久「占用」，后来者无法领用同一张卡（worktree 回收时也没人负责删登记）。
@@ -255,18 +299,17 @@ for stale_code, stale_claim in list(data["claims"].items()):
         continue
     if stale_branch == branch:
         continue
-    exists = subprocess.run(
-        ["git", "-C", root, "show-ref", "--verify", "--quiet", "refs/heads/%s" % stale_branch],
-        capture_output=True, check=False)
-    if exists.returncode != 0:
+    # 只在本地删了、远端还在的分支不算失效（可能是别人刚推的活动分支）
+    if not branch_exists(stale_branch):
         stale.append(stale_code)
         continue
-    merged = subprocess.run(
-        ["git", "-C", root, "merge-base", "--is-ancestor",
-         "refs/heads/%s" % stale_branch, "origin/main"],
-        capture_output=True, check=False)
-    if merged.returncode == 0:
-        stale.append(stale_code)
+    merged_ref = existing_branch_ref(stale_branch)
+    if merged_ref:
+        merged = subprocess.run(
+            ["git", "-C", root, "merge-base", "--is-ancestor", merged_ref, "origin/main"],
+            capture_output=True, check=False)
+        if merged.returncode == 0:
+            stale.append(stale_code)
 for stale_code in stale:
     data["claims"].pop(stale_code, None)
 if stale:

@@ -39,6 +39,144 @@
             "updatedAt": 1792654081
         },
         {
+            "completedAt": 0,
+            "createdAt": 1792981704,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "3329f117-d123-4efd-82a7-d3228371ab46",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 19456,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "Rust: 启动窗口初始隐藏，reveal 时已就绪则跳过显示并直接交接",
+            "updatedAt": 1792981704
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792981704,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "554a9de6-6011-4c0a-bd91-c50a9aa2613f",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 20480,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "TS: SplashHandover 增加 started 幂等标志并导出交接预算常量",
+            "updatedAt": 1792981704
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792981704,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "109d5303-c8dc-4da4-a416-2b413054b73e",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 21504,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "TS: splash 页面先 listen 再拉取快照重放，reveal 不可靠时用超时兜底",
+            "updatedAt": 1792981705
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792981705,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "9867f385-6603-4b94-9208-c6b5e2cbb5b4",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 22528,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "TS: startup-window 兜底延时改用具名常量",
+            "updatedAt": 1792981705
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792981705,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "9c7eedbb-8c19-4e68-b949-7b81c42a0af5",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 23552,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "补充/更新测试并跑 bun test、cargo check、契约与矩阵校验",
+            "updatedAt": 1792981705
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792981705,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "6b77a81e-710a-4048-8c6f-515332f8ea04",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 24576,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "todo",
+            "tags": [
+                "agent"
+            ],
+            "title": "同步 Agent Note 与功能矩阵描述",
+            "updatedAt": 1792981705
+        },
+        {
+            "completedAt": 0,
+            "createdAt": 1792981704,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "0d29404c-9f17-4a91-93ba-ddaabf0ccc56",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 1024,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "doing",
+            "tags": [
+                "agent"
+            ],
+            "title": "Rust: 记录启动状态快照并提供 get_startup_feedback_state 命令",
+            "updatedAt": 1792981704
+        },
+        {
+            "code": "R4-02",
+            "completedAt": 0,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "51a132f8-ee80-40dd-a753-488336b123c9",
+            "note": "QSystemTrayIcon 气泡在 Win11 会静默折叠，通知需走 WinRT toast 进通知中心；.neon 插件包注册文件关联（双击安装）；跳转列表最近任务；开机自启开关。路线图未排期的新增方向。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "R4",
+            "status": "doing",
+            "tags": [
+                "R4",
+                "系统集成"
+            ],
+            "title": "R4 Windows 原生集成：toast / 文件关联 / 跳转列表",
+            "updatedAt": 1792982180
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -149,6 +287,24 @@
             ],
             "title": "R0 收尾：落位涟漪 / 勾选光扫 / 删除故障",
             "updatedAt": 1792577522
+        },
+        {
+            "code": "R4-09",
+            "completedAt": 1792897811,
+            "createdAt": 1792855035,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "f1b3f7e5-ad1c-4872-95fc-b95f00e49cd4",
+            "note": "已完成：BoardSync 扫描锚点与各 worktree 台账 claims，活跃领用（分支未合并）自动把待办卡转进行中且同一领用只转一次；TaskCard 显示 ◈ agent chip，合并后转灰；顶部「＋ 新建」/Ctrl+N/命令面板/托盘统一打开 TaskComposer（选列/挂父卡/解析预览）。验证：--selftest 退出码 0、smoke 中 R4-09 自动 doing、UIA 端到端建卡落库。待做：本地结卡仍依赖 CI 派生器（提交 #短号=done 后由 CI 回写）。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4"
+            ],
+            "title": "R4 任务流转自动化：领用可见 + 统一新建入口",
+            "updatedAt": 1792897811
         },
         {
             "code": "R1-05",
@@ -574,25 +730,6 @@
             "updatedAt": 1792588621
         },
         {
-            "code": "R4-05",
-            "completedAt": 1792942397,
-            "createdAt": 1792654081,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "cf1180c6-c5be-4640-b619-78c459bb7037",
-            "note": "仓库无 tests/ 目录，回归全靠 selftest/smoke 手拍。规划：CTest + 针对 TaskModel/TaskTree/DataPort/PluginPackage 纯逻辑层的单元测试，GitHub Actions PR 质量门禁。路线图未排期的新增方向。",
-            "orderKey": 14336,
-            "priority": 3,
-            "stage": "R4",
-            "status": "done",
-            "tags": [
-                "R4",
-                "质量"
-            ],
-            "title": "R4 自动化测试体系 + CI 质量门禁",
-            "updatedAt": 1792942397
-        },
-        {
             "code": "M06",
             "completedAt": 1792588621,
             "createdAt": 1792572839,
@@ -629,25 +766,6 @@
             ],
             "title": "HookEventQueue：独立 hooks.db 事件队列",
             "updatedAt": 1792588621
-        },
-        {
-            "code": "R4-02",
-            "completedAt": 1792981635,
-            "createdAt": 1792654081,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "51a132f8-ee80-40dd-a753-488336b123c9",
-            "note": "QSystemTrayIcon 气泡在 Win11 会静默折叠，通知需走 WinRT toast 进通知中心；.neon 插件包注册文件关联（双击安装）；跳转列表最近任务；开机自启开关。路线图未排期的新增方向。",
-            "orderKey": 17408,
-            "priority": 2,
-            "stage": "R4",
-            "status": "done",
-            "tags": [
-                "R4",
-                "系统集成"
-            ],
-            "title": "R4 Windows 原生集成：toast / 文件关联 / 跳转列表",
-            "updatedAt": 1792981635
         },
         {
             "code": "M08",
@@ -1066,42 +1184,6 @@
             "updatedAt": 1792748226
         },
         {
-            "code": "R4-08",
-            "completedAt": 1792942397,
-            "createdAt": 1792726694,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "6067b32f-68b8-4b07-a63b-d8ad54fd153d",
-            "note": "已完成 0 / 待做：Ninja 构建器接入、编译缓存（sccache/ccache）、Defender 排除 build 目录、Main.qml 拆分；保留 QML 预编译不动（启动速度优先）。",
-            "orderKey": 40960,
-            "priority": 2,
-            "stage": "R4",
-            "status": "done",
-            "tags": [
-                "R4"
-            ],
-            "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分",
-            "updatedAt": 1792942397
-        },
-        {
-            "code": "R4-09",
-            "completedAt": 1792897811,
-            "createdAt": 1792855035,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "f1b3f7e5-ad1c-4872-95fc-b95f00e49cd4",
-            "note": "已完成：BoardSync 扫描锚点与各 worktree 台账 claims，活跃领用（分支未合并）自动把待办卡转进行中且同一领用只转一次；TaskCard 显示 ◈ agent chip，合并后转灰；顶部「＋ 新建」/Ctrl+N/命令面板/托盘统一打开 TaskComposer（选列/挂父卡/解析预览）。验证：--selftest 退出码 0、smoke 中 R4-09 自动 doing、UIA 端到端建卡落库。待做：本地结卡仍依赖 CI 派生器（提交 #短号=done 后由 CI 回写）。",
-            "orderKey": 41984,
-            "priority": 2,
-            "stage": "R4",
-            "status": "done",
-            "tags": [
-                "R4"
-            ],
-            "title": "R4 任务流转自动化：领用可见 + 统一新建入口",
-            "updatedAt": 1792897811
-        },
-        {
             "completedAt": 1792748226,
             "createdAt": 1792724522,
             "deleted": false,
@@ -1488,8 +1570,46 @@
             ],
             "title": "R4 任务治理：任务先行，禁止无任务改代码",
             "updatedAt": 1792928574
+        },
+        {
+            "code": "R4-08",
+            "completedAt": 1792942397,
+            "createdAt": 1792726694,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "6067b32f-68b8-4b07-a63b-d8ad54fd153d",
+            "note": "已完成 0 / 待做：Ninja 构建器接入、编译缓存（sccache/ccache）、Defender 排除 build 目录、Main.qml 拆分；保留 QML 预编译不动（启动速度优先）。",
+            "orderKey": 65536,
+            "priority": 2,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4"
+            ],
+            "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分",
+            "updatedAt": 1792942397
+        },
+        {
+            "code": "R4-05",
+            "completedAt": 1792942397,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "cf1180c6-c5be-4640-b619-78c459bb7037",
+            "note": "仓库无 tests/ 目录，回归全靠 selftest/smoke 手拍。规划：CTest + 针对 TaskModel/TaskTree/DataPort/PluginPackage 纯逻辑层的单元测试，GitHub Actions PR 质量门禁。路线图未排期的新增方向。",
+            "orderKey": 66560,
+            "priority": 3,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "质量"
+            ],
+            "title": "R4 自动化测试体系 + CI 质量门禁",
+            "updatedAt": 1792942397
         }
     ],
-    "updated": "2026-10-26T02:27:15",
+    "updated": "2026-10-26T10:36:21",
     "version": 3
 }
+

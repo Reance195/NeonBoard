@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$SkipBuild,
     # 多代理并行时把产物写进自己的 worktree，避免抢占共享的 dist/
     [string]$BuildDir = '',

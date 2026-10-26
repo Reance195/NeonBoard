@@ -129,6 +129,17 @@ git push -u origin main
 | 开发区 | `.worktrees/<agent>/` | 每个 agent 自己的分支、构建与沙箱 |
 | 发布区 | 某个 worktree 的 `dist/` | `scripts/release.ps1` 独占出包 |
 
+### 0.（新机器 / 新 clone）先确认钩子已装
+
+```powershell
+pwsh -File scripts/setup-git-hooks.ps1          # 幂等，装完 core.hooksPath = .githooks
+git config --get core.hooksPath                 # 应输出 .githooks
+```
+
+`core.hooksPath` 是仓库级配置、**不随 clone 传递**。漏配一次，分支保护、提交格式、
+任务闸门就全部静默失效。`agent-init.ps1` 开区、`build.ps1` 构建、CI 都会自动带上这一步，
+手动补一次即可。
+
 ### 1. 开区
 
 ```powershell
@@ -241,6 +252,21 @@ pwsh -File scripts/preview.ps1 -Action Stop  -Agent agent-c    # 停止
 - 窗口标题与托盘 tooltip 带 agent 标签（`NeonBoard · agent-c`），多个实例一眼分清。
 - 运行登记在 `<git-common-dir>/preview-runtime.json`；`scripts/agent-workspace.ps1 -Action Status`
   的「预览实例」段落会一并显示。
+
+---
+
+### 8. 与 WorkBuddy 的 Worktree Task 并用
+
+客户端自带一套并行隔离：开启任务后会在 `~/WorkBuddy/Worktrees` 下建独立检出，
+自动生成分支 `workbuddy/<基础分支>-<8位哈希>`。它管**文件隔离**，本仓库这套管**协作协议**，
+两者互补。`agent-init.ps1` 检测到当前检出已经是 linked worktree 时会自动转**原地模式**：
+复用它、并在里面补沙箱与领用登记，不再往下再开一层 `.worktrees/<agent>`。
+
+```powershell
+pwsh -File scripts/agent-init.ps1 -Agent agent-c -Card R3-01      # 自动 -InPlace
+```
+
+三条边界（不许套娃 / 放行 `workbuddy/` 前缀 / 回收由人拍板）见 AGENTS.md 7.10。
 
 ---
 

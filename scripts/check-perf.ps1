@@ -1,4 +1,4 @@
-# check-perf.ps1 —— 从 --smoke 日志里提取性能指标并与基线比较
+﻿# check-perf.ps1 —— 从 --smoke 日志里提取性能指标并与基线比较
 #
 # --smoke 会在退出前打印一行：METRICS startup=1234ms fps=60.0 mem=180MB frames=240
 # 本脚本解析它，写入 GitHub Step Summary，并在超过基线阈值时给出警告。

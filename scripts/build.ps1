@@ -55,6 +55,21 @@ if (-not (Test-Path -LiteralPath (Join-Path $repoRoot 'CMakeLists.txt'))) {
     throw "未找到仓库根目录（$repoRoot 下没有 CMakeLists.txt）"
 }
 
+# 钩子：core.hooksPath 是 clone 级配置、不随 clone 传递，漏配会让 AGENTS.md 的
+# 强制条款整份失效（分支保护 / 提交格式 / 任务闸门都不再执行）。构建前顺手固化一次。
+$hookSetup = Join-Path $scriptDir 'setup-git-hooks.ps1'
+if (Test-Path -LiteralPath $hookSetup) {
+    $pwshBin = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($pwshBin) {
+        & $pwshBin.Source -NoProfile -ExecutionPolicy Bypass -File $hookSetup
+    } else {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $hookSetup
+    }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host '· 仓库钩子安装未完成（不阻断构建，但强制条款不会生效）' -ForegroundColor Yellow
+    }
+}
+
 function Write-Step {
     param([string]$Message)
     Write-Host ''

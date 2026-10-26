@@ -332,11 +332,11 @@
         }
     },
     "claims": {
-        "R5-01": {
-            "agent": "agent-r5u",
-            "branch": "feature/app-update",
-            "claimedAt": 1793006669,
-            "head": "9fe6e5a49d8c223a49ba2b2b6b1fa6cadd90cbee"
+        "R5-02": {
+            "agent": "agent-r5r",
+            "branch": "feature/update-resilience",
+            "claimedAt": 1793013646,
+            "head": "0407bd34e50eae490d6163309c8b4973f5f1ac13"
         }
     },
     "version": 1

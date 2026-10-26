@@ -59,6 +59,9 @@ Makefile.*
 .sandbox/
 # agent 沙箱环境脚本（scripts/agent-init.ps1 生成）
 .agent-env.ps1
+# 助手本地记忆/日志目录（.workbuddy/memory 等）：
+# 不入库，否则每个 agent 的锚点区都因它变"脏"，git-done 的快进同步会被跳过
+.workbuddy/
 
 # ===== 运行时数据（本地数据库等）=====
 *.db

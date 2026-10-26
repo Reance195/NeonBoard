@@ -233,7 +233,33 @@ if ($otherLines.Count -gt 0) {
 }
 
 if ($snapshotLines.Count -gt 0) {
-    Write-Host "→ 检测到 progress.json 未提交（RoadmapSync 自动写回），代为提交快照 ..." -ForegroundColor Cyan
+    Write-Host "→ 检测到 progress.json 未提交（RoadmapSync 自动写回），先按 git 事实校正状态 ..." -ForegroundColor Cyan
+    # 应用写回的是它内存里的状态，可能落后于本分支的 `#code=done` 标记。原样提交会把
+    # 过期状态带上 main（踩过：R4-02 已 done 却被写回 doing，靠 CI 的 derive --write 才纠正）。
+    # 先跑一次派生器对齐；它只改状态字段、保留 app 生成的其它卡片，无变化时不落盘。
+    # 派生器失败不阻断合并（CI 落 main 后还会再纠正），但必须显著告警，不许静默推过期快照。
+    $deriveScript = Join-Path $repoRoot 'scripts\derive_board_status.py'
+    $pythonExe = (Get-Command python -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ((Test-Path -LiteralPath $deriveScript) -and $pythonExe) {
+        # 原生命令的 stderr 在 ErrorActionPreference='Stop' 下会被当成终止性错误，
+        # 统一按 Invoke-GitQuiet 的做法降级捕获（脚本里已踩过 MSBuild / ISCC 的同类坑）。
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $deriveOut = & python $deriveScript --write 2>&1
+            $deriveCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+        foreach ($line in @($deriveOut)) {
+            Write-Host ("   {0}" -f $line) -ForegroundColor DarkGray
+        }
+        if ($deriveCode -ne 0) {
+            Write-Host '· 警告：派生器未能校正快照（见上），将按应用写回的原样提交，CI 会再纠正' -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host '· 警告：缺少派生器脚本或 python，跳过快照校正' -ForegroundColor Yellow
+    }
     Invoke-Git add progress.json | Out-Null
     try {
         Invoke-Git commit -m 'chore(roadmap): 同步进度快照' | Out-Null

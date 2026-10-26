@@ -129,6 +129,9 @@ ApplicationWindow {
     // 面板互斥：同一时刻只保留一个浮层，避免外观/插件/设置面板叠在一起
     function closeAllPanels() {
         themePicker.open = false
+        // 面板可能在启动早期被调用：那时列管理面板还没实例化，不能直接解引用
+        if (columnManager)
+            columnManager.close()
         commandPalette.close()
         if (pluginPanelLoader.item)
             pluginPanelLoader.item.close()
@@ -1219,6 +1222,45 @@ MouseArea {
                             onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
                         }
                     }
+
+                    // 列管理入口：列由数据库驱动，加列 / 改名 / 调序都在这里
+                    Rectangle {
+                        Layout.preferredWidth: 46
+                        Layout.fillHeight: true
+                        radius: 16
+                        color: addColumnMouse.containsMouse ? Theme.cardHover : Theme.card
+                        border.width: 1
+                        border.color: addColumnMouse.containsMouse ? Theme.borderStrong : Theme.border
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "＋"
+                                color: addColumnMouse.containsMouse ? Theme.cyan : Theme.muted
+                                font.pixelSize: 18
+                            }
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "列"
+                                color: Theme.muted
+                                font.pixelSize: 10
+                            }
+                        }
+
+                        MouseArea {
+                            id: addColumnMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                window.closeAllPanels()
+                                columnManager.open = true
+                            }
+                        }
+                    }
                 }
 
                 // 底部插件槽位：插件声明的底部面板
@@ -1330,6 +1372,13 @@ MouseArea {
             paused: window.focusPaused
             onStopRequested: window.stopFocus(false)
             onPauseToggleRequested: window.toggleFocusPause()
+        }
+
+        // 列管理面板：把列结构交给用户（增 / 改名 / 调序 / 删）
+        ColumnManager {
+            id: columnManager
+            anchors.fill: parent
+            z: 380
         }
 
         // 命令面板：Ctrl+K 呼出，按需构造

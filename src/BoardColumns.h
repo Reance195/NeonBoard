@@ -28,6 +28,8 @@ class BoardColumns : public QAbstractListModel
     Q_PROPERTY(int todoCount READ todoCount NOTIFY countsChanged)
     Q_PROPERTY(int doingCount READ doingCount NOTIFY countsChanged)
     Q_PROPERTY(int doneCount READ doneCount NOTIFY countsChanged)
+    // 最近一次列管理操作的失败原因（成功时清空），供界面直接提示
+    Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
 
 public:
     enum Role {
@@ -64,11 +66,23 @@ public:
     // 该状态的默认列 id（快速录入「新建到某状态」用）；没有则返回空串
     Q_INVOKABLE QString columnIdForStatus(const QString &status) const;
 
+    // ---- 列管理：写库后 reload，界面不需要自己拼状态 ----
+    Q_INVOKABLE QString addColumn(const QString &name, const QString &status);
+    Q_INVOKABLE bool renameColumn(const QString &columnId, const QString &name);
+    Q_INVOKABLE bool moveColumn(const QString &columnId, int delta);
+    Q_INVOKABLE bool removeColumn(const QString &columnId);
+    // 某状态还剩几列：用来判断「删除」是否可用（最后一列不许删）
+    Q_INVOKABLE int columnCountForStatus(const QString &status) const;
+    Q_INVOKABLE QString columnStatusOf(const QString &columnId) const;
+
+    QString lastError() const { return m_lastError; }
+
 signals:
     void columnsChanged();
     void searchChanged();
     void stageChanged();
     void countsChanged();
+    void lastErrorChanged();
 
 private:
     struct Column {
@@ -81,6 +95,7 @@ private:
     TaskFilterModel *createColumnModel(const QString &columnId, const QString &status);
     void clearColumns();
     int countForStatus(const QString &status) const;
+    void setLastError(const QString &error);
 
     Database *m_database = nullptr;
     TaskModel *m_tasks = nullptr;
@@ -88,4 +103,5 @@ private:
     QVector<Column> m_columns;
     QString m_search;
     QString m_stage;
+    QString m_lastError;
 };

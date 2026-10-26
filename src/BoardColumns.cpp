@@ -214,6 +214,95 @@ QString BoardColumns::columnIdForStatus(const QString &status) const
     return {};
 }
 
+void BoardColumns::setLastError(const QString &error)
+{
+    if (m_lastError == error)
+        return;
+    m_lastError = error;
+    emit lastErrorChanged();
+}
+
+QString BoardColumns::addColumn(const QString &name, const QString &status)
+{
+    if (!m_database)
+        return {};
+    QString error;
+    const QString id = m_database->addColumn(name, status, &error);
+    if (id.isEmpty()) {
+        setLastError(error);
+        return {};
+    }
+    setLastError(QString());
+    reload();
+    return id;
+}
+
+bool BoardColumns::renameColumn(const QString &columnId, const QString &name)
+{
+    if (!m_database)
+        return false;
+    QString error;
+    if (!m_database->renameColumn(columnId, name, &error)) {
+        setLastError(error);
+        return false;
+    }
+    setLastError(QString());
+    reload();
+    return true;
+}
+
+bool BoardColumns::moveColumn(const QString &columnId, int delta)
+{
+    if (!m_database)
+        return false;
+    QString error;
+    if (!m_database->moveColumn(columnId, delta, &error)) {
+        // 越界不是错误，是「到头了」：不打扰用户，也不留错误提示
+        setLastError(error.isEmpty() ? m_lastError : error);
+        return false;
+    }
+    setLastError(QString());
+    reload();
+    return true;
+}
+
+bool BoardColumns::removeColumn(const QString &columnId)
+{
+    if (!m_database)
+        return false;
+    QString error;
+    if (!m_database->deleteColumn(columnId, &error)) {
+        setLastError(error);
+        return false;
+    }
+    setLastError(QString());
+    // 删列会把卡片迁到同状态的另一列（库里的 column_id 变了），
+    // 内存里的任务副本还是旧列 id —— 不重读任务，被迁走的卡片会从所有列里消失。
+    if (m_tasks)
+        m_tasks->load();
+    reload();
+    return true;
+}
+
+int BoardColumns::columnCountForStatus(const QString &status) const
+{
+    int total = 0;
+    for (const Column &column : m_columns) {
+        if (column.status == status)
+            ++total;
+    }
+    return total;
+}
+
+QString BoardColumns::columnStatusOf(const QString &columnId) const
+{
+    for (const Column &column : m_columns) {
+        if (column.id == columnId)
+            return column.status;
+    }
+    return {};
+}
+
 int BoardColumns::countForStatus(const QString &status) const
 {
     int total = 0;

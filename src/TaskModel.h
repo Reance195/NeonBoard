@@ -23,6 +23,7 @@ public:
         TitleRole,
         NoteRole,
         StatusRole,
+        ColumnIdRole,
         PriorityRole,
         TagsRole,
         OrderKeyRole,
@@ -63,6 +64,9 @@ public:
     // 撤销辅助：按快照回写任务字段（撤销编辑用），任务仍存在，走 UPDATE
     Q_INVOKABLE bool restoreSnapshot(const QVariantMap &snapshot);
     Q_INVOKABLE bool moveTask(const QString &id, const QString &status, int newIndex);
+    // 按列移动：status 由列定义推导，order_key 在该列内独立取值。
+    // 与 moveTask(status) 并存 —— QML 三列仍走 status 版本，动态列走这里。
+    Q_INVOKABLE bool moveTaskToColumn(const QString &id, const QString &columnId);
     // 精确插位：把任务挪到目标状态列中 beforeId 这张卡片之前；beforeId 为空表示追加到列尾
     Q_INVOKABLE bool moveTaskBefore(const QString &id, const QString &status, const QString &beforeId);
     // 指定状态下按 order_key 升序的任务 id 列表，供界面计算插入落点（不受搜索过滤影响）
@@ -92,6 +96,8 @@ private:
         QString title;
         QString note;
         QString status;
+        // 卡片所在列（schema v2）。模型侧永远非空：加载时按 status 回落默认列。
+        QString columnId;
         int priority = 0;
         QString tags;
         qint64 orderKey = 0;

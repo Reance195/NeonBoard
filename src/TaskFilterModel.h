@@ -11,6 +11,9 @@ class TaskFilterModel : public QSortFilterProxyModel
 {
     Q_OBJECT
     Q_PROPERTY(QString status READ status WRITE setStatus NOTIFY statusChanged)
+    // 列过滤（R4-03）：为空时按 status 过滤（旧行为），
+    // 非空时只显示落在该列的卡片 —— 同状态的多个自定义列靠它区分。
+    Q_PROPERTY(QString columnId READ columnId WRITE setColumnId NOTIFY columnIdChanged)
     Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY searchChanged)
     Q_PROPERTY(QString stage READ stage WRITE setStage NOTIFY stageChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
@@ -20,6 +23,9 @@ public:
 
     QString status() const;
     void setStatus(const QString &status);
+
+    QString columnId() const;
+    void setColumnId(const QString &columnId);
 
     QString search() const;
     void setSearch(const QString &search);
@@ -45,6 +51,7 @@ public:
 
 signals:
     void statusChanged();
+    void columnIdChanged();
     void searchChanged();
     void stageChanged();
     void countChanged();
@@ -57,6 +64,7 @@ private:
     TaskModel *sourceTaskModel() const;
 
     QString m_status;
+    QString m_columnId;
     QString m_search;
     QString m_stage;
     TaskTree *m_tree = nullptr;

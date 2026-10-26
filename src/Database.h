@@ -39,6 +39,8 @@ public:
     QVariantList boards() const;
     QVariantList boardColumns(const QString &boardId) const;
     QString defaultColumnForStatus(const QString &status) const;
+    // columnId → status（列 → 三态）；未知列返回空串
+    QString columnStatus(const QString &columnId) const;
 
     QString pluginValue(const QString &pluginId, const QString &key) const;
     bool setPluginValue(const QString &pluginId, const QString &key, const QString &value);

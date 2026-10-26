@@ -225,18 +225,29 @@ def existing_branch_ref(name):
     return found
 
 _claim_ref_cache = {}
-def claim_ref_exists(target):
+def claim_ref_state(target):
+    """服务端占位状态 → ("sha", <commit>) / ("none", None) / ("unreachable", None)。
+
+    不能用 `ls-remote --exit-code` 的退出码判断「有没有」：本次领用会**先**推占位，
+    那会让旧登记看起来仍然活动（R4-03 重领时踩过）。所以这里取回具体 sha，交给
+    调用方与登记里的 head 比对 —— 占位指向别的提交，说明这张卡已被新的领用接管。
+    """
     if target in _claim_ref_cache:
         return _claim_ref_cache[target]
     probe = subprocess.run(
-        ["git", "-C", root, "ls-remote", "--exit-code", "origin",
-         "refs/claims/%s" % target],
+        ["git", "-C", root, "ls-remote", "origin", "refs/claims/%s" % target],
         capture_output=True, check=False)
-    # 0 = 命中（仍占位）；2 = 无匹配（已释放）；其余（128 等）= 远端不可达，
-    # 无法确认是否已释放，保守当作仍被占。
-    alive = probe.returncode != 2
-    _claim_ref_cache[target] = alive
-    return alive
+    if probe.returncode != 0:
+        state = ("unreachable", None)
+    else:
+        state = ("none", None)
+        for line in probe.stdout.decode("utf-8", "replace").splitlines():
+            parts = line.split()
+            if len(parts) >= 2:
+                state = ("sha", parts[0])
+                break
+    _claim_ref_cache[target] = state
+    return state
 
 def claim_is_stale(claim, target):
     # 分支与占位都不在了才算失效：历史缺口是「分支删了、登记留着」，
@@ -245,7 +256,12 @@ def claim_is_stale(claim, target):
         return True
     if branch_exists(claim.get("branch", "")):
         return False
-    return not claim_ref_exists(target)
+    kind, sha = claim_ref_state(target)
+    if kind == "unreachable":
+        return False  # 无法确认是否已释放，保守当仍被占用
+    if kind == "none":
+        return True
+    return sha != (claim.get("head") or "")
 
 # 防双领：origin/main 与所有远端分支头里的台账，若同短号已被其它分支领用 → 拒绝。
 # 失效登记（分支已删且服务端占位已释放）不算占位，否则没人能再领同一张卡。

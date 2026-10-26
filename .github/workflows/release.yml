@@ -28,6 +28,28 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
+      - name: 校验标签与源码版本一致
+        shell: pwsh
+        run: |
+          # 版本号唯一来源是 CMakeLists 的 project(VERSION)；标签决定资产名与更新清单。
+          # 两者不一致会产出「装上了新版却仍自报旧版本」的包 —— 更新检查据此判定
+          # 「已是最新」，用户永远收不到下一次更新，而且事后极难发现。故构建前先拦。
+          $tag = '${{ github.event.inputs.tag }}'
+          if ([string]::IsNullOrWhiteSpace($tag)) { $tag = '${{ github.ref_name }}' }
+          $tagVersion = $tag.TrimStart('v')
+          if ([string]::IsNullOrWhiteSpace($tagVersion) -or $tagVersion -eq 'main') {
+            Write-Host '未以标签触发，跳过版本一致性校验'
+            exit 0
+          }
+          $raw = Get-Content -LiteralPath 'CMakeLists.txt' -Raw -Encoding UTF8
+          $m = [regex]::Match($raw, 'project\s*\(\s*NeonBoard\s+VERSION\s+([0-9][0-9A-Za-z.\-]*)')
+          if (-not $m.Success) { throw '无法从 CMakeLists.txt 解析 project(NeonBoard VERSION x.y.z)' }
+          $cmakeVersion = $m.Groups[1].Value
+          Write-Host "标签版本 $tagVersion / 源码版本 $cmakeVersion"
+          if ($tagVersion -ne $cmakeVersion) {
+            throw "标签 $tag 与 CMakeLists 版本 $cmakeVersion 不一致：请先改 project(VERSION) 再打标签"
+          }
+
       - name: 准备 MSVC 编译环境
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -76,7 +98,13 @@ jobs:
           if (-not (Test-Path -LiteralPath $iscc)) { $iscc = 'C:\Program Files\Inno Setup 6\ISCC.exe' }
           if (-not (Test-Path -LiteralPath $iscc)) { throw '找不到 ISCC（Inno Setup 编译器）' }
           $outDir = Join-Path $PWD 'dist'
-          & $iscc installer\neonboard.iss "/O$outDir"
+          # 版本号从 CMakeLists 取（唯一来源），不读 .iss 里的兜底常量
+          $raw = Get-Content -LiteralPath 'CMakeLists.txt' -Raw -Encoding UTF8
+          $m = [regex]::Match($raw, 'project\s*\(\s*NeonBoard\s+VERSION\s+([0-9][0-9A-Za-z.\-]*)')
+          if (-not $m.Success) { throw '无法从 CMakeLists.txt 解析版本号' }
+          $appVersion = $m.Groups[1].Value
+          Write-Host "安装包版本 $appVersion"
+          & $iscc installer\neonboard.iss "/O$outDir" "/DMyAppVersion=$appVersion"
           if ($LASTEXITCODE -ne 0) { throw "安装包编译失败：$LASTEXITCODE" }
 
       - name: 验证便携包可独立运行
@@ -102,12 +130,15 @@ jobs:
       - name: 解析版本号与便携包
         shell: pwsh
         run: |
-          # 打标签时 ref_name 就是 tag；手动触发时取输入，都没有则回落 0.1.0
+          # 打标签时 ref_name 就是 tag；手动触发且未填 tag 时回落 CMakeLists 的源码版本
           $tag = '${{ github.event.inputs.tag }}'
           if ([string]::IsNullOrWhiteSpace($tag)) { $tag = '${{ github.ref_name }}' }
           $version = $tag.TrimStart('v')
           if ([string]::IsNullOrWhiteSpace($version) -or $version -eq 'main') {
-            $version = '0.1.0'
+            $raw = Get-Content -LiteralPath 'CMakeLists.txt' -Raw -Encoding UTF8
+            $m = [regex]::Match($raw, 'project\s*\(\s*NeonBoard\s+VERSION\s+([0-9][0-9A-Za-z.\-]*)')
+            if (-not $m.Success) { throw '无法从 CMakeLists.txt 解析版本号' }
+            $version = $m.Groups[1].Value
             $tag = "v$version"
           }
           $zip = Join-Path $PWD "dist\NeonBoard-$version-portable.zip"

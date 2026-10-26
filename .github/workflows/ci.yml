@@ -142,6 +142,14 @@ jobs:
           $bad = $lines | Where-Object { $_ -match $patterns }
           if ($bad) { throw ("检测到错误日志：`n" + ($bad -join "`n")) }
 
+      - name: 性能基线（--smoke 的 startup / fps / mem）
+        # 只告警不拦截：先积累几轮数据，确认基线稳定后再去掉 continue-on-error。
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:APPDATA 'com.lin\NeonBoard\neonboard.log'
+          pwsh -NoProfile -File scripts/check-perf.ps1 -LogPath $log
+
       - name: 打包便携版
         shell: pwsh
         run: |
@@ -181,12 +189,24 @@ jobs:
           git config user.name  'neonboard-ci'
           git config user.email 'neonboard-ci@users.noreply.github.com'
           git add progress.json
-          if (git diff --cached --quiet) {
+          # 注意：PowerShell 里 if (命令) 判断的是输出而不是退出码，必须显式看 $LASTEXITCODE
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
             Write-Host '看板状态无变化，无需回写'
             exit 0
           }
           git commit -m 'ci(board): 自动回写看板状态'
-          git push origin HEAD:main
+          # 推送前同步并重试：构建这几分钟里主线可能已被别的提交推进（fetch first）
+          for ($i = 1; $i -le 3; $i++) {
+            git fetch origin main --quiet
+            git rebase origin/main
+            if ($LASTEXITCODE -ne 0) { git rebase --abort 2>$null; throw 'rebase 到 origin/main 失败' }
+            git push origin HEAD:main
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($i -eq 3) { throw '看板回写推送重试 3 次仍失败' }
+            Write-Host "推送被拒（第 $i 次），5 秒后重试"
+            Start-Sleep -Seconds 5
+          }
 
       - name: 上传便携版产物
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

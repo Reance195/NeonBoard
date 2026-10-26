@@ -49,22 +49,71 @@ NeonBoard.exe --unregister-file-assoc    # 注销（只删自己写的键）
 - 注册/注销后调用 `SHChangeNotify(SHCNE_ASSOCCHANGED)` 刷新资源管理器缓存，
   否则图标要等下次登录才变。
 
+### 3. 二次启动的动作转发（`SingleInstance`）
+
+单实例探测从"只发 `show`"升级为**带动作的消息**：第二次启动不再只是把窗口亮出来，
+而是把"用户到底想干什么"转交给已在运行的主实例。
+
+```
+第二实例                           主实例
+  connectToServer(管道名)  ──►  newConnection
+  write("NB1 <action>\n")        readyRead → 累积到换行
+  disconnectFromServer()   ──►   disconnected → 解析 → actionRequested(action)
+  退出(0)                        dispatch(action, 0) → 唤起窗口 + 打开对应面板
+```
+
+要点：
+
+- **帧格式单行 + 版本前缀** `NB1 `：旧版只发裸 `show`，没有前缀会被判为陌生消息并
+  回退成"亮窗口"—— 新旧版本混跑时行为可控，不会把旧消息误解析成某个面板。
+- **收端白名单**：`AppActions::isKnown()` 只放行固定动作名（含 `palette:<query>`）。
+  本地管道名是可猜的，不设白名单等于把"让主实例执行任意 QML 方法"的路由暴露给同机进程。
+- **单行约束**：命令面板查询串里的换行会被折叠成空格，否则后半截会被当成分帧边界。
+- **静默拉起**：`--autostart` 撞上已在运行的实例时发 `noop`，主实例什么都不做 ——
+  开机登录不该莫名弹窗。
+- **主动断连再退出**：第二实例写完立刻退出时，内核里可能还压着未读数据；
+  先 `disconnectFromServer()` 并等断连完成，主实例才能收到完整帧。
+
+### 4. 跳转列表（任务栏右键任务项）
+
+`ICustomDestinationList` + `IShellLinkW` 写入四个任务项，参数直接复用冷启动开关，
+因此"点击任务项"与"命令行带参数启动"是同一条代码路径（见 `src/AppActions.h`）。
+
+| 任务项 | 参数 |
+| --- | --- |
+| 新建任务 | `--newtask` |
+| 搜索命令面板 | `--palette` |
+| 插件库 | `--library` |
+| 偏好设置 | `--settings` |
+
+实现要点：
+
+- **标题必须写 `PKEY_Title`**：`IShellLinkW::SetDescription` 只影响悬停提示，
+  不写标题的话四项会全部显示成 exe 名。
+- **AUMID 显式绑定**：`ICustomDestinationList::SetAppID()` 让任务项挂到与任务栏按钮
+  同一个应用标识下；失败只记日志（精简 shell 可能不支持）。
+- **最小 `IObjectArray` 实现**：SDK 不带现成实现，这里自带一个引用计数托管的只读数组；
+  CLSID 也用本地常量，不额外依赖 `uuid.lib`。
+- **单项失败不拖垮整张菜单**：任一 `IShellLink` 创建失败只跳过该项。
+- **fail-soft**：整体失败只写日志 `JUMPLIST skipped:`，不影响启动。
+
 ## 验证方式
 
 | 层次 | 手段 |
 | --- | --- |
-| 纯逻辑 | `tests/tst_windowsintegration.cpp`（命令行拼装、`%1` 保留、参数提取、状态结构） |
+| 纯逻辑 | `tests/tst_windowsintegration.cpp`（命令行拼装、`%1` 保留、参数提取、状态结构、跳转列表任务项可点击） |
+| 纯逻辑 | `tests/tst_appactions.cpp`（参数→动作优先级、动作白名单、动作→QML 调用、IPC 帧边界） |
 | 编译 | CI `Windows 编译与自检`；本地可用 `cl /c` 直接编 `WindowsIntegration.cpp` |
 | 注册表闭环 | 探针程序按 注册 → `--assoc-status` 语义查询 → 注销 → 复查 顺序执行，断言最终回到 not-registered（不留在开发机上） |
 | 启动不回归 | CI 冒烟 `--smoke` 扫描日志关键字（AUMID 失败只应出现 `SetCurrentProcessExplicitAppUserModelID failed` 警告） |
+| 二次启动 | 先开一个实例，再执行 `NeonBoard.exe --palette 周报`；预期：不开第二个窗口/进程，原实例被唤起并弹出命令面板（日志 `JUMPLIST applied` 附近无异常） |
+| 跳转列表 | 右键任务栏图标 → 应看到「新建任务 / 搜索命令面板 / 插件库 / 偏好设置」四项；逐项点击应直接打开对应面板（不是只亮窗口） |
 
 ## 尚未实现（明确记录，避免误认为已完成）
 
-- **跳转列表（Jump List）**：`ICustomDestinationList` 已具备实现条件，但任务项必须有
-  可执行语义。当前 `--newtask` / `--palette` / `--settings` 只在**冷启动**生效：
-  `SingleInstance` 只给主实例发 `"show"`，不转发动作。因此跳转列表要等**单实例参数转发**
-  做完（第二实例把动作名写进 `QLocalSocket`，主实例 `actionRequested` 分发）才有意义，
-  否则就是"点了没反应"的装饰。
 - **Rich Toast（WinRT `ToastNotification`）**：未打包应用要用 WinRT toast 必须先在开始菜单
   建带 AUMID 的快捷方式，改动面大。当前通知走托盘气泡，在 Win10/11 上因已设 AUMID
   会归入操作中心并显示应用名，先满足"能收到、能回看"的诉求。
+- **跳转列表的"最近打开"分类**：只做了"任务"（`AddUserTasks`），没有维护
+  `IShellItemArray` 的 `Recent`/`Frequent` 分类 —— 那是另一套"记录用户访问文件"的
+  逻辑，与当前"任务项即命令"的定位不同。

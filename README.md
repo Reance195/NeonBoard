@@ -181,8 +181,10 @@ ctest --test-dir build -C Release -R taskinputparser -V  # 只跑单个用例并
 
 - **应用标识**：启动即设置 AppUserModelID（`com.lin.neonboard`），任务栏分组与通知归属才对得上；安装器写快捷方式必须用同一值。
 - **`.neon` 文件关联**：`NeonBoard.exe --register-file-assoc` 注册（只写 HKCU、无需管理员），之后双击插件包即安装；`--assoc-status` 查看、`--unregister-file-assoc` 还原。
+- **跳转列表**：任务栏右键「新建任务 / 搜索命令面板 / 插件库 / 偏好设置」，参数复用冷启动开关，点击与命令行启动走同一条代码路径。
+- **二次启动带动作**：应用已在运行时再执行 `NeonBoard.exe --palette 周报`，不会开第二个进程，而是把动作转给主实例并直接弹出命令面板。
 
-细节、注册表键位与未实现项（跳转列表 / WinRT toast）见 [docs/windows-integration.md](docs/windows-integration.md)。
+细节、注册表键位与未实现项（WinRT 富通知）见 [docs/windows-integration.md](docs/windows-integration.md)。
 
 VS / MSBuild 生成器（多配置，exe 落在 `build/Release/`）的手敲等价命令：
 

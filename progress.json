@@ -1,25 +1,6 @@
 {
     "items": [
         {
-            "code": "R4-03",
-            "completedAt": 0,
-            "createdAt": 1792654081,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "cffdfbbb-46f5-4cae-a2c3-d3e64e0d2047",
-            "note": "能力矩阵点名「架构级解锁」但未排期：去掉 CHECK(status) 三列硬约束，引入 board/column 表，单板→多板、三列→N 列；迁移需保证老库照常可开。路线图未排期的新增方向。",
-            "orderKey": 15360,
-            "priority": 3,
-            "stage": "R4",
-            "status": "todo",
-            "tags": [
-                "R4",
-                "架构"
-            ],
-            "title": "R4 多板 / 自定义列架构解锁",
-            "updatedAt": 1792654081
-        },
-        {
             "code": "R4-07",
             "completedAt": 0,
             "createdAt": 1792654081,
@@ -628,6 +609,25 @@
             ],
             "title": "Database：meta 读写 API",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "R4-03",
+            "completedAt": 1793002946,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "cffdfbbb-46f5-4cae-a2c3-d3e64e0d2047",
+            "note": "能力矩阵点名「架构级解锁」但未排期：去掉 CHECK(status) 三列硬约束，引入 board/column 表，单板→多板、三列→N 列；迁移需保证老库照常可开。路线图未排期的新增方向。",
+            "orderKey": 15360,
+            "priority": 3,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "架构"
+            ],
+            "title": "R4 多板 / 自定义列架构解锁",
+            "updatedAt": 1793002946
         },
         {
             "code": "M07",
@@ -1609,6 +1609,6 @@
             "updatedAt": 1792982914
         }
     ],
-    "updated": "2026-10-26T11:08:33",
+    "updated": "2026-10-26T08:22:26",
     "version": 3
 }

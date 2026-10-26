@@ -36,7 +36,11 @@ constexpr auto kUninstallRoot =
 constexpr auto kUninstallRootUser =
     "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
 
-constexpr int kManifestTimeoutMs = 10000;
+// 单个候选源的超时。清单不到 1 KB，6 秒足够。
+// 关键不是「够不够快」，而是不能让某个挂住的源吃光整个检查预算：
+// 国内 raw.githubusercontent.com 常年只挂不答，实测会一直占着连接直到系统 TCP 超时，
+// 后面的 GitHub Releases API 兜底源就永远轮不到（v0.1.0 发布后踩的实际故障）。
+constexpr int kSourceTimeoutMs = 6000;
 constexpr int kDownloadTimeoutMs = 120000;
 constexpr int kCacheTtlSeconds = 6 * 60 * 60;
 // 启动自动检查的最小间隔：开一次程序打一次网络请求没有必要，
@@ -490,6 +494,16 @@ void UpdateManager::startRequest(const QString &url, Purpose purpose)
     QNetworkReply *reply = m_network->get(request);
     m_reply = reply;
 
+    if (purpose == Purpose::Manifest) {
+        // 单源看门狗：到点主动 abort，onReplyFinished 里按「网络错误」处理并换下一个候选源。
+        // 没有它的话，异步检查（设置面板、启动静默检查）会一直挂在那个源上，
+        // 既拿不到失败回调，也走不到兜底源。产物下载不设这个限制 —— 几十 MB 需要时间。
+        QTimer::singleShot(kSourceTimeoutMs, reply, [reply]() {
+            if (reply->isRunning())
+                reply->abort();
+        });
+    }
+
     connect(reply, &QNetworkReply::downloadProgress, this,
             [this](qint64 received, qint64 total) {
                 if (m_purpose != Purpose::Artifact || total <= 0)
@@ -524,8 +538,12 @@ void UpdateManager::onReplyFinished(QNetworkReply *reply)
         }
         if (useCachedManifest())
             return;
-        setStatusText(QStringLiteral("检查更新失败：%1").arg(
-            networkError ? reply->errorString() : QStringLiteral("服务器返回 %1").arg(status)));
+        // abort() 触发的取消要说人话：直接甩 "Operation canceled" 只会让用户更困惑
+        const QString reason = reply->error() == QNetworkReply::OperationCanceledError
+            ? QStringLiteral("连接超时（%1 秒无响应）").arg(kSourceTimeoutMs / 1000)
+            : (networkError ? reply->errorString()
+                            : QStringLiteral("服务器返回 %1").arg(status));
+        setStatusText(QStringLiteral("检查更新失败：%1").arg(reason));
         setState(QStringLiteral("error"));
         finishCheck(false);
         return;
@@ -907,7 +925,7 @@ bool UpdateManager::checkBlocking(int timeoutMs, QString *error)
     QTimer timer;
     timer.setSingleShot(true);
     connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
-    timer.start(timeoutMs > 0 ? timeoutMs : kManifestTimeoutMs);
+    timer.start(timeoutMs > 0 ? timeoutMs : kDefaultCheckTimeoutMs);
 
     checkForUpdates(true);
     if (!finished)

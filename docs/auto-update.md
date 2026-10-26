@@ -24,7 +24,21 @@
 ```text
 https://gitee.com/Reance195/NeonBoard/raw/main/update.json
 https://raw.githubusercontent.com/Reance195/NeonBoard/main/update.json
+https://api.github.com/repos/Reance195/NeonBoard/releases/latest
 ```
+
+三个候选源**串行**尝试，每个都有自己的 6 秒看门狗（`kSourceTimeoutMs`），
+一次检查的总预算 25 秒（`UpdateManager::kDefaultCheckTimeoutMs`）。
+
+这个设计是被真实故障逼出来的：`raw.githubusercontent.com` 在国内常年「只挂不答」，
+早期单个源给 10 秒、总预算只有 15 秒时，它一个人就吃光配额，
+排最后的 GitHub API 兜底源永远轮不到 —— 表现为**每次检查都报超时**，
+哪怕仓库、Release、清单全都正常。所以：
+
+> 单源超时 × 候选源个数必须明显小于总预算，否则兜底形同不存在。
+
+单源超时到点由看门狗 `abort()`，客户端按网络错误处理并顺延到下一个源；
+界面上会显示「连接超时（6 秒无响应）」而不是 Qt 的 `Operation canceled`。
 
 格式：
 
@@ -52,12 +66,18 @@ https://raw.githubusercontent.com/Reance195/NeonBoard/main/update.json
 清单拉不到时回退 `https://api.github.com/repos/Reance195/NeonBoard/releases/latest`，
 按 `tag_name` / `body` / `assets` 解析，资产按文件名推断形态（含 `Setup` → setup，`.zip` → portable）。
 
-**该接口不提供资产的 SHA-256**，所以发布脚本会把这两行写进更新说明，客户端从说明里抓回校验值：
+**该接口不提供资产的 SHA-256**，所以发布流水线会把这两行写进 **Release 正文**
+（`release.yml` 生成 `dist/RELEASE-NOTES.md` 并以 `body_path` 提交），客户端从正文里抓回校验值：
 
 ```text
 setup-sha256: <64 位十六进制>
 portable-sha256: <64 位十六进制>
 ```
+
+注意校验值的落点是**正文**，不是 `update.json` 的 `notes`：
+回退路径只拿得到 `tag_name` / `body` / `assets`，拿不到 `update.json`，
+所以写进清单的 `notes` 对这条路径没有任何用处 —— 那正是之前的一个设计错位，
+`notes` 里塞 `sha256:` 两行只会让设置面板把它当更新日志显示。
 
 也就是说：**两条路都做校验**。校验值缺失时客户端中止安装并明确报错，不会静默放行。
 
@@ -85,8 +105,10 @@ portable-sha256: <64 位十六进制>
 
 1. 便携目录打 zip：`NeonBoard-<版本>-portable.zip`
 2. 生成清单：`scripts/build-update-manifest.ps1`（算 SHA-256 与体积）
-3. 随 Release 上传 zip 与 `update.json`
-4. **把 `update.json` 提交回仓库** —— 客户端默认读 raw，只挂在 Release 资产上客户端找不到
+3. 把两行 `*-sha256:` 写进 Release 正文（`dist/RELEASE-NOTES.md` → `body_path`）——
+   GitHub API 回退路径唯一的校验值来源
+4. 随 Release 上传 zip 与 `update.json`
+5. **把 `update.json` 提交回仓库** —— 客户端默认读 raw，只挂在 Release 资产上客户端找不到
 
 本机手工出清单：
 

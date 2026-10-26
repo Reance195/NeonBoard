@@ -131,9 +131,27 @@ jobs:
             -Portable $env:PORTABLE_ZIP `
             -DownloadBase $base `
             -HtmlUrl 'https://github.com/Reance195/NeonBoard/releases/latest' `
+            -Notes "完整变更记录：https://github.com/Reance195/NeonBoard/commits/$env:RELEASE_TAG" `
             -OutFile 'update.json'
           if (-not (Test-Path -LiteralPath 'update.json')) { throw '更新清单未生成' }
           Get-Content 'update.json'
+
+          # Release 正文必须带上两行校验值：客户端回退到 GitHub Releases API 时
+          # 只拿得到 tag 与正文，拿不到 update.json，SHA-256 只能从正文里抠。
+          # 不带的话，回退路径下完包会因为「清单未提供校验值」而中止 —— 安全策略
+          # 不放行无校验的安装，这条回退路就形同废掉。
+          $manifest = Get-Content 'update.json' -Raw -Encoding UTF8 | ConvertFrom-Json
+          $body = New-Object System.Collections.Generic.List[string]
+          $body.Add("NeonBoard $env:RELEASE_VERSION")
+          $body.Add('')
+          $body.Add("完整变更记录：https://github.com/Reance195/NeonBoard/commits/$env:RELEASE_TAG")
+          $body.Add('')
+          foreach ($a in $manifest.artifacts) {
+            $body.Add("$($a.kind)-sha256: $($a.sha256)")
+          }
+          $bodyPath = Join-Path $PWD 'dist\RELEASE-NOTES.md'
+          [System.IO.File]::WriteAllText($bodyPath, (($body -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
+          Get-Content $bodyPath
 
       - name: 写溯源信息
         shell: pwsh
@@ -164,12 +182,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          # 正文自带校验值（见上一步），这也是 API 回退路径唯一的校验值来源
+          body_path: dist/RELEASE-NOTES.md
           files: |
             dist/NeonBoard-Setup-*.exe
             dist/NeonBoard-*-portable.zip
             dist/BUILD-INFO.txt
             update.json
-          generate_release_notes: true
 
       - name: 回写更新清单到仓库
         if: startsWith(github.ref, 'refs/tags/v')

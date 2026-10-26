@@ -59,6 +59,17 @@ public:
     explicit UpdateManager(QObject *parent = nullptr);
     ~UpdateManager() override;
 
+    /**
+     * 一次更新检查的总预算（毫秒）。
+     *
+     * 候选源是串行的，单源还有自己的 6 秒看门狗（kSourceTimeoutMs），
+     * 所以最坏情况 = 3 个源 × 6 秒 ≈ 18 秒，留到 25 秒。
+     * 这个值必须大于「源个数 × 单源超时」，否则兜底源永远排不上队 ——
+     * 之前 15 秒配 10 秒单源超时，raw.githubusercontent 一挂住，
+     * 后面的 GitHub Releases API 就再也轮不到，检查恒定报超时。
+     */
+    static constexpr int kDefaultCheckTimeoutMs = 25000;
+
     /** 一次清单解析的结果 */
     struct ReleaseInfo {
         QString version;

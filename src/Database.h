@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QSqlDatabase>
 #include <QString>
+#include <QVariantList>
 
 class Database : public QObject
 {
@@ -28,6 +29,17 @@ public:
 
     Q_INVOKABLE void refreshStats();
 
+    // ---- 看板与列（schema v2，R4-03）----
+    // 一张卡落在哪列由 task.column_id 决定；column_id 为空时按 status 落到默认列。
+    // 列只是「同一状态的不同分段」，status 仍是 todo/doing/done 三态，
+    // 完成判定 / 撤销 / 提醒等既有逻辑语义不变。
+    static constexpr int kSchemaVersion = 2;
+
+    QString defaultBoardId() const;
+    QVariantList boards() const;
+    QVariantList boardColumns(const QString &boardId) const;
+    QString defaultColumnForStatus(const QString &status) const;
+
     QString pluginValue(const QString &pluginId, const QString &key) const;
     bool setPluginValue(const QString &pluginId, const QString &key, const QString &value);
     bool removePluginValue(const QString &pluginId, const QString &key);
@@ -44,6 +56,11 @@ private:
     void closeConnection();
     bool integrityOk(QString *reason) const;
     bool recoverCorrupt(const QString &reason, QString *error);
+    // schema 版本：0 = 空库，逐级迁移到 kSchemaVersion；高于当前版本直接拒绝打开。
+    int userVersion() const;
+    bool ensureSchema(QString *error);
+    bool createSchemaV1(QString *error);
+    bool migrateToV2(QString *error);
     bool exec(const QString &sql, QString *error = nullptr);
     bool execQuery(const QString &sql, QString *error = nullptr);
 

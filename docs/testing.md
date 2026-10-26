@@ -16,6 +16,7 @@ NeonBoard 的回归风险集中在两处：**输入解析**（用户随手一句
 | `tst_pluginpackage` | `src/PluginPackage.cpp` | 包合法性校验（非 JSON / 缺 manifest / 缺 files / 空 id）、`id → 目录名`、manifest 与 files 落盘、**目录穿越拒绝**、覆盖安装整体替换 |
 | `tst_appactions` | `src/AppActions.cpp` | 命令行 → 动作的优先级（palette > newtask > …）、动作白名单（拒掉任意 QML 方法名注入）、动作 → QML 调用（无参/带参不混用）、二次启动 IPC 帧的往返/超长/换行折叠/UTF-8 |
 | `tst_windowsintegration` | `src/WindowsIntegration.cpp` | AUMID 契约稳定性、`shell\open\command` 引号与 `%1` 占位保留、`--install-plugin-file` 参数提取、关联状态结构、**跳转列表任务项可点击**（参数能被动作层认出且不是"只亮窗口"）。**只读**，不做任何注册表/跳转列表写入 |
+| `tst_databasemigration` | `src/Database.cpp` | schema 迁移：新库直接建到 v2（1 板 + 3 列）、v1 老库（带 `CHECK(status)`）搬迁后标题/备注/优先级/标签/时间戳/`column_id` 回填逐项一致、改过列后重开不被回填覆盖、`user_version` 高于程序支持版本时拒绝打开 |
 
 ## 结构
 
@@ -25,7 +26,8 @@ tests/
 ├── tst_taskinputparser.cpp
 ├── tst_pluginpackage.cpp
 ├── tst_appactions.cpp
-└── tst_windowsintegration.cpp
+├── tst_windowsintegration.cpp
+└── tst_databasemigration.cpp
 ```
 
 `tests/CMakeLists.txt` 的关键取舍：**把被测 `.cpp` 直接编进测试目标**，不链接

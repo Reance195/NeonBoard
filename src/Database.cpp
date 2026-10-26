@@ -10,6 +10,7 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QUuid>
+#include <QVariantMap>
 
 // SQLite 文件头固定为 "SQLite format 3\0"；随机字节 / 空文件不满足，用于区分
 //「文件坏了」和「打不开但文件还在」（后者可能是权限问题，不能擅自动备份）。
@@ -182,64 +183,8 @@ bool Database::open(QString *error, const QString &pathOverride)
     if (!execQuery(QStringLiteral("PRAGMA foreign_keys=ON"), error))
         return false;
 
-    QSqlQuery versionQuery(m_db);
-    if (!versionQuery.exec(QStringLiteral("PRAGMA user_version")) || !versionQuery.next()) {
-        if (error)
-            *error = versionQuery.lastError().text();
+    if (!ensureSchema(error))
         return false;
-    }
-    const int version = versionQuery.value(0).toInt();
-
-    if (version == 0) {
-        if (!exec(QStringLiteral("BEGIN"), error))
-            return false;
-
-        const QStringList schema = {
-            QStringLiteral(
-                "CREATE TABLE IF NOT EXISTS task ("
-                "  id TEXT PRIMARY KEY,"
-                "  title TEXT NOT NULL,"
-                "  note TEXT NOT NULL DEFAULT '',"
-                "  status TEXT NOT NULL CHECK(status IN ('todo','doing','done')),"
-                "  priority INTEGER NOT NULL DEFAULT 0,"
-                "  tags TEXT NOT NULL DEFAULT '[]',"
-                "  order_key INTEGER NOT NULL,"
-                "  due_at INTEGER,"
-                "  created_at INTEGER NOT NULL,"
-                "  updated_at INTEGER NOT NULL,"
-                "  completed_at INTEGER"
-                ")"),
-            QStringLiteral(
-                "CREATE INDEX IF NOT EXISTS idx_task_status_order "
-                "ON task(status, order_key)"),
-            QStringLiteral(
-                "CREATE TABLE IF NOT EXISTS meta ("
-                "  key TEXT PRIMARY KEY,"
-                "  value TEXT NOT NULL"
-                ")"),
-            QStringLiteral(
-                "CREATE TABLE IF NOT EXISTS plugin_kv ("
-                "  plugin_id TEXT NOT NULL,"
-                "  key TEXT NOT NULL,"
-                "  value TEXT,"
-                "  PRIMARY KEY (plugin_id, key)"
-                ")"),
-            QStringLiteral("PRAGMA user_version=1")
-        };
-
-        for (const QString &sql : schema) {
-            if (!exec(sql, error)) {
-                exec(QStringLiteral("ROLLBACK"));
-                return false;
-            }
-        }
-        if (!exec(QStringLiteral("COMMIT"), error))
-            return false;
-    } else if (version > 1) {
-        if (error)
-            *error = QStringLiteral("数据库版本 %1 高于当前程序支持的版本").arg(version);
-        return false;
-    }
 
     // 主任务 / 子任务关联边表：独立表，不动 task 表结构、不升 user_version，
     // 老版本程序开同一个库也不受影响（认不出这张表而已）。
@@ -279,6 +224,250 @@ bool Database::open(QString *error, const QString &pathOverride)
 
     refreshStats();
     return true;
+}
+
+int Database::userVersion() const
+{
+    QSqlQuery query(m_db);
+    if (!query.exec(QStringLiteral("PRAGMA user_version")) || !query.next())
+        return -1;
+    return query.value(0).toInt();
+}
+
+bool Database::ensureSchema(QString *error)
+{
+    int version = userVersion();
+    if (version < 0) {
+        if (error)
+            *error = QStringLiteral("读取数据库版本失败");
+        return false;
+    }
+    if (version > kSchemaVersion) {
+        if (error) {
+            *error = QStringLiteral("数据库版本 %1 高于当前程序支持的版本 %2")
+                         .arg(version).arg(kSchemaVersion);
+        }
+        return false;
+    }
+
+    // 逐级迁移：新建库也走 0 → 1 → 2 的同一条路径，避免「新库 schema」与
+    // 「迁移后 schema」两套定义漂移（迁移写错只在老库上炸，是最难查的一类 bug）。
+    if (version == 0) {
+        if (!createSchemaV1(error))
+            return false;
+        version = 1;
+    }
+    if (version == 1) {
+        if (!migrateToV2(error))
+            return false;
+    }
+    return true;
+}
+
+bool Database::createSchemaV1(QString *error)
+{
+    if (!exec(QStringLiteral("BEGIN"), error))
+        return false;
+
+    const QStringList schema = {
+        QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS task ("
+            "  id TEXT PRIMARY KEY,"
+            "  title TEXT NOT NULL,"
+            "  note TEXT NOT NULL DEFAULT '',"
+            "  status TEXT NOT NULL CHECK(status IN ('todo','doing','done')),"
+            "  priority INTEGER NOT NULL DEFAULT 0,"
+            "  tags TEXT NOT NULL DEFAULT '[]',"
+            "  order_key INTEGER NOT NULL,"
+            "  due_at INTEGER,"
+            "  created_at INTEGER NOT NULL,"
+            "  updated_at INTEGER NOT NULL,"
+            "  completed_at INTEGER"
+            ")"),
+        QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_task_status_order "
+            "ON task(status, order_key)"),
+        QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS meta ("
+            "  key TEXT PRIMARY KEY,"
+            "  value TEXT NOT NULL"
+            ")"),
+        QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS plugin_kv ("
+            "  plugin_id TEXT NOT NULL,"
+            "  key TEXT NOT NULL,"
+            "  value TEXT,"
+            "  PRIMARY KEY (plugin_id, key)"
+            ")"),
+        QStringLiteral("PRAGMA user_version=1")
+    };
+
+    for (const QString &sql : schema) {
+        if (!exec(sql, error)) {
+            exec(QStringLiteral("ROLLBACK"));
+            return false;
+        }
+    }
+    return exec(QStringLiteral("COMMIT"), error);
+}
+
+bool Database::migrateToV2(QString *error)
+{
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+
+    if (!exec(QStringLiteral("BEGIN"), error))
+        return false;
+
+    // 迁移步骤全部在同一个事务里：中途失败整体回滚，不允许留下「任务表已重建、
+    // 看板表没建」的半迁移库（这种库 user_version 还是 1，下次启动会再撞一次）。
+    const QStringList steps = {
+        // 看板与列：列带 status，一张卡落在哪列由 task.column_id 决定。
+        // status 仍是三态（todo/doing/done），列只是「同一状态的不同分段」，
+        // 因此完成判定、撤销、提醒等既有逻辑不需要改语义。
+        QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS board ("
+            "  id TEXT PRIMARY KEY,"
+            "  name TEXT NOT NULL,"
+            "  order_key INTEGER NOT NULL DEFAULT 0,"
+            "  created_at INTEGER NOT NULL DEFAULT 0,"
+            "  updated_at INTEGER NOT NULL DEFAULT 0"
+            ")"),
+        QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS board_column ("
+            "  id TEXT PRIMARY KEY,"
+            "  board_id TEXT NOT NULL,"
+            "  name TEXT NOT NULL,"
+            "  status TEXT NOT NULL,"
+            "  order_key INTEGER NOT NULL DEFAULT 0,"
+            "  created_at INTEGER NOT NULL DEFAULT 0,"
+            "  updated_at INTEGER NOT NULL DEFAULT 0"
+            ")"),
+        QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_board_column_board "
+            "ON board_column(board_id, order_key)"),
+
+        // 重建 task：SQLite 不支持删除列约束，只能建新表搬迁。
+        // 去掉 CHECK(status IN ...) —— 列可自定义后，状态集合不再由建表语句锁死；
+        // column_id 为空串表示「未指定列，按 status 落到默认列」，老库行全部走这个分支。
+        QStringLiteral("DROP TABLE IF EXISTS task_v2"),
+        QStringLiteral(
+            "CREATE TABLE task_v2 ("
+            "  id TEXT PRIMARY KEY,"
+            "  title TEXT NOT NULL,"
+            "  note TEXT NOT NULL DEFAULT '',"
+            "  status TEXT NOT NULL,"
+            "  column_id TEXT NOT NULL DEFAULT '',"
+            "  priority INTEGER NOT NULL DEFAULT 0,"
+            "  tags TEXT NOT NULL DEFAULT '[]',"
+            "  order_key INTEGER NOT NULL,"
+            "  due_at INTEGER,"
+            "  created_at INTEGER NOT NULL,"
+            "  updated_at INTEGER NOT NULL,"
+            "  completed_at INTEGER"
+            ")"),
+        QStringLiteral(
+            "INSERT INTO task_v2 (id, title, note, status, column_id, priority, tags,"
+            "  order_key, due_at, created_at, updated_at, completed_at) "
+            "SELECT id, title, note, status, '', priority, tags,"
+            "  order_key, due_at, created_at, updated_at, completed_at FROM task"),
+        QStringLiteral("DROP TABLE task"),
+        QStringLiteral("ALTER TABLE task_v2 RENAME TO task"),
+        QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_task_status_order "
+            "ON task(status, order_key)"),
+        QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_task_column_order "
+            "ON task(column_id, order_key)"),
+
+        // 默认板 + 三列：id 固定，便于迁移回填、老数据对号入座，也方便外部工具识别。
+        QStringLiteral(
+            "INSERT OR IGNORE INTO board (id, name, order_key, created_at, updated_at) "
+            "VALUES ('board-default', '默认看板', 1024, %1, %1)").arg(now),
+        QStringLiteral(
+            "INSERT OR IGNORE INTO board_column "
+            "(id, board_id, name, status, order_key, created_at, updated_at) VALUES "
+            "('col-todo', 'board-default', '待办', 'todo', 1024, %1, %1),"
+            "('col-doing', 'board-default', '进行中', 'doing', 2048, %1, %1),"
+            "('col-done', 'board-default', '已完成', 'done', 3072, %1, %1)").arg(now),
+        // 回填：只填还空着的行，重跑迁移不会覆盖用户后来改过的列
+        QStringLiteral(
+            "UPDATE task SET column_id = CASE status "
+            "WHEN 'doing' THEN 'col-doing' "
+            "WHEN 'done' THEN 'col-done' "
+            "ELSE 'col-todo' END "
+            "WHERE column_id = ''"),
+
+        QStringLiteral("PRAGMA user_version=2")
+    };
+
+    for (const QString &sql : steps) {
+        if (!exec(sql, error)) {
+            exec(QStringLiteral("ROLLBACK"));
+            return false;
+        }
+    }
+    return exec(QStringLiteral("COMMIT"), error);
+}
+
+QString Database::defaultBoardId() const
+{
+    QSqlQuery query(m_db);
+    if (!query.exec(QStringLiteral(
+            "SELECT id FROM board ORDER BY order_key, id LIMIT 1"))
+        || !query.next()) {
+        return QString();
+    }
+    return query.value(0).toString();
+}
+
+QVariantList Database::boards() const
+{
+    QVariantList out;
+    QSqlQuery query(m_db);
+    if (!query.exec(QStringLiteral("SELECT id, name, order_key FROM board ORDER BY order_key, id")))
+        return out;
+    while (query.next()) {
+        out.append(QVariantMap{
+            {QStringLiteral("id"), query.value(0)},
+            {QStringLiteral("name"), query.value(1)},
+            {QStringLiteral("orderKey"), query.value(2)},
+        });
+    }
+    return out;
+}
+
+QVariantList Database::boardColumns(const QString &boardId) const
+{
+    QVariantList out;
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral(
+        "SELECT id, name, status, order_key FROM board_column "
+        "WHERE board_id = ? ORDER BY order_key, id"));
+    query.addBindValue(boardId);
+    if (!query.exec())
+        return out;
+    while (query.next()) {
+        out.append(QVariantMap{
+            {QStringLiteral("id"), query.value(0)},
+            {QStringLiteral("name"), query.value(1)},
+            {QStringLiteral("status"), query.value(2)},
+            {QStringLiteral("orderKey"), query.value(3)},
+        });
+    }
+    return out;
+}
+
+QString Database::defaultColumnForStatus(const QString &status) const
+{
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral(
+        "SELECT c.id FROM board_column c "
+        "JOIN board b ON b.id = c.board_id "
+        "WHERE c.status = ? ORDER BY b.order_key, c.order_key, c.id LIMIT 1"));
+    query.addBindValue(status);
+    if (!query.exec() || !query.next())
+        return QString();
+    return query.value(0).toString();
 }
 
 bool Database::exec(const QString &sql, QString *error)

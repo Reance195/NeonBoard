@@ -652,7 +652,8 @@ int main(int argc, char *argv[])
             QTemporaryDir tmp;
             ok = tmp.isValid() && ok;
             if (tmp.isValid()) {
-                // 旧库迁移：user_version=0（早期版本）的库要能升到 1，且已有 meta 数据保留
+                // 旧库迁移：早期版本（无 task 表 / user_version=0）的库要能一路升到当前
+                // schema 版本，已有 meta 数据保留，且看板/列被自动补齐
                 const QString legacyPath = tmp.filePath(QStringLiteral("legacy.db"));
                 {
                     QSqlDatabase legacy = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
@@ -674,6 +675,9 @@ int main(int argc, char *argv[])
                 ok = migrated.metaValue(QStringLiteral("legacy")) == QStringLiteral("1") && ok;
                 ok = migrated.setMetaValue(QStringLiteral("after"), QStringLiteral("ok"))
                      && migrated.metaValue(QStringLiteral("after")) == QStringLiteral("ok") && ok;
+                // schema v2：默认板与三列必须补齐（老库没有 board 表）
+                ok = migrated.defaultBoardId() == QStringLiteral("board-default") && ok;
+                ok = migrated.boardColumns(migrated.defaultBoardId()).size() == 3 && ok;
                 qInfo() << "SELFTEST migrate" << (ok ? "OK" : "FAIL") << migrateError;
             }
         }

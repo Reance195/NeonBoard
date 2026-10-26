@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "R5-03",
+            "completedAt": 0,
+            "createdAt": 1793016029,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "aee6be17-c2c3-4157-88e2-b495478fd32d",
+            "note": "",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "R5",
+            "status": "todo",
+            "tags": [
+                "R5"
+            ],
+            "title": "R5 发布 v0.1.1：版本号单源化 + 端到端升级验证",
+            "updatedAt": 1793016029
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -1645,6 +1663,6 @@
             "updatedAt": 1792982914
         }
     ],
-    "updated": "2026-10-26T11:48:24",
+    "updated": "2026-10-26T20:00:29",
     "version": 3
 }

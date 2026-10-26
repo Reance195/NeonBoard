@@ -83,3 +83,9 @@ neonboard_add_test(tst_boardcolumns
     ${CMAKE_SOURCE_DIR}/src/TaskExtra.cpp
 )
 target_link_libraries(tst_boardcolumns PRIVATE Qt6::Sql)
+
+# R4-07：首启动引导的持久化与「该不该弹」判定。
+# QSettings 的 UserScope 被指到临时目录，不碰开发机真实设置。
+neonboard_add_test(tst_uisettings
+    ${CMAKE_SOURCE_DIR}/src/UiSettings.cpp
+)

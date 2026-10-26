@@ -28,12 +28,16 @@ Dialog {
         return out
     }
 
-    function openComposer(defaultStatus) {
+    // draftTitle：模板预填（首启动引导里点「周报 / 会议记录 / Bug」），
+    // 空串等同于空白新建；不传时保持老行为
+    function openComposer(defaultStatus, draftTitle) {
         status = defaultStatus && defaultStatus.length > 0 ? defaultStatus : "todo"
-        titleField.text = ""
+        titleField.text = draftTitle ? draftTitle : ""
         parentBox.currentIndex = 0
         open()
         titleField.forceActiveFocus()
+        // 预填时把光标放到末尾：用户接着往后写，而不是覆盖模板
+        titleField.cursorPosition = titleField.text.length
     }
 
     function submit() {

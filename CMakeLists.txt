@@ -119,6 +119,7 @@ set_source_files_properties(qml/components/FocusRing.qml PROPERTIES QT_RESOURCE_
 set_source_files_properties(qml/components/TaskComposer.qml PROPERTIES QT_RESOURCE_ALIAS "TaskComposer.qml")
 set_source_files_properties(qml/components/FocusBadge.qml PROPERTIES QT_RESOURCE_ALIAS "FocusBadge.qml")
 set_source_files_properties(qml/components/WindowButtons.qml PROPERTIES QT_RESOURCE_ALIAS "WindowButtons.qml")
+set_source_files_properties(qml/components/OnboardingOverlay.qml PROPERTIES QT_RESOURCE_ALIAS "OnboardingOverlay.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -148,6 +149,7 @@ qt_add_qml_module(NeonBoard
         qml/components/TaskComposer.qml
         qml/components/FocusBadge.qml
         qml/components/WindowButtons.qml
+        qml/components/OnboardingOverlay.qml
 )
 
 qt_add_resources(NeonBoard "icons"

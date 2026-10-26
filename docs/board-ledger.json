@@ -320,10 +320,10 @@
     },
     "claims": {
         "R4-03": {
-            "agent": "agent-r43f",
-            "branch": "feature/r4-03-addtask-column",
-            "claimedAt": 1792997706,
-            "head": "d34cda01242dc1899d38cdd492692ad1dd895fb9"
+            "agent": "agent-r43g",
+            "branch": "feature/r4-03-column-manager",
+            "claimedAt": 1792999149,
+            "head": "3a672a5d7cb60b34f93c94e605170e3abfca7e13"
         }
     },
     "version": 1

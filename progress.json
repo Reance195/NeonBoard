@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "R5-02",
+            "completedAt": 0,
+            "createdAt": 1793013568,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "534b6730-a829-4881-a5c7-ff33ba67ef5b",
+            "note": "",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "R5",
+            "status": "todo",
+            "tags": [
+                "R5"
+            ],
+            "title": "R5 更新检查韧性：逐源超时不吃光总预算 + 回退路径的校验值兜底",
+            "updatedAt": 1793013568
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -1627,6 +1645,6 @@
             "updatedAt": 1792982914
         }
     ],
-    "updated": "2026-10-26T10:27:18",
+    "updated": "2026-10-26T19:19:28",
     "version": 3
 }

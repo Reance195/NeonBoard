@@ -1,5 +1,7 @@
 # NeonBoard
 
+简体中文 | [English](README.en.md)
+
 个人工作台：赛博霓虹风格的三列任务看板。Qt 6.8 + QML + C++20，本地 SQLite 存储。
 
 ![CI](https://github.com/Reance195/NeonBoard/actions/workflows/ci.yml/badge.svg)

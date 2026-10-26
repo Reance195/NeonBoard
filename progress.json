@@ -158,25 +158,6 @@
             "updatedAt": 1792981704
         },
         {
-            "code": "R4-02",
-            "completedAt": 0,
-            "createdAt": 1792654081,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "51a132f8-ee80-40dd-a753-488336b123c9",
-            "note": "QSystemTrayIcon 气泡在 Win11 会静默折叠，通知需走 WinRT toast 进通知中心；.neon 插件包注册文件关联（双击安装）；跳转列表最近任务；开机自启开关。路线图未排期的新增方向。",
-            "orderKey": 2048,
-            "priority": 2,
-            "stage": "R4",
-            "status": "doing",
-            "tags": [
-                "R4",
-                "系统集成"
-            ],
-            "title": "R4 Windows 原生集成：toast / 文件关联 / 跳转列表",
-            "updatedAt": 1792982180
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -231,6 +212,25 @@
             ],
             "title": "R1 提醒 + 逾期提醒",
             "updatedAt": 1792845600
+        },
+        {
+            "code": "R4-02",
+            "completedAt": 1792982565,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "51a132f8-ee80-40dd-a753-488336b123c9",
+            "note": "QSystemTrayIcon 气泡在 Win11 会静默折叠，通知需走 WinRT toast 进通知中心；.neon 插件包注册文件关联（双击安装）；跳转列表最近任务；开机自启开关。路线图未排期的新增方向。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "系统集成"
+            ],
+            "title": "R4 Windows 原生集成：toast / 文件关联 / 跳转列表",
+            "updatedAt": 1792982565
         },
         {
             "code": "R1-02",
@@ -1609,7 +1609,6 @@
             "updatedAt": 1792942397
         }
     ],
-    "updated": "2026-10-26T10:36:21",
+    "updated": "2026-10-26T02:42:45",
     "version": 3
 }
-

@@ -78,7 +78,7 @@
 ### 字段最小集
 
 MVP 只要三个就能开工：**`goal` + `cwd` + `acceptance`**。
-其余字段缺失时按 workflow 预设补默认值。
+其余字段缺失时按所选 workflow 的角色步骤补默认值。
 
 ## 4. 状态机
 
@@ -124,8 +124,9 @@ MVP 只要三个就能开工：**`goal` + `cwd` + `acceptance`**。
 点「执行」
   ├─ 前置检查：定义完整？cwd 在白名单？没有正在跑的 run？
   ├─ 创建 run 记录（run_id、started_at、agent、cwd、workflow）
-  ├─ 拼 prompt：卡片定义 + workflow 模板 + triage 结论
+  ├─ 拼 prompt：卡片定义 + workflow（角色步骤）+ triage 结论
   │   （**不塞 AGENTS.md 摘要**——摘要会失真且浪费 token；只要求 agent 先读仓库里的 AGENTS.md）
+  │   （M4 起：每步一个角色、一份交接物，下一步读上一步的产出）
   ├─ 启动子进程（QProcess），cwd = 卡片 cwd
   ├─ 流式读取 stdout/stderr → 写 run 日志 + 卡片日志面板
   ├─ 进程退出 → 执行 acceptance 命令
@@ -191,22 +192,64 @@ MVP 只要三个就能开工：**`goal` + `cwd` + `acceptance`**。
 `assert` 用固定的小语法（http / file / json 三种），由应用自己执行，避免为了跑断言而开放 shell。
 
 
-## 7. Workflow 预设
+## 7. Workflow：角色步骤组合
 
-| 预设 | 适用 | 默认 prompt 骨架 | 默认 acceptance |
-| --- | --- | --- | --- |
-| `fix` | 修 bug | 复现 → 定位 → 最小改动 → 补回归测试 | `verify.ps1` |
-| `feature` | 新功能 | 读现有架构 → 列方案 → 实现 → 测试 → 文档 | `verify.ps1` |
-| `review` | 只读审查 | 读 diff → 按清单检查 → 输出问题列表 | 无（人工判断） |
-| `docs` | 纯文档 | 改文档 → 检查链接 | 链接检查 |
+**「角色」是积木，「workflow」是积木的有序组合。** 不做固定团队——那是「0→1 交付型」产品的形态；
+个人日常是「一堆大小不一的小需求」，必须按任务大小拼装。
 
-预设存 `board.db`，可编辑；卡片可覆盖单个字段。
+### 角色步骤的结构
+
+| 字段 | 说明 |
+| --- | --- |
+| `role` | `pm` / `architect` / `engineer` / `qa` / `writer` / `orchestrator` |
+| `agent` | 该步用哪个 agent（缺省继承卡片 `exec.agent`） |
+| `prompt` | 步骤模板：指令 + 产出要求 |
+| `inputs` | 依赖的交接物或卡片字段 |
+| `outputs` | 本步产出的交接物（路径 + 内容契约） |
+| `acceptance` | 本步验收（`command` / `assert`；缺省用卡片级 acceptance） |
+| `scope` | 本步允许改的路径（只读角色为空；缺省用卡片 scope） |
+
+### 交接物（handoff）
+
+每一步产出一个文件，就是下一步的输入：
+
+| 角色 | 产出 | 路径约定 |
+| --- | --- | --- |
+| `pm` | 需求规格 | `.neonboard/handoff/<card>/spec.md` |
+| `architect` | 技术方案 | `.neonboard/handoff/<card>/design.md` |
+| `engineer` | 代码改动 | 工作区（`git diff` 即交接物） |
+| `qa` | 测试报告 | `.neonboard/handoff/<card>/qa.md` |
+| `orchestrator` | 收口摘要 | `.neonboard/handoff/<card>/summary.md` |
+
+### 预设 workflow（可编辑，存 board.db）
+
+| workflow | 步骤序列 | 适用 |
+| --- | --- | --- |
+| `fix` | engineer → qa | 一行修复、小 bug |
+| `feature` | pm → architect → engineer → qa | 新功能 |
+| `hotfix` | engineer | 紧急，跳过评审 |
+| `docs` | writer | 纯文档 |
+| `review` | orchestrator（只读） | 只看不改 |
+| `delivery` | pm → architect → engineer → qa → orchestrator | 0→1 大活 |
+
+卡片可以覆盖单步参数（换 agent、跳过某步），但不能跳步改变交付物契约。
+
+### 主理人（orchestrator）职责
+
+1. 任务进来时**选 workflow**（按 triage 的 `estimate` 或卡片大小）
+2. 某步失败时决策：重试 / 换角色 / 降级跳过 / 升级给人
+3. 收口时确认所有 acceptance 通过，写 `summary.md`
+4. **不写代码**——只读角色，避免既当裁判又当运动员
+
+> **与 WorkBuddy「软件开发团队」的对照**：对方是「1 主理人 + 4 角色」的固定编制，适配「从 0 到 1 交付一个 App」；
+> 本设计把角色做成可组合步骤，适配「每天一堆大小不一的小需求」。核心差异是**固定编制 vs 按需拼装**。
+> 可借鉴的是「主理人显式存在」和「交接物显式化」，不可借鉴的是固定 5 人编制与云端黑盒。
 
 ## 8. 安全边界
 
 | 风险 | 约束 |
 | --- | --- |
-| 执行任意命令 | 命令来自 **workflow 模板 + 卡片字段的受控插值**，卡片不能直接提供 shell 片段 |
+| 执行任意命令 | 命令来自 **workflow 角色步骤 + 卡片字段的受控插值**，卡片不能直接提供 shell 片段 |
 | 目录越界 | `cwd` 必须命中**已登记的工作目录列表**（首次使用时确认一次） |
 | 卡片被污染 | `acceptance` 只允许白名单命令（`verify.ps1` / `ctest` / 脚本路径），不允许管道与重定向 |
 | 密钥泄露 | 日志脱敏（匹配 token 模式）；prompt 不回显环境变量 |
@@ -246,6 +289,12 @@ MVP 只要三个就能开工：**`goal` + `cwd` + `acceptance`**。
 - 失败摘要回灌 + `maxAttempts` + 人可中断
 - 每轮记录 attempt 日志
 
+### M4：角色链
+- `workflow` 从「单步」升级为「角色步骤数组」（§7）
+- 每步一张子卡、一个交接物文件、一份独立验收
+- `orchestrator` 选 workflow、决策失败分支、收口写 summary
+- 预设：`fix` / `feature` / `hotfix` / `docs` / `review` / `delivery`
+
 ## 11. 开放问题
 
 | # | 问题 | 状态 |
@@ -255,5 +304,8 @@ MVP 只要三个就能开工：**`goal` + `cwd` + `acceptance`**。
 | 3 | **执行期沙箱**：agent 可能改到 `scope` 之外的路径，是否在 run 结束后用 `scope` 做一次 diff 校验（越界即 blocked）？ | 建议做，复用 `check_scope.py` 思路 |
 | 4 | **多目录任务**：一张卡跨两个仓库 | **v1 不支持**，明确写进「非目标」 |
 | 5 | **与 git 流程的关系**：执行产生的提交是否自动做领用占位（多 agent 并行时） | v1 不做；单机靠 board.db 的锁 |
-| 6 | **成本可视化**：记录每次 run 的耗时与 token，给卡片一个「花了多少」的账 | 建议 M3 做，先记耗时 |
+| 6 | **成本可视化**：记录每次 run 的耗时与 token，给卡片一个「花了多少」的账 | 建议 M4 做，先记耗时 |
 | 7 | **失败后给谁**：`blocked` 卡是自动进下轮，还是必须人看一眼再重试 | 建议默认人工确认，可开「自动重试 1 次」 |
+| 8 | **角色链的跳过规则**：小任务走 `fix` 时，是否允许 orchestrator 自动跳过 `qa`？ | 建议不允许跳 qa（验收是最后防线），可允许跳 pm/architect |
+| 9 | **交接物版本化**：`.neonboard/handoff/` 要不要进 git（可评审）还是只留本地？ | 建议进 git 的子集：spec/design/qa 摘要，完整日志不进 |
+

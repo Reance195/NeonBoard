@@ -470,6 +470,16 @@ QString Database::defaultColumnForStatus(const QString &status) const
     return query.value(0).toString();
 }
 
+QString Database::columnStatus(const QString &columnId) const
+{
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral("SELECT status FROM board_column WHERE id = ?"));
+    query.addBindValue(columnId);
+    if (!query.exec() || !query.next())
+        return QString();
+    return query.value(0).toString();
+}
+
 bool Database::exec(const QString &sql, QString *error)
 {
     QSqlQuery query(m_db);

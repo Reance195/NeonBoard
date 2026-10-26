@@ -56,3 +56,14 @@ neonboard_add_test(tst_databasemigration
     ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
 )
 target_link_libraries(tst_databasemigration PRIVATE Qt6::Sql)
+
+# R4-03 批次二：列感知的模型层（新增任务落默认列 / 按列搬运 / 按列过滤不串味）
+neonboard_add_test(tst_taskcolumns
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+)
+target_link_libraries(tst_taskcolumns PRIVATE Qt6::Sql)

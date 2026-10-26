@@ -49,6 +49,8 @@ QVariant TaskModel::data(const QModelIndex &index, int role) const
         return task.note;
     case StatusRole:
         return task.status;
+    case ColumnIdRole:
+        return task.columnId;
     case PriorityRole:
         return task.priority;
     case TagsRole:
@@ -79,6 +81,7 @@ QHash<int, QByteArray> TaskModel::roleNames() const
         { TitleRole, "title" },
         { NoteRole, "note" },
         { StatusRole, "status" },
+        { ColumnIdRole, "columnId" },
         { PriorityRole, "priority" },
         { TagsRole, "tags" },
         { OrderKeyRole, "orderKey" },
@@ -145,7 +148,7 @@ void TaskModel::load()
     const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
     QSqlQuery query(db);
     if (!query.exec(QStringLiteral(
-            "SELECT id, title, note, status, priority, tags, order_key, due_at, "
+            "SELECT id, title, note, status, column_id, priority, tags, order_key, due_at, "
             "created_at, updated_at, completed_at FROM task "
             "ORDER BY status, order_key, created_at"))) {
         qWarning() << "TaskModel: load failed:" << query.lastError().text();
@@ -156,13 +159,17 @@ void TaskModel::load()
             task.title = query.value(1).toString();
             task.note = query.value(2).toString();
             task.status = query.value(3).toString();
-            task.priority = query.value(4).toInt();
-            task.tags = query.value(5).toString();
-            task.orderKey = query.value(6).toLongLong();
-            task.dueAt = query.value(7).toLongLong();
-            task.createdAt = query.value(8).toLongLong();
-            task.updatedAt = query.value(9).toLongLong();
-            task.completedAt = query.value(10).toLongLong();
+            task.columnId = query.value(4).toString();
+            task.priority = query.value(5).toInt();
+            task.tags = query.value(6).toString();
+            task.orderKey = query.value(7).toLongLong();
+            task.dueAt = query.value(8).toLongLong();
+            task.createdAt = query.value(9).toLongLong();
+            task.updatedAt = query.value(10).toLongLong();
+            task.completedAt = query.value(11).toLongLong();
+            // 极端情况下（老库未回填 / 列被删）按状态回落默认列，保证模型侧永远有列
+            if (task.columnId.isEmpty())
+                task.columnId = m_database->defaultColumnForStatus(task.status);
             m_tasks.append(task);
         }
     }
@@ -183,6 +190,7 @@ QVariantMap TaskModel::taskById(const QString &id) const
         {QStringLiteral("title"), task.title},
         {QStringLiteral("note"), task.note},
         {QStringLiteral("status"), task.status},
+        {QStringLiteral("columnId"), task.columnId},
         {QStringLiteral("priority"), task.priority},
         {QStringLiteral("tags"), firstTag(task.tags)},
         {QStringLiteral("tagsFull"), task.tags},
@@ -241,6 +249,7 @@ QString TaskModel::upsertTask(const QString &id, const QVariantMap &fields)
             && task.status != QLatin1String("done")) {
             task.status = QStringLiteral("todo");
         }
+        task.columnId = m_database->defaultColumnForStatus(task.status);
         task.priority = qBound(0, fields.value(QStringLiteral("priority")).toInt(), 3);
         task.tags = normalizeTags(fields.value(QStringLiteral("tags")).toString());
         task.orderKey = fields.value(QStringLiteral("orderKey")).toLongLong();
@@ -259,12 +268,14 @@ QString TaskModel::upsertTask(const QString &id, const QVariantMap &fields)
         const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
         QSqlQuery query(db);
         query.prepare(QStringLiteral(
-            "INSERT OR REPLACE INTO task (id, title, note, status, priority, tags, order_key, due_at, "
-            "created_at, updated_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+            "INSERT OR REPLACE INTO task (id, title, note, status, column_id, priority, tags,"
+            " order_key, due_at, created_at, updated_at, completed_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
         query.addBindValue(task.id);
         query.addBindValue(task.title);
         query.addBindValue(nonNull(task.note));
         query.addBindValue(task.status);
+        query.addBindValue(task.columnId);
         query.addBindValue(task.priority);
         query.addBindValue(nonNull(task.tags));
         query.addBindValue(task.orderKey);
@@ -390,6 +401,7 @@ QString TaskModel::addTask(const QString &title, const QString &status, int prio
     task.title = cleanTitle;
     task.note = QStringLiteral("");
     task.status = cleanStatus;
+    task.columnId = m_database->defaultColumnForStatus(cleanStatus);
     task.priority = parsed.priority >= 0 ? parsed.priority : qBound(0, priority, 3);
     task.tags = mergeTags(tags, parsed.tags);
     task.orderKey = nextOrderKey(cleanStatus);
@@ -401,12 +413,13 @@ QString TaskModel::addTask(const QString &title, const QString &status, int prio
     const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
     QSqlQuery query(db);
     query.prepare(QStringLiteral(
-        "INSERT INTO task (id, title, note, status, priority, tags, order_key, due_at, "
-        "created_at, updated_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+        "INSERT INTO task (id, title, note, status, column_id, priority, tags, order_key, due_at, "
+        "created_at, updated_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
     query.addBindValue(task.id);
     query.addBindValue(task.title);
     query.addBindValue(nonNull(task.note));
     query.addBindValue(task.status);
+    query.addBindValue(task.columnId);
     query.addBindValue(task.priority);
     query.addBindValue(nonNull(task.tags));
     query.addBindValue(task.orderKey);
@@ -572,6 +585,7 @@ QString TaskModel::restoreTask(const QVariantMap &task)
         && restored.status != QLatin1String("done")) {
         restored.status = QStringLiteral("todo");
     }
+    restored.columnId = m_database->defaultColumnForStatus(restored.status);
     restored.priority = qBound(0, task.value(QStringLiteral("priority")).toInt(), 3);
     restored.tags = normalizeTags(task.value(QStringLiteral("tags")).toString());
     restored.orderKey = task.value(QStringLiteral("orderKey")).toLongLong();
@@ -591,12 +605,14 @@ QString TaskModel::restoreTask(const QVariantMap &task)
     const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
     QSqlQuery query(db);
     query.prepare(QStringLiteral(
-        "INSERT OR REPLACE INTO task (id, title, note, status, priority, tags, order_key, "
-        "due_at, created_at, updated_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+        "INSERT OR REPLACE INTO task (id, title, note, status, column_id, priority, tags,"
+        " order_key, due_at, created_at, updated_at, completed_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
     query.addBindValue(restored.id);
     query.addBindValue(restored.title);
     query.addBindValue(nonNull(restored.note));
     query.addBindValue(restored.status);
+    query.addBindValue(restored.columnId);
     query.addBindValue(restored.priority);
     query.addBindValue(nonNull(restored.tags));
     query.addBindValue(restored.orderKey);
@@ -711,6 +727,65 @@ bool TaskModel::restoreSnapshot(const QVariantMap &snapshot)
     emit countsChanged();
     m_database->refreshStats();
     emit taskUpdated(updated.id);
+    return true;
+}
+
+bool TaskModel::moveTaskToColumn(const QString &id, const QString &columnId)
+{
+    const int row = findRow(id);
+    if (row < 0)
+        return false;
+
+    const QString targetStatus = m_database->columnStatus(columnId);
+    if (targetStatus.isEmpty())
+        return false;
+
+    const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+
+    // 列内尾部排序键：按 column_id 取，同状态的多个列各排各的
+    qint64 lastKey = 0;
+    {
+        QSqlQuery keys(db);
+        keys.prepare(QStringLiteral(
+            "SELECT COALESCE(MAX(order_key), 0) FROM task WHERE column_id = ? AND id <> ?"));
+        keys.addBindValue(columnId);
+        keys.addBindValue(id);
+        if (keys.exec() && keys.next())
+            lastKey = keys.value(0).toLongLong();
+    }
+
+    Task updated = m_tasks.at(row);
+    const QString previousStatus = updated.status;
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+    updated.columnId = columnId;
+    updated.status = targetStatus;
+    updated.orderKey = lastKey + 1024;
+    updated.updatedAt = now;
+    updated.completedAt = targetStatus == QLatin1String("done") ? now : 0;
+
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "UPDATE task SET status = ?, column_id = ?, order_key = ?, updated_at = ?, "
+        "completed_at = ? WHERE id = ?"));
+    query.addBindValue(updated.status);
+    query.addBindValue(updated.columnId);
+    query.addBindValue(updated.orderKey);
+    query.addBindValue(updated.updatedAt);
+    query.addBindValue(updated.completedAt);
+    query.addBindValue(updated.id);
+    if (!query.exec()) {
+        qWarning() << "TaskModel: moveTaskToColumn failed:" << query.lastError().text();
+        return false;
+    }
+
+    m_tasks[row] = updated;
+    emit dataChanged(index(row), index(row),
+                     { StatusRole, ColumnIdRole, OrderKeyRole, UpdatedAtRole, CompletedAtRole });
+    emit countsChanged();
+    m_database->refreshStats();
+    emit taskUpdated(updated.id);
+    if (previousStatus != updated.status)
+        emit taskMoved(updated.id, previousStatus, updated.status);
     return true;
 }
 

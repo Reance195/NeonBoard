@@ -32,6 +32,21 @@ void TaskFilterModel::setStatus(const QString &status)
     emit countChanged();
 }
 
+QString TaskFilterModel::columnId() const
+{
+    return m_columnId;
+}
+
+void TaskFilterModel::setColumnId(const QString &columnId)
+{
+    if (m_columnId == columnId)
+        return;
+    m_columnId = columnId;
+    invalidateFilter();
+    emit columnIdChanged();
+    emit countChanged();
+}
+
 int TaskFilterModel::count() const
 {
     return rowCount();
@@ -117,8 +132,13 @@ QVariantMap TaskFilterModel::previewInput(const QString &text) const
 bool TaskFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const
 {
     const QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
-    if (index.data(TaskModel::StatusRole).toString() != m_status)
+    if (!m_columnId.isEmpty()) {
+        // 列优先：同状态可能有多列，status 过滤会让它们串味
+        if (index.data(TaskModel::ColumnIdRole).toString() != m_columnId)
+            return false;
+    } else if (index.data(TaskModel::StatusRole).toString() != m_status) {
         return false;
+    }
     if (!m_stage.isEmpty()) {
         const QString tag = index.data(TaskModel::TagRole).toString().trimmed().toUpper();
         if (tag != m_stage)

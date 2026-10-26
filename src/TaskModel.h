@@ -49,18 +49,22 @@ public:
     int doneTodayCount() const;
 
     Q_INVOKABLE void load();
+    // columnId 非空且有效时以列为准（status 由列定义推导），否则按 status 落默认列。
     Q_INVOKABLE QString addTask(const QString &title,
                                 const QString &status = QStringLiteral("todo"),
                                 int priority = 1,
                                 const QString &tags = QString(),
-                                qint64 dueAt = 0);
+                                qint64 dueAt = 0,
+                                const QString &columnId = QString());
     Q_INVOKABLE bool updateTask(const QString &id, const QVariantMap &fields);
     Q_INVOKABLE bool deleteTask(const QString &id);
     Q_INVOKABLE QVariantMap removeTask(const QString &id);
     Q_INVOKABLE QString restoreTask(const QVariantMap &task);
-    // 撤销辅助：把任务放回指定状态与列内位置（撤销跨列移动用）
+    // 撤销辅助：把任务放回指定状态与列内位置（撤销跨列移动用）。
+    // columnId 为空或无效时按 status 落默认列 —— 老的撤销记录没有列字段。
     Q_INVOKABLE bool restorePlacement(const QString &id, const QString &status,
-                                      qint64 orderKey, qint64 completedAt);
+                                      qint64 orderKey, qint64 completedAt,
+                                      const QString &columnId = QString());
     // 撤销辅助：按快照回写任务字段（撤销编辑用），任务仍存在，走 UPDATE
     Q_INVOKABLE bool restoreSnapshot(const QVariantMap &snapshot);
     Q_INVOKABLE bool moveTask(const QString &id, const QString &status, int newIndex);
@@ -71,6 +75,11 @@ public:
     Q_INVOKABLE bool moveTaskBefore(const QString &id, const QString &status, const QString &beforeId);
     // 指定状态下按 order_key 升序的任务 id 列表，供界面计算插入落点（不受搜索过滤影响）
     Q_INVOKABLE QStringList taskIdsInStatus(const QString &status) const;
+    // 指定列内按 order_key 升序的任务 id 列表（同状态的多个列各排各的）
+    Q_INVOKABLE QStringList taskIdsInColumn(const QString &columnId) const;
+    // 列内精确插位：插到 beforeId 这张卡片之前；beforeId 为空/不在本列时落到列尾
+    Q_INVOKABLE bool moveTaskBeforeColumn(const QString &id, const QString &columnId,
+                                          const QString &beforeId);
     Q_INVOKABLE bool moveTaskToEnd(const QString &id, const QString &status);
     Q_INVOKABLE bool clearDone();
     Q_INVOKABLE QVariantMap taskById(const QString &id) const;
@@ -111,6 +120,14 @@ private:
     qint64 nextOrderKey(const QString &status) const;
     QVector<qint64> orderKeys(const QString &status, const QString &excludeId) const;
     bool renumberStatus(const QString &status);
+    // 列内排序键（按 column_id 取，排除自身）
+    QVector<qint64> orderKeysInColumn(const QString &columnId, const QString &excludeId) const;
+    bool renumberColumn(const QString &columnId);
+    // 落库并同步内存副本：状态 / 列 / 排序键 / 完成时间一起写，避免字段撕裂
+    bool commitMove(int row, const QString &columnId, const QString &status, qint64 orderKey,
+                    qint64 completedAt);
+    // 把任务搬到该状态的默认列（状态变更时保持列归属自洽）
+    QString columnForStatus(const QString &columnId, const QString &status) const;
     static QString normalizeTags(const QString &tags);
     static QString mergeTags(const QString &baseTags, const QStringList &extraTags);
     static QString firstTag(const QString &tags);

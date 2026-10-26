@@ -18,6 +18,7 @@
 #include "SingleInstance.h"
 #include "SplashWindow.h"
 #include "WindowsIntegration.h"
+#include "BoardColumns.h"
 #include "TaskFilterModel.h"
 #include "TaskModel.h"
 #include "TaskTree.h"
@@ -304,18 +305,11 @@ int main(int argc, char *argv[])
         return ok ? 0 : 3;
     }
 
-    TaskFilterModel todoModel;
-    TaskFilterModel doingModel;
-    TaskFilterModel doneModel;
-    todoModel.setSourceModel(&taskStore);
-    doingModel.setSourceModel(&taskStore);
-    doneModel.setSourceModel(&taskStore);
-    todoModel.setStatus(QStringLiteral("todo"));
-    doingModel.setStatus(QStringLiteral("doing"));
-    doneModel.setStatus(QStringLiteral("done"));
-    todoModel.setTaskTree(&taskTree);
-    doingModel.setTaskTree(&taskTree);
-    doneModel.setTaskTree(&taskTree);
+    // 看板列由数据库驱动（R4-03）：列清单 + 每列一个过滤模型，
+    // 界面按这张表 Repeater 出列，不再写死三列。
+    BoardColumns boardColumns(&database, &taskStore);
+    boardColumns.setTaskTree(&taskTree);
+    boardColumns.reload();
 
     // 钩子事件投递：--emit-hook <text> / --emit-hook-file <path>
     // 只把提交信息写进事件队列，不在这里执行规则 —— 规则由主进程里的插件执行。
@@ -1040,9 +1034,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskExtra"), &taskExtra);
     engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);
-    engine.rootContext()->setContextProperty(QStringLiteral("todoModel"), &todoModel);
-    engine.rootContext()->setContextProperty(QStringLiteral("doingModel"), &doingModel);
-    engine.rootContext()->setContextProperty(QStringLiteral("doneModel"), &doneModel);
+    engine.rootContext()->setContextProperty(QStringLiteral("boardColumns"), &boardColumns);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);
 engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);

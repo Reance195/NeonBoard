@@ -318,6 +318,13 @@
             "title": "R4 任务治理：任务先行，禁止无任务改代码"
         }
     },
-    "claims": {},
+    "claims": {
+        "R4-03": {
+            "agent": "agent-r43d",
+            "branch": "feature/r4-03-dynamic-columns",
+            "claimedAt": 1792995529,
+            "head": "9fd380939dca3e7ae9f5479176b49d652b82306b"
+        }
+    },
     "version": 1
 }

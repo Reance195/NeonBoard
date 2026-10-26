@@ -67,3 +67,19 @@ neonboard_add_test(tst_taskcolumns
     ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
 )
 target_link_libraries(tst_taskcolumns PRIVATE Qt6::Sql)
+
+# R4-03 批次三：看板列清单（列由库驱动）+ 列内精确插位 + 状态/列一致性。
+# 覆盖「列顺序与角色 / 搜索落到每列 / 按列录入 / 列内插位 / 按状态移动同步列 /
+# reload 不重建模型 / 撤销连列一起还原」。
+neonboard_add_test(tst_boardcolumns
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/BoardColumns.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskUndo.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskExtra.cpp
+)
+target_link_libraries(tst_boardcolumns PRIVATE Qt6::Sql)

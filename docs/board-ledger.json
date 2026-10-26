@@ -340,10 +340,10 @@
     },
     "claims": {
         "R5-03": {
-            "agent": "agent-r5v",
-            "branch": "feature/release-v011",
-            "claimedAt": 1793016127,
-            "head": "4bddcfdf4630f55a379846c189971f5916fee2d9"
+            "agent": "agent-r5w",
+            "branch": "chore/release-wrapup",
+            "claimedAt": 1793017332,
+            "head": "9602b6c5466274a2afb0b408363e1e1f689f45cb"
         }
     },
     "version": 1

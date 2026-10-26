@@ -39,125 +39,6 @@
             "updatedAt": 1792654081
         },
         {
-            "completedAt": 0,
-            "createdAt": 1792981704,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "3329f117-d123-4efd-82a7-d3228371ab46",
-            "note": "来自 agent opencode · session ses_e8a0",
-            "orderKey": 19456,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "Rust: 启动窗口初始隐藏，reveal 时已就绪则跳过显示并直接交接",
-            "updatedAt": 1792981704
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792981704,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "554a9de6-6011-4c0a-bd91-c50a9aa2613f",
-            "note": "来自 agent opencode · session ses_e8a0",
-            "orderKey": 20480,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "TS: SplashHandover 增加 started 幂等标志并导出交接预算常量",
-            "updatedAt": 1792981704
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792981704,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "109d5303-c8dc-4da4-a416-2b413054b73e",
-            "note": "来自 agent opencode · session ses_e8a0",
-            "orderKey": 21504,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "TS: splash 页面先 listen 再拉取快照重放，reveal 不可靠时用超时兜底",
-            "updatedAt": 1792981705
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792981705,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "9867f385-6603-4b94-9208-c6b5e2cbb5b4",
-            "note": "来自 agent opencode · session ses_e8a0",
-            "orderKey": 22528,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "TS: startup-window 兜底延时改用具名常量",
-            "updatedAt": 1792981705
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792981705,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "9c7eedbb-8c19-4e68-b949-7b81c42a0af5",
-            "note": "来自 agent opencode · session ses_e8a0",
-            "orderKey": 23552,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "补充/更新测试并跑 bun test、cargo check、契约与矩阵校验",
-            "updatedAt": 1792981705
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792981705,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "6b77a81e-710a-4048-8c6f-515332f8ea04",
-            "note": "来自 agent opencode · session ses_e8a0",
-            "orderKey": 24576,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "todo",
-            "tags": [
-                "agent"
-            ],
-            "title": "同步 Agent Note 与功能矩阵描述",
-            "updatedAt": 1792981705
-        },
-        {
-            "completedAt": 0,
-            "createdAt": 1792981704,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "0d29404c-9f17-4a91-93ba-ddaabf0ccc56",
-            "note": "来自 agent opencode · session ses_e8a0",
-            "orderKey": 1024,
-            "priority": 1,
-            "stage": "OTHER",
-            "status": "doing",
-            "tags": [
-                "agent"
-            ],
-            "title": "Rust: 记录启动状态快照并提供 get_startup_feedback_state 命令",
-            "updatedAt": 1792981704
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -215,7 +96,7 @@
         },
         {
             "code": "R4-02",
-            "completedAt": 1792982565,
+            "completedAt": 1792984113,
             "createdAt": 1792654081,
             "deleted": false,
             "dueAt": 0,
@@ -230,7 +111,7 @@
                 "系统集成"
             ],
             "title": "R4 Windows 原生集成：toast / 文件关联 / 跳转列表",
-            "updatedAt": 1792982565
+            "updatedAt": 1792984113
         },
         {
             "code": "R1-02",
@@ -1607,8 +1488,127 @@
             ],
             "title": "R4 自动化测试体系 + CI 质量门禁",
             "updatedAt": 1792942397
+        },
+        {
+            "completedAt": 1792982913,
+            "createdAt": 1792981704,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "0d29404c-9f17-4a91-93ba-ddaabf0ccc56",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 67584,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "Rust: 记录启动状态快照并提供 get_startup_feedback_state 命令",
+            "updatedAt": 1792982913
+        },
+        {
+            "completedAt": 1792982913,
+            "createdAt": 1792981704,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "3329f117-d123-4efd-82a7-d3228371ab46",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 68608,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "Rust: 启动窗口初始隐藏，reveal 时已就绪则跳过显示并直接交接",
+            "updatedAt": 1792982913
+        },
+        {
+            "completedAt": 1792982913,
+            "createdAt": 1792981704,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "554a9de6-6011-4c0a-bd91-c50a9aa2613f",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 69632,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "TS: SplashHandover 增加 started 幂等标志并导出交接预算常量",
+            "updatedAt": 1792982913
+        },
+        {
+            "completedAt": 1792982913,
+            "createdAt": 1792981704,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "109d5303-c8dc-4da4-a416-2b413054b73e",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 70656,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "TS: splash 页面先 listen 再拉取快照重放，reveal 不可靠时用超时兜底",
+            "updatedAt": 1792982913
+        },
+        {
+            "completedAt": 1792982914,
+            "createdAt": 1792981705,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "9867f385-6603-4b94-9208-c6b5e2cbb5b4",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 71680,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "TS: startup-window 兜底延时改用具名常量",
+            "updatedAt": 1792982914
+        },
+        {
+            "completedAt": 1792982914,
+            "createdAt": 1792981705,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "9c7eedbb-8c19-4e68-b949-7b81c42a0af5",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 72704,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "补充/更新测试并跑 bun test、cargo check、契约与矩阵校验",
+            "updatedAt": 1792982914
+        },
+        {
+            "completedAt": 1792982914,
+            "createdAt": 1792981705,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "6b77a81e-710a-4048-8c6f-515332f8ea04",
+            "note": "来自 agent opencode · session ses_e8a0",
+            "orderKey": 73728,
+            "priority": 1,
+            "stage": "OTHER",
+            "status": "done",
+            "tags": [
+                "agent"
+            ],
+            "title": "同步 Agent Note 与功能矩阵描述",
+            "updatedAt": 1792982914
         }
     ],
-    "updated": "2026-10-26T02:42:45",
+    "updated": "2026-10-26T11:08:33",
     "version": 3
 }

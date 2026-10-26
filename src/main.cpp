@@ -1,4 +1,5 @@
 #include "AppPaths.h"
+#include "AppActions.h"
 #include "Database.h"
 #include "HookEventQueue.h"
 #include "Hotkey.h"
@@ -11,10 +12,13 @@
 #include "PluginPackage.h"
 #include "PluginRuntime.h"
 #include "PreviewHub.h"
+#include "BoardSync.h"
 #include "RoadmapSync.h"
 #include "DataPort.h"
 #include "SingleInstance.h"
 #include "SplashWindow.h"
+#include "WindowsIntegration.h"
+#include "BoardColumns.h"
 #include "TaskFilterModel.h"
 #include "TaskModel.h"
 #include "TaskTree.h"
@@ -45,6 +49,7 @@
 #include <QMessageBox>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QStringList>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QScreen>
@@ -104,6 +109,8 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationDomain(QStringLiteral("com.lin.neonboard"));
     QCoreApplication::setApplicationName(QStringLiteral("NeonBoard"));
     QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+    // 任务栏分组与通知归属：必须早于任何窗口创建（R4-02）
+    WindowsIntegration::applyAppUserModelId();
     qInstallMessageHandler(neonboardLogHandler);
 
     QSettings::setDefaultFormat(QSettings::IniFormat);
@@ -142,17 +149,29 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--preview-package"))
         || arguments.contains(QStringLiteral("--preview-start"))
         || arguments.contains(QStringLiteral("--preview-stop"))
-        || arguments.contains(QStringLiteral("--plugin-report"));
+        || arguments.contains(QStringLiteral("--plugin-report"))
+        || arguments.contains(QStringLiteral("--register-file-assoc"))
+        || arguments.contains(QStringLiteral("--unregister-file-assoc"))
+        || arguments.contains(QStringLiteral("--assoc-status"));
+    // 冷启动请求的动作（面板开关）。二次启动走同一条分发路径，见下方 dispatch：
+    // 跳转列表/托盘/命令行只是「请求已在运行的实例做某事」的不同入口，
+    // 各写一套必然分叉（典型症状：托盘能开新建面板、跳转列表点了只亮窗口）。
+    const QString startupAction = AppActions::fromArguments(arguments);
+    const bool silentStart = arguments.contains(QStringLiteral("--autostart"));
+
     std::unique_ptr<SingleInstance> singleInstance;
     if (!utilityMode) {
-        singleInstance = std::make_unique<SingleInstance>(AppPaths::singleInstanceKey());
+        // 二次启动要把「用户想干什么」原样转给主实例：双击/跳转列表带具体动作；
+        // 开机自启再起一份则发 noop —— 主实例已在运行，不该莫名弹窗。
+        singleInstance = std::make_unique<SingleInstance>(
+            AppPaths::singleInstanceKey(),
+            silentStart ? QString::fromLatin1(AppActions::kNoop) : startupAction);
         if (!singleInstance->isPrimary())
             return 0;
     } else if (smokeMode) {
         qInfo() << "BOOT smoke bypass single instance";
     }
 
-    const bool silentStart = arguments.contains(QStringLiteral("--autostart"));
     const bool hosted = arguments.contains(QStringLiteral("--hosted"));
     std::unique_ptr<SplashWindow> splash;
     if (!utilityMode && !smokeMode && !silentStart) {
@@ -221,6 +240,9 @@ int main(int argc, char *argv[])
     // 路线图快照同步：仓库 progress.json ↔ 本地看板
     RoadmapSync roadmap(&database, &taskStore);
 
+    // 多工作区领用同步：扫描锚点与各 worktree 台账，把「谁在领哪张卡」反映到看板
+    BoardSync boardSync(&database, &taskStore);
+
     // 数据导入导出与自动备份
     DataPort dataPort(&database, &taskStore);
 
@@ -284,18 +306,20 @@ int main(int argc, char *argv[])
         return ok ? 0 : 3;
     }
 
-    TaskFilterModel todoModel;
-    TaskFilterModel doingModel;
-    TaskFilterModel doneModel;
-    todoModel.setSourceModel(&taskStore);
-    doingModel.setSourceModel(&taskStore);
-    doneModel.setSourceModel(&taskStore);
-    todoModel.setStatus(QStringLiteral("todo"));
-    doingModel.setStatus(QStringLiteral("doing"));
-    doneModel.setStatus(QStringLiteral("done"));
-    todoModel.setTaskTree(&taskTree);
-    doingModel.setTaskTree(&taskTree);
-    doneModel.setTaskTree(&taskTree);
+    // 看板列由数据库驱动（R4-03）：列清单 + 每列一个过滤模型，
+    // 界面按这张表 Repeater 出列，不再写死三列。
+    BoardColumns boardColumns(&database, &taskStore);
+    boardColumns.setTaskTree(&taskTree);
+    boardColumns.reload();
+    // 列是库里读出来的：启动时把实际列数与列 id 打进日志，
+    // 「界面上一列都没有」这类问题（列表异常 / 迁移漏了）能直接从日志定位。
+    QStringList boardColumnIds;
+    for (int i = 0; i < boardColumns.count(); ++i) {
+        boardColumnIds.append(boardColumns.index(i, 0)
+                                  .data(BoardColumns::IdRole).toString());
+    }
+    qInfo().noquote() << "BOARD columns" << boardColumnIds.size()
+                      << boardColumnIds.join(QLatin1Char(','));
 
     // 钩子事件投递：--emit-hook <text> / --emit-hook-file <path>
     // 只把提交信息写进事件队列，不在这里执行规则 —— 规则由主进程里的插件执行。
@@ -333,6 +357,35 @@ int main(int argc, char *argv[])
                                   &emitError);
         qInfo().noquote() << "EMIT-HOOK" << (emitted ? "OK" : "FAIL") << emitError;
         return emitted ? 0 : 2;
+    }
+
+    // Windows 原生集成（R4-02）：.neon 文件关联的注册 / 注销 / 状态查询。
+    // 只写 HKCU，不需要管理员；注册后双击插件包即走 --install-plugin-file。
+    if (arguments.contains(QStringLiteral("--assoc-status"))) {
+        const QVariantMap status = WindowsIntegration::associationStatus();
+        emitCliLine(status.value(QStringLiteral("registered")).toBool()
+                        ? QStringLiteral("OK registered")
+                        : QStringLiteral("OK not-registered"));
+        emitCliLine(QStringLiteral("class: %1")
+                        .arg(status.value(QStringLiteral("classRoot")).toString()));
+        emitCliLine(QStringLiteral("command: %1")
+                        .arg(status.value(QStringLiteral("command")).toString()));
+        return 0;
+    }
+    if (arguments.contains(QStringLiteral("--register-file-assoc"))
+        || arguments.contains(QStringLiteral("--unregister-file-assoc"))) {
+        const bool registering = arguments.contains(QStringLiteral("--register-file-assoc"));
+        QString assocError;
+        const bool assocOk = registering
+            ? WindowsIntegration::registerFileAssociations(&assocError)
+            : WindowsIntegration::unregisterFileAssociations(&assocError);
+        if (!assocOk) {
+            qWarning().noquote() << "ASSOC FAIL" << assocError;
+            emitCliLine(QStringLiteral("FAIL %1").arg(assocError));
+            return 2;
+        }
+        emitCliLine(QStringLiteral("OK"));
+        return 0;
     }
 
     // 本地 .neon 插件包安装：--install-plugin-file <path>
@@ -603,7 +656,8 @@ int main(int argc, char *argv[])
             QTemporaryDir tmp;
             ok = tmp.isValid() && ok;
             if (tmp.isValid()) {
-                // 旧库迁移：user_version=0（早期版本）的库要能升到 1，且已有 meta 数据保留
+                // 旧库迁移：早期版本（无 task 表 / user_version=0）的库要能一路升到当前
+                // schema 版本，已有 meta 数据保留，且看板/列被自动补齐
                 const QString legacyPath = tmp.filePath(QStringLiteral("legacy.db"));
                 {
                     QSqlDatabase legacy = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
@@ -625,6 +679,9 @@ int main(int argc, char *argv[])
                 ok = migrated.metaValue(QStringLiteral("legacy")) == QStringLiteral("1") && ok;
                 ok = migrated.setMetaValue(QStringLiteral("after"), QStringLiteral("ok"))
                      && migrated.metaValue(QStringLiteral("after")) == QStringLiteral("ok") && ok;
+                // schema v2：默认板与三列必须补齐（老库没有 board 表）
+                ok = migrated.defaultBoardId() == QStringLiteral("board-default") && ok;
+                ok = migrated.boardColumns(migrated.defaultBoardId()).size() == 3 && ok;
                 qInfo() << "SELFTEST migrate" << (ok ? "OK" : "FAIL") << migrateError;
             }
         }
@@ -681,6 +738,13 @@ int main(int argc, char *argv[])
         else
             qWarning().noquote() << "Roadmap: sync failed" << roadmap.path() << roadmap.lastReport();
     }
+
+    // 领用同步：启动即扫一次，之后每 5 秒轮询各 worktree 台账
+    QTimer claimPoll;
+    claimPoll.setInterval(5000);
+    QObject::connect(&claimPoll, &QTimer::timeout, &boardSync, [&boardSync]() { boardSync.refresh(); });
+    claimPoll.start();
+    boardSync.refresh();
 
     // 每日首次启动自动备份数据库（先落 WAL 再复制，保证备份完整）
     {
@@ -961,11 +1025,6 @@ int main(int argc, char *argv[])
         return 2;
     }
 
-    if (singleInstance) {
-        QObject::connect(singleInstance.get(), &SingleInstance::showRequested,
-                         &windowController, &WindowController::showAndActivate);
-    }
-
     QQmlApplicationEngine engine;
     pluginRuntime.attachEngine(&engine);
     engine.rootContext()->setContextProperty(QStringLiteral("metrics"), &metrics);
@@ -983,10 +1042,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskTree"), &taskTree);
     engine.rootContext()->setContextProperty(QStringLiteral("taskStats"), &taskStats);
     engine.rootContext()->setContextProperty(QStringLiteral("taskExtra"), &taskExtra);
+    engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);
-    engine.rootContext()->setContextProperty(QStringLiteral("todoModel"), &todoModel);
-    engine.rootContext()->setContextProperty(QStringLiteral("doingModel"), &doingModel);
-    engine.rootContext()->setContextProperty(QStringLiteral("doneModel"), &doneModel);
+    engine.rootContext()->setContextProperty(QStringLiteral("boardColumns"), &boardColumns);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);
 engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
@@ -1064,6 +1122,33 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     qInfo() << "BOOT attached" << boot.elapsed();
     splashStage(0.95, QStringLiteral("FINALIZING"), 40);
 
+    // 动作分发：冷启动参数与二次启动（本地管道）共用这一条路径。
+    // delayMs 用于等 QML 首帧稳定；热实例窗口已就绪，不需要等。
+    const auto dispatch = [window, &windowController](const QString &action, int delayMs) {
+        if (action == QLatin1String(AppActions::kNoop))
+            return; // 静默拉起：主实例已在运行，不打扰用户
+        const AppActions::Target target = AppActions::targetFor(action);
+        windowController.showAndActivate();
+        if (target.method.isEmpty())
+            return; // show（或只认识"亮窗口"的动作）到此为止
+        QTimer::singleShot(delayMs, window, [window, target]() {
+            const QByteArray method = target.method.toUtf8();
+            if (target.hasArgument)
+                QMetaObject::invokeMethod(window, method.constData(),
+                                          Q_ARG(QVariant, target.argument));
+            else
+                QMetaObject::invokeMethod(window, method.constData());
+        });
+    };
+
+    if (singleInstance) {
+        // 二次启动：动作来自本地管道，等价于用户此刻在界面上点了一下，立即执行。
+        // 注意这里必须等窗口建好再连 —— 启动瞬间（仍在 splash 里）到达的请求
+        // 会丢面板动作，只保留"亮窗口"的最终效果（主实例本来就会显示自己）。
+        QObject::connect(singleInstance.get(), &SingleInstance::actionRequested, window,
+                         [dispatch](const QString &action) { dispatch(action, 0); });
+    }
+
     QObject::connect(&hotkey, &Hotkey::activated, &windowController,
                      &WindowController::toggleVisibility);
     QObject::connect(&tray, &TrayController::showRequested, &windowController,
@@ -1075,7 +1160,8 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     QObject::connect(&tray, &TrayController::newTaskRequested, &windowController,
                      &WindowController::showAndActivate);
     QObject::connect(&tray, &TrayController::newTaskRequested, window, [window]() {
-        QMetaObject::invokeMethod(window, "focusNewTask");
+            QMetaObject::invokeMethod(window, "openTaskComposer",
+                                      Q_ARG(QVariant, QStringLiteral("todo")));
     });
     QObject::connect(&tray, &TrayController::settingsRequested, &windowController,
                      &WindowController::showAndActivate);
@@ -1092,8 +1178,20 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
         hotkey.uninstall();
     });
 
-    const bool autostart = app.arguments().contains(QStringLiteral("--autostart"));
-    if (autostart) {
+#ifdef Q_OS_WIN
+    // 跳转列表（任务栏右键）：装完任务项后由系统持久化，与本次启动无关。
+    // 延到事件循环里做，避免和首帧渲染抢 COM/注册表；失败只记日志（fail-soft）。
+    QTimer::singleShot(0, &app, []() {
+        QString jumpListError;
+        if (WindowsIntegration::applyJumpList(&jumpListError)) {
+            qInfo() << "JUMPLIST applied" << WindowsIntegration::jumpListTasks().size();
+        } else {
+            qWarning().noquote() << "JUMPLIST skipped:" << jumpListError;
+        }
+    });
+#endif
+
+    if (silentStart) {
         QTimer::singleShot(0, window, [window]() { window->hide(); });
         tray.showMessage(QStringLiteral("NeonBoard"),
                          QStringLiteral("正在后台运行，按 Ctrl+Shift+Space 唤起"));
@@ -1102,45 +1200,10 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
             splash->finish();
             splash.reset();
         }
-        windowController.showAndActivate();
+        // 显示窗口 + 按需直接打开命令行指定的面板（--newtask/--settings/...）。
+        // 300ms 是留给入场动画的量，热实例（二次启动）不需要等。
+        dispatch(startupAction, 300);
         qInfo() << "BOOT shown" << boot.elapsed();
-    }
-
-    if (app.arguments().contains(QStringLiteral("--settings"))) {
-        QTimer::singleShot(300, window, [window]() {
-            QMetaObject::invokeMethod(window, "openSettings");
-        });
-    }
-    if (app.arguments().contains(QStringLiteral("--newtask"))) {
-        QTimer::singleShot(300, window, [window]() {
-            QMetaObject::invokeMethod(window, "focusNewTask");
-        });
-    }
-    if (app.arguments().contains(QStringLiteral("--plugins"))) {
-        QTimer::singleShot(300, window, [window]() {
-            QMetaObject::invokeMethod(window, "openPlugins");
-        });
-    }
-    if (app.arguments().contains(QStringLiteral("--appearance"))) {
-        QTimer::singleShot(300, window, [window]() {
-            QMetaObject::invokeMethod(window, "openAppearance");
-        });
-    }
-    {
-        const int paletteIndex = app.arguments().indexOf(QStringLiteral("--palette"));
-        if (paletteIndex >= 0) {
-            const QString query = (paletteIndex + 1 < app.arguments().size())
-                                      ? app.arguments().at(paletteIndex + 1)
-                                      : QString();
-            QTimer::singleShot(300, window, [window, query]() {
-                QMetaObject::invokeMethod(window, "openPalette", Q_ARG(QVariant, query));
-            });
-        }
-    }
-    if (app.arguments().contains(QStringLiteral("--library"))) {
-        QTimer::singleShot(300, window, [window]() {
-            QMetaObject::invokeMethod(window, "openPluginLibrary");
-        });
     }
 
     const bool smoke = app.arguments().contains(QStringLiteral("--smoke"));

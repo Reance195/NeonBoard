@@ -125,6 +125,23 @@ git branch -d feature/<简述>
 `main` 上只允许出现合并提交或文档/构建类的合并提交，不允许直接改代码提交。
 主分支推送必须是快进，禁止 `--force`。
 
+### 条款 6 —— 任务先行：没有任务不许改代码
+
+**动代码之前必须先持有任务卡，并完成服务端领用占位。** 顺序不可颠倒：
+
+1. 卡片由林先生在台账 `docs/board-ledger.json` 的 `cards` 里登记。
+   **agent 不得自行加卡、改卡的标题/阶段、改 `baseline`** —— 否则就是自授权，
+   所有领用闸门都会退化成自证；agent 只能写 `claims` 领用登记与卡片 `note` 交付说明。
+2. 用 `scripts/agent-init.ps1 -Card <短号>` 开区，脚本会推 `refs/claims/<短号>` 完成领用；
+   `baseline=<短号> done` 的卡已完成，**拒绝重新领用**。
+3. 提交信息必须带 `#<短号>`：触及代码路径的提交，没有短号直接在 `commit-msg` 被拒。
+4. 推送 `main` 时逐个提交复核短号与 claim ref，手搓分支、手工 `merge --no-ff` 后直推同样绕不过。
+
+「杂务分支免领用」不再靠 `-SkipClaimCheck` 自报，而是按 diff 路径自动判定：
+改动全部落在 `docs/` `scripts/` `.githooks/` `.github/` 或 `*.md` 才算杂务，其余一律要有卡。
+唯一的规则实现是 `scripts/task_gate.py`（`scope` / `message` / `ledger` / `push` 四个子命令），
+钩子与 `git-done.ps1` 都调它，**不要在多处重复实现判定逻辑**。
+
 ---
 
 ## 三、钩子强制说明
@@ -133,13 +150,17 @@ git branch -d feature/<简述>
 
 | 钩子 | 拦截的行为 | 绕过方式 |
 | --- | --- | --- |
-| `pre-commit` | 在 `main`/`master`/`develop` 上提交；分支名缺少规范前缀 | `git commit --no-verify`（仅限紧急情况） |
-| `commit-msg` | 提交信息不符合 `<type>(<scope>): <subject>` 格式（`merge` 类型与 Git 自动生成的合并信息除外） | `git commit --no-verify` |
-| `pre-push` | 推送尚未合并进 `main` 的分支；推送到 `main` 时非快进（含 `git push origin HEAD:main` 的合并推送） | 需先合并回 `main` |
+| `pre-commit` | 在 `main`/`master`/`develop` 上提交；分支名缺少规范前缀；agent 工作区改动台账 `cards`/`baseline` | `git commit --no-verify`（仅限紧急情况） |
+| `commit-msg` | 提交信息不符合 `<type>(<scope>): <subject>` 格式（`merge` 类型与 Git 自动生成的合并信息除外）；代码改动未关联台账短号 | `git commit --no-verify` |
+| `pre-push` | 推送尚未合并进 `main` 的分支；推送到 `main` 时非快进、快照降级；**推送范围内触及代码的提交缺短号或缺 claim ref**（无 python 时 fail-closed） | 需先领用任务卡 |
 | `post-merge` | ——（仅提示可清理的已合并分支） | —— |
 
 `pre-commit` 在**合并冲突解决**、**rebase 续行**、**cherry-pick 续行**等中间态会自动放行，
 不会阻断正常合并流程。
+
+任务闸门（`scripts/task_gate.py`）的豁免只看路径，不看人怎么声明：
+`docs/` `scripts/` `.githooks/` `.github/` 下的文件与 `*.md`、`progress.json` 等算杂务；
+`feat` / `fix` / `refactor` / `perf` / `test` 类型即使只改杂务文件，也必须有短号。
 
 ---
 
@@ -216,6 +237,8 @@ cd .worktrees/agent-c
   不允许省略——「漏填」和「不需要」必须能区分）。该短号必须在台账 `cards` 里登记过；
   脚本会写 `claims[<短号>]={agent,branch,head,claimedAt}` 进**本 worktree** 的台账副本
   （随 feature 分支提交），并投递 `#<短号>=doing`（`chore(claim):` 空提交 + `--emit-hook-file` 双通道，幂等）。
+  `-Card none` **只适用于纯文档/脚本杂务**：不会获得 claim ref，一旦触及代码路径，
+  `commit-msg` 与 `pre-push` 会直接拒绝。
 - **领用粒度**：大任务（`R#-#`）可随时领；小任务（`M##`）**只有父任务尚未被任何人认领**时才允许单独领用
   （父卡由 `board.db` 的 `task_link` 映射到台账，父卡已被领用即拒绝）。
 - **卡片「进行中」不靠手工拖**：派生器按 claims 派生 doing，优先级为
@@ -225,6 +248,18 @@ cd .worktrees/agent-c
   领子卡前先 `ls-remote` 父卡占位。本地台账 `claims` 只是投影，服务端 ref 才是唯一事实源。
   仓库 Ruleset 必须禁止 `refs/claims/**` 的强推与删除，否则可被 `--force` 绕过；领用需联网，离线直接失败（fail-closed）。
   PR 的 CI「领用闸门」（`scripts/check_claim_refs.py`）校验 claim ref 存在且指向分支历史，未领用的分支不准合入。
+
+#### 7.2.1 认领占位 `refs/claims/*` 的生命周期与硬约束
+
+服务端占位（`refs/claims/<短号>`）是双领防护的唯一事实源。创建 / 校验 / 释放三端均已由脚本收口，约束如下：
+
+- **认领唯一入口**：所有认领必须且只能通过 `scripts/agent-init.ps1 -Card` 完成。**禁止手工 `git update-ref refs/claims/<短号>` 建本地占位来绕过 origin push** —— 早期部分认领这样做了，一度令 origin 无任何 `refs/claims/*`、服务端双领硬门事实上从未生效；现 `agent-init` 已强制非强推 `refs/claims/<短号>`（失败即 `exit 3`），闸门生效，origin 上只应存在**活动卡**的占位。本地 `refs/claims/*` 由 `git-done.ps1` / `task_gate.py` / `check_claim_refs.py` 执行 `git fetch origin '+refs/claims/*:refs/claims/*'` 从 origin 镜像回来，历史残留会被反复拉回，属孤儿占位，不得作为认领依据。
+- **fail-closed 必须联网**：`agent-init` 推 `refs/claims/<短号>` 到 origin 失败时 `sys.exit(3)` 硬阻（已实现）。agent 运行环境**必须具备 origin 写权限**；本地存在 `refs/claims/*` **不构成**有效认领，必须以 `git ls-remote origin refs/claims/<短号>` 服务端可达为准。离线 / 无写权限时认领直接失败，不得降级为「仅本地占位」。
+- **worktree 分支必须推 origin**：认领的 `fix/*` / `feature/*` 分支**必须推送到 origin** —— 不仅为 CI，更为 claim ref 指向的 commit object 在 origin 可达；否则 `ls-remote origin refs/claims/<短号>` 引用的提交在 origin 不可达，CI 领用闸门（`check_claim_refs.py`）无法校验。当前 `feature/onboarding`（R4-07）从未推 origin 即为一例。
+- **合并后必须释放占位（已实现）**：`git-done.ps1` 的 `Invoke-ClaimRefCleanup` 在推送成功后按两条判据释放：①占位指向的提交已是 `origin/main` 祖先；②台账 `claims` 中登记的分支本地与远端均已不存在（孤儿）。都不满足的活动卡一律保留。离线时只清本地，联网后下次运行补删 origin（`git push origin --delete refs/claims/<短号>`）。
+- **失效登记不再挡重新认领（已实现）**：历史缺口是「分支已合并删除、台账 `claims` 条目还留着」，这类残留曾把同一张卡的重新领用挡在防双领校验上（R4-02 踩过两次）。现 `agent-init` 在双领校验**之前**判定失效：登记分支本地 `refs/heads/*` 与 `refs/remotes/origin/*` 都不存在、且服务端 `refs/claims/<短号>` 已释放（`ls-remote --exit-code` 退出码 2），才算失效；远端不可达时保守视为仍被占用。失效项由本次领用提交顺带清理。
+- **本地孤儿 ref 清理**：任何「本地有 `refs/claims/<短号>` 但 `git ls-remote origin` 无对应 ref」的状态视为异常孤儿，应 `git update-ref -d` 删除本地项，并不得在本地保留为占位依据。
+
 - 同一分支禁止在两个 worktree 同时检出（Git 天然强制）。
 - 每个 worktree 拥有独立的 `build/` `dist/` `.sandbox/`，体积较大，不要共享。
 - worktree 用完必须回收：`git worktree remove .worktrees/<agent>`
@@ -241,7 +276,8 @@ pwsh -File scripts/git-done.ps1 -Branch fix/stagebar-chip-overflow
 脚本内部流程：`git fetch origin` → 基于 `origin/main` 建临时分支 `merge/<slug>` →
 `git merge --no-ff <分支>` → `git push origin HEAD:main`（**快进推送**，不是强推）。
 合并前还会跑**领用闸门**：分支必须带服务端 `refs/claims/<短号>` 占位，否则拒绝合并；
-纯文档/杂务分支显式加 `-SkipClaimCheck` 跳过（会打印警告）。
+纯文档/杂务分支按 diff 路径自动豁免（`scripts/task_gate.py scope` 判定为 `exempt`）。
+`-SkipClaimCheck` 已废弃，保留参数只为兼容旧脚本，**不再能放行任何代码改动**。
 
 - 串行化由远端的快进保护天然完成：两个 agent 同时推，后一个会被 non-fast-forward 拒绝，
   重新同步后再合即可 —— 因此**根目录永远不需要被任何 agent 占用**，
@@ -498,8 +534,13 @@ agent **禁止手改**快照文件 —— 手改已造成过 v2 覆盖 v3 的事
 | 投递 | `src/main.cpp` CLI `--emit-hook-file <f> --hook-event agent.task` | 事件落 `hooks.db`（独立事件名，与 `hook.commit` 隔离） | 复用 `hook.commit`（会误伤 plan-hook） |
 | 消费 | `plugins/agent-bridge/`（官方插件） | 解析 payload、维护 `agentbridge.<agent>.<sessionId>.<todoId>` → task uuid 映射、建卡/流转/对账 note | 直接写 SQL、改 `board.db` schema |
 | 写回 | `src/RoadmapSync` | 看板侧改动 1.5 s 防抖后写回 `progress.json`（v3） | 手写文件 |
-| 代提交 | `scripts/git-done.ps1` step1 | 提交**仅** `progress.json` 的未提交改动（固定信息 `chore(roadmap): 同步进度快照`） | 连同其它文件一起提交（fail-closed） |
+| 代提交 | `scripts/git-done.ps1` step1 | 提交**仅** `progress.json` 的未提交改动（固定信息 `chore(roadmap): 同步进度快照`）；提交前先跑 `derive_board_status.py --write` 把状态对齐到 git 事实 | 连同其它文件一起提交（fail-closed）；把应用写回的过期状态原样推上 main |
 | 闸门 | `.githooks/pre-push` 规则 4 | 推 main 时校验快照：version ≥ 3、卡片数不减少、`code` 不丢 | 绕过（`--no-verify`） |
+
+> **为什么代提交前要校正**：应用写回的是它内存里的状态，可能落后于本分支的 `#code=done` 标记
+> （已踩过：R4-02 已 done，快照却被写回 `doing`，一路推到 main 后靠 CI 的 `derive --write` 才纠正）。
+> 派生器只改状态的 `status` 字段、保留应用生成的其它卡片，无实质变化不落盘；
+> 它失败时不阻断合并（落 main 后 CI 还会再纠正），但必须打警告，不许静默推过期快照。
 
 ### 11.2 硬性约束
 

@@ -12,6 +12,16 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS
 
 qt_standard_project_setup()
 
+# 编译缓存（R4-08）：本机装有 sccache 时，将其作为 C/C++ 编译器启动器包裹 cl.exe，
+# 复用未变动的翻译单元编译结果，显著加速增量 / 重复构建（与 Ninja 生成器配合最佳）。
+# 未安装 sccache 时 find_program 返回空，此处自动跳过，不影响任何现有构建路径。
+find_program(NEONBOARD_SCCACHE NAMES sccache)
+if (NEONBOARD_SCCACHE)
+    set(CMAKE_C_COMPILER_LAUNCHER "${NEONBOARD_SCCACHE}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${NEONBOARD_SCCACHE}")
+    message(STATUS "NeonBoard: 启用 sccache 编译缓存 (${NEONBOARD_SCCACHE})")
+endif()
+
 qt_add_executable(NeonBoard
     src/main.cpp
     src/Database.h src/Database.cpp
@@ -28,7 +38,9 @@ qt_add_executable(NeonBoard
     src/DataPort.h
     src/DataPort.cpp
     src/TaskFilterModel.h src/TaskFilterModel.cpp
+    src/BoardColumns.h src/BoardColumns.cpp
     src/SingleInstance.h src/SingleInstance.cpp
+    src/AppActions.h src/AppActions.cpp
     src/SplashWindow.h src/SplashWindow.cpp
     src/UiSettings.h src/UiSettings.cpp
     src/AppPaths.h src/AppPaths.cpp
@@ -45,6 +57,8 @@ qt_add_executable(NeonBoard
     src/ReminderScheduler.h src/ReminderScheduler.cpp
     src/PreviewHub.h src/PreviewHub.cpp
     src/TaskStats.h src/TaskStats.cpp
+    src/BoardSync.h src/BoardSync.cpp
+    src/WindowsIntegration.h src/WindowsIntegration.cpp
     resources/neonboard.rc
 )
 
@@ -60,6 +74,10 @@ target_link_libraries(NeonBoard PRIVATE
     Qt6::ShaderTools
     Psapi
     Dwmapi
+    # R4-02：SetCurrentProcessExplicitAppUserModelID / SHChangeNotify
+    Shell32
+    # R4-02：跳转列表的 COM（CoInitializeEx / CoCreateInstance / CoTaskMemAlloc）
+    Ole32
 )
 
 target_compile_definitions(NeonBoard PRIVATE
@@ -85,6 +103,7 @@ set_source_files_properties(qml/components/WinButton.qml PROPERTIES QT_RESOURCE_
 set_source_files_properties(qml/components/StatChip.qml PROPERTIES QT_RESOURCE_ALIAS "StatChip.qml")
 set_source_files_properties(qml/components/TaskCard.qml PROPERTIES QT_RESOURCE_ALIAS "TaskCard.qml")
 set_source_files_properties(qml/components/BoardColumn.qml PROPERTIES QT_RESOURCE_ALIAS "BoardColumn.qml")
+set_source_files_properties(qml/components/ColumnManager.qml PROPERTIES QT_RESOURCE_ALIAS "ColumnManager.qml")
 set_source_files_properties(qml/components/ThemePicker.qml PROPERTIES QT_RESOURCE_ALIAS "ThemePicker.qml")
 set_source_files_properties(qml/components/SettingsPanel.qml PROPERTIES QT_RESOURCE_ALIAS "SettingsPanel.qml")
 set_source_files_properties(qml/components/PluginPanel.qml PROPERTIES QT_RESOURCE_ALIAS "PluginPanel.qml")
@@ -97,6 +116,9 @@ set_source_files_properties(qml/components/PluginSlot.qml PROPERTIES QT_RESOURCE
 set_source_files_properties(qml/components/PluginPermissionDialog.qml PROPERTIES QT_RESOURCE_ALIAS "PluginPermissionDialog.qml")
 set_source_files_properties(qml/components/ActivityHeatmap.qml PROPERTIES QT_RESOURCE_ALIAS "ActivityHeatmap.qml")
 set_source_files_properties(qml/components/FocusRing.qml PROPERTIES QT_RESOURCE_ALIAS "FocusRing.qml")
+set_source_files_properties(qml/components/TaskComposer.qml PROPERTIES QT_RESOURCE_ALIAS "TaskComposer.qml")
+set_source_files_properties(qml/components/FocusBadge.qml PROPERTIES QT_RESOURCE_ALIAS "FocusBadge.qml")
+set_source_files_properties(qml/components/WindowButtons.qml PROPERTIES QT_RESOURCE_ALIAS "WindowButtons.qml")
 set_source_files_properties(qml/components/OnboardingOverlay.qml PROPERTIES QT_RESOURCE_ALIAS "OnboardingOverlay.qml")
 
 qt_add_qml_module(NeonBoard
@@ -111,6 +133,7 @@ qt_add_qml_module(NeonBoard
         qml/components/StatChip.qml
         qml/components/TaskCard.qml
         qml/components/BoardColumn.qml
+        qml/components/ColumnManager.qml
         qml/components/ThemePicker.qml
         qml/components/SettingsPanel.qml
         qml/components/PluginPanel.qml
@@ -123,6 +146,9 @@ qt_add_qml_module(NeonBoard
         qml/components/PluginPermissionDialog.qml
         qml/components/ActivityHeatmap.qml
         qml/components/FocusRing.qml
+        qml/components/TaskComposer.qml
+        qml/components/FocusBadge.qml
+        qml/components/WindowButtons.qml
         qml/components/OnboardingOverlay.qml
 )
 
@@ -149,6 +175,7 @@ qt_add_executable(NeonBoardHost
     src/host/HostMain.cpp
     src/AppPaths.h src/AppPaths.cpp
     src/SingleInstance.h src/SingleInstance.cpp
+    src/AppActions.h src/AppActions.cpp
 )
 
 target_link_libraries(NeonBoardHost PRIVATE
@@ -171,3 +198,12 @@ set_target_properties(NeonBoardHost PROPERTIES
     MACOSX_BUNDLE FALSE
 )
 target_include_directories(NeonBoardHost PRIVATE src)
+
+# 自动化测试（R4-05）：include(CTest) 提供 BUILD_TESTING 开关与 test 目标，
+# 默认开启，因此 CI 与本地 `cmake --build` 都会编译测试目标 —— 编译失败即等于
+# 质量门禁失败，不存在「测试代码烂掉但没人发现」的窗口。
+# 只想快速出包时可加 -DBUILD_TESTING=OFF 跳过。
+include(CTest)
+if (BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

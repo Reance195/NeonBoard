@@ -40,6 +40,8 @@ compile_commands.json
 # ===== Qt / CMake 生成物 =====
 moc_*.cpp
 moc_*.h
+# Q_OBJECT 定义在 .cpp 时 moc 的产物（AUTOMOC 进 build 目录；手工 moc 会落在源码旁）
+*.moc
 qrc_*.cpp
 ui_*.h
 *_autogen/
@@ -57,6 +59,9 @@ Makefile.*
 .sandbox/
 # agent 沙箱环境脚本（scripts/agent-init.ps1 生成）
 .agent-env.ps1
+# 助手本地记忆/日志目录（.workbuddy/memory 等）：
+# 不入库，否则每个 agent 的锚点区都因它变"脏"，git-done 的快进同步会被跳过
+.workbuddy/
 
 # ===== 运行时数据（本地数据库等）=====
 *.db

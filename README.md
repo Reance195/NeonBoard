@@ -10,6 +10,7 @@
 
 - 待办 / 进行中 / 已办结三列看板，SQLite 本地持久化
 - 快速添加（Enter）、双击编辑、优先级、标签、截止日期
+- 统一新建入口：标题栏「＋ 新建」或 `Ctrl+N` 打开弹窗，可选目标列、挂父卡，并实时预览日期 / 优先级 / 标签解析结果；列底快速添加保留
 - 快速录入解析：直接输入 `明天 15:00 #工作 !3`，自动拆出到期时间、标签与优先级，输入时下方实时预览解析结果
 - 任务提醒：编辑任务里设「提醒时间」（留空则逾期时提醒一次），到点托盘通知 + 窗口边缘辉光脉冲；应用没跑期间到期的启动后补发，`notified_at` 防重复通知
 - 重复任务：编辑任务里选「每天 / 每周 / 每月」或手填 RRULE（如 `FREQ=DAILY;INTERVAL=2`），完成时自动派生下一期（继承标题/备注/优先级/标签/提醒偏移），卡片带 ↻ 标识；派生卡进撤销栈，撤销完成连带删除
@@ -33,6 +34,7 @@
 - 路线图双向绑定：仓库 `progress.json` 与本地看板自动同步（启动拉取、看板改动写回、提交钩子投递）
 - 看板状态派生：卡片状态不再手写，由 `git` 提交信息里的 `#R1-03=done` 与台账 `docs/board-ledger.json` 共同推导，CI 在主线合并后自动回写快照并校验一致性（详见 [docs/board-sync.md](docs/board-sync.md)）
 - 主任务 / 子任务关联：子卡自动缩进并标注「↳ 父卡标题」，父卡右下角显示子任务完成度进度环；关联关系存本地边表，不改任务表结构
+- agent 领用可见：看板自动扫描锚点与各 worktree 台账里的任务领用，卡片显示 `◈ agent` 标记；仍活跃的领用会自动把卡从「待办」转到「进行中」，分支合并后标记转灰。agent 只负责领任务、干活、提交，状态由看板接管
 - 系统托盘、全局热键、开机自启、单实例、窗口位置记忆
 - 运行时 QML 插件：权限清单、独立存储、宿主任务 API
 - 插件平台 2.0：apiVersion 2 支持后台常驻插件、事件订阅、meta 共享配置、设置页、侧栏 / 底部 / 卡片三种槽位、命令与快捷键注册、权限授权弹窗、插件启停与热重载；插件目录热插拔，新增 / 覆盖 / 删除插件后自动重扫重载，无需重启
@@ -50,12 +52,12 @@
 | 快捷键 | 作用 |
 | --- | --- |
 | `Ctrl+Shift+Space` | 全局显示 / 隐藏窗口 |
-| `Ctrl+N` | 聚焦快速添加 |
+| `Ctrl+N` | 打开新建任务弹窗 |
 | `Ctrl+K` | 呼出命令面板 |
 | `Ctrl+Z` | 撤销上一步操作（删除 / 移动 / 完成 / 编辑） |
 | `Ctrl+Shift+F` | 开始 / 结束一轮 25 分钟专注（背景压暗 + 追光 + 倒计时环） |
 | `Ctrl+,` | 打开设置 |
-| `Enter` | 提交快速添加 |
+| `Enter` | 提交新建任务（弹窗 / 快速添加） |
 | `Esc` | 清空搜索 / 关闭弹窗 |
 | `Alt+1` / `Alt+2` / `Alt+3` | 聚焦待办 / 进行中 / 已办结列，选中首张卡 |
 | `↑` / `↓` | 列内切换选中的任务卡 |
@@ -144,23 +146,54 @@ pwsh -File scripts/release.ps1                                          # 五道
 
 依赖：Qt 6.8.3 MSVC 2022 x64、Visual Studio 2022 BuildTools、CMake 3.21+。
 
-一键构建（自动探测 CMake 与 Qt，可选构建后自检）：
+一键构建（默认 **Ninja** 生成器，增量更快、可配合 sccache；自动探测 CMake / Qt / Ninja，可选构建后自检）：
 
 ```powershell
-pwsh -File scripts/build.ps1              # Release 构建
-pwsh -File scripts/build.ps1 -SelfTest    # 构建后跑 --selftest（沙箱数据目录）
+pwsh -File scripts/build.ps1                 # Release 构建（Ninja）
+pwsh -File scripts/build.ps1 -SelfTest       # 构建后跑 --selftest（沙箱数据目录）
 pwsh -File scripts/build.ps1 -Config Debug -Clean
+pwsh -File scripts/build.ps1 -Generator VS   # 回退 Visual Studio / MSBuild 生成器
 ```
 
-常用参数：`-QtRoot <路径>` 指定 Qt、`-BuildDir` 换输出目录、`-Reconfigure` 强制重新配置、
-`-Jobs N` 限制并行度、`-Target NeonBoardHost` 只构建子目标。
+- 生成器：默认 **Ninja**（单配置，exe 落在 `build/` 根）；不在 MSVC 开发者环境时脚本会自动定位并导入 `vcvars64`，探测不到 Ninja 时自动回退 VS。
+- 编译缓存：本机装有 `sccache` 时由 CMake 自动启用（跳过未变动的翻译单元重编），无需额外配置。
+- 构建加速：以**管理员** PowerShell 运行 `pwsh -File scripts/add-defender-exclusion.ps1`，把 `build/`、`dist/` 加入 Windows Defender 排除项，减少实时扫描对编译 I/O 的影响（可 `-Remove` 还原、`-WhatIf` 预览）。
 
-手敲等价命令：
+常用参数：`-QtRoot <路径>` 指定 Qt、`-BuildDir` 换输出目录、`-Generator Ninja|VS` 选生成器、`-Reconfigure` 强制重新配置、`-Jobs N` 限制并行度、`-Target NeonBoardHost` 只构建子目标。
+
+### 单元测试
+
+纯逻辑层（快速录入解析、插件包校验/安装）用 Qt Test 覆盖，由 CTest 统一调度。
+测试目标默认随构建一起编译（`BUILD_TESTING` 默认 ON），编译不过即等于门禁失败。
+
+```powershell
+pwsh -File scripts/build.ps1 -SelfTest          # 构建 + 自检
+ctest --test-dir build -C Release --output-on-failure   # 跑单元测试
+ctest --test-dir build -C Release -R taskinputparser -V  # 只跑单个用例并看详细输出
+```
+
+- 用例位置：`tests/`，命名 `tst_<模块>.cpp`，在 `tests/CMakeLists.txt` 用 `neonboard_add_test(<模块>)` 登记。
+- 收录原则：只收**不依赖数据库 / 窗口 / QML 引擎**的纯逻辑模块，保证无时序抖动；涉及 `Database` 的门面后续按同样方式建独立临时库测试。
+- 断言基准时间固定（如 `2026-10-25 10:00`），相对日期与「已过时刻顺延」等规则跨机器可复现。
+- 新增测试后用 `-DBUILD_TESTING=OFF` 可跳过，仅出包时使用。
+- CI 门禁顺序：**编译 → 单元测试 → 数据库自检 → 冒烟启动 → 看板一致性**，任一步失败即阻断合入。
+
+### Windows 原生集成
+
+- **应用标识**：启动即设置 AppUserModelID（`com.lin.neonboard`），任务栏分组与通知归属才对得上；安装器写快捷方式必须用同一值。
+- **`.neon` 文件关联**：`NeonBoard.exe --register-file-assoc` 注册（只写 HKCU、无需管理员），之后双击插件包即安装；`--assoc-status` 查看、`--unregister-file-assoc` 还原。
+- **跳转列表**：任务栏右键「新建任务 / 搜索命令面板 / 插件库 / 偏好设置」，参数复用冷启动开关，点击与命令行启动走同一条代码路径。
+- **二次启动带动作**：应用已在运行时再执行 `NeonBoard.exe --palette 周报`，不会开第二个进程，而是把动作转给主实例并直接弹出命令面板。
+
+细节、注册表键位与未实现项（WinRT 富通知）见 [docs/windows-integration.md](docs/windows-integration.md)。
+
+VS / MSBuild 生成器（多配置，exe 落在 `build/Release/`）的手敲等价命令：
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
-  -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64
+  -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64 -DBUILD_TESTING=ON
 cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
 
 生成便携目录：
@@ -195,7 +228,7 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
              从路线图快照导入看板（默认取仓库 progress.json）
 --export-roadmap [path]
              把看板现状写回路线图快照
---newtask    启动后聚焦快速添加
+--newtask    启动后打开新建任务弹窗
 --autostart  静默启动到托盘
 --emit-hook <text>
              把一段文本当作提交信息投递给计划钩子（只投递，规则由插件执行）

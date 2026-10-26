@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QSqlDatabase>
 #include <QString>
+#include <QVariantList>
 
 class Database : public QObject
 {
@@ -28,6 +29,28 @@ public:
 
     Q_INVOKABLE void refreshStats();
 
+    // ---- 看板与列（schema v2，R4-03）----
+    // 一张卡落在哪列由 task.column_id 决定；column_id 为空时按 status 落到默认列。
+    // 列只是「同一状态的不同分段」，status 仍是 todo/doing/done 三态，
+    // 完成判定 / 撤销 / 提醒等既有逻辑语义不变。
+    static constexpr int kSchemaVersion = 2;
+
+    QString defaultBoardId() const;
+    QVariantList boards() const;
+    QVariantList boardColumns(const QString &boardId) const;
+    QString defaultColumnForStatus(const QString &status) const;
+    // columnId → status（列 → 三态）；未知列返回空串
+    QString columnStatus(const QString &columnId) const;
+
+    // ---- 列管理（R4-03）：增 / 改名 / 调序 / 删 ----
+    // 删除前必须把该列的卡片迁到同状态的另一列；某状态只剩一列时不允删，
+    // 否则这种状态的卡片会无处可去（界面看起来像「任务消失」）。
+    QString addColumn(const QString &name, const QString &status, QString *error = nullptr);
+    bool renameColumn(const QString &columnId, const QString &name, QString *error = nullptr);
+    // delta = -1 左移 / +1 右移；越界返回 false 且不改任何数据
+    bool moveColumn(const QString &columnId, int delta, QString *error = nullptr);
+    bool deleteColumn(const QString &columnId, QString *error = nullptr);
+
     QString pluginValue(const QString &pluginId, const QString &key) const;
     bool setPluginValue(const QString &pluginId, const QString &key, const QString &value);
     bool removePluginValue(const QString &pluginId, const QString &key);
@@ -44,6 +67,11 @@ private:
     void closeConnection();
     bool integrityOk(QString *reason) const;
     bool recoverCorrupt(const QString &reason, QString *error);
+    // schema 版本：0 = 空库，逐级迁移到 kSchemaVersion；高于当前版本直接拒绝打开。
+    int userVersion() const;
+    bool ensureSchema(QString *error);
+    bool createSchemaV1(QString *error);
+    bool migrateToV2(QString *error);
     bool exec(const QString &sql, QString *error = nullptr);
     bool execQuery(const QString &sql, QString *error = nullptr);
 

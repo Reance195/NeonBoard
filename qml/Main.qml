@@ -30,11 +30,14 @@ ApplicationWindow {
             taskEditorLoader.item.openFor(id)
     }
 
-    function focusNewTask() {
+    // 统一新建入口：顶部按钮 / Ctrl+N / 命令面板 / 托盘共用同一弹窗
+    function openTaskComposer(status) {
         show()
         raise()
         requestActivate()
-        todoColumn.focusQuickAdd()
+        taskComposerLoader.active = true
+        if (taskComposerLoader.item)
+            taskComposerLoader.item.openComposer(status || "todo")
     }
 
     // 设置 / 插件面板均按需加载：首次打开时才构造，避免首帧为低频界面付出代价
@@ -113,9 +116,23 @@ ApplicationWindow {
         }
     }
 
+    // 已实例化的列（列清单来自数据库，顺序即界面顺序）。
+    // 不用固定 id 引用：列是可以增删的，写死 todoColumn 之类的引用会在加列后失效。
+    function columnItems() {
+        var out = []
+        for (var i = 0; i < columnRepeater.count; ++i) {
+            var item = columnRepeater.itemAt(i)
+            if (item)
+                out.push(item)
+        }
+        return out
+    }
+
     // 键盘导航：把焦点交给指定列并选中首张卡（左右方向键跨列）
     function focusColumn(targetIndex) {
-        var cols = [todoColumn, doingColumn, doneColumn]
+        var cols = columnItems()
+        if (cols.length === 0)
+            return
         var i = Math.max(0, Math.min(cols.length - 1, targetIndex))
         var target = cols[i]
         if (!target)
@@ -127,6 +144,9 @@ ApplicationWindow {
     // 面板互斥：同一时刻只保留一个浮层，避免外观/插件/设置面板叠在一起
     function closeAllPanels() {
         themePicker.open = false
+        // 面板可能在启动早期被调用：那时列管理面板还没实例化，不能直接解引用
+        if (columnManager)
+            columnManager.close()
         commandPalette.close()
         if (pluginPanelLoader.item)
             pluginPanelLoader.item.close()
@@ -265,7 +285,7 @@ ApplicationWindow {
             cmds.push({ title: title, category: category, subtitle: subtitle, run: fn })
         }
 
-        add("新建任务", "操作", "聚焦快速添加输入框", function() { window.focusNewTask() })
+        add("新建任务", "操作", "选列 / 挂父卡 / 预览解析", function() { window.openTaskComposer("todo") })
         add("打开插件面板", "面板", "当前插件内容", function() { window.openPlugins() })
         add("打开插件库", "面板", "已装 / 可装插件", function() { window.openPluginLibrary() })
         add("打开设置面板", "面板", "热键 / 数据路径 / 开机自启", function() { window.openSettings() })
@@ -321,24 +341,32 @@ ApplicationWindow {
         return cmds
     }
 
+    // 按列 id 找已实例化的列；列 id 对不上（退化模式 / 老数据）时退回按状态找第一列
+    function columnFor(columnId, status) {
+        var cols = columnItems()
+        if (columnId && columnId.length > 0) {
+            for (var i = 0; i < cols.length; ++i) {
+                if (cols[i].columnId === columnId)
+                    return cols[i]
+            }
+        }
+        for (var j = 0; j < cols.length; ++j) {
+            if (cols[j].status === status)
+                return cols[j]
+        }
+        return null
+    }
+
     // 跳转到指定任务：清除过滤 → 定位到所在列 → 高亮闪烁
     function jumpToTask(taskId) {
         searchField.text = ""
         window.setStageFilter("")
-        var tasks = taskStore.allTasks()
-        var status = "todo"
-        for (var i = 0; i < tasks.length; ++i) {
-            if (tasks[i].id === taskId) {
-                status = tasks[i].status
-                break
-            }
-        }
-        var column = todoColumn
-        if (status === "doing")
-            column = doingColumn
-        else if (status === "done")
-            column = doneColumn
-        column.flashTask(taskId)
+        var task = taskStore.taskById(taskId)
+        if (!task || !task.id)
+            return
+        var column = columnFor(task.columnId, task.status)
+        if (column)
+            column.flashTask(taskId)
     }
 
     property bool dragActive: false
@@ -347,8 +375,9 @@ ApplicationWindow {
     property string dragTaskStatus: ""
     property real dragX: 0
     property real dragY: 0
-    // 当前悬停的目标列状态（todo/doing/done），用于目标列呼吸高亮
-    property string dragOverStatus: ""
+    // 当前悬停的目标列 id，用于目标列呼吸高亮；空串表示不在任何列上。
+    // 用列而不是状态：同状态的多个列必须各自高亮，串味会让用户以为拖到了隔壁。
+    property string dragOverColumnId: ""
 
     // 里程碑过滤：空串表示全部；阶段来自卡片首个标签（R0/R1/R2/R3）
     property string stageFilter: ""
@@ -356,9 +385,7 @@ ApplicationWindow {
 
     function setStageFilter(stage) {
         stageFilter = stage
-        todoModel.stage = stage
-        doingModel.stage = stage
-        doneModel.stage = stage
+        boardColumns.stage = stage
     }
 
     function buildStageList() {
@@ -394,7 +421,7 @@ ApplicationWindow {
 
     // 命中测试：把 root 坐标换算成所在列
     function columnAt(x, y) {
-        var columns = [todoColumn, doingColumn, doneColumn]
+        var columns = columnItems()
         for (var i = 0; i < columns.length; ++i) {
             var column = columns[i]
             var origin = column.mapToItem(root, 0, 0)
@@ -411,12 +438,12 @@ ApplicationWindow {
         dragTaskStatus = status
         dragX = x
         dragY = y
-        dragOverStatus = status
+        dragOverColumnId = boardColumns.columnIdForStatus(status)
         dragActive = true
     }
 
     function clearDropMarks() {
-        var columns = [todoColumn, doingColumn, doneColumn]
+        var columns = columnItems()
         for (var i = 0; i < columns.length; ++i) {
             columns[i].dropBeforeId = ""
             columns[i].dropAnchorId = ""
@@ -430,18 +457,18 @@ ApplicationWindow {
         var column = columnAt(x, y)
         if (!column) {
             clearDropMarks()
-            dragOverStatus = ""
+            dragOverColumnId = ""
             return
         }
         var origin = column.mapToItem(root, 0, 0)
         var drop = column.resolveDrop(y - origin.y)
-        var columns = [todoColumn, doingColumn, doneColumn]
+        var columns = columnItems()
         for (var i = 0; i < columns.length; ++i) {
             columns[i].dropBeforeId = (columns[i] === column) ? drop.beforeId : ""
             columns[i].dropAnchorId = (columns[i] === column) ? drop.anchorId : ""
             columns[i].dropAnchorBelow = (columns[i] === column) ? drop.below : false
         }
-        dragOverStatus = column.status
+        dragOverColumnId = column.columnId
     }
 
     function endTaskDrag(x, y) {
@@ -453,13 +480,17 @@ ApplicationWindow {
         if (column) {
             var origin = column.mapToItem(root, 0, 0)
             var drop = column.resolveDrop(y - origin.y)
-            // 精确插位：插到落点卡片之前，beforeId 为空则落到列尾
-            if (taskUndo.moveTaskBefore(dragTaskId, column.status, drop.beforeId))
+            // 精确插位：插到落点卡片之前，beforeId 为空则落到列尾。
+            // 按列移动（同状态多列各排各的）；列 id 为空说明是退化模式，回退按状态。
+            var moved = column.columnId.length > 0
+                    ? taskUndo.moveTaskBeforeColumn(dragTaskId, column.columnId, drop.beforeId)
+                    : taskUndo.moveTaskBefore(dragTaskId, column.status, drop.beforeId)
+            if (moved)
                 column.ripple()
         }
         clearDropMarks()
         dragActive = false
-        dragOverStatus = ""
+        dragOverColumnId = ""
         dragTaskId = ""
         dragTaskTitle = ""
         dragTaskStatus = ""
@@ -501,7 +532,7 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Ctrl+N"
-        onActivated: window.focusNewTask()
+        onActivated: window.openTaskComposer("todo")
     }
 
     Shortcut {
@@ -599,29 +630,8 @@ ApplicationWindow {
         }
 
         // 专注模式提示：背景已压暗成追光，告知退出方式
-        Rectangle {
-            id: focusBadge
-
-            anchors.top: parent.top
-            anchors.topMargin: 48
-            anchors.horizontalCenter: parent.horizontalCenter
-            z: 30
-            visible: window.focusMode
-            width: focusBadgeText.implicitWidth + 30
-            height: 28
-            radius: 14
-            color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.72)
-            border.width: 1
-            border.color: Theme.violet
-
-            Text {
-                id: focusBadgeText
-
-                anchors.centerIn: parent
-                text: "专注模式 · Ctrl+Shift+F 退出"
-                color: Theme.violet
-                font.pixelSize: 11
-            }
+        FocusBadge {
+            focusMode: window.focusMode
         }
 
         // 外观面板展开时，点击面板之外区域即关闭（z 低于标题栏，面板本体不受影响）
@@ -673,27 +683,9 @@ MouseArea {
                 }
             }
 
-            Row {
+            WindowButtons {
                 id: windowButtons
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 0
-
-                WinButton {
-                    glyph: "—"
-                    onClicked: windowController.minimize()
-                }
-
-                WinButton {
-                    glyph: windowController.maximized ? "❐" : "□"
-                    onClicked: windowController.toggleMaximize()
-                }
-
-                WinButton {
-                    glyph: "✕"
-                    danger: true
-                    onClicked: window.hide()
-                }
+                onCloseRequested: window.hide()
             }
 
             ThemePicker {
@@ -701,6 +693,38 @@ MouseArea {
                 anchors.right: windowButtons.left
                 anchors.rightMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Rectangle {
+                id: newTaskButton
+                anchors.right: themePicker.left
+                anchors.rightMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
+                width: newTaskLabel.implicitWidth + 22
+                height: 26
+                radius: 8
+                color: newTaskMouse.containsMouse
+                       ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22)
+                       : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.10)
+                border.width: 1
+                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+
+                Text {
+                    id: newTaskLabel
+                    anchors.centerIn: parent
+                    text: "＋ 新建"
+                    color: Theme.cyan
+                    font.pixelSize: 11
+                    font.bold: true
+                }
+
+                MouseArea {
+                    id: newTaskMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: window.openTaskComposer("todo")
+                }
             }
         }
 
@@ -995,13 +1019,13 @@ MouseArea {
 
                     StatChip {
                         label: "待办"
-                        value: todoModel.count
+                        value: boardColumns.todoCount
                         accent: Theme.cyan
                     }
 
                     StatChip {
                         label: "进行中"
-                        value: doingModel.count
+                        value: boardColumns.doingCount
                         accent: Theme.violet
                     }
 
@@ -1141,11 +1165,7 @@ MouseArea {
                             color: Theme.text
                             font.pixelSize: 12
                             background: null
-                            onTextChanged: {
-                                todoModel.search = text
-                                doingModel.search = text
-                                doneModel.search = text
-                            }
+                            onTextChanged: boardColumns.search = text
                             Keys.onEscapePressed: text = ""
                         }
                     }
@@ -1182,70 +1202,81 @@ MouseArea {
                     Layout.bottomMargin: 20
                     spacing: 12
 
-                    BoardColumn {
-                        id: todoColumn
-                        columnIndex: 0
-                        onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
-                        title: "待办"
-                        accent: Theme.cyan
-                        status: "todo"
-                        taskModel: todoModel
-                        searchQuery: searchField.text
-                        stageFilter: window.stageFilter
-                        dragSpace: root
-                        dropTarget: window.dragOverStatus === status
-                        onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
-                        onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
-                        onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
-                        onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
-                        onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
-                        onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
-                        onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
-                        onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
+                    // 列由数据库驱动：加列 / 改名 / 调序只改 board_column，
+                    // 界面按 order_key 顺序自动出列，不再写死三列。
+                    Repeater {
+                        id: columnRepeater
+                        model: boardColumns
+
+                        delegate: BoardColumn {
+                            required property string boardColumnId
+                            required property string boardColumnTitle
+                            required property string boardColumnStatus
+                            required property var boardColumnModel
+                            required property int boardColumnIndex
+
+                            columnId: boardColumnId
+                            columnIndex: boardColumnIndex
+                            title: boardColumnTitle
+                            status: boardColumnStatus
+                            taskModel: boardColumnModel
+                            // 三态沿用原有配色：待办青、进行中紫、已办结洋红
+                            accent: boardColumnStatus === "done" ? Theme.magenta
+                                  : boardColumnStatus === "doing" ? Theme.violet
+                                  : Theme.cyan
+                            searchQuery: searchField.text
+                            stageFilter: window.stageFilter
+                            dragSpace: root
+                            dropTarget: window.dragOverColumnId === boardColumnId
+                            onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
+                            onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
+                            onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
+                            onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
+                            onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
+                            onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
+                            onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
+                            onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
+                            onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
+                        }
                     }
 
-                    BoardColumn {
-                        title: "进行中"
-                        id: doingColumn
-                        columnIndex: 1
-                        onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
-                        accent: Theme.violet
-                        status: "doing"
-                        taskModel: doingModel
-                        searchQuery: searchField.text
-                        stageFilter: window.stageFilter
-                        dragSpace: root
-                        dropTarget: window.dragOverStatus === status
-                        onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
-                        onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
-                        onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
-                        onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
-                        onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
-                        onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
-                        onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
-                        onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
-                    }
+                    // 列管理入口：列由数据库驱动，加列 / 改名 / 调序都在这里
+                    Rectangle {
+                        Layout.preferredWidth: 46
+                        Layout.fillHeight: true
+                        radius: 16
+                        color: addColumnMouse.containsMouse ? Theme.cardHover : Theme.card
+                        border.width: 1
+                        border.color: addColumnMouse.containsMouse ? Theme.borderStrong : Theme.border
 
-                    BoardColumn {
-                        title: "已办结"
-                        id: doneColumn
-                        columnIndex: 2
-                        onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
-                        accent: Theme.magenta
-                        status: "done"
-                        taskModel: doneModel
-                        searchQuery: searchField.text
-                        stageFilter: window.stageFilter
-                        dragSpace: root
-                        dropTarget: window.dragOverStatus === status
-                        onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
-                        onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
-                        onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
-                        onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
-                        onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
-                        onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
-                        onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
-                        onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "＋"
+                                color: addColumnMouse.containsMouse ? Theme.cyan : Theme.muted
+                                font.pixelSize: 18
+                            }
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "列"
+                                color: Theme.muted
+                                font.pixelSize: 10
+                            }
+                        }
+
+                        MouseArea {
+                            id: addColumnMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                window.closeAllPanels()
+                                columnManager.open = true
+                            }
+                        }
                     }
                 }
 
@@ -1368,6 +1399,13 @@ MouseArea {
             paused: window.focusPaused
             onStopRequested: window.stopFocus(false)
             onPauseToggleRequested: window.toggleFocusPause()
+        }
+
+        // 列管理面板：把列结构交给用户（增 / 改名 / 调序 / 删）
+        ColumnManager {
+            id: columnManager
+            anchors.fill: parent
+            z: 380
         }
 
         // 命令面板：Ctrl+K 呼出，按需构造
@@ -1819,6 +1857,17 @@ MouseArea {
         id: taskEditorLoader
         active: false
         sourceComponent: taskEditorComponent
+    }
+
+    Component {
+        id: taskComposerComponent
+        TaskComposer {}
+    }
+
+    Loader {
+        id: taskComposerLoader
+        active: false
+        sourceComponent: taskComposerComponent
     }
 
     Rectangle {

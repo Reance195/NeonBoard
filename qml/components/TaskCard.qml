@@ -27,6 +27,14 @@ Rectangle {
     }
     readonly property bool hasChildren: childStats.total > 0
 
+    // 领用信息（数据来自 boardSync 门面：扫描各 worktree 台账 + git 分支状态）
+    readonly property var claim: {
+        var rev = boardSync.revision   // 建立依赖：领用变化时重算
+        return boardSync.claimForTask(taskId)
+    }
+    readonly property bool claimed: claim && claim.agent !== undefined && claim.agent.length > 0
+    readonly property bool claimActive: claimed && claim.active === true
+
     // 拖拽坐标基准（由外部注入主内容区域）
     property Item dragSpace: null
 
@@ -286,6 +294,25 @@ Rectangle {
                         color: Theme.accent3
                         font.pixelSize: 10
                         elide: Text.ElideRight
+                    }
+                }
+
+                Rectangle {
+                    visible: card.claimed
+                    height: 18
+                    width: claimText.implicitWidth + 12
+                    radius: 5
+                    color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, card.claimActive ? 0.18 : 0.07)
+                    border.width: 1
+                    border.color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, card.claimActive ? 0.36 : 0.16)
+
+                    Text {
+                        id: claimText
+                        anchors.centerIn: parent
+                        text: (card.claimActive ? "◈ " : "◇ ") + card.claim.agent
+                        color: Theme.violet
+                        opacity: card.claimActive ? 1.0 : 0.45
+                        font.pixelSize: 10
                     }
                 }
 

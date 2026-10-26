@@ -18,7 +18,7 @@
       pwsh -File scripts/git-done.ps1 -RemoveWorktree .worktrees/agent-c
       pwsh -File scripts/git-done.ps1 -Mode local
       pwsh -File scripts/git-done.ps1 -KeepBranch
-      pwsh -File scripts/git-done.ps1 -SkipClaimCheck      # 纯文档/杂务分支跳过领用闸门
+      pwsh -File scripts/git-done.ps1 -SkipClaimCheck      # 已废弃：不再能放行代码改动
       pwsh -File scripts/git-done.ps1 -SkipAnchorSync      # 合并后不快进锚点区
 #>
 [CmdletBinding()]
@@ -136,6 +136,74 @@ function Sync-AnchorWorktree {
     }
 }
 
+# 合并收尾：释放已合并 / 孤儿任务的认领占位（refs/claims/<短号>）。
+# 判据（满足任一即释放）：
+#   1) 占位指向的提交已是 origin/<Main> 的祖先（任务已合入主线）；
+#   2) 台账 claims 中该卡的认领分支已不存在（本地 / 远端均无），属历史残留孤儿。
+# 二者都不满足（分支仍存在且未合入，如开发中的卡）则保留，可被领用闸门正常校验。
+# 历史缺口：agent-init 仅清本地台账 claims、从不删 origin ref，导致合并后占位永久残留、
+# 误拦重新认领；本函数补齐「释放」环节（宪章 AGENTS.md §7.2.1 第 4/5 条）。
+# 注意：若 origin 删除因离线失败，下次脚本领用闸门的 fetch 会把 origin 残留镜像回本地，
+# 故离线时仅清本地，联网后由下次运行彻底清 origin。
+function Release-ClaimRef {
+    param([string]$Ref)
+    & git update-ref -d $Ref 2>$null
+    Write-Host ('· 认领占位清理：本地释放 {0}' -f $Ref) -ForegroundColor DarkGray
+    $del = Invoke-GitQuiet @('push', 'origin', '--delete', $Ref)
+    if ($del.Code -eq 0) {
+        Write-Host ('✓ 认领占位清理：服务端释放 {0}' -f $Ref) -ForegroundColor Green
+    } else {
+        Write-Host ('· 认领占位清理：服务端 {0} 删除失败（离线或本就不存在），联网后下次运行再清' -f $Ref) -ForegroundColor Yellow
+    }
+}
+
+function Test-ClaimBranchGone {
+    param([string]$Branch)
+    if (-not $Branch) { return $true }
+    $r1 = Invoke-GitQuiet @('rev-parse', '--verify', '-q', $Branch)
+    if ($r1.Code -eq 0) { return $false }
+    $r2 = Invoke-GitQuiet @('rev-parse', '--verify', '-q', ('origin/' + $Branch))
+    return ($r2.Code -ne 0)
+}
+
+function Invoke-ClaimRefCleanup {
+    param([string]$Main)
+    # for-each-ref 可靠枚举整命名空间（git show-ref 的 pattern 匹配对松散引用不稳定，会漏列）
+    $refs = @(& git for-each-ref --format='%(objectname) %(refname)' 'refs/claims/*' 2>$null)
+    if ($refs.Count -eq 0) { return }
+    $originMain = $null
+    try { $originMain = (Invoke-Git rev-parse --verify -q "origin/$Main").Trim() } catch { $originMain = $null }
+    if (-not $originMain) {
+        Write-Host ('· 认领占位清理：origin/{0} 不可达，跳过（联网后下次运行再清）' -f $Main) -ForegroundColor Yellow
+        return
+    }
+    # 台账 claims 映射 code -> branch，用于判断认领分支是否已删除
+    $ledger = $null
+    $ledgerPath = Join-Path $repoRoot 'docs/board-ledger.json'
+    if (Test-Path -LiteralPath $ledgerPath) {
+        try { $ledger = (Get-Content -LiteralPath $ledgerPath -Raw -Encoding utf8 | ConvertFrom-Json) } catch { $ledger = $null }
+    }
+    $claimBranches = @{}
+    if ($ledger -and $ledger.claims) {
+        foreach ($k in $ledger.claims.PSObject.Properties.Name) {
+            $claimBranches[$k] = if ($ledger.claims.$k) { $ledger.claims.$k.branch } else { $null }
+        }
+    }
+    foreach ($line in $refs) {
+        $parts = ($line -split ' ')
+        $sha = $parts[0]; $ref = $parts[1]
+        $code = $ref -replace '^refs/claims/',''
+        $isAnc = $false
+        try { & git merge-base --is-ancestor $sha ('origin/' + $Main) 2>$null; $isAnc = ($LASTEXITCODE -eq 0) } catch { $isAnc = $false }
+        if ($isAnc) { Release-ClaimRef $ref; continue }
+        # 未合入：仅当该 code 在台账中登记过、且其认领分支已不存在（孤儿 / 历史残留）时才释放；
+        # 台账未登记的 code（可能是其它机制认领的活动卡）一律保守保留，绝不误删。
+        if ($claimBranches.ContainsKey($code) -and (Test-ClaimBranchGone $claimBranches[$code])) {
+            Release-ClaimRef $ref
+        }
+    }
+}
+
 # 仓库根按**脚本自身路径**定位（脚本在 <repo>/scripts/ 下），不按当前工作目录 ——
 # 否则从别的目录调用时会把合并动作做进错误的 worktree（踩过：误改了锚点区）。
 $scriptRepoRoot = $null
@@ -165,7 +233,33 @@ if ($otherLines.Count -gt 0) {
 }
 
 if ($snapshotLines.Count -gt 0) {
-    Write-Host "→ 检测到 progress.json 未提交（RoadmapSync 自动写回），代为提交快照 ..." -ForegroundColor Cyan
+    Write-Host "→ 检测到 progress.json 未提交（RoadmapSync 自动写回），先按 git 事实校正状态 ..." -ForegroundColor Cyan
+    # 应用写回的是它内存里的状态，可能落后于本分支的 `#code=done` 标记。原样提交会把
+    # 过期状态带上 main（踩过：R4-02 已 done 却被写回 doing，靠 CI 的 derive --write 才纠正）。
+    # 先跑一次派生器对齐；它只改状态字段、保留 app 生成的其它卡片，无变化时不落盘。
+    # 派生器失败不阻断合并（CI 落 main 后还会再纠正），但必须显著告警，不许静默推过期快照。
+    $deriveScript = Join-Path $repoRoot 'scripts\derive_board_status.py'
+    $pythonExe = (Get-Command python -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ((Test-Path -LiteralPath $deriveScript) -and $pythonExe) {
+        # 原生命令的 stderr 在 ErrorActionPreference='Stop' 下会被当成终止性错误，
+        # 统一按 Invoke-GitQuiet 的做法降级捕获（脚本里已踩过 MSBuild / ISCC 的同类坑）。
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $deriveOut = & python $deriveScript --write 2>&1
+            $deriveCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+        foreach ($line in @($deriveOut)) {
+            Write-Host ("   {0}" -f $line) -ForegroundColor DarkGray
+        }
+        if ($deriveCode -ne 0) {
+            Write-Host '· 警告：派生器未能校正快照（见上），将按应用写回的原样提交，CI 会再纠正' -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host '· 警告：缺少派生器脚本或 python，跳过快照校正' -ForegroundColor Yellow
+    }
     Invoke-Git add progress.json | Out-Null
     try {
         Invoke-Git commit -m 'chore(roadmap): 同步进度快照' | Out-Null
@@ -199,19 +293,33 @@ if ($Mode -eq 'remote') {
     Invoke-Git fetch origin --quiet | Out-Null
     $originMain = (Invoke-Git rev-parse "origin/$MainBranch").Trim()
 
-    # 领用闸门：分支必须先在服务端占位 refs/claims/<短号>（agent-init 领用时创建）。
-    # 没有占位 = 绕过领用直接开工，默认不允许合并；纯文档/杂务分支显式 -SkipClaimCheck。
-    if (-not $SkipClaimCheck) {
+    # 领用闸门：分支必须先有服务端 claim ref 占位（agent-init 领用时创建）。
+    # 豁免不再靠自报：按 diff 路径自动判定，改动全部落在 docs/ scripts/ .githooks/
+    # .github/ *.md 等豁免路径才算杂务分支，其它一律要求 claim ref。
+    # -SkipClaimCheck 仅为兼容旧脚本保留，已不能放行任何代码改动。
+    $claimExempt = $false
+    $gateScript = Join-Path $repoRoot 'scripts\task_gate.py'
+    if (Test-Path -LiteralPath $gateScript) {
+        $scopeOut = & python $gateScript scope --base "origin/$MainBranch" --head $Branch 2>$null
+        if ($LASTEXITCODE -eq 0 -and (($scopeOut -join ' ').Trim() -eq 'exempt')) {
+            $claimExempt = $true
+        }
+    }
+
+    if ($claimExempt) {
+        Write-Host '· 领用闸门：改动全在豁免路径（文档/脚本/钩子），免 claim ref' -ForegroundColor DarkGray
+    } else {
+        if ($SkipClaimCheck) {
+            Write-Host '· 警告：-SkipClaimCheck 已废弃，本次仍按实际改动校验 claim ref' -ForegroundColor Yellow
+        }
         Write-Host '· 领用闸门：校验服务端 claim ref ...' -ForegroundColor DarkGray
         & git fetch origin '+refs/claims/*:refs/claims/*' 2>&1 | Out-Null
         & python (Join-Path $repoRoot 'scripts\check_claim_refs.py') --base "origin/$MainBranch" --head $Branch
         if ($LASTEXITCODE -ne 0) {
             Write-Host "`n✗ 领用闸门未通过：分支缺少服务端 claim ref 占位。" -ForegroundColor Red
-            Write-Host '  先用 scripts/agent-init.ps1 -Card <短号> 领用；纯文档/杂务分支可加 -SkipClaimCheck。' -ForegroundColor Yellow
+            Write-Host '  先用 scripts/agent-init.ps1 -Card <短号> 领用；纯文档/杂务分支无需手动豁免。' -ForegroundColor Yellow
             exit 1
         }
-    } else {
-        Write-Host '· 已跳过领用闸门（-SkipClaimCheck）' -ForegroundColor Yellow
     }
 
     $tmp = 'merge/' + ($Branch -replace '[^A-Za-z0-9]+', '-')
@@ -246,6 +354,9 @@ if ($Mode -eq 'remote') {
 
     $merged = (Invoke-Git rev-parse HEAD).Trim()
     Write-Host ("✓ 已推送到 origin/{0}（{1}）" -f $MainBranch, $merged.Substring(0, 7)) -ForegroundColor Green
+
+    # 合并收尾：释放已合入主线的认领占位（refs/claims/*），避免永久残留误拦重新认领。
+    Invoke-ClaimRefCleanup -Main $MainBranch
 
     if (-not $SkipAnchorSync) {
         Sync-AnchorWorktree -Main $MainBranch -CurrentRoot $repoRoot
@@ -309,6 +420,10 @@ try {
     Write-Host "`n解决后：git add -A ; git commit ; git branch -d $Branch`n" -ForegroundColor Yellow
     exit 1
 }
+
+# 合并收尾：本模式未自动推送，origin/main 尚未含本次合并，认领占位暂不释放
+# （其 head 尚未成为 origin/main 的祖先）；推送后由 remote 模式或下次运行释放。
+Invoke-ClaimRefCleanup -Main $MainBranch
 
 if (-not $KeepBranch) {
     Write-Host "· 删除分支 $Branch" -ForegroundColor DarkGray

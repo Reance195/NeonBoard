@@ -41,6 +41,7 @@ bool TaskUndo::moveTask(const QString &id, const QString &status, int newIndex, 
     QVariantMap payload;
     payload.insert(QStringLiteral("id"), id);
     payload.insert(QStringLiteral("status"), before.value(QStringLiteral("status")));
+    payload.insert(QStringLiteral("columnId"), before.value(QStringLiteral("columnId")));
     payload.insert(QStringLiteral("orderKey"), before.value(QStringLiteral("orderKey")));
     payload.insert(QStringLiteral("completedAt"), before.value(QStringLiteral("completedAt")));
 
@@ -76,11 +77,44 @@ bool TaskUndo::moveTaskBefore(const QString &id, const QString &status, const QS
     QVariantMap payload;
     payload.insert(QStringLiteral("id"), id);
     payload.insert(QStringLiteral("status"), before.value(QStringLiteral("status")));
+    payload.insert(QStringLiteral("columnId"), before.value(QStringLiteral("columnId")));
     payload.insert(QStringLiteral("orderKey"), before.value(QStringLiteral("orderKey")));
     payload.insert(QStringLiteral("completedAt"), before.value(QStringLiteral("completedAt")));
 
     const QString text = description.isEmpty() ? QStringLiteral("已移动任务") : description;
     push(Kind::Moved, id, payload, text);
+    return true;
+}
+
+bool TaskUndo::moveTaskToColumn(const QString &id, const QString &columnId,
+                                const QString &description)
+{
+    if (!m_tasks)
+        return false;
+    const QVariantMap before = m_tasks->taskById(id);
+    if (before.isEmpty())
+        return false;
+    if (!m_tasks->moveTaskToColumn(id, columnId))
+        return false;
+
+    const QString text = description.isEmpty() ? QStringLiteral("已移动任务") : description;
+    push(Kind::Moved, id, before, text);
+    return true;
+}
+
+bool TaskUndo::moveTaskBeforeColumn(const QString &id, const QString &columnId,
+                                    const QString &beforeId, const QString &description)
+{
+    if (!m_tasks)
+        return false;
+    const QVariantMap before = m_tasks->taskById(id);
+    if (before.isEmpty())
+        return false;
+    if (!m_tasks->moveTaskBeforeColumn(id, columnId, beforeId))
+        return false;
+
+    const QString text = description.isEmpty() ? QStringLiteral("已移动任务") : description;
+    push(Kind::Moved, id, before, text);
     return true;
 }
 
@@ -175,7 +209,8 @@ bool TaskUndo::revert(const Entry &entry)
         const bool ok = m_tasks->restorePlacement(entry.id,
                                                   entry.payload.value(QStringLiteral("status")).toString(),
                                                   entry.payload.value(QStringLiteral("orderKey")).toLongLong(),
-                                                  entry.payload.value(QStringLiteral("completedAt")).toLongLong());
+                                                  entry.payload.value(QStringLiteral("completedAt")).toLongLong(),
+                                                  entry.payload.value(QStringLiteral("columnId")).toString());
         // 撤销「完成」时连带删除重复任务派生的下一期卡
         if (ok && m_extra) {
             const QString spawned = m_extra->takeSpawned(entry.id);

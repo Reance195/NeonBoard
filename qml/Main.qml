@@ -51,6 +51,21 @@ ApplicationWindow {
     property int focusRemaining: 0
     property bool focusPaused: false
 
+    // 首启动引导：仅在「从未完成引导」且看板为空时自动出现
+    property bool onboardVisible: false
+
+    function finishOnboarding() {
+        window.onboardVisible = false
+        uiSettings.onboardingDone = true
+    }
+
+    // 示例卡：让新用户一上手就能试拖拽，随时可删
+    function addSampleTasks() {
+        taskStore.addTask("试用：按 Ctrl+N 快速记一条任务", "todo", 1, "引导", 0)
+        taskStore.addTask("把这张卡拖到「进行中」", "todo", 2, "引导", 0)
+        taskStore.addTask("完成后拖到「已办结」", "todo", 1, "引导", 0)
+    }
+
     function startFocus(minutes) {
         window.focusTotal = Math.max(1, minutes) * 60
         window.focusRemaining = window.focusTotal
@@ -552,6 +567,8 @@ ApplicationWindow {
         stageStats = taskStore.stageStats()
         setStageFilter(initialStage)
         pluginLoader.scan()
+        // 老用户（已有卡片）不弹引导；空板 + 未完成过引导才弹
+        window.onboardVisible = !uiSettings.onboardingDone && taskStore.count === 0
     }
 
     Rectangle {
@@ -1326,6 +1343,16 @@ MouseArea {
                     item.open()
                 }
             }
+        }
+
+        // 首启动引导：录任务 → 拖列 → 装插件（可用「跳过」直接收尾）
+        OnboardingOverlay {
+            anchors.fill: parent
+            z: 500
+            visible: window.onboardVisible
+            canSeed: taskStore.count === 0
+            onFinished: window.finishOnboarding()
+            onSampleRequested: window.addSampleTasks()
         }
 
         // 专注倒计时环：悬浮右下，结束后自动收起

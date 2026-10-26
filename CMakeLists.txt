@@ -97,6 +97,7 @@ set_source_files_properties(qml/components/PluginSlot.qml PROPERTIES QT_RESOURCE
 set_source_files_properties(qml/components/PluginPermissionDialog.qml PROPERTIES QT_RESOURCE_ALIAS "PluginPermissionDialog.qml")
 set_source_files_properties(qml/components/ActivityHeatmap.qml PROPERTIES QT_RESOURCE_ALIAS "ActivityHeatmap.qml")
 set_source_files_properties(qml/components/FocusRing.qml PROPERTIES QT_RESOURCE_ALIAS "FocusRing.qml")
+set_source_files_properties(qml/components/OnboardingOverlay.qml PROPERTIES QT_RESOURCE_ALIAS "OnboardingOverlay.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -122,6 +123,7 @@ qt_add_qml_module(NeonBoard
         qml/components/PluginPermissionDialog.qml
         qml/components/ActivityHeatmap.qml
         qml/components/FocusRing.qml
+        qml/components/OnboardingOverlay.qml
 )
 
 qt_add_resources(NeonBoard "icons"

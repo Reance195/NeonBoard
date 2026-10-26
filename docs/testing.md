@@ -18,7 +18,7 @@ NeonBoard 的回归风险集中在两处：**输入解析**（用户随手一句
 | `tst_windowsintegration` | `src/WindowsIntegration.cpp` | AUMID 契约稳定性、`shell\open\command` 引号与 `%1` 占位保留、`--install-plugin-file` 参数提取、关联状态结构、**跳转列表任务项可点击**（参数能被动作层认出且不是"只亮窗口"）。**只读**，不做任何注册表/跳转列表写入 |
 | `tst_databasemigration` | `src/Database.cpp` | schema 迁移：新库直接建到 v2（1 板 + 3 列）、v1 老库（带 `CHECK(status)`）搬迁后标题/备注/优先级/标签/时间戳/`column_id` 回填逐项一致、改过列后重开不被回填覆盖、`user_version` 高于程序支持版本时拒绝打开 |
 | `tst_taskcolumns` | `src/TaskModel.cpp` / `src/TaskFilterModel.cpp` | 列感知模型层：新增任务落默认列、`moveTaskToColumn` 同步 status/columnId/completedAt 并落盘、按列过滤不把同状态的另一列串进来、列过滤为空时回退 status 过滤、未知列被拒绝 |
-| `tst_boardcolumns` | `src/BoardColumns.cpp` / `src/TaskModel.cpp` | 列清单由库驱动：列顺序与角色、搜索/阶段过滤落到每一列、按列录入（列优先于状态）、列内精确插位、按状态移动/改状态时同步列（防「doing 挂在待办列」）、`reload` 列集合未变时不重建模型、撤销连列一起还原 |
+| `tst_boardcolumns` | `src/BoardColumns.cpp` / `src/TaskModel.cpp` | 列清单由库驱动：列顺序与角色、搜索/阶段过滤落到每一列、按列录入（列优先于状态）、列内精确插位、按状态移动/改状态时同步列（防「doing 挂在待办列」）、`reload` 列集合未变时不重建模型、撤销连列一起还原；**列管理**：增列落末尾且新列继承过滤、空名/未知状态被拒并给 `lastError`、改名不动卡片也不重建模型、调序来回可逆且到头返回 false 不算错误、删列把卡片迁到同状态另一列（内存副本同步重读）、某状态最后一列拒绝删除 |
 
 ## 结构
 

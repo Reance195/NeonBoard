@@ -42,6 +42,15 @@ public:
     // columnId → status（列 → 三态）；未知列返回空串
     QString columnStatus(const QString &columnId) const;
 
+    // ---- 列管理（R4-03）：增 / 改名 / 调序 / 删 ----
+    // 删除前必须把该列的卡片迁到同状态的另一列；某状态只剩一列时不允删，
+    // 否则这种状态的卡片会无处可去（界面看起来像「任务消失」）。
+    QString addColumn(const QString &name, const QString &status, QString *error = nullptr);
+    bool renameColumn(const QString &columnId, const QString &name, QString *error = nullptr);
+    // delta = -1 左移 / +1 右移；越界返回 false 且不改任何数据
+    bool moveColumn(const QString &columnId, int delta, QString *error = nullptr);
+    bool deleteColumn(const QString &columnId, QString *error = nullptr);
+
     QString pluginValue(const QString &pluginId, const QString &key) const;
     bool setPluginValue(const QString &pluginId, const QString &key, const QString &value);
     bool removePluginValue(const QString &pluginId, const QString &key);

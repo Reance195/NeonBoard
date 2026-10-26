@@ -68,7 +68,7 @@ P2 炫酷生态
 | 提醒 / 逾期 | 只有 `due_at` 展示，无通知 | 几乎全部具备 | 必补 |
 | 重复任务 | 无 | Tasks / Vikunja / Task Coach | 必补（用 RRULE） |
 | 子任务 / 清单 | 无 | Kanri / Vikunja / Wekan / Kanboard | 必补 |
-| 多板 / 自定义列 | 列已由库驱动：`board` / `board_column` + `task.column_id` 承载列结构，界面按 `order_key` 用 `Repeater` 出列（不再写死三列）；同状态可挂多列、列内排序各自独立。**列管理 UI（增删改名调序）与多板切换尚未做** | Kanri / Focalboard / Vikunja | 架构已解锁（R4-03 批次一~三） |
+| 多板 / 自定义列 | 列已由库驱动：`board` / `board_column` + `task.column_id` 承载列结构，界面按 `order_key` 用 `Repeater` 出列（不再写死三列）；同状态可挂多列、列内排序各自独立。列管理面板已落地：看板行尾「＋ 列」可增列（选三态）/ 改名 / 左右调序 / 删列（卡片自动迁到同状态另一列，某状态最后一列禁止删除）。**多板切换（UI + 切板上下文）尚未做** | Kanri / Focalboard / Vikunja | 列已完整可配置（R4-03 批次一~三）；多板是下一步 |
 | 导入导出 / 备份 | 无（README 已列为限制） | Kanri / Vikunja | 必补（信任感） |
 | 命令面板 / 键盘流 | 仅全局热键 + 少量快捷键 | Super Productivity / Kanri | 必补 |
 | 日历 / 时间线 | 无 | Vikunja / Focalboard / yamlist | 可选 |

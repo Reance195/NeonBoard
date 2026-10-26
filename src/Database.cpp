@@ -480,6 +480,219 @@ QString Database::columnStatus(const QString &columnId) const
     return query.value(0).toString();
 }
 
+namespace {
+// 三态是任务语义（完成判定 / 撤销 / 提醒都按它走），列只是同一状态的分段
+bool isValidStatus(const QString &status)
+{
+    return status == QLatin1String("todo")
+        || status == QLatin1String("doing")
+        || status == QLatin1String("done");
+}
+} // namespace
+
+QString Database::addColumn(const QString &name, const QString &status, QString *error)
+{
+    const QString cleanName = name.trimmed();
+    if (cleanName.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("列名不能为空");
+        return {};
+    }
+    if (!isValidStatus(status)) {
+        if (error)
+            *error = QStringLiteral("未知状态：%1").arg(status);
+        return {};
+    }
+    const QString boardId = defaultBoardId();
+    if (boardId.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("没有可用的看板");
+        return {};
+    }
+
+    qint64 lastKey = 0;
+    QSqlQuery keyQuery(m_db);
+    keyQuery.prepare(QStringLiteral(
+        "SELECT COALESCE(MAX(order_key), 0) FROM board_column WHERE board_id = ?"));
+    keyQuery.addBindValue(boardId);
+    if (keyQuery.exec() && keyQuery.next())
+        lastKey = keyQuery.value(0).toLongLong();
+
+    // id 用短随机后缀：可读、够唯一，也不依赖自增（多端同步时不给库加锁）
+    const QString id = QStringLiteral("col-")
+            + QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral(
+        "INSERT INTO board_column (id, board_id, name, status, order_key, created_at, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)"));
+    query.addBindValue(id);
+    query.addBindValue(boardId);
+    query.addBindValue(cleanName);
+    query.addBindValue(status);
+    query.addBindValue(lastKey + 1024);
+    query.addBindValue(now);
+    query.addBindValue(now);
+    if (!query.exec()) {
+        if (error)
+            *error = query.lastError().text();
+        return {};
+    }
+    return id;
+}
+
+bool Database::renameColumn(const QString &columnId, const QString &name, QString *error)
+{
+    const QString cleanName = name.trimmed();
+    if (cleanName.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("列名不能为空");
+        return false;
+    }
+
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral(
+        "UPDATE board_column SET name = ?, updated_at = ? WHERE id = ?"));
+    query.addBindValue(cleanName);
+    query.addBindValue(QDateTime::currentSecsSinceEpoch());
+    query.addBindValue(columnId);
+    if (!query.exec()) {
+        if (error)
+            *error = query.lastError().text();
+        return false;
+    }
+    if (query.numRowsAffected() <= 0) {
+        if (error)
+            *error = QStringLiteral("列不存在：%1").arg(columnId);
+        return false;
+    }
+    return true;
+}
+
+bool Database::moveColumn(const QString &columnId, int delta, QString *error)
+{
+    if (delta == 0)
+        return true;
+
+    // 按「列自己所属的看板」取同板列序：拿默认看板会把别的板的列一起重排，
+    // 多板切换一上线顺序就错乱
+    QString boardId;
+    {
+        QSqlQuery query(m_db);
+        query.prepare(QStringLiteral("SELECT board_id FROM board_column WHERE id = ?"));
+        query.addBindValue(columnId);
+        if (!query.exec() || !query.next())
+            return false;
+        boardId = query.value(0).toString();
+    }
+
+    QStringList ids;
+    {
+        QSqlQuery query(m_db);
+        query.prepare(QStringLiteral(
+            "SELECT id FROM board_column WHERE board_id = ? ORDER BY order_key, id"));
+        query.addBindValue(boardId);
+        if (!query.exec())
+            return false;
+        while (query.next())
+            ids.append(query.value(0).toString());
+    }
+
+    const int from = static_cast<int>(ids.indexOf(columnId));
+    const int to = from + delta;
+    // 越界就是「已经到头了」：不改数据、也不报错升级，交给界面判断按钮可用性
+    if (from < 0 || to < 0 || to >= ids.size())
+        return false;
+
+    ids.move(from, to);
+
+    // 顺序整体重排：只换两个 order_key 会在多次移动后产生相同键，界面顺序变得随机
+    if (!exec(QStringLiteral("BEGIN"), error))
+        return false;
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral("UPDATE board_column SET order_key = ? WHERE id = ?"));
+    for (int i = 0; i < ids.size(); ++i) {
+        query.addBindValue(static_cast<qint64>(i + 1) * 1024);
+        query.addBindValue(ids.at(i));
+        if (!query.exec()) {
+            if (error)
+                *error = query.lastError().text();
+            exec(QStringLiteral("ROLLBACK"));
+            return false;
+        }
+    }
+    return exec(QStringLiteral("COMMIT"), error);
+}
+
+bool Database::deleteColumn(const QString &columnId, QString *error)
+{
+    // 一次拿到状态和所属看板：接卡的兜底列必须同板，否则卡片会被搬到别的看板上
+    QString status;
+    QString boardId;
+    {
+        QSqlQuery query(m_db);
+        query.prepare(QStringLiteral("SELECT status, board_id FROM board_column WHERE id = ?"));
+        query.addBindValue(columnId);
+        if (query.exec() && query.next()) {
+            status = query.value(0).toString();
+            boardId = query.value(1).toString();
+        }
+    }
+    if (status.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("列不存在：%1").arg(columnId);
+        return false;
+    }
+
+    // 该状态的其它列（用来接住被删列里的卡片）；一个都没有就拒绝删除
+    QString fallback;
+    {
+        QSqlQuery query(m_db);
+        query.prepare(QStringLiteral(
+            "SELECT id FROM board_column WHERE board_id = ? AND status = ? AND id <> ? "
+            "ORDER BY order_key, id LIMIT 1"));
+        query.addBindValue(boardId);
+        query.addBindValue(status);
+        query.addBindValue(columnId);
+        if (query.exec() && query.next())
+            fallback = query.value(0).toString();
+    }
+    if (fallback.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("该状态只剩这一列，删掉后卡片无处安放");
+        return false;
+    }
+
+    if (!exec(QStringLiteral("BEGIN"), error))
+        return false;
+
+    // 先迁卡再删列：顺序反了会留下 column_id 指向不存在列的孤儿卡片
+    QSqlQuery move(m_db);
+    move.prepare(QStringLiteral(
+        "UPDATE task SET column_id = ?, updated_at = ? WHERE column_id = ?"));
+    move.addBindValue(fallback);
+    move.addBindValue(QDateTime::currentSecsSinceEpoch());
+    move.addBindValue(columnId);
+    if (!move.exec()) {
+        if (error)
+            *error = move.lastError().text();
+        exec(QStringLiteral("ROLLBACK"));
+        return false;
+    }
+
+    QSqlQuery drop(m_db);
+    drop.prepare(QStringLiteral("DELETE FROM board_column WHERE id = ?"));
+    drop.addBindValue(columnId);
+    if (!drop.exec()) {
+        if (error)
+            *error = drop.lastError().text();
+        exec(QStringLiteral("ROLLBACK"));
+        return false;
+    }
+    return exec(QStringLiteral("COMMIT"), error);
+}
+
 bool Database::exec(const QString &sql, QString *error)
 {
     QSqlQuery query(m_db);

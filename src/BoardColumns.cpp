@@ -157,7 +157,7 @@ void BoardColumns::reload()
         bool changed = false;
         for (int i = 0; i < m_columns.size(); ++i) {
             const QVariantMap row = rows.at(i).toMap();
-            Column &column = m_columns.at(i);
+            Column &column = m_columns[i];
             const QString title = row.value(QStringLiteral("name")).toString();
             const QString status = row.value(QStringLiteral("status")).toString();
             if (column.title != title) {

@@ -1,4 +1,4 @@
-﻿<#
+<#
     为某个 agent 创建独立工作区
 
     产出：
@@ -80,16 +80,33 @@ $sandbox = Join-Path $worktree '.sandbox'
 New-Item -ItemType Directory -Path $sandbox -Force | Out-Null
 
 $envFile = Join-Path $worktree '.agent-env.ps1'
-$envContent = @(
+$envLines = @(
     "# 由 scripts/agent-init.ps1 生成：多代理沙箱环境变量",
     "# 用法： . .\.agent-env.ps1   （PowerShell 7 推荐 pwsh）",
     "`$env:NEONBOARD_DATA_DIR = '$sandbox'",
     "`$env:NEONBOARD_INSTANCE = '$Agent'",
     "`$env:NEONBOARD_ROADMAP = '$(Join-Path $sandbox 'progress.json')'",
     "`$env:NEONBOARD_ROADMAP_AUTOWRITE = '0'",
-    "`$env:NEONBOARD_AGENT_ID = '$Agent'",
-    ''
-) -join "`n"
+    "`$env:NEONBOARD_AGENT_ID = '$Agent'"
+)
+
+# ---------- 任务卡字段注入（docs/task-card.md）----------
+# 让 agent 一进工作区就知道：这张卡要验收什么、能改哪些路径、依赖哪张卡。
+if ($Card -and $Card -ne 'none') {
+    $ledgerPath = Join-Path $repoRoot 'docs\board-ledger.json'
+    if (Test-Path $ledgerPath) {
+        $ledger = Get-Content $ledgerPath -Raw | ConvertFrom-Json
+        $cardCode = $Card.TrimStart('#').ToUpperInvariant()
+        $cardData = $ledger.cards.$cardCode
+        if ($cardData) {
+            $envLines += "`$env:NB_CARD = '$cardCode'"
+            if ($cardData.scope)      { $envLines += ("`$env:NB_SCOPE = '" + (($cardData.scope) -join ';') + "'") }
+            if ($cardData.acceptance) { $envLines += ("`$env:NB_ACCEPTANCE = '" + (($cardData.acceptance) -join ';') + "'") }
+            if ($cardData.depends)    { $envLines += ("`$env:NB_DEPENDS = '" + (($cardData.depends) -join ';') + "'") }
+        }
+    }
+}
+$envContent = ($envLines -join "`n")
 [System.IO.File]::WriteAllText($envFile, $envContent, (New-Object System.Text.UTF8Encoding($false)))
 
 # ---------- 领用登记（-Card <短号>） ----------

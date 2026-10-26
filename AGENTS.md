@@ -129,7 +129,7 @@ git branch -d feature/<简述>
 
 **动代码之前必须先持有任务卡，并完成服务端领用占位。** 顺序不可颠倒：
 
-1. 卡片由林先生在台账 `docs/board-ledger.json` 的 `cards` 里登记。
+1. 卡片由维护者在台账 `docs/board-ledger.json` 的 `cards` 里登记。
    **agent 不得自行加卡、改卡的标题/阶段、改 `baseline`** —— 否则就是自授权，
    所有领用闸门都会退化成自证；agent 只能写 `claims` 领用登记与卡片 `note` 交付说明。
 2. 用 `scripts/agent-init.ps1 -Card <短号>` 开区，脚本会推 `refs/claims/<短号>` 完成领用；
@@ -203,12 +203,12 @@ AI 代理在本仓库干活时：
 
 | 区 | 位置 | 允许的动作 | 禁止的动作 |
 | --- | --- | --- | --- |
-| 锚点区 | 仓库根目录 | 林先生本人看代码、跑 IDE、手动发布；`git-done.ps1` 收尾时**快进同步**（见下） | **任何 agent 在此改代码 / 切分支 / 提交 / 构建** |
+| 锚点区 | 仓库根目录 | 维护者本人看代码、跑 IDE、手动发布；`git-done.ps1` 收尾时**快进同步**（见下） | **任何 agent 在此改代码 / 切分支 / 提交 / 构建** |
 | 开发区 | `.worktrees/<agent>/` | agent 的全部改动、构建、沙箱运行 | 共享 `build/` `dist/`、使用真实数据目录 |
 | 发布区 | 某个 worktree 的 `dist/` | `scripts/release.ps1` 独占出包 | 两个 agent 同时出包 |
 
 > **锚点快进例外**：`scripts/git-done.ps1` 在合并推送成功后，会对锚点区执行一次
-> `git merge --ff-only origin/main`，让林先生回到根目录就能看到最新代码。该动作只允许
+> `git merge --ff-only origin/main`，让维护者回到根目录就能看到最新代码。该动作只允许
 > **快进**：锚点检出非 `main`、有本地提交、有 `progress.json` 之外的未提交改动时一律跳过；
 > `progress.json` 是应用自动写回的快照，允许临时 `git stash` 后还原。除此之外 agent 仍不得动锚点区。
 > 不需要时可加 `-SkipAnchorSync`。

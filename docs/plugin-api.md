@@ -487,7 +487,7 @@ pluginMarket.refresh()            // 拉取索引（失败降级到缓存）
 
 | 写法 | 例子 | 展开成 |
 | --- | --- | --- |
-| 仓库简写 | `lin-schenglin/neonboard-market` | `https://gitee.com/<owner>/<repo>/raw/main/market.json` → `https://raw.githubusercontent.com/<owner>/<repo>/main/market.json`（前者失败才用后者） |
+| 仓库简写 | `owner/neonboard-market` | `https://gitee.com/<owner>/<repo>/raw/main/market.json` → `https://raw.githubusercontent.com/<owner>/<repo>/main/market.json`（前者失败才用后者） |
 | 完整地址 | `https://host/path/market.json` | 原样使用 |
 | 本地目录 / 文件 | `D:\market`、`file:///D:/market` | 读 `<目录>/market.json` |
 

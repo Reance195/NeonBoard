@@ -37,7 +37,7 @@
 
 .EXAMPLE
     pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
-        -OutputDir D:\market -DownloadBase https://gitee.com/lin/neonboard-market/raw/main
+        -OutputDir D:\market -DownloadBase https://gitee.com/<owner>/<repo>/raw/main
 #>
 [CmdletBinding()]
 param(

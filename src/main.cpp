@@ -49,6 +49,7 @@
 #include <QMessageBox>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QStringList>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QScreen>
@@ -310,6 +311,15 @@ int main(int argc, char *argv[])
     BoardColumns boardColumns(&database, &taskStore);
     boardColumns.setTaskTree(&taskTree);
     boardColumns.reload();
+    // 列是库里读出来的：启动时把实际列数与列 id 打进日志，
+    // 「界面上一列都没有」这类问题（列表异常 / 迁移漏了）能直接从日志定位。
+    QStringList boardColumnIds;
+    for (int i = 0; i < boardColumns.count(); ++i) {
+        boardColumnIds.append(boardColumns.index(i, 0)
+                                  .data(BoardColumns::IdRole).toString());
+    }
+    qInfo().noquote() << "BOARD columns" << boardColumnIds.size()
+                      << boardColumnIds.join(QLatin1Char(','));
 
     // 钩子事件投递：--emit-hook <text> / --emit-hook-file <path>
     // 只把提交信息写进事件队列，不在这里执行规则 —— 规则由主进程里的插件执行。

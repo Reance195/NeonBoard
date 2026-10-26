@@ -389,9 +389,12 @@ QString TaskModel::addTask(const QString &title, const QString &status, int prio
     if (cleanTitle.isEmpty())
         return {};
 
-    // 列优先：给了有效列就以列为准（状态由列推导），否则按状态落默认列
-    QString cleanColumn = m_database->columnStatus(columnId);
-    QString cleanStatus = cleanColumn.isEmpty() ? status : cleanColumn;
+    // 列优先：给了有效列就以列为准（状态由列推导），否则按状态落默认列。
+    // 注意 columnStatus() 返回的是列的「状态」（todo/doing/done），不是列 id ——
+    // 拿它当列 id 写库会让 column_id 变成 'doing'，卡片从所有列里消失。
+    const QString requestedStatus = m_database->columnStatus(columnId);
+    QString cleanColumn = requestedStatus.isEmpty() ? QString() : columnId;
+    QString cleanStatus = requestedStatus.isEmpty() ? status : requestedStatus;
     if (cleanStatus != QLatin1String("todo")
         && cleanStatus != QLatin1String("doing")
         && cleanStatus != QLatin1String("done")) {

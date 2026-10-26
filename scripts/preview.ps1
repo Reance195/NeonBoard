@@ -1,4 +1,4 @@
-<#
+﻿<#
     NeonBoard 预览中心（命令行版）
 
     与应用内「预览中心」面板同一套后端：都走 NeonBoard.exe --preview-*，

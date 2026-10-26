@@ -1,4 +1,4 @@
-# format.ps1 —— 用 clang-format 就地格式化源码
+﻿# format.ps1 —— 用 clang-format 就地格式化源码
 #
 # 默认只格式化「本次改动涉及」的 C++ 文件（与 check-format.ps1 的棘轮策略配套）；
 # -All 则格式化 src/ 与 tests/ 下全部 C++ 文件（一次性整改用，会产生大 diff）。

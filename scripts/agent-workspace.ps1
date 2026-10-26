@@ -1,4 +1,4 @@
-<#
+﻿<#
     NeonBoard 多代理工作区占用登记
 
     共享状态放在 git common dir（所有 worktree 共享同一份），文件 agent-workspace.json。

@@ -36,6 +36,12 @@ jobs:
           # 看板状态派生器要读完整提交历史（状态来自 #短号 标记），不能只取最近一次提交
           fetch-depth: 0
 
+      - name: 安装仓库钩子（core.hooksPath）
+        # 该配置是仓库级的、不随 clone 传递：不装则分支保护 / 提交格式 / 任务闸门全部静默失效。
+        # 幂等，本地由 scripts/agent-init.ps1 与 scripts/build.ps1 一并带上。
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/setup-git-hooks.ps1
+
       - name: 代码格式检查（clang-format，棘轮：只查本次改动的 C++ 文件）
         # 先作为信号运行（非阻塞）：现存历史文件未做一次性重排，
         # 等格式基线稳定后把 continue-on-error 去掉即为硬门禁。

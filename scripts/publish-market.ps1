@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     把一个插件目录打成市场用的 .neon 单文件包，并写入市场索引 market.json。
 

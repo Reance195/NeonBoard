@@ -71,6 +71,7 @@ git switch -c feature/<简述>
 | `ci/` | 流水线 |
 | `style/` | 纯格式 |
 | `revert/` | 回滚 |
+| `workbuddy/` | WorkBuddy 的 Worktree Task 自动生成（不由人命名，见 7.10） |
 
 命名格式：`<前缀>/<简短的英文小写短横线描述>`，例如 `feature/task-tag-filter`。
 一次改动只对应一个分支，分支存活期间不要混入无关改动。
@@ -154,6 +155,19 @@ git branch -d feature/<简述>
 
 仓库通过 `core.hooksPath = .githooks` 启用以下钩子，条款落地情况如下：
 
+> **`core.hooksPath` 是仓库级配置，不随 clone 传递。** 新 clone 一份必须先把它装上，
+> 否则下面四道钩子全部静默失效，整份宪章退化成「写在文档里的建议」——
+> 这台机器上就踩过：`core.hooksPath` 为空却无人察觉，主分支保护形同虚设。
+>
+> ```powershell
+> pwsh -File scripts/setup-git-hooks.ps1     # 幂等，随时可重跑
+> ```
+>
+> `scripts/agent-init.ps1` 开区、`scripts/build.ps1` 构建、`.github/workflows/ci.yml`
+> 都会自动带上这一步，一般不需要手动执行；加了新机器/新 clone 也只要补一次。
+> 钩子文件必须是 **LF 行尾**（CRLF 会让 `sh` 找不到 shebang，表现为「装了但不跑」），
+> `.gitattributes` 已固定 `eol=lf`，`setup-git-hooks.ps1` 每次也会顺手体检。
+
 | 钩子 | 拦截的行为 | 绕过方式 |
 | --- | --- | --- |
 | `pre-commit` | 在 `main`/`master`/`develop` 上提交；分支名缺少规范前缀；agent 工作区改动台账 `cards`/`baseline` | `git commit --no-verify`（仅限紧急情况） |
@@ -175,6 +189,10 @@ git branch -d feature/<简述>
 - `build/`、`dist/`、`*.log`、`*.exe` 等编译产物与日志已在 `.gitignore` 中排除，不要手工 `git add -f`。
 - 密钥、令牌、本地私有配置（`.env`、`*.pem`、`*.key`）**严禁入库**。
 - 行尾统一：仓库内文本用 LF；`.ps1` / `.bat` / `.cmd` / `.iss` 在 Windows 工作区检出为 CRLF（见 `.gitattributes`）。
+- **PowerShell 脚本必须带 UTF-8 BOM**：`.ps1` 在 Windows 上检出为 CRLF，而 Windows PowerShell 5.1
+  会把**无 BOM 的 UTF-8 当 GBK 读**，中文最后一个字节会与紧随其后的引号配对、把字符串撑破，
+  表现为整份脚本「批处理式语法报错」（PowerShell 7 无此问题，但 CI 与同事机器未必是 7）。
+  新增脚本请以带 BOM 保存；缺 BOM 的老脚本一次性补上即可。
 - 临时脚本用完即删，不要留在 `scripts/` 里。
 
 ---
@@ -404,6 +422,23 @@ pwsh -File scripts/preview.ps1 -Action Stop    -Agent agent-c
 6. **多实例可区分**：窗口标题与托盘 tooltip 带 agent 标签（`NeonBoard · agent-c`）。
 7. **出包只写 `dist/packages/<agent>/`**：不覆盖锚点的 `dist/NeonBoard/`（避免锁住正在使用的安装目录）；
    多个出包任务必须串行（队列），同一 agent 已在队列中时不得重复入队。
+
+### 7.10 与 WorkBuddy 的 Worktree Task 并用
+
+WorkBuddy 客户端自带一套并行隔离：为某个任务开启 Worktree 开关后，会在
+`~/WorkBuddy/Worktrees` 下生成独立检出，并自动建分支 `workbuddy/<基础分支>-<8位哈希>`。
+
+它解决的是**文件层隔离**，本仓库这套解决的是**协作协议**（认领硬门、语义分支、运行时沙箱、
+看板状态派生），两者互补而非二选一。并用时守住三条边界：
+
+1. **不许套娃**：客户端已经给了隔离目录。`agent-init.ps1` 一旦检测到「脚本所属检出本身就是
+   linked worktree」，就自动转**原地模式**（`-InPlace`）：只补 `.sandbox` / `.agent-env.ps1` /
+   领用登记，不再往里面开一层 `.worktrees/<agent>`。确实要嵌套时用 `-ForceNested`。
+2. **分支名放行 `workbuddy/`**：该前缀由客户端生成、不可人工命名，条款 2 已把它写进白名单。
+   不放行的实际后果是 agent 被迫追加 `--no-verify`，反倒把台账防护、任务闸门一起绕穿。
+3. **回收由人拍板**：客户端一侧有数量上限提示；本仓库侧由 `agent-init.ps1` 开区时列出
+   `.worktrees/` 的数量与「多少天无提交」，超过 14 天建议回收，但**不自动删** ——
+   自动清理极易端掉一个正在跑的任务。
 
 ---
 

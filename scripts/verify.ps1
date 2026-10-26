@@ -1,4 +1,4 @@
-# verify.ps1 —— 唯一验收入口：本地和 CI 用同一把尺子
+﻿# verify.ps1 —— 唯一验收入口：本地和 CI 用同一把尺子
 #
 # 四步：编译 → 单元测试(ctest) → 数据库自检(--selftest) → 冒烟启动(--smoke)
 # 任务卡的 acceptance 就写「pwsh -File scripts/verify.ps1 全过」。

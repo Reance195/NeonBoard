@@ -262,8 +262,9 @@ int main(int argc, char **argv)
     RegisterHotKey(g_hostWindow, kHotkeyId, MOD_CONTROL | MOD_SHIFT, VK_SPACE);
     SetTimer(g_hostWindow, kIdleTimerId, kIdleCheckMs, nullptr);
 
-    QObject::connect(&instance, &SingleInstance::showRequested, qApp,
-                     []() { showBoard(); });
+    // 宿主只负责「常驻 + 唤起」，不区分动作：收到任何二次启动请求都把看板亮出来
+    QObject::connect(&instance, &SingleInstance::actionRequested, qApp,
+                     [](const QString &) { showBoard(); });
     if (QCoreApplication::arguments().contains(QStringLiteral("--open")))
         QTimer::singleShot(0, qApp, []() { showBoard(); });
     QObject::connect(qApp, &QCoreApplication::aboutToQuit, qApp, []() {

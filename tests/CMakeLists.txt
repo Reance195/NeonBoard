@@ -31,12 +31,20 @@ neonboard_add_test(tst_pluginpackage
     ${CMAKE_SOURCE_DIR}/src/PluginPackage.cpp
 )
 
-# R4-02：文件关联 / 应用标识。只验证纯逻辑与只读查询，
-# 写入注册表的动作不进测试（否则跑测试就改了开发机设置）。
+# R4-02：动作层（命令行 → 动作 → QML 调用，以及二次启动的 IPC 帧）
+neonboard_add_test(tst_appactions
+    ${CMAKE_SOURCE_DIR}/src/AppActions.cpp
+)
+
+# R4-02：文件关联 / 应用标识 / 跳转列表任务项。只验证纯逻辑与只读查询，
+# 写入注册表或系统跳转列表的动作不进测试（否则跑测试就改了开发机设置）。
 neonboard_add_test(tst_windowsintegration
     ${CMAKE_SOURCE_DIR}/src/WindowsIntegration.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppActions.cpp
 )
 if (WIN32)
     # SetCurrentProcessExplicitAppUserModelID / SHChangeNotify
     target_link_libraries(tst_windowsintegration PRIVATE Shell32)
+    # 跳转列表的 COM 入口（CoInitializeEx / CoCreateInstance / CoTaskMemAlloc）
+    target_link_libraries(tst_windowsintegration PRIVATE Ole32)
 endif()

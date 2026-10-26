@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "channel": "stable",
+  "latest": "0.1.0",
+  "publishedAt": "2026-10-26",
+  "notes": "setup-sha256: f49a4a256e92ef995983fda416ab36914956488615012fe8dec6d536c6430883\nportable-sha256: 505171248f4d5f75e9919bf0553f6bec7e9355397648b10aee13f5220c524864",
+  "htmlUrl": "https://github.com/Reance195/NeonBoard/releases/latest",
+  "artifacts": [
+    {
+      "kind": "setup",
+      "url": "https://github.com/Reance195/NeonBoard/releases/download/v0.1.0/NeonBoard-Setup-0.1.0.exe",
+      "sha256": "f49a4a256e92ef995983fda416ab36914956488615012fe8dec6d536c6430883",
+      "size": 55164740
+    },
+    {
+      "kind": "portable",
+      "url": "https://github.com/Reance195/NeonBoard/releases/download/v0.1.0/NeonBoard-0.1.0-portable.zip",
+      "sha256": "505171248f4d5f75e9919bf0553f6bec7e9355397648b10aee13f5220c524864",
+      "size": 72747139
+    }
+  ]
+}

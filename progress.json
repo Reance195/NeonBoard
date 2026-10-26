@@ -7,7 +7,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "aee6be17-c2c3-4157-88e2-b495478fd32d",
-            "note": "",
+            "note": "已完成 6 / 待做 0。① 版本号收敛单点：唯一来源是 CMakeLists 的 project(VERSION)，编译期注入 NEONBOARD_VERSION_STRING，main.cpp / HostMain.cpp / SplashWindow.cpp 改用它；installer/neonboard.iss 去掉版本字面量、缺参数即 #error；release.ps1 与 release.yml 解析 CMakeLists 后以 /DMyAppVersion 传入；release.yml 第一步新增「标签版本 == 源码版本」闸门。② 新增 --update-apply：检查→下载→校验→静默安装一次跑完（退出码 0/2、进度按 10% 打日志、总闸 10 分钟），让升级链路可无人值守复现，也便于计划内升级。③ 端到端验证抓到真 bug：onReplyFinished 把产物读进内存后直接去校验 m_pendingArtifact，但全流程没有任何一处把 payload 写盘（全文只有清单缓存与便携脚本在写文件）——v0.1.0/v0.1.1 的自动更新实际一直停在「无法读取文件」，安装环节永远走不到，界面上看还像下载失败。改 QSaveFile 原子落盘再校验；另补产物下载 60 秒无数据看门狗（本机代理下 GitHub 资产地址连上即彻底静默，界面会停在「正在下载 0%」，既不报错也不超时）。④ 发布流程硬化：v0.1.1 的最后一步「回写 update.json」被 fetch first 拒掉——打包那十几分钟里 main 已被别的自动化推进，Release 出好了但清单没回仓库，等价于「发版了没人能收到」，且失败埋在一串成功之后很容易被忽略；改成 fetch + rebase + 重试 3 次，v0.1.2 一次通过。⑤ 实测（真实产物 + 真实安装器）：v0.1.1 发布后，已装 0.1.0 的 --check-update 得 available 0.1.1；v0.1.2 发布后用 0.1.2 客户端跑 --update-apply（清单版本人为抬到 0.1.3 触发升级，产物是真实 v0.1.2 安装包，传输走本地 HTTP 以绕开本机 TLS 吊销检查故障）：落盘 55163855 字节 → SHA-256 与清单一致 → /VERYSILENT 静默安装 → 注册表 DisplayVersion 0.1.0 → 0.1.2，安装目录 exe 换成 CI 构建那份（3239424 字节 / 12:11 UTC），新 exe --check-update 自报 current 0.1.2 / uptodate。ctest 9/9、--selftest 退出 0。⑥ 未解决：默认三源串行的 6 秒单源看门狗在本机偏紧（API 单次 5-7 秒、raw.githubusercontent.com 常年只挂不答），默认源自检偶发「检查更新失败：连接超时」；根治方向是候选源并行竞速取首个成功，需单独立卡。",
             "orderKey": 1024,
             "priority": 2,
             "stage": "R5",
@@ -16,7 +16,7 @@
                 "R5"
             ],
             "title": "R5 发布 v0.1.1：版本号单源化 + 端到端升级验证",
-            "updatedAt": 1793017222
+            "updatedAt": 1793020740
         },
         {
             "code": "R0-01",
@@ -1663,6 +1663,6 @@
             "updatedAt": 1792982914
         }
     ],
-    "updated": "2026-10-26T12:20:22",
+    "updated": "2026-10-26T21:19:00",
     "version": 3
 }

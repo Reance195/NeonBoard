@@ -8,7 +8,7 @@
 #      后续可按同样方式建独立的 sqlite 临时库测试。
 #   3. 每个测试都是独立可执行文件，CTest 单独计时，失败定位到具体用例。
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Test)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Test Sql)
 
 function(neonboard_add_test target)
     qt_add_executable(${target} ${target}.cpp ${ARGN})
@@ -48,3 +48,11 @@ if (WIN32)
     # 跳转列表的 COM 入口（CoInitializeEx / CoCreateInstance / CoTaskMemAlloc）
     target_link_libraries(tst_windowsintegration PRIVATE Ole32)
 endif()
+
+# R4-03：schema 迁移（v1 老库 → v2 看板/列）。用 sqlite 临时库跑，
+# 覆盖「新库建到 v2 / 老库搬迁不丢字段 / 重开幂等 / 拒绝过高版本」四条。
+neonboard_add_test(tst_databasemigration
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+)
+target_link_libraries(tst_databasemigration PRIVATE Qt6::Sql)

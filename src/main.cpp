@@ -28,6 +28,7 @@
 #include "ReminderScheduler.h"
 #include "TrayController.h"
 #include "UiSettings.h"
+#include "UpdateManager.h"
 #include "WindowController.h"
 
 #include <QApplication>
@@ -152,7 +153,10 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--plugin-report"))
         || arguments.contains(QStringLiteral("--register-file-assoc"))
         || arguments.contains(QStringLiteral("--unregister-file-assoc"))
-        || arguments.contains(QStringLiteral("--assoc-status"));
+        || arguments.contains(QStringLiteral("--assoc-status"))
+        || arguments.contains(QStringLiteral("--check-update"))
+        || arguments.contains(QStringLiteral("--update-source"))
+        || arguments.contains(QStringLiteral("--update-sources"));
     // 冷启动请求的动作（面板开关）。二次启动走同一条分发路径，见下方 dispatch：
     // 跳转列表/托盘/命令行只是「请求已在运行的实例做某事」的不同入口，
     // 各写一套必然分叉（典型症状：托盘能开新建面板、跳转列表点了只亮窗口）。
@@ -774,6 +778,10 @@ int main(int argc, char *argv[])
     // 预览中心：发现各 agent 工作区，一键构建并启动隔离的预览实例
     PreviewHub previewHub;
     tray.setInstanceLabel(previewHub.instanceLabel());
+    // 软件更新：清单拉取 → 版本比较 → 下载校验 → 安装 / 便携版自替换
+    UpdateManager updateManager;
+    qInfo().noquote() << "Update: version" << updateManager.currentVersion()
+                      << "kind" << updateManager.installKind();
 
     // --plugin-report：输出插件平台表面清单（插件 / 命令 / 槽位 / 设置页 / 授权缺口），
     // 走 stdout JSON，方便脚本与无头环境验收。
@@ -1025,6 +1033,52 @@ int main(int argc, char *argv[])
         return 2;
     }
 
+    // ---- 软件更新（R5-01）：命令行检查与清单源配置 ----
+    // 走 utilityMode：应用正在运行时也能查，不会撞单实例锁。
+    if (arguments.contains(QStringLiteral("--update-sources"))) {
+        const QStringList sources = updateManager.updateSources();
+        for (const QString &source : sources)
+            emitCliLine(source);
+        return 0;
+    }
+
+    const int updateSourceIndex = arguments.indexOf(QStringLiteral("--update-source"));
+    if (updateSourceIndex >= 0) {
+        const QString spec = updateSourceIndex + 1 < arguments.size()
+            ? arguments.at(updateSourceIndex + 1).trimmed() : QString();
+        if (spec.isEmpty()) {
+            emitCliLine(QStringLiteral("FAIL --update-source missing url"));
+            return 2;
+        }
+        updateManager.setUpdateSource(spec);
+        qInfo().noquote() << "UPDATE-SOURCE OK" << spec;
+        emitCliLine(QStringLiteral("OK %1").arg(spec));
+        return 0;
+    }
+
+    if (arguments.contains(QStringLiteral("--check-update"))) {
+        QString checkError;
+        if (!updateManager.checkBlocking(15000, &checkError)) {
+            qWarning().noquote() << "CHECK-UPDATE FAIL" << checkError;
+            emitCliLine(QStringLiteral("FAIL %1").arg(checkError));
+            return 2;
+        }
+        emitCliLine(updateManager.updateAvailable()
+                        ? QStringLiteral("OK available %1").arg(updateManager.latestVersion())
+                        : QStringLiteral("OK uptodate %1").arg(updateManager.currentVersion()));
+        // 同步打进日志：CI 会扫日志找异常，命令行结果只进 stdout 不够追溯
+        qInfo().noquote() << "CHECK-UPDATE" << (updateManager.updateAvailable() ? "available" : "uptodate")
+                          << "current" << updateManager.currentVersion()
+                          << "latest" << updateManager.latestVersion()
+                          << "kind" << updateManager.installKind();
+        emitCliLine(QStringLiteral("current  %1").arg(updateManager.currentVersion()));
+        emitCliLine(QStringLiteral("latest   %1").arg(updateManager.latestVersion()));
+        emitCliLine(QStringLiteral("kind     %1").arg(updateManager.installKind()));
+        emitCliLine(QStringLiteral("state    %1").arg(updateManager.state()));
+        emitCliLine(QStringLiteral("notes    %1").arg(updateManager.releaseNotes()));
+        return 0;
+    }
+
     QQmlApplicationEngine engine;
     pluginRuntime.attachEngine(&engine);
     engine.rootContext()->setContextProperty(QStringLiteral("metrics"), &metrics);
@@ -1049,6 +1103,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);
 engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     engine.rootContext()->setContextProperty(QStringLiteral("previewHub"), &previewHub);
+    engine.rootContext()->setContextProperty(QStringLiteral("updateManager"), &updateManager);
     // 启动即可按里程碑过滤看板：--stage R0
     const int stageIndex = arguments.indexOf(QStringLiteral("--stage"));
     QString initialStage;
@@ -1173,6 +1228,16 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     });
     tray.updateStats(taskStore.todoCount(), taskStore.doingCount(), taskStore.doneTodayCount());
 
+    // 更新（R5-01）：发现新版本时托盘提示一次；安装动作一旦交出去
+    // （安装包进程或便携版自更新脚本），本进程必须退出，否则文件被占用、覆盖失败。
+    QObject::connect(&updateManager, &UpdateManager::updateFound, &tray,
+                     [&tray](const QString &version) {
+                         tray.showMessage(QStringLiteral("NeonBoard 有新版本"),
+                                          QStringLiteral("发现 %1，可在设置里更新").arg(version));
+                     });
+    QObject::connect(&updateManager, &UpdateManager::installLaunched, &windowController,
+                     &WindowController::quit);
+
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &windowController, [&]() {
         windowController.saveGeometry();
         hotkey.uninstall();
@@ -1205,6 +1270,10 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
         dispatch(startupAction, 300);
         qInfo() << "BOOT shown" << boot.elapsed();
     }
+
+    // 启动后的自动更新检查：延到首帧之后，且由 UpdateManager 按 20 小时节流，
+    // 不让它和启动性能抢资源（R4-08 的启动瘦身成果不能因为这功能退回去）。
+    QTimer::singleShot(8000, &app, [&updateManager]() { updateManager.startupCheck(); });
 
     const bool smoke = app.arguments().contains(QStringLiteral("--smoke"));
     if (smoke) {

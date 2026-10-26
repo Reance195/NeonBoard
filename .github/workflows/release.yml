@@ -79,6 +79,42 @@ jobs:
           & $iscc installer\neonboard.iss "/O$outDir"
           if ($LASTEXITCODE -ne 0) { throw "安装包编译失败：$LASTEXITCODE" }
 
+      - name: 解析版本号与便携包
+        shell: pwsh
+        run: |
+          # 打标签时 ref_name 就是 tag；手动触发时取输入，都没有则回落 0.1.0
+          $tag = '${{ github.event.inputs.tag }}'
+          if ([string]::IsNullOrWhiteSpace($tag)) { $tag = '${{ github.ref_name }}' }
+          $version = $tag.TrimStart('v')
+          if ([string]::IsNullOrWhiteSpace($version) -or $version -eq 'main') {
+            $version = '0.1.0'
+            $tag = "v$version"
+          }
+          $zip = Join-Path $PWD "dist\NeonBoard-$version-portable.zip"
+          # 便携版自更新靠 zip：客户端下载后解压，主程序退出时由脚本覆盖文件
+          Compress-Archive -Path (Join-Path $PWD 'dist\NeonBoard\*') -DestinationPath $zip -CompressionLevel Optimal
+          if (-not (Test-Path -LiteralPath $zip)) { throw "便携版压缩包未生成：$zip" }
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PORTABLE_ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "版本 $version / 便携包 $((Get-Item $zip).Length / 1MB) MB"
+
+      - name: 生成更新清单
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem -Path 'dist' -Filter 'NeonBoard-Setup-*.exe' | Select-Object -First 1
+          if (-not $setup) { throw '找不到安装包（NeonBoard-Setup-*.exe）' }
+          $base = "https://github.com/Reance195/NeonBoard/releases/download/$env:RELEASE_TAG"
+          pwsh -NoProfile -File scripts\build-update-manifest.ps1 `
+            -Version $env:RELEASE_VERSION `
+            -Setup $setup.FullName `
+            -Portable $env:PORTABLE_ZIP `
+            -DownloadBase $base `
+            -HtmlUrl 'https://github.com/Reance195/NeonBoard/releases/latest' `
+            -OutFile 'update.json'
+          if (-not (Test-Path -LiteralPath 'update.json')) { throw '更新清单未生成' }
+          Get-Content 'update.json'
+
       - name: 写溯源信息
         shell: pwsh
         run: |
@@ -98,7 +134,9 @@ jobs:
           name: NeonBoard-setup-${{ github.sha }}
           path: |
             dist/NeonBoard-Setup-*.exe
+            dist/NeonBoard-*-portable.zip
             dist/BUILD-INFO.txt
+            update.json
           if-no-files-found: error
           retention-days: 30
 
@@ -108,5 +146,25 @@ jobs:
         with:
           files: |
             dist/NeonBoard-Setup-*.exe
+            dist/NeonBoard-*-portable.zip
             dist/BUILD-INFO.txt
+            update.json
           generate_release_notes: true
+
+      - name: 回写更新清单到仓库
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          # 客户端默认从仓库 raw 读 update.json（Gitee 优先、GitHub 兜底），
+          # 所以清单必须回到仓库里，光挂在 Release 资产上客户端找不到。
+          # 放在发布之后：即使回写失败，Release 也已经出好了。
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          if (git diff --cached --quiet) {
+            Write-Host 'update.json 无变化，跳过提交'
+            exit 0
+          }
+          git commit -m "chore(release): 同步软件更新清单至 $env:RELEASE_VERSION"
+          git push origin "HEAD:refs/heads/main"
+          Write-Host "已回写 update.json（$env:RELEASE_VERSION）"

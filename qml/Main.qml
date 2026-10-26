@@ -297,6 +297,8 @@ ApplicationWindow {
         add("打开插件面板", "面板", "当前插件内容", function() { window.openPlugins() })
         add("打开插件库", "面板", "已装 / 可装插件", function() { window.openPluginLibrary() })
         add("打开设置面板", "面板", "热键 / 数据路径 / 开机自启", function() { window.openSettings() })
+        add("检查软件更新", "面板", "当前 " + updateManager.currentVersion + "，查看是否有新版本",
+            function() { window.openSettings(); updateManager.checkForUpdates(false) })
         add("打开外观面板", "面板", "主题预设 / 画质 / 减弱动效", function() { window.openAppearance() })
         add("重看新手引导", "帮助", "三步说明：录任务 / 拖列 / 装插件", function() { window.replayOnboarding() })
         add("切换专注模式", "视图", window.focusMode ? "结束本轮专注" : "开始 25 分钟专注", function() { window.toggleFocusMode() })

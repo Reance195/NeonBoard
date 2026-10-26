@@ -19,6 +19,7 @@
 #include <QNetworkRequest>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSaveFile>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -41,6 +42,11 @@ constexpr auto kUninstallRootUser =
 // 国内 raw.githubusercontent.com 常年只挂不答，实测会一直占着连接直到系统 TCP 超时，
 // 后面的 GitHub Releases API 兜底源就永远轮不到（v0.1.0 发布后踩的实际故障）。
 constexpr int kSourceTimeoutMs = 6000;
+// 产物下载不设总时长（几十 MB 在慢网下要几分钟），但必须有一条「多久没数据就判死」的线：
+// 实测过 GitHub 资产地址在本机代理下连上就再没动静，界面永远停在「正在下载 0%」，
+// 既没进度也没错误 —— 用户唯一能做的就是杀掉重来。60 秒没有任何字节即中止并报错。
+constexpr int kDownloadStallMs = 60000;
+// 同步下载（自检 / 命令行辅助路径）用的一次性总闸
 constexpr int kDownloadTimeoutMs = 120000;
 constexpr int kCacheTtlSeconds = 6 * 60 * 60;
 // 启动自动检查的最小间隔：开一次程序打一次网络请求没有必要，
@@ -140,6 +146,15 @@ UpdateManager::UpdateManager(QObject *parent)
     : QObject(parent)
 {
     m_network = new QNetworkAccessManager(this);
+    // 产物下载的「无数据看门狗」：每次收到字节就重新计时，超时即 abort，
+    // 由 onReplyFinished 按网络错误收尾。单发定时器复用同一个实例。
+    m_stallTimer = new QTimer(this);
+    m_stallTimer->setSingleShot(true);
+    m_stallTimer->setInterval(kDownloadStallMs);
+    connect(m_stallTimer, &QTimer::timeout, this, [this]() {
+        if (m_reply && m_reply->isRunning())
+            m_reply->abort();
+    });
     loadSettings();
     m_installKindCache = QString();
 }
@@ -497,16 +512,22 @@ void UpdateManager::startRequest(const QString &url, Purpose purpose)
     if (purpose == Purpose::Manifest) {
         // 单源看门狗：到点主动 abort，onReplyFinished 里按「网络错误」处理并换下一个候选源。
         // 没有它的话，异步检查（设置面板、启动静默检查）会一直挂在那个源上，
-        // 既拿不到失败回调，也走不到兜底源。产物下载不设这个限制 —— 几十 MB 需要时间。
+        // 既拿不到失败回调，也走不到兜底源。产物下载走另一套「无数据」看门狗（见 m_stallTimer）。
         QTimer::singleShot(kSourceTimeoutMs, reply, [reply]() {
             if (reply->isRunning())
                 reply->abort();
         });
+        m_stallTimer->stop();
+    } else {
+        m_stallTimer->start();
     }
 
     connect(reply, &QNetworkReply::downloadProgress, this,
             [this](qint64 received, qint64 total) {
-                if (m_purpose != Purpose::Artifact || total <= 0)
+                if (m_purpose != Purpose::Artifact)
+                    return;
+                m_stallTimer->start();  // 还在收数据就续命
+                if (total <= 0)
                     return;
                 setProgress(static_cast<int>(received * 100 / total));
             });
@@ -517,6 +538,7 @@ void UpdateManager::onReplyFinished(QNetworkReply *reply)
 {
     if (!reply)
         return;
+    m_stallTimer->stop();
     reply->deleteLater();
     if (m_reply == reply)
         m_reply = nullptr;
@@ -551,8 +573,13 @@ void UpdateManager::onReplyFinished(QNetworkReply *reply)
 
     // 产物下载
     if (networkError || status >= 400 || payload.isEmpty()) {
-        setStatusText(QStringLiteral("下载失败：%1").arg(
-            networkError ? reply->errorString() : QStringLiteral("服务器返回 %1").arg(status)));
+        // abort() 触发的取消要说人话：产物下载是被「无数据看门狗」掐掉的，
+        // 直甩 Operation canceled 用户只会看到一串英文
+        const QString reason = reply->error() == QNetworkReply::OperationCanceledError
+            ? QStringLiteral("下载超时（%1 秒没有收到数据）").arg(kDownloadStallMs / 1000)
+            : (networkError ? reply->errorString()
+                            : QStringLiteral("服务器返回 %1").arg(status));
+        setStatusText(QStringLiteral("下载失败：%1").arg(reason));
         setState(QStringLiteral("error"));
         emit errorOccurred(m_statusText);
         return;
@@ -561,6 +588,27 @@ void UpdateManager::onReplyFinished(QNetworkReply *reply)
     const QString dest = m_pendingArtifact;
     setState(QStringLiteral("verifying"));
     setStatusText(QStringLiteral("正在校验安装包…"));
+    // 先落盘再校验。v0.1.0/v0.1.1 这里漏了写文件这一步：下载读进内存后直接去校验一个
+    // 还不存在的路径，表现是「进度条到 100% → 无法读取文件：…」然后中止，安装永远走不到。
+    // 用 QSaveFile 写入，半截文件不会留在磁盘上被当成有效产物。
+    {
+        QSaveFile out(dest);
+        if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            const QString msg = QStringLiteral("无法写入安装包：%1").arg(out.errorString());
+            setStatusText(msg);
+            setState(QStringLiteral("error"));
+            emit errorOccurred(msg);
+            return;
+        }
+        if (out.write(payload) != payload.size() || !out.commit()) {
+            const QString msg = QStringLiteral("安装包写入不完整：%1").arg(dest);
+            setStatusText(msg);
+            setState(QStringLiteral("error"));
+            emit errorOccurred(msg);
+            return;
+        }
+    }
+
     QString verifyError;
     if (!verifyFile(dest, artifactSha256(), &verifyError)) {
         QFile::remove(dest);

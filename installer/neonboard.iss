@@ -1,5 +1,10 @@
 #define MyAppName "NeonBoard"
-#define MyAppVersion "0.1.0"
+; 版本号的唯一来源是 CMakeLists 的 project(VERSION)：构建脚本解析后以
+; /DMyAppVersion=<版本> 传入。下面的默认值只在手工编译安装包时兜底，
+; 发版请改 CMakeLists，不要只改这里（否则安装包版本与程序自报版本会分叉）。
+#ifndef MyAppVersion
+#define MyAppVersion "0.1.1"
+#endif
 #define MyAppPublisher "Lin"
 #define MyAppExeName "NeonBoard.exe"
 #define MyAppHostName "NeonBoardHost.exe"

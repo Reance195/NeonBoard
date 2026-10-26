@@ -507,7 +507,7 @@ void SplashWindow::drawHud(QPainter &painter, const QRectF &frame, qreal) const
     const qreal topLine = frame.top() + 27.0;
     painter.drawText(QPointF(frame.left() + 42.0, topLine), QStringLiteral("NB://BOOT.SEQUENCE"));
     painter.drawText(QRectF(frame.left(), topLine - 9.0, frame.width() - 42.0, 12.0),
-                     Qt::AlignRight | Qt::AlignTop, QStringLiteral("v0.1.0"));
+                     Qt::AlignRight | Qt::AlignTop, QStringLiteral("v" NEONBOARD_VERSION_STRING));
 
     painter.setPen(withAlpha(kMuted, 0.36));
     painter.drawText(QPointF(frame.left() + 42.0, frame.bottom() - 24.0),

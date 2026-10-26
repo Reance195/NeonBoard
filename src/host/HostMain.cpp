@@ -234,7 +234,7 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("NeonBoardHost"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(NEONBOARD_VERSION_STRING));
 
     SingleInstance instance(AppPaths::singleInstanceKey() + QStringLiteral("-host"));
     if (!instance.isPrimary())

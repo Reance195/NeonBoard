@@ -14,6 +14,7 @@
 | 命令面板 `Ctrl+K` | 「检查软件更新」→ 打开设置并立即查一次 |
 | 托盘 | 发现新版本时提示一次（不弹窗骚扰） |
 | `--check-update` | 命令行检查，结果同时进 stdout 与日志 |
+| `--update-apply` | 命令行把「检查 → 下载 → 校验 → 静默安装」一次跑完，无人值守升级 |
 
 检查到新版本后，界面显示版本号、发布日期、包体积与更新日志（日志超 6 行截断）。
 
@@ -101,6 +102,19 @@ portable-sha256: <64 位十六进制>
 
 ## 4. 发布
 
+**版本号只有一个来源：`CMakeLists.txt` 的 `project(NeonBoard VERSION x.y.z)`。**
+发版就改这一处，然后打同名标签：
+
+- 程序自报版本（`QCoreApplication::applicationVersion`，更新检查的比较基准）→ 编译期常量
+  `NEONBOARD_VERSION_STRING`，由 CMake 注入
+- 安装包版本（`installer/neonboard.iss` 的 `MyAppVersion`）→ `scripts/release.ps1` 与
+  `release.yml` 解析 CMakeLists 后以 `/DMyAppVersion=<版本>` 传入
+- `release.yml` 第一步就校验「标签版本 == 源码版本」，不一致直接失败
+
+历史上这五处（CMake / main.cpp / HostMain.cpp / SplashWindow.cpp / .iss）各自手写，
+漏改 `main.cpp` 的后果是程序永远自报旧版本 → 更新检查判定「已是最新」→ 用户再也收不到更新，
+而且现象极难复现，因此收敛到单点 + 构建期闸门。
+
 打 `v*` 标签触发 `.github/workflows/release.yml`，在原有安装包之外新增：
 
 1. 便携目录打 zip：`NeonBoard-<版本>-portable.zip`
@@ -136,16 +150,21 @@ pwsh -File scripts/build-update-manifest.ps1 -Version 0.2.0 `
 --update-source <url|owner/repo|本地路径>   设置清单源
 --update-sources                           列出当前源
 --check-update                             检查一次并打印结果
+--update-apply                             检查→下载→校验→静默安装，跑完即退出
 ```
 
-三者都属于 `utilityMode`：应用正在运行时也能执行，不会撞单实例锁。
+四者都属于 `utilityMode`：应用正在运行时也能执行，不会撞单实例锁。
 本地路径（存在的 `update.json`）可直接作为源，用于离线验证。
+
+`--update-apply` 的退出码：`0` 已把安装器拉起来（安装本身由 Inno Setup 的
+`/VERYSILENT /CLOSEAPPLICATIONS` 完成，进程随即退出），`0` + `OK uptodate` 表示本来就最新，
+`2` 表示检查失败 / 下载校验失败 / 10 分钟超时。它只负责「调用同一条安装路径」，不改任何安装语义。
 
 ## 6. 排障
 
 - 清单缓存：`%APPDATA%\com.lin\NeonBoard\update-cache.json`（沙箱下落在数据目录内），TTL 6 小时；
   全部候选地址都失败时用它兜底，界面会标注「离线：使用 … 缓存的更新信息」。
-- 日志关键词：`Update:`（版本与形态）、`CHECK-UPDATE`、`UPDATE-SOURCE`。
+- 日志关键词：`Update:`（版本与形态）、`CHECK-UPDATE`、`UPDATE-APPLY`、`UPDATE-SOURCE`。
 - 便携版更新的执行日志：`%TEMP%\neonboard-update.log`（脚本自己写的）。
 - 想完整走一遍流程又不想真装：把源指到本地 `update.json`，检查与下载校验都能验证；
   **别在常用目录里触发「立即更新」**，便携版会真的覆盖 exe。

@@ -46,6 +46,16 @@ $build = Join-Path $repoRoot 'build'
 $dist = Join-Path $repoRoot 'dist'
 $portable = Join-Path $dist 'NeonBoard'
 
+# 版本号唯一来源：CMakeLists 的 project(NeonBoard VERSION x.y.z)。
+# 安装包版本从这里取，不再依赖 .iss 里的手写常量 —— 两处各写一份必然漂移，
+# 表现为「程序自称 0.1.1、安装包 0.1.0」，更新检查会据此误判。
+$cmakeLists = Join-Path $repoRoot 'CMakeLists.txt'
+$versionMatch = [regex]::Match(
+    (Get-Content -LiteralPath $cmakeLists -Raw -Encoding UTF8),
+    'project\s*\(\s*NeonBoard\s+VERSION\s+([0-9][0-9A-Za-z.\-]*)')
+if (-not $versionMatch.Success) { throw "无法从 $cmakeLists 解析版本号（project(NeonBoard VERSION x.y.z)）" }
+$appVersion = $versionMatch.Groups[1].Value
+
 function Resolve-Tool {
     param(
         [string]$Name,
@@ -187,10 +197,10 @@ try {
     $setup = $null
     if (-not $SkipInstaller) {
         if (-not $iscc) { throw '找不到 ISCC（Inno Setup 编译器），可用 -SkipInstaller 跳过安装包' }
-        Write-Host '· 编译安装包 ...' -ForegroundColor Cyan
+        Write-Host "· 编译安装包（版本 $appVersion）..." -ForegroundColor Cyan
         $isccLog = Join-Path $repoRoot 'build\release-iscc.log'
         $isccExit = Invoke-NativeLogged -FilePath $iscc `
-            -Arguments @((Join-Path $repoRoot 'installer\neonboard.iss'), "/O$dist") `
+            -Arguments @((Join-Path $repoRoot 'installer\neonboard.iss'), "/O$dist", "/DMyAppVersion=$appVersion") `
             -WorkingDirectory $repoRoot -LogPath $isccLog
         if ($isccExit -ne 0) {
             Show-LogTail -LogPath $isccLog

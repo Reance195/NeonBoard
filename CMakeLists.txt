@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.21)
-project(NeonBoard VERSION 0.1.0 LANGUAGES CXX)
+project(NeonBoard VERSION 0.1.1 LANGUAGES CXX)
+
+# 版本号唯一来源就是上面这行 project(VERSION)。发版只需改这里：
+#   · 运行时版本（QCoreApplication::applicationVersion）→ 编译期常量 NEONBOARD_VERSION_STRING
+#   · 安装包版本（installer/neonboard.iss 的 MyAppVersion）→ 由 scripts/release.ps1
+#     与 release.yml 解析本文件后以 /DMyAppVersion=<版本> 传入
+# 五处手工同步（CMake / main.cpp / HostMain.cpp / SplashWindow.cpp / .iss）曾各自漂移，
+# 漏改 main.cpp 会让更新判定永远认为「已是最新」，因此收敛到单点。
+add_compile_definitions(NEONBOARD_VERSION_STRING="${PROJECT_VERSION}")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

@@ -76,7 +76,7 @@
 安装版：
 
 ```text
-dist/NeonBoard-Setup-0.1.0.exe
+dist/NeonBoard-Setup-<版本>.exe
 ```
 
 便携版：
@@ -255,6 +255,8 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
 --backup   立即把当前 board.db 备份到 backups/ 目录
 --check-update
              检查一次软件更新，打印当前版本 / 最新版本 / 安装形态 / 状态
+--update-apply
+             检查→下载→校验→静默安装一次跑完（无人值守升级，退出码 0 已启动安装 / 2 失败）
 --update-source <url|owner/repo|本地路径>
              设置更新清单源（同时写入设置，可离线复用）
 --update-sources

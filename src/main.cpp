@@ -37,6 +37,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
 #include <QFont>
@@ -109,7 +110,9 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationName(QStringLiteral("com.lin"));
     QCoreApplication::setOrganizationDomain(QStringLiteral("com.lin.neonboard"));
     QCoreApplication::setApplicationName(QStringLiteral("NeonBoard"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+    // 版本号来自 CMakeLists 的 project(VERSION)，不要在源码里写死：
+    // 更新检查用的就是这里的 applicationVersion，写死即等于「永远已是最新」
+    QCoreApplication::setApplicationVersion(QStringLiteral(NEONBOARD_VERSION_STRING));
     // 任务栏分组与通知归属：必须早于任何窗口创建（R4-02）
     WindowsIntegration::applyAppUserModelId();
     qInstallMessageHandler(neonboardLogHandler);
@@ -155,6 +158,7 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--unregister-file-assoc"))
         || arguments.contains(QStringLiteral("--assoc-status"))
         || arguments.contains(QStringLiteral("--check-update"))
+        || arguments.contains(QStringLiteral("--update-apply"))
         || arguments.contains(QStringLiteral("--update-source"))
         || arguments.contains(QStringLiteral("--update-sources"));
     // 冷启动请求的动作（面板开关）。二次启动走同一条分发路径，见下方 dispatch：
@@ -1079,6 +1083,68 @@ int main(int argc, char *argv[])
         emitCliLine(QStringLiteral("state    %1").arg(updateManager.state()));
         emitCliLine(QStringLiteral("notes    %1").arg(updateManager.releaseNotes()));
         return 0;
+    }
+
+    // ---- 软件更新（R5-03）：无人值守走完「检查 → 下载 → 校验 → 静默安装」----
+    // 静默升级是整条更新链路的最后一环。只能靠人手点设置面板验证的话，这一环就永远
+    // 停在「代码看起来对」；有了这个开关，升级链路可以脚本化跑通、也能用于计划内
+    // 批量升级（升级动作本身仍由安装包的 /VERYSILENT 完成，不改任何安装语义）。
+    if (arguments.contains(QStringLiteral("--update-apply"))) {
+        QString applyError;
+        if (!updateManager.checkBlocking(UpdateManager::kDefaultCheckTimeoutMs, &applyError)) {
+            qWarning().noquote() << "UPDATE-APPLY FAIL check" << applyError;
+            emitCliLine(QStringLiteral("FAIL check %1").arg(applyError));
+            return 2;
+        }
+        if (!updateManager.updateAvailable()) {
+            qInfo().noquote() << "UPDATE-APPLY UPTODATE" << updateManager.currentVersion();
+            emitCliLine(QStringLiteral("OK uptodate %1").arg(updateManager.currentVersion()));
+            return 0;
+        }
+
+        QEventLoop loop;
+        int exitCode = 2;
+        // 进度只按 10% 打点：几十 MB 的下载每 1% 打一行会把日志刷成噪声
+        int lastDecile = -1;
+        QObject::connect(&updateManager, &UpdateManager::progressChanged, &loop, [&]() {
+            const int decile = updateManager.progress() / 10;
+            if (decile != lastDecile) {
+                lastDecile = decile;
+                qInfo().noquote() << "UPDATE-APPLY progress" << updateManager.progress() << '%';
+            }
+        });
+        QObject::connect(&updateManager, &UpdateManager::installLaunched, &loop, [&]() {
+            // 安装包已启动（/VERYSILENT /CLOSEAPPLICATIONS，安装完成由 [Run] 段拉起宿主）。
+            // 本进程到此结束，不等待安装结束 —— 安装器会结束掉占用文件的进程。
+            qInfo().noquote() << "UPDATE-APPLY INSTALLING" << updateManager.latestVersion()
+                              << updateManager.installKind();
+            emitCliLine(QStringLiteral("OK installing %1 %2")
+                            .arg(updateManager.latestVersion(), updateManager.installKind()));
+            exitCode = 0;
+            loop.quit();
+        });
+        QObject::connect(&updateManager, &UpdateManager::errorOccurred, &loop,
+                         [&](const QString &message) {
+            qWarning().noquote() << "UPDATE-APPLY FAIL" << message;
+            emitCliLine(QStringLiteral("FAIL %1").arg(message));
+            exitCode = 2;
+            loop.quit();
+        });
+        // 总闸：下载 + 校验 10 分钟没结果就判失败退出，避免脚本调用时无限挂起。
+        // 这里不 abort 请求，让 UpdateManager 自行收尾 —— 进程马上退出，无意义。
+        QTimer::singleShot(10 * 60 * 1000, &loop, [&]() {
+            qWarning().noquote() << "UPDATE-APPLY FAIL timeout";
+            emitCliLine(QStringLiteral("FAIL timeout"));
+            exitCode = 2;
+            loop.quit();
+        });
+
+        qInfo().noquote() << "UPDATE-APPLY START" << updateManager.currentVersion() << "->"
+                          << updateManager.latestVersion() << updateManager.installKind();
+        emitCliLine(QStringLiteral("DOWNLOAD %1").arg(updateManager.latestVersion()));
+        updateManager.downloadAndInstall();
+        loop.exec();
+        return exitCode;
     }
 
     QQmlApplicationEngine engine;

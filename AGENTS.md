@@ -375,6 +375,17 @@ pwsh -File scripts/dev-run.ps1 -Wait      # 前台运行（配合 --smoke 等参
 > 沙箱应用会把沙箱看板状态写回仓库快照（已踩过：测试卡进了仓库 `progress.json`）。
 > `dev-run.ps1` 已把它固定到沙箱内，并默认关闭自动写回。
 
+**脚本读应用落盘位置只有一个入口**：PowerShell 侧点源 `scripts/nb-paths.ps1`
+（`Get-NbDataDir` / `Get-NbLogFile` / `Get-NbBoardDb`），Python 侧 `scripts/claim-card.py` 读同一组环境变量。
+**不要再在任何脚本里拼一次 `%APPDATA%\com.lin\NeonBoard`** —— 写死之后沙箱运行读不到本次日志（验收假失败），
+没设沙箱时又会去动真实实例正占用的文件（`verify.ps1` 的 `Remove-Item` 就被打断过）。
+配套两条：
+
+- `scripts/verify.ps1` 未设 `NEONBOARD_DATA_DIR` 时自开 `<BuildDir>\verify-sandbox`（设了则尊重），
+  并把缺 ctest 的情况自行点源 `dev-env.ps1` —— 「唯一验收入口」不该要求调用方先记住别的；
+- `scripts/check_script_hygiene.py` 在 CI 拦两件事：上述字面量只许出现在那两个文件，
+  `git commit --no-verify` 只许出现在快照回写那一步（§11.2 第 7 条）。散文条款靠人记一定会漂。
+
 ### 7.7 验证口径
 
 - 数据层统一用 `NeonBoard.exe --selftest` 自检（utilityMode 跳过单实例限制）。

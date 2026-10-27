@@ -184,9 +184,9 @@ if ($Card) {
         throw "领用失败：-Card 需为路线图短号（如 R3-01 / M19），收到：$Card"
     }
 
-    # 子卡领用需要读本地看板的父子边；数据目录优先沙箱变量
-    $boardDataDir = if ($env:NEONBOARD_DATA_DIR) { $env:NEONBOARD_DATA_DIR } else { Join-Path $env:APPDATA 'com.lin\NeonBoard' }
-    $boardDb = Join-Path $boardDataDir 'board.db'
+    # 子卡领用需要读本地看板的父子边；数据目录口径统一走 nb-paths.ps1
+    . (Join-Path $repoRoot 'scripts\nb-paths.ps1')
+    $boardDb = Get-NbBoardDb
 
     Write-Host ("· 领用 {0}：登记 ↔ 看板卡转「进行中」" -f $code) -ForegroundColor Cyan
     Push-Location $worktree

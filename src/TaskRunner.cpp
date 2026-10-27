@@ -9,17 +9,46 @@
 #include <QDir>
 #include <QFile>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QTimer>
 #include <utility>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 namespace {
 
-constexpr int kHeartbeatMs = 5000; // 心跳间隔，远小于孤儿判定 90 秒
-constexpr int kGraceMs = 5000;     // terminate 后等待其自行退出的宽限期
+constexpr int kHeartbeatMs = 10000; // 心跳间隔（卡片要求 10 秒），远小于孤儿判定 90 秒
+constexpr int kGraceMs = 5000;      // terminate 后等待其自行退出的宽限期
 
 QVariantMap profileEnv(const QVariantMap &profile)
 {
     return profile.value(QStringLiteral("env")).toMap();
+}
+
+// 常见凭据形态：key=value 里的敏感键、Bearer / sk- 前缀令牌、独立的长十六进制串。
+// 宁可多脱一点也不能让凭据落进日志——诊断时看占位符就够判断是哪一类了。
+const QRegularExpression &credentialPattern()
+{
+    static const QRegularExpression re(
+        QStringLiteral(R"((?:api[_-]?key|token|secret|passwd|password|authorization|bearer)(\s*[=:]\s*)(\S+))"),
+        QRegularExpression::CaseInsensitiveOption);
+    return re;
+}
+
+const QRegularExpression &prefixedTokenPattern()
+{
+    static const QRegularExpression re(
+        QStringLiteral(R"(\b(?:sk-|ghp_|gho_|xox[baprs]-)[A-Za-z0-9_\-]{12,})"));
+    return re;
+}
+
+const QRegularExpression &longHexPattern()
+{
+    static const QRegularExpression re(QStringLiteral(R"(\b[0-9a-f]{32,}\b)"),
+                                       QRegularExpression::CaseInsensitiveOption);
+    return re;
 }
 
 } // namespace
@@ -38,8 +67,9 @@ TaskRunner::~TaskRunner()
     for (Process *p : std::as_const(m_processes)) {
         if (p->proc && p->proc->state() != QProcess::NotRunning) {
             p->proc->disconnect(this);
-            p->proc->kill();
+            killTree(*p); // 连同子孙进程一起回收，别留后台残留
         }
+        closeJob(*p);
     }
     qDeleteAll(m_processes);
     m_processes.clear();
@@ -188,7 +218,7 @@ bool TaskRunner::setupProcess(Process &p, const QString &cwd, const QStringList 
             p.proc->terminate();
         QTimer::singleShot(kGraceMs, this, [this, &p]() {
             if (p.proc && p.proc->state() != QProcess::NotRunning) {
-                p.proc->kill();
+                killTree(p);
                 if (p.ending.isEmpty())
                     p.ending = QStringLiteral("timeout");
             }
@@ -202,17 +232,29 @@ bool TaskRunner::setupProcess(Process &p, const QString &cwd, const QStringList 
         p.heartbeat->stop();
         return false;
     }
+    attachJob(p);
     p.heartbeat->start();
     p.deadline->start();
     return true;
+}
+
+QString TaskRunner::desensitize(const QString &text)
+{
+    QString out = text;
+    out.replace(credentialPattern(), QStringLiteral("\\1[已脱敏]"));
+    out.replace(prefixedTokenPattern(), QStringLiteral("[已脱敏]"));
+    out.replace(longHexPattern(), QStringLiteral("[已脱敏]"));
+    return out;
 }
 
 void TaskRunner::accumulate(Process &p, const QByteArray &chunk)
 {
     if (chunk.isEmpty())
         return;
-    p.log.append(chunk);
-    emit logAppended(p.runId, QString::fromUtf8(chunk));
+    // 脱敏后再入库/上屏：凭据绝不能跟着 runs/<id>.log 留在磁盘上。
+    const QString text = desensitize(QString::fromUtf8(chunk));
+    p.log.append(text.toUtf8());
+    emit logAppended(p.runId, text);
 }
 
 void TaskRunner::onProcessFinished(Process &p, int exitCode)
@@ -259,13 +301,63 @@ void TaskRunner::settle(Process &p, const QString &status, const QVariantMap &de
     bump();
 }
 
+void TaskRunner::attachJob(Process &p)
+{
+#ifdef Q_OS_WIN
+    if (!p.proc)
+        return;
+    HANDLE job = CreateJobObjectW(nullptr, nullptr);
+    if (!job)
+        return;
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof(limits));
+
+    // QProcess 给的是进程 pid；用 OpenProcess 拿句柄再挂进作业对象
+    HANDLE h = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, FALSE,
+                           static_cast<DWORD>(p.proc->processId()));
+    if (!h || !AssignProcessToJobObject(job, h)) {
+        if (h)
+            CloseHandle(h);
+        CloseHandle(job);
+        return;
+    }
+    CloseHandle(h);
+    p.job = job;
+#else
+    Q_UNUSED(p);
+#endif
+}
+
+void TaskRunner::killTree(Process &p)
+{
+#ifdef Q_OS_WIN
+    if (p.job) {
+        TerminateJobObject(static_cast<HANDLE>(p.job), 1);
+        return;
+    }
+#endif
+    if (p.proc)
+        p.proc->kill();
+}
+
+void TaskRunner::closeJob(Process &p)
+{
+#ifdef Q_OS_WIN
+    if (p.job) {
+        CloseHandle(static_cast<HANDLE>(p.job));
+        p.job = nullptr;
+    }
+#endif
+}
+
 bool TaskRunner::stop(const QString &runId)
 {
     Process *p = byRunId(runId);
     if (!p || !p->proc || p->proc->state() == QProcess::NotRunning)
         return false;
     p->ending = QStringLiteral("cancelled");
-    p->proc->kill();
+    killTree(*p);
     return true;
 }
 
@@ -295,6 +387,7 @@ void TaskRunner::cleanup(Process &p)
         p.heartbeat->stop();
         p.heartbeat->deleteLater();
     }
+    closeJob(p);
     if (p.proc) {
         p.proc->disconnect(this);
         p.proc->deleteLater();

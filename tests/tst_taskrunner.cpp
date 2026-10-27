@@ -45,6 +45,7 @@ private slots:
     void rejectsBusyTask();
     void nonzeroExitsBlocked();
     void manualStopCancels();
+    void redactsCredentialsInLog();
 
 private:
     QTemporaryDir m_dir;
@@ -186,6 +187,33 @@ void TestTaskRunner::manualStopCancels()
     QVERIFY2(finished.wait(15000), "终止未完成");
     QCOMPARE(m_store->run(runId).value(QStringLiteral("status")).toString(),
              QStringLiteral("cancelled"));
+}
+
+void TestTaskRunner::redactsCredentialsInLog()
+{
+    // 打印一行假凭据：api_key / sk- 前缀令牌 / 长十六进制串都必须落成占位符
+    QSignalSpy finished(m_runner, &TaskRunner::runFinished);
+    const QVariantMap r = m_runner->startRaw(
+        QStringLiteral("task-secret"), kCmd,
+        {QStringLiteral("/c"), QStringLiteral("echo"),
+         QStringLiteral("api_key=SECRET123 sk-abcdefghijklmnop 0123456789abcdef0123456789abcdef")},
+        m_dir.path(), 60);
+    QVERIFY2(r.value(QStringLiteral("ok")).toBool(),
+             qPrintable(r.value(QStringLiteral("message")).toString()));
+    QVERIFY2(finished.wait(15000), "命令未结束");
+
+    const QString runId = r.value(QStringLiteral("runId")).toString();
+    const QString logPath = m_store->run(runId).value(QStringLiteral("logPath")).toString();
+    QVERIFY(!logPath.isEmpty());
+    QFile f(logPath);
+    QVERIFY2(f.open(QIODevice::ReadOnly), qPrintable(logPath));
+    const QString content = QString::fromUtf8(f.readAll());
+
+    QVERIFY2(!content.contains(QStringLiteral("SECRET123")), "api_key 明文泄漏");
+    QVERIFY2(!content.contains(QStringLiteral("sk-abcdefghijklmnop")), "sk- 令牌明文泄漏");
+    QVERIFY2(!content.contains(QStringLiteral("0123456789abcdef0123456789abcdef")),
+             "十六进制串泄漏");
+    QVERIFY2(content.contains(QStringLiteral("[已脱敏]")), "未写入脱敏占位符");
 }
 
 QTEST_GUILESS_MAIN(TestTaskRunner)

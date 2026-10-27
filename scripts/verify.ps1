@@ -69,7 +69,10 @@ if ($proc.ExitCode -ne 0) { Fail "--selftest 失败（退出码 $($proc.ExitCode
 
 # ---------- 4. 冒烟启动 ----------
 Step '冒烟启动（--smoke，45 秒上限）'
-$log = Join-Path $env:APPDATA 'com.lin\NeonBoard\neonboard.log'
+# 日志跟着数据目录走（AppPaths::logPath = dataDir()/neonboard.log）：写死 %APPDATA%
+# 时，沙箱运行读不到本次日志，而未沙箱又会去删真实实例正占用的日志，Remove-Item 直接失败。
+$dataDir = if ($env:NEONBOARD_DATA_DIR) { $env:NEONBOARD_DATA_DIR } else { Join-Path $env:APPDATA 'com.lin\NeonBoard' }
+$log = Join-Path $dataDir 'neonboard.log'
 if (Test-Path $log) { Remove-Item $log -Force }
 $proc = Start-Process -FilePath $exe -ArgumentList '--smoke' -PassThru
 $deadline = (Get-Date).AddSeconds(45)

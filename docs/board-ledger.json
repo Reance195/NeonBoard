@@ -107,6 +107,28 @@
             "stage": "DX",
             "title": "DX 测试可启动性：ctest 自带 Qt DLL 路径，避免硬错误弹窗挂死"
         },
+        "DX-03": {
+            "acceptance": [
+                "两卡一分支的完整路径能走通：领用 → 提交 → git-done → push，全程无手工 git push origin sha:refs/claims/*",
+                "check_claim_refs 与 task_gate push 对同一场景给出一致结论（不再出现「分支闸门通过、push 被拦」或反之）",
+                "领用与实现的方向可校验：能识别「领用提交晚于实现提交」并给出提示（至少告警）",
+                "AGENTS.md §7.2 补「一分支多卡」的规则条款，说明唯一事实源与双领防护如何保持",
+                "ctest 13/13 与 CI 全绿"
+            ],
+            "id": "ad91032e-f7aa-411b-92e2-5c1c8d113808",
+            "note": "起因（2026-10-28 合并 DX-01/DX-02 时的真实经过）：两条规则互相打架 —— git-done 的领用闸门要求「一个分支只能领一张卡」（check_claim_refs 发现多个领用短号即失败），而 task_gate push 规则是逐提交校验 refs/claims/<卡号>。结果：一条分支装两张卡时，第二张卡在分支上无处领用；本次只能把 DX-02 的占位建在一次性分支上、推完再释放，属于绕行而非正解。同一根因还导致领用提交被迫排在实现提交之后（方向倒置：先写代码后领用），两道闸门都查不出这种倒置。目标二选一：A) claims 列表化 —— 一个分支可登记多张卡，闸门按「分支 ∪ 提交」校验且仍能防双领（改动面小：check_claim_refs 去掉唯一限制 + claims 改成列表 + agent-init 支持多次领用）；B) 新增 scripts/split-card.ps1 —— 把既有分支按卡号拆成单卡分支（重建该卡的提交与台账差异并补领用），更贴合「一卡一分支」原意但要处理台账冲突。不论选哪条，都要能回答「一分支多卡是否合法」这一个问题，而不是靠绕。",
+            "scope": [
+                "scripts/check_claim_refs.py",
+                "scripts/task_gate.py",
+                "scripts/git-done.ps1",
+                "scripts/claim-card.py",
+                "scripts/agent-init.ps1",
+                "AGENTS.md",
+                "docs/board-ledger.json"
+            ],
+            "stage": "DX",
+            "title": "DX 一分支多卡：领用占位列表化，或提供从既有分支拆卡的脚本"
+        },
         "M01": {
             "id": "9bddece6-d4f8-4963-990e-b9d27a06d7c1",
             "stage": "R3",

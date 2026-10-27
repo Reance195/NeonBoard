@@ -129,6 +129,47 @@
             "stage": "DX",
             "title": "DX 一分支多卡：领用占位列表化，或提供从既有分支拆卡的脚本"
         },
+        "DX-04": {
+            "acceptance": [
+                "阶段条渲染路线图 §9 的全部阶段（当前 R0–R7 + DX），顺序与 §9 行序一致；给 §9 加一行，阶段条自动多一个 chip，不改 QML",
+                "台账里有卡的阶段一定在阶段条上可见（R4/R5/R6 这类不再消失）",
+                "不在路线图里的阶段标签（如临时 tag）落到「其他」，且「其他」计数 = 全部任务数 − 已显示各阶段之和（可对账，不再静默吞）",
+                "单测覆盖：构造含 R0/R6/DX/无标签的模型，断言 stageStats 的每个 key 要么出现在阶段条数据里、要么被计入「其他」",
+                "ctest 13/13 与 CI 全绿"
+            ],
+            "id": "adc1c767-f2b1-4d80-b6e4-b185602ace36",
+            "note": "现象（2026-10-28 实测）：看板阶段条只显示「全部 / R0 / R1 / R2 / R3 / 其他」，但 board.db 里实际存在 R4 14 张、R5 5 张（4 done + 1 todo）、R6 9 张（3 done + 6 todo）。因为这些阶段既不在 buildStageList 的 order 数组里、也不计入 OTHER（OTHER 只统计 stageOf 归不了 R\\d+ 的卡），R4/R5/R6 共 28 张卡在界面上完全不可见 —— R6 还有 6 张待办、R5 还有 1 张待办，等于未完成的工作在进度条上凭空消失。根因与全景面板 DX-01 修掉的是同一个：qml/Main.qml 的 buildStageList 把阶段集合写死成 ['R0','R1','R2','R3','OTHER']，而 src/TaskModel.cpp 的 stageOf 只认 ^R\\d+$（DX 这类非 R 阶段一律落 OTHER）。目标：阶段集合与顺序改为取自路线图 §9（ProjectMap 已能解析，可直接复用），stageOf 宽容识别任意短号前缀；「其他」改为兜底桶且保证可对账。（备注：先前口头说的「其他 39/33」是我看错了截图，实际是 33/33，不存在 done>total；真问题是 R4/R5/R6 被吞。）",
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/StageBar.qml",
+                "src/TaskModel.cpp",
+                "src/TaskModel.h",
+                "src/ProjectMap.h",
+                "tests/tst_boardcolumns.cpp"
+            ],
+            "stage": "DX",
+            "title": "DX 阶段条数据驱动：R4/R5/R6 的卡目前在界面上完全不可见"
+        },
+        "DX-05": {
+            "acceptance": [
+                "在锚点区（gitDir == commonDir）传 -InPlace 时 agent-init 直接报错并提示改用 .worktrees/<agent>；确需在锚点动手须显式 -ForceAnchor",
+                "agent-init 自动登记工作区占用（锚点区 Claim -Scope root / worktree 按名登记），git-done 收尾自动 Release，不留僵尸占用",
+                "检出里存在他人 in-place 环境（.agent-env.ps1 的 NEONBOARD_AGENT_ID ≠ 当前 agent）时，agent-init 与 git-done 都要告警或拒绝",
+                "AGENTS.md §7.2 补两条：-InPlace 的合法前提（已是隔离检出）、锚点区不是开发区",
+                "可复现验收：两个 shell 同时按文档操作，各自拿到独立 worktree 与独立 .sandbox，互不干扰；并有自动化脚本断言隔离成立"
+            ],
+            "id": "345b40c4-13dc-4efe-bcd6-b4108c96c52a",
+            "note": "现象（2026-10-28 02:xx 实测）：两个会话（agent-map2 与 lead）同时把仓库根目录当开发区 —— `git worktree list` 只有锚点区一条、`.worktrees/` 不存在；锚点区里躺着 `.sandbox/` 和 `.agent-env.ps1`（内容写着 NEONBOARD_AGENT_ID=agent-map2）；HEAD 被对方切到 feature/r6-04-taskrunner，我上一轮刚挪回 main 随即被覆盖；git-done 因「工作区有未提交改动」拒绝了合并且未说明是别人的在制品。根因不是机制缺失：agent-init 的 else 分支本来就会 `git worktree add .worktrees/<agent>`，但 `-InPlace` 分支本意只用于「已是隔离检出」，在锚点区传它等于把共享检出当自己的开发区，脚本不拦；配套的 agent-workspace.ps1 的 root 占用登记是自愿的（Status 显示 root 空闲，两边都没做）；task_gate 在非 .worktrees 检出还直接放行台账校验，越乱越松。两种隔离要分清：worktree 隔离文件与 HEAD，.sandbox 隔离运行时数据（DB/日志/hooks），本次两者都没生效。目标：把「绕过」变成「不可能」—— 硬门 + 自动占用 + 他人在制品告警，三道一起。",
+            "scope": [
+                "scripts/agent-init.ps1",
+                "scripts/agent-workspace.ps1",
+                "scripts/git-done.ps1",
+                "AGENTS.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "DX",
+            "title": "DX 会话隔离硬门：锚点区禁止 -InPlace，占用登记改为自动"
+        },
         "M01": {
             "id": "9bddece6-d4f8-4963-990e-b9d27a06d7c1",
             "stage": "R3",

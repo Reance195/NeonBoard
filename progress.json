@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R6-08",
-            "completedAt": 0,
-            "createdAt": 1793085737,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "e2ef6d16-e853-4a26-b3a8-b7e5f70bcebb",
-            "note": "起因：agent 首轮失败很常见，重跑时把失败上下文带上才可能自愈。目标：maxAttempts 生效（上限 5、默认 1），失败且未到上限时把 last_error 末尾 200 行注入下一轮 prompt，新建 run 并 attempt+1，每轮日志独立；人取消后不再自动重试，轮数耗尽终态 blocked 并提示人工介入。",
-            "orderKey": 8192,
-            "priority": 2,
-            "stage": "R6",
-            "status": "todo",
-            "tags": [
-                "R6"
-            ],
-            "title": "R6 Loop：失败摘要回灌与有限重试",
-            "updatedAt": 1793085737
-        },
-        {
             "code": "R6-09",
             "completedAt": 0,
             "createdAt": 1793085737,
@@ -730,6 +712,24 @@
             ],
             "title": "R0 启动瘦身：重型面板按需加载",
             "updatedAt": 1792577522
+        },
+        {
+            "code": "R6-08",
+            "completedAt": 1793134908,
+            "createdAt": 1793085737,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "e2ef6d16-e853-4a26-b3a8-b7e5f70bcebb",
+            "note": "起因：agent 首轮失败很常见，重跑时把失败上下文带上才可能自愈。目标：maxAttempts 生效（上限 5、默认 1），失败且未到上限时把 last_error 末尾 200 行注入下一轮 prompt，新建 run 并 attempt+1，每轮日志独立；人取消后不再自动重试，轮数耗尽终态 blocked 并提示人工介入。",
+            "orderKey": 8192,
+            "priority": 2,
+            "stage": "R6",
+            "status": "done",
+            "tags": [
+                "R6"
+            ],
+            "title": "R6 Loop：失败摘要回灌与有限重试",
+            "updatedAt": 1793134908
         },
         {
             "code": "R2-02",
@@ -2077,6 +2077,6 @@
             "updatedAt": 1793123355
         }
     ],
-    "updated": "2026-10-27T20:51:08",
+    "updated": "2026-10-27T21:01:48",
     "version": 3
 }

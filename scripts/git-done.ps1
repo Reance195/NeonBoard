@@ -36,29 +36,38 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-function Invoke-Git {
-    $output = & git @args 2>&1
-    $code = $LASTEXITCODE
-    if ($code -ne 0) {
-        throw ("git {0} 执行失败（{1}）：`n{2}" -f ($args -join ' '), $code, ($output -join "`n"))
-    }
-    return $output
-}
-
-# 原生命令（git status/merge/stash）的 stderr 不能打断流程：MSBuild 之外，
-# git 也会往 stderr 写进度（宪章 7.3）。统一走这里，用退出码判定成功与否。
-function Invoke-GitQuiet {
-    param([string[]]$GitArgs)
+# 宪章 §7.3：原生命令会往 stderr 写进度（git 的 "Switched to a new branch"、worktree/branch
+# 的删除提示、fetch 的计数），在 $ErrorActionPreference='Stop' 下 `2>&1` 会把这些行升级成
+# 终止性错误 —— 命令其实成功了也能把脚本拦腰打断（本次就卡在「创建临时分支」那一步，
+# 之后清理分支 / 回收 worktree 的几处同样危险）。原生命令一律走这里：stderr 只作记录，
+# 成功与否只看退出码。
+function Invoke-Cmd {
+    param([string]$File, [string[]]$CmdArgs)
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $out = & git @GitArgs 2>&1
+        $out = & $File @CmdArgs 2>&1
         $code = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $prev
     }
-    return [pscustomobject]@{ Code = $code; Output = @($out) }
+    [pscustomobject]@{ Code = $code; Output = @($out | ForEach-Object { "$_" }) }
 }
+
+# 失败即抛（调用方需要读到输出时用）
+# 注意：这里必须按名传参，`Invoke-Cmd 'git' @args` 只把第一个元素绑给 $CmdArgs，
+# 其余参数会被丢掉（git 收到裸命令名，退出码 129）。
+function Invoke-Git {
+    $r = Invoke-Cmd -File 'git' -CmdArgs @($args)
+    if ($r.Code -ne 0) {
+        throw ("git {0} 执行失败（{1}）：`n{2}" -f ($args -join ' '), $r.Code, ($r.Output -join "`n"))
+    }
+    if ($r.Output.Count -eq 1) { return $r.Output[0] }
+    return $r.Output
+}
+
+# 失败不抛，由调用方按 Code 自行处置（探测类命令用这里）
+function Invoke-GitQuiet { param([string[]]$GitArgs) return Invoke-Cmd -File 'git' -CmdArgs $GitArgs }
 
 # 主 worktree（锚点区）永远是 `git worktree list --porcelain` 的第一块。
 function Get-AnchorWorktree {
@@ -313,7 +322,14 @@ if ($Mode -eq 'remote') {
             Write-Host '· 警告：-SkipClaimCheck 已废弃，本次仍按实际改动校验 claim ref' -ForegroundColor Yellow
         }
         Write-Host '· 领用闸门：校验服务端 claim ref ...' -ForegroundColor DarkGray
-        & git fetch origin '+refs/claims/*:refs/claims/*' 2>&1 | Out-Null
+        # git fetch 的进度全在 stderr，且离线时必须 fail-closed（宪章 §7.2.1）——
+        # 原先 `2>&1 | Out-Null` 既会被 Stop 打断，又把失败吞成「继续往下跑」。
+        $claimFetch = Invoke-GitQuiet @('fetch', 'origin', '+refs/claims/*:refs/claims/*')
+        if ($claimFetch.Code -ne 0) {
+            Write-Host "`n✗ 领用闸门未通过：拉取服务端 refs/claims/* 失败（退出码 $($claimFetch.Code)），需要联网。" -ForegroundColor Red
+            $claimFetch.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+            exit 1
+        }
         & python (Join-Path $repoRoot 'scripts\check_claim_refs.py') --base "origin/$MainBranch" --head $Branch
         if ($LASTEXITCODE -ne 0) {
             Write-Host "`n✗ 领用闸门未通过：分支缺少服务端 claim ref 占位。" -ForegroundColor Red
@@ -384,24 +400,24 @@ if ($Mode -eq 'remote') {
             Write-Host "· 目标 worktree 就是当前目录，跳过回收（请在其它目录执行 git worktree remove）" -ForegroundColor Yellow
         } elseif (Test-Path -LiteralPath $abs) {
             Write-Host ("· 回收 worktree {0}" -f $abs) -ForegroundColor DarkGray
-            & git worktree remove $abs 2>&1 | Out-Null
-            if ($LASTEXITCODE -ne 0) {
-                & git worktree remove --force $abs 2>&1 | Out-Null
+            if ((Invoke-GitQuiet @('worktree', 'remove', $abs)).Code -ne 0) {
+                Invoke-GitQuiet @('worktree', 'remove', '--force', $abs) | Out-Null
             }
         }
     }
 
     if (-not $KeepBranch) {
         Write-Host ("· 删除分支 {0}" -f $Branch) -ForegroundColor DarkGray
-        & git branch -d $Branch 2>&1 | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
-        if ($LASTEXITCODE -ne 0) {
+        $delRes = Invoke-GitQuiet @('branch', '-d', $Branch)
+        $delRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+        if ($delRes.Code -ne 0) {
             Write-Host "   （分支可能仍被某个 worktree 占用，先 git worktree remove 再删）" -ForegroundColor DarkGray
         }
     }
 
     # 解除临时分支占用后一并删除，工作区停在分离 HEAD 上，不留悬挂分支
-    & git switch --detach 2>&1 | Out-Null
-    & git branch -d $tmp 2>&1 | Out-Null
+    Invoke-GitQuiet @('switch', '--detach') | Out-Null
+    Invoke-GitQuiet @('branch', '-d', $tmp) | Out-Null
     Write-Host "`n✓ 合并完成：$Branch → origin/$MainBranch" -ForegroundColor Green
     Write-Host "   查看历史：git log --oneline --graph -10" -ForegroundColor DarkGray
     exit 0

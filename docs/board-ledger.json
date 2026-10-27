@@ -73,6 +73,40 @@
         "R7-06": "todo"
     },
     "cards": {
+        "DX-01": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R \"tst_projectmap|tst_appactions\" --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "build/Release/NeonBoard.exe --map 退出时 neonboard.log 无 QML 告警"
+            ],
+            "id": "56336b95-b51d-41db-bd24-70086e43945c",
+            "note": "起因：面板里的里程碑主题与开发链路是 QML 手写常量，仓库改了面板不跟，等于挂着一张会撒谎的地图。目标：里程碑解析 iteration-roadmap.md §9 表格（行序即顺序，主题/目标/出口/宣称全部取自表格，加一行 R8/DX 面板自动多一行）；卡片状态按 git #短号=done ∪ 台账 baseline 派生（标记制度 R4 才有，只看 git 会把 R0 读成 0/10）；链路改为 docs/project-map.json 声明 + 逐条 evidence 存在性实证，缺文件即断链；骨架扫真实目录（文件数/行数/最近提交）；新增体检页签把「宣称 vs 派生」「台账 vs 路线图」「证据缺失」四类不一致分级暴露。派生在后台线程跑（3 次 git 合并 + 约 180 个文件扫描，0.3–0.9 s），文件改动 0.7 s 防抖自动重算；新增 --map 诊断入口与 tst_projectmap 护栏。",
+            "scope": [
+                "src/ProjectMap.*",
+                "src/AppActions.*",
+                "qml/components/ProjectMapPanel.qml",
+                "qml/Main.qml",
+                "docs/project-map.json",
+                "docs/iteration-roadmap.md",
+                "tests/tst_projectmap.cpp"
+            ],
+            "stage": "DX",
+            "title": "DX 项目全景面板：四层事实源实时派生（路线图 / 台账 / git / 文件系统对账）"
+        },
+        "DX-02": {
+            "acceptance": [
+                "PATH 不含 C:/Qt/*/bin 时 ctest 仍 13/13 通过（关键：这正是原先挂死的场景）",
+                "跑完复查无「系统错误」弹窗残留",
+                "build/tests/CTestTestfile.cmake 里每个测试都带 ENVIRONMENT_MODIFICATION PATH=path_list_prepend:<Qt bin>"
+            ],
+            "id": "e51b1418-7d7b-47d1-a0d5-a3a242396b0e",
+            "note": "起因：在没把 Qt bin 加进 PATH 的终端里直接跑 ctest，13 个测试进程全在加载 Qt6Core.dll 处失败，Windows 各弹一个「系统错误」硬错误框，进程卡在框上不退出，ctest 只能等到 TIMEOUT 120s；表象像测试卡死，实际是根本没启动，且每跑一轮攒一批弹窗。目标：neonboard_add_test 给每个测试加 ENVIRONMENT_MODIFICATION 把 $<TARGET_FILE_DIR:Qt6::Core> 前置进 PATH，覆盖「忘了配 PATH」「双击 exe」两类场景；不写死 C:/Qt 路径，换机器/换 Qt 版本自动跟随。验收：PATH 里没有 Qt bin 时 ctest 仍 13/13 通过且零弹窗。",
+            "scope": [
+                "tests/CMakeLists.txt"
+            ],
+            "stage": "DX",
+            "title": "DX 测试可启动性：ctest 自带 Qt DLL 路径，避免硬错误弹窗挂死"
+        },
         "M01": {
             "id": "9bddece6-d4f8-4963-990e-b9d27a06d7c1",
             "stage": "R3",
@@ -670,14 +704,16 @@
             "title": "R6 台账卡单向导入（可选）"
         },
         "R7-01": {
-            "id": "8dff38e0-71b9-4f66-9f64-4e088a1e0b90",
-            "stage": "R7",
-            "title": "R7 执行队列与调度器：FIFO + 并发≤2 + 背压 + 暂停/调序/跳过",
-            "note": "起因：R6 忙时直接拒绝，多卡只能一张张手工触发，派发器还谈不上编排。目标：task_run 增队列字段与全局并发上限（meta exec.concurrency，默认 1≤2）；Scheduler 消费循环按 position 取最早、并发达上限暂停、心跳超时回收；支持 pause/resume/reorder/skip；不升 user_version，新列 IF NOT EXISTS。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_scheduler --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0 且断言 task_run 新列存在、user_version 未变"
             ],
+            "depends": [
+                "R6-04",
+                "R6-06"
+            ],
+            "id": "8dff38e0-71b9-4f66-9f64-4e088a1e0b90",
+            "note": "起因：R6 忙时直接拒绝，多卡只能一张张手工触发，派发器还谈不上编排。目标：task_run 增队列字段与全局并发上限（meta exec.concurrency，默认 1≤2）；Scheduler 消费循环按 position 取最早、并发达上限暂停、心跳超时回收；支持 pause/resume/reorder/skip；不升 user_version，新列 IF NOT EXISTS。",
             "scope": [
                 "src/Database.cpp",
                 "src/TaskRunStore.*",
@@ -687,39 +723,39 @@
                 "tests/CMakeLists.txt",
                 "CMakeLists.txt"
             ],
-            "depends": [
-                "R6-04",
-                "R6-06"
-            ]
+            "stage": "R7",
+            "title": "R7 执行队列与调度器：FIFO + 并发≤2 + 背压 + 暂停/调序/跳过"
         },
         "R7-02": {
-            "id": "c01732ab-9086-40b1-8005-048bee527cd1",
-            "stage": "R7",
-            "title": "R7 队列视图与并发指示 UI",
-            "note": "起因：队列在后台跑，用户看不见也操作不了。目标：新增「执行队列」面板，列出 waiting/running 的 run（卡标题/步骤/已运行时长/最近一行日志）、并发指示 x/N、预计剩余；支持暂停/恢复队列、调序、跳过单条；卡面增加「队列中」态徽章。",
             "acceptance": [
                 "build/Release/NeonBoard.exe --selftest 退出码 0",
                 "build/Release/NeonBoard.exe --smoke 退出码 0 且无 QML 报错"
             ],
+            "depends": [
+                "R7-01"
+            ],
+            "id": "c01732ab-9086-40b1-8005-048bee527cd1",
+            "note": "起因：队列在后台跑，用户看不见也操作不了。目标：新增「执行队列」面板，列出 waiting/running 的 run（卡标题/步骤/已运行时长/最近一行日志）、并发指示 x/N、预计剩余；支持暂停/恢复队列、调序、跳过单条；卡面增加「队列中」态徽章。",
             "scope": [
                 "qml/Main.qml",
                 "qml/components/TaskCard.qml",
                 "src/main.cpp",
                 "docs/screenshots/**"
             ],
-            "depends": [
-                "R7-01"
-            ]
+            "stage": "R7",
+            "title": "R7 队列视图与并发指示 UI"
         },
         "R7-03": {
-            "id": "fa8a90d7-8703-4b29-82a7-ff3d7b2e34b6",
-            "stage": "R7",
-            "title": "R7 角色链 workflow 引擎：步骤数组 + handoff 交接物",
-            "note": "起因：R6 只跑单步，复杂任务需多角色接力。目标：TaskExec.workflow 支持 steps[{role,agent,prompt,inputs,outputs,acceptance,scope}]；TaskRunner 按步逐步拉起（复用 R6-04），每步前记 git 基线、步后 ScopeMatcher 比对；每步产出 .neonboard/handoff/<card>/<role>.md，下一步注入上一步 handoff；每步独立 run（parent_run_id 关联、cost_ms 累计）。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R \"tst_workflow|tst_scopematcher\" --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0"
             ],
+            "depends": [
+                "R6-05",
+                "R7-01"
+            ],
+            "id": "fa8a90d7-8703-4b29-82a7-ff3d7b2e34b6",
+            "note": "起因：R6 只跑单步，复杂任务需多角色接力。目标：TaskExec.workflow 支持 steps[{role,agent,prompt,inputs,outputs,acceptance,scope}]；TaskRunner 按步逐步拉起（复用 R6-04），每步前记 git 基线、步后 ScopeMatcher 比对；每步产出 .neonboard/handoff/<card>/<role>.md，下一步注入上一步 handoff；每步独立 run（parent_run_id 关联、cost_ms 累计）。",
             "scope": [
                 "src/TaskRunner.*",
                 "src/TaskExec.*",
@@ -729,20 +765,19 @@
                 "tests/CMakeLists.txt",
                 "CMakeLists.txt"
             ],
-            "depends": [
-                "R6-05",
-                "R7-01"
-            ]
+            "stage": "R7",
+            "title": "R7 角色链 workflow 引擎：步骤数组 + handoff 交接物"
         },
         "R7-04": {
-            "id": "c8cda60b-1cb0-4727-808e-c0dd4a7f4d47",
-            "stage": "R7",
-            "title": "R7 预设 workflow + orchestrator 收口",
-            "note": "目标：内置可编辑预设 fix/feature/hotfix/docs/review/delivery（存 board.db meta）；orchestrator 按 triage estimate 或卡片大小选 workflow，失败分支（qa→engineer）受 maxAttempts 约束，收口写 summary.md 并给「建议下一步」；小任务走 fix 不允许跳 qa；执行前确认框展示完整 workflow 与交接物契约。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_workflowpresets --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0"
             ],
+            "depends": [
+                "R7-03"
+            ],
+            "id": "c8cda60b-1cb0-4727-808e-c0dd4a7f4d47",
+            "note": "目标：内置可编辑预设 fix/feature/hotfix/docs/review/delivery（存 board.db meta）；orchestrator 按 triage estimate 或卡片大小选 workflow，失败分支（qa→engineer）受 maxAttempts 约束，收口写 summary.md 并给「建议下一步」；小任务走 fix 不允许跳 qa；执行前确认框展示完整 workflow 与交接物契约。",
             "scope": [
                 "src/WorkflowPresets.*",
                 "src/TaskRunner.*",
@@ -751,19 +786,20 @@
                 "tests/CMakeLists.txt",
                 "CMakeLists.txt"
             ],
-            "depends": [
-                "R7-03"
-            ]
+            "stage": "R7",
+            "title": "R7 预设 workflow + orchestrator 收口"
         },
         "R7-05": {
-            "id": "7a432ab6-6774-476f-ba06-970b4389514a",
-            "stage": "R7",
-            "title": "R7 夜间批量模式",
-            "note": "目标：看板 Ctrl/Shift 多选卡 →「加入夜间队列」→ 全部入队（R7-01）；预计总时长基于各卡历史平均耗时或 triage estimate 求和，UI 显示「预计 X 分钟，约 HH:MM 完成」；完成后复用 R1 提醒/托盘辉光通知，失败卡标记 blocked 不阻断其余。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_nightbatch --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0"
             ],
+            "depends": [
+                "R7-01",
+                "R7-02"
+            ],
+            "id": "7a432ab6-6774-476f-ba06-970b4389514a",
+            "note": "目标：看板 Ctrl/Shift 多选卡 →「加入夜间队列」→ 全部入队（R7-01）；预计总时长基于各卡历史平均耗时或 triage estimate 求和，UI 显示「预计 X 分钟，约 HH:MM 完成」；完成后复用 R1 提醒/托盘辉光通知，失败卡标记 blocked 不阻断其余。",
             "scope": [
                 "qml/Main.qml",
                 "src/Scheduler.*",
@@ -771,20 +807,20 @@
                 "tests/tst_nightbatch.cpp",
                 "tests/CMakeLists.txt"
             ],
-            "depends": [
-                "R7-01",
-                "R7-02"
-            ]
+            "stage": "R7",
+            "title": "R7 夜间批量模式"
         },
         "R7-06": {
-            "id": "1ecfbbd3-e038-4e3e-aaa0-c5f1ad8380dd",
-            "stage": "R7",
-            "title": "R7 成本账",
-            "note": "目标：task_run.cost_ms 在 run 结束写入（含 running 时长，不含排队）；TaskRunStore 提供 totalCost(cardId) 聚合；执行面板（R6-06）与卡面显示「本卡累计耗时 X」；token 计量留接口（开放问题 #6，后续）。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_taskruns --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0"
             ],
+            "depends": [
+                "R6-02",
+                "R7-01"
+            ],
+            "id": "1ecfbbd3-e038-4e3e-aaa0-c5f1ad8380dd",
+            "note": "目标：task_run.cost_ms 在 run 结束写入（含 running 时长，不含排队）；TaskRunStore 提供 totalCost(cardId) 聚合；执行面板（R6-06）与卡面显示「本卡累计耗时 X」；token 计量留接口（开放问题 #6，后续）。",
             "scope": [
                 "src/TaskRunStore.*",
                 "src/main.cpp",
@@ -792,58 +828,16 @@
                 "qml/components/TaskCard.qml",
                 "tests/tst_taskruns.cpp"
             ],
-            "depends": [
-                "R6-02",
-                "R7-01"
-            ]
-        },
-        "DX-01": {
-            "id": "56336b95-b51d-41db-bd24-70086e43945c",
-            "stage": "DX",
-            "title": "DX 项目全景面板：四层事实源实时派生（路线图 / 台账 / git / 文件系统对账）",
-            "note": "起因：面板里的里程碑主题与开发链路是 QML 手写常量，仓库改了面板不跟，等于挂着一张会撒谎的地图。目标：里程碑解析 iteration-roadmap.md §9 表格（行序即顺序，主题/目标/出口/宣称全部取自表格，加一行 R8/DX 面板自动多一行）；卡片状态按 git #短号=done ∪ 台账 baseline 派生（标记制度 R4 才有，只看 git 会把 R0 读成 0/10）；链路改为 docs/project-map.json 声明 + 逐条 evidence 存在性实证，缺文件即断链；骨架扫真实目录（文件数/行数/最近提交）；新增体检页签把「宣称 vs 派生」「台账 vs 路线图」「证据缺失」四类不一致分级暴露。派生在后台线程跑（3 次 git 合并 + 约 180 个文件扫描，0.3–0.9 s），文件改动 0.7 s 防抖自动重算；新增 --map 诊断入口与 tst_projectmap 护栏。",
-            "acceptance": [
-                "ctest --test-dir build -C Release -R \"tst_projectmap|tst_appactions\" --output-on-failure",
-                "build/Release/NeonBoard.exe --selftest 退出码 0",
-                "build/Release/NeonBoard.exe --map 退出时 neonboard.log 无 QML 告警"
-            ],
-            "scope": [
-                "src/ProjectMap.*",
-                "src/AppActions.*",
-                "qml/components/ProjectMapPanel.qml",
-                "qml/Main.qml",
-                "docs/project-map.json",
-                "docs/iteration-roadmap.md",
-                "tests/tst_projectmap.cpp"
-            ]
-        },
-        "DX-02": {
-            "id": "e51b1418-7d7b-47d1-a0d5-a3a242396b0e",
-            "stage": "DX",
-            "title": "DX 测试可启动性：ctest 自带 Qt DLL 路径，避免硬错误弹窗挂死",
-            "note": "起因：在没把 Qt bin 加进 PATH 的终端里直接跑 ctest，13 个测试进程全在加载 Qt6Core.dll 处失败，Windows 各弹一个「系统错误」硬错误框，进程卡在框上不退出，ctest 只能等到 TIMEOUT 120s；表象像测试卡死，实际是根本没启动，且每跑一轮攒一批弹窗。目标：neonboard_add_test 给每个测试加 ENVIRONMENT_MODIFICATION 把 $<TARGET_FILE_DIR:Qt6::Core> 前置进 PATH，覆盖「忘了配 PATH」「双击 exe」两类场景；不写死 C:/Qt 路径，换机器/换 Qt 版本自动跟随。验收：PATH 里没有 Qt bin 时 ctest 仍 13/13 通过且零弹窗。",
-            "acceptance": [
-                "PATH 不含 C:/Qt/*/bin 时 ctest 仍 13/13 通过（关键：这正是原先挂死的场景）",
-                "跑完复查无「系统错误」弹窗残留",
-                "build/tests/CTestTestfile.cmake 里每个测试都带 ENVIRONMENT_MODIFICATION PATH=path_list_prepend:<Qt bin>"
-            ],
-            "scope": [
-                "tests/CMakeLists.txt"
-            ]
+            "stage": "R7",
+            "title": "R7 成本账"
         }
     },
     "claims": {
-        "R5-05": {
-            "agent": "agent-icon",
-            "branch": "fix/host-shortcut-icon",
-            "claimedAt": 1793096146,
-            "head": "6ef8e8ccfcdf9772440f4fa87f5ecee91c056e89"
-        },
-        "R6-03": {
-            "agent": "agent-r6c",
-            "branch": "feature/r6-03-agent-profile",
-            "claimedAt": 1793095460,
-            "head": "ff499ea15d4c18a03caf4308b5641defc9102dd7"
+        "DX-01": {
+            "agent": "agent-map",
+            "branch": "feature/project-map-panel",
+            "claimedAt": 1793122351,
+            "head": "298d76c62aeec3885f767070f3f496736320e9a8"
         }
     },
     "version": 1

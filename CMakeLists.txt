@@ -187,6 +187,7 @@ qt_add_executable(NeonBoardHost
     src/AppPaths.h src/AppPaths.cpp
     src/SingleInstance.h src/SingleInstance.cpp
     src/AppActions.h src/AppActions.cpp
+    resources/neonboard.rc    # 安装包的快捷方式指向 Host，缺它 exe 里没有图标资源
 )
 
 target_link_libraries(NeonBoardHost PRIVATE

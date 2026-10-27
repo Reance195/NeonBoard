@@ -79,9 +79,16 @@ def is_exempt(path):
 
 
 def changed_files(base, head):
-    out = git("diff", "--name-only", "--diff-filter=ACMRD", base, head)
+    """只算 head 相对 base **引入**的改动，所以用三点（从 merge-base 起算）。
+
+    两点比较的是两棵树的差异：分支只要落后主线，别人的改动就会被记到它头上，
+    纯杂务分支于是被误判成「触及代码」、领用闸门直接卡死合并。CI 侧的
+    scripts/check_scope.py 一直是三点，这里与它对齐，免得两套实现漂移。
+    """
+    spec = "%s...%s" % (base, head)
+    out = git("diff", "--name-only", "--diff-filter=ACMRD", spec)
     if out.returncode != 0:
-        fail("无法比较改动范围 %s..%s：%s" % (base, head, out.stderr.strip()), 2)
+        fail("无法比较改动范围 %s：%s" % (spec, out.stderr.strip()), 2)
     return [normalize(line.strip()) for line in out.stdout.splitlines() if line.strip()]
 
 

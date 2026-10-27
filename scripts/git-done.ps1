@@ -114,6 +114,7 @@ function Sync-AnchorWorktree {
     }
 
     $stashed = $false
+    $stashSha = ''
     if ($snapshotOnly) {
         Write-Host '· 锚点同步：临时暂存 progress.json ...' -ForegroundColor DarkGray
         $stashRes = Invoke-GitQuiet @('-C', $anchor, 'stash', 'push', '-q', '-m', 'git-done 锚点同步临时暂存', '--', 'progress.json')
@@ -122,6 +123,9 @@ function Sync-AnchorWorktree {
             Write-Host '· 锚点同步：暂存失败，跳过快进' -ForegroundColor Yellow
             return
         }
+        # 记下暂存本身的提交号：stash@{0} 会被后续操作挪位，按号取回才靠得住。
+        $shaRes = Invoke-GitQuiet @('-C', $anchor, 'rev-parse', '--verify', 'stash@{0}')
+        if ($shaRes.Code -eq 0) { $stashSha = ($shaRes.Output | Select-Object -First 1).ToString().Trim() }
     }
 
     Write-Host ("· 锚点同步：快进 {0} → origin/{1}" -f $anchor, $Main) -ForegroundColor DarkGray
@@ -134,7 +138,23 @@ function Sync-AnchorWorktree {
     if ($stashed) {
         $popRes = Invoke-GitQuiet @('-C', $anchor, 'stash', 'pop', '-q')
         if ($popRes.Code -ne 0) {
-            Write-Host '   ⚠ progress.json 还原冲突，改动保留在 stash 中（git stash list）' -ForegroundColor Yellow
+            # 主线也动过 progress.json（CI 每次回写都会动），pop 必然撞车。
+            # 撞车不能只 warn 一句：失败的 pop 会把 <<<<<<< 冲突标记留在工作区、
+            # 并把该文件挂成 UU —— 而这份文件正是桌面应用 RoadmapSync 的写回对象，
+            # 下一次写回就把冲突标记打进快照；锚点的脏检查也会从此一直误判（已踩过）。
+            # 所以工作区一律回退到刚快进好的主线版本；本地快照本就留在暂存里，不丢。
+            $popRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+            $restore = Invoke-GitQuiet @('-C', $anchor, 'checkout', 'HEAD', '--', 'progress.json')
+            if ($restore.Code -ne 0) {
+                Write-Host '   ✗ 冲突标记清理失败，请手工执行：git -C <锚点> checkout HEAD -- progress.json' -ForegroundColor Red
+            } else {
+                Write-Host '   ⚠ 本地快照与主线快照冲突，工作区已回退为主线版本（无冲突标记）' -ForegroundColor Yellow
+                if ($stashSha) {
+                    Write-Host ("     本地快照仍在暂存中，需要用时就地取回：git -C {0} checkout {1} -- progress.json" -f $anchor, $stashSha) -ForegroundColor Yellow
+                } else {
+                    Write-Host '     本地快照仍在暂存中（git stash list 查看）' -ForegroundColor Yellow
+                }
+            }
         }
     }
 

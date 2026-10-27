@@ -153,6 +153,9 @@ MVP 只要三个就能开工：**`goal` + `cwd` + `acceptance`**。
 
 ## 6. Triage：执行前先分析
 
+> 实现细节（输出 schema、prompt 模板、质量校验）见 [`docs/agent-triage.md`](agent-triage.md)；
+> agent 抽象见 [`docs/agent-profile.md`](agent-profile.md)。
+
 在 `draft` 状态调用**只读** agent，输出结构化草案，人确认后才进 `todo`。
 
 ```jsonc
@@ -299,7 +302,7 @@ MVP 只要三个就能开工：**`goal` + `cwd` + `acceptance`**。
 
 | # | 问题 | 状态 |
 | --- | --- | --- |
-| 1 | **agent 适配层**：opencode / claude / codex 的只读模式、非交互参数、输出格式差异，是否抽象成 `agent profile`（`{ exe, args, readonlyArgs, env }`）？ | 待定，M1 前必须定 |
+| 1 | **agent 适配层**：opencode / claude / codex 的只读模式、非交互参数、输出格式差异，是否抽象成 `agent profile`（`{ exe, args, readonlyArgs, env }`）？ | **已出方案**：`docs/agent-profile.md`（opencode / claude / cursor-agent 已实测，codex 待实测） |
 | 2 | **日志存储**：建议按 run 存文件（`%APPDATA%/com.lin/NeonBoard/runs/<run_id>.log`）+ db 只存索引与摘要，避免 db 膨胀 | 倾向方案已给，待确认 |
 | 3 | **执行期沙箱**：agent 可能改到 `scope` 之外的路径，是否在 run 结束后用 `scope` 做一次 diff 校验（越界即 blocked）？ | 建议做，复用 `check_scope.py` 思路 |
 | 4 | **多目录任务**：一张卡跨两个仓库 | **v1 不支持**，明确写进「非目标」 |

@@ -445,7 +445,7 @@
             "id": "0921b037-54ca-45e4-ab4a-7c82f484be92",
             "stage": "R6",
             "title": "R6 运行记录侧表与任务锁",
-            "note": "起因：执行器需要可追溯的 run 身份与「同卡不并发」的锁，而 task 表不能加列、user_version 不能升。目标：新增侧表 task_run（id / task_id / agent / cwd / workflow / status / attempt / 时间戳 / heartbeat / exit_code / last_error / log_path / scope_violation）+ 同卡活跃 run 的部分唯一索引，配套 TaskRunStore 做创建/心跳/结束/孤儿回收，启动时把心跳超 90 秒的 running 判为 blocked（进程中断）。",
+            "note": "起因：执行器需要可追溯的 run 身份与「同卡不并发」的锁，而 task 表不能加列、user_version 不能升。目标：新增侧表 task_run（id / task_id / agent / cwd / workflow / status / attempt / 时间戳 / heartbeat / exit_code / last_error / log_path / scope_violation）+ 同卡活跃 run 的部分唯一索引，配套 TaskRunStore 做创建/心跳/结束/孤儿回收，启动时把心跳超 90 秒的 running 判为 blocked（进程中断）。交付（2026-10-27）：task_run 侧表 + 部分唯一索引 + TaskRunStore（acquire / heartbeat / release / activeRun / runsOf / recoverOrphans）+ taskRuns 上下文属性 + selftest 断言；ctest 11/11 通过。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R \"tst_taskruns|tst_databasemigration\" --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0 且断言 user_version 仍为 2"

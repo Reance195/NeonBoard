@@ -69,6 +69,7 @@ qt_add_executable(NeonBoard
     src/BoardSync.h src/BoardSync.cpp
     src/WindowsIntegration.h src/WindowsIntegration.cpp
     src/UpdateManager.h src/UpdateManager.cpp
+    src/TaskRunStore.h src/TaskRunStore.cpp
     resources/neonboard.rc
 )
 

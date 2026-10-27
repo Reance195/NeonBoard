@@ -55,6 +55,7 @@
         "R5-01": "done",
         "R5-02": "done",
         "R5-03": "done",
+        "R5-05": "todo",
         "R6-01": "todo",
         "R6-02": "todo",
         "R6-03": "todo",
@@ -438,6 +439,23 @@
                 "src/UpdateManager.*",
                 "tests/tst_updatemanager.cpp",
                 "docs/auto-update.md"
+            ],
+            "depends": [
+                "R5-03"
+            ]
+        },
+        "R5-05": {
+            "id": "3c520d5a-a9b7-4140-8040-17e2bca8b9e8",
+            "stage": "R5",
+            "title": "R5 安装快捷方式无图标：Host 未内嵌应用图标",
+            "note": "起因：安装包的桌面与开始菜单快捷方式都指向 NeonBoardHost.exe（installer/neonboard.iss 的 [Icons]），但 CMakeLists.txt 里 qt_add_executable(NeonBoardHost ...) 的源列表没带 resources/neonboard.rc，exe 里连 RT_GROUP_ICON 资源都没有（EnumResourceNamesW 返回失败），Windows 只能退回通用 exe 图标；同一目录的 NeonBoard.exe 因为带了 .rc 所以正常。目标：给 NeonBoardHost 源列表追加 resources/neonboard.rc，让 Host 自身带图标，桌面、开始菜单、postinstall 启动项一并恢复。不改 installer：升级安装会重建 [Icons]，快捷方式随新 Host 自愈；已在本机手工设过 IconLocation 的桌面项不受影响。",
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过",
+                "build/Release/NeonBoardHost.exe 的 RT_GROUP_ICON 资源计数 >= 1（改前该资源不存在）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "scope": [
+                "CMakeLists.txt"
             ],
             "depends": [
                 "R5-03"

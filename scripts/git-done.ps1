@@ -250,20 +250,10 @@ if ($snapshotLines.Count -gt 0) {
     $deriveScript = Join-Path $repoRoot 'scripts\derive_board_status.py'
     $pythonExe = (Get-Command python -ErrorAction SilentlyContinue | Select-Object -First 1)
     if ((Test-Path -LiteralPath $deriveScript) -and $pythonExe) {
-        # 原生命令的 stderr 在 ErrorActionPreference='Stop' 下会被当成终止性错误，
-        # 统一按 Invoke-GitQuiet 的做法降级捕获（脚本里已踩过 MSBuild / ISCC 的同类坑）。
-        $prevEap = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        try {
-            $deriveOut = & python $deriveScript --write 2>&1
-            $deriveCode = $LASTEXITCODE
-        } finally {
-            $ErrorActionPreference = $prevEap
-        }
-        foreach ($line in @($deriveOut)) {
-            Write-Host ("   {0}" -f $line) -ForegroundColor DarkGray
-        }
-        if ($deriveCode -ne 0) {
+        # 原生命令的 stderr 不许打断流程（宪章 §7.3）：统一走 Invoke-Cmd，判定只看退出码。
+        $deriveRes = Invoke-Cmd -File 'python' -CmdArgs @($deriveScript, '--write')
+        $deriveRes.Output | ForEach-Object { Write-Host ("   {0}" -f $_) -ForegroundColor DarkGray }
+        if ($deriveRes.Code -ne 0) {
             Write-Host '· 警告：派生器未能校正快照（见上），将按应用写回的原样提交，CI 会再纠正' -ForegroundColor Yellow
         }
     } else {
@@ -309,8 +299,12 @@ if ($Mode -eq 'remote') {
     $claimExempt = $false
     $gateScript = Join-Path $repoRoot 'scripts\task_gate.py'
     if (Test-Path -LiteralPath $gateScript) {
-        $scopeOut = & python $gateScript scope --base "origin/$MainBranch" --head $Branch 2>$null
-        if ($LASTEXITCODE -eq 0 -and (($scopeOut -join ' ').Trim() -eq 'exempt')) {
+        # 判定走 stdout（exempt / code），解释走 stderr。PS 5.1 下 `& python ... 2>$null`
+        # 在 Stop 里同样会把 stderr 升级成终止性错误（今天就在这一行断过一次合并），
+        # 所以必须走 Invoke-Cmd，并且只从输出里取判定行本身。
+        $scopeRes = Invoke-Cmd -File 'python' -CmdArgs @($gateScript, 'scope', '--base', "origin/$MainBranch", '--head', $Branch)
+        $scopeVerdict = ($scopeRes.Output | Where-Object { $_ -match '^(exempt|code)$' } | Select-Object -Last 1)
+        if ($scopeRes.Code -eq 0 -and $scopeVerdict -eq 'exempt') {
             $claimExempt = $true
         }
     }
@@ -330,8 +324,10 @@ if ($Mode -eq 'remote') {
             $claimFetch.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
             exit 1
         }
-        & python (Join-Path $repoRoot 'scripts\check_claim_refs.py') --base "origin/$MainBranch" --head $Branch
-        if ($LASTEXITCODE -ne 0) {
+        $refsRes = Invoke-Cmd -File 'python' -CmdArgs @(
+            (Join-Path $repoRoot 'scripts\check_claim_refs.py'), '--base', "origin/$MainBranch", '--head', $Branch)
+        $refsRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+        if ($refsRes.Code -ne 0) {
             Write-Host "`n✗ 领用闸门未通过：分支缺少服务端 claim ref 占位。" -ForegroundColor Red
             Write-Host '  先用 scripts/agent-init.ps1 -Card <短号> 领用；纯文档/杂务分支无需手动豁免。' -ForegroundColor Yellow
             exit 1

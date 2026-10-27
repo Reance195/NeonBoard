@@ -1,15 +1,18 @@
 // M0：任务执行定义侧表（task_exec）的门面行为。
 //
-// 覆盖四条：
+// 覆盖五条：
 //   1. 无行时返回默认值（不崩、不返回空指针）
 //   2. setExec / execOf 往返一致（含 JSON 数组字段）
 //   3. 校验拒绝：未知 workflow、空列表项、超时/maxAttempts 越界、不存在的任务
-//   4. 任务删除时侧表行同步清理（订阅 TaskModel::taskRemoved）
+//   4. cwd 校验：相对路径 / 不存在目录 / 文件 → 拒绝；合法绝对目录 → 规范化落库
+//   5. 任务删除时侧表行同步清理（订阅 TaskModel::taskRemoved）
 
 #include "Database.h"
 #include "TaskExec.h"
 #include "TaskModel.h"
 
+#include <QDir>
+#include <QFile>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -24,6 +27,7 @@ private slots:
     void defaultsWhenNoRow();
     void roundtripFields();
     void rejectsInvalid();
+    void cwdValidation();
     void clearResets();
     void removesRowWhenTaskDeleted();
 
@@ -80,7 +84,7 @@ void TestTaskExec::roundtripFields()
     fields.insert(QStringLiteral("scope"),
                   QVariantList{QStringLiteral("src/TaskModel.cpp"), QStringLiteral("tests/**")});
     fields.insert(QStringLiteral("agent"), QStringLiteral("opencode"));
-    fields.insert(QStringLiteral("cwd"), QStringLiteral("E:/projects/NeonBoard"));
+    fields.insert(QStringLiteral("cwd"), m_dir.path());
     fields.insert(QStringLiteral("workflow"), QStringLiteral("fix"));
     fields.insert(QStringLiteral("timeoutMin"), 45);
     fields.insert(QStringLiteral("maxAttempts"), 2);
@@ -91,7 +95,7 @@ void TestTaskExec::roundtripFields()
     QCOMPARE(map.value(QStringLiteral("acceptance")).toList().size(), 1);
     QCOMPARE(map.value(QStringLiteral("scope")).toList().size(), 2);
     QCOMPARE(map.value(QStringLiteral("agent")).toString(), QStringLiteral("opencode"));
-    QCOMPARE(map.value(QStringLiteral("cwd")).toString(), QStringLiteral("E:/projects/NeonBoard"));
+    QCOMPARE(map.value(QStringLiteral("cwd")).toString(), QDir::cleanPath(m_dir.path()));
     QCOMPARE(map.value(QStringLiteral("workflow")).toString(), QStringLiteral("fix"));
     QCOMPARE(map.value(QStringLiteral("timeoutMin")).toInt(), 45);
     QCOMPARE(map.value(QStringLiteral("maxAttempts")).toInt(), 2);
@@ -129,6 +133,43 @@ void TestTaskExec::rejectsInvalid()
     QVariantMap goalOnly;
     goalOnly.insert(QStringLiteral("goal"), QStringLiteral("不存在的任务"));
     QVERIFY(!m_exec->setExec(QStringLiteral("no-such-task"), goalOnly));
+}
+
+void TestTaskExec::cwdValidation()
+{
+    const QString id = m_model->addTask(QStringLiteral("cwd 校验"));
+    QVERIFY(!id.isEmpty());
+
+    // 旧卡没有 cwd：允许保存，回读为空串（执行按钮另做最小集校验）
+    QVariantMap noCwd;
+    noCwd.insert(QStringLiteral("goal"), QStringLiteral("旧卡无工作目录"));
+    QVERIFY(m_exec->setExec(id, noCwd));
+    QCOMPARE(m_exec->execOf(id).value(QStringLiteral("cwd")).toString(), QString());
+
+    QVariantMap relative;
+    relative.insert(QStringLiteral("cwd"), QStringLiteral("relative/dir"));
+    QVERIFY(!m_exec->setExec(id, relative));
+
+    QVariantMap missing;
+    missing.insert(QStringLiteral("cwd"), m_dir.filePath(QStringLiteral("no-such-dir")));
+    QVERIFY(!m_exec->setExec(id, missing));
+
+    const QString filePath = m_dir.filePath(QStringLiteral("plain.txt"));
+    QFile file(filePath);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write("x");
+    file.close();
+    QVariantMap notDir;
+    notDir.insert(QStringLiteral("cwd"), filePath);
+    QVERIFY(!m_exec->setExec(id, notDir));
+
+    // 合法绝对目录：落库前做规范化（去掉 "./" 与尾部斜杠）
+    QVERIFY(QDir(m_dir.path()).mkdir(QStringLiteral("sub dir")));
+    QVariantMap messy;
+    messy.insert(QStringLiteral("cwd"), m_dir.path() + QStringLiteral("/./sub dir/"));
+    QVERIFY(m_exec->setExec(id, messy));
+    QCOMPARE(m_exec->execOf(id).value(QStringLiteral("cwd")).toString(),
+             QDir::cleanPath(m_dir.path() + QStringLiteral("/sub dir")));
 }
 
 void TestTaskExec::clearResets()

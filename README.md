@@ -57,6 +57,7 @@
 - 看板状态派生：卡片状态不再手写，由 `git` 提交信息里的 `#R1-03=done` 与台账 `docs/board-ledger.json` 共同推导，CI 在主线合并后自动回写快照并校验一致性（详见 [docs/board-sync.md](docs/board-sync.md)）
 - 主任务 / 子任务关联：子卡自动缩进并标注「↳ 父卡标题」，父卡右下角显示子任务完成度进度环；关联关系存本地边表，不改任务表结构
 - agent 领用可见：看板自动扫描锚点与各 worktree 台账里的任务领用，卡片显示 `◈ agent` 标记；仍活跃的领用会自动把卡从「待办」转到「进行中」，分支合并后标记转灰。agent 只负责领任务、干活、提交，状态由看板接管
+- 任务派发器（默认关闭，在 设置 → 任务执行 打开总开关后生效）：卡片五段式执行定义（目标 / 验收 / 边界 / 输入 / 产出）+ 一键拉起本机 agent CLI（opencode / claude / cursor-agent，可自定义 profile）。执行链路：执行前确认（agent / 目录 / 完整命令行 / 验收项，目录首次使用需勾选信任）→ 受控拉起进程（argv 直起不经过 shell、流式日志脱敏落 `runs/`、心跳 + 超时强杀 + 进程树整棵回收、同卡不并发）→ 验收判定（acceptance 命令白名单执行、`file.exists` 断言、`git status` 基线比对越界改动）→ 执行面板回显（结论徽章 / 耗时 / 退出码 / 日志末尾 / 重试 attempt+1 / 「标为已办结」走人工确认路径可撤销）。附带：Triage 只读分析（用 profile 只读参数 + 分析前后 git status 一致双硬门，产出结构化执行草案，人采纳后回填表单，置信度 <0.5 禁止一键执行）；失败自动重试（轮数上限 5，失败摘要注入下一轮 prompt，人取消后不再重试）；台账卡单向导入（`docs/board-ledger.json` 的 acceptance / scope / goal 只补空值进 board.db，冲突只报告不覆盖，无写回台账的入口）。硬约束：程序不自动改看板列、不自动 push，详见 [docs/r6-dispatcher-plan.md](docs/r6-dispatcher-plan.md)
 - 系统托盘、全局热键、开机自启、单实例、窗口位置记忆
 - 运行时 QML 插件：权限清单、独立存储、宿主任务 API
 - 插件平台 2.0：apiVersion 2 支持后台常驻插件、事件订阅、meta 共享配置、设置页、侧栏 / 底部 / 卡片三种槽位、命令与快捷键注册、权限授权弹窗、插件启停与热重载；插件目录热插拔，新增 / 覆盖 / 删除插件后自动重扫重载，无需重启
@@ -283,6 +284,13 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
              设置更新清单源（同时写入设置，可离线复用）
 --update-sources
              列出当前已配置的更新清单源
+--run-summary <taskId>
+             输出该卡最近一次执行 run 的摘要 JSON（状态 / 耗时 / 退出码 / 日志末尾；
+             无执行记录输出 {"hasRun":false}，退出码 0；缺 taskId 退出码 2）
+--import-ledger [path|短号]
+             台账卡单向导入（ADR-0001）：参数是存在的文件按该台账全量导入，
+             是短号只导一张卡，缺省自动探测仓库 docs/board-ledger.json；
+             只补 task_exec 里为空的 goal / acceptance / scope，冲突与未建卡只报告，幂等
 ```
 
 环境变量：
@@ -301,7 +309,7 @@ NEONBOARD_QT_BIN    Qt 运行库目录，供 Git 钩子在开发版 exe 上补�
 ## 项目结构
 
 ```text
-src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置、路线图同步、数据导入导出、预览中心、软件更新
+src/                 C++：数据库、模型、托盘、热键、窗口、插件宿主、界面设置、路线图同步、数据导入导出、预览中心、软件更新、任务派发器（执行定义 / 运行记录 / 执行器 / 验收器 / 越界检查 / Triage / 台账导入）
 qml/                 QML：主界面、霓虹背景
   theme/             主题与动效单例（Theme / Motion）
   components/        卡片、看板列、统计芯片、窗口按钮、外观面板、设置面板、插件面板、阶段进度条、预览中心面板
@@ -450,6 +458,7 @@ pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
 - 计划钩子需先把 `plugins/plan-hook` 复制到用户插件目录才会生效；未安装时提交里的 `#T12` 静默失效
 - 插件市场默认源是仓库简写（`Reance195/neonboard-market`，索引仓库见 <https://github.com/Reance195/neonboard-market>），Gitee 拉取失败时自动回退 GitHub raw；索引签名校验暂未实现（`signature` 字段位已预留）
 - Qt 采用 LGPL 动态链接；再分发时需保留 Qt 动态库与许可说明
+- 任务派发器（R6）默认关闭，需在 设置 → 任务执行 打开总开关后才生效；只在本机拉起 agent CLI（opencode / claude / cursor-agent 实测过，codex 等未实测的 profile 不内置），执行完最多留下本地改动——不自动 push、不自动改看板列（验收通过后由人点「标为已办结」，可撤销）；同一张卡同一时刻最多一个活跃 run，忙时直接拒绝不排队；acceptance 的 `assert` v1 只支持 `file.exists`（http / json 断言留接口未实现），命令只走白名单程序或 cwd 内脚本路径、不经过 shell；cwd 必须先在确认框勾选「信任本目录」；Triage 只读分析强制用 profile 的只读参数并校验分析前后 git status 一致；失败自动重试上限 5 轮（默认 1 轮即不重试），人取消后不再重试
 
 ## 第三方
 

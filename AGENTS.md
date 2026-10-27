@@ -28,6 +28,14 @@ NeonBoard 是赛博霓虹风格的三列个人任务看板。
   pwsh -File scripts/build.ps1 -SelfTest
   ```
 
+  新机器 / 新 clone 若提示缺件或报 `rc.exe not found`，先装配环境再构建
+  （详见 `docs/git-workflow.md` 第七节）：
+
+  ```powershell
+  . ./scripts/dev-env.ps1        # 点号 + 空格：必须 dot-source
+  pwsh -File scripts/build.ps1 -SelfTest
+  ```
+
   等价手敲命令：
 
   ```powershell

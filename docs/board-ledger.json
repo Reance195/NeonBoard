@@ -681,7 +681,7 @@
                 "R6-04"
             ],
             "id": "dd95c213-2cba-42a5-b4cf-71773d644b96",
-            "note": "起因：进程退出码 0 不等于任务完成，agent 也可能改到 scope 之外。目标：AcceptanceRunner 顺序执行 acceptance（command 走白名单脚本路径、不经过 shell、拒绝管道与重定向；assert 先支持 file.exists）+ ScopeMatcher 跑前记 git status 基线、跑后比对差异路径与卡片 scope（scope 为空不检查）；三者合并判定 passed / blocked 并写入 last_error。",
+            "note": "起因：进程退出码 0 不等于任务完成，agent 也可能改到 scope 之外。目标：AcceptanceRunner 顺序执行 acceptance（command 走白名单脚本路径、不经过 shell、拒绝管道与重定向；assert 先支持 file.exists）+ ScopeMatcher 跑前记 git status 基线、跑后比对差异路径与卡片 scope（scope 为空不检查）；三者合并判定 passed / blocked 并写入 last_error。交付（2026-10-28）：新增 AcceptanceRunner（parseItem 双形态解析：command 首 token 必须命中程序白名单（pwsh/powershell/python/python3/ctest/cmake/git/node/clang-format，可替换）或指向 cwd 内真实脚本路径，QProcess argv 直起不经过 shell，解析期即拒绝含 | > < & ; 的条目；assert 由内置检查器执行，v1 只做 file.exists(\"path\")（支持双引号/单引号/裸路径三种形态），http.* / json.* 留接口判「暂不支持」不算通过）+ run() 顺序执行 fail-fast（第一条失败即停，results 带每条 item/kind/ok/exitCode/output 末尾 2000 字符/reason/ms，lastError 指出第几条）+ verdict() 聚合判定（agent 退出码 0 + acceptance 全过 + 无越界 = passed，否则 blocked，lastError 用「；」拼接多因）。新增 ScopeMatcher（captureBaseline 记 git status --porcelain -uall 基线，changedPaths 取「当前有而基线没有」的差异路径（基线里已有的脏文件不算本次 run 产生），check 用卡片 scope glob 匹配（glob→正则与 scripts/check_scope.py 的 glob_to_regex 同语义：**/ 零跨层、** 任意、* 与 ? 不跨 /、反斜杠与 ./ 前缀归一、重命名取新路径、引号剥离）；scope 为空或 git 不可用（非仓库）→ skipped 不阻断，violations 非空 → ok=false + reason 列出越界路径）。两类均不写库、不改 run 状态、不改看板列（回写是 R6-06）。验收：ctest 16/16（tst_acceptance 10 用例：分词带引号段/shell 语法拒绝/白名单外拒绝/cwd 脚本路径放行/file.exists 命中与未命中/不支持断言/fail-fast 与真实 python 进程退出码 3/verdict 多因聚合；tst_scopematcher 9 用例：glob 纯函数/porcelain 解析/临时 git 仓库基线比对/命中与越界/空 scope 跳过/非 git 目录跳过/基线脏文件不误算），--selftest 退出码 0，--smoke 退出码 0 无 QML 报错，verify.ps1 全过。影响：不升 user_version、不动 task 表；执行器总开关未开启时无任何行为变化。",
             "scope": [
                 "src/AcceptanceRunner.*",
                 "src/ScopeMatcher.*",
@@ -922,6 +922,12 @@
             "branch": "fix/stagebar-data-driven",
             "claimedAt": 1793129093,
             "head": "4077f5bcb1dcca45e10cbe330db7ef68bf63c50f"
+        },
+        "R6-05": {
+            "agent": "lead",
+            "branch": "feature/r6-05-acceptance",
+            "claimedAt": 1793130413,
+            "head": "b357079633955ce2b8a4feb98d9388d1ec99b56f"
         }
     },
     "version": 1

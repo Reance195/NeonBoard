@@ -153,6 +153,16 @@ neonboard_add_test(tst_taskrunner
 )
 target_link_libraries(tst_taskrunner PRIVATE Qt6::Sql)
 
+# R6-05：验收器与越界检查 —— command 白名单 / shell 语法拒绝 / assert file.exists /
+# fail-fast / verdict 聚合；ScopeMatcher 用临时 git 仓库 fixture，不碰真实工作区。
+neonboard_add_test(tst_acceptance
+    ${CMAKE_SOURCE_DIR}/src/AcceptanceRunner.cpp
+)
+
+neonboard_add_test(tst_scopematcher
+    ${CMAKE_SOURCE_DIR}/src/ScopeMatcher.cpp
+)
+
 # 项目全景：路线图 §9 / 台账 / docs/project-map.json 的解析 + 证据实证。
 # 这组断言是「地图跟着仓库走」的护栏：表格结构、脚本路径、派生规则任一被改坏，
 # 这里先红，避免面板展示一张与仓库脱节的地图。

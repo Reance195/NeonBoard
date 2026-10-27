@@ -170,6 +170,24 @@
             "stage": "DX",
             "title": "DX 会话隔离硬门：锚点区禁止 -InPlace，占用登记改为自动"
         },
+        "DX-06": {
+            "acceptance": [
+                "锚点区提交只要含 cards 变更，提交信息必须是 chore(board): ... 且 body 同时含「授权：」与「批次：」两行，缺一即拒",
+                "立卡提交不得同时改动代码路径（src/ qml/ tests/ 等）；混提交直接拒，并提示拆成独立的 chore(board) 提交",
+                "非锚点区（.worktrees）行为保持不变：仍禁止新增/删除卡片、改 id/title/stage/baseline",
+                "判定有可执行自测：允许与拒绝各至少两例（含混提交、缺授权行），能进 CI 跑",
+                "AGENTS.md 把「立卡独立成提交、不与代码混提交」写成硬条款"
+            ],
+            "id": "601a7c46-3b90-4361-9bb1-4998139fad80",
+            "note": "起因（2026-10-28 本会话自查）：我以「维护者授权代登记」名义连加五张卡（DX-01~DX-05），其中 DX-01 把卡片塞进 feat 代码提交（7f66b3e）、DX-02 塞进 chore(tests)（ad41540），DX-03~DX-05 用了 chore(roadmap) 前缀且五张卡的 body 全都没记录授权来源与批次。AGENTS.md 正文第 1 条的例外条款要求「只能在锚点区执行 + 提交信息用 chore(board) + body 记录授权来源与批次」，但 task_gate.py 只校验了位置（非 .worktrees 直接放行），完全没校验内容 —— 于是例外条款事实上退化成「口头免责」：只要在锚点区，谁都能以「已获授权」为名加任意卡，事后无从追溯。对照实验：我在 .worktrees/agent-map 里立卡被闸门正确拦下（位置校验有效），说明缺的是内容校验而不是位置校验。目标：把代登记从「信任」变成「可审计事实」—— 提交信息与 body 就是审计凭证。",
+            "scope": [
+                "scripts/task_gate.py",
+                "AGENTS.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "DX",
+            "title": "DX 代登记可审计：chore(board) 强制记录授权来源与批次，立卡不得与代码混提交"
+        },
         "M01": {
             "id": "9bddece6-d4f8-4963-990e-b9d27a06d7c1",
             "stage": "R3",

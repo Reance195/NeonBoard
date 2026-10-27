@@ -77,6 +77,10 @@ private:
         QString ending;     // 空 / timeout / cancelled：结束原因
         QString startError; // setupProcess 失败时的 QProcess errorString
         bool usedGrace = false;
+        // Windows 作业对象：terminate/kill 只能杀直接子进程，agent 会再拉起子进程（
+        // 编译器、git、包管理器…）。把进程挂进 Job Object 后 TerminateJobObject 能回收
+        // 整棵树，否则取消/超时后子孙进程会留在后台继续跑。
+        void *job = nullptr;
     };
 
     bool setupProcess(Process &p, const QString &cwd, const QStringList &args, bool promptToStdin,
@@ -84,6 +88,13 @@ private:
     void onProcessFinished(Process &p, int exitCode);
     void settle(Process &p, const QString &status, const QVariantMap &detail);
     void accumulate(Process &p, const QByteArray &chunk);
+    // 日志脱敏：token / api key / 长十六进制串替换为占位符，避免凭据随 runs/<id>.log 外泄。
+    static QString desensitize(const QString &text);
+    // 把已启动的进程挂进 Job Object（仅 Windows 生效），建立失败不影响主流程。
+    static void attachJob(Process &p);
+    // 终止整棵进程树：先 Job Object，退化为 QProcess::kill。
+    static void killTree(Process &p);
+    static void closeJob(Process &p);
     QString writeLog(const Process &p) const;
     void cleanup(Process &p);
     void bump();

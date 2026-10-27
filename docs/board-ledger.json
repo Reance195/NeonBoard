@@ -917,11 +917,11 @@
         }
     },
     "claims": {
-        "R6-08": {
+        "R6-09": {
             "agent": "lead",
-            "branch": "feature/r6-08-loop",
-            "claimedAt": 1793133694,
-            "head": "6271cc4cbc861a785b2c49afb1b271c70af7eae8"
+            "branch": "feature/r6-09-ledgerimport",
+            "claimedAt": 1793134377,
+            "head": "f805b7227fb19081b111f7ef0fba12aa85057fa0"
         }
     },
     "version": 1

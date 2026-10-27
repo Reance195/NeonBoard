@@ -52,9 +52,9 @@
         "R4-08": "todo",
         "R4-09": "todo",
         "R4-10": "todo",
-        "R5-01": "todo",
-        "R5-02": "todo",
-        "R5-03": "todo",
+        "R5-01": "done",
+        "R5-02": "done",
+        "R5-03": "done",
         "R6-01": "todo",
         "R6-02": "todo",
         "R6-03": "todo",
@@ -423,6 +423,25 @@
             ],
             "stage": "R5",
             "title": "R5 发布 v0.1.1：版本号单源化 + 端到端升级验证"
+        },
+        "R5-04": {
+            "id": "4c95eebc-891c-4196-9fb9-b88a0f6cf41f",
+            "stage": "R5",
+            "title": "R5 更新检查并行竞速：候选源并发请求取首个成功",
+            "note": "起因：R5-02 把单源超时从 10 秒压到 6 秒、总预算从 15 秒提到 25 秒后，默认源自检仍偶发「检查更新失败：连接超时」—— 三源串行时，raw.githubusercontent.com 常年只挂不答吃满 6 秒，GitHub API 单次 5-7 秒，最坏情况 6+6+7=19 秒逼近总预算，一旦某个源抖动即超时。根治方向：候选源并行竞速，所有源同时发起请求，首个成功者胜出，其余立即取消。目标：① UpdateManager::checkForUpdates 改为并发请求所有候选源（QNetworkAccessManager 多次 get）；② 任一源返回有效清单即胜出，取消其余请求（QNetworkReply::abort）；③ 全部失败才报错误，按失败原因优先级取最严重的；④ 保留单源看门狗（防单个请求挂死），但总预算改为「所有源最慢那个的超时」而非串行累加；⑤ 命令行 --check-update 与设置面板检查按钮行为一致。验收：默认源（gitee raw → github raw → API）自检稳定 < 8 秒（此前偶发 19 秒超时）；断网时仍走缓存降级；单测覆盖并发竞速场景（mock 一慢一快两个源，快的胜出）。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_updatemanager --output-on-failure",
+                "默认源自检稳定 < 8 秒（连续 5 次无超时）",
+                "断网时 --check-update 退出码 0 且提示离线模式"
+            ],
+            "scope": [
+                "src/UpdateManager.*",
+                "tests/tst_updatemanager.cpp",
+                "docs/auto-update.md"
+            ],
+            "depends": [
+                "R5-03"
+            ]
         },
         "R6-01": {
             "acceptance": [

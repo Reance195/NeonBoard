@@ -141,6 +141,13 @@ git branch -d feature/<简述>
 1. 卡片由维护者在台账 `docs/board-ledger.json` 的 `cards` 里登记。
    **agent 不得自行加卡、改卡的标题/阶段、改 `baseline`** —— 否则就是自授权，
    所有领用闸门都会退化成自证；agent 只能写 `claims` 领用登记与卡片 `note` 交付说明。
+
+   > **例外：维护者可显式授权代登记。** 授权必须由维护者在会话中对**具体批次**明确下达，
+   > 且只能在**锚点区**执行（`scripts/task_gate.py ledger` 对锚点区不拦截）。
+   > 代登记只允许追加卡片与对应的 `baseline`，不得改既有卡的 `id` / `title` / `stage`；
+   > agent 不得以授权为名自行加卡，也不得通过临时 worktree、修改判定脚本或 `--no-verify` 绕过。
+   > 提交信息统一用 `chore(board): ...`，并在 body 记录授权来源与批次。
+
 2. 用 `scripts/agent-init.ps1 -Card <短号>` 开区，脚本会推 `refs/claims/<短号>` 完成领用；
    `baseline=<短号> done` 的卡已完成，**拒绝重新领用**。
 3. 提交信息必须带 `#<短号>`：触及代码路径的提交，没有短号直接在 `commit-msg` 被拒。
@@ -612,3 +619,44 @@ agent **禁止手改**快照文件 —— 手改已造成过 v2 覆盖 v3 的事
 - 闸门：向 main 推送 v2 快照 / 卡片数减少 / 丢 `code` → `pre-push` 拒绝并打印原因。
 - **验证事件消费必须用常驻实例**：`--smoke` 的 4 秒窗口不够（`HookEventQueue` 一投出即 `markDelivered`，
   插件后台未 ready 时事件会被丢弃）。
+
+---
+
+## 十二、任务执行（R6）约定
+
+R6 起看板承担「任务派发器」职责：卡片定义 → 拉起本机 agent → 验收判定。
+这一段会**真正修改用户代码**，任何绕过下列边界的实现都算缺陷。
+
+### 12.1 职责分层
+
+| 层 | 位置 | 职责 | 不允许做 |
+| --- | --- | --- | --- |
+| 执行定义 | `board.db` 的 `task_exec` | goal / acceptance / scope / agent / cwd / workflow / timeout / maxAttempts | 往 `task` 表加列、升 `user_version` |
+| 运行态 | `board.db` 的 `task_run` | 每次执行的 run（状态 / 心跳 / 退出码 / 日志 / 越界） | 改看板列、改卡片状态 |
+| 执行器 | `src/TaskRunner.*` | 受控启动子进程、流式日志、超时与终止 | 自动 push、自动改列 |
+| 验收 | `src/AcceptanceRunner.*` / `src/ScopeMatcher.*` | 跑 acceptance、比对 scope | 经过 shell 执行命令 |
+| agent 适配 | `src/AgentProfile.*` | 拼命令行与只读参数 | 内置未实测的 profile |
+
+### 12.2 硬性约束
+
+1. **运行态独立**：`task_run` 侧表 + 同卡活跃 run 的部分唯一索引；不升 `user_version`；
+   看板列仍只有 `todo/doing/done`，**程序不自动改列**，验收通过给人点「标为已办结」。
+   决策见 `docs/adr/0002-run-state-and-executor-safety.md`。
+2. **单飞行**：同卡最多一个活跃 run，全局默认并发 1；M1 忙时直接拒绝，不排队。
+3. **默认关闭**：执行器总开关默认关；关闭时看板行为必须与未引入执行器时完全一致。
+4. **只读 triage**：必须用 CLI 原生只读模式；分析前后 `git status --porcelain` 必须一致，
+   prompt 里写「不要改文件」不算约束。输出 schema 见 `docs/agent-triage.md`。
+5. **命令不经过 shell**：acceptance 只允许白名单脚本路径，拒绝管道 / 重定向 / 拼接字符；
+   `assert` 由内置检查器执行。
+6. **不自动推送**：执行完最多留下本地改动；`push` 永远由人决定。
+7. **cwd 白名单**：必须命中已登记目录的绝对路径，首次登记需人勾选确认。
+8. **日志脱敏**：token / key / 长十六进制串写入前脱敏；`runs/` 落数据目录，不得进仓库。
+9. **定义单源**：开发卡看台账、个人卡看 `task_exec`；只允许台账 → `board.db` 单向导入，
+   反向必须人确认后提交（`docs/adr/0001-task-definition-source.md`）。
+10. **快照不受影响**：执行结果不写 `progress.json`；卡片状态仍由 `#短号=状态` 与台账派生（§11）。
+
+### 12.3 验证口径
+
+- `ctest --test-dir build -C Release -R "tst_taskruns|tst_taskrunner|tst_acceptance" --output-on-failure`；
+- 禁用总开关时 `--selftest` / `--smoke` 行为与未引入执行器时一致；
+- 任何新增 schema 都必须断言 `PRAGMA user_version` 未变，且 `tst_databasemigration` 通过。

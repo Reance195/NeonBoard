@@ -54,7 +54,16 @@
         "R4-10": "todo",
         "R5-01": "todo",
         "R5-02": "todo",
-        "R5-03": "todo"
+        "R5-03": "todo",
+        "R6-01": "todo",
+        "R6-02": "todo",
+        "R6-03": "todo",
+        "R6-04": "todo",
+        "R6-05": "todo",
+        "R6-06": "todo",
+        "R6-07": "todo",
+        "R6-08": "todo",
+        "R6-09": "todo"
     },
     "cards": {
         "M01": {
@@ -413,6 +422,206 @@
             ],
             "depends": [
                 "R5-02"
+            ]
+        },
+        "R6-01": {
+            "id": "90651d45-9baf-4c3a-93a6-2a8d2ff981b5",
+            "stage": "R6",
+            "title": "R6 执行定义收尾：cwd / 超时 / 轮数可编辑 + 执行页签",
+            "note": "起因：task_exec 侧表已能存 cwd / timeout_min / max_attempts，但任务编辑弹窗只暴露 goal / acceptance / scope / agent / workflow，执行参数填不全也就无法派发。目标：补齐三项编辑能力（cwd 需校验为存在的绝对路径），把编辑弹窗拆出「任务 / 执行」两个页签，并在执行页签底部给出执行入口与最小集提示。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_taskexec --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "build/Release/NeonBoard.exe --smoke 退出码 0 且无 QML 报错"
+            ],
+            "scope": [
+                "src/TaskExec.*",
+                "qml/Main.qml",
+                "tests/tst_taskexec.cpp",
+                "docs/screenshots/**"
+            ]
+        },
+        "R6-02": {
+            "id": "0921b037-54ca-45e4-ab4a-7c82f484be92",
+            "stage": "R6",
+            "title": "R6 运行记录侧表与任务锁",
+            "note": "起因：执行器需要可追溯的 run 身份与「同卡不并发」的锁，而 task 表不能加列、user_version 不能升。目标：新增侧表 task_run（id / task_id / agent / cwd / workflow / status / attempt / 时间戳 / heartbeat / exit_code / last_error / log_path / scope_violation）+ 同卡活跃 run 的部分唯一索引，配套 TaskRunStore 做创建/心跳/结束/孤儿回收，启动时把心跳超 90 秒的 running 判为 blocked（进程中断）。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R \"tst_taskruns|tst_databasemigration\" --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0 且断言 user_version 仍为 2"
+            ],
+            "scope": [
+                "src/Database.cpp",
+                "src/TaskRunStore.*",
+                "src/main.cpp",
+                "tests/tst_taskruns.cpp",
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt"
+            ]
+        },
+        "R6-03": {
+            "id": "d926c728-42bf-497d-8661-d1f093949226",
+            "stage": "R6",
+            "title": "R6 Agent Profile 与执行前确认",
+            "note": "起因：docs/agent-profile.md 的实测结论还停留在文档里，代码不知道每种 CLI 怎么拼参数、怎么进只读模式。目标：落地 AgentProfile（内置 opencode / claude / cursor-agent，codex 未实测不内置；存 meta 表 exec.agentProfiles）+ 命令行拼装（无 shell）+ 设置面板「任务执行」区（总开关默认关、默认 agent、profile 管理）+ 执行前确认框（agent / cwd / 完整命令行 / acceptance / 超时，勾选信任目录后写白名单）。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_agentprofile --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "build/Release/NeonBoard.exe --smoke 退出码 0 且无 QML 报错"
+            ],
+            "scope": [
+                "src/AgentProfile.*",
+                "src/Database.cpp",
+                "src/main.cpp",
+                "qml/Main.qml",
+                "qml/components/SettingsPanel.qml",
+                "tests/tst_agentprofile.cpp",
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt",
+                "docs/agent-profile.md"
+            ],
+            "depends": [
+                "R6-01"
+            ]
+        },
+        "R6-04": {
+            "id": "e81fa56f-348d-4d47-80b6-376dd8665e64",
+            "stage": "R6",
+            "title": "R6 单次执行器：QProcess + 流式日志 + 超时/终止",
+            "note": "起因：定义、profile、锁都齐了，缺真正拉起 agent 的引擎。目标：TaskRunner 受控启动 QProcess（校验定义 → 取锁 → 建 run），stdout/stderr 按行流式写 runs/<runId>.log 并脱敏 token / key / 长十六进制串，心跳每 10 秒；超时强杀并标 blocked（timeout）；取消先 terminate 后 kill，Windows 用 Job Object 回收整棵进程树；已有活跃 run 时新请求直接拒绝（M1 不排队）。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_taskrunner --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "build/Release/NeonBoard.exe --smoke 退出码 0 且无 QML 报错"
+            ],
+            "scope": [
+                "src/TaskRunner.*",
+                "src/TaskRunStore.*",
+                "src/main.cpp",
+                "qml/Main.qml",
+                "tests/tst_taskrunner.cpp",
+                "tests/fixtures/**",
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt"
+            ],
+            "depends": [
+                "R6-02",
+                "R6-03"
+            ]
+        },
+        "R6-05": {
+            "id": "dd95c213-2cba-42a5-b4cf-71773d644b96",
+            "stage": "R6",
+            "title": "R6 验收器与越界检查",
+            "note": "起因：进程退出码 0 不等于任务完成，agent 也可能改到 scope 之外。目标：AcceptanceRunner 顺序执行 acceptance（command 走白名单脚本路径、不经过 shell、拒绝管道与重定向；assert 先支持 file.exists）+ ScopeMatcher 跑前记 git status 基线、跑后比对差异路径与卡片 scope（scope 为空不检查）；三者合并判定 passed / blocked 并写入 last_error。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R \"tst_acceptance|tst_scopematcher\" --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "scope": [
+                "src/AcceptanceRunner.*",
+                "src/ScopeMatcher.*",
+                "tests/tst_acceptance.cpp",
+                "tests/tst_scopematcher.cpp",
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt"
+            ],
+            "depends": [
+                "R6-04"
+            ]
+        },
+        "R6-06": {
+            "id": "a62d2df7-3073-4173-9821-b330958ad547",
+            "stage": "R6",
+            "title": "R6 执行结果回写与执行面板",
+            "note": "起因：结果只进 run 表，人看不到也做不了决定。目标：run 终态（状态 / 耗时 / 退出码 / 摘要 / 越界 / 日志路径）回写并在执行面板展示，卡面加执行态徽章；提供查看完整日志、重试（attempt+1）与「标为已办结」（走既有完成路径、可撤销）；程序不自动改看板列、不自动 push。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_runsummary --output-on-failure",
+                "build/Release/NeonBoard.exe --smoke 退出码 0 且无 QML 报错"
+            ],
+            "scope": [
+                "src/TaskRunStore.*",
+                "src/main.cpp",
+                "qml/Main.qml",
+                "qml/components/TaskCard.qml",
+                "tests/tst_runsummary.cpp",
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt",
+                "docs/screenshots/**"
+            ],
+            "depends": [
+                "R6-04",
+                "R6-05"
+            ]
+        },
+        "R6-07": {
+            "id": "d32f7e28-e4cc-4cb6-bb7b-6fe9db6974a9",
+            "stage": "R6",
+            "title": "R6 Triage：只读分析生成执行草案",
+            "note": "起因：一句话需求直接派发，agent 只能猜范围与验收。目标：按 docs/agent-triage.md 的 schema 与 prompt 落地 TriageRunner，用 profile 的只读参数强制只读（分析前后 git status 必须一致，有差异即判失败）；严格 JSON 校验、questions 截断到 3 条、非法 glob 丢弃、acceptance 为空补默认；草案只写 board.db，人在执行页签预览并采纳后才回填表单，confidence 低于 0.5 时禁止一键执行。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_triage --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "scope": [
+                "src/TriageRunner.*",
+                "src/AgentProfile.*",
+                "src/Database.cpp",
+                "src/TaskExec.*",
+                "src/main.cpp",
+                "qml/Main.qml",
+                "tests/tst_triage.cpp",
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt",
+                "docs/agent-triage.md"
+            ],
+            "depends": [
+                "R6-01",
+                "R6-03"
+            ]
+        },
+        "R6-08": {
+            "id": "e2ef6d16-e853-4a26-b3a8-b7e5f70bcebb",
+            "stage": "R6",
+            "title": "R6 Loop：失败摘要回灌与有限重试",
+            "note": "起因：agent 首轮失败很常见，重跑时把失败上下文带上才可能自愈。目标：maxAttempts 生效（上限 5、默认 1），失败且未到上限时把 last_error 末尾 200 行注入下一轮 prompt，新建 run 并 attempt+1，每轮日志独立；人取消后不再自动重试，轮数耗尽终态 blocked 并提示人工介入。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_runloop --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "scope": [
+                "src/TaskRunner.*",
+                "src/TaskRunStore.*",
+                "tests/tst_runloop.cpp",
+                "tests/CMakeLists.txt"
+            ],
+            "depends": [
+                "R6-04",
+                "R6-05"
+            ]
+        },
+        "R6-09": {
+            "id": "2bcd2b26-1143-495f-991f-a56926ebd529",
+            "stage": "R6",
+            "title": "R6 台账卡单向导入（可选）",
+            "note": "起因：开发卡的 acceptance / scope 在台账里已有一份，board.db 里还要手填一遍，容易漂移。目标：按 ADR-0001 做单向导入——读 board-ledger.json，按短号找到对应任务，只补 task_exec 里为空的 acceptance / scope / goal（note 首段），冲突只报告不覆盖，未建卡只报告不自动建；不提供反向写入台账的入口。本卡不阻塞正式发布。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_ledgerimport --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "scope": [
+                "src/LedgerImport.*",
+                "src/TaskExec.*",
+                "src/Database.cpp",
+                "src/main.cpp",
+                "qml/Main.qml",
+                "tests/tst_ledgerimport.cpp",
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt",
+                "docs/adr/**"
+            ],
+            "depends": [
+                "R6-01"
             ]
         }
     },

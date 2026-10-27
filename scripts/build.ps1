@@ -14,12 +14,18 @@
     Ninja 为单配置生成器：若当前不在 MSVC 开发者环境，脚本会自动定位并导入 vcvars64 的环境后再构建；
     exe 直接落在 build/ 根（VS 多配置则在 build/<Config>/ 下）。装有 sccache 时由 CMakeLists 自动启用编译缓存。
 
-    探测顺序：
-      CMake：PATH -> VS 2022 各版自带 CMake -> Program Files 独立安装
-      Qt   ：-QtRoot -> $env:NEONBOARD_QT_ROOT -> $env:QT_ROOT -> C:\Qt\<版本>\msvc2022_64（取最高版本）
+    探测顺序（与 scripts/dev-env.ps1 共用同一套规则）：
+      CMake：PATH -> %LOCALAPPDATA%\Programs\DevTools -> VS 2022 各版自带 -> Program Files
+      Ninja：同上
+      Qt   ：-QtRoot -> $env:NEONBOARD_QT_ROOT -> $env:QT_ROOT
+             -> C:\Qt / ~/Qt / %LOCALAPPDATA%\Qt 下的 <版本>\msvc*_64（取最高版本）
 
     自检隔离：-SelfTest 会把 NEONBOARD_DATA_DIR 固定到 <BuildDir>\selftest-sandbox，
     并关闭路线图自动写回，避免污染真实看板库与仓库根 progress.json。
+
+    环境：若本机没开「开发者 PowerShell」，脚本先用 dev-env.ps1 装配（不读注册表，
+    受限环境可用），失败才回退 vcvars64.bat（依赖 reg.exe，受限环境会被拦掉进程）。
+    也可先手动装备好环境再构建：. ./scripts/dev-env.ps1
 #>
 [CmdletBinding()]
 param(
@@ -70,6 +76,21 @@ if (Test-Path -LiteralPath $hookSetup) {
     }
 }
 
+# 载入 dev-env.ps1 的探测函数（只定义函数、不装配环境，见 -Check）。
+# 目的：CMake / Ninja / Qt 的查找规则与 dev-env.ps1 保持同一份，避免两处漂移。
+$devEnvScript = Join-Path $scriptDir 'dev-env.ps1'
+$devEnvLoaded = $false
+if (Test-Path -LiteralPath $devEnvScript) {
+    $previousEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        . $devEnvScript -Quiet -Check
+        $devEnvLoaded = ((Get-Command Find-NeonBoardDevTool -ErrorAction SilentlyContinue) -ne $null)
+    } finally {
+        $ErrorActionPreference = $previousEap
+    }
+}
+
 function Write-Step {
     param([string]$Message)
     Write-Host ''
@@ -111,6 +132,12 @@ function Test-QtRoot {
 }
 
 function Resolve-CMake {
+    # dev-env.ps1 的查找顺序更全（含 %LOCALAPPDATA%\Programs\DevTools 这类便携安装）
+    if ($devEnvLoaded) {
+        $found = Find-NeonBoardDevTool -Name 'cmake.exe'
+        if ($found) { return $found }
+    }
+
     $command = Get-Command cmake.exe -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
 
@@ -155,6 +182,18 @@ function Resolve-QtRoot {
         }
     }
 
+    # dev-env.ps1 的查找覆盖 C:\Qt 与 ~/Qt（aqt 默认安装位置），比下面的兜底更全
+    if ($devEnvLoaded) {
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $found = Resolve-NeonBoardQtRoot
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+        if ($found) { return $found }
+    }
+
     $base = 'C:\Qt'
     if (Test-Path -LiteralPath $base) {
         $versions = Get-ChildItem -LiteralPath $base -Directory -ErrorAction SilentlyContinue |
@@ -171,6 +210,11 @@ function Resolve-QtRoot {
 
 # 定位 ninja：PATH 优先，其次 VS 各版自带，最后独立 CMake 安装目录。找不到返回 $null。
 function Resolve-Ninja {
+    if ($devEnvLoaded) {
+        $found = Find-NeonBoardDevTool -Name 'ninja.exe'
+        if ($found) { return $found }
+    }
+
     $command = Get-Command ninja.exe -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
 
@@ -199,11 +243,21 @@ function Resolve-Ninja {
 }
 
 # Ninja + MSVC 需要 cl.exe 及 INCLUDE/LIB/PATH 等环境；与 VS 生成器不同，Ninja 不会自带工具集，
-# 必须在 MSVC 开发者环境里运行。若当前不在该环境，则定位 vcvars64.bat 并把其设置的环境变量
-# 导入本进程，使后续 cmake/ninja 子进程能调用 cl.exe。仅在确实缺失时才导入（已在开发者环境则跳过）。
+# 必须在 MSVC 开发者环境里运行。仅在确实缺失时才装配（已在开发者环境则跳过）。
+#
+# 两条装配路径，顺序很关键：
+#   1) dev-env.ps1 手工拼装——不读注册表，受限环境下同样可用，优先尝试；
+#   2) vcvars64.bat——官方做法，但内部调用 reg.exe，受限环境里会被直接拦掉进程
+#      （PowerShell 的 try/catch 接不住，是进程级终止），所以放在后面兜底。
 function Import-VcVarsIfNeeded {
     if (Get-Command cl.exe -ErrorAction SilentlyContinue) { return }
     if ($env:VCINSTALLDIR -and (Test-Path -LiteralPath (Join-Path $env:VCINSTALLDIR 'Tools\MSVC'))) { return }
+
+    if ($devEnvLoaded) {
+        Write-Detail '装配 MSVC 环境：dev-env.ps1（不依赖注册表）'
+        Initialize-NeonBoardDevEnv -Quiet | Out-Null
+        if (Get-Command cl.exe -ErrorAction SilentlyContinue) { return }
+    }
 
     $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
     $vcvars = $null
@@ -227,14 +281,19 @@ function Import-VcVarsIfNeeded {
 
     Write-Detail ("导入 MSVC 环境：" + $vcvars)
     $cmdLine = '"' + $vcvars + '" && set'
-    $dump = & cmd.exe /c $cmdLine 2>$null
-    foreach ($line in $dump) {
-        if ($line -match '^([^=]+)=(.*)$') {
-            [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+    try {
+        $dump = & cmd.exe /c $cmdLine 2>$null
+        foreach ($line in $dump) {
+            if ($line -match '^([^=]+)=(.*)$') {
+                [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+            }
         }
+    } catch {
+        Write-Host '· vcvars64 导入未完整执行（受限环境常因 reg.exe 被拦截）' -ForegroundColor Yellow
     }
+
     if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
-        throw '导入 vcvars64 后仍未找到 cl.exe，请从「开发者 PowerShell / 命令提示符」运行本脚本，或用 -Generator VS。'
+        throw '未能装配 MSVC 环境：请从「开发者 PowerShell / 命令提示符」运行，或先执行 . ./scripts/dev-env.ps1，也可用 -Generator VS 回退。'
     }
 }
 

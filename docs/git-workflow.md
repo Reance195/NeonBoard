@@ -358,6 +358,10 @@ git merge --no-ff <branch>      # 合并（保留合并痕迹）
 git stash push -m "说明"
 git stash list
 git stash pop
+
+# 构建环境（新机器 / 新 clone，见第七节）
+. ./scripts/dev-env.ps1
+pwsh -File scripts/build.ps1 -SelfTest
 ```
 
 ---
@@ -402,3 +406,39 @@ git push -u backup main
 git switch main
 git commit -m "test" --allow-empty    # 应当被 pre-commit 拦截
 ```
+
+---
+
+## 七、构建环境（新机器 / 新 clone）
+
+Ninja + MSVC 必须在「开发者环境」里跑，仓库提供一键装配（**点号 + 空格不能少**，
+必须 dot-source，否则环境变量只存在于子进程，等于白做）：
+
+```powershell
+. ./scripts/dev-env.ps1              # 装配 MSVC / SDK / CMake / Ninja / Qt 并打印清单
+. ./scripts/dev-env.ps1 -Quiet       # 只装配，不打印
+pwsh -File scripts/dev-env.ps1 -Check   # 只体检，不改环境
+pwsh -File scripts/build.ps1 -SelfTest  # 装好后再构建
+```
+
+### 为什么不直接跑 vcvars64.bat
+
+`vcvars64.bat` 靠 `reg.exe` 读注册表来拼环境；受限环境里 `reg.exe` 被拦截时它
+**静默少导入一批变量**，症状是 CMake 报 `rc.exe not found` 或
+`CXX compiler is not able to compile a simple test program`，从报错看不出是环境没导全。
+`dev-env.ps1` 直接拼 `VCINSTALLDIR / VCToolsInstallDir / INCLUDE / LIB / PATH`，不读注册表、
+不需要 UAC。`build.ps1` 仍先尝试 vcvars，导入不全时自动回退到 `dev-env.ps1` 的装配逻辑。
+
+### 缺件怎么补（全部用户级，无需管理员）
+
+| 组件 | 装法 | 解析位置 |
+| --- | --- | --- |
+| Qt 6（msvc2022_64） | `pip install aqtinstall`；`python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 -m qtshadertools -O "$HOME\Qt"` | `C:\Qt\<版本>`、`$HOME\Qt\<版本>`（aqt 默认）、`%LOCALAPPDATA%\Qt` |
+| CMake | 解压官方 zip 到 `%LOCALAPPDATA%\Programs\DevTools\cmake` | 同上目录，外加 PATH、VS 自带、`Program Files\CMake` |
+| Ninja | 解压 `ninja-win.zip` 到 `%LOCALAPPDATA%\Programs\DevTools\ninja` | 同上 |
+| MSVC | VS BuildTools 勾选「使用 C++ 的桌面开发」 | vswhere 结果、`C:\BuildTools`、`%LOCALAPPDATA%\Programs\VSBuildTools` |
+
+Qt 装在别处时用 `-QtRoot` 指定，或设置 `NEONBOARD_QT_ROOT` / `QT_ROOT`。
+
+> 坑：PS 5.1 的 `Expand-Archive` 解 CMake 官方 zip 会得到坏包（cmake 无法运行），
+> 改用 `tar -xf` 解压。

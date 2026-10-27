@@ -253,6 +253,42 @@
             "updatedAt": 1793125542
         },
         {
+            "code": "DX-04",
+            "completedAt": 0,
+            "createdAt": 1793126566,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "adc1c767-f2b1-4d80-b6e4-b185602ace36",
+            "note": "现象（2026-10-28 实测）：看板阶段条只显示「全部 / R0 / R1 / R2 / R3 / 其他」，但 board.db 里实际存在 R4 14 张、R5 5 张（4 done + 1 todo）、R6 9 张（3 done + 6 todo）。因为这些阶段既不在 buildStageList 的 order 数组里、也不计入 OTHER（OTHER 只统计 stageOf 归不了 R\\d+ 的卡），R4/R5/R6 共 28 张卡在界面上完全不可见 —— R6 还有 6 张待办、R5 还有 1 张待办，等于未完成的工作在进度条上凭空消失。根因与全景面板 DX-01 修掉的是同一个：qml/Main.qml 的 buildStageList 把阶段集合写死成 ['R0','R1','R2','R3','OTHER']，而 src/TaskModel.cpp 的 stageOf 只认 ^R\\d+$（DX 这类非 R 阶段一律落 OTHER）。目标：阶段集合与顺序改为取自路线图 §9（ProjectMap 已能解析，可直接复用），stageOf 宽容识别任意短号前缀；「其他」改为兜底桶且保证可对账。（备注：先前口头说的「其他 39/33」是我看错了截图，实际是 33/33，不存在 done>total；真问题是 R4/R5/R6 被吞。）",
+            "orderKey": 18432,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 阶段条数据驱动：R4/R5/R6 的卡目前在界面上完全不可见",
+            "updatedAt": 1793126566
+        },
+        {
+            "code": "DX-05",
+            "completedAt": 0,
+            "createdAt": 1793126566,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "345b40c4-13dc-4efe-bcd6-b4108c96c52a",
+            "note": "现象（2026-10-28 02:xx 实测）：两个会话（agent-map2 与 lead）同时把仓库根目录当开发区 —— `git worktree list` 只有锚点区一条、`.worktrees/` 不存在；锚点区里躺着 `.sandbox/` 和 `.agent-env.ps1`（内容写着 NEONBOARD_AGENT_ID=agent-map2）；HEAD 被对方切到 feature/r6-04-taskrunner，我上一轮刚挪回 main 随即被覆盖；git-done 因「工作区有未提交改动」拒绝了合并且未说明是别人的在制品。根因不是机制缺失：agent-init 的 else 分支本来就会 `git worktree add .worktrees/<agent>`，但 `-InPlace` 分支本意只用于「已是隔离检出」，在锚点区传它等于把共享检出当自己的开发区，脚本不拦；配套的 agent-workspace.ps1 的 root 占用登记是自愿的（Status 显示 root 空闲，两边都没做）；task_gate 在非 .worktrees 检出还直接放行台账校验，越乱越松。两种隔离要分清：worktree 隔离文件与 HEAD，.sandbox 隔离运行时数据（DB/日志/hooks），本次两者都没生效。目标：把「绕过」变成「不可能」—— 硬门 + 自动占用 + 他人在制品告警，三道一起。",
+            "orderKey": 19456,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 会话隔离硬门：锚点区禁止 -InPlace，占用登记改为自动",
+            "updatedAt": 1793126566
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -2023,6 +2059,6 @@
             "updatedAt": 1793123355
         }
     ],
-    "updated": "2026-10-27T18:25:42",
+    "updated": "2026-10-27T18:42:46",
     "version": 3
 }

@@ -67,7 +67,7 @@ if baseline.get(code) == "done":
 
 # 小任务（M##）只有在父任务未被任何人认领时才允许单独领用
 parent_code = None
-if not re.match(r"^R\d+-\d+$", code):
+if not re.match(r"^[A-Za-z]{1,4}\d*-\d+$", code):
     child_id = (cards.get(code) or {}).get("id", "")
     if not child_id:
         sys.stderr.write("[领用] 子卡 %s 缺少卡片 id，无法确定父任务，拒绝领用\n" % code)

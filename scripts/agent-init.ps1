@@ -180,7 +180,7 @@ $envContent = ($envLines -join "`n")
 #   4) 显式 --emit-hook-file 投一次 #<code>=doing 兜底（不阻塞、幂等）
 if ($Card) {
     $code = $Card.TrimStart('#').ToUpperInvariant()
-    if ($code -notmatch '^(R\d+-\d+|M\d+)$') {
+    if ($code -notmatch '^([A-Za-z]{1,4}\d*-\d+|M\d+)$') {
         throw "领用失败：-Card 需为路线图短号（如 R3-01 / M19），收到：$Card"
     }
 

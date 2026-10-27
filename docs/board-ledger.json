@@ -796,6 +796,26 @@
                 "R6-02",
                 "R7-01"
             ]
+        },
+        "DX-01": {
+            "id": "56336b95-b51d-41db-bd24-70086e43945c",
+            "stage": "DX",
+            "title": "DX 项目全景面板：四层事实源实时派生（路线图 / 台账 / git / 文件系统对账）",
+            "note": "起因：面板里的里程碑主题与开发链路是 QML 手写常量，仓库改了面板不跟，等于挂着一张会撒谎的地图。目标：里程碑解析 iteration-roadmap.md §9 表格（行序即顺序，主题/目标/出口/宣称全部取自表格，加一行 R8/DX 面板自动多一行）；卡片状态按 git #短号=done ∪ 台账 baseline 派生（标记制度 R4 才有，只看 git 会把 R0 读成 0/10）；链路改为 docs/project-map.json 声明 + 逐条 evidence 存在性实证，缺文件即断链；骨架扫真实目录（文件数/行数/最近提交）；新增体检页签把「宣称 vs 派生」「台账 vs 路线图」「证据缺失」四类不一致分级暴露。派生在后台线程跑（3 次 git 合并 + 约 180 个文件扫描，0.3–0.9 s），文件改动 0.7 s 防抖自动重算；新增 --map 诊断入口与 tst_projectmap 护栏。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R \"tst_projectmap|tst_appactions\" --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "build/Release/NeonBoard.exe --map 退出时 neonboard.log 无 QML 告警"
+            ],
+            "scope": [
+                "src/ProjectMap.*",
+                "src/AppActions.*",
+                "qml/components/ProjectMapPanel.qml",
+                "qml/Main.qml",
+                "docs/project-map.json",
+                "docs/iteration-roadmap.md",
+                "tests/tst_projectmap.cpp"
+            ]
         }
     },
     "claims": {

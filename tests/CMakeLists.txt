@@ -129,3 +129,11 @@ neonboard_add_test(tst_agentprofile
 )
 target_link_libraries(tst_agentprofile PRIVATE Qt6::Sql)
 
+# 项目全景：路线图 §9 / 台账 / docs/project-map.json 的解析 + 证据实证。
+# 这组断言是「地图跟着仓库走」的护栏：表格结构、脚本路径、派生规则任一被改坏，
+# 这里先红，避免面板展示一张与仓库脱节的地图。
+# 派生在 QThreadPool 后台线程跑（QtCore 自带），无需额外组件
+neonboard_add_test(tst_projectmap
+    ${CMAKE_SOURCE_DIR}/src/ProjectMap.cpp
+)
+

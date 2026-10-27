@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "_comment": "项目全景图的声明源。链路的每一环都必须挂真实存在的文件作为证据（evidence），骨架每一组都必须指向真实目录。缺证据会在面板上显示为「断链」，改仓库结构时同步改这里即可，代码不用动。",
+  "chain": [
+    {
+      "id": "req",
+      "title": "需求与里程碑",
+      "tag": "iteration-roadmap.md §9",
+      "desc": "主干需求声明：每个里程碑要做什么、出口标准、进度宣称。新里程碑只改这里，全景图自动多出一行。",
+      "anchor": "docs/iteration-roadmap.md",
+      "command": "code docs/iteration-roadmap.md",
+      "evidence": ["docs/iteration-roadmap.md", "docs/backlog.md", "docs/product-design.md"]
+    },
+    {
+      "id": "ledger",
+      "title": "任务台账",
+      "tag": "board-ledger.json",
+      "desc": "全部任务卡的唯一定义地：cards（卡定义）+ baseline（种子状态）+ claims（领用）。agent 不得直接写 cards。",
+      "anchor": "docs/board-ledger.json",
+      "command": "python scripts/task_gate.py ledger",
+      "evidence": ["docs/board-ledger.json", "docs/backlog.md"]
+    },
+    {
+      "id": "claim",
+      "title": "领用闸门",
+      "tag": "agent-init.ps1 / task_gate.py",
+      "desc": "防抢防自授权：agent 先在 claims 登记领用才能改代码；提交钩子校验 claim 引用。",
+      "anchor": "scripts/task_gate.py",
+      "command": "pwsh -File scripts/agent-init.ps1 -Card <短号>",
+      "evidence": ["scripts/agent-init.ps1", "scripts/task_gate.py", "scripts/claim-card.py"]
+    },
+    {
+      "id": "work",
+      "title": "隔离开干",
+      "tag": "agent-workspace.ps1",
+      "desc": "每卡一个 worktree + feature 分支，只在 scope 内改；锚点区（仓库根）提交不受 worktree 校验。",
+      "anchor": "AGENTS.md",
+      "command": "pwsh -File scripts/agent-workspace.ps1 -Card <短号>",
+      "evidence": ["scripts/agent-workspace.ps1", "scripts/check_scope.py", "AGENTS.md"]
+    },
+    {
+      "id": "verify",
+      "title": "实现与验证",
+      "tag": "verify.ps1 / build.ps1",
+      "desc": "提交前全量编译 + 自测：--selftest / --smoke 必须退出码 0，QML 不得有告警。",
+      "anchor": "scripts/verify.ps1",
+      "command": "pwsh -File scripts/build.ps1 -SelfTest",
+      "evidence": ["scripts/verify.ps1", "scripts/build.ps1", "scripts/check-format.ps1"]
+    },
+    {
+      "id": "ship",
+      "title": "结卡合入",
+      "tag": "git-done.ps1",
+      "desc": "合规「提上去」：--no-ff 合并 + 快进推 origin/main + 删分支；提交信息带 #短号=done 才算结卡。",
+      "anchor": "scripts/git-done.ps1",
+      "command": "pwsh -File scripts/git-done.ps1 -Card <短号>",
+      "evidence": ["scripts/git-done.ps1", "scripts/derive_board_status.py", "scripts/setup-git-hooks.ps1"]
+    },
+    {
+      "id": "sync",
+      "title": "看板 ↔ 仓库同步",
+      "tag": "BoardSync",
+      "desc": "看板改动与仓库快照零差异：启动拉取 / 增量轮询 / 防抖写回 / 提交钩子，diff 必须为 0。",
+      "anchor": "src/BoardSync.cpp",
+      "command": "ctest --test-dir build -C Release -R tst_boardcolumns --output-on-failure",
+      "evidence": ["src/BoardSync.cpp", "src/BoardSync.h", "docs/board-sync.md"]
+    },
+    {
+      "id": "patrol",
+      "title": "日常巡查",
+      "tag": "agent-status.ps1 / daily_standup.py",
+      "desc": "拉代码 + 分析待办 + 对比主干漂移；认知回流重新对齐需求，形成闭环。",
+      "anchor": "scripts/agent-status.ps1",
+      "command": "pwsh -File scripts/agent-status.ps1",
+      "evidence": ["scripts/agent-status.ps1", "scripts/check-worktree-activity.ps1"]
+    }
+  ],
+  "skeleton": [
+    { "group": "内核 C++", "desc": "数据库、模型、托盘、热键、窗口、插件宿主、任务执行", "paths": ["src"], "ext": [".cpp", ".h"] },
+    { "group": "界面 QML", "desc": "主界面、组件、主题、霓虹背景", "paths": ["qml"], "ext": [".qml", ".js"] },
+    { "group": "着色器", "desc": "GLSL 霓虹背景与场景化动效", "paths": ["shaders"], "ext": [".frag", ".vert", ".qsb", ".glsl"] },
+    { "group": "仓闸脚本", "desc": "构建、验证、领用、结卡、巡查的强制通道", "paths": ["scripts"], "ext": [".ps1", ".py"] },
+    { "group": "需求与文档", "desc": "路线图、台账、ADR、协议与设计稿", "paths": ["docs"], "ext": [".md", ".json"] },
+    { "group": "测试", "desc": "QtTest 单测与验收用例", "paths": ["tests"], "ext": [".cpp", ".txt"] },
+    { "group": "示例插件", "desc": "插件平台的可运行样例（槽位 / 权限 / 事件）", "paths": ["plugins-samples"], "ext": [".qml", ".json"] }
+  ]
+}

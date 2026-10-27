@@ -25,7 +25,7 @@ import subprocess
 import sys
 
 CLAIM_MESSAGE = re.compile(
-    r"^chore\(claim\):\s*领取\s*#((?:R\d+-\d+)|(?:M\d+))\s*实施任务$"
+    r"^chore\(claim\):\s*领取\s*#((?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+))\s*实施任务$"
 )
 
 

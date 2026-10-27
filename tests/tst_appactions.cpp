@@ -42,6 +42,8 @@ void TestAppActions::fromArguments_data()
                               << QStringLiteral("plugins");
     QTest::newRow("外观面板") << QStringList{QStringLiteral("--appearance")}
                               << QStringLiteral("appearance");
+    QTest::newRow("项目全景") << QStringList{QStringLiteral("--map")}
+                              << QStringLiteral("map");
     QTest::newRow("插件库") << QStringList{QStringLiteral("--library")}
                             << QStringLiteral("library");
     QTest::newRow("命令面板带查询") << QStringList{QStringLiteral("--palette"),

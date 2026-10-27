@@ -120,3 +120,12 @@ neonboard_add_test(tst_taskruns
 )
 target_link_libraries(tst_taskruns PRIVATE Qt6::Sql)
 
+# R6-03：agent profile —— 内置三条 / argv 拼装 / stdin 不塞 argv / 校验 / meta 持久化 /
+# 总开关与 cwd 白名单。profile 存 meta 表，用 sqlite 临时库跑。
+neonboard_add_test(tst_agentprofile
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/AgentProfile.cpp
+)
+target_link_libraries(tst_agentprofile PRIVATE Qt6::Sql)
+

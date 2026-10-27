@@ -7,19 +7,42 @@
 
 ```jsonc
 {
-  "id": "opencode",
+  "id": "opencode",                     // 唯一 id：[A-Za-z0-9][A-Za-z0-9._-]{0,63}
   "displayName": "opencode",
-  "exe": "opencode",
+  "exe": "opencode",                    // 可执行名或绝对路径
   "args": ["run", "--format", "json"],
-  "promptMode": "stdin | arg",          // prompt 怎么传：命令行参数 or 标准输入
-  "readonly": {
-    "args": ["--agent", "plan"]          // 只读模式追加的参数；为空表示该 agent 不支持只读
-  },
-  "output": "stream-json | json | text",
+  "promptMode": "arg",                  // arg（拼进 argv）| stdin（由执行器写标准输入）
+  "readonlyArgs": ["--agent", "plan"],  // 只读模式追加的参数；空表示该 agent 无只读开关
+  "output": "json",                     // stream-json | json | text
   "env": { "NO_COLOR": "1" },
-  "limits": { "defaultTimeoutMin": 30 }
+  "defaultTimeoutMin": 30               // 1–480
 }
 ```
+
+命令行**只按 argv 拼装**：`exe + args + readonlyArgs（只读时）+ prompt（promptMode=arg 时）`，
+不经过 shell；界面上的完整命令行只是同一份 argv 的展示串（含引号转义），执行侧不使用它。
+
+## 存储与生效
+
+| meta 键 | 内容 |
+| --- | --- |
+| `exec.agentProfiles` | 整份 profile 列表（JSON 数组）；键不存在 = 用内置，删键即恢复内置 |
+| `exec.enabled` | 执行器总开关，`"1"` 为开，**默认关** |
+| `exec.defaultAgent` | 默认 agent id（卡片未填 agent 时使用） |
+| `exec.trustedCwds` | cwd 白名单（JSON 数组），首次执行目录需在确认框勾选「信任本目录」 |
+
+- 只写 `meta` 表，**不升 `user_version`、不动 `task` 表**。
+- 内置三条：`opencode` / `claude` / `cursor-agent`（见下表）。**codex 未实测，不内置**，
+  需要时在 设置 → 任务执行 里手工新增。
+- 用户增删改后整份列表落 meta；`恢复内置` 即删除该键。
+
+### 内置 profile
+
+| id | 命令行 | 只读追加 | output | promptMode |
+| --- | --- | --- | --- | --- |
+| `opencode` | `opencode run --format json <prompt>` | `--agent plan` | `json` | `arg` |
+| `claude` | `claude -p --output-format stream-json <prompt>` | `--permission-mode plan` | `stream-json` | `arg` |
+| `cursor-agent` | `cursor-agent -p --output-format stream-json <prompt>` | `--plan` | `stream-json` | `arg` |
 
 ## 已验证的 CLI 事实（本机实测，2026-10-27）
 

@@ -179,6 +179,21 @@ ApplicationWindow {
         }
     }
 
+    // 执行前确认（R6-03）：只展示快照，真正的进程启动在 R6-04 接入
+    function openExecConfirm(payload) {
+        execConfirmDialog.taskId = payload.taskId || ""
+        execConfirmDialog.agentId = payload.agentId || ""
+        execConfirmDialog.agentName = payload.agentName || payload.agentId || ""
+        execConfirmDialog.cwd = payload.cwd || ""
+        execConfirmDialog.command = payload.command || ""
+        execConfirmDialog.acceptance = payload.acceptance || []
+        execConfirmDialog.timeoutMin = payload.timeoutMin || 30
+        execConfirmDialog.maxAttempts = payload.maxAttempts || 1
+        execConfirmDialog.cwdTrusted = agentProfile.isTrustedCwd(execConfirmDialog.cwd)
+        execConfirmDialog.trustChecked = false
+        execConfirmDialog.open()
+    }
+
     // 预览中心：列出各 agent 工作区，可一键构建并启动隔离的预览实例
     function openPreview() {
         show()
@@ -2135,16 +2150,64 @@ MouseArea {
                           ? "执行不可用：" + editor.execBlocker
                           : (editor.execNotice.length > 0
                              ? editor.execNotice
-                             : "最小集已满足（执行器在 R6-04 接入）")
-                    color: editor.execBlocker.length > 0 ? Theme.muted : Theme.cyan
+                             : (agentProfile.executorEnabled
+                                ? "最小集已满足：执行前会弹出确认框"
+                                : "执行器未启用：请在 设置 → 任务执行 打开总开关"))
+                    color: editor.execBlocker.length > 0
+                           ? Theme.muted
+                           : (agentProfile.executorEnabled ? Theme.cyan : Theme.warning)
                     font.pixelSize: 10
                     wrapMode: Text.Wrap
+                }
+
+                Text {
+                    visible: !agentProfile.executorEnabled
+                    text: "去设置"
+                    color: execSettingsMouse.containsMouse ? Theme.cyan : Theme.text
+                    font.pixelSize: 10
+
+                    MouseArea {
+                        id: execSettingsMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            editor.close()
+                            window.openSettings()
+                        }
+                    }
                 }
 
                 Button {
                     text: "执行"
                     enabled: editor.execBlocker.length === 0
-                    onClicked: editor.execNotice = "执行器尚未接入（R6-04）"
+                    onClicked: {
+                        if (!agentProfile.executorEnabled) {
+                            editor.execNotice = "执行器未启用：请到 设置 → 任务执行 打开总开关"
+                            return
+                        }
+                        const requested = agentField.text.trim()
+                        const agentId = requested.length > 0 ? requested : agentProfile.defaultAgent
+                        if (agentId.length === 0) {
+                            editor.execNotice = "未指定 agent：请填写 agent，或在设置里选默认 agent"
+                            return
+                        }
+                        const profile = agentProfile.profileOf(agentId)
+                        if (!profile || !profile.exe) {
+                            editor.execNotice = "未知 agent：" + agentId + "（请先在设置 → 任务执行 里配置）"
+                            return
+                        }
+                        window.openExecConfirm({
+                            taskId: editor.taskId,
+                            agentId: agentId,
+                            agentName: profile.displayName || agentId,
+                            cwd: editor.execCwd,
+                            command: agentProfile.commandLine(agentId, false, goalField.text.trim()),
+                            acceptance: editor.linesOf(acceptanceField.text),
+                            timeoutMin: editor.intOf(timeoutField.text, 30),
+                            maxAttempts: editor.intOf(attemptsField.text, 1)
+                        })
+                    }
                 }
             }
 
@@ -2238,6 +2301,265 @@ MouseArea {
         onAccepted: {
             if (taskEditorLoader.item)
                 taskEditorLoader.item.execCwd = taskEditorLoader.item.localPath(selectedFolder)
+        }
+    }
+
+    // 执行前确认（R6-03）：agent / cwd / 完整命令行 / 验收项 / 超时，
+    // 首次使用某个 cwd 必须在勾选「信任本目录」后才能确认；进程启动在 R6-04 接入。
+    Dialog {
+        id: execConfirmDialog
+        parent: window.contentItem
+        anchors.centerIn: parent
+        modal: true
+        focus: true
+        padding: 20
+        width: Math.min(560, window.width - 80)
+        closePolicy: Popup.CloseOnEscape
+
+        property string taskId: ""
+        property string agentId: ""
+        property string agentName: ""
+        property string cwd: ""
+        property string command: ""
+        property var acceptance: []
+        property int timeoutMin: 30
+        property int maxAttempts: 1
+        property bool cwdTrusted: false
+        property bool trustChecked: false
+        property string errorText: ""
+
+        background: Rectangle {
+            color: Theme.panelSolid
+            radius: 16
+            border.width: 1
+            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 10
+
+            Text {
+                text: "执行前确认"
+                color: Theme.text
+                font.pixelSize: 18
+                font.bold: true
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                columnSpacing: 10
+                rowSpacing: 6
+
+                Text {
+                    text: "agent"
+                    color: Theme.muted
+                    font.pixelSize: 11
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: execConfirmDialog.agentName + "（" + execConfirmDialog.agentId + "）"
+                    color: Theme.text
+                    font.pixelSize: 11
+                }
+
+                Text {
+                    text: "工作目录"
+                    color: Theme.muted
+                    font.pixelSize: 11
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: execConfirmDialog.cwd
+                    color: execConfirmDialog.cwdTrusted ? Theme.text : Theme.warning
+                    font.family: "Consolas"
+                    font.pixelSize: 10
+                    wrapMode: Text.WrapAnywhere
+                }
+
+                Text {
+                    text: "预计耗时"
+                    color: Theme.muted
+                    font.pixelSize: 11
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "最多 " + execConfirmDialog.timeoutMin + " 分钟 · "
+                          + execConfirmDialog.maxAttempts + " 轮"
+                    color: Theme.text
+                    font.pixelSize: 11
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: "命令行（只读；执行时按 argv 传参，不经过 shell）"
+                color: Theme.muted
+                font.pixelSize: 10
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 64
+                radius: 8
+                color: Theme.input
+                border.width: 1
+                border.color: Theme.border
+
+                ScrollView {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    clip: true
+                    ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+
+                    TextArea {
+                        id: execCommandText
+                        readOnly: true
+                        selectByMouse: true
+                        text: execConfirmDialog.command
+                        color: Theme.cyan
+                        font.family: "Consolas"
+                        font.pixelSize: 10
+                        wrapMode: TextArea.WrapAnywhere
+                        background: null
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: "验收项（执行后逐条判定）"
+                color: Theme.muted
+                font.pixelSize: 10
+            }
+
+            Column {
+                Layout.fillWidth: true
+                spacing: 2
+
+                Repeater {
+                    model: execConfirmDialog.acceptance
+
+                    Text {
+                        required property var modelData
+                        width: parent.width
+                        text: "· " + modelData
+                        color: Theme.text
+                        font.pixelSize: 10
+                        wrapMode: Text.Wrap
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: trustRow.implicitHeight + 16
+                radius: 8
+                color: Theme.card
+                border.width: 1
+                border.color: execConfirmDialog.cwdTrusted ? Theme.border : Theme.borderStrong
+
+                RowLayout {
+                    id: trustRow
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.margins: 8
+                    spacing: 8
+
+                    CheckBox {
+                        id: trustCwdCheck
+                        text: execConfirmDialog.cwdTrusted
+                              ? "本目录已在信任白名单"
+                              : "信任本目录（写入 cwd 白名单）"
+                        checked: execConfirmDialog.cwdTrusted || execConfirmDialog.trustChecked
+                        enabled: !execConfirmDialog.cwdTrusted
+                        onToggled: execConfirmDialog.trustChecked = checked
+
+                        indicator: Rectangle {
+                            implicitWidth: 16
+                            implicitHeight: 16
+                            radius: 4
+                            color: trustCwdCheck.checked
+                                   ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+                                   : Theme.input
+                            border.width: 1
+                            border.color: trustCwdCheck.hovered ? Theme.cyan : Theme.border
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: trustCwdCheck.checked
+                                text: "✓"
+                                color: Theme.text
+                                font.pixelSize: 10
+                            }
+                        }
+
+                        contentItem: Text {
+                            leftPadding: 6
+                            text: trustCwdCheck.text
+                            color: trustCwdCheck.enabled ? Theme.text : Theme.muted
+                            font.pixelSize: 10
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Text {
+                        text: "信任后该目录不再重复确认"
+                        color: Theme.muted
+                        font.pixelSize: 9
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: execConfirmDialog.errorText.length > 0
+                text: execConfirmDialog.errorText
+                color: Theme.danger
+                font.pixelSize: 10
+                wrapMode: Text.WordWrap
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "确认后在本机启动 agent；执行完最多留下本地改动，不自动推送。"
+                    color: Theme.muted
+                    font.pixelSize: 9
+                    wrapMode: Text.WordWrap
+                }
+
+                Button {
+                    text: "取消"
+                    onClicked: execConfirmDialog.close()
+                }
+
+                Button {
+                    text: "确认执行"
+                    enabled: execConfirmDialog.cwdTrusted || execConfirmDialog.trustChecked
+                    onClicked: {
+                        if (!execConfirmDialog.cwdTrusted
+                                && !agentProfile.trustCwd(execConfirmDialog.cwd)) {
+                            execConfirmDialog.errorText =
+                                "无法信任该目录：请检查目录是否存在"
+                            return
+                        }
+                        if (taskEditorLoader.item)
+                            taskEditorLoader.item.execNotice =
+                                "已确认执行（执行器在 R6-04 接入）"
+                        execConfirmDialog.close()
+                    }
+                }
+            }
         }
     }
 

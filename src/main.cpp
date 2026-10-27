@@ -24,6 +24,7 @@
 #include "TaskTree.h"
 #include "TaskStats.h"
 #include "TaskExtra.h"
+#include "TaskExec.h"
 #include "TaskUndo.h"
 #include "ReminderScheduler.h"
 #include "TrayController.h"
@@ -244,6 +245,9 @@ int main(int argc, char *argv[])
     // 任务附加属性（提醒 / 重复）：侧表 task_extra，不动 task 表结构
     TaskExtra taskExtra(&database, &taskStore);
     taskUndo.setTaskExtra(&taskExtra);
+
+    // 任务执行定义（目标 / 验收 / 边界 / 执行参数）：侧表 task_exec（M0）
+    TaskExec taskExec(&database, &taskStore);
 
     // 路线图快照同步：仓库 progress.json ↔ 本地看板
     RoadmapSync roadmap(&database, &taskStore);
@@ -528,6 +532,37 @@ int main(int argc, char *argv[])
         taskStore.deleteTask(extraId);
         ok = taskExtra.extraOf(extraId).value("remindAt").toLongLong() == 0 && ok;  // 删任务要清行
         qInfo() << "SELFTEST extra" << taskExtra.revision();
+
+        // 执行定义侧表：写入 / 往返 / 校验 / 删任务清行（M0）
+        {
+            const QString execId = taskStore.addTask(QStringLiteral("selftest-exec"));
+            ok = !execId.isEmpty() && ok;
+            QVariantMap execFields;
+            execFields.insert(QStringLiteral("goal"), QStringLiteral("自检目标"));
+            execFields.insert(QStringLiteral("acceptance"),
+                              QVariantList{QStringLiteral("--selftest")});
+            execFields.insert(QStringLiteral("scope"),
+                              QVariantList{QStringLiteral("src/**")});
+            execFields.insert(QStringLiteral("agent"), QStringLiteral("opencode"));
+            execFields.insert(QStringLiteral("cwd"), QStringLiteral("E:/projects/NeonBoard"));
+            execFields.insert(QStringLiteral("workflow"), QStringLiteral("fix"));
+            execFields.insert(QStringLiteral("timeoutMin"), 30);
+            execFields.insert(QStringLiteral("maxAttempts"), 2);
+            ok = taskExec.setExec(execId, execFields) && ok;
+            const QVariantMap read = taskExec.execOf(execId);
+            ok = read.value(QStringLiteral("goal")).toString() == QStringLiteral("自检目标") && ok;
+            ok = read.value(QStringLiteral("acceptance")).toList().size() == 1 && ok;
+            ok = read.value(QStringLiteral("workflow")).toString() == QStringLiteral("fix") && ok;
+            // 非法 workflow 必须被拒
+            QVariantMap bad;
+            bad.insert(QStringLiteral("workflow"), QStringLiteral("落选流程"));
+            ok = !taskExec.setExec(execId, bad) && ok;
+            // 删任务要清行
+            taskStore.deleteTask(execId);
+            ok = taskExec.execOf(execId).value(QStringLiteral("goal")).toString().isEmpty() && ok;
+            qInfo() << "SELFTEST exec" << taskExec.revision();
+        }
+
         // RRULE 下一期：DAILY / INTERVAL / WEEKLY+BYDAY / 月末钳制 / 非法规则
         ok = TaskExtra::nextOccurrence(QStringLiteral("FREQ=DAILY"),
                                         QDateTime(QDate(2026, 10, 23), QTime(15, 0)))
@@ -1164,6 +1199,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskTree"), &taskTree);
     engine.rootContext()->setContextProperty(QStringLiteral("taskStats"), &taskStats);
     engine.rootContext()->setContextProperty(QStringLiteral("taskExtra"), &taskExtra);
+    engine.rootContext()->setContextProperty(QStringLiteral("taskExec"), &taskExec);
     engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);
     engine.rootContext()->setContextProperty(QStringLiteral("boardColumns"), &boardColumns);

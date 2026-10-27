@@ -485,7 +485,43 @@ void UpdateManager::checkForUpdates(bool silent)
     setState(QStringLiteral("checking"));
     setProgress(0);
     setStatusText(QStringLiteral("正在检查更新…"));
-    startRequest(m_candidates.value(0), Purpose::Manifest);
+    
+    // 并行竞速：所有候选源同时发起请求，首个成功者胜出
+    m_activeManifestReplies.clear();
+    for (const QString &url : m_candidates) {
+        if (url.isEmpty())
+            continue;
+        startManifestRequest(url);
+    }
+    
+    // 所有源都为空（理论上不会发生）
+    if (m_activeManifestReplies.isEmpty()) {
+        if (useCachedManifest())
+            return;
+        setStatusText(QStringLiteral("检查更新失败：无法连接更新服务器"));
+        setState(QStringLiteral("error"));
+        finishCheck(false);
+    }
+}
+
+void UpdateManager::startManifestRequest(const QString &url)
+{
+    QNetworkRequest request{QUrl(url)};
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("NeonBoard-UpdateManager"));
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+    QNetworkReply *reply = m_network->get(request);
+    m_activeManifestReplies.append(reply);
+
+    // 单源看门狗：6 秒无响应就 abort，按网络错误处理
+    QTimer::singleShot(kSourceTimeoutMs, reply, [reply]() {
+        if (reply->isRunning())
+            reply->abort();
+    });
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply] { 
+        onManifestReplyFinished(reply); 
+    });
 }
 
 void UpdateManager::startRequest(const QString &url, Purpose purpose)
@@ -532,6 +568,48 @@ void UpdateManager::startRequest(const QString &url, Purpose purpose)
                 setProgress(static_cast<int>(received * 100 / total));
             });
     connect(reply, &QNetworkReply::finished, this, [this, reply] { onReplyFinished(reply); });
+}
+
+void UpdateManager::onManifestReplyFinished(QNetworkReply *reply)
+{
+    if (!reply || !m_activeManifestReplies.contains(reply))
+        return;
+    
+    reply->deleteLater();
+    m_activeManifestReplies.removeOne(reply);
+    
+    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const bool networkError = reply->error() != QNetworkReply::NoError;
+    const QByteArray payload = reply->readAll();
+    
+    // 成功：取消其他请求，处理清单
+    if (!networkError && status < 400 && !payload.isEmpty()) {
+        // 取消其他活动的请求
+        for (QNetworkReply *other : m_activeManifestReplies) {
+            if (other->isRunning())
+                other->abort();
+        }
+        m_activeManifestReplies.clear();
+        handleManifest(payload, reply->url().toString());
+        return;
+    }
+    
+    // 失败：检查是否所有请求都失败了
+    if (m_activeManifestReplies.isEmpty()) {
+        // 所有源都失败了，降级到缓存
+        if (useCachedManifest())
+            return;
+        
+        // abort() 触发的取消要说人话
+        const QString reason = reply->error() == QNetworkReply::OperationCanceledError
+            ? QStringLiteral("连接超时（%1 秒无响应）").arg(kSourceTimeoutMs / 1000)
+            : (networkError ? reply->errorString()
+                            : QStringLiteral("服务器返回 %1").arg(status));
+        setStatusText(QStringLiteral("检查更新失败：%1").arg(reason));
+        setState(QStringLiteral("error"));
+        finishCheck(false);
+    }
+    // 还有其他请求在跑，等它们
 }
 
 void UpdateManager::onReplyFinished(QNetworkReply *reply)
@@ -631,11 +709,7 @@ void UpdateManager::handleManifest(const QByteArray &payload, const QString &fro
     QString parseError;
     ReleaseInfo info = parseManifest(payload, &parseError);
     if (!info.valid()) {
-        ++m_candidateIndex;
-        if (m_candidateIndex < m_candidates.size()) {
-            startRequest(m_candidates.value(m_candidateIndex), Purpose::Manifest);
-            return;
-        }
+        // 并行竞速模式下，所有源都已尝试过，解析失败即整体失败
         setStatusText(QStringLiteral("更新清单解析失败：%1").arg(parseError));
         setState(QStringLiteral("error"));
         finishCheck(false);

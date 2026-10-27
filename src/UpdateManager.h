@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QMap>
 
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -63,11 +64,9 @@ public:
     /**
      * 一次更新检查的总预算（毫秒）。
      *
-     * 候选源是串行的，单源还有自己的 6 秒看门狗（kSourceTimeoutMs），
-     * 所以最坏情况 = 3 个源 × 6 秒 ≈ 18 秒，留到 25 秒。
-     * 这个值必须大于「源个数 × 单源超时」，否则兜底源永远排不上队 ——
-     * 之前 15 秒配 10 秒单源超时，raw.githubusercontent 一挂住，
-     * 后面的 GitHub Releases API 就再也轮不到，检查恒定报超时。
+     * 候选源并行竞速，所有源同时发起请求，首个成功者胜出。
+     * 单源仍有 6 秒看门狗（kSourceTimeoutMs），总预算只需覆盖最慢那个源，
+     * 不再串行累加。保留 25 秒以应对极端网络抖动。
      */
     static constexpr int kDefaultCheckTimeoutMs = 25000;
 
@@ -171,6 +170,8 @@ private:
 
     /** 候选清单地址：配置的源 + GitHub API 兜底 */
     QStringList candidateUrls() const;
+    void startManifestRequest(const QString &url);
+    void onManifestReplyFinished(QNetworkReply *reply);
     void startRequest(const QString &url, Purpose purpose);
     void onReplyFinished(QNetworkReply *reply);
     void handleManifest(const QByteArray &payload, const QString &fromUrl);
@@ -193,6 +194,8 @@ private:
 
     QNetworkAccessManager *m_network = nullptr;
     QNetworkReply *m_reply = nullptr;
+    /** 并行竞速：所有活动的清单检查请求 */
+    QList<QNetworkReply*> m_activeManifestReplies;
     /** 产物下载的「无数据」看门狗：收到字节就续命，超时 abort 当前请求 */
     QTimer *m_stallTimer = nullptr;
     Purpose m_purpose = Purpose::Manifest;

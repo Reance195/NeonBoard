@@ -898,9 +898,9 @@
     "claims": {
         "R6-04": {
             "agent": "lead",
-            "branch": "feature/r6-04-taskrunner",
-            "claimedAt": 1793124628,
-            "head": "2ba0263ab99cdd112fb26304359eddf6a801497e"
+            "branch": "feature/r6-04-hardening",
+            "claimedAt": 1793126204,
+            "head": "d03e4ff9c1f2f2d91cc9e17365772c0d67ffdbfe"
         }
     },
     "version": 1

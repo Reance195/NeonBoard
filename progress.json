@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R6-07",
-            "completedAt": 0,
-            "createdAt": 1793085737,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "d32f7e28-e4cc-4cb6-bb7b-6fe9db6974a9",
-            "note": "起因：一句话需求直接派发，agent 只能猜范围与验收。目标：按 docs/agent-triage.md 的 schema 与 prompt 落地 TriageRunner，用 profile 的只读参数强制只读（分析前后 git status 必须一致，有差异即判失败）；严格 JSON 校验、questions 截断到 3 条、非法 glob 丢弃、acceptance 为空补默认；草案只写 board.db，人在执行页签预览并采纳后才回填表单，confidence 低于 0.5 时禁止一键执行。",
-            "orderKey": 7168,
-            "priority": 2,
-            "stage": "R6",
-            "status": "todo",
-            "tags": [
-                "R6"
-            ],
-            "title": "R6 Triage：只读分析生成执行草案",
-            "updatedAt": 1793085737
-        },
-        {
             "code": "R6-08",
             "completedAt": 0,
             "createdAt": 1793085737,
@@ -711,6 +693,24 @@
             ],
             "title": "便携版打包 + 实跑验证",
             "updatedAt": 1792568900
+        },
+        {
+            "code": "R6-07",
+            "completedAt": 1793134268,
+            "createdAt": 1793085737,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "d32f7e28-e4cc-4cb6-bb7b-6fe9db6974a9",
+            "note": "起因：一句话需求直接派发，agent 只能猜范围与验收。目标：按 docs/agent-triage.md 的 schema 与 prompt 落地 TriageRunner，用 profile 的只读参数强制只读（分析前后 git status 必须一致，有差异即判失败）；严格 JSON 校验、questions 截断到 3 条、非法 glob 丢弃、acceptance 为空补默认；草案只写 board.db，人在执行页签预览并采纳后才回填表单，confidence 低于 0.5 时禁止一键执行。",
+            "orderKey": 7168,
+            "priority": 2,
+            "stage": "R6",
+            "status": "done",
+            "tags": [
+                "R6"
+            ],
+            "title": "R6 Triage：只读分析生成执行草案",
+            "updatedAt": 1793134268
         },
         {
             "code": "R0-10",
@@ -2077,6 +2077,6 @@
             "updatedAt": 1793123355
         }
     ],
-    "updated": "2026-10-27T20:29:59",
+    "updated": "2026-10-27T20:51:08",
     "version": 3
 }

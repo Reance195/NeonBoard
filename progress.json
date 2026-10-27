@@ -1,60 +1,6 @@
 {
     "items": [
         {
-            "code": "R6-01",
-            "completedAt": 0,
-            "createdAt": 1793085737,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "90651d45-9baf-4c3a-93a6-2a8d2ff981b5",
-            "note": "起因：task_exec 侧表已能存 cwd / timeout_min / max_attempts，但任务编辑弹窗只暴露 goal / acceptance / scope / agent / workflow，执行参数填不全也就无法派发。目标：补齐三项编辑能力（cwd 需校验为存在的绝对路径），把编辑弹窗拆出「任务 / 执行」两个页签，并在执行页签底部给出执行入口与最小集提示。",
-            "orderKey": 1024,
-            "priority": 2,
-            "stage": "R6",
-            "status": "todo",
-            "tags": [
-                "R6"
-            ],
-            "title": "R6 执行定义收尾：cwd / 超时 / 轮数可编辑 + 执行页签",
-            "updatedAt": 1793085737
-        },
-        {
-            "code": "R6-02",
-            "completedAt": 0,
-            "createdAt": 1793085737,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "0921b037-54ca-45e4-ab4a-7c82f484be92",
-            "note": "起因：执行器需要可追溯的 run 身份与「同卡不并发」的锁，而 task 表不能加列、user_version 不能升。目标：新增侧表 task_run（id / task_id / agent / cwd / workflow / status / attempt / 时间戳 / heartbeat / exit_code / last_error / log_path / scope_violation）+ 同卡活跃 run 的部分唯一索引，配套 TaskRunStore 做创建/心跳/结束/孤儿回收，启动时把心跳超 90 秒的 running 判为 blocked（进程中断）。",
-            "orderKey": 2048,
-            "priority": 2,
-            "stage": "R6",
-            "status": "todo",
-            "tags": [
-                "R6"
-            ],
-            "title": "R6 运行记录侧表与任务锁",
-            "updatedAt": 1793085737
-        },
-        {
-            "code": "R6-03",
-            "completedAt": 0,
-            "createdAt": 1793085737,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "d926c728-42bf-497d-8661-d1f093949226",
-            "note": "起因：docs/agent-profile.md 的实测结论还停留在文档里，代码不知道每种 CLI 怎么拼参数、怎么进只读模式。目标：落地 AgentProfile（内置 opencode / claude / cursor-agent，codex 未实测不内置；存 meta 表 exec.agentProfiles）+ 命令行拼装（无 shell）+ 设置面板「任务执行」区（总开关默认关、默认 agent、profile 管理）+ 执行前确认框（agent / cwd / 完整命令行 / acceptance / 超时，勾选信任目录后写白名单）。",
-            "orderKey": 3072,
-            "priority": 2,
-            "stage": "R6",
-            "status": "todo",
-            "tags": [
-                "R6"
-            ],
-            "title": "R6 Agent Profile 与执行前确认",
-            "updatedAt": 1793085737
-        },
-        {
             "code": "R6-04",
             "completedAt": 0,
             "createdAt": 1793085737,
@@ -163,6 +109,24 @@
             "updatedAt": 1793085737
         },
         {
+            "code": "R5-04",
+            "completedAt": 0,
+            "createdAt": 1793098683,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "4c95eebc-891c-4196-9fb9-b88a0f6cf41f",
+            "note": "起因：R5-02 把单源超时从 10 秒压到 6 秒、总预算从 15 秒提到 25 秒后，默认源自检仍偶发「检查更新失败：连接超时」—— 三源串行时，raw.githubusercontent.com 常年只挂不答吃满 6 秒，GitHub API 单次 5-7 秒，最坏情况 6+6+7=19 秒逼近总预算，一旦某个源抖动即超时。根治方向：候选源并行竞速，所有源同时发起请求，首个成功者胜出，其余立即取消。目标：① UpdateManager::checkForUpdates 改为并发请求所有候选源（QNetworkAccessManager 多次 get）；② 任一源返回有效清单即胜出，取消其余请求（QNetworkReply::abort）；③ 全部失败才报错误，按失败原因优先级取最严重的；④ 保留单源看门狗（防单个请求挂死），但总预算改为「所有源最慢那个的超时」而非串行累加；⑤ 命令行 --check-update 与设置面板检查按钮行为一致。验收：默认源（gitee raw → github raw → API）自检稳定 < 8 秒（此前偶发 19 秒超时）；断网时仍走缓存降级；单测覆盖并发竞速场景（mock 一慢一快两个源，快的胜出）。",
+            "orderKey": 10240,
+            "priority": 2,
+            "stage": "R5",
+            "status": "todo",
+            "tags": [
+                "R5"
+            ],
+            "title": "R5 更新检查并行竞速：候选源并发请求取首个成功",
+            "updatedAt": 1793098683
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -237,6 +201,24 @@
             "updatedAt": 1792845600
         },
         {
+            "code": "R6-01",
+            "completedAt": 1793098683,
+            "createdAt": 1793085737,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "90651d45-9baf-4c3a-93a6-2a8d2ff981b5",
+            "note": "起因：task_exec 侧表已能存 cwd / timeout_min / max_attempts，但任务编辑弹窗只暴露 goal / acceptance / scope / agent / workflow，执行参数填不全也就无法派发。目标：补齐三项编辑能力（cwd 需校验为存在的绝对路径），把编辑弹窗拆出「任务 / 执行」两个页签，并在执行页签底部给出执行入口与最小集提示。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "R6",
+            "status": "done",
+            "tags": [
+                "R6"
+            ],
+            "title": "R6 执行定义收尾：cwd / 超时 / 轮数可编辑 + 执行页签",
+            "updatedAt": 1793098683
+        },
+        {
             "code": "R5-01",
             "completedAt": 1793010438,
             "createdAt": 1793006573,
@@ -271,6 +253,24 @@
             ],
             "title": "R5 发布 v0.1.1：版本号单源化 + 端到端升级验证",
             "updatedAt": 1793021221
+        },
+        {
+            "code": "R6-02",
+            "completedAt": 1793098683,
+            "createdAt": 1793085737,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "0921b037-54ca-45e4-ab4a-7c82f484be92",
+            "note": "起因：执行器需要可追溯的 run 身份与「同卡不并发」的锁，而 task 表不能加列、user_version 不能升。目标：新增侧表 task_run（id / task_id / agent / cwd / workflow / status / attempt / 时间戳 / heartbeat / exit_code / last_error / log_path / scope_violation）+ 同卡活跃 run 的部分唯一索引，配套 TaskRunStore 做创建/心跳/结束/孤儿回收，启动时把心跳超 90 秒的 running 判为 blocked（进程中断）。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "R6",
+            "status": "done",
+            "tags": [
+                "R6"
+            ],
+            "title": "R6 运行记录侧表与任务锁",
+            "updatedAt": 1793098683
         },
         {
             "code": "R4-02",
@@ -401,6 +401,24 @@
             ],
             "title": "外观面板：主题/画质/减弱动效",
             "updatedAt": 1792568900
+        },
+        {
+            "code": "R6-03",
+            "completedAt": 1793098683,
+            "createdAt": 1793085737,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "d926c728-42bf-497d-8661-d1f093949226",
+            "note": "起因：docs/agent-profile.md 的实测结论还停留在文档里，代码不知道每种 CLI 怎么拼参数、怎么进只读模式。目标：落地 AgentProfile（内置 opencode / claude / cursor-agent，codex 未实测不内置；存 meta 表 exec.agentProfiles）+ 命令行拼装（无 shell）+ 设置面板「任务执行」区（总开关默认关、默认 agent、profile 管理）+ 执行前确认框（agent / cwd / 完整命令行 / acceptance / 超时，勾选信任目录后写白名单）。",
+            "orderKey": 3072,
+            "priority": 2,
+            "stage": "R6",
+            "status": "done",
+            "tags": [
+                "R6"
+            ],
+            "title": "R6 Agent Profile 与执行前确认",
+            "updatedAt": 1793098683
         },
         {
             "code": "R1-06",
@@ -1823,8 +1841,26 @@
             ],
             "title": "同步 Agent Note 与功能矩阵描述",
             "updatedAt": 1792982914
+        },
+        {
+            "code": "R5-05",
+            "completedAt": 1793098683,
+            "createdAt": 1793098683,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "3c520d5a-a9b7-4140-8040-17e2bca8b9e8",
+            "note": "起因：安装包的桌面与开始菜单快捷方式都指向 NeonBoardHost.exe（installer/neonboard.iss 的 [Icons]），但 CMakeLists.txt 里 qt_add_executable(NeonBoardHost ...) 的源列表没带 resources/neonboard.rc，exe 里连 RT_GROUP_ICON 资源都没有（EnumResourceNamesW 返回失败），Windows 只能退回通用 exe 图标；同一目录的 NeonBoard.exe 因为带了 .rc 所以正常。目标：给 NeonBoardHost 源列表追加 resources/neonboard.rc，让 Host 自身带图标，桌面、开始菜单、postinstall 启动项一并恢复。不改 installer：升级安装会重建 [Icons]，快捷方式随新 Host 自愈；已在本机手工设过 IconLocation 的桌面项不受影响。",
+            "orderKey": 74752,
+            "priority": 2,
+            "stage": "R5",
+            "status": "done",
+            "tags": [
+                "R5"
+            ],
+            "title": "R5 安装快捷方式无图标：Host 未内嵌应用图标",
+            "updatedAt": 1793098683
         }
     ],
-    "updated": "2026-10-27T15:22:17",
+    "updated": "2026-10-27T10:58:03",
     "version": 3
 }

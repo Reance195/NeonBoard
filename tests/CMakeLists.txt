@@ -19,8 +19,16 @@ function(neonboard_add_test target)
         target_compile_options(${target} PRIVATE /utf-8)
     endif()
     add_test(NAME ${target} COMMAND ${target})
-    # 单元测试必须快：超时即视为死锁/死循环，而不是无限挂住 CI
-    set_tests_properties(${target} PROPERTIES TIMEOUT 120)
+    # 单元测试必须快：超时即视为死锁/死循环，而不是无限挂住 CI。
+    #
+    # 另加一条：把 Qt 的 bin 前置进测试进程的 PATH。
+    # 不设的话，在没把 Qt bin 加进 PATH 的终端里直接跑 ctest，测试进程会在加载
+    # Qt6Core.dll 处失败，Windows 弹一个「系统错误」硬错误框、进程挂住不退出，
+    # ctest 只能干等到 TIMEOUT —— 表象是「测试卡死」，实际是根本没启动起来，
+    # 而且每跑一个测试就攒一个弹窗（本次攒了七个）。
+    set_tests_properties(${target} PROPERTIES
+        TIMEOUT 120
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
 endfunction()
 
 neonboard_add_test(tst_taskinputparser

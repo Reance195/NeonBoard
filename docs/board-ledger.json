@@ -816,6 +816,20 @@
                 "docs/iteration-roadmap.md",
                 "tests/tst_projectmap.cpp"
             ]
+        },
+        "DX-02": {
+            "id": "e51b1418-7d7b-47d1-a0d5-a3a242396b0e",
+            "stage": "DX",
+            "title": "DX 测试可启动性：ctest 自带 Qt DLL 路径，避免硬错误弹窗挂死",
+            "note": "起因：在没把 Qt bin 加进 PATH 的终端里直接跑 ctest，13 个测试进程全在加载 Qt6Core.dll 处失败，Windows 各弹一个「系统错误」硬错误框，进程卡在框上不退出，ctest 只能等到 TIMEOUT 120s；表象像测试卡死，实际是根本没启动，且每跑一轮攒一批弹窗。目标：neonboard_add_test 给每个测试加 ENVIRONMENT_MODIFICATION 把 $<TARGET_FILE_DIR:Qt6::Core> 前置进 PATH，覆盖「忘了配 PATH」「双击 exe」两类场景；不写死 C:/Qt 路径，换机器/换 Qt 版本自动跟随。验收：PATH 里没有 Qt bin 时 ctest 仍 13/13 通过且零弹窗。",
+            "acceptance": [
+                "PATH 不含 C:/Qt/*/bin 时 ctest 仍 13/13 通过（关键：这正是原先挂死的场景）",
+                "跑完复查无「系统错误」弹窗残留",
+                "build/tests/CTestTestfile.cmake 里每个测试都带 ENVIRONMENT_MODIFICATION PATH=path_list_prepend:<Qt bin>"
+            ],
+            "scope": [
+                "tests/CMakeLists.txt"
+            ]
         }
     },
     "claims": {

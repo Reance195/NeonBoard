@@ -1218,9 +1218,69 @@ QString TaskModel::dueText(qint64 dueAt)
 QString TaskModel::stageOf(const QString &tags)
 {
     const QString tag = firstTag(tags).trimmed();
-    static const QRegularExpression pattern(QStringLiteral("^R\\d+$"),
+    // 阶段名是「短号前缀」而不是卡号：R4 / DX / OPS 都算阶段，但 R4-10 这种具体卡号不算
+    // （卡归它所属的阶段，不该每张卡各成一个阶段）。认不出的一律落 OTHER，
+    // 由 stageList() 统一折进「其他」并给出可对账的计数，不再静默吞掉。
+    static const QRegularExpression pattern(QStringLiteral("^[A-Za-z]{1,4}\\d*$"),
                                             QRegularExpression::CaseInsensitiveOption);
     if (pattern.match(tag).hasMatch())
         return tag.toUpper();
     return QStringLiteral("OTHER");
+}
+
+QVariantList TaskModel::stageList(const QStringList &stageOrder) const
+{
+    const QVariantMap stats = stageStats();
+    const int totalAll = m_tasks.size();
+
+    QVariantList list;
+    QStringList shown;
+    int shownTotal = 0;
+
+    // 1) 按调用方给的顺序（界面侧取自路线图 §9 的行序）输出：
+    //    §9 表里加一行，阶段条就自动多一个 chip，不用改 QML。
+    for (const QString &key : stageOrder) {
+        if (key.isEmpty() || shown.contains(key))
+            continue;
+        shown.append(key);
+
+        const QVariantMap stat = stats.value(key).toMap();
+        const int total = stat.value(QStringLiteral("total")).toInt();
+        shownTotal += total;
+
+        QVariantMap item;
+        item.insert(QStringLiteral("key"), key);
+        // 标签就用阶段短号本身：§9 的「主题」列是长句，塞不进 86px 的 chip
+        item.insert(QStringLiteral("label"), key);
+        item.insert(QStringLiteral("total"), total);
+        item.insert(QStringLiteral("done"), stat.value(QStringLiteral("done")).toInt());
+        item.insert(QStringLiteral("doing"), stat.value(QStringLiteral("doing")).toInt());
+        item.insert(QStringLiteral("todo"), stat.value(QStringLiteral("todo")).toInt());
+        list.append(item);
+    }
+
+    // 2) 兜底桶：不在 §9 里的阶段标签（临时 tag、认不出的写法）全部折进「其他」。
+    //    计数 = 全部任务数 − 已显示各阶段之和 —— 这就是验收第 3 条要的「可对账」：
+    //    只要还有卡没上阶段条，其他桶就会把它们兜住，不会凭空消失。
+    const int otherTotal = totalAll - shownTotal;
+    if (otherTotal > 0) {
+        int done = 0, doing = 0, todo = 0;
+        for (auto it = stats.constBegin(); it != stats.constEnd(); ++it) {
+            if (shown.contains(it.key()))
+                continue;
+            const QVariantMap stat = it.value().toMap();
+            done += stat.value(QStringLiteral("done")).toInt();
+            doing += stat.value(QStringLiteral("doing")).toInt();
+            todo += stat.value(QStringLiteral("todo")).toInt();
+        }
+        QVariantMap item;
+        item.insert(QStringLiteral("key"), QStringLiteral("OTHER"));
+        item.insert(QStringLiteral("label"), QStringLiteral("其他"));
+        item.insert(QStringLiteral("total"), otherTotal);
+        item.insert(QStringLiteral("done"), done);
+        item.insert(QStringLiteral("doing"), doing);
+        item.insert(QStringLiteral("todo"), todo);
+        list.append(item);
+    }
+    return list;
 }

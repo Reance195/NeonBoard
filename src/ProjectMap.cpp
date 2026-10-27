@@ -352,6 +352,19 @@ QVariantList buildSkeletonGroups(const QString &root, const QVariantList &decl,
 
 } // namespace
 
+// §9 的阶段行序（DX-04）。必须定义在匿名命名空间之外 —— 类成员函数不能在
+// 匿名命名空间内定义（MSVC C2888）。只读一份 md，不跑 git、不扫目录。
+QStringList ProjectMap::stageOrder() const
+{
+    QStringList order;
+    for (const QVariant &v : readRoadmap(findRepoRoot())) {
+        const QString stage = v.toMap().value(QStringLiteral("stage")).toString();
+        if (!stage.isEmpty() && !order.contains(stage))
+            order.append(stage);
+    }
+    return order;
+}
+
 ProjectMap::ProjectMap(QObject *parent) : QObject(parent)
 {
     // 刻意不在构造时扫描：启动路径上不做 git 往返与目录遍历，等面板首次打开再 refresh()。

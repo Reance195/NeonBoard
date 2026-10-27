@@ -20,6 +20,7 @@ private slots:
     void initTestCase();
     void findsRepository();
     void roadmapTableDrivesMilestones();
+    void stageOrderFollowsRoadmapRows();
     void chainNodesAreVerifyable();
     void skeletonScansRealDirectories();
     void noStructuralDrift();
@@ -80,6 +81,25 @@ void TestProjectMap::roadmapTableDrivesMilestones()
         QVERIFY2(topic != stage, qPrintable(stage + " 的主题退化成了阶段号"));
         QVERIFY(m.value(QStringLiteral("inRoadmap")).toBool());
     }
+}
+
+// DX-04：阶段条的阶段集合与顺序来自 §9 行序。这条钉住「§9 加一行，阶段条自动多一个
+// chip」—— 而且顺序必须与面板同源，不能出现「面板一个顺序、阶段条另一个顺序」。
+void TestProjectMap::stageOrderFollowsRoadmapRows()
+{
+    const QStringList order = m_map->stageOrder();
+    QVERIFY2(order.size() >= 8, "路线图 §9 至少应有 R0–R7 八个阶段");
+    QCOMPARE(order.first(), QStringLiteral("R0"));
+    QVERIFY(order.indexOf(QStringLiteral("R0")) < order.indexOf(QStringLiteral("R7")));
+
+    // 与面板同源：只取面板里标记为 inRoadmap 的那些，顺序应逐项一致
+    QStringList inRoadmapStages;
+    for (const QVariant &v : m_map->milestones()) {
+        const QVariantMap m = v.toMap();
+        if (m.value(QStringLiteral("inRoadmap")).toBool())
+            inRoadmapStages.append(m.value(QStringLiteral("stage")).toString());
+    }
+    QCOMPARE(order, inRoadmapStages);
 }
 
 void TestProjectMap::chainNodesAreVerifyable()

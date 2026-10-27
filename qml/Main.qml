@@ -417,36 +417,22 @@ ApplicationWindow {
     // 用列而不是状态：同状态的多个列必须各自高亮，串味会让用户以为拖到了隔壁。
     property string dragOverColumnId: ""
 
-    // 里程碑过滤：空串表示全部；阶段来自卡片首个标签（R0/R1/R2/R3）
+    // 里程碑过滤：空串表示全部；阶段来自卡片首个标签（R0/R1/R2/R3…）
     property string stageFilter: ""
-    property var stageStats: ({})
+    // 阶段条数据由 C++ 侧 TaskModel::stageList() 给出：集合与顺序取自路线图 §9 行序，
+    // §9 之外的阶段折进「其他」并给出可对账的计数。QML 只负责画，
+    // 不再自己写死一份阶段清单 —— 否则 §9 加了行、界面还得跟着改（DX-04）。
+    property var stageList: []
 
     function setStageFilter(stage) {
         stageFilter = stage
         boardColumns.stage = stage
     }
 
-    function buildStageList() {
-        var order = ["R0", "R1", "R2", "R3", "OTHER"]
-        var labels = { "R0": "R0", "R1": "R1", "R2": "R2", "R3": "R3", "OTHER": "其他" }
-        var list = []
-        for (var i = 0; i < order.length; ++i) {
-            var key = order[i]
-            var stat = stageStats[key]
-            if (!stat)
-                continue
-            if (key === "OTHER" && stat.total === 0)
-                continue
-            list.push({
-                key: key,
-                label: labels[key],
-                total: stat.total || 0,
-                done: stat.done || 0,
-                doing: stat.doing || 0,
-                todo: stat.todo || 0
-            })
-        }
-        return list
+    function refreshStageData() {
+        // 阶段顺序由 projectMap 给出（读路线图 §9 的行序，只读一份 md、不跑 git）；
+        // 模型层保持零依赖，测试里也能直接传一组顺序进来断言。
+        stageList = taskStore.stageList(projectMap.stageOrder())
     }
 
     // 路线图（仓库 progress.json）与看板的双向同步状态
@@ -624,7 +610,7 @@ ApplicationWindow {
     Connections {
         target: taskStore
         function onCountsChanged() {
-            window.stageStats = taskStore.stageStats()
+            window.refreshStageData()
         }
         // 完成任务时背景爆发一次能量脉冲
         function onTaskCompleted(id) {
@@ -633,7 +619,7 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
-        stageStats = taskStore.stageStats()
+        refreshStageData()
         setStageFilter(initialStage)
         pluginLoader.scan()
         // 判定收在 UiSettings::shouldOnboard（未完成过 且 空板）：老用户换机重装
@@ -1214,7 +1200,7 @@ MouseArea {
                         id: stageBar
                         Layout.fillWidth: true
                         Layout.preferredHeight: 46
-                        stages: window.buildStageList()
+                        stages: window.stageList
                         activeStage: window.stageFilter
                         syncText: window.roadmapSyncText
                         syncOk: window.roadmapSyncOk

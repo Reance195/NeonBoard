@@ -64,6 +64,12 @@ public:
     // 触发一次后台派生；已在派生中则忽略（避免连点刷新叠线程）
     Q_INVOKABLE void refresh();
 
+    // 路线图 §9 的阶段行序（轻量：只读一份 md，不跑 git、不扫文件）。
+    // 阶段条要的是「有哪些阶段、按什么顺序」，不值得为它付一次完整派生的代价
+    // （1.5–2 s：3 次 git + 扫 ~180 个文件）。解析走的是与派生同一份实现，
+    // 所以阶段顺序只有一套事实源，不会出现「面板一个顺序、阶段条另一个顺序」。
+    Q_INVOKABLE QStringList stageOrder() const;
+
 signals:
     void changed();
 

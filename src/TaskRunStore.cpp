@@ -4,9 +4,11 @@
 
 #include <QDateTime>
 #include <QDebug>
+#include <QFile>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QTextStream>
 #include <QUuid>
 #include <QVariant>
 
@@ -114,7 +116,15 @@ QVariantMap TaskRunStore::acquire(const QString &taskId, const QVariantMap &fiel
     const QString agent = fields.value(QStringLiteral("agent")).toString().trimmed();
     const QString cwd = fields.value(QStringLiteral("cwd")).toString().trimmed();
     const QString workflow = fields.value(QStringLiteral("workflow")).toString().trimmed();
-    const int attempt = qMax(1, fields.value(QStringLiteral("attempt"), 1).toInt());
+    // attempt 缺省 = 最近一次 run 的 attempt + 1（R6-06 重试语义：新 run 递增轮次，
+    // 历史不覆盖）；显式给了就用给定值。
+    int attempt;
+    if (fields.contains(QStringLiteral("attempt"))) {
+        attempt = qMax(1, fields.value(QStringLiteral("attempt")).toInt());
+    } else {
+        const QVariantMap last = latestRun(id);
+        attempt = last.isEmpty() ? 1 : qMax(1, last.value(QStringLiteral("attempt")).toInt()) + 1;
+    }
     const qint64 ts = now();
     const bool started = status == QLatin1String("running");
 
@@ -276,6 +286,58 @@ QVariantList TaskRunStore::runsOf(const QString &taskId, int limit) const
         return out;
     while (query.next())
         out.append(rowToMap(query));
+    return out;
+}
+
+QVariantMap TaskRunStore::latestRun(const QString &taskId) const
+{
+    if (taskId.isEmpty())
+        return {};
+    const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    if (!db.isOpen())
+        return {};
+
+    // 活跃 run 优先（started_at 可能为空），其次按开始时间倒序
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral("SELECT %1 FROM task_run WHERE task_id = ? "
+                                  "ORDER BY (status IN ('queued','running')) DESC, "
+                                  "         COALESCE(started_at, 0) DESC, rowid DESC LIMIT 1")
+                       .arg(QLatin1String(kSelectColumns)));
+    query.addBindValue(taskId);
+    if (!query.exec() || !query.next())
+        return {};
+    return rowToMap(query);
+}
+
+QVariantMap TaskRunStore::summaryOf(const QString &taskId, int logTailLines) const
+{
+    QVariantMap out;
+    const QVariantMap latest = latestRun(taskId);
+    if (latest.isEmpty()) {
+        out.insert(QStringLiteral("hasRun"), false);
+        return out;
+    }
+    out = latest;
+    out.insert(QStringLiteral("hasRun"), true);
+
+    const qint64 started = latest.value(QStringLiteral("startedAt")).toLongLong();
+    const QVariant finishedValue = latest.value(QStringLiteral("finishedAt"));
+    const qint64 finished = finishedValue.isNull() ? 0 : finishedValue.toLongLong();
+    out.insert(QStringLiteral("durationSec"),
+               (started > 0 && finished >= started) ? (finished - started) : 0);
+
+    // 日志末尾 N 行：面板不加载整个文件，失败 run 的日志可能很长
+    const QString logPath = latest.value(QStringLiteral("logPath")).toString();
+    if (!logPath.isEmpty() && QFile::exists(logPath)) {
+        QFile f(logPath);
+        if (f.open(QIODevice::ReadOnly)) {
+            const QStringList lines =
+                QString::fromUtf8(f.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+            const int n = qBound(1, logTailLines, 500);
+            out.insert(QStringLiteral("logTail"),
+                       lines.mid(qMax(0, lines.size() - n)).join(QLatin1Char('\n')));
+        }
+    }
     return out;
 }
 

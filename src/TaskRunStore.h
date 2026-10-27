@@ -27,6 +27,8 @@ public:
     int revision() const;
 
     // fields: agent / cwd / workflow / attempt / status（queued|running，默认 running）
+    // attempt 缺省时自动取「该卡最近一次 run 的 attempt + 1」（重试 = 新 run 递增轮次，
+    // 历史 run 不覆盖）；显式给了就用给定值。
     // 成功 {ok:true, runId, status}；同卡已有活跃 run {ok:false, code:"busy", runId, message}
     Q_INVOKABLE QVariantMap acquire(const QString &taskId, const QVariantMap &fields = {});
     Q_INVOKABLE bool heartbeat(const QString &runId);
@@ -37,6 +39,14 @@ public:
     Q_INVOKABLE QVariantMap activeRun(const QString &taskId) const;
     Q_INVOKABLE QVariantMap run(const QString &runId) const;
     Q_INVOKABLE QVariantList runsOf(const QString &taskId, int limit = 20) const;
+
+    // R6-06：最近一次 run（任意状态；没有 run 返回空 map）。卡面徽章用它。
+    Q_INVOKABLE QVariantMap latestRun(const QString &taskId) const;
+
+    // R6-06：执行面板摘要 = 最近一次 run 的行 + durationSec + logTail（末尾 N 行）
+    // + canRetry（终态 blocked 且未到 maxAttempts 时由 UI 判定，这里只给事实）。
+    // 没有 run 返回 {hasRun:false}。
+    Q_INVOKABLE QVariantMap summaryOf(const QString &taskId, int logTailLines = 30) const;
 
     // 把心跳早于 now-staleSeconds 的活跃 run 判为 blocked，返回处理条数
     Q_INVOKABLE int recoverOrphans(int staleSeconds = kStaleSeconds);

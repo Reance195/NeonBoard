@@ -27,6 +27,7 @@
 #include "TaskStats.h"
 #include "TaskExtra.h"
 #include "TaskExec.h"
+#include "TaskRunner.h"
 #include "TaskRunStore.h"
 #include "TaskUndo.h"
 #include "ReminderScheduler.h"
@@ -257,6 +258,9 @@ int main(int argc, char *argv[])
 
     // 任务执行运行记录与同卡锁：侧表 task_run（R6-02），启动时回收孤儿 run
     TaskRunStore taskRuns(&database);
+
+    // 任务执行器（R6-04）：拉起 agent 进程 / 流式日志 / 超时·终止 / 生命周期
+    TaskRunner taskRunner(&database, &taskRuns, &agentProfile, &taskExec);
 
     // 路线图快照同步：仓库 progress.json ↔ 本地看板
     RoadmapSync roadmap(&database, &taskStore);
@@ -1247,6 +1251,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskExec"), &taskExec);
     engine.rootContext()->setContextProperty(QStringLiteral("agentProfile"), &agentProfile);
     engine.rootContext()->setContextProperty(QStringLiteral("taskRuns"), &taskRuns);
+    engine.rootContext()->setContextProperty(QStringLiteral("taskRunner"), &taskRunner);
     engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);
     engine.rootContext()->setContextProperty(QStringLiteral("projectMap"), &projectMap);
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);

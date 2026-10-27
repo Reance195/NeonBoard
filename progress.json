@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R6-04",
-            "completedAt": 0,
-            "createdAt": 1793085737,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "e81fa56f-348d-4d47-80b6-376dd8665e64",
-            "note": "起因：定义、profile、锁都齐了，缺真正拉起 agent 的引擎。目标：TaskRunner 受控启动 QProcess（校验定义 → 取锁 → 建 run），stdout/stderr 按行流式写 runs/<runId>.log 并脱敏 token / key / 长十六进制串，心跳每 10 秒；超时强杀并标 blocked（timeout）；取消先 terminate 后 kill，Windows 用 Job Object 回收整棵进程树；已有活跃 run 时新请求直接拒绝（M1 不排队）。",
-            "orderKey": 4096,
-            "priority": 2,
-            "stage": "R6",
-            "status": "todo",
-            "tags": [
-                "R6"
-            ],
-            "title": "R6 单次执行器：QProcess + 流式日志 + 超时/终止",
-            "updatedAt": 1793085737
-        },
-        {
             "code": "R6-05",
             "completedAt": 0,
             "createdAt": 1793085737,
@@ -287,6 +269,24 @@
             ],
             "title": "DX 会话隔离硬门：锚点区禁止 -InPlace，占用登记改为自动",
             "updatedAt": 1793126566
+        },
+        {
+            "code": "DX-06",
+            "completedAt": 0,
+            "createdAt": 1793127238,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "601a7c46-3b90-4361-9bb1-4998139fad80",
+            "note": "起因（2026-10-28 本会话自查）：我以「维护者授权代登记」名义连加五张卡（DX-01~DX-05），其中 DX-01 把卡片塞进 feat 代码提交（7f66b3e）、DX-02 塞进 chore(tests)（ad41540），DX-03~DX-05 用了 chore(roadmap) 前缀且五张卡的 body 全都没记录授权来源与批次。AGENTS.md 正文第 1 条的例外条款要求「只能在锚点区执行 + 提交信息用 chore(board) + body 记录授权来源与批次」，但 task_gate.py 只校验了位置（非 .worktrees 直接放行），完全没校验内容 —— 于是例外条款事实上退化成「口头免责」：只要在锚点区，谁都能以「已获授权」为名加任意卡，事后无从追溯。对照实验：我在 .worktrees/agent-map 里立卡被闸门正确拦下（位置校验有效），说明缺的是内容校验而不是位置校验。目标：把代登记从「信任」变成「可审计事实」—— 提交信息与 body 就是审计凭证。",
+            "orderKey": 20480,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 代登记可审计：chore(board) 强制记录授权来源与批次，立卡不得与代码混提交",
+            "updatedAt": 1793127238
         },
         {
             "code": "R0-01",
@@ -618,6 +618,24 @@
             ],
             "title": "霓虹背景联动主题色 + 画质分档",
             "updatedAt": 1792568900
+        },
+        {
+            "code": "R6-04",
+            "completedAt": 1793127238,
+            "createdAt": 1793085737,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "e81fa56f-348d-4d47-80b6-376dd8665e64",
+            "note": "起因：定义、profile、锁都齐了，缺真正拉起 agent 的引擎。目标：TaskRunner 受控启动 QProcess（校验定义 → 取锁 → 建 run），stdout/stderr 按行流式写 runs/<runId>.log 并脱敏 token / key / 长十六进制串，心跳每 10 秒；超时强杀并标 blocked（timeout）；取消先 terminate 后 kill，Windows 用 Job Object 回收整棵进程树；已有活跃 run 时新请求直接拒绝（M1 不排队）。",
+            "orderKey": 4096,
+            "priority": 2,
+            "stage": "R6",
+            "status": "done",
+            "tags": [
+                "R6"
+            ],
+            "title": "R6 单次执行器：QProcess + 流式日志 + 超时/终止",
+            "updatedAt": 1793127238
         },
         {
             "code": "R1-03",
@@ -2059,6 +2077,6 @@
             "updatedAt": 1793123355
         }
     ],
-    "updated": "2026-10-27T18:42:46",
+    "updated": "2026-10-28T02:53:58",
     "version": 3
 }

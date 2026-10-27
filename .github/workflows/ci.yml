@@ -61,6 +61,16 @@ jobs:
           $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
           python scripts/check_scope.py --base $base
 
+      - name: 脚本卫生检查（路径单一口径 / 钩子豁免只有一处）
+        shell: pwsh
+        run: |
+          # 把宪章里两条「唯一」落到机器校验：应用数据目录的字面量只许出现在
+          # scripts/nb-paths.ps1（PS 侧）与 scripts/claim-card.py（Python 侧镜像），
+          # git commit --no-verify 只许出现在快照回写那一步（AGENTS.md §7.6、§11.2 第 7 条）。
+          # 散文条款靠人记一定会漂 —— 本次 CI 常红就是这么来的。
+          python scripts/check_script_hygiene.py
+          if ($LASTEXITCODE -ne 0) { throw '脚本卫生检查未通过' }
+
       - name: 领用闸门（服务端 claim ref）
         if: github.event_name == 'pull_request'
         shell: pwsh
@@ -125,7 +135,9 @@ jobs:
         run: |
           $env:PATH = "$env:QT_ROOT_DIR\bin;$env:PATH"
           $exe = Join-Path $PWD 'build\Release\NeonBoard.exe'
-          $log = Join-Path $env:APPDATA 'com.lin\NeonBoard\neonboard.log'
+          # 日志位置的唯一口径（尊重 NEONBOARD_DATA_DIR，与本地 verify.ps1 同一个函数）
+          . (Join-Path $PWD 'scripts\nb-paths.ps1')
+          $log = Get-NbLogFile
           if (Test-Path $log) { Remove-Item $log -Force }
 
           $proc = Start-Process -FilePath $exe -ArgumentList '--smoke' -PassThru
@@ -153,7 +165,8 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
-          $log = Join-Path $env:APPDATA 'com.lin\NeonBoard\neonboard.log'
+          . (Join-Path $PWD 'scripts\nb-paths.ps1')
+          $log = Get-NbLogFile
           pwsh -NoProfile -File scripts/check-perf.ps1 -LogPath $log
 
       - name: 打包便携版

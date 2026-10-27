@@ -64,7 +64,13 @@
         "R6-06": "todo",
         "R6-07": "todo",
         "R6-08": "todo",
-        "R6-09": "todo"
+        "R6-09": "todo",
+        "R7-01": "todo",
+        "R7-02": "todo",
+        "R7-03": "todo",
+        "R7-04": "todo",
+        "R7-05": "todo",
+        "R7-06": "todo"
     },
     "cards": {
         "M01": {
@@ -662,6 +668,134 @@
             ],
             "stage": "R6",
             "title": "R6 台账卡单向导入（可选）"
+        },
+        "R7-01": {
+            "id": "8dff38e0-71b9-4f66-9f64-4e088a1e0b90",
+            "stage": "R7",
+            "title": "R7 执行队列与调度器：FIFO + 并发≤2 + 背压 + 暂停/调序/跳过",
+            "note": "起因：R6 忙时直接拒绝，多卡只能一张张手工触发，派发器还谈不上编排。目标：task_run 增队列字段与全局并发上限（meta exec.concurrency，默认 1≤2）；Scheduler 消费循环按 position 取最早、并发达上限暂停、心跳超时回收；支持 pause/resume/reorder/skip；不升 user_version，新列 IF NOT EXISTS。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_scheduler --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0 且断言 task_run 新列存在、user_version 未变"
+            ],
+            "scope": [
+                "src/Database.cpp",
+                "src/TaskRunStore.*",
+                "src/Scheduler.*",
+                "src/main.cpp",
+                "tests/tst_scheduler.cpp",
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt"
+            ],
+            "depends": [
+                "R6-04",
+                "R6-06"
+            ]
+        },
+        "R7-02": {
+            "id": "c01732ab-9086-40b1-8005-048bee527cd1",
+            "stage": "R7",
+            "title": "R7 队列视图与并发指示 UI",
+            "note": "起因：队列在后台跑，用户看不见也操作不了。目标：新增「执行队列」面板，列出 waiting/running 的 run（卡标题/步骤/已运行时长/最近一行日志）、并发指示 x/N、预计剩余；支持暂停/恢复队列、调序、跳过单条；卡面增加「队列中」态徽章。",
+            "acceptance": [
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "build/Release/NeonBoard.exe --smoke 退出码 0 且无 QML 报错"
+            ],
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/TaskCard.qml",
+                "src/main.cpp",
+                "docs/screenshots/**"
+            ],
+            "depends": [
+                "R7-01"
+            ]
+        },
+        "R7-03": {
+            "id": "fa8a90d7-8703-4b29-82a7-ff3d7b2e34b6",
+            "stage": "R7",
+            "title": "R7 角色链 workflow 引擎：步骤数组 + handoff 交接物",
+            "note": "起因：R6 只跑单步，复杂任务需多角色接力。目标：TaskExec.workflow 支持 steps[{role,agent,prompt,inputs,outputs,acceptance,scope}]；TaskRunner 按步逐步拉起（复用 R6-04），每步前记 git 基线、步后 ScopeMatcher 比对；每步产出 .neonboard/handoff/<card>/<role>.md，下一步注入上一步 handoff；每步独立 run（parent_run_id 关联、cost_ms 累计）。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R \"tst_workflow|tst_scopematcher\" --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "scope": [
+                "src/TaskRunner.*",
+                "src/TaskExec.*",
+                "src/ScopeMatcher.*",
+                "src/AcceptanceRunner.*",
+                "tests/tst_workflow.cpp",
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt"
+            ],
+            "depends": [
+                "R6-05",
+                "R7-01"
+            ]
+        },
+        "R7-04": {
+            "id": "c8cda60b-1cb0-4727-808e-c0dd4a7f4d47",
+            "stage": "R7",
+            "title": "R7 预设 workflow + orchestrator 收口",
+            "note": "目标：内置可编辑预设 fix/feature/hotfix/docs/review/delivery（存 board.db meta）；orchestrator 按 triage estimate 或卡片大小选 workflow，失败分支（qa→engineer）受 maxAttempts 约束，收口写 summary.md 并给「建议下一步」；小任务走 fix 不允许跳 qa；执行前确认框展示完整 workflow 与交接物契约。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_workflowpresets --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "scope": [
+                "src/WorkflowPresets.*",
+                "src/TaskRunner.*",
+                "src/AgentProfile.*",
+                "tests/tst_workflowpresets.cpp",
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt"
+            ],
+            "depends": [
+                "R7-03"
+            ]
+        },
+        "R7-05": {
+            "id": "7a432ab6-6774-476f-ba06-970b4389514a",
+            "stage": "R7",
+            "title": "R7 夜间批量模式",
+            "note": "目标：看板 Ctrl/Shift 多选卡 →「加入夜间队列」→ 全部入队（R7-01）；预计总时长基于各卡历史平均耗时或 triage estimate 求和，UI 显示「预计 X 分钟，约 HH:MM 完成」；完成后复用 R1 提醒/托盘辉光通知，失败卡标记 blocked 不阻断其余。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_nightbatch --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "scope": [
+                "qml/Main.qml",
+                "src/Scheduler.*",
+                "src/main.cpp",
+                "tests/tst_nightbatch.cpp",
+                "tests/CMakeLists.txt"
+            ],
+            "depends": [
+                "R7-01",
+                "R7-02"
+            ]
+        },
+        "R7-06": {
+            "id": "1ecfbbd3-e038-4e3e-aaa0-c5f1ad8380dd",
+            "stage": "R7",
+            "title": "R7 成本账",
+            "note": "目标：task_run.cost_ms 在 run 结束写入（含 running 时长，不含排队）；TaskRunStore 提供 totalCost(cardId) 聚合；执行面板（R6-06）与卡面显示「本卡累计耗时 X」；token 计量留接口（开放问题 #6，后续）。",
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_taskruns --output-on-failure",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "scope": [
+                "src/TaskRunStore.*",
+                "src/main.cpp",
+                "qml/Main.qml",
+                "qml/components/TaskCard.qml",
+                "tests/tst_taskruns.cpp"
+            ],
+            "depends": [
+                "R6-02",
+                "R7-01"
+            ]
         }
     },
     "claims": {

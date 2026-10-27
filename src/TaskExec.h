@@ -34,7 +34,8 @@ public:
     Q_INVOKABLE QVariantMap execOf(const QString &taskId) const;
 
     // 局部更新：只写 fields 里出现的键；未知键忽略。
-    // 校验失败返回 false（goal 超长、acceptance/scope 非字符串数组、超时越界等）。
+    // 校验失败返回 false（goal 超长、acceptance/scope 非字符串数组、超时越界、
+    // cwd 非绝对路径 / 目录不存在等）。cwd 为空表示「尚未指定工作目录」。
     Q_INVOKABLE bool setExec(const QString &taskId, const QVariantMap &fields);
 
     // 清空整行（回到「未定义执行参数」）。

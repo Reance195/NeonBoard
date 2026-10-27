@@ -5,6 +5,8 @@
 
 #include <QDateTime>
 #include <QDebug>
+#include <QDir>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonValue>
@@ -161,6 +163,18 @@ bool TaskExec::setExec(const QString &taskId, const QVariantMap &fields)
         return false;
     if (maxAttempts < 1 || maxAttempts > 5)
         return false;
+    // cwd 允许为空（旧卡尚未指定工作目录）；非空时必须是存在的绝对目录，
+    // 规范化后不得残留 ".." —— 执行器绝不能在未确认的目录里跑 agent。
+    QString normalizedCwd = QStringLiteral("");
+    if (!cwd.isEmpty()) {
+        normalizedCwd = QDir::cleanPath(cwd);
+        const QStringList parts = normalizedCwd.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+        if (!QDir::isAbsolutePath(normalizedCwd)
+            || parts.contains(QStringLiteral(".."))
+            || !QFileInfo(normalizedCwd).isDir()) {
+            return false;
+        }
+    }
     // acceptance / scope 必须是字符串列表
     for (const QVariant &item : acceptance) {
         if (!item.canConvert<QString>() || item.toString().trimmed().isEmpty())
@@ -191,7 +205,7 @@ bool TaskExec::setExec(const QString &taskId, const QVariantMap &fields)
     query.addBindValue(encodeList(acceptance));
     query.addBindValue(encodeList(scope));
     query.addBindValue(agent.isNull() ? QStringLiteral("") : agent);
-    query.addBindValue(cwd.isNull() ? QStringLiteral("") : cwd);
+    query.addBindValue(normalizedCwd);
     query.addBindValue(workflow.isNull() ? QStringLiteral("") : workflow);
     query.addBindValue(timeoutMin);
     query.addBindValue(maxAttempts);

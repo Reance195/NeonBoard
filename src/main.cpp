@@ -548,7 +548,7 @@ int main(int argc, char *argv[])
             execFields.insert(QStringLiteral("scope"),
                               QVariantList{QStringLiteral("src/**")});
             execFields.insert(QStringLiteral("agent"), QStringLiteral("opencode"));
-            execFields.insert(QStringLiteral("cwd"), QStringLiteral("E:/projects/NeonBoard"));
+            execFields.insert(QStringLiteral("cwd"), QDir::tempPath());
             execFields.insert(QStringLiteral("workflow"), QStringLiteral("fix"));
             execFields.insert(QStringLiteral("timeoutMin"), 30);
             execFields.insert(QStringLiteral("maxAttempts"), 2);

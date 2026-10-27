@@ -2,6 +2,7 @@ import QtQuick
 import QtQml
 import QtQuick.Window
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 
 ApplicationWindow {
@@ -1610,12 +1611,39 @@ MouseArea {
         // 执行定义（M0，侧表 task_exec；与任务字段分开保存）
         property string execAgent: ""
         property string execWorkflow: ""
+        // 页签：0 任务 / 1 执行
+        property int tabIndex: 0
+        property string execCwd: ""
+        property string execNotice: ""
+        // 「执行」按钮的最小集：目标 + 验收 + 工作目录
+        readonly property string execBlocker: {
+            if (goalField.text.trim().length === 0)
+                return "缺少执行目标"
+            if (linesOf(acceptanceField.text).length === 0)
+                return "缺少验收项"
+            if (execCwd.trim().length === 0)
+                return "未选择工作目录"
+            return ""
+        }
 
         // 多行文本 → 字符串数组（去空行、去首尾空白）
         function linesOf(text) {
             return String(text || "").split("\n")
                 .map(function (s) { return s.trim() })
                 .filter(function (s) { return s.length > 0 })
+        }
+
+        function intOf(text, fallback) {
+            const n = parseInt(String(text || ""), 10)
+            return isNaN(n) ? fallback : n
+        }
+
+        // file:///E:/x → E:/x（FolderDialog 给的是 URL）
+        function localPath(url) {
+            let s = String(url || "")
+            if (s.indexOf("file:///") === 0)
+                s = s.substring(8)
+            return decodeURIComponent(s)
         }
 
         function openFor(id) {
@@ -1638,6 +1666,11 @@ MouseArea {
             execAgent = exec ? exec.agent : ""
             execWorkflow = exec ? exec.workflow : ""
             agentField.text = execAgent
+            execCwd = exec ? exec.cwd : ""
+            timeoutField.text = String(exec ? exec.timeoutMin : 30)
+            attemptsField.text = String(exec ? exec.maxAttempts : 1)
+            tabIndex = 0
+            execNotice = ""
             open()
             titleField.forceActiveFocus()
         }
@@ -1662,16 +1695,78 @@ MouseArea {
         contentItem: ColumnLayout {
             spacing: 12
 
-            Text {
-                text: "编辑任务"
-                color: Theme.text
-                font.pixelSize: 18
-                font.bold: true
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                    text: "编辑任务"
+                    color: Theme.text
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    id: taskTab
+                    text: "任务"
+                    Layout.preferredWidth: 64
+                    Layout.preferredHeight: 28
+                    padding: 0
+                    onClicked: {
+                        editor.tabIndex = 0
+                        editor.execNotice = ""
+                    }
+                    background: Rectangle {
+                        radius: 8
+                        color: editor.tabIndex === 0
+                               ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+                               : Theme.input
+                        border.width: 1
+                        border.color: editor.tabIndex === 0 ? Theme.cyan : Theme.border
+                    }
+                    contentItem: Text {
+                        text: taskTab.text
+                        color: editor.tabIndex === 0 ? Theme.text : Theme.muted
+                        font.pixelSize: 11
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+
+                Button {
+                    id: execTab
+                    text: "执行"
+                    Layout.preferredWidth: 64
+                    Layout.preferredHeight: 28
+                    padding: 0
+                    onClicked: {
+                        editor.tabIndex = 1
+                        editor.execNotice = ""
+                    }
+                    background: Rectangle {
+                        radius: 8
+                        color: editor.tabIndex === 1
+                               ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+                               : Theme.input
+                        border.width: 1
+                        border.color: editor.tabIndex === 1 ? Theme.cyan : Theme.border
+                    }
+                    contentItem: Text {
+                        text: execTab.text
+                        color: editor.tabIndex === 1 ? Theme.text : Theme.muted
+                        font.pixelSize: 11
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
             }
 
             TextField {
                 id: titleField
                 Layout.fillWidth: true
+                visible: editor.tabIndex === 0
                 placeholderText: "任务标题"
                 placeholderTextColor: Theme.muted
                 color: Theme.text
@@ -1688,6 +1783,7 @@ MouseArea {
                 id: noteField
                 Layout.fillWidth: true
                 Layout.preferredHeight: 92
+                visible: editor.tabIndex === 0
                 placeholderText: "备注"
                 placeholderTextColor: Theme.muted
                 color: Theme.text
@@ -1704,6 +1800,7 @@ MouseArea {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 12
+                visible: editor.tabIndex === 0
 
                 Row {
                     spacing: 6
@@ -1756,6 +1853,7 @@ MouseArea {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
+                visible: editor.tabIndex === 0
 
                 Text {
                     text: "提醒"
@@ -1782,6 +1880,7 @@ MouseArea {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
+                visible: editor.tabIndex === 0
 
                 Text {
                     text: "重复"
@@ -1832,22 +1931,10 @@ MouseArea {
                 }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.18)
-            }
-
-            Text {
-                text: "执行定义（可选，侧表 task_exec）"
-                color: Theme.cyan
-                font.pixelSize: 12
-                font.bold: true
-            }
-
             TextField {
                 id: goalField
                 Layout.fillWidth: true
+                visible: editor.tabIndex === 1
                 placeholderText: "目标：一句话说明要达成什么"
                 placeholderTextColor: Theme.muted
                 color: Theme.text
@@ -1864,6 +1951,7 @@ MouseArea {
                 id: acceptanceField
                 Layout.fillWidth: true
                 Layout.preferredHeight: 64
+                visible: editor.tabIndex === 1
                 placeholderText: "验收：每行一条（如 pwsh -File scripts/verify.ps1）"
                 placeholderTextColor: Theme.muted
                 color: Theme.text
@@ -1881,6 +1969,7 @@ MouseArea {
                 id: scopeField
                 Layout.fillWidth: true
                 Layout.preferredHeight: 52
+                visible: editor.tabIndex === 1
                 placeholderText: "边界：每行一条路径 glob（如 src/TaskModel.cpp）"
                 placeholderTextColor: Theme.muted
                 color: Theme.text
@@ -1897,6 +1986,7 @@ MouseArea {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 6
+                visible: editor.tabIndex === 1
 
                 TextField {
                     id: agentField
@@ -1938,6 +2028,123 @@ MouseArea {
                             onClicked: editor.execWorkflow = (editor.execWorkflow === modelData) ? "" : modelData
                         }
                     }
+                }
+            }
+
+            // cwd：只读展示 + 目录选择；「执行」要求显式目录，绝不在未知目录里跑 agent
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+                visible: editor.tabIndex === 1
+
+                TextField {
+                    id: cwdField
+                    Layout.fillWidth: true
+                    text: editor.execCwd
+                    readOnly: true
+                    placeholderText: "工作目录（执行必填）"
+                    placeholderTextColor: Theme.muted
+                    color: Theme.text
+                    font.pixelSize: 11
+                    background: Rectangle {
+                        color: Theme.elevated
+                        radius: 8
+                        border.width: 1
+                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                    }
+                }
+
+                Button {
+                    text: "选择…"
+                    onClicked: execCwdDialog.open()
+                }
+
+                Button {
+                    text: "清除"
+                    enabled: editor.execCwd.length > 0
+                    onClicked: editor.execCwd = ""
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                visible: editor.tabIndex === 1
+
+                Text {
+                    text: "超时"
+                    color: Theme.muted
+                    font.pixelSize: 12
+                }
+
+                TextField {
+                    id: timeoutField
+                    Layout.preferredWidth: 56
+                    text: "30"
+                    horizontalAlignment: TextInput.AlignHCenter
+                    color: Theme.text
+                    font.pixelSize: 11
+                    validator: IntValidator { bottom: 1; top: 480 }
+                    background: Rectangle {
+                        color: Theme.elevated
+                        radius: 8
+                        border.width: 1
+                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                    }
+                }
+
+                Text {
+                    text: "分钟"
+                    color: Theme.muted
+                    font.pixelSize: 11
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    text: "轮数"
+                    color: Theme.muted
+                    font.pixelSize: 12
+                }
+
+                TextField {
+                    id: attemptsField
+                    Layout.preferredWidth: 48
+                    text: "1"
+                    horizontalAlignment: TextInput.AlignHCenter
+                    color: Theme.text
+                    font.pixelSize: 11
+                    validator: IntValidator { bottom: 1; top: 5 }
+                    background: Rectangle {
+                        color: Theme.elevated
+                        radius: 8
+                        border.width: 1
+                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                visible: editor.tabIndex === 1
+
+                Text {
+                    Layout.fillWidth: true
+                    text: editor.execBlocker.length > 0
+                          ? "执行不可用：" + editor.execBlocker
+                          : (editor.execNotice.length > 0
+                             ? editor.execNotice
+                             : "最小集已满足（执行器在 R6-04 接入）")
+                    color: editor.execBlocker.length > 0 ? Theme.muted : Theme.cyan
+                    font.pixelSize: 10
+                    wrapMode: Text.Wrap
+                }
+
+                Button {
+                    text: "执行"
+                    enabled: editor.execBlocker.length === 0
+                    onClicked: editor.execNotice = "执行器尚未接入（R6-04）"
                 }
             }
 
@@ -1990,14 +2197,22 @@ MouseArea {
                         taskExtra.setReminder(editor.taskId, remindAt)
                         // 重复规则走侧表 task_extra（RRULE 原样存，不自造格式）
                         taskExtra.setRrule(editor.taskId, rruleField.text.trim())
-                        // 执行定义走侧表 task_exec：目标 / 验收 / 边界 / agent / workflow
-                        taskExec.setExec(editor.taskId, {
+                        // 执行定义走侧表 task_exec：目标 / 验收 / 边界 / agent / workflow / cwd / 超时 / 轮数
+                        const execSaved = taskExec.setExec(editor.taskId, {
                             goal: goalField.text.trim(),
                             acceptance: editor.linesOf(acceptanceField.text),
                             scope: editor.linesOf(scopeField.text),
                             agent: agentField.text.trim(),
-                            workflow: editor.execWorkflow
+                            workflow: editor.execWorkflow,
+                            cwd: editor.execCwd,
+                            timeoutMin: editor.intOf(timeoutField.text, 30),
+                            maxAttempts: editor.intOf(attemptsField.text, 1)
                         })
+                        if (!execSaved) {
+                            editor.tabIndex = 1
+                            editor.execNotice = "执行定义未保存：请检查工作目录"
+                            return
+                        }
                         editor.close()
                     }
                 }
@@ -2014,6 +2229,16 @@ MouseArea {
         id: taskEditorLoader
         active: false
         sourceComponent: taskEditorComponent
+    }
+
+    // 执行页签的工作目录选择：放在根层，避免嵌套弹窗时 parent window 解析问题
+    FolderDialog {
+        id: execCwdDialog
+        title: "选择工作目录"
+        onAccepted: {
+            if (taskEditorLoader.item)
+                taskEditorLoader.item.execCwd = taskEditorLoader.item.localPath(selectedFolder)
+        }
     }
 
     Component {

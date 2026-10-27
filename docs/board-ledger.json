@@ -129,6 +129,27 @@
             "stage": "DX",
             "title": "DX 一分支多卡：领用占位列表化，或提供从既有分支拆卡的脚本"
         },
+        "DX-04": {
+            "acceptance": [
+                "阶段条渲染路线图 §9 的全部阶段（当前 R0–R7 + DX），顺序与 §9 行序一致；给 §9 加一行，阶段条自动多一个 chip，不改 QML",
+                "台账里有卡的阶段一定在阶段条上可见（R4/R5/R6 这类不再消失）",
+                "不在路线图里的阶段标签（如临时 tag）落到「其他」，且「其他」计数 = 全部任务数 − 已显示各阶段之和（可对账，不再静默吞）",
+                "单测覆盖：构造含 R0/R6/DX/无标签的模型，断言 stageStats 的每个 key 要么出现在阶段条数据里、要么被计入「其他」",
+                "ctest 13/13 与 CI 全绿"
+            ],
+            "id": "adc1c767-f2b1-4d80-b6e4-b185602ace36",
+            "note": "现象（2026-10-28 实测）：看板阶段条只显示「全部 / R0 / R1 / R2 / R3 / 其他」，但 board.db 里实际存在 R4 14 张、R5 5 张（4 done + 1 todo）、R6 9 张（3 done + 6 todo）。因为这些阶段既不在 buildStageList 的 order 数组里、也不计入 OTHER（OTHER 只统计 stageOf 归不了 R\\d+ 的卡），R4/R5/R6 共 28 张卡在界面上完全不可见 —— R6 还有 6 张待办、R5 还有 1 张待办，等于未完成的工作在进度条上凭空消失。根因与全景面板 DX-01 修掉的是同一个：qml/Main.qml 的 buildStageList 把阶段集合写死成 ['R0','R1','R2','R3','OTHER']，而 src/TaskModel.cpp 的 stageOf 只认 ^R\\d+$（DX 这类非 R 阶段一律落 OTHER）。目标：阶段集合与顺序改为取自路线图 §9（ProjectMap 已能解析，可直接复用），stageOf 宽容识别任意短号前缀；「其他」改为兜底桶且保证可对账。（备注：先前口头说的「其他 39/33」是我看错了截图，实际是 33/33，不存在 done>total；真问题是 R4/R5/R6 被吞。）",
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/StageBar.qml",
+                "src/TaskModel.cpp",
+                "src/TaskModel.h",
+                "src/ProjectMap.h",
+                "tests/tst_boardcolumns.cpp"
+            ],
+            "stage": "DX",
+            "title": "DX 阶段条数据驱动：R4/R5/R6 的卡目前在界面上完全不可见"
+        },
         "M01": {
             "id": "9bddece6-d4f8-4963-990e-b9d27a06d7c1",
             "stage": "R3",

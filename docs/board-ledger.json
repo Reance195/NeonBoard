@@ -914,11 +914,11 @@
         }
     },
     "claims": {
-        "R6-04": {
+        "R6-05": {
             "agent": "lead",
-            "branch": "feature/r6-04-hardening",
-            "claimedAt": 1793126204,
-            "head": "d03e4ff9c1f2f2d91cc9e17365772c0d67ffdbfe"
+            "branch": "feature/r6-05-acceptance",
+            "claimedAt": 1793130413,
+            "head": "b357079633955ce2b8a4feb98d9388d1ec99b56f"
         }
     },
     "version": 1

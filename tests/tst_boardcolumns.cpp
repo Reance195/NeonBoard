@@ -38,6 +38,10 @@ private slots:
     void moveColumnReordersAndStopsAtEdges();
     void removeColumnMigratesCards();
 
+    // 阶段条（DX-04）
+    void stageListCoversEveryStage();
+    void stageStatsRecognizesNonRStages();
+
 private:
     TaskFilterModel *columnModel(int row) const;
     QStringList columnIds() const;
@@ -79,6 +83,99 @@ void TestBoardColumns::cleanup()
     m_model = nullptr;
     delete m_db;
     m_db = nullptr;
+}
+
+// DX-04：stageOf 原先只认 ^R\d+$，于是 DX / OPS 这类非 R 阶段一律掉进 OTHER，
+// 阶段条上永远看不到它们。放宽成「短号前缀」后这些阶段才有机会独立成一项。
+// 走公开的 stageStats() 验证归类结果 —— 测的是「卡被归到哪个阶段」这个行为，
+// 而不是 stageOf 这个私有实现细节（为测试放宽可见性会把实现细节钉进 API）。
+void TestBoardColumns::stageStatsRecognizesNonRStages()
+{
+    QVERIFY(!m_model->addTask(QStringLiteral("DX 卡"), QStringLiteral("todo"), 1, QStringLiteral("DX")).isEmpty());
+    // 库里存的标签是 JSON 数组，取首个元素
+    QVERIFY(!m_model->addTask(QStringLiteral("DX 数组标签"), QStringLiteral("todo"), 1, QStringLiteral("[\"DX\"]")).isEmpty());
+    QVERIFY(!m_model->addTask(QStringLiteral("OPS 卡"), QStringLiteral("todo"), 1, QStringLiteral("OPS")).isEmpty());
+    // 卡号不是阶段：R4-10 属于 R4 阶段，不该自己成为一个阶段
+    QVERIFY(!m_model->addTask(QStringLiteral("卡号当标签"), QStringLiteral("todo"), 1, QStringLiteral("R4-10")).isEmpty());
+    // 认不出的写法照旧落「其他」，由 stageList 兜底计数
+    QVERIFY(!m_model->addTask(QStringLiteral("中文标签"), QStringLiteral("todo"), 1, QStringLiteral("临时标签")).isEmpty());
+
+    const QVariantMap stats = m_model->stageStats();
+    QCOMPARE(stats.value(QStringLiteral("DX")).toMap().value(QStringLiteral("total")).toInt(), 2);
+    QCOMPARE(stats.value(QStringLiteral("OPS")).toMap().value(QStringLiteral("total")).toInt(), 1);
+    QVERIFY(!stats.contains(QStringLiteral("R4-10")));
+    // 卡号与中文标签都落「其他」
+    QCOMPARE(stats.value(QStringLiteral("OTHER")).toMap().value(QStringLiteral("total")).toInt(), 2);
+}
+
+// DX-04 的主回归：阶段条曾在 QML 里写死 R0–R3，R4/R5/R6 的卡 stageStats() 算得出来、
+// 却因为不在那份写死的清单里而不渲染 —— 等于有 28 张卡在界面上凭空消失。
+// 断言分两层：一是 R6 真的有 chip（直接盯住原 bug），二是「其他」可对账
+// （其他 = 全部 − 已显示各阶段之和 = 未被显示的各阶段之和），保证不会静默吞卡。
+void TestBoardColumns::stageListCoversEveryStage()
+{
+    QVERIFY(!m_model->addTask(QStringLiteral("R0 甲"), QStringLiteral("done"), 1, QStringLiteral("R0")).isEmpty());
+    QVERIFY(!m_model->addTask(QStringLiteral("R0 乙"), QStringLiteral("todo"), 1, QStringLiteral("R0")).isEmpty());
+    QVERIFY(!m_model->addTask(QStringLiteral("R6 甲"), QStringLiteral("doing"), 1, QStringLiteral("R6")).isEmpty());
+    QVERIFY(!m_model->addTask(QStringLiteral("DX 甲"), QStringLiteral("todo"), 1, QStringLiteral("DX")).isEmpty());
+    QVERIFY(!m_model->addTask(QStringLiteral("无标签")).isEmpty());
+    QVERIFY(!m_model->addTask(QStringLiteral("卡号当标签"), QStringLiteral("todo"), 1, QStringLiteral("R4-10")).isEmpty());
+
+    const QVariantMap stats = m_model->stageStats();
+    // 顺序由调用方传入（界面侧取自 §9 行序）。这里显式给一组，测试因此不依赖仓库里
+    // §9 的真实内容 —— 否则 §9 一改、这条与业务无关的测试就会莫名其妙变红。
+    const QStringList order = {QStringLiteral("R0"), QStringLiteral("R1"), QStringLiteral("R2"),
+                               QStringLiteral("R3"), QStringLiteral("R4"), QStringLiteral("R5"),
+                               QStringLiteral("R6"), QStringLiteral("R7"), QStringLiteral("DX")};
+    const QVariantList list = m_model->stageList(order);
+
+    QVERIFY(stats.contains(QStringLiteral("DX")));
+    QVERIFY(stats.contains(QStringLiteral("OTHER")));
+
+    QStringList shown;
+    int shownTotal = 0;
+    int otherTotal = 0;
+    bool hasOther = false;
+    for (const QVariant &v : list) {
+        const QVariantMap item = v.toMap();
+        const QString key = item.value(QStringLiteral("key")).toString();
+        QVERIFY2(!key.isEmpty(), "阶段条每项都必须有 key");
+        QVERIFY2(!shown.contains(key), qPrintable(QStringLiteral("阶段条出现重复阶段：%1").arg(key)));
+        shown.append(key);
+
+        const int total = item.value(QStringLiteral("total")).toInt();
+        // 每项的三个状态之和必须等于总数，界面上 done/total 才可能对得上
+        QCOMPARE(total, item.value(QStringLiteral("done")).toInt()
+                        + item.value(QStringLiteral("doing")).toInt()
+                        + item.value(QStringLiteral("todo")).toInt());
+
+        if (key == QStringLiteral("OTHER")) {
+            otherTotal = total;
+            hasOther = true;
+        } else {
+            shownTotal += total;
+        }
+    }
+
+    // 原 bug 的直接回归：R6 必须有自己的 chip，不能因为不在写死清单里就消失
+    QVERIFY2(shown.contains(QStringLiteral("R6")),
+             qPrintable(QStringLiteral("R6 没上阶段条，当前阶段：%1").arg(shown.join(QLatin1Char(',')))));
+
+    // 可对账一：整体不丢卡
+    QCOMPARE(shownTotal + otherTotal, m_model->rowCount());
+
+    // 可对账二：「其他」正好等于所有没被顺序覆盖到的阶段之和，不多也不少。
+    // 基准用传入的 order 而不是渲染结果 —— 渲染结果里含「其他」自己，拿它当基准
+    // 会把「其他」排除在外，算出 0。
+    int unshownTotal = 0;
+    for (auto it = stats.constBegin(); it != stats.constEnd(); ++it) {
+        if (order.contains(it.key()))
+            continue;
+        unshownTotal += it.value().toMap().value(QStringLiteral("total")).toInt();
+    }
+    if (unshownTotal > 0)
+        QVERIFY2(hasOther, "有卡没被任何阶段显示，却不存在「其他」桶");
+    QCOMPARE(otherTotal, unshownTotal);
 }
 
 TaskFilterModel *TestBoardColumns::columnModel(int row) const

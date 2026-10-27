@@ -138,14 +138,17 @@
                 "ctest 13/13 与 CI 全绿"
             ],
             "id": "adc1c767-f2b1-4d80-b6e4-b185602ace36",
-            "note": "现象（2026-10-28 实测）：看板阶段条只显示「全部 / R0 / R1 / R2 / R3 / 其他」，但 board.db 里实际存在 R4 14 张、R5 5 张（4 done + 1 todo）、R6 9 张（3 done + 6 todo）。因为这些阶段既不在 buildStageList 的 order 数组里、也不计入 OTHER（OTHER 只统计 stageOf 归不了 R\\d+ 的卡），R4/R5/R6 共 28 张卡在界面上完全不可见 —— R6 还有 6 张待办、R5 还有 1 张待办，等于未完成的工作在进度条上凭空消失。根因与全景面板 DX-01 修掉的是同一个：qml/Main.qml 的 buildStageList 把阶段集合写死成 ['R0','R1','R2','R3','OTHER']，而 src/TaskModel.cpp 的 stageOf 只认 ^R\\d+$（DX 这类非 R 阶段一律落 OTHER）。目标：阶段集合与顺序改为取自路线图 §9（ProjectMap 已能解析，可直接复用），stageOf 宽容识别任意短号前缀；「其他」改为兜底桶且保证可对账。（备注：先前口头说的「其他 39/33」是我看错了截图，实际是 33/33，不存在 done>total；真问题是 R4/R5/R6 被吞。）",
+            "note": "现象（2026-10-28 实测）：看板阶段条只显示「全部 / R0 / R1 / R2 / R3 / 其他」，但 board.db 里实际存在 R4 14 张、R5 5 张（4 done + 1 todo）、R6 9 张（3 done + 6 todo）。因为这些阶段既不在 buildStageList 的 order 数组里、也不计入 OTHER（OTHER 只统计 stageOf 归不了 R\\d+ 的卡），R4/R5/R6 共 28 张卡在界面上完全不可见 —— R6 还有 6 张待办、R5 还有 1 张待办，等于未完成的工作在进度条上凭空消失。根因与全景面板 DX-01 修掉的是同一个：qml/Main.qml 的 buildStageList 把阶段集合写死成 ['R0','R1','R2','R3','OTHER']，而 src/TaskModel.cpp 的 stageOf 只认 ^R\\d+$（DX 这类非 R 阶段一律落 OTHER）。目标：阶段集合与顺序改为取自路线图 §9（ProjectMap 已能解析，可直接复用），stageOf 宽容识别任意短号前缀；「其他」改为兜底桶且保证可对账。（备注：先前口头说的「其他 39/33」是我看错了截图，实际是 33/33，不存在 done>total；真问题是 R4/R5/R6 被吞。）\n\n【交付 2026-10-28 / agent-map3】六处改动：\n1) src/ProjectMap.h/.cpp 新增 stageOrder()：只读 §9 表格返回阶段行序，不跑 git、不扫文件；\n   与面板 milestones() 共用同一份 readRoadmap 解析，顺序因此只有一套事实源。\n2) src/TaskModel.cpp stageOf 正则由 ^R\\d+$ 放宽为 ^[A-Za-z]{1,4}\\d*$：\n   DX / OPS 这类非 R 阶段不再落 OTHER；卡号（R4-10）仍不算阶段。\n3) 新增 TaskModel::stageList(stageOrder)：按给定顺序输出 [{key,label,total,done,doing,todo}]，\n   顺序之外的阶段统一折进「其他」，满足 其他 = 全部 − 已显示之和（可对账）。\n   顺序由调用方传入，模型层刻意不依赖 ProjectMap —— 否则每个链了 TaskModel 的测试\n   二进制都得把 QProcess / 文件监听一起链进来（分层倒置，链接期就暴露了）。\n4) qml/Main.qml 删掉写死的 order/labels 与 buildStageList()，改为消费 stageList。\n5) qml/components/StageBar.qml accentFor 由按 key 写死改为按行序取色板\n   （阶段从 4 个变 9 个后不再撞成同色），「其他」固定用 muted 与真实阶段区分。\n6) 单测：tst_boardcolumns 两条（非 R 阶段归类、阶段条覆盖与「其他」可对账）\n   + tst_projectmap 一条（stageOrder 与 §9 行序一致）。\n\n【验测】ctest 14/14 通过；--selftest 与 --smoke 均通过，沙箱日志无 QML 报错\n（修掉了一处 ReferenceError：delegate 声明了 required property 后，index 不再自动注入，\n必须显式 `required property int index`）。\n\n【遗留】§9 新增阶段行后需重启应用才反映到阶段条：refreshStageData() 只在任务数变化时触发，\n阶段条没有监听 roadmap 文件（面板 ProjectMap 有 watcher）。留待后续处理。",
             "scope": [
                 "qml/Main.qml",
                 "qml/components/StageBar.qml",
                 "src/TaskModel.cpp",
                 "src/TaskModel.h",
                 "src/ProjectMap.h",
-                "tests/tst_boardcolumns.cpp"
+                "tests/tst_boardcolumns.cpp",
+                "src/ProjectMap.cpp",
+                "tests/tst_projectmap.cpp",
+                "docs/iteration-roadmap.md"
             ],
             "stage": "DX",
             "title": "DX 阶段条数据驱动：R4/R5/R6 的卡目前在界面上完全不可见"

@@ -1,8 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
 
-// 阶段进度条：按里程碑（R0/R1/R2/R3）聚合看板完成度。
+// 阶段进度条：按里程碑聚合看板完成度。
 // 一眼看出「哪个阶段收口了、哪个阶段还欠着」，点击某个阶段即按阶段过滤看板。
+// 阶段集合与顺序由 C++ 侧 TaskModel::stageList() 给出（取自路线图 §9 行序），
+// 本文件不写死有哪些阶段 —— §9 加一行，这里自动多一个 chip（DX-04）。
 Rectangle {
     id: bar
 
@@ -21,14 +23,18 @@ Rectangle {
     border.width: 1
     border.color: Theme.border
 
-    function accentFor(key) {
-        if (key === "R0")
-            return Theme.cyan
-        if (key === "R1")
-            return Theme.violet
-        if (key === "R2")
-            return Theme.magenta
-        return Theme.success
+    // 阶段色板：阶段集合现在取自路线图 §9（R0–R7 + DX，以后还会加行），
+    // 再按 key 写死颜色的话，第 4 个之后会全撞成同一个色。改成按行序取色、循环复用。
+    // 「其他」是兜底桶而非真实阶段，单独用 muted 与它们区分开。
+    readonly property var palette: [
+        Theme.cyan, Theme.violet, Theme.magenta, Theme.success, Theme.warning, Theme.danger
+    ]
+
+    function accentFor(key, index) {
+        if (key === "OTHER")
+            return Theme.muted
+        const i = index < 0 ? 0 : index
+        return palette[i % palette.length]
     }
 
     RowLayout {
@@ -74,9 +80,12 @@ Rectangle {
             delegate: Rectangle {
                 id: chip
                 required property var modelData
+                // 一旦用了 required，未声明的上下文属性就不注入了 —— index 也得显式声明，
+                // 否则取色那行会 ReferenceError（Qt 6 的 required-property 语义）。
+                required property int index
 
                 readonly property bool finished: modelData.total > 0 && modelData.done >= modelData.total
-                readonly property color accent: bar.accentFor(modelData.key)
+                readonly property color accent: bar.accentFor(modelData.key, index)
                 readonly property bool active: bar.activeStage === modelData.key
 
                 Layout.preferredWidth: 86

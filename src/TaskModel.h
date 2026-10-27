@@ -90,6 +90,15 @@ public:
     Q_INVOKABLE QVariantMap previewInput(const QString &text) const;
     // 按里程碑标签（首个标签形如 R0/R1/R2/R3）聚合各阶段的任务完成度
     Q_INVOKABLE QVariantMap stageStats() const;
+    // 阶段条数据：[{ key, label, total, done, doing, todo }]，按 stageOrder 输出。
+    // 与 stageStats() 的区别：stageStats 是「账」，key 有多少算多少；
+    // stageList 是「报表」——按调用方给的顺序输出，并把没被列进来的阶段折进「其他」，
+    // 保证 其他 = 全部任务数 − 已显示各阶段之和，不再有「算出来却没渲染」的卡。
+    //
+    // 顺序由调用方传入（界面侧传 projectMap.stageOrder()，即路线图 §9 的行序），
+    // 模型层刻意不直接依赖 ProjectMap —— 否则每个链了 TaskModel 的测试二进制都得
+    // 把 QProcess / 文件监听一起链进来（分层倒置，链接期就会暴露）。
+    Q_INVOKABLE QVariantList stageList(const QStringList &stageOrder) const;
 
 signals:
     void countsChanged();

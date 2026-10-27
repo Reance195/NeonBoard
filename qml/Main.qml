@@ -2092,6 +2092,42 @@ MouseArea {
                     }
                 }
 
+                // 台账单向导入（R6-09，ADR-0001）：按标题内嵌短号只补空值，
+                // 冲突只报告不覆盖；没有「写入台账」的反向入口。
+                Button {
+                    text: "台账导入"
+                    property string code: {
+                        var m = String(titleField.text || "").match(/#([A-Za-z]{1,4}\d*-\d+|M\d+)\b/)
+                        return m ? m[1].toUpperCase() : ""
+                    }
+                    visible: code.length > 0
+                    onClicked: {
+                        const r = ledgerImport.importCard(code)
+                        if (!r || !r.ok) {
+                            editor.execNotice = "台账导入失败：" + ((r && r.error) || "未知错误")
+                            return
+                        }
+                        if (r.result === "imported") {
+                            // 重新加载执行定义，把补进来的字段显示到表单
+                            const exec = taskExec.execOf(editor.taskId)
+                            goalField.text = exec ? exec.goal : goalField.text
+                            acceptanceField.text = exec && exec.acceptance.length > 0
+                                ? exec.acceptance.join("\n") : acceptanceField.text
+                            scopeField.text = exec && exec.scope.length > 0
+                                ? exec.scope.join("\n") : scopeField.text
+                            editor.execNotice = "已从台账导入 " + r.filled + " 项（只补空值）"
+                        } else if (r.result === "conflict") {
+                            var c = (r.conflicts || [])[0] || {}
+                            editor.execNotice = "台账与看板定义冲突（" + (c.field || "")
+                                + "）：不覆盖，请人工决定"
+                        } else if (r.result === "missing") {
+                            editor.execNotice = "看板里找不到短号 " + code + " 对应的卡"
+                        } else {
+                            editor.execNotice = "台账与看板一致，无需导入"
+                        }
+                    }
+                }
+
                 Text {
                     Layout.fillWidth: true
                     text: {

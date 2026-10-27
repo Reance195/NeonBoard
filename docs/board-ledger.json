@@ -626,11 +626,11 @@
         }
     },
     "claims": {
-        "R6-02": {
-            "agent": "agent-r6a",
-            "branch": "feature/r6-02-run-store",
-            "claimedAt": 1793094264,
-            "head": "e3e5188bb68c427ce223aa8732dcb92340aa3d06"
+        "R6-01": {
+            "agent": "agent-r6b",
+            "branch": "feature/r6-01-exec-tab",
+            "claimedAt": 1793094365,
+            "head": "ba0a515aa488cca6fe2a03bdb55a0f9734b8e457"
         }
     },
     "version": 1

@@ -32,7 +32,8 @@ QVariantMap profileEnv(const QVariantMap &profile)
 const QRegularExpression &credentialPattern()
 {
     static const QRegularExpression re(
-        QStringLiteral(R"((?:api[_-]?key|token|secret|passwd|password|authorization|bearer)(\s*[=:]\s*)(\S+))"),
+        QStringLiteral(
+            R"((?:api[_-]?key|token|secret|passwd|password|authorization|bearer)(\s*[=:]\s*)(\S+))"),
         QRegularExpression::CaseInsensitiveOption);
     return re;
 }
@@ -128,12 +129,18 @@ QVariantMap TaskRunner::start(const QString &taskId)
     if (timeoutSec <= 0)
         timeoutSec = 600;
 
-    return startRaw(taskId, args.value(0), args.mid(1), cwd, timeoutSec, stdinPrompt, prompt);
+    // R6-08：轮数上限（执行定义 maxAttempts，钳制 1..5；默认 1 等价于不循环）
+    int maxAttempts = exec.value(QStringLiteral("maxAttempts")).toInt();
+    if (maxAttempts <= 0)
+        maxAttempts = 1;
+
+    return startRaw(taskId, args.value(0), args.mid(1), cwd, timeoutSec, stdinPrompt, prompt,
+                    maxAttempts);
 }
 
 QVariantMap TaskRunner::startRaw(const QString &taskId, const QString &exe, const QStringList &args,
                                  const QString &cwd, int timeoutSec, bool promptToStdin,
-                                 const QString &prompt)
+                                 const QString &prompt, int maxAttempts)
 {
     if (exe.trimmed().isEmpty())
         return {{QStringLiteral("ok"), false},
@@ -148,6 +155,13 @@ QVariantMap TaskRunner::startRaw(const QString &taskId, const QString &exe, cons
     Process *p = new Process;
     p->runId = runId;
     p->taskId = taskId;
+    // R6-08 循环重试所需的现场：argv / cwd / prompt / 超时 / 轮数
+    p->argvList = QStringList{exe} + args;
+    p->cwd = cwd;
+    p->prompt = prompt;
+    p->promptToStdin = promptToStdin;
+    p->timeoutSec = timeoutSec;
+    p->maxAttempts = qBound(1, maxAttempts, 5);
     m_processes.append(p);
 
     if (!setupProcess(*p, cwd, QStringList{exe} + args, promptToStdin, prompt, timeoutSec)) {
@@ -281,7 +295,120 @@ void TaskRunner::onProcessFinished(Process &p, int exitCode)
         detail.insert(QStringLiteral("lastError"), QStringLiteral("进程退出码 %1").arg(exitCode));
     }
 
+    // R6-08：失败且未到轮数上限 → 带着失败摘要自动重试（人取消后不重试）
+    if (status == QStringLiteral("blocked") && p.ending != QStringLiteral("cancelled")
+        && tryRetry(p, detail))
+        return;
+
+    if (status == QStringLiteral("blocked") && p.maxAttempts > 1 && p.attempt >= p.maxAttempts)
+        detail.insert(QStringLiteral("lastError"),
+                      detail.value(QStringLiteral("lastError")).toString()
+                          + QStringLiteral("（已重试 %1 轮，需人工介入）").arg(p.attempt));
+
     settle(p, status, detail);
+}
+
+QString TaskRunner::failureSummary(const QByteArray &log, const QString &lastError)
+{
+    // 末尾 200 行（卡片要求），再截 8000 字符防止把 prompt 撑爆
+    QStringList lines = QString::fromUtf8(log).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    if (lines.size() > 200)
+        lines = lines.mid(lines.size() - 200);
+    QString summary = lines.join(QLatin1Char('\n'));
+    if (summary.size() > 8000)
+        summary = summary.right(8000);
+    // arg 模式注入 argv：单行化，避免多行文本被 shell/argv 边界切碎
+    summary.replace(QLatin1Char('\n'), QStringLiteral(" ⏎ "));
+    const QString head = lastError.trimmed();
+    if (!head.isEmpty())
+        summary = summary.trimmed().isEmpty() ? head : head + QStringLiteral(" ⏎ ") + summary;
+    return summary.trimmed();
+}
+
+bool TaskRunner::tryRetry(Process &p, const QVariantMap &detail)
+{
+    if (p.attempt >= p.maxAttempts)
+        return false;
+
+    const QString summary =
+        failureSummary(p.log, detail.value(QStringLiteral("lastError")).toString());
+
+    // 先把当前 run 结算成 blocked（每轮日志独立落盘，历史不覆盖）
+    QVariantMap finalDetail = detail;
+    if (p.proc) {
+        accumulate(p, p.proc->readAllStandardOutput());
+        accumulate(p, p.proc->readAllStandardError());
+    }
+    finalDetail.insert(QStringLiteral("logPath"), writeLog(p));
+    if (m_runs)
+        m_runs->release(p.runId, QStringLiteral("blocked"), finalDetail);
+
+    // 取新锁：acquire 缺省 attempt = 上一轮 + 1
+    const QVariantMap acquired = m_runs->acquire(p.taskId);
+    if (!acquired.value(QStringLiteral("ok")).toBool())
+        return false; // 锁被占（不该发生，防死循环兜底）：走正常 settle
+
+    // 旧进程收尾（日志已落盘），换新 runId 重新拉起
+    const QString oldRunId = p.runId;
+    p.runId = acquired.value(QStringLiteral("runId")).toString();
+    ++p.attempt;
+    p.ending.clear();
+    p.startError.clear();
+    p.usedGrace = false;
+    p.log.clear();
+    closeJob(p);
+    if (p.proc) {
+        p.proc->disconnect(this);
+        p.proc->deleteLater();
+        p.proc = nullptr;
+    }
+    if (p.heartbeat) {
+        p.heartbeat->stop();
+        p.heartbeat->deleteLater();
+        p.heartbeat = nullptr;
+    }
+    if (p.deadline) {
+        p.deadline->stop();
+        p.deadline->deleteLater();
+        p.deadline = nullptr;
+    }
+
+    // 失败摘要注入下一轮 prompt：
+    //   stdin 模式 → 摘要追加进 prompt 文本，由 setupProcess 写标准输入；
+    //   arg 模式 → 只有 argv 末尾就是原 prompt 时才替换（start() 走
+    //   AgentProfile::argv 一定是这个形态）；startRaw 直接给定的 argv
+    //   （如 cmd /c exit 5）末尾不是 prompt，绝不乱改——命令语义优先。
+    const QString retryPrompt =
+        p.prompt.trimmed().isEmpty()
+            ? QStringLiteral("【上一轮失败摘要（第 %1 轮）】\n%2\n"
+                             "请针对上述失败原因修复后继续完成任务。")
+                  .arg(p.attempt - 1)
+                  .arg(summary)
+            : p.prompt
+                  + QStringLiteral("\n\n【上一轮失败摘要（第 %1 轮）】\n%2\n"
+                                   "请针对上述失败原因修复后继续完成任务。")
+                        .arg(p.attempt - 1)
+                        .arg(summary);
+    QStringList args = p.argvList;
+    if (!p.promptToStdin && !p.prompt.trimmed().isEmpty() && !args.isEmpty()
+        && args.last() == p.prompt)
+        args[args.size() - 1] = retryPrompt;
+
+    emit runFinished(oldRunId, finalDetail); // 上一轮的终态照发，UI 可见每轮结果
+
+    if (!setupProcess(p, p.cwd, args, p.promptToStdin, p.promptToStdin ? retryPrompt : p.prompt,
+                      p.timeoutSec)) {
+        QVariantMap startDetail;
+        startDetail.insert(QStringLiteral("exitCode"), -1);
+        startDetail.insert(QStringLiteral("lastError"),
+                           p.startError.isEmpty()
+                               ? QStringLiteral("重试启动失败")
+                               : QStringLiteral("重试启动失败：%1").arg(p.startError));
+        settle(p, QStringLiteral("blocked"), startDetail);
+        return true; // 已经接管了本 run 的结局
+    }
+    bump();
+    return true;
 }
 
 void TaskRunner::settle(Process &p, const QString &status, const QVariantMap &detail)

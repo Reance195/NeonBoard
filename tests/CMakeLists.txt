@@ -98,3 +98,17 @@ neonboard_add_test(tst_updatemanager
 )
 # QNetworkAccessManager 与 QDesktopServices
 target_link_libraries(tst_updatemanager PRIVATE Qt6::Network Qt6::Gui)
+
+# M0：任务执行定义侧表（task_exec）——默认值 / 往返 / 校验 / 清空 / 删除同步。
+# 侧表读写要真库，用 sqlite 临时库跑（与 tst_taskcolumns 同一方式）。
+neonboard_add_test(tst_taskexec
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskExec.cpp
+)
+target_link_libraries(tst_taskexec PRIVATE Qt6::Sql)
+

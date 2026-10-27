@@ -192,6 +192,22 @@ neonboard_add_test(tst_triage
 )
 target_link_libraries(tst_triage PRIVATE Qt6::Sql)
 
+# R6-08：Loop 失败摘要回灌与有限重试 —— maxAttempts 钳制 / 重试 attempt 递增 /
+# 每轮日志独立 / 取消不重试 / 耗尽提示人工介入 / 摘要截断。载体 cmd.exe，离线可跑。
+neonboard_add_test(tst_runloop
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskExec.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskRunStore.cpp
+    ${CMAKE_SOURCE_DIR}/src/AgentProfile.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskRunner.cpp
+)
+target_link_libraries(tst_runloop PRIVATE Qt6::Sql)
+
 # 项目全景：路线图 §9 / 台账 / docs/project-map.json 的解析 + 证据实证。
 # 这组断言是「地图跟着仓库走」的护栏：表格结构、脚本路径、派生规则任一被改坏，
 # 这里先红，避免面板展示一张与仓库脱节的地图。

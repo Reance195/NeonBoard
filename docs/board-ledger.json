@@ -753,7 +753,7 @@
                 "R6-05"
             ],
             "id": "e2ef6d16-e853-4a26-b3a8-b7e5f70bcebb",
-            "note": "起因：agent 首轮失败很常见，重跑时把失败上下文带上才可能自愈。目标：maxAttempts 生效（上限 5、默认 1），失败且未到上限时把 last_error 末尾 200 行注入下一轮 prompt，新建 run 并 attempt+1，每轮日志独立；人取消后不再自动重试，轮数耗尽终态 blocked 并提示人工介入。",
+            "note": "起因：agent 首轮失败很常见，重跑时把失败上下文带上才可能自愈。目标：maxAttempts 生效（上限 5、默认 1），失败且未到上限时把 last_error 末尾 200 行注入下一轮 prompt，新建 run 并 attempt+1，每轮日志独立；人取消后不再自动重试，轮数耗尽终态 blocked 并提示人工介入。交付（2026-10-28）：TaskRunner 落地有限重试循环。start(taskId) 从执行定义读 maxAttempts（钳制 1..5，默认 1 等价不循环，行为与 R6-04 完全一致）；startRaw 增加 maxAttempts 参数。进程失败（非取消）且 attempt < maxAttempts 时走 tryRetry：①当前 run 先结算 blocked，日志独立落盘（每轮一个 runs/<runId>.log，历史不覆盖）并发 runFinished 让 UI 看到每轮结果；②失败摘要 = lastError 前置 + 日志末尾 200 行（再截 8000 字符、换行单行化成 ⏎，注入 argv 安全）；③摘要以「【上一轮失败摘要（第 N 轮）】」段注入下一轮 prompt —— stdin 模式直接追加，arg 模式只在 argv 末尾恰为原 prompt 时替换（start() 经 AgentProfile::argv 拼装必是此形态；startRaw 自带的自定义命令如 cmd /c exit 5 末尾不是 prompt，绝不乱改，命令语义优先）；④新 run 经 acquire 缺省 attempt 自增（R6-06 已备）。人取消（ending=cancelled）不进重试路径；轮数耗尽时最后一条 run 的 lastError 追加「（已重试 N 轮，需人工介入）」。重试取锁失败（理论不发生）兜底走正常 settle 防死循环；重试进程启动失败同样 settle blocked 不留孤儿。验收：ctest 19/19（tst_runloop 7 用例：默认不重试只留 1 条 blocked / maxAttempts=3 产出 3 条 run attempt 1-3 且 3 个独立日志文件 / 取消后无延迟重试（等 500ms 复核）/ 耗尽后 lastError 含需人工介入 / failureSummary 截断单行化 lastError 前置与空日志形态），tst_taskrunner 9 用例回归全过（R6-04 行为不变），--selftest 退出码 0，verify.ps1 全过。影响：不升 user_version、不加表；执行面板（R6-06）天然按轮展示——每轮 runFinished 都会刷新。",
             "scope": [
                 "src/TaskRunner.*",
                 "src/TaskRunStore.*",
@@ -917,11 +917,11 @@
         }
     },
     "claims": {
-        "R6-07": {
+        "R6-08": {
             "agent": "lead",
-            "branch": "feature/r6-07-triage",
-            "claimedAt": 1793132735,
-            "head": "d2c5096ecf110305dedf1b9921997bc4ba16064f"
+            "branch": "feature/r6-08-loop",
+            "claimedAt": 1793133694,
+            "head": "6271cc4cbc861a785b2c49afb1b271c70af7eae8"
         }
     },
     "version": 1

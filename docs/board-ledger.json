@@ -298,20 +298,20 @@
             "title": "R4 数据可靠性：WAL / 损坏恢复 / 迁移兼容"
         },
         "R4-05": {
-            "id": "cf1180c6-c5be-4640-b619-78c459bb7037",
-            "stage": "R4",
-            "title": "R4 自动化测试体系 + CI 质量门禁",
             "acceptance": [
                 "pwsh -File scripts/verify.ps1 全过",
                 "ctest 覆盖解析器/插件包/迁移/列模型"
             ],
+            "id": "cf1180c6-c5be-4640-b619-78c459bb7037",
             "scope": [
                 "tests/**",
                 "src/**",
                 ".github/workflows/ci.yml",
                 "docs/testing.md",
                 "docs/board-ledger.json"
-            ]
+            ],
+            "stage": "R4",
+            "title": "R4 自动化测试体系 + CI 质量门禁"
         },
         "R4-06": {
             "id": "39d80b78-a666-49aa-b199-f363c5c2efc6",
@@ -330,48 +330,49 @@
             "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分"
         },
         "R4-09": {
-            "id": "f1b3f7e5-ad1c-4872-95fc-b95f00e49cd4",
-            "note": "目标：agent 只负责领任务、干活、提交，其余看板全自动。范围：派生器支持扫描各 worktree 台账并输出 JSON；看板内定时派生并应用状态（领用即进行中），卡片显示领用人/分支 chip；顶部「＋ 新建」弹窗统一任务入口（列/父卡/解析预览）。验收：agent 领卡后看板卡自动转进行中并显示 agent 标签；合并后自动结卡；新建弹窗可建卡并落到指定列。",
-            "stage": "R4",
-            "title": "R4 任务流转自动化：领用可见 + 统一新建入口",
             "acceptance": [
                 "agent 领卡后看板卡自动转进行中并显示 agent 标签",
                 "合并后自动结卡",
                 "新建弹窗可建卡并落到指定列"
             ],
+            "id": "f1b3f7e5-ad1c-4872-95fc-b95f00e49cd4",
+            "note": "目标：agent 只负责领任务、干活、提交，其余看板全自动。范围：派生器支持扫描各 worktree 台账并输出 JSON；看板内定时派生并应用状态（领用即进行中），卡片显示领用人/分支 chip；顶部「＋ 新建」弹窗统一任务入口（列/父卡/解析预览）。验收：agent 领卡后看板卡自动转进行中并显示 agent 标签；合并后自动结卡；新建弹窗可建卡并落到指定列。",
             "scope": [
                 "src/**",
                 "qml/**",
                 "scripts/derive_board_status.py",
                 "scripts/agent-init.ps1",
                 "docs/**"
-            ]
+            ],
+            "stage": "R4",
+            "title": "R4 任务流转自动化：领用可见 + 统一新建入口"
         },
         "R4-10": {
-            "id": "53ff86c6-3082-4479-b24a-c6928fd2b44b",
-            "stage": "R4",
-            "title": "R4 任务治理：任务先行，禁止无任务改代码",
             "acceptance": [
                 "无任务卡的提交被 CI 拒绝或告警",
                 "卡片缺 acceptance 时提示补齐"
             ],
+            "id": "53ff86c6-3082-4479-b24a-c6928fd2b44b",
             "scope": [
                 "scripts/**",
                 ".githooks/**",
                 ".github/**",
                 "docs/**"
-            ]
+            ],
+            "stage": "R4",
+            "title": "R4 任务治理：任务先行，禁止无任务改代码"
         },
         "R5-01": {
-            "id": "99162cf1-b09a-4841-a449-1c2e91541aca",
-            "note": "已完成 9 / 待做 0。① 清单拉取：update.json 主源（Gitee raw → GitHub raw 候选）+ GitHub Releases API 兜底，清单缓存 6 小时、全源失败时离线降级；② 语义化版本比较，容忍 v 前缀与预发布后缀（0.2.0-beta.1 < 0.2.0）；③ 下载后先验 SHA-256 再落地，清单未提供校验值即中止并明确报错，绝不静默放行；④ 安装版（注册表 AppId {8E3B6A2C-…}_is1 判定）走 /VERYSILENT /NORESTART 静默升级；⑤ 便携版下载 zip → 解压 → 生成纯 ASCII 自更新脚本 → 主程序退出后 robocopy 覆盖并重新拉起；⑥ 三个入口：设置面板分区（检查 / 立即更新 / 下载页 / 跳过此版本 / 自动检查开关）、命令面板「检查软件更新」、托盘提示；⑦ 命令行 --check-update / --update-source / --update-sources（属 utilityMode，应用运行时也能查）；⑧ 发布侧 scripts/build-update-manifest.ps1 + release.yml 打便携 zip、生成 update.json、随 Release 上传并回写仓库（客户端默认读 raw）；⑨ 单测 tst_updatemanager 18 例（全量 9/9 通过）、--selftest OK、--smoke 零 QML 报错，README / docs/auto-update.md / 路线图已同步。未实跑项：真实端到端升级 —— 便携版覆盖 exe 会动当前运行目录，只在本机假清单上验证到「下载 + 校验」为止；安装版静默升级依赖已发布安装包，待首个 v* 标签实跑。已知限制：清单签名校验未实现（只做产物 SHA-256）；默认源仓库地址未定前需手工改。",
-            "stage": "R5",
-            "title": "R5 软件自动更新：检查 / 校验 / 静默升级 / 便携版自更新",
             "acceptance": [
                 "tst_updatemanager 18 例通过",
                 "--selftest 退出 0",
                 "--smoke 无 QML 错误"
             ],
+            "depends": [
+                "R4-05"
+            ],
+            "id": "99162cf1-b09a-4841-a449-1c2e91541aca",
+            "note": "已完成 9 / 待做 0。① 清单拉取：update.json 主源（Gitee raw → GitHub raw 候选）+ GitHub Releases API 兜底，清单缓存 6 小时、全源失败时离线降级；② 语义化版本比较，容忍 v 前缀与预发布后缀（0.2.0-beta.1 < 0.2.0）；③ 下载后先验 SHA-256 再落地，清单未提供校验值即中止并明确报错，绝不静默放行；④ 安装版（注册表 AppId {8E3B6A2C-…}_is1 判定）走 /VERYSILENT /NORESTART 静默升级；⑤ 便携版下载 zip → 解压 → 生成纯 ASCII 自更新脚本 → 主程序退出后 robocopy 覆盖并重新拉起；⑥ 三个入口：设置面板分区（检查 / 立即更新 / 下载页 / 跳过此版本 / 自动检查开关）、命令面板「检查软件更新」、托盘提示；⑦ 命令行 --check-update / --update-source / --update-sources（属 utilityMode，应用运行时也能查）；⑧ 发布侧 scripts/build-update-manifest.ps1 + release.yml 打便携 zip、生成 update.json、随 Release 上传并回写仓库（客户端默认读 raw）；⑨ 单测 tst_updatemanager 18 例（全量 9/9 通过）、--selftest OK、--smoke 零 QML 报错，README / docs/auto-update.md / 路线图已同步。未实跑项：真实端到端升级 —— 便携版覆盖 exe 会动当前运行目录，只在本机假清单上验证到「下载 + 校验」为止；安装版静默升级依赖已发布安装包，待首个 v* 标签实跑。已知限制：清单签名校验未实现（只做产物 SHA-256）；默认源仓库地址未定前需手工改。",
             "scope": [
                 "src/UpdateManager*",
                 "src/main.cpp",
@@ -379,38 +380,38 @@
                 ".github/workflows/release.yml",
                 "docs/auto-update.md"
             ],
-            "depends": [
-                "R4-05"
-            ]
+            "stage": "R5",
+            "title": "R5 软件自动更新：检查 / 校验 / 静默升级 / 便携版自更新"
         },
         "R5-02": {
-            "id": "534b6730-a829-4881-a5c7-ff33ba67ef5b",
-            "note": "已完成 4 / 待做 0。起因：v0.1.0 发布后 --check-update 恒报「检查超时」，但仓库、Release、update.json 全部正常 —— 属客户端韧性缺陷。① 定位：三源串行，单源超时 10 秒、--check-update 总预算 15 秒，raw.githubusercontent.com 挂住吃满 10 秒后，排最后的 GitHub Releases API 只剩约 4 秒，被总超时砍掉；只把源指向 API 时立刻返回 uptodate，反证链路本身没问题。② 修复：startRequest 为 Manifest 类请求挂 6 秒看门狗（到点 abort，按网络错误顺延下一源，产物下载不设限），总预算提到 UpdateManager::kDefaultCheckTimeoutMs = 25 秒，main.cpp 不再写死 15000；取消原因显示为「连接超时（6 秒无响应）」而不是 Operation canceled。③ 连带修掉校验值错位：update.json 的 notes 不再拼 setup-sha256/portable-sha256（回退路径读的是 Release 正文，根本拿不到清单，塞在 notes 只会在设置面板里被当更新日志显示），改由 release.yml 生成 dist/RELEASE-NOTES.md 并以 body_path 提交，使 API 回退路径下载后仍能校验。④ 验证：ctest 9/9 通过（含 tst_updatemanager 18 例）、--selftest OK；默认源（gitee raw → github raw → API）实测 19 秒返回 CHECK-UPDATE uptodate current 0.1.0 latest 0.1.0，此前恒定超时。未实跑项：API 回退路径的「有新版→下载→校验」全链路，需下一个版本发布后才能验（本版正文才刚开始带校验值）。",
-            "stage": "R5",
-            "title": "R5 更新检查韧性：逐源超时不吃光总预算 + 回退路径的校验值兜底",
             "acceptance": [
                 "默认三源实测返回 uptodate 或 available（不超时）",
                 "ctest 9/9 通过"
             ],
+            "depends": [
+                "R5-01"
+            ],
+            "id": "534b6730-a829-4881-a5c7-ff33ba67ef5b",
+            "note": "已完成 4 / 待做 0。起因：v0.1.0 发布后 --check-update 恒报「检查超时」，但仓库、Release、update.json 全部正常 —— 属客户端韧性缺陷。① 定位：三源串行，单源超时 10 秒、--check-update 总预算 15 秒，raw.githubusercontent.com 挂住吃满 10 秒后，排最后的 GitHub Releases API 只剩约 4 秒，被总超时砍掉；只把源指向 API 时立刻返回 uptodate，反证链路本身没问题。② 修复：startRequest 为 Manifest 类请求挂 6 秒看门狗（到点 abort，按网络错误顺延下一源，产物下载不设限），总预算提到 UpdateManager::kDefaultCheckTimeoutMs = 25 秒，main.cpp 不再写死 15000；取消原因显示为「连接超时（6 秒无响应）」而不是 Operation canceled。③ 连带修掉校验值错位：update.json 的 notes 不再拼 setup-sha256/portable-sha256（回退路径读的是 Release 正文，根本拿不到清单，塞在 notes 只会在设置面板里被当更新日志显示），改由 release.yml 生成 dist/RELEASE-NOTES.md 并以 body_path 提交，使 API 回退路径下载后仍能校验。④ 验证：ctest 9/9 通过（含 tst_updatemanager 18 例）、--selftest OK；默认源（gitee raw → github raw → API）实测 19 秒返回 CHECK-UPDATE uptodate current 0.1.0 latest 0.1.0，此前恒定超时。未实跑项：API 回退路径的「有新版→下载→校验」全链路，需下一个版本发布后才能验（本版正文才刚开始带校验值）。",
             "scope": [
                 "src/UpdateManager*",
                 "src/main.cpp",
                 "docs/auto-update.md"
             ],
-            "depends": [
-                "R5-01"
-            ]
+            "stage": "R5",
+            "title": "R5 更新检查韧性：逐源超时不吃光总预算 + 回退路径的校验值兜底"
         },
         "R5-03": {
-            "id": "aee6be17-c2c3-4157-88e2-b495478fd32d",
-            "stage": "R5",
-            "title": "R5 发布 v0.1.1：版本号单源化 + 端到端升级验证",
-            "note": "已完成 6 / 待做 0。① 版本号收敛单点：唯一来源是 CMakeLists 的 project(VERSION)，编译期注入 NEONBOARD_VERSION_STRING，main.cpp / HostMain.cpp / SplashWindow.cpp 改用它；installer/neonboard.iss 去掉版本字面量、缺参数即 #error；release.ps1 与 release.yml 解析 CMakeLists 后以 /DMyAppVersion 传入；release.yml 第一步新增「标签版本 == 源码版本」闸门。② 新增 --update-apply：检查→下载→校验→静默安装一次跑完（退出码 0/2、进度按 10% 打日志、总闸 10 分钟），让升级链路可无人值守复现，也便于计划内升级。③ 端到端验证抓到真 bug：onReplyFinished 把产物读进内存后直接去校验 m_pendingArtifact，但全流程没有任何一处把 payload 写盘（全文只有清单缓存与便携脚本在写文件）——v0.1.0/v0.1.1 的自动更新实际一直停在「无法读取文件」，安装环节永远走不到，界面上看还像下载失败。改 QSaveFile 原子落盘再校验；另补产物下载 60 秒无数据看门狗（本机代理下 GitHub 资产地址连上即彻底静默，界面会停在「正在下载 0%」，既不报错也不超时）。④ 发布流程硬化：v0.1.1 的最后一步「回写 update.json」被 fetch first 拒掉——打包那十几分钟里 main 已被别的自动化推进，Release 出好了但清单没回仓库，等价于「发版了没人能收到」，且失败埋在一串成功之后很容易被忽略；改成 fetch + rebase + 重试 3 次，v0.1.2 一次通过。⑤ 实测（真实产物 + 真实安装器）：v0.1.1 发布后，已装 0.1.0 的 --check-update 得 available 0.1.1；v0.1.2 发布后用 0.1.2 客户端跑 --update-apply（清单版本人为抬到 0.1.3 触发升级，产物是真实 v0.1.2 安装包，传输走本地 HTTP 以绕开本机 TLS 吊销检查故障）：落盘 55163855 字节 → SHA-256 与清单一致 → /VERYSILENT 静默安装 → 注册表 DisplayVersion 0.1.0 → 0.1.2，安装目录 exe 换成 CI 构建那份（3239424 字节 / 12:11 UTC），新 exe --check-update 自报 current 0.1.2 / uptodate。ctest 9/9、--selftest 退出 0。⑥ 未解决：默认三源串行的 6 秒单源看门狗在本机偏紧（API 单次 5-7 秒、raw.githubusercontent.com 常年只挂不答），默认源自检偶发「检查更新失败：连接超时」；根治方向是候选源并行竞速取首个成功，需单独立卡。",
             "acceptance": [
                 "pwsh -File scripts/verify.ps1 全过",
                 "新版本安装包 --check-update 能检出下一版本",
                 "标签版本 == 源码版本（CI 闸门）"
             ],
+            "depends": [
+                "R5-02"
+            ],
+            "id": "aee6be17-c2c3-4157-88e2-b495478fd32d",
+            "note": "已完成 6 / 待做 0。① 版本号收敛单点：唯一来源是 CMakeLists 的 project(VERSION)，编译期注入 NEONBOARD_VERSION_STRING，main.cpp / HostMain.cpp / SplashWindow.cpp 改用它；installer/neonboard.iss 去掉版本字面量、缺参数即 #error；release.ps1 与 release.yml 解析 CMakeLists 后以 /DMyAppVersion 传入；release.yml 第一步新增「标签版本 == 源码版本」闸门。② 新增 --update-apply：检查→下载→校验→静默安装一次跑完（退出码 0/2、进度按 10% 打日志、总闸 10 分钟），让升级链路可无人值守复现，也便于计划内升级。③ 端到端验证抓到真 bug：onReplyFinished 把产物读进内存后直接去校验 m_pendingArtifact，但全流程没有任何一处把 payload 写盘（全文只有清单缓存与便携脚本在写文件）——v0.1.0/v0.1.1 的自动更新实际一直停在「无法读取文件」，安装环节永远走不到，界面上看还像下载失败。改 QSaveFile 原子落盘再校验；另补产物下载 60 秒无数据看门狗（本机代理下 GitHub 资产地址连上即彻底静默，界面会停在「正在下载 0%」，既不报错也不超时）。④ 发布流程硬化：v0.1.1 的最后一步「回写 update.json」被 fetch first 拒掉——打包那十几分钟里 main 已被别的自动化推进，Release 出好了但清单没回仓库，等价于「发版了没人能收到」，且失败埋在一串成功之后很容易被忽略；改成 fetch + rebase + 重试 3 次，v0.1.2 一次通过。⑤ 实测（真实产物 + 真实安装器）：v0.1.1 发布后，已装 0.1.0 的 --check-update 得 available 0.1.1；v0.1.2 发布后用 0.1.2 客户端跑 --update-apply（清单版本人为抬到 0.1.3 触发升级，产物是真实 v0.1.2 安装包，传输走本地 HTTP 以绕开本机 TLS 吊销检查故障）：落盘 55163855 字节 → SHA-256 与清单一致 → /VERYSILENT 静默安装 → 注册表 DisplayVersion 0.1.0 → 0.1.2，安装目录 exe 换成 CI 构建那份（3239424 字节 / 12:11 UTC），新 exe --check-update 自报 current 0.1.2 / uptodate。ctest 9/9、--selftest 退出 0。⑥ 未解决：默认三源串行的 6 秒单源看门狗在本机偏紧（API 单次 5-7 秒、raw.githubusercontent.com 常年只挂不答），默认源自检偶发「检查更新失败：连接超时」；根治方向是候选源并行竞速取首个成功，需单独立卡。",
             "scope": [
                 "src/**",
                 "installer/**",
@@ -420,36 +421,33 @@
                 "CMakeLists.txt",
                 "docs/**"
             ],
-            "depends": [
-                "R5-02"
-            ]
+            "stage": "R5",
+            "title": "R5 发布 v0.1.1：版本号单源化 + 端到端升级验证"
         },
         "R6-01": {
-            "id": "90651d45-9baf-4c3a-93a6-2a8d2ff981b5",
-            "stage": "R6",
-            "title": "R6 执行定义收尾：cwd / 超时 / 轮数可编辑 + 执行页签",
-            "note": "起因：task_exec 侧表已能存 cwd / timeout_min / max_attempts，但任务编辑弹窗只暴露 goal / acceptance / scope / agent / workflow，执行参数填不全也就无法派发。目标：补齐三项编辑能力（cwd 需校验为存在的绝对路径），把编辑弹窗拆出「任务 / 执行」两个页签，并在执行页签底部给出执行入口与最小集提示。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_taskexec --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0",
                 "build/Release/NeonBoard.exe --smoke 退出码 0 且无 QML 报错"
             ],
+            "id": "90651d45-9baf-4c3a-93a6-2a8d2ff981b5",
+            "note": "起因：task_exec 侧表已能存 cwd / timeout_min / max_attempts，但任务编辑弹窗只暴露 goal / acceptance / scope / agent / workflow，执行参数填不全也就无法派发。目标：补齐三项编辑能力（cwd 需校验为存在的绝对路径），把编辑弹窗拆出「任务 / 执行」两个页签，并在执行页签底部给出执行入口与最小集提示。",
             "scope": [
                 "src/TaskExec.*",
                 "qml/Main.qml",
                 "tests/tst_taskexec.cpp",
                 "docs/screenshots/**"
-            ]
+            ],
+            "stage": "R6",
+            "title": "R6 执行定义收尾：cwd / 超时 / 轮数可编辑 + 执行页签"
         },
         "R6-02": {
-            "id": "0921b037-54ca-45e4-ab4a-7c82f484be92",
-            "stage": "R6",
-            "title": "R6 运行记录侧表与任务锁",
-            "note": "起因：执行器需要可追溯的 run 身份与「同卡不并发」的锁，而 task 表不能加列、user_version 不能升。目标：新增侧表 task_run（id / task_id / agent / cwd / workflow / status / attempt / 时间戳 / heartbeat / exit_code / last_error / log_path / scope_violation）+ 同卡活跃 run 的部分唯一索引，配套 TaskRunStore 做创建/心跳/结束/孤儿回收，启动时把心跳超 90 秒的 running 判为 blocked（进程中断）。交付（2026-10-27）：task_run 侧表 + 部分唯一索引 + TaskRunStore（acquire / heartbeat / release / activeRun / runsOf / recoverOrphans）+ taskRuns 上下文属性 + selftest 断言；ctest 11/11 通过。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R \"tst_taskruns|tst_databasemigration\" --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0 且断言 user_version 仍为 2"
             ],
+            "id": "0921b037-54ca-45e4-ab4a-7c82f484be92",
+            "note": "起因：执行器需要可追溯的 run 身份与「同卡不并发」的锁，而 task 表不能加列、user_version 不能升。目标：新增侧表 task_run（id / task_id / agent / cwd / workflow / status / attempt / 时间戳 / heartbeat / exit_code / last_error / log_path / scope_violation）+ 同卡活跃 run 的部分唯一索引，配套 TaskRunStore 做创建/心跳/结束/孤儿回收，启动时把心跳超 90 秒的 running 判为 blocked（进程中断）。交付（2026-10-27）：task_run 侧表 + 部分唯一索引 + TaskRunStore（acquire / heartbeat / release / activeRun / runsOf / recoverOrphans）+ taskRuns 上下文属性 + selftest 断言；ctest 11/11 通过。",
             "scope": [
                 "src/Database.cpp",
                 "src/TaskRunStore.*",
@@ -457,18 +455,21 @@
                 "tests/tst_taskruns.cpp",
                 "tests/CMakeLists.txt",
                 "CMakeLists.txt"
-            ]
+            ],
+            "stage": "R6",
+            "title": "R6 运行记录侧表与任务锁"
         },
         "R6-03": {
-            "id": "d926c728-42bf-497d-8661-d1f093949226",
-            "stage": "R6",
-            "title": "R6 Agent Profile 与执行前确认",
-            "note": "起因：docs/agent-profile.md 的实测结论还停留在文档里，代码不知道每种 CLI 怎么拼参数、怎么进只读模式。目标：落地 AgentProfile（内置 opencode / claude / cursor-agent，codex 未实测不内置；存 meta 表 exec.agentProfiles）+ 命令行拼装（无 shell）+ 设置面板「任务执行」区（总开关默认关、默认 agent、profile 管理）+ 执行前确认框（agent / cwd / 完整命令行 / acceptance / 超时，勾选信任目录后写白名单）。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_agentprofile --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0",
                 "build/Release/NeonBoard.exe --smoke 退出码 0 且无 QML 报错"
             ],
+            "depends": [
+                "R6-01"
+            ],
+            "id": "d926c728-42bf-497d-8661-d1f093949226",
+            "note": "起因：docs/agent-profile.md 的实测结论还停留在文档里，代码不知道每种 CLI 怎么拼参数、怎么进只读模式。目标：落地 AgentProfile（内置 opencode / claude / cursor-agent，codex 未实测不内置；存 meta 表 exec.agentProfiles）+ 命令行拼装（无 shell）+ 设置面板「任务执行」区（总开关默认关、默认 agent、profile 管理）+ 执行前确认框（agent / cwd / 完整命令行 / acceptance / 超时，勾选信任目录后写白名单）。",
             "scope": [
                 "src/AgentProfile.*",
                 "src/Database.cpp",
@@ -480,20 +481,21 @@
                 "CMakeLists.txt",
                 "docs/agent-profile.md"
             ],
-            "depends": [
-                "R6-01"
-            ]
+            "stage": "R6",
+            "title": "R6 Agent Profile 与执行前确认"
         },
         "R6-04": {
-            "id": "e81fa56f-348d-4d47-80b6-376dd8665e64",
-            "stage": "R6",
-            "title": "R6 单次执行器：QProcess + 流式日志 + 超时/终止",
-            "note": "起因：定义、profile、锁都齐了，缺真正拉起 agent 的引擎。目标：TaskRunner 受控启动 QProcess（校验定义 → 取锁 → 建 run），stdout/stderr 按行流式写 runs/<runId>.log 并脱敏 token / key / 长十六进制串，心跳每 10 秒；超时强杀并标 blocked（timeout）；取消先 terminate 后 kill，Windows 用 Job Object 回收整棵进程树；已有活跃 run 时新请求直接拒绝（M1 不排队）。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_taskrunner --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0",
                 "build/Release/NeonBoard.exe --smoke 退出码 0 且无 QML 报错"
             ],
+            "depends": [
+                "R6-02",
+                "R6-03"
+            ],
+            "id": "e81fa56f-348d-4d47-80b6-376dd8665e64",
+            "note": "起因：定义、profile、锁都齐了，缺真正拉起 agent 的引擎。目标：TaskRunner 受控启动 QProcess（校验定义 → 取锁 → 建 run），stdout/stderr 按行流式写 runs/<runId>.log 并脱敏 token / key / 长十六进制串，心跳每 10 秒；超时强杀并标 blocked（timeout）；取消先 terminate 后 kill，Windows 用 Job Object 回收整棵进程树；已有活跃 run 时新请求直接拒绝（M1 不排队）。",
             "scope": [
                 "src/TaskRunner.*",
                 "src/TaskRunStore.*",
@@ -504,20 +506,19 @@
                 "tests/CMakeLists.txt",
                 "CMakeLists.txt"
             ],
-            "depends": [
-                "R6-02",
-                "R6-03"
-            ]
+            "stage": "R6",
+            "title": "R6 单次执行器：QProcess + 流式日志 + 超时/终止"
         },
         "R6-05": {
-            "id": "dd95c213-2cba-42a5-b4cf-71773d644b96",
-            "stage": "R6",
-            "title": "R6 验收器与越界检查",
-            "note": "起因：进程退出码 0 不等于任务完成，agent 也可能改到 scope 之外。目标：AcceptanceRunner 顺序执行 acceptance（command 走白名单脚本路径、不经过 shell、拒绝管道与重定向；assert 先支持 file.exists）+ ScopeMatcher 跑前记 git status 基线、跑后比对差异路径与卡片 scope（scope 为空不检查）；三者合并判定 passed / blocked 并写入 last_error。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R \"tst_acceptance|tst_scopematcher\" --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0"
             ],
+            "depends": [
+                "R6-04"
+            ],
+            "id": "dd95c213-2cba-42a5-b4cf-71773d644b96",
+            "note": "起因：进程退出码 0 不等于任务完成，agent 也可能改到 scope 之外。目标：AcceptanceRunner 顺序执行 acceptance（command 走白名单脚本路径、不经过 shell、拒绝管道与重定向；assert 先支持 file.exists）+ ScopeMatcher 跑前记 git status 基线、跑后比对差异路径与卡片 scope（scope 为空不检查）；三者合并判定 passed / blocked 并写入 last_error。",
             "scope": [
                 "src/AcceptanceRunner.*",
                 "src/ScopeMatcher.*",
@@ -526,19 +527,20 @@
                 "tests/CMakeLists.txt",
                 "CMakeLists.txt"
             ],
-            "depends": [
-                "R6-04"
-            ]
+            "stage": "R6",
+            "title": "R6 验收器与越界检查"
         },
         "R6-06": {
-            "id": "a62d2df7-3073-4173-9821-b330958ad547",
-            "stage": "R6",
-            "title": "R6 执行结果回写与执行面板",
-            "note": "起因：结果只进 run 表，人看不到也做不了决定。目标：run 终态（状态 / 耗时 / 退出码 / 摘要 / 越界 / 日志路径）回写并在执行面板展示，卡面加执行态徽章；提供查看完整日志、重试（attempt+1）与「标为已办结」（走既有完成路径、可撤销）；程序不自动改看板列、不自动 push。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_runsummary --output-on-failure",
                 "build/Release/NeonBoard.exe --smoke 退出码 0 且无 QML 报错"
             ],
+            "depends": [
+                "R6-04",
+                "R6-05"
+            ],
+            "id": "a62d2df7-3073-4173-9821-b330958ad547",
+            "note": "起因：结果只进 run 表，人看不到也做不了决定。目标：run 终态（状态 / 耗时 / 退出码 / 摘要 / 越界 / 日志路径）回写并在执行面板展示，卡面加执行态徽章；提供查看完整日志、重试（attempt+1）与「标为已办结」（走既有完成路径、可撤销）；程序不自动改看板列、不自动 push。",
             "scope": [
                 "src/TaskRunStore.*",
                 "src/main.cpp",
@@ -549,20 +551,20 @@
                 "CMakeLists.txt",
                 "docs/screenshots/**"
             ],
-            "depends": [
-                "R6-04",
-                "R6-05"
-            ]
+            "stage": "R6",
+            "title": "R6 执行结果回写与执行面板"
         },
         "R6-07": {
-            "id": "d32f7e28-e4cc-4cb6-bb7b-6fe9db6974a9",
-            "stage": "R6",
-            "title": "R6 Triage：只读分析生成执行草案",
-            "note": "起因：一句话需求直接派发，agent 只能猜范围与验收。目标：按 docs/agent-triage.md 的 schema 与 prompt 落地 TriageRunner，用 profile 的只读参数强制只读（分析前后 git status 必须一致，有差异即判失败）；严格 JSON 校验、questions 截断到 3 条、非法 glob 丢弃、acceptance 为空补默认；草案只写 board.db，人在执行页签预览并采纳后才回填表单，confidence 低于 0.5 时禁止一键执行。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_triage --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0"
             ],
+            "depends": [
+                "R6-01",
+                "R6-03"
+            ],
+            "id": "d32f7e28-e4cc-4cb6-bb7b-6fe9db6974a9",
+            "note": "起因：一句话需求直接派发，agent 只能猜范围与验收。目标：按 docs/agent-triage.md 的 schema 与 prompt 落地 TriageRunner，用 profile 的只读参数强制只读（分析前后 git status 必须一致，有差异即判失败）；严格 JSON 校验、questions 截断到 3 条、非法 glob 丢弃、acceptance 为空补默认；草案只写 board.db，人在执行页签预览并采纳后才回填表单，confidence 低于 0.5 时禁止一键执行。",
             "scope": [
                 "src/TriageRunner.*",
                 "src/AgentProfile.*",
@@ -575,40 +577,39 @@
                 "CMakeLists.txt",
                 "docs/agent-triage.md"
             ],
-            "depends": [
-                "R6-01",
-                "R6-03"
-            ]
+            "stage": "R6",
+            "title": "R6 Triage：只读分析生成执行草案"
         },
         "R6-08": {
-            "id": "e2ef6d16-e853-4a26-b3a8-b7e5f70bcebb",
-            "stage": "R6",
-            "title": "R6 Loop：失败摘要回灌与有限重试",
-            "note": "起因：agent 首轮失败很常见，重跑时把失败上下文带上才可能自愈。目标：maxAttempts 生效（上限 5、默认 1），失败且未到上限时把 last_error 末尾 200 行注入下一轮 prompt，新建 run 并 attempt+1，每轮日志独立；人取消后不再自动重试，轮数耗尽终态 blocked 并提示人工介入。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_runloop --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0"
             ],
+            "depends": [
+                "R6-04",
+                "R6-05"
+            ],
+            "id": "e2ef6d16-e853-4a26-b3a8-b7e5f70bcebb",
+            "note": "起因：agent 首轮失败很常见，重跑时把失败上下文带上才可能自愈。目标：maxAttempts 生效（上限 5、默认 1），失败且未到上限时把 last_error 末尾 200 行注入下一轮 prompt，新建 run 并 attempt+1，每轮日志独立；人取消后不再自动重试，轮数耗尽终态 blocked 并提示人工介入。",
             "scope": [
                 "src/TaskRunner.*",
                 "src/TaskRunStore.*",
                 "tests/tst_runloop.cpp",
                 "tests/CMakeLists.txt"
             ],
-            "depends": [
-                "R6-04",
-                "R6-05"
-            ]
+            "stage": "R6",
+            "title": "R6 Loop：失败摘要回灌与有限重试"
         },
         "R6-09": {
-            "id": "2bcd2b26-1143-495f-991f-a56926ebd529",
-            "stage": "R6",
-            "title": "R6 台账卡单向导入（可选）",
-            "note": "起因：开发卡的 acceptance / scope 在台账里已有一份，board.db 里还要手填一遍，容易漂移。目标：按 ADR-0001 做单向导入——读 board-ledger.json，按短号找到对应任务，只补 task_exec 里为空的 acceptance / scope / goal（note 首段），冲突只报告不覆盖，未建卡只报告不自动建；不提供反向写入台账的入口。本卡不阻塞正式发布。",
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_ledgerimport --output-on-failure",
                 "build/Release/NeonBoard.exe --selftest 退出码 0"
             ],
+            "depends": [
+                "R6-01"
+            ],
+            "id": "2bcd2b26-1143-495f-991f-a56926ebd529",
+            "note": "起因：开发卡的 acceptance / scope 在台账里已有一份，board.db 里还要手填一遍，容易漂移。目标：按 ADR-0001 做单向导入——读 board-ledger.json，按短号找到对应任务，只补 task_exec 里为空的 acceptance / scope / goal（note 首段），冲突只报告不覆盖，未建卡只报告不自动建；不提供反向写入台账的入口。本卡不阻塞正式发布。",
             "scope": [
                 "src/LedgerImport.*",
                 "src/TaskExec.*",
@@ -620,11 +621,17 @@
                 "CMakeLists.txt",
                 "docs/adr/**"
             ],
-            "depends": [
-                "R6-01"
-            ]
+            "stage": "R6",
+            "title": "R6 台账卡单向导入（可选）"
         }
     },
-    "claims": {},
+    "claims": {
+        "R6-02": {
+            "agent": "agent-r6a",
+            "branch": "feature/r6-02-run-store",
+            "claimedAt": 1793094264,
+            "head": "e3e5188bb68c427ce223aa8732dcb92340aa3d06"
+        }
+    },
     "version": 1
 }

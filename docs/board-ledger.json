@@ -703,7 +703,7 @@
                 "R6-05"
             ],
             "id": "a62d2df7-3073-4173-9821-b330958ad547",
-            "note": "起因：结果只进 run 表，人看不到也做不了决定。目标：run 终态（状态 / 耗时 / 退出码 / 摘要 / 越界 / 日志路径）回写并在执行面板展示，卡面加执行态徽章；提供查看完整日志、重试（attempt+1）与「标为已办结」（走既有完成路径、可撤销）；程序不自动改看板列、不自动 push。",
+            "note": "起因：结果只进 run 表，人看不到也做不了决定。目标：run 终态（状态 / 耗时 / 退出码 / 摘要 / 越界 / 日志路径）回写并在执行面板展示，卡面加执行态徽章；提供查看完整日志、重试（attempt+1）与「标为已办结」（走既有完成路径、可撤销）；程序不自动改看板列、不自动 push。交付（2026-10-28）：TaskRunStore 新增 latestRun(taskId)（活跃 run 优先，其次 started_at 倒序）与 summaryOf(taskId, logTailLines)（最近一次 run 的行 + durationSec + logTail 末尾 N 行，面板不加载整个日志文件）；acquire 缺省 attempt 自动取「上一轮 + 1」（重试 = 新建 run 递增轮次，历史不覆盖；显式 attempt 仍被尊重，为 R6-08 留口）。main.cpp 新增 CLI --run-summary <taskId>：输出该卡最近一次 run 的紧凑 JSON（utilityMode 不撞单实例锁；无 run 输出 {\"hasRun\":false} 退出码 0，缺 taskId 退出码 2）。Main.qml：执行前确认框「确认执行」从占位提示改为真正调 taskRunner.start（busy 拒绝原样回显），成功后打开执行面板；新增执行面板 Dialog（结论徽章 通过/失败受阻/取消/执行中、轮次、耗时+退出码、失败原因、越界改动、日志末尾 30 行滚动区、查看完整日志（外部打开 logPath）、重试（终态后可点，新 run attempt+1）、标为已办结（仅 passed 可点，走 taskUndo.moveTask 既有完成路径，保留 Ctrl+Z 撤销）；taskRunner.runFinished 触发面板自动刷新）；执行页签新增「执行态」按钮（有 run 记录才显示）。TaskCard.qml：卡面执行态小徽章（running/queued 青色脉冲、passed 绿点、blocked 红点，数据经 taskRuns.revision 建立绑定，不改卡片既有信息层级）。程序不自动改看板列、不自动 push（R6 硬约束）。验收：ctest 17/17（tst_runsummary 6 用例：无 run 摘要 hasRun=false / 失败 run 摘要含 exitCode+lastError+durationSec+logTail 末尾 5 行 / 重试 attempt 1→2→3 且显式 attempt 被尊重、历史不覆盖 / latestRun 活跃优先 / 取消 run 后 task 列保持 todo 且 user_version 仍为 2），--smoke 退出码 0 无 QML 报错，--selftest 退出码 0，--run-summary 两种退出码实测通过，verify.ps1 全过。影响：不升 user_version、不动 task 表、不加新表；执行器总开关默认关时行为与原来一致。遗留：面板截图 docs/screenshots/exec-panel.png 需 GUI 手工补（自动化验收项不含截图）。",
             "scope": [
                 "src/TaskRunStore.*",
                 "src/main.cpp",
@@ -917,17 +917,11 @@
         }
     },
     "claims": {
-        "DX-04": {
-            "agent": "agent-map3",
-            "branch": "fix/stagebar-data-driven",
-            "claimedAt": 1793129093,
-            "head": "4077f5bcb1dcca45e10cbe330db7ef68bf63c50f"
-        },
-        "R6-05": {
+        "R6-06": {
             "agent": "lead",
-            "branch": "feature/r6-05-acceptance",
-            "claimedAt": 1793130413,
-            "head": "b357079633955ce2b8a4feb98d9388d1ec99b56f"
+            "branch": "feature/r6-06-runpanel",
+            "claimedAt": 1793131796,
+            "head": "7356b7daeb7a065dcec6a5f30a28deff443b3527"
         }
     },
     "version": 1

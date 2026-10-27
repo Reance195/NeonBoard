@@ -35,6 +35,16 @@ Rectangle {
     readonly property bool claimed: claim && claim.agent !== undefined && claim.agent.length > 0
     readonly property bool claimActive: claimed && claim.active === true
 
+    // 执行态（R6-06，数据来自 taskRuns 门面：独立侧表 task_run）：
+    // 最近一次 run 的状态 → 卡面小徽章；不改卡片既有信息层级。
+    readonly property string runStatus: {
+        var rev = taskRuns.revision   // 建立依赖：run 状态变化时重算
+        var latest = taskRuns.latestRun(taskId)
+        return latest && latest.status ? latest.status : ""
+    }
+    readonly property bool hasRunBadge: runStatus === "running" || runStatus === "queued"
+                                        || runStatus === "passed" || runStatus === "blocked"
+
     // 拖拽坐标基准（由外部注入主内容区域）
     property Item dragSpace: null
 
@@ -348,6 +358,34 @@ Rectangle {
                     text: card.due
                     color: card.overdue ? Theme.danger : Theme.muted
                     font.pixelSize: 10
+                }
+
+                // 执行态小徽章（R6-06）：running 脉冲 / passed 绿点 / blocked 红点
+                Rectangle {
+                    id: runBadge
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: card.hasRunBadge
+                    width: 8
+                    height: 8
+                    radius: 4
+                    color: (card.runStatus === "passed") ? Theme.success
+                          : (card.runStatus === "blocked") ? Theme.danger
+                          : Theme.cyan
+                    opacity: (card.runStatus === "running" || card.runStatus === "queued")
+                             ? 0.4 + 0.6 * runPulse.value : 1.0
+
+                    SequentialAnimation {
+                        id: runPulseAnim
+                        running: card.runStatus === "running" || card.runStatus === "queued"
+                        loops: Animation.Infinite
+                        NumberAnimation { target: runPulse; property: "value"; from: 0; to: 1; duration: 700; easing.type: Easing.InOutSine }
+                        NumberAnimation { target: runPulse; property: "value"; from: 1; to: 0; duration: 700; easing.type: Easing.InOutSine }
+                    }
+
+                    QtObject {
+                        id: runPulse
+                        property real value: 0
+                    }
                 }
             }
         }

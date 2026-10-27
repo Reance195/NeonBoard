@@ -204,6 +204,16 @@ ApplicationWindow {
         execConfirmDialog.open()
     }
 
+    // 执行面板（R6-06）：最近一次 run 的结论徽章 / 耗时 / 末尾日志 /
+    // 查看完整日志 / 重试 / 标为已办结（走既有完成路径、可撤销）
+    function openExecPanel(taskId) {
+        if (!taskId || taskId.length === 0)
+            return
+        execPanelDialog.taskId = taskId
+        execPanelDialog.refresh()
+        execPanelDialog.open()
+    }
+
     // 预览中心：列出各 agent 工作区，可一键构建并启动隔离的预览实例
     function openPreview() {
         show()
@@ -2223,6 +2233,17 @@ MouseArea {
                 }
 
                 Button {
+                    text: "执行态"
+                    // 有任何 run 记录才显示（revision 建立依赖，run 变化时重算）
+                    property var latest: {
+                        var rev = taskRuns.revision
+                        return taskRuns.latestRun(editor.taskId)
+                    }
+                    visible: Object.keys(latest || {}).length > 0
+                    onClicked: window.openExecPanel(editor.taskId)
+                }
+
+                Button {
                     text: "执行"
                     enabled: editor.execBlocker.length === 0
                     onClicked: {
@@ -2597,12 +2618,266 @@ MouseArea {
                                 "无法信任该目录：请检查目录是否存在"
                             return
                         }
-                        if (taskEditorLoader.item)
-                            taskEditorLoader.item.execNotice =
-                                "已确认执行（执行器在 R6-04 接入）"
-                        execConfirmDialog.close()
+                        // R6-06：真正拉起执行器。start 按执行定义取 agent/cwd/prompt，
+                        // 同卡已有活跃 run 会被 busy 拒绝（M1 不排队）。
+                        const r = taskRunner.start(execConfirmDialog.taskId)
+                        if (r && r.ok) {
+                            if (taskEditorLoader.item)
+                                taskEditorLoader.item.execNotice =
+                                    "已启动执行（run " + String(r.runId).substring(0, 8) + "…），结果见下方执行态"
+                            execConfirmDialog.close()
+                            window.openExecPanel(execConfirmDialog.taskId)
+                        } else {
+                            execConfirmDialog.errorText =
+                                (r && r.message) ? r.message : "执行启动失败"
+                        }
                     }
                 }
+            }
+        }
+    }
+
+    // 执行面板（R6-06）：run 终态回显 + 人工决策入口。
+    // 硬约束：程序不自动改看板列、不自动 push ——「标为已办结」是人点了才走
+    // taskUndo.moveTask 的既有完成路径（保留撤销）；重试 = 新建一条 run（attempt+1）。
+    Dialog {
+        id: execPanelDialog
+        parent: window.contentItem
+        anchors.centerIn: parent
+        modal: true
+        focus: true
+        padding: 20
+        width: Math.min(620, window.width - 80)
+        closePolicy: Popup.CloseOnEscape
+
+        property string taskId: ""
+        property var summary: ({})
+
+        function refresh() {
+            summary = taskRuns.summaryOf(taskId, 30)
+        }
+
+        onOpened: refresh()
+
+        background: Rectangle {
+            color: Theme.panelSolid
+            radius: 16
+            border.width: 1
+            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 10
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                    text: "执行面板"
+                    color: Theme.text
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+
+                Item { Layout.fillWidth: true }
+
+                // 结论徽章：通过 / 失败或受阻 / 取消 / 执行中
+                Rectangle {
+                    visible: execPanelDialog.summary.hasRun === true
+                    height: 22
+                    width: execBadgeText.implicitWidth + 16
+                    radius: 6
+                    color: Qt.rgba(execBadgeText.color.r, execBadgeText.color.g,
+                                   execBadgeText.color.b, 0.14)
+                    border.width: 1
+                    border.color: Qt.rgba(execBadgeText.color.r, execBadgeText.color.g,
+                                          execBadgeText.color.b, 0.34)
+
+                    Text {
+                        id: execBadgeText
+                        anchors.centerIn: parent
+                        text: {
+                            var s = execPanelDialog.summary.status || ""
+                            if (s === "passed") return "✔ 通过"
+                            if (s === "blocked") return "✘ 失败/受阻"
+                            if (s === "cancelled") return "○ 已取消"
+                            return "◌ 执行中"
+                        }
+                        color: {
+                            var s = execPanelDialog.summary.status || ""
+                            if (s === "passed") return Theme.success
+                            if (s === "blocked") return Theme.danger
+                            if (s === "cancelled") return Theme.muted
+                            return Theme.cyan
+                        }
+                        font.pixelSize: 11
+                        font.bold: true
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: execPanelDialog.summary.hasRun !== true
+                text: "这张卡还没有执行记录。到 编辑 → 执行 页签发起一次执行。"
+                color: Theme.muted
+                font.pixelSize: 11
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                visible: execPanelDialog.summary.hasRun === true
+                columns: 2
+                columnSpacing: 10
+                rowSpacing: 4
+
+                Text { text: "轮次"; color: Theme.muted; font.pixelSize: 11 }
+                Text {
+                    Layout.fillWidth: true
+                    text: "attempt " + (execPanelDialog.summary.attempt || 1)
+                    color: Theme.text
+                    font.pixelSize: 11
+                }
+
+                Text { text: "耗时"; color: Theme.muted; font.pixelSize: 11 }
+                Text {
+                    Layout.fillWidth: true
+                    text: (execPanelDialog.summary.durationSec || 0) + " 秒"
+                          + (execPanelDialog.summary.exitCode !== undefined
+                             && execPanelDialog.summary.exitCode !== null
+                             ? " · 退出码 " + execPanelDialog.summary.exitCode : "")
+                    color: Theme.text
+                    font.pixelSize: 11
+                }
+
+                Text {
+                    text: "失败原因"
+                    color: Theme.muted
+                    font.pixelSize: 11
+                    visible: (execPanelDialog.summary.lastError || "").length > 0
+                }
+                Text {
+                    Layout.fillWidth: true
+                    visible: (execPanelDialog.summary.lastError || "").length > 0
+                    text: execPanelDialog.summary.lastError || ""
+                    color: Theme.danger
+                    font.pixelSize: 11
+                    wrapMode: Text.Wrap
+                }
+
+                Text {
+                    text: "越界改动"
+                    color: Theme.muted
+                    font.pixelSize: 11
+                    visible: (execPanelDialog.summary.scopeViolation || "").length > 0
+                }
+                Text {
+                    Layout.fillWidth: true
+                    visible: (execPanelDialog.summary.scopeViolation || "").length > 0
+                    text: execPanelDialog.summary.scopeViolation || ""
+                    color: Theme.warning
+                    font.pixelSize: 11
+                    wrapMode: Text.WrapAnywhere
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: (execPanelDialog.summary.logTail || "").length > 0
+                text: "日志末尾"
+                color: Theme.muted
+                font.pixelSize: 10
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 140
+                visible: (execPanelDialog.summary.logTail || "").length > 0
+                radius: 8
+                color: Theme.input
+                border.width: 1
+                border.color: Theme.border
+
+                ScrollView {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    clip: true
+
+                    TextArea {
+                        readOnly: true
+                        selectByMouse: true
+                        text: execPanelDialog.summary.logTail || ""
+                        color: Theme.text
+                        font.family: "Consolas"
+                        font.pixelSize: 10
+                        wrapMode: TextArea.WrapAnywhere
+                        background: null
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Button {
+                    text: "查看完整日志"
+                    enabled: (execPanelDialog.summary.logPath || "").length > 0
+                    onClicked: Qt.openUrlExternally("file:///" + execPanelDialog.summary.logPath)
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: "重试"
+                    enabled: execPanelDialog.summary.hasRun === true
+                             && execPanelDialog.summary.status !== "running"
+                             && execPanelDialog.summary.status !== "queued"
+                    onClicked: {
+                        const r = taskRunner.start(execPanelDialog.taskId)
+                        if (r && r.ok) {
+                            execPanelDialog.refresh()
+                        } else {
+                            execNoticeText.text = (r && r.message) ? r.message : "重试启动失败"
+                        }
+                    }
+                }
+
+                Button {
+                    text: "标为已办结"
+                    enabled: execPanelDialog.summary.hasRun === true
+                             && execPanelDialog.summary.status === "passed"
+                    onClicked: {
+                        // 人点了才走既有完成路径（taskUndo，可 Ctrl+Z 撤销）；
+                        // 程序绝不自动改列。
+                        taskUndo.moveTask(execPanelDialog.taskId, "done", -1)
+                        execPanelDialog.close()
+                    }
+                }
+
+                Button {
+                    text: "关闭"
+                    onClicked: execPanelDialog.close()
+                }
+            }
+
+            Text {
+                id: execNoticeText
+                Layout.fillWidth: true
+                visible: text.length > 0
+                color: Theme.warning
+                font.pixelSize: 10
+                wrapMode: Text.Wrap
+            }
+        }
+
+        // run 结束 / 状态变化时刷新面板（面板开着才刷）
+        Connections {
+            target: taskRunner
+            function onRunFinished(runId, detail) {
+                if (execPanelDialog.opened)
+                    execPanelDialog.refresh()
             }
         }
     }

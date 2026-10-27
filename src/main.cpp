@@ -165,7 +165,8 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--check-update"))
         || arguments.contains(QStringLiteral("--update-apply"))
         || arguments.contains(QStringLiteral("--update-source"))
-        || arguments.contains(QStringLiteral("--update-sources"));
+        || arguments.contains(QStringLiteral("--update-sources"))
+        || arguments.contains(QStringLiteral("--run-summary"));
     // 冷启动请求的动作（面板开关）。二次启动走同一条分发路径，见下方 dispatch：
     // 跳转列表/托盘/命令行只是「请求已在运行的实例做某事」的不同入口，
     // 各写一套必然分叉（典型症状：托盘能开新建面板、跳转列表点了只亮窗口）。
@@ -1229,6 +1230,22 @@ int main(int argc, char *argv[])
         updateManager.downloadAndInstall();
         loop.exec();
         return exitCode;
+    }
+
+    // ---- 执行结果（R6-06）：--run-summary <taskId> 输出该卡最近一次 run 的 JSON ----
+    // 走 utilityMode：应用正在运行时也能查，不会撞单实例锁。
+    const int runSummaryIndex = arguments.indexOf(QStringLiteral("--run-summary"));
+    if (runSummaryIndex >= 0) {
+        const QString taskId = runSummaryIndex + 1 < arguments.size()
+            ? arguments.at(runSummaryIndex + 1).trimmed() : QString();
+        if (taskId.isEmpty()) {
+            emitCliLine(QStringLiteral("FAIL --run-summary missing task id"));
+            return 2;
+        }
+        const QVariantMap summary = taskRuns.summaryOf(taskId);
+        const QJsonDocument doc(QJsonObject::fromVariantMap(summary));
+        emitCliLine(QString::fromUtf8(doc.toJson(QJsonDocument::Compact)));
+        return 0;
     }
 
     QQmlApplicationEngine engine;

@@ -62,6 +62,9 @@ Makefile.*
 # 助手本地记忆/日志目录（.workbuddy/memory 等）：
 # 不入库，否则每个 agent 的锚点区都因它变"脏"，git-done 的快进同步会被跳过
 .workbuddy/
+# Qoder Desktop 画布/额度报告产物（写到调用方 CWD）：
+# 同上，未忽略时锚点区永久带未跟踪文件，快进同步每次都被跳过
+.qoder-credits/
 
 # ===== 运行时数据（本地数据库等）=====
 *.db

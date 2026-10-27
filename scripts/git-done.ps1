@@ -81,7 +81,8 @@ function Get-AnchorWorktree {
 
 # 合并推送成功后，把锚点区快进到最新 main —— 否则维护者回到根目录看到的还是旧代码。
 # 只做 fast-forward：锚点有本地提交 / 非 main / 有 progress.json 之外的改动时一律跳过。
-# progress.json 是应用自动写回的快照，允许临时 stash 后还原，不丢数据。
+# progress.json 是应用自动写回的快照：上游没动它时直接快进，应用常驻占用文件也不会挡；
+# 上游确实改了它才临时 stash 后还原，不丢数据。
 function Sync-AnchorWorktree {
     param([string]$Main, [string]$CurrentRoot)
     $anchor = Get-AnchorWorktree
@@ -113,20 +114,25 @@ function Sync-AnchorWorktree {
         return
     }
 
-    $stashed = $false
-    if ($snapshotOnly) {
-        Write-Host '· 锚点同步：临时暂存 progress.json ...' -ForegroundColor DarkGray
-        $stashRes = Invoke-GitQuiet @('-C', $anchor, 'stash', 'push', '-q', '-m', 'git-done 锚点同步临时暂存', '--', 'progress.json')
-        $stashed = ($stashRes.Code -eq 0)
-        if (-not $stashed) {
-            Write-Host '· 锚点同步：暂存失败，跳过快进' -ForegroundColor Yellow
-            return
-        }
-    }
-
+    # 先直接快进：上游没改 progress.json 时，本地快照抓脏不构成阻碍。
+    # 应用常驻会占用 progress.json，stash 的 checkout 步骤可能失败 —— 能绕开就绕开。
     Write-Host ("· 锚点同步：快进 {0} → origin/{1}" -f $anchor, $Main) -ForegroundColor DarkGray
     $mergeRes = Invoke-GitQuiet @('-C', $anchor, 'merge', '--ff-only', "origin/$Main")
     $mergeOk = ($mergeRes.Code -eq 0)
+
+    $stashed = $false
+    if (-not $mergeOk -and $snapshotOnly) {
+        Write-Host '· 锚点同步：临时暂存 progress.json 后重试 ...' -ForegroundColor DarkGray
+        $stashRes = Invoke-GitQuiet @('-C', $anchor, 'stash', 'push', '-q', '-m', 'git-done 锚点同步临时暂存', '--', 'progress.json')
+        $stashed = ($stashRes.Code -eq 0)
+        if ($stashed) {
+            $mergeRes = Invoke-GitQuiet @('-C', $anchor, 'merge', '--ff-only', "origin/$Main")
+            $mergeOk = ($mergeRes.Code -eq 0)
+        } else {
+            Write-Host '· 锚点同步：progress.json 暂存失败（应用可能在运行并占用它），跳过快进' -ForegroundColor Yellow
+        }
+    }
+
     if (-not $mergeOk) {
         $mergeRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
     }

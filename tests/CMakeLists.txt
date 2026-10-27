@@ -176,6 +176,22 @@ neonboard_add_test(tst_runsummary
 )
 target_link_libraries(tst_runsummary PRIVATE Qt6::Sql)
 
+# R6-07：Triage 只读分析 —— JSON 抠取 / glob 合法性 / 草案校验清洗 / prompt 模板 /
+# 草案存 meta / start 前置拒绝（无只读参数硬拒）。真实 agent 进程不进单测。
+neonboard_add_test(tst_triage
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskExec.cpp
+    ${CMAKE_SOURCE_DIR}/src/AgentProfile.cpp
+    ${CMAKE_SOURCE_DIR}/src/ScopeMatcher.cpp
+    ${CMAKE_SOURCE_DIR}/src/TriageRunner.cpp
+)
+target_link_libraries(tst_triage PRIVATE Qt6::Sql)
+
 # 项目全景：路线图 §9 / 台账 / docs/project-map.json 的解析 + 证据实证。
 # 这组断言是「地图跟着仓库走」的护栏：表格结构、脚本路径、派生规则任一被改坏，
 # 这里先红，避免面板展示一张与仓库脱节的地图。

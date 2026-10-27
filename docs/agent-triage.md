@@ -96,3 +96,20 @@
 | `scope_draft` 均为合法 glob | 丢弃非法项 |
 | `acceptance_draft` 至少 1 条且可执行 | 补默认 `verify.ps1` |
 | 分析期间**没有产生文件改动** | 直接失败（证明只读失效） |
+
+## 实现现状（R6-07 落地，2026-10-28）
+
+`src/TriageRunner.*` 已实现上表全部校验，落点如下：
+
+| 约束 | 实现 |
+| --- | --- |
+| 强制只读 | 三道硬门：① profile 必须配 `readonlyArgs`（没有即拒绝分析，不接受「prompt 里写别改文件」）；② argv 用 `AgentProfile::argv(id, readonly=true)` 拼装；③ 分析前后各取一次 `git status --porcelain -uall`（复用 `ScopeMatcher`），有差异直接判 `readonly-violation` 失败 |
+| 严格 JSON | `extractJson` 从带解释文字/代码围栏的输出里抠第一个平衡 `{...}` 块；解析失败或缺必填字段（`understanding`/`affected`/`scope_draft`/`acceptance_draft`/`questions`/`estimate`/`confidence`）→ 重跑一次；仍失败标记 `draft` 并把原始输出（末尾 4000 字符）存进记录 |
+| questions ≤ 3 | `validateDraft` 截断并记 problem |
+| 非法 glob 丢弃 | `isValidGlob`：拒绝空串、绝对路径、盘符、反斜杠、含 `..`；与 `scripts/check_scope.py` / `ScopeMatcher` 的正斜杠语义一致 |
+| acceptance 补默认 | 为空时补 `pwsh -File scripts/verify.ps1` 并记 problem |
+| confidence < 0.5 | `draft.executable=false`；编辑面板据此禁用「采纳草案」一键回填与「执行」按钮（提示先拆分或澄清） |
+| 草案只写 board.db | meta 表 `exec.triage.draft.<taskId>`（不加表、不升 `user_version`、不进台账）；「采纳」由 QML 把 `scope_draft`/`acceptance_draft`/`understanding` 回填执行页签表单，保存时才落 `task_exec` |
+
+界面入口：编辑面板 → 执行页签 → 「先分析」。分析用当前表单的 agent / cwd / workflow
+（先落 `task_exec` 再拉起），cwd 必须在信任白名单内，执行器总开关必须开启。

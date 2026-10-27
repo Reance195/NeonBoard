@@ -29,6 +29,7 @@
 #include "TaskExec.h"
 #include "TaskRunner.h"
 #include "TaskRunStore.h"
+#include "TriageRunner.h"
 #include "TaskUndo.h"
 #include "ReminderScheduler.h"
 #include "TrayController.h"
@@ -262,6 +263,10 @@ int main(int argc, char *argv[])
 
     // 任务执行器（R6-04）：拉起 agent 进程 / 流式日志 / 超时·终止 / 生命周期
     TaskRunner taskRunner(&database, &taskRuns, &agentProfile, &taskExec);
+
+    // Triage 只读分析（R6-07）：草案只写 meta 表，不进台账；只读靠
+    // profile readonlyArgs + 分析前后 git status 一致两道硬门
+    TriageRunner triageRunner(&database, &agentProfile, &taskExec, &taskStore);
 
     // 路线图快照同步：仓库 progress.json ↔ 本地看板
     RoadmapSync roadmap(&database, &taskStore);
@@ -578,6 +583,69 @@ int main(int argc, char *argv[])
             taskStore.deleteTask(execId);
             ok = taskExec.execOf(execId).value(QStringLiteral("goal")).toString().isEmpty() && ok;
             qInfo() << "SELFTEST exec" << taskExec.revision();
+        }
+
+        // Triage 只读分析（R6-07）：纯逻辑校验 + 草案存取
+        {
+            // 带解释性文字的输出里抠出 JSON
+            const QJsonDocument doc = TriageRunner::extractJson(
+                QStringLiteral("分析如下：\n```json\n{\"understanding\":\"x\"}\n```\n完毕"));
+            ok = !doc.isNull()
+                 && doc.object().value(QStringLiteral("understanding")).toString()
+                        == QStringLiteral("x")
+                 && ok;
+            ok = TriageRunner::extractJson(QStringLiteral("完全没有 JSON")).isNull() && ok;
+            // glob 合法性：相对路径可，绝对路径 / 反斜杠 / .. 不可
+            ok = TriageRunner::isValidGlob(QStringLiteral("src/**")) && ok;
+            ok = !TriageRunner::isValidGlob(QStringLiteral("C:/abs/path")) && ok;
+            ok = !TriageRunner::isValidGlob(QStringLiteral("src\\a.cpp")) && ok;
+            ok = !TriageRunner::isValidGlob(QStringLiteral("../evil")) && ok;
+            // 草案校验：缺字段报 missing；齐全时 questions 截断、非法 glob 丢弃、
+            // acceptance 空补默认、confidence<0.5 不可执行
+            const QVariantMap missing = TriageRunner::validateDraft(
+                {{QStringLiteral("understanding"), QStringLiteral("u")}});
+            ok = !missing.value(QStringLiteral("ok")).toBool()
+                 && missing.value(QStringLiteral("missing")).toList().size() >= 5 && ok;
+            QVariantList questions;
+            for (int i = 0; i < 5; ++i)
+                questions.append(QStringLiteral("问题%1").arg(i));
+            const QVariantMap full = TriageRunner::validateDraft({
+                {QStringLiteral("understanding"), QStringLiteral("u")},
+                {QStringLiteral("affected"), QVariantMap{{QStringLiteral("risk"), QStringLiteral("低")}}},
+                {QStringLiteral("scope_draft"), QVariantList{QStringLiteral("src/**"),
+                                                             QStringLiteral("bad\\path")}},
+                {QStringLiteral("acceptance_draft"), QVariantList{}},
+                {QStringLiteral("questions"), questions},
+                {QStringLiteral("estimate"), QVariantMap{{QStringLiteral("size"), QStringLiteral("S")}}},
+                {QStringLiteral("confidence"), 0.3},
+            });
+            ok = full.value(QStringLiteral("ok")).toBool() && ok;
+            const QVariantMap draft = full.value(QStringLiteral("draft")).toMap();
+            ok = draft.value(QStringLiteral("questions")).toList().size() == 3 && ok;
+            ok = draft.value(QStringLiteral("scope_draft")).toList().size() == 1 && ok;
+            ok = draft.value(QStringLiteral("acceptance_draft")).toList().size() == 1 && ok;
+            ok = !draft.value(QStringLiteral("executable")).toBool() && ok;
+            // prompt 模板：骨架 + fix 专项段
+            const QString prompt = TriageRunner::buildPrompt(
+                QStringLiteral("修按钮"), QStringLiteral("点了没反应"), QStringLiteral("fix"));
+            ok = prompt.contains(QStringLiteral("只读分析器"))
+                 && prompt.contains(QStringLiteral("修按钮"))
+                 && prompt.contains(QStringLiteral("复现路径")) && ok;
+            // 草案存 meta 表：写 → 读回 → 清除（不升 user_version、不加表）
+            const QString triageId = taskStore.addTask(QStringLiteral("selftest-triage"));
+            QVariantMap record{{QStringLiteral("status"), QStringLiteral("ok")},
+                               {QStringLiteral("draft"), draft}};
+            ok = database.setMetaValue(QStringLiteral("exec.triage.draft.%1").arg(triageId),
+                                       QStringLiteral("{\"status\":\"ok\"}"))
+                 && ok;
+            ok = triageRunner.draftOf(triageId).value(QStringLiteral("status")).toString()
+                        == QStringLiteral("ok")
+                 && ok;
+            ok = triageRunner.clearDraft(triageId) && triageRunner.draftOf(triageId).isEmpty()
+                 && ok;
+            Q_UNUSED(record);
+            taskStore.deleteTask(triageId);
+            qInfo() << "SELFTEST triage" << triageRunner.revision();
         }
 
         // 运行记录侧表：取锁 / 二次取锁被拒 / 心跳 / 结束 / 释放后可再取（R6-02）
@@ -1269,6 +1337,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("agentProfile"), &agentProfile);
     engine.rootContext()->setContextProperty(QStringLiteral("taskRuns"), &taskRuns);
     engine.rootContext()->setContextProperty(QStringLiteral("taskRunner"), &taskRunner);
+    engine.rootContext()->setContextProperty(QStringLiteral("triageRunner"), &triageRunner);
     engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);
     engine.rootContext()->setContextProperty(QStringLiteral("projectMap"), &projectMap);
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);

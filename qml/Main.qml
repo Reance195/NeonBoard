@@ -1684,6 +1684,9 @@ MouseArea {
         property int tabIndex: 0
         property string execCwd: ""
         property string execNotice: ""
+        // Triage 草案（R6-07）：只读分析结果，采纳后才回填表单
+        property var triageDraft: ({})
+        property bool triageRunning: false
         // 「执行」按钮的最小集：目标 + 验收 + 工作目录
         readonly property string execBlocker: {
             if (goalField.text.trim().length === 0)
@@ -1692,6 +1695,10 @@ MouseArea {
                 return "缺少验收项"
             if (execCwd.trim().length === 0)
                 return "未选择工作目录"
+            // R6-07：草案置信度 < 0.5 时禁止一键执行（先拆分或先澄清）
+            if (triageDraft && triageDraft.status === "ok"
+                    && triageDraft.draft && triageDraft.draft.executable === false)
+                return "分析置信度低于 0.5：请先拆分任务或回答草案里的问题"
             return ""
         }
 
@@ -1740,6 +1747,9 @@ MouseArea {
             attemptsField.text = String(exec ? exec.maxAttempts : 1)
             tabIndex = 0
             execNotice = ""
+            // 已有草案（上次分析）直接回显
+            triageDraft = triageRunner.draftOf(id) || ({})
+            triageRunning = false
             open()
             titleField.forceActiveFocus()
         }
@@ -2049,6 +2059,162 @@ MouseArea {
                     radius: 8
                     border.width: 1
                     border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                }
+            }
+
+            // Triage 只读分析（R6-07）：先分析 → 草案预览 → 采纳回填表单
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                visible: editor.tabIndex === 1
+
+                Button {
+                    text: editor.triageRunning ? "分析中…" : "先分析"
+                    enabled: !editor.triageRunning
+                             && agentProfile.executorEnabled
+                             && editor.execCwd.trim().length > 0
+                    onClicked: {
+                        // 分析用当前表单里的 agent / cwd / workflow：先把它们落进
+                        // task_exec（只写这三个键，不影响其它字段），TriageRunner
+                        // 从执行定义读参数。
+                        taskExec.setExec(editor.taskId, {
+                            agent: agentField.text.trim() || agentProfile.defaultAgent,
+                            cwd: editor.execCwd,
+                            workflow: editor.execWorkflow
+                        })
+                        editor.triageDraft = {}
+                        editor.triageRunning = true
+                        const r = triageRunner.start(editor.taskId)
+                        if (!r || !r.ok) {
+                            editor.triageRunning = false
+                            editor.execNotice = (r && r.message) ? r.message : "分析启动失败"
+                        }
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: {
+                        var d = editor.triageDraft || {}
+                        if (!d.status)
+                            return "只读分析：agent 用只读参数看仓库，产出执行草案，人采纳后回填"
+                        if (d.status === "ok")
+                            return "分析完成：置信度 " + Number(d.draft.confidence).toFixed(2)
+                        if (d.status === "draft")
+                            return "分析失败（保留原始输出）：" + (d.message || "")
+                        if (d.status === "readonly-violation")
+                            return "只读失效：" + (d.message || "")
+                        return d.message || ""
+                    }
+                    color: (editor.triageDraft && editor.triageDraft.status === "ok")
+                           ? Theme.cyan : Theme.muted
+                    font.pixelSize: 10
+                    wrapMode: Text.Wrap
+                }
+            }
+
+            // 草案预览：理解复述 / scope / 验收 / 问题 / 采纳按钮
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: triageDraftCol.implicitHeight + 16
+                visible: editor.tabIndex === 1
+                         && editor.triageDraft
+                         && editor.triageDraft.status === "ok"
+                radius: 8
+                color: Theme.card
+                border.width: 1
+                border.color: Theme.border
+
+                ColumnLayout {
+                    id: triageDraftCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 8
+                    spacing: 4
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "理解：" + ((editor.triageDraft.draft || {}).understanding || "")
+                        color: Theme.text
+                        font.pixelSize: 11
+                        wrapMode: Text.Wrap
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: (((editor.triageDraft.draft || {}).affected || {}).risk || "").length > 0
+                        text: "风险：" + ((editor.triageDraft.draft || {}).affected || {}).risk
+                        color: Theme.warning
+                        font.pixelSize: 10
+                        wrapMode: Text.Wrap
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "scope：" + (((editor.triageDraft.draft || {}).scope_draft || []).join("  "))
+                        color: Theme.muted
+                        font.pixelSize: 10
+                        wrapMode: Text.Wrap
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "验收：" + (((editor.triageDraft.draft || {}).acceptance_draft || []).join("  "))
+                        color: Theme.muted
+                        font.pixelSize: 10
+                        wrapMode: Text.Wrap
+                    }
+
+                    Repeater {
+                        model: ((editor.triageDraft.draft || {}).questions || [])
+                        Text {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            text: "？ " + modelData
+                            color: Theme.cyan
+                            font.pixelSize: 10
+                            wrapMode: Text.Wrap
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            visible: (editor.triageDraft.problems || []).length > 0
+                            text: (editor.triageDraft.problems || []).join("；")
+                            color: Theme.warning
+                            font.pixelSize: 9
+                            wrapMode: Text.Wrap
+                        }
+
+                        Button {
+                            text: "采纳草案"
+                            // confidence < 0.5 时不给一键回填执行参数（先拆分或澄清）
+                            enabled: ((editor.triageDraft.draft || {}).executable !== false)
+                            onClicked: {
+                                const d = editor.triageDraft.draft || {}
+                                if ((d.scope_draft || []).length > 0)
+                                    scopeField.text = d.scope_draft.join("\n")
+                                if ((d.acceptance_draft || []).length > 0)
+                                    acceptanceField.text = d.acceptance_draft.join("\n")
+                                if (d.understanding && goalField.text.trim().length === 0)
+                                    goalField.text = d.understanding
+                                editor.execNotice = "已采纳草案：保存后生效"
+                            }
+                        }
+
+                        Button {
+                            text: "忽略"
+                            onClicked: {
+                                triageRunner.clearDraft(editor.taskId)
+                                editor.triageDraft = {}
+                            }
+                        }
+                    }
                 }
             }
 
@@ -2966,6 +3132,19 @@ MouseArea {
         target: reminderScheduler
         function onFired(taskId, title) {
             reminderGlow.pulse()
+        }
+    }
+
+    // Triage 完成（R6-07）：编辑面板开着且是同一张卡时刷新草案回显
+    Connections {
+        target: triageRunner
+        function onTriageFinished(taskId, result) {
+            if (taskEditorLoader.item) {
+                taskEditorLoader.item.triageRunning = false
+                if (taskEditorLoader.item.taskId === taskId)
+                    taskEditorLoader.item.triageDraft =
+                        triageRunner.draftOf(taskId) || ({})
+            }
         }
     }
 }

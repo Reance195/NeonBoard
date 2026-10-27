@@ -73,6 +73,8 @@ qt_add_executable(NeonBoard
     src/AgentProfile.h src/AgentProfile.cpp
     src/TaskRunner.h src/TaskRunner.cpp
     src/ProjectMap.h src/ProjectMap.cpp
+    src/AcceptanceRunner.h src/AcceptanceRunner.cpp
+    src/ScopeMatcher.h src/ScopeMatcher.cpp
     resources/neonboard.rc
 )
 

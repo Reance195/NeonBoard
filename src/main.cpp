@@ -25,6 +25,7 @@
 #include "TaskStats.h"
 #include "TaskExtra.h"
 #include "TaskExec.h"
+#include "TaskRunStore.h"
 #include "TaskUndo.h"
 #include "ReminderScheduler.h"
 #include "TrayController.h"
@@ -248,6 +249,9 @@ int main(int argc, char *argv[])
 
     // 任务执行定义（目标 / 验收 / 边界 / 执行参数）：侧表 task_exec（M0）
     TaskExec taskExec(&database, &taskStore);
+
+    // 任务执行运行记录与同卡锁：侧表 task_run（R6-02），启动时回收孤儿 run
+    TaskRunStore taskRuns(&database);
 
     // 路线图快照同步：仓库 progress.json ↔ 本地看板
     RoadmapSync roadmap(&database, &taskStore);
@@ -561,6 +565,39 @@ int main(int argc, char *argv[])
             taskStore.deleteTask(execId);
             ok = taskExec.execOf(execId).value(QStringLiteral("goal")).toString().isEmpty() && ok;
             qInfo() << "SELFTEST exec" << taskExec.revision();
+        }
+
+        // 运行记录侧表：取锁 / 二次取锁被拒 / 心跳 / 结束 / 释放后可再取（R6-02）
+        {
+            const QString runTaskId = taskStore.addTask(QStringLiteral("selftest-run"));
+            ok = !runTaskId.isEmpty() && ok;
+            const QVariantMap runFirst = taskRuns.acquire(runTaskId);
+            const QString runId = runFirst.value(QStringLiteral("runId")).toString();
+            ok = runFirst.value(QStringLiteral("ok")).toBool() && !runId.isEmpty() && ok;
+            const QVariantMap runBusy = taskRuns.acquire(runTaskId);
+            ok = !runBusy.value(QStringLiteral("ok")).toBool()
+                 && runBusy.value(QStringLiteral("code")).toString() == QStringLiteral("busy")
+                 && ok;
+            ok = taskRuns.heartbeat(runId) && ok;
+            ok = taskRuns.release(runId, QStringLiteral("passed")) && ok;
+            const QVariantMap runAgain = taskRuns.acquire(runTaskId);
+            ok = runAgain.value(QStringLiteral("ok")).toBool() && ok;
+            ok = taskRuns.release(runAgain.value(QStringLiteral("runId")).toString(),
+                                  QStringLiteral("cancelled")) && ok;
+            taskStore.deleteTask(runTaskId);
+            const QSqlDatabase runConn = QSqlDatabase::database(database.connectionName());
+            QSqlQuery runSchema(runConn);
+            ok = runSchema.exec(QStringLiteral(
+                     "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='task_run'"))
+                 && runSchema.next() && runSchema.value(0).toInt() == 1 && ok;
+            ok = runSchema.exec(QStringLiteral(
+                     "SELECT COUNT(*) FROM sqlite_master WHERE type='index' "
+                     "AND name='idx_task_run_active' AND sql LIKE '%UNIQUE%'"))
+                 && runSchema.next() && runSchema.value(0).toInt() == 1 && ok;
+            QSqlQuery runVersion(runConn);
+            ok = runVersion.exec(QStringLiteral("PRAGMA user_version")) && runVersion.next()
+                 && runVersion.value(0).toInt() == Database::kSchemaVersion && ok;
+            qInfo() << "SELFTEST runs" << taskRuns.revision();
         }
 
         // RRULE 下一期：DAILY / INTERVAL / WEEKLY+BYDAY / 月末钳制 / 非法规则
@@ -1200,6 +1237,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskStats"), &taskStats);
     engine.rootContext()->setContextProperty(QStringLiteral("taskExtra"), &taskExtra);
     engine.rootContext()->setContextProperty(QStringLiteral("taskExec"), &taskExec);
+    engine.rootContext()->setContextProperty(QStringLiteral("taskRuns"), &taskRuns);
     engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);
     engine.rootContext()->setContextProperty(QStringLiteral("boardColumns"), &boardColumns);

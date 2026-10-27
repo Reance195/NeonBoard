@@ -112,3 +112,11 @@ neonboard_add_test(tst_taskexec
 )
 target_link_libraries(tst_taskexec PRIVATE Qt6::Sql)
 
+# R6-02：运行记录侧表与同卡锁 —— 取锁 / 忙拒绝 / 释放后可再取 / 孤儿回收 / schema 版本不变。
+neonboard_add_test(tst_taskruns
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskRunStore.cpp
+)
+target_link_libraries(tst_taskruns PRIVATE Qt6::Sql)
+

@@ -234,6 +234,33 @@ bool Database::open(QString *error, const QString &pathOverride)
         return false;
     }
 
+    // 任务执行运行记录侧表（R6-02）：每次执行一行，运行态与看板状态分离。
+    // 同卡最多一个活跃 run 由部分唯一索引兜底；同样不升 user_version。
+    if (!exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS task_run ("
+            "  id TEXT PRIMARY KEY,"
+            "  task_id TEXT NOT NULL,"
+            "  agent TEXT NOT NULL DEFAULT '',"
+            "  cwd TEXT NOT NULL DEFAULT '',"
+            "  workflow TEXT NOT NULL DEFAULT '',"
+            "  status TEXT NOT NULL,"
+            "  attempt INTEGER NOT NULL DEFAULT 1,"
+            "  started_at INTEGER,"
+            "  finished_at INTEGER,"
+            "  heartbeat_at INTEGER,"
+            "  exit_code INTEGER,"
+            "  last_error TEXT,"
+            "  log_path TEXT,"
+            "  scope_violation TEXT"
+            ")"), error)) {
+        return false;
+    }
+    if (!exec(QStringLiteral(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_task_run_active "
+            "ON task_run(task_id) WHERE status IN ('queued','running')"), error)) {
+        return false;
+    }
+
     if (m_recovered) {
         setMetaValue(QStringLiteral("db.recovered_at"),
                      QString::number(QDateTime::currentSecsSinceEpoch()));

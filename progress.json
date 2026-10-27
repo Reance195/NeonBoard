@@ -235,24 +235,6 @@
             "updatedAt": 1793125542
         },
         {
-            "code": "DX-04",
-            "completedAt": 0,
-            "createdAt": 1793126566,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "adc1c767-f2b1-4d80-b6e4-b185602ace36",
-            "note": "现象（2026-10-28 实测）：看板阶段条只显示「全部 / R0 / R1 / R2 / R3 / 其他」，但 board.db 里实际存在 R4 14 张、R5 5 张（4 done + 1 todo）、R6 9 张（3 done + 6 todo）。因为这些阶段既不在 buildStageList 的 order 数组里、也不计入 OTHER（OTHER 只统计 stageOf 归不了 R\\d+ 的卡），R4/R5/R6 共 28 张卡在界面上完全不可见 —— R6 还有 6 张待办、R5 还有 1 张待办，等于未完成的工作在进度条上凭空消失。根因与全景面板 DX-01 修掉的是同一个：qml/Main.qml 的 buildStageList 把阶段集合写死成 ['R0','R1','R2','R3','OTHER']，而 src/TaskModel.cpp 的 stageOf 只认 ^R\\d+$（DX 这类非 R 阶段一律落 OTHER）。目标：阶段集合与顺序改为取自路线图 §9（ProjectMap 已能解析，可直接复用），stageOf 宽容识别任意短号前缀；「其他」改为兜底桶且保证可对账。（备注：先前口头说的「其他 39/33」是我看错了截图，实际是 33/33，不存在 done>total；真问题是 R4/R5/R6 被吞。）",
-            "orderKey": 18432,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 阶段条数据驱动：R4/R5/R6 的卡目前在界面上完全不可见",
-            "updatedAt": 1793126566
-        },
-        {
             "code": "DX-05",
             "completedAt": 0,
             "createdAt": 1793126566,
@@ -1099,6 +1081,24 @@
             ],
             "title": "R4 首次体验引导",
             "updatedAt": 1793005909
+        },
+        {
+            "code": "DX-04",
+            "completedAt": 1793131244,
+            "createdAt": 1793126566,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "adc1c767-f2b1-4d80-b6e4-b185602ace36",
+            "note": "现象（2026-10-28 实测）：看板阶段条只显示「全部 / R0 / R1 / R2 / R3 / 其他」，但 board.db 里实际存在 R4 14 张、R5 5 张（4 done + 1 todo）、R6 9 张（3 done + 6 todo）。因为这些阶段既不在 buildStageList 的 order 数组里、也不计入 OTHER（OTHER 只统计 stageOf 归不了 R\\d+ 的卡），R4/R5/R6 共 28 张卡在界面上完全不可见 —— R6 还有 6 张待办、R5 还有 1 张待办，等于未完成的工作在进度条上凭空消失。根因与全景面板 DX-01 修掉的是同一个：qml/Main.qml 的 buildStageList 把阶段集合写死成 ['R0','R1','R2','R3','OTHER']，而 src/TaskModel.cpp 的 stageOf 只认 ^R\\d+$（DX 这类非 R 阶段一律落 OTHER）。目标：阶段集合与顺序改为取自路线图 §9（ProjectMap 已能解析，可直接复用），stageOf 宽容识别任意短号前缀；「其他」改为兜底桶且保证可对账。（备注：先前口头说的「其他 39/33」是我看错了截图，实际是 33/33，不存在 done>total；真问题是 R4/R5/R6 被吞。）",
+            "orderKey": 18432,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 阶段条数据驱动：R4/R5/R6 的卡目前在界面上完全不可见",
+            "updatedAt": 1793131244
         },
         {
             "code": "M10",
@@ -2077,6 +2077,6 @@
             "updatedAt": 1793123355
         }
     ],
-    "updated": "2026-10-28T02:53:58",
+    "updated": "2026-10-27T20:00:44",
     "version": 3
 }

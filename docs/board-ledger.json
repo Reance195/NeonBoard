@@ -507,7 +507,7 @@
                 "R6-01"
             ],
             "id": "d926c728-42bf-497d-8661-d1f093949226",
-            "note": "起因：docs/agent-profile.md 的实测结论还停留在文档里，代码不知道每种 CLI 怎么拼参数、怎么进只读模式。目标：落地 AgentProfile（内置 opencode / claude / cursor-agent，codex 未实测不内置；存 meta 表 exec.agentProfiles）+ 命令行拼装（无 shell）+ 设置面板「任务执行」区（总开关默认关、默认 agent、profile 管理）+ 执行前确认框（agent / cwd / 完整命令行 / acceptance / 超时，勾选信任目录后写白名单）。",
+            "note": "起因：docs/agent-profile.md 的实测结论还停留在文档里，代码不知道每种 CLI 怎么拼参数、怎么进只读模式。目标：落地 AgentProfile（内置 opencode / claude / cursor-agent，codex 未实测不内置；存 meta 表 exec.agentProfiles）+ 命令行拼装（无 shell）+ 设置面板「任务执行」区（总开关默认关、默认 agent、profile 管理）+ 执行前确认框（agent / cwd / 完整命令行 / acceptance / 超时，勾选信任目录后写白名单）。交付（2026-10-27）：AgentProfile 内置 opencode / claude / cursor-agent 三条（codex 未实测不内置），argv 拼装不经过 shell（readonlyArgs 只在只读时追加，promptMode=stdin 时 prompt 不进 argv，commandLine 仅作展示）；profile 存 meta exec.agentProfiles，另管 exec.enabled / exec.defaultAgent / exec.trustedCwds，读写幂等、删键恢复内置。设置面板新增「任务执行」区：总开关默认关、默认 agent 下拉、profile 列表增删改、恢复内置、编辑弹窗。卡片执行前弹确认框：agent / cwd / 完整命令行（只读）/ acceptance 逐条 / 超时与轮数，「信任本目录」写白名单，确认后提示执行器在 R6-04 接入；总开关关闭时执行页显示「执行器未启用」并给「去设置」入口。截图 docs/screenshots/exec-confirm.png、docs/screenshots/exec-settings.png。验收：ctest 12/12（tst_agentprofile 13 用例）、--selftest 退出码 0、--smoke 退出码 0 且沙箱日志无 QML 报错；手工核对开关关→提示、开→确认框内容与实际命令行一致。scope 增补 docs/screenshots/**（验收要求的两张截图）。顺带修复 SettingsPanel 自定义 ComboBox 覆盖 FINAL textRole 导致整块面板加载失败、map 模型 displayText 为空、onActivated 注入参数弃用警告。待做：确认按钮目前只落白名单，真正启动进程由 R6-04 接入；codex 待实测后由用户自行新增。",
             "scope": [
                 "src/AgentProfile.*",
                 "src/Database.cpp",
@@ -517,7 +517,8 @@
                 "tests/tst_agentprofile.cpp",
                 "tests/CMakeLists.txt",
                 "CMakeLists.txt",
-                "docs/agent-profile.md"
+                "docs/agent-profile.md",
+                "docs/screenshots/**"
             ],
             "stage": "R6",
             "title": "R6 Agent Profile 与执行前确认"
@@ -669,6 +670,12 @@
             "branch": "fix/host-shortcut-icon",
             "claimedAt": 1793096146,
             "head": "6ef8e8ccfcdf9772440f4fa87f5ecee91c056e89"
+        },
+        "R6-03": {
+            "agent": "agent-r6c",
+            "branch": "feature/r6-03-agent-profile",
+            "claimedAt": 1793095460,
+            "head": "ff499ea15d4c18a03caf4308b5641defc9102dd7"
         }
     },
     "version": 1

@@ -1,5 +1,6 @@
 #include "AppPaths.h"
 #include "AppActions.h"
+#include "AgentProfile.h"
 #include "Database.h"
 #include "HookEventQueue.h"
 #include "Hotkey.h"
@@ -249,6 +250,9 @@ int main(int argc, char *argv[])
 
     // 任务执行定义（目标 / 验收 / 边界 / 执行参数）：侧表 task_exec（M0）
     TaskExec taskExec(&database, &taskStore);
+
+    // agent profile / 总开关 / cwd 白名单：meta 表（R6-03），命令行只拼 argv
+    AgentProfile agentProfile(&database);
 
     // 任务执行运行记录与同卡锁：侧表 task_run（R6-02），启动时回收孤儿 run
     TaskRunStore taskRuns(&database);
@@ -1237,6 +1241,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskStats"), &taskStats);
     engine.rootContext()->setContextProperty(QStringLiteral("taskExtra"), &taskExtra);
     engine.rootContext()->setContextProperty(QStringLiteral("taskExec"), &taskExec);
+    engine.rootContext()->setContextProperty(QStringLiteral("agentProfile"), &agentProfile);
     engine.rootContext()->setContextProperty(QStringLiteral("taskRuns"), &taskRuns);
     engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);

@@ -625,13 +625,6 @@
             ]
         }
     },
-    "claims": {
-        "R5-03": {
-            "agent": "agent-r5x",
-            "branch": "fix/update-artifact-write",
-            "claimedAt": 1793018890,
-            "head": "06fa1d061d28c7775db4caf7e014a2ef2b47cd34"
-        }
-    },
+    "claims": {},
     "version": 1
 }

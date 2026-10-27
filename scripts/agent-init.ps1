@@ -152,7 +152,9 @@ $envLines = @(
 if ($Card -and $Card -ne 'none') {
     $ledgerPath = Join-Path $repoRoot 'docs\board-ledger.json'
     if (Test-Path $ledgerPath) {
-        $ledger = Get-Content $ledgerPath -Raw | ConvertFrom-Json
+        # 必须显式指定 utf8：Windows PowerShell 5.1 会把无 BOM 的 UTF-8 当 GBK 读，
+        # 中文的尾字节能吞掉紧随其后的 JSON 引号，台账一长就炸在 ConvertFrom-Json。
+        try { $ledger = (Get-Content -LiteralPath $ledgerPath -Raw -Encoding utf8 | ConvertFrom-Json) } catch { $ledger = $null }
         $cardCode = $Card.TrimStart('#').ToUpperInvariant()
         $cardData = $ledger.cards.$cardCode
         if ($cardData) {

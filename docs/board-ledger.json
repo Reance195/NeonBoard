@@ -917,17 +917,11 @@
         }
     },
     "claims": {
-        "DX-04": {
-            "agent": "agent-map3",
-            "branch": "fix/stagebar-data-driven",
-            "claimedAt": 1793129093,
-            "head": "4077f5bcb1dcca45e10cbe330db7ef68bf63c50f"
-        },
-        "R6-05": {
+        "R6-06": {
             "agent": "lead",
-            "branch": "feature/r6-05-acceptance",
-            "claimedAt": 1793130413,
-            "head": "b357079633955ce2b8a4feb98d9388d1ec99b56f"
+            "branch": "feature/r6-06-runpanel",
+            "claimedAt": 1793131796,
+            "head": "7356b7daeb7a065dcec6a5f30a28deff443b3527"
         }
     },
     "version": 1

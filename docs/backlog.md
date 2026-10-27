@@ -18,6 +18,10 @@
 | [6](https://github.com/Reance195/NeonBoard/issues/6) | 建立 `docs/adr/` 与首批决策记录 | 文档 | — |
 | [7](https://github.com/Reance195/NeonBoard/issues/7) | 对外发布（按 announcement 草稿） | 文档 | — |
 
+> #6 的首批决策记录已落地：[`docs/adr/0001-task-definition-source.md`](adr/0001-task-definition-source.md)
+> 与 [`docs/adr/0002-run-state-and-executor-safety.md`](adr/0002-run-state-and-executor-safety.md)，
+> 目录规范见 [`docs/adr/README.md`](adr/README.md)。
+
 ## 建议顺序
 
 ```
@@ -31,6 +35,8 @@
 | 文档 | 说明 |
 | --- | --- |
 | `docs/task-card.md` | 任务卡五段式规范 |
+| `docs/r6-dispatcher-plan.md` | R6 任务派发器：卡片拆分、验收、波次与登记片段 |
+| `docs/adr/` | 架构决策记录（编号、格式与索引见 `README.md`） |
 | `docs/perf-baseline.json` | 性能基线（CI 每次比对） |
 | `docs/announcement.md` | 发布草稿与 checklist |
 | `SECURITY.md` | 安全策略与漏洞报告 |

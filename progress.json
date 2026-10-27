@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R6-05",
-            "completedAt": 0,
-            "createdAt": 1793085737,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "dd95c213-2cba-42a5-b4cf-71773d644b96",
-            "note": "起因：进程退出码 0 不等于任务完成，agent 也可能改到 scope 之外。目标：AcceptanceRunner 顺序执行 acceptance（command 走白名单脚本路径、不经过 shell、拒绝管道与重定向；assert 先支持 file.exists）+ ScopeMatcher 跑前记 git status 基线、跑后比对差异路径与卡片 scope（scope 为空不检查）；三者合并判定 passed / blocked 并写入 last_error。",
-            "orderKey": 5120,
-            "priority": 2,
-            "stage": "R6",
-            "status": "todo",
-            "tags": [
-                "R6"
-            ],
-            "title": "R6 验收器与越界检查",
-            "updatedAt": 1793085737
-        },
-        {
             "code": "R6-06",
             "completedAt": 0,
             "createdAt": 1793085737,
@@ -655,6 +637,24 @@
             ],
             "title": "启动性能剖析：定位真实瓶颈",
             "updatedAt": 1792568900
+        },
+        {
+            "code": "R6-05",
+            "completedAt": 1793132285,
+            "createdAt": 1793085737,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "dd95c213-2cba-42a5-b4cf-71773d644b96",
+            "note": "起因：进程退出码 0 不等于任务完成，agent 也可能改到 scope 之外。目标：AcceptanceRunner 顺序执行 acceptance（command 走白名单脚本路径、不经过 shell、拒绝管道与重定向；assert 先支持 file.exists）+ ScopeMatcher 跑前记 git status 基线、跑后比对差异路径与卡片 scope（scope 为空不检查）；三者合并判定 passed / blocked 并写入 last_error。",
+            "orderKey": 5120,
+            "priority": 2,
+            "stage": "R6",
+            "status": "done",
+            "tags": [
+                "R6"
+            ],
+            "title": "R6 验收器与越界检查",
+            "updatedAt": 1793132285
         },
         {
             "code": "R1-04",
@@ -2077,6 +2077,6 @@
             "updatedAt": 1793123355
         }
     ],
-    "updated": "2026-10-27T20:00:44",
+    "updated": "2026-10-27T20:18:05",
     "version": 3
 }

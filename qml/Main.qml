@@ -1607,6 +1607,16 @@ MouseArea {
         closePolicy: Popup.CloseOnEscape
         property string taskId: ""
         property int priorityValue: 1
+        // 执行定义（M0，侧表 task_exec；与任务字段分开保存）
+        property string execAgent: ""
+        property string execWorkflow: ""
+
+        // 多行文本 → 字符串数组（去空行、去首尾空白）
+        function linesOf(text) {
+            return String(text || "").split("\n")
+                .map(function (s) { return s.trim() })
+                .filter(function (s) { return s.length > 0 })
+        }
 
         function openFor(id) {
             const task = taskStore.taskById(id)
@@ -1620,6 +1630,14 @@ MouseArea {
             const extra = taskExtra.extraOf(id)
             remindField.text = formatRemind(extra ? extra.remindAt : 0)
             rruleField.text = extra ? extra.rrule : ""
+            // 执行定义（侧表 task_exec）：缺省时清空，避免串上一张卡的内容
+            const exec = taskExec.execOf(id)
+            goalField.text = exec ? exec.goal : ""
+            acceptanceField.text = exec ? exec.acceptance.join("\n") : ""
+            scopeField.text = exec ? exec.scope.join("\n") : ""
+            execAgent = exec ? exec.agent : ""
+            execWorkflow = exec ? exec.workflow : ""
+            agentField.text = execAgent
             open()
             titleField.forceActiveFocus()
         }
@@ -1814,6 +1832,115 @@ MouseArea {
                 }
             }
 
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 1
+                color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.18)
+            }
+
+            Text {
+                text: "执行定义（可选，侧表 task_exec）"
+                color: Theme.cyan
+                font.pixelSize: 12
+                font.bold: true
+            }
+
+            TextField {
+                id: goalField
+                Layout.fillWidth: true
+                placeholderText: "目标：一句话说明要达成什么"
+                placeholderTextColor: Theme.muted
+                color: Theme.text
+                font.pixelSize: 12
+                background: Rectangle {
+                    color: Theme.elevated
+                    radius: 8
+                    border.width: 1
+                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                }
+            }
+
+            TextArea {
+                id: acceptanceField
+                Layout.fillWidth: true
+                Layout.preferredHeight: 64
+                placeholderText: "验收：每行一条（如 pwsh -File scripts/verify.ps1）"
+                placeholderTextColor: Theme.muted
+                color: Theme.text
+                font.pixelSize: 11
+                wrapMode: TextArea.Wrap
+                background: Rectangle {
+                    color: Theme.elevated
+                    radius: 8
+                    border.width: 1
+                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                }
+            }
+
+            TextArea {
+                id: scopeField
+                Layout.fillWidth: true
+                Layout.preferredHeight: 52
+                placeholderText: "边界：每行一条路径 glob（如 src/TaskModel.cpp）"
+                placeholderTextColor: Theme.muted
+                color: Theme.text
+                font.pixelSize: 11
+                wrapMode: TextArea.Wrap
+                background: Rectangle {
+                    color: Theme.elevated
+                    radius: 8
+                    border.width: 1
+                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                TextField {
+                    id: agentField
+                    Layout.fillWidth: true
+                    placeholderText: "agent（如 opencode / claude）"
+                    placeholderTextColor: Theme.muted
+                    color: Theme.text
+                    font.pixelSize: 11
+                    background: Rectangle {
+                        color: Theme.elevated
+                        radius: 8
+                        border.width: 1
+                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                    }
+                }
+
+                Repeater {
+                    model: ["fix", "feature", "hotfix", "docs", "review", "delivery"]
+                    delegate: Rectangle {
+                        width: 52
+                        height: 26
+                        radius: 8
+                        color: editor.execWorkflow === modelData
+                               ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.48)
+                               : Theme.input
+                        border.width: 1
+                        border.color: editor.execWorkflow === modelData ? Theme.cyan : Theme.border
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData
+                            color: editor.execWorkflow === modelData ? Theme.text : Theme.muted
+                            font.pixelSize: 10
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: editor.execWorkflow = (editor.execWorkflow === modelData) ? "" : modelData
+                        }
+                    }
+                }
+            }
+
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
@@ -1863,6 +1990,14 @@ MouseArea {
                         taskExtra.setReminder(editor.taskId, remindAt)
                         // 重复规则走侧表 task_extra（RRULE 原样存，不自造格式）
                         taskExtra.setRrule(editor.taskId, rruleField.text.trim())
+                        // 执行定义走侧表 task_exec：目标 / 验收 / 边界 / agent / workflow
+                        taskExec.setExec(editor.taskId, {
+                            goal: goalField.text.trim(),
+                            acceptance: editor.linesOf(acceptanceField.text),
+                            scope: editor.linesOf(scopeField.text),
+                            agent: agentField.text.trim(),
+                            workflow: editor.execWorkflow
+                        })
                         editor.close()
                     }
                 }

@@ -855,11 +855,11 @@
         }
     },
     "claims": {
-        "DX-01": {
-            "agent": "agent-map",
-            "branch": "feature/project-map-panel",
-            "claimedAt": 1793122351,
-            "head": "298d76c62aeec3885f767070f3f496736320e9a8"
+        "R6-04": {
+            "agent": "lead",
+            "branch": "feature/r6-04-taskrunner",
+            "claimedAt": 1793124628,
+            "head": "2ba0263ab99cdd112fb26304359eddf6a801497e"
         }
     },
     "version": 1

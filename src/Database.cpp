@@ -215,6 +215,25 @@ bool Database::open(QString *error, const QString &pathOverride)
         return false;
     }
 
+    // 任务执行定义侧表（M0：目标 / 验收 / 边界 / 执行参数）：独立表，
+    // 不往 task 表加列、不升 user_version，老版本程序开同一个库不受影响。
+    // 只放「人定的定义」；run_id / 心跳 / lastError 等运行态属于 executor，不进本表。
+    if (!exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS task_exec ("
+            "  task_id TEXT PRIMARY KEY,"
+            "  goal TEXT NOT NULL DEFAULT '',"
+            "  acceptance TEXT NOT NULL DEFAULT '[]',"
+            "  scope TEXT NOT NULL DEFAULT '[]',"
+            "  agent TEXT NOT NULL DEFAULT '',"
+            "  cwd TEXT NOT NULL DEFAULT '',"
+            "  workflow TEXT NOT NULL DEFAULT '',"
+            "  timeout_min INTEGER NOT NULL DEFAULT 30,"
+            "  max_attempts INTEGER NOT NULL DEFAULT 1,"
+            "  updated_at INTEGER NOT NULL DEFAULT 0"
+            ")"), error)) {
+        return false;
+    }
+
     if (m_recovered) {
         setMetaValue(QStringLiteral("db.recovered_at"),
                      QString::number(QDateTime::currentSecsSinceEpoch()));

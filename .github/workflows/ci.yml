@@ -201,7 +201,12 @@ jobs:
             Write-Host '看板状态无变化，无需回写'
             exit 0
           }
-          git commit -m 'ci(board): 自动回写看板状态'
+          # 快照回写提交是全仓库唯一的钩子豁免（AGENTS.md §11.2 第 7 条）。
+          # 起因：ad5134d 给 CI 装上 core.hooksPath 后，本 job 的检出停在 main，
+          # pre-commit 的「禁止在受保护分支直接提交」把这条回写提交拒了（10-26 之前
+          # 无钩子，回写一直正常）。豁免只给这一条命令，且它只提交 progress.json。
+          git commit --no-verify -m 'ci(board): 自动回写看板状态'
+          if ($LASTEXITCODE -ne 0) { throw "看板状态回写提交失败（退出码 $LASTEXITCODE）" }
           # 推送前同步并重试：构建这几分钟里主线可能已被别的提交推进（fetch first）
           for ($i = 1; $i -le 3; $i++) {
             git fetch origin main --quiet

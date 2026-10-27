@@ -71,6 +71,7 @@ qt_add_executable(NeonBoard
     src/UpdateManager.h src/UpdateManager.cpp
     src/TaskRunStore.h src/TaskRunStore.cpp
     src/AgentProfile.h src/AgentProfile.cpp
+    src/TaskRunner.h src/TaskRunner.cpp
     src/ProjectMap.h src/ProjectMap.cpp
     resources/neonboard.rc
 )

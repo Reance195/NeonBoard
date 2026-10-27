@@ -914,11 +914,11 @@
         }
     },
     "claims": {
-        "R6-04": {
-            "agent": "lead",
-            "branch": "feature/r6-04-hardening",
-            "claimedAt": 1793126204,
-            "head": "d03e4ff9c1f2f2d91cc9e17365772c0d67ffdbfe"
+        "DX-04": {
+            "agent": "agent-map3",
+            "branch": "fix/stagebar-data-driven",
+            "claimedAt": 1793129093,
+            "head": "4077f5bcb1dcca45e10cbe330db7ef68bf63c50f"
         }
     },
     "version": 1

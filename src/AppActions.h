@@ -23,6 +23,8 @@ inline constexpr auto kSettings = "settings";
 inline constexpr auto kPlugins = "plugins";
 inline constexpr auto kAppearance = "appearance";
 inline constexpr auto kLibrary = "library";
+// 项目全景（docs/project-map.json 驱动的只读地图）：排除故障时用命令行直接开
+inline constexpr auto kMap = "map";
 // 静默拉起：开机自启/计划任务在应用已运行时又起一份，主实例收到后只登记、
 // 不亮窗口（否则每次登录都会莫名弹窗）。
 inline constexpr auto kNoop = "noop";
@@ -31,7 +33,7 @@ inline constexpr auto kPalettePrefix = "palette:";
 
 // 冷启动参数 → 动作。
 // 多个面板开关同时给时按固定优先级取第一个：
-// palette > newtask > settings > plugins > appearance > library，都没有则 show。
+// palette > newtask > settings > plugins > appearance > map > library，都没有则 show。
 // 优先级写死成一条链，是为了「同一组参数永远得到同一个动作」。
 QString fromArguments(const QStringList &arguments);
 

@@ -19,8 +19,16 @@ function(neonboard_add_test target)
         target_compile_options(${target} PRIVATE /utf-8)
     endif()
     add_test(NAME ${target} COMMAND ${target})
-    # 单元测试必须快：超时即视为死锁/死循环，而不是无限挂住 CI
-    set_tests_properties(${target} PROPERTIES TIMEOUT 120)
+    # 单元测试必须快：超时即视为死锁/死循环，而不是无限挂住 CI。
+    #
+    # 另加一条：把 Qt 的 bin 前置进测试进程的 PATH。
+    # 不设的话，在没把 Qt bin 加进 PATH 的终端里直接跑 ctest，测试进程会在加载
+    # Qt6Core.dll 处失败，Windows 弹一个「系统错误」硬错误框、进程挂住不退出，
+    # ctest 只能干等到 TIMEOUT —— 表象是「测试卡死」，实际是根本没启动起来，
+    # 而且每跑一个测试就攒一个弹窗（本次攒了七个）。
+    set_tests_properties(${target} PROPERTIES
+        TIMEOUT 120
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
 endfunction()
 
 neonboard_add_test(tst_taskinputparser
@@ -128,4 +136,12 @@ neonboard_add_test(tst_agentprofile
     ${CMAKE_SOURCE_DIR}/src/AgentProfile.cpp
 )
 target_link_libraries(tst_agentprofile PRIVATE Qt6::Sql)
+
+# 项目全景：路线图 §9 / 台账 / docs/project-map.json 的解析 + 证据实证。
+# 这组断言是「地图跟着仓库走」的护栏：表格结构、脚本路径、派生规则任一被改坏，
+# 这里先红，避免面板展示一张与仓库脱节的地图。
+# 派生在 QThreadPool 后台线程跑（QtCore 自带），无需额外组件
+neonboard_add_test(tst_projectmap
+    ${CMAKE_SOURCE_DIR}/src/ProjectMap.cpp
+)
 

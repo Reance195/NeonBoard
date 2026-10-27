@@ -44,7 +44,7 @@ ORDER_STEP = 1024
 MARKER = re.compile(r"#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)(?:=(todo|doing|done))?")
 # 路线图短号格式：R0-01 / R1-03 / M01 这类。写错这类短号属于真错误，必须拦下；
 # 其余短号（例如 plan-hook 用的 #T12）不属于看板台账范畴，只提示不拦截。
-ROADMAP_CODE = re.compile(r"^(?:R\d+-\d+|M\d+)$")
+ROADMAP_CODE = re.compile(r"^(?:[A-Za-z]{1,4}\d*-\d+|M\d+)$")
 STATUS_RANK = {"todo": 0, "doing": 1, "done": 2}
 VALID_STATUS = ("todo", "doing", "done")
 

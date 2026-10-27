@@ -15,6 +15,7 @@
 #include "PreviewHub.h"
 #include "BoardSync.h"
 #include "RoadmapSync.h"
+#include "ProjectMap.h"
 #include "DataPort.h"
 #include "SingleInstance.h"
 #include "SplashWindow.h"
@@ -262,6 +263,9 @@ int main(int argc, char *argv[])
 
     // 多工作区领用同步：扫描锚点与各 worktree 台账，把「谁在领哪张卡」反映到看板
     BoardSync boardSync(&database, &taskStore);
+
+    // 项目全景图数据源：解析 board-ledger.json + git done 标记，供侧边浮层展示
+    ProjectMap projectMap;
 
     // 数据导入导出与自动备份
     DataPort dataPort(&database, &taskStore);
@@ -1244,6 +1248,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("agentProfile"), &agentProfile);
     engine.rootContext()->setContextProperty(QStringLiteral("taskRuns"), &taskRuns);
     engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);
+    engine.rootContext()->setContextProperty(QStringLiteral("projectMap"), &projectMap);
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);
     engine.rootContext()->setContextProperty(QStringLiteral("boardColumns"), &boardColumns);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);

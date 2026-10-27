@@ -163,6 +163,7 @@ ApplicationWindow {
             settingsLoader.item.close()
         if (previewLoader.item)
             previewLoader.item.close()
+        projectMapLoader.active = false
         window.previewOpen = false
     }
 
@@ -177,6 +178,15 @@ ApplicationWindow {
             settingsPending = true
             settingsLoader.active = true
         }
+    }
+
+    // 项目全景侧边浮层入口
+    function openProjectMap() {
+        show()
+        raise()
+        requestActivate()
+        closeAllPanels()
+        projectMapLoader.active = true
     }
 
     // 执行前确认（R6-03）：只展示快照，真正的进程启动在 R6-04 接入
@@ -313,6 +323,7 @@ ApplicationWindow {
         add("打开插件面板", "面板", "当前插件内容", function() { window.openPlugins() })
         add("打开插件库", "面板", "已装 / 可装插件", function() { window.openPluginLibrary() })
         add("打开设置面板", "面板", "热键 / 数据路径 / 开机自启", function() { window.openSettings() })
+        add("打开项目全景图", "面板", "里程碑进度 + 开发链路，点节点钻取细节", function() { window.openProjectMap() })
         add("检查软件更新", "面板", "当前 " + updateManager.currentVersion + "，查看是否有新版本",
             function() { window.openSettings(); updateManager.checkForUpdates(false) })
         add("打开外观面板", "面板", "主题预设 / 画质 / 减弱动效", function() { window.openAppearance() })
@@ -727,8 +738,40 @@ MouseArea {
             }
 
             Rectangle {
-                id: newTaskButton
+                id: mapButton
                 anchors.right: themePicker.left
+                anchors.rightMargin: 6
+                anchors.verticalCenter: parent.verticalCenter
+                width: mapLabel.implicitWidth + 22
+                height: 26
+                radius: 8
+                color: mapMouse.containsMouse
+                       ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22)
+                       : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.10)
+                border.width: 1
+                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+
+                Text {
+                    id: mapLabel
+                    anchors.centerIn: parent
+                    text: "全景"
+                    color: Theme.cyan
+                    font.pixelSize: 11
+                    font.bold: true
+                }
+
+                MouseArea {
+                    id: mapMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: window.openProjectMap()
+                }
+            }
+
+            Rectangle {
+                id: newTaskButton
+                anchors.right: mapButton.left
                 anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
                 width: newTaskLabel.implicitWidth + 22
@@ -1404,6 +1447,21 @@ MouseArea {
                     window.previewPending = false
                     item.open()
                 }
+            }
+        }
+
+        // 项目全景侧边浮层：按需加载（右锚定，z 高层级）
+        Loader {
+            id: projectMapLoader
+            anchors.fill: parent
+            active: false
+            source: "ProjectMapPanel.qml"
+            z: 160
+
+            onLoaded: {
+                item.requestClose.connect(function() {
+                    projectMapLoader.active = false
+                })
             }
         }
 

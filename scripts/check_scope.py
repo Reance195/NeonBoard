@@ -101,7 +101,7 @@ def detect_card_from_commits(base: str) -> str | None:
     if proc.returncode != 0:
         return None
     codes: list[str] = []
-    for m in re.finditer(r"#(R\d+-\d+|M\d+)", proc.stdout):
+    for m in re.finditer(r"#([A-Za-z]{1,4}\d*-\d+|M\d+)", proc.stdout, re.IGNORECASE):
         code = m.group(1)
         if code not in codes:
             codes.append(code)

@@ -55,7 +55,14 @@ if [ -n "${NEONBOARD_EXE:-}" ]; then
 fi
 
 if [ -z "$exe" ]; then
+    # 多配置生成器（MSVC / VS）在 build/Release 下；单配置（Ninja / Makefile）
+    # 直接落在 build/ 根 —— 后者原先漏了，本地提交会报「未找到 NeonBoard.exe」，
+    # 标记静默不流转。
     for candidate in "$root/build/Release/NeonBoard.exe" \
+                     "$root/build/NeonBoard.exe" \
+                     "$root/build/Debug/NeonBoard.exe" \
+                     "$root/build-local/NeonBoard.exe" \
+                     "$root/build-local/Release/NeonBoard.exe" \
                      "$root/dist/NeonBoard/NeonBoard.exe" \
                      "$root/dist/NeonBoard.exe"; do
         if [ -f "$candidate" ]; then

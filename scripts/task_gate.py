@@ -38,7 +38,11 @@ HARD_TYPES = ("feat", "fix", "refactor", "perf", "test")
 # 流程提交：建卡 / 领用 / 同步快照，由脚本产生，不带卡号也放行。
 PROCESS_SCOPES = ("claim", "roadmap")
 
-CARD = re.compile(r"#((?:R\d+-\d+)|(?:M\d+))", re.IGNORECASE)
+# 任务号文法：<1-4 个字母><可选数字>-<数字>，外加历史遗留的纯 M 编号。
+# 覆盖三种真实形态：R4-10（字母+阶段数字）、DX-01 / OPS-02（纯字母阶段）、M19（小任务）。
+# 台账只把卡号当 ID，阶段归属由 stage 字段决定，所以非 R 阶段也必须有号可用，
+# 否则新阶段（DX 起）永远提交不了。
+CARD = re.compile(r"#((?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+))")
 LEDGER = os.path.join("docs", "board-ledger.json")
 ZERO = "0" * 40
 

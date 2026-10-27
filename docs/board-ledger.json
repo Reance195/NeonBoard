@@ -917,11 +917,11 @@
         }
     },
     "claims": {
-        "R6-06": {
+        "R6-07": {
             "agent": "lead",
-            "branch": "feature/r6-06-runpanel",
-            "claimedAt": 1793131796,
-            "head": "7356b7daeb7a065dcec6a5f30a28deff443b3527"
+            "branch": "feature/r6-07-triage",
+            "claimedAt": 1793132735,
+            "head": "d2c5096ecf110305dedf1b9921997bc4ba16064f"
         }
     },
     "version": 1

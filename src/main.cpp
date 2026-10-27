@@ -30,6 +30,7 @@
 #include "TaskRunner.h"
 #include "TaskRunStore.h"
 #include "TriageRunner.h"
+#include "LedgerImport.h"
 #include "TaskUndo.h"
 #include "ReminderScheduler.h"
 #include "TrayController.h"
@@ -167,7 +168,8 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--update-apply"))
         || arguments.contains(QStringLiteral("--update-source"))
         || arguments.contains(QStringLiteral("--update-sources"))
-        || arguments.contains(QStringLiteral("--run-summary"));
+        || arguments.contains(QStringLiteral("--run-summary"))
+        || arguments.contains(QStringLiteral("--import-ledger"));
     // 冷启动请求的动作（面板开关）。二次启动走同一条分发路径，见下方 dispatch：
     // 跳转列表/托盘/命令行只是「请求已在运行的实例做某事」的不同入口，
     // 各写一套必然分叉（典型症状：托盘能开新建面板、跳转列表点了只亮窗口）。
@@ -267,6 +269,10 @@ int main(int argc, char *argv[])
     // Triage 只读分析（R6-07）：草案只写 meta 表，不进台账；只读靠
     // profile readonlyArgs + 分析前后 git status 一致两道硬门
     TriageRunner triageRunner(&database, &agentProfile, &taskExec, &taskStore);
+
+    // 台账卡单向导入（R6-09，ADR-0001）：台账 → board.db 只补空值，
+    // 冲突/未建卡只报告；反向写台账没有代码路径
+    LedgerImport ledgerImport(&database, &taskStore, &taskExec);
 
     // 路线图快照同步：仓库 progress.json ↔ 本地看板
     RoadmapSync roadmap(&database, &taskStore);
@@ -1316,6 +1322,29 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+    // ---- 台账单向导入（R6-09，ADR-0001）：--import-ledger [path|短号] ----
+    // 参数是已存在的文件 → 按该台账全量导入；否则当短号只导一张卡（台账自动探测）。
+    // 只补空值不覆盖；冲突 / 未建卡只报告。反向写台账没有代码路径。
+    const int ledgerIndex = arguments.indexOf(QStringLiteral("--import-ledger"));
+    if (ledgerIndex >= 0) {
+        const QString arg = ledgerIndex + 1 < arguments.size()
+            ? arguments.at(ledgerIndex + 1).trimmed() : QString();
+        QVariantMap result;
+        if (!arg.isEmpty() && QFileInfo::exists(arg))
+            result = ledgerImport.importAll(arg);
+        else if (arg.isEmpty())
+            result = ledgerImport.importAll();
+        else
+            result = ledgerImport.importCard(arg);
+        if (!result.value(QStringLiteral("ok")).toBool()) {
+            emitCliLine(QStringLiteral("FAIL %1").arg(result.value(QStringLiteral("error")).toString()));
+            return 2;
+        }
+        const QJsonDocument doc(QJsonObject::fromVariantMap(result));
+        emitCliLine(QString::fromUtf8(doc.toJson(QJsonDocument::Compact)));
+        return 0;
+    }
+
     QQmlApplicationEngine engine;
     pluginRuntime.attachEngine(&engine);
     engine.rootContext()->setContextProperty(QStringLiteral("metrics"), &metrics);
@@ -1338,6 +1367,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskRuns"), &taskRuns);
     engine.rootContext()->setContextProperty(QStringLiteral("taskRunner"), &taskRunner);
     engine.rootContext()->setContextProperty(QStringLiteral("triageRunner"), &triageRunner);
+    engine.rootContext()->setContextProperty(QStringLiteral("ledgerImport"), &ledgerImport);
     engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);
     engine.rootContext()->setContextProperty(QStringLiteral("projectMap"), &projectMap);
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);

@@ -772,7 +772,7 @@
                 "R6-01"
             ],
             "id": "2bcd2b26-1143-495f-991f-a56926ebd529",
-            "note": "起因：开发卡的 acceptance / scope 在台账里已有一份，board.db 里还要手填一遍，容易漂移。目标：按 ADR-0001 做单向导入——读 board-ledger.json，按短号找到对应任务，只补 task_exec 里为空的 acceptance / scope / goal（note 首段），冲突只报告不覆盖，未建卡只报告不自动建；不提供反向写入台账的入口。本卡不阻塞正式发布。",
+            "note": "起因：开发卡的 acceptance / scope 在台账里已有一份，board.db 里还要手填一遍，容易漂移。目标：按 ADR-0001 做单向导入——读 board-ledger.json，按短号找到对应任务，只补 task_exec 里为空的 acceptance / scope / goal（note 首段），冲突只报告不覆盖，未建卡只报告不自动建；不提供反向写入台账的入口。本卡不阻塞正式发布。交付（2026-10-28）：按 ADR-0001 落地台账 → board.db 单向导入。新增 LedgerImport：parseLedgerFile 读 docs/board-ledger.json 的 cards（code/id/title/note/acceptance/scope）；findTaskId 优先按卡片 id 精确匹配，兜底按标题内嵌短号整词匹配（#R6-09 这类，与计划钩子同款正则）；importOne 只补 task_exec 里为空的字段 —— goal 取台账 note 的「目标：」段（无则取首段、去前缀、截 300 字符，避免长篇背景灌进 goal）、acceptance 与 scope 只在看板侧为空列表时补；两边都有且不同 → 记入 conflicts（带 field/ledger/board 三值）只报告不覆盖；台账有而看板没建卡 → 记入 missing，不自动建卡；importAll 返回 {imported, conflicts, missing, unchanged}，幂等（真实台账 78 卡实测：首导补 31 张，再导 0 变更）。importCard 支持单卡导入（短号大小写不敏感）。CLI：--import-ledger [path|短号]（参数是存在的文件按该台账全量导入，是短号只导一张，缺省自动探测仓库台账；utilityMode 不撞单实例锁，结果输出紧凑 JSON）。Main.qml 执行页签新增「台账导入」按钮（标题含短号才显示）：导入成功后把补进来的 goal/acceptance/scope 回填表单，冲突/未建卡/无变化各有提示。反向（board.db → 台账）没有代码路径，UI 无按钮，符合 ADR-0001「agent 不可能通过执行链路自授权改边界」。验收：ctest 20/20（tst_ledgerimport 9 用例：台账解析含坏 JSON 报错 / goalFromNote 四形态 / 全量导入只补空值且未建卡不自动建 / 二次导入幂等零变更 / 三项冲突全报出且原值保留 / missing 单卡 / 单卡导入大小写不敏感与不存在短号报错），--selftest 退出码 0，verify.ps1 全过，CLI 实测幂等。影响：不升 user_version、不加表；台账文件只读，本卡不提供任何写台账入口。",
             "scope": [
                 "src/LedgerImport.*",
                 "src/TaskExec.*",
@@ -917,11 +917,11 @@
         }
     },
     "claims": {
-        "R6-08": {
+        "R6-09": {
             "agent": "lead",
-            "branch": "feature/r6-08-loop",
-            "claimedAt": 1793133694,
-            "head": "6271cc4cbc861a785b2c49afb1b271c70af7eae8"
+            "branch": "feature/r6-09-ledgerimport",
+            "claimedAt": 1793134377,
+            "head": "f805b7227fb19081b111f7ef0fba12aa85057fa0"
         }
     },
     "version": 1

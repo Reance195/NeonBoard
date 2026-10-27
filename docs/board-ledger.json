@@ -150,6 +150,26 @@
             "stage": "DX",
             "title": "DX 阶段条数据驱动：R4/R5/R6 的卡目前在界面上完全不可见"
         },
+        "DX-05": {
+            "acceptance": [
+                "在锚点区（gitDir == commonDir）传 -InPlace 时 agent-init 直接报错并提示改用 .worktrees/<agent>；确需在锚点动手须显式 -ForceAnchor",
+                "agent-init 自动登记工作区占用（锚点区 Claim -Scope root / worktree 按名登记），git-done 收尾自动 Release，不留僵尸占用",
+                "检出里存在他人 in-place 环境（.agent-env.ps1 的 NEONBOARD_AGENT_ID ≠ 当前 agent）时，agent-init 与 git-done 都要告警或拒绝",
+                "AGENTS.md §7.2 补两条：-InPlace 的合法前提（已是隔离检出）、锚点区不是开发区",
+                "可复现验收：两个 shell 同时按文档操作，各自拿到独立 worktree 与独立 .sandbox，互不干扰；并有自动化脚本断言隔离成立"
+            ],
+            "id": "345b40c4-13dc-4efe-bcd6-b4108c96c52a",
+            "note": "现象（2026-10-28 02:xx 实测）：两个会话（agent-map2 与 lead）同时把仓库根目录当开发区 —— `git worktree list` 只有锚点区一条、`.worktrees/` 不存在；锚点区里躺着 `.sandbox/` 和 `.agent-env.ps1`（内容写着 NEONBOARD_AGENT_ID=agent-map2）；HEAD 被对方切到 feature/r6-04-taskrunner，我上一轮刚挪回 main 随即被覆盖；git-done 因「工作区有未提交改动」拒绝了合并且未说明是别人的在制品。根因不是机制缺失：agent-init 的 else 分支本来就会 `git worktree add .worktrees/<agent>`，但 `-InPlace` 分支本意只用于「已是隔离检出」，在锚点区传它等于把共享检出当自己的开发区，脚本不拦；配套的 agent-workspace.ps1 的 root 占用登记是自愿的（Status 显示 root 空闲，两边都没做）；task_gate 在非 .worktrees 检出还直接放行台账校验，越乱越松。两种隔离要分清：worktree 隔离文件与 HEAD，.sandbox 隔离运行时数据（DB/日志/hooks），本次两者都没生效。目标：把「绕过」变成「不可能」—— 硬门 + 自动占用 + 他人在制品告警，三道一起。",
+            "scope": [
+                "scripts/agent-init.ps1",
+                "scripts/agent-workspace.ps1",
+                "scripts/git-done.ps1",
+                "AGENTS.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "DX",
+            "title": "DX 会话隔离硬门：锚点区禁止 -InPlace，占用登记改为自动"
+        },
         "M01": {
             "id": "9bddece6-d4f8-4963-990e-b9d27a06d7c1",
             "stage": "R3",

@@ -61,6 +61,13 @@ public:
 
     /** 绑定到固定插件 id 的门面（设置页 / 槽位页注入用），按 id 缓存 */
     Q_INVOKABLE PluginHost *hostFor(const QString &pluginId);
+
+    // ---------- R9 Agent Provider ----------
+    /** 每个插件的 agent profile 声明：pluginId / pluginName / authorized / profiles。
+     *  按 pluginId 字典序，保证合并顺序与插件扫描顺序无关。 */
+    QVariantList agentProfileDeclarations() const;
+    /** 已授权声明展平后的 profile 列表，供 AgentProfile::setDeclaredProfiles 注入 */
+    QVariantList declaredAgentProfiles() const;
     /** 调用插件命令；插件已在运行则直接投递返回 true，否则排队并等面板打开后补投递 */
     Q_INVOKABLE bool invokeCommand(const QString &pluginId, const QString &commandId);
     /** 投递并清空某插件排队中的命令（面板 / 后台加载完成后调用） */

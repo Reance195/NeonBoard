@@ -1141,6 +1141,19 @@ int main(int argc, char *argv[])
     PluginLoader pluginLoader(&database);
     PluginEventBus pluginEventBus;
     PluginRuntime pluginRuntime(&pluginLoader, &pluginEventBus, &database, &taskStore, &tray);
+
+    // R9-01：把插件声明的 agent profile 注入 AgentProfile（三层合并里的 L1）。
+    // 挂信号而不是只调一次：插件热插拔会重扫（pluginsChanged），
+    // 用户给插件补授权后已授权声明集合也会变（surfacesChanged）。
+    const auto refreshDeclaredAgents = [&pluginRuntime, &agentProfile]() {
+        agentProfile.setDeclaredProfiles(pluginRuntime.declaredAgentProfiles());
+    };
+    QObject::connect(&pluginLoader, &PluginLoader::pluginsChanged, &agentProfile,
+                     refreshDeclaredAgents);
+    QObject::connect(&pluginRuntime, &PluginRuntime::surfacesChanged, &agentProfile,
+                     refreshDeclaredAgents);
+    refreshDeclaredAgents();
+
     PluginHost pluginHost(&pluginRuntime);
     PluginMarket pluginMarket;
     PluginLibrary pluginLibrary(&pluginLoader, &pluginMarket, &pluginRuntime, &database);
@@ -1184,6 +1197,52 @@ int main(int argc, char *argv[])
         slotMap.insert(QStringLiteral("card"),
                        QJsonArray::fromVariantList(pluginRuntime.cardSlotItems()));
 
+        // R9-01：agent profile 的三层合并结果 + 插件声明缺口。
+        // 要能一眼看出「谁声明的、授权没有、这台机器上跑不跑得起来」——
+        // cursor-agent 那种「列表里有却调不动」的坑就是靠 available 暴露的。
+        QStringList pluginIds;
+        for (const QVariant &value : pluginRuntime.declaredAgentProfiles())
+            pluginIds.append(value.toMap().value(QStringLiteral("id")).toString());
+        QStringList builtinIds;
+        for (const QVariant &value : AgentProfile::builtinProfiles())
+            builtinIds.append(value.toMap().value(QStringLiteral("id")).toString());
+
+        QJsonArray agentEffective;
+        for (const QVariant &value : agentProfile.profiles()) {
+            const QVariantMap profile = value.toMap();
+            const QString id = profile.value(QStringLiteral("id")).toString();
+            QJsonObject item;
+            item.insert(QStringLiteral("id"), id);
+            item.insert(QStringLiteral("displayName"),
+                        profile.value(QStringLiteral("displayName")).toString());
+            item.insert(QStringLiteral("exe"), profile.value(QStringLiteral("exe")).toString());
+            item.insert(QStringLiteral("available"), agentProfile.isAvailable(id));
+            item.insert(QStringLiteral("source"),
+                        pluginIds.contains(id) ? QStringLiteral("plugin")
+                        : builtinIds.contains(id) ? QStringLiteral("builtin")
+                                                  : QStringLiteral("user"));
+            agentEffective.append(item);
+        }
+
+        QJsonArray agentDeclared;
+        for (const QVariant &value : pluginRuntime.agentProfileDeclarations()) {
+            const QVariantMap row = value.toMap();
+            QJsonArray declaredIds;
+            for (const QVariant &profile : row.value(QStringLiteral("profiles")).toList())
+                declaredIds.append(profile.toMap().value(QStringLiteral("id")).toString());
+            QJsonObject item;
+            item.insert(QStringLiteral("pluginId"),
+                        row.value(QStringLiteral("pluginId")).toString());
+            item.insert(QStringLiteral("authorized"),
+                        row.value(QStringLiteral("authorized")).toBool());
+            item.insert(QStringLiteral("profiles"), declaredIds);
+            agentDeclared.append(item);
+        }
+
+        QJsonObject agentSection;
+        agentSection.insert(QStringLiteral("effective"), agentEffective);
+        agentSection.insert(QStringLiteral("declared"), agentDeclared);
+
         QJsonObject report;
         report.insert(QStringLiteral("plugins"), plugins);
         report.insert(QStringLiteral("commands"),
@@ -1191,6 +1250,7 @@ int main(int argc, char *argv[])
         report.insert(QStringLiteral("settingsPages"),
                       QJsonArray::fromVariantList(pluginRuntime.settingsPages()));
         report.insert(QStringLiteral("slots"), slotMap);
+        report.insert(QStringLiteral("agentProfiles"), agentSection);
 
         QTextStream out(stdout);
         out.setEncoding(QStringConverter::Utf8);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QJsonObject>
+#include <QJsonValue>
 #include <QObject>
 #include <QStringList>
 #include <QVariantList>
@@ -7,13 +9,14 @@
 
 class Database;
 
-// Agent profile：把不同 CLI 的差异收敛成一条配置（R6-03）。
+// Agent profile：把不同 CLI 的差异收敛成一条配置（R6-03 / R9-01）。
 //
 // 设计要点：
 //   1. 内置 opencode / claude / cursor-agent 三条（docs/agent-profile.md 实测过）；
 //      codex 未实测，不内置，避免把「想当然」的参数带进执行路径。
-//   2. 用户增删改后的整份列表存 meta 表 exec.agentProfiles（JSON 数组），
-//      删掉该键即恢复内置；不升 user_version、不动 task 表。
+//      其余 agent 由插件声明（contributes.agentProfiles），不再需要改 C++。
+//   2. 用户增删改存 meta 表 exec.agentProfileOverrides（id → profile，null 为墓碑），
+//      **只存与下层的差异**；删掉该键即恢复 L0 ∪ L1，不升 user_version、不动 task 表。
 //   3. 命令行只以 argv 拼装（exe + args + readonlyArgs + prompt），**不经过 shell**；
 //      commandLine() 仅用于界面展示，执行侧必须用 argv()。
 //   4. 执行器总开关默认关；开启前看板行为与未引入执行器时一致。
@@ -31,16 +34,37 @@ public:
 
     int revision() const;
 
-    // 当前生效的 profile 列表；用户改过用 meta，否则内置。
+    // 当前生效的 profile 列表。
+    //
+    // 三层合并（R9-01），同 id 后者覆盖前者：
+    //   L0 内置 builtinProfiles() < L1 插件声明 setDeclaredProfiles() < L2 用户覆盖
+    //      （meta exec.agentProfileOverrides，增量覆盖，**不是**整份快照）
+    //
+    // 为什么用户层不能用现存的 exec.agentProfiles 整份快照：那份一写就把插件后来声明的
+    // agent 整个淹没 —— 插件装了却在列表里看不见。所以新写入一律走 overrides，
+    // 老快照只在 migrateLegacyIfNeeded() 里被一次性翻译成 overrides 后删除。
     QVariantList profiles() const;
     // 未知 id 返回空 map。
     Q_INVOKABLE QVariantMap profileOf(const QString &id) const;
 
+    // ---- L1 插件声明层（R9-01）----
+    // 宿主扫完插件后注入（PluginRuntime::declaredAgentProfiles），本类不依赖 PluginLoader：
+    // tst_agentprofile 只链 Database / AppPaths / AgentProfile，把插件栈拖进来会连带 QQml，
+    // 那条测试线就不再是无头可跑的了。
+    void setDeclaredProfiles(const QVariantList &profiles);
+    QVariantList declaredProfiles() const { return m_declared; }
+
     // 按 id 覆盖或追加；id / exe / promptMode / output / 超时非法返回 false。
+    // 只写"与下层的差异"，不再存整份快照。
     Q_INVOKABLE bool saveProfile(const QVariantMap &profile);
     Q_INVOKABLE bool removeProfile(const QString &id);
-    // 清掉用户改动，恢复内置三条。
+    // 清掉用户改动，回落 L0 ∪ L1。
     Q_INVOKABLE bool resetProfiles();
+
+    // exe 是否真能拉起：绝对路径查文件，否则查 PATH。
+    // cursor-agent「装了却不在 PATH」这种本机事实必须能在界面上看出来，
+    // 而不是等执行失败才暴露。
+    Q_INVOKABLE bool isAvailable(const QString &id) const;
 
     // 执行用 argv：exe + args (+ readonlyArgs) (+ prompt，当 promptMode=arg)。
     // promptMode=stdin 时 prompt 不出现在 argv 里，由执行器写标准输入。
@@ -82,9 +106,16 @@ signals:
     void changed();
 
 private:
-    bool writeProfiles(const QVariantList &profiles);
+    QVariantList baseProfiles() const;              // L0 内置 ∪ L1 插件
+    QVariantMap baseProfile(const QString &id) const;
+    QJsonObject readOverrides() const;
+    bool writeOverride(const QString &id, const QJsonValue &value);
+    bool clearOverride(const QString &id);
+    void migrateLegacyProfiles() const;             // 整份快照 → 增量覆盖，一次性
     void bump();
 
     Database *m_database = nullptr;
     int m_revision = 0;
+    QVariantList m_declared;
+    mutable bool m_legacyChecked = false;
 };

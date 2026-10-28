@@ -78,6 +78,7 @@ plugins/<plugin-id>/
 | `contributes.events` | 否 | 声明要订阅的宿主事件名（apiVersion 2） |
 | `contributes.slots` | 否 | 槽位入口：`sidebar` / `bottom` / `card`，文件必须存在（apiVersion 2） |
 | `contributes.commands` | 否 | 命令列表：`id` / `title` / `category` / `description` / `shortcut`（apiVersion 2） |
+| `contributes.agentProfiles` | 否 | 声明可被派活的命令行 agent（apiVersion 2，R9-01），需 `exec.agentProfiles` 权限 |
 
 ## 加载与生命周期
 
@@ -105,6 +106,7 @@ plugins/<plugin-id>/
 | `openUrl` | `openUrl()`，仅 `http` / `https` | 中 |
 | `meta` | `metaValue` / `setMetaValue` / `removeMetaValue`（apiVersion 2） | 高（跨插件共享区） |
 | `events` | `subscribe()` / `subscriptions()`（apiVersion 2） | 低 |
+| `exec.agentProfiles` | `contributes.agentProfiles` 注册的 agent 会进入看板派活的候选（apiVersion 2，R9-01） | 中（决定拉起哪个进程、传什么参数） |
 
 ### 声明与授权
 
@@ -326,6 +328,54 @@ Rectangle {
 - 命令自动进入 `Ctrl+K` 命令面板，分类缺省为「插件」。
 - `shortcut` 支持 `Ctrl / Alt / Shift / Meta` 组合，键名可写 `A`–`Z`、`0`–`9`、`F1`–`F24`、`Esc`、`Enter`、`Space`、`Tab`、`Up`/`Down`/`Left`/`Right` 等；大小写与顺序无关，宿主会规范化。
 - 宿主保留 `Ctrl+Z`、`Ctrl+N`、`Ctrl+K`、`Ctrl+,`；与其他插件撞车时**先注册者生效**，冲突项的快捷键自动置空并在命令面板里标注「快捷键冲突」。
+
+### Agent profile（apiVersion 2，R9-01）
+
+声明一个可被看板派活（出站执行）的命令行 agent。字段与 `AgentProfile` 现有 profile 完全一致，执行侧一处不用改。
+
+```json
+{
+  "permissions": ["exec.agentProfiles"],
+  "contributes": {
+    "agentProfiles": [
+      {
+        "id": "claude",
+        "displayName": "Claude Code",
+        "exe": "claude",
+        "args": ["-p", "--output-format", "stream-json"],
+        "promptMode": "arg",
+        "readonlyArgs": ["--permission-mode", "plan"],
+        "output": "stream-json",
+        "env": { "NO_COLOR": "1" },
+        "defaultTimeoutMin": 30
+      }
+    ]
+  }
+}
+```
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `id` | 是 | `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`；与下层同 id 则覆盖 |
+| `exe` | 是 | 裸命令（查 PATH）或绝对路径 |
+| `args` / `readonlyArgs` | 否 | 字符串数组，条目不得为空；空数组表示该 agent 无只读开关 |
+| `promptMode` | 否 | `arg`（缺省）/ `stdin` |
+| `output` | 否 | `stream-json` / `json` / `text`（缺省） |
+| `env` | 否 | 子进程附加环境变量 |
+| `defaultTimeoutMin` | 否 | 1–480，缺省 30 |
+
+**三层合并**，同 id 后者覆盖前者，逐条合并而非整份替换：
+
+| 层 | 来源 |
+| --- | --- |
+| L0 内置 | `AgentProfile::builtinProfiles()`（opencode / claude / cursor-agent） |
+| L1 插件 | `contributes.agentProfiles`，按 pluginId 字典序（扫描顺序不可作为优先级） |
+| L2 用户 | meta `exec.agentProfileOverrides`，`null` 为墓碑（隐藏该 id） |
+
+- 授权是硬门槛：没有 `exec.agentProfiles` 的声明**静默忽略**，`--plugin-report` 的 `agentProfiles.declared[].authorized` 会标出来。
+- 写错的单条声明（缺 `exe`、参数为空等）只丢这一条，不影响同插件其它声明。
+- 用户改动只记「与下层的差异」：改回与下层一致即等于撤销覆盖，插件日后升级参数能自动跟上。
+- `--plugin-report` 的 `agentProfiles.effective[]` 给出 `source`（`builtin` / `plugin` / `user`）与 `available`（`exe` 是否解析得到）。
 
 ## 最小示例
 

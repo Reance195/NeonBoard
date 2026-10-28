@@ -23,6 +23,8 @@
 #include <QSet>
 #include <QTimer>
 
+#include <algorithm>
+
 #include <utility>
 
 namespace {
@@ -598,6 +600,63 @@ QVariantList PluginRuntime::pluginCommands() const
     return result;
 }
 
+QVariantList PluginRuntime::agentProfileDeclarations() const
+{
+    QVariantList result;
+    if (!m_loader)
+        return result;
+
+    QList<QVariantMap> rows;
+    for (const QVariant &value : m_loader->plugins()) {
+        const QVariantMap plugin = value.toMap();
+        if (plugin.value(QStringLiteral("status")).toString() != QStringLiteral("ok"))
+            continue; // 禁用 / 出错的插件不参与声明
+
+        QVariantList profiles;
+        for (const QVariant &declared : plugin.value(QStringLiteral("agentProfiles")).toList()) {
+            QVariantMap profile = declared.toMap();
+            profile.remove(QStringLiteral("pluginId")); // 来源另立字段，别混进 profile 本体
+            if (!profile.isEmpty())
+                profiles.append(profile);
+        }
+        if (profiles.isEmpty())
+            continue;
+
+        const QString pluginId = plugin.value(QStringLiteral("id")).toString();
+        rows.append(QVariantMap{
+            {QStringLiteral("pluginId"), pluginId},
+            {QStringLiteral("pluginName"),
+             plugin.value(QStringLiteral("name"), pluginId).toString()},
+            {QStringLiteral("authorized"),
+             !missingPermissions(pluginId).contains(QStringLiteral("exec.agentProfiles"))},
+            {QStringLiteral("profiles"), profiles},
+        });
+    }
+
+    // 合并顺序必须可复现：插件扫描顺序取决于目录遍历，不能拿它当优先级。
+    std::sort(rows.begin(), rows.end(), [](const QVariantMap &a, const QVariantMap &b) {
+        return a.value(QStringLiteral("pluginId")).toString()
+            < b.value(QStringLiteral("pluginId")).toString();
+    });
+    for (const QVariantMap &row : rows)
+        result.append(row);
+    return result;
+}
+
+QVariantList PluginRuntime::declaredAgentProfiles() const
+{
+    QVariantList result;
+    for (const QVariant &value : agentProfileDeclarations()) {
+        const QVariantMap row = value.toMap();
+        // 未授权声明静默忽略：权限是「能不能决定拉起哪个进程」，不是提示项。
+        if (!row.value(QStringLiteral("authorized")).toBool())
+            continue;
+        for (const QVariant &profile : row.value(QStringLiteral("profiles")).toList())
+            result.append(profile);
+    }
+    return result;
+}
+
 QVariantList PluginRuntime::settingsPages() const
 {
     QVariantList result;
@@ -928,5 +987,9 @@ QVariantMap PluginRuntime::permissionCatalog() const
                    entry(QStringLiteral("事件订阅"),
                          QStringLiteral("订阅看板任务事件（创建/更新/移动/完成/删除）"),
                          QStringLiteral("低")));
+    catalog.insert(QStringLiteral("exec.agentProfiles"),
+                   entry(QStringLiteral("声明 Agent"),
+                         QStringLiteral("注册可被派活的命令行 agent，决定拉起哪个进程与什么参数"),
+                         QStringLiteral("中")));
     return catalog;
 }

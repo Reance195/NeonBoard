@@ -9,10 +9,15 @@
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QRegularExpression>
+#include <QSet>
+#include <QStandardPaths>
 
 namespace {
 
-const QString kProfilesKey = QStringLiteral("exec.agentProfiles");
+// R9-01 之前的用户层：整份快照。只在迁移时读一次，之后删除。
+const QString kLegacyProfilesKey = QStringLiteral("exec.agentProfiles");
+// 用户层现在的形态：id → profile，null 表示墓碑（隐藏下层同 id 的条目）。
+const QString kOverridesKey = QStringLiteral("exec.agentProfileOverrides");
 const QString kEnabledKey = QStringLiteral("exec.enabled");
 const QString kDefaultAgentKey = QStringLiteral("exec.defaultAgent");
 const QString kTrustedKey = QStringLiteral("exec.trustedCwds");
@@ -134,10 +139,50 @@ QVariantMap normalizeProfile(const QVariantMap &raw)
     };
 }
 
-QString encodeProfiles(const QVariantList &profiles)
+// 规范化后的 profile 逐字段等价比较。走 JSON 而不是 QVariant::toString()：
+// args / readonlyArgs 是字符串数组，toString() 一律给空串，会把不同参数判成相等。
+QByteArray canonicalProfile(const QVariantMap &profile)
 {
-    return QString::fromUtf8(
-        QJsonDocument(QJsonArray::fromVariantList(profiles)).toJson(QJsonDocument::Compact));
+    return QJsonDocument(QJsonObject::fromVariantMap(profile)).toJson(QJsonDocument::Compact);
+}
+
+bool sameProfile(const QVariantMap &a, const QVariantMap &b)
+{
+    if (a.isEmpty() || b.isEmpty())
+        return a.isEmpty() && b.isEmpty();
+    return canonicalProfile(a) == canonicalProfile(b);
+}
+
+bool sameProfileList(const QVariantList &a, const QVariantList &b)
+{
+    if (a.size() != b.size())
+        return false;
+    for (int i = 0; i < a.size(); ++i) {
+        if (!sameProfile(a.at(i).toMap(), b.at(i).toMap()))
+            return false;
+    }
+    return true;
+}
+
+// 同 id 后者覆盖前者，其余保持前者的顺序；新 id 追加到末尾。
+void upsertProfile(QVariantList *list, const QVariantMap &profile)
+{
+    const QString id = profile.value(QStringLiteral("id")).toString();
+    for (int i = 0; i < list->size(); ++i) {
+        if (list->at(i).toMap().value(QStringLiteral("id")).toString() == id) {
+            (*list)[i] = profile;
+            return;
+        }
+    }
+    list->append(profile);
+}
+
+void removeProfileById(QVariantList *list, const QString &id)
+{
+    for (int i = list->size() - 1; i >= 0; --i) {
+        if (list->at(i).toMap().value(QStringLiteral("id")).toString() == id)
+            list->removeAt(i);
+    }
 }
 
 // 只接受 JSON 数组；解析失败或不是数组时把 ok 置 false。
@@ -215,29 +260,186 @@ QVariantList AgentProfile::builtinProfiles()
     };
 }
 
-QVariantList AgentProfile::profiles() const
+QVariantList AgentProfile::baseProfiles() const
+{
+    QVariantList out = builtinProfiles();
+    for (const QVariant &value : m_declared)
+        upsertProfile(&out, value.toMap());
+    return out;
+}
+
+QVariantMap AgentProfile::baseProfile(const QString &id) const
+{
+    for (const QVariant &value : baseProfiles()) {
+        const QVariantMap profile = value.toMap();
+        if (profile.value(QStringLiteral("id")).toString() == id)
+            return profile;
+    }
+    return {};
+}
+
+QJsonObject AgentProfile::readOverrides() const
 {
     if (!m_database)
-        return builtinProfiles();
-
-    const QString text = m_database->metaValue(kProfilesKey);
+        return {};
+    const QString text = m_database->metaValue(kOverridesKey);
     if (text.isEmpty())
-        return builtinProfiles();
+        return {};
+    const QJsonDocument doc = QJsonDocument::fromJson(text.toUtf8());
+    return doc.isObject() ? doc.object() : QJsonObject();
+}
+
+bool AgentProfile::writeOverride(const QString &id, const QJsonValue &value)
+{
+    if (!m_database || id.isEmpty())
+        return false;
+    QJsonObject overrides = readOverrides();
+    overrides.insert(id, value);
+    if (!m_database->setMetaValue(
+            kOverridesKey,
+            QString::fromUtf8(QJsonDocument(overrides).toJson(QJsonDocument::Compact)))) {
+        return false;
+    }
+    bump();
+    return true;
+}
+
+bool AgentProfile::clearOverride(const QString &id)
+{
+    if (!m_database)
+        return false;
+    QJsonObject overrides = readOverrides();
+    if (!overrides.contains(id))
+        return true; // 本来就没有：幂等成功，不必惊动监听者
+    overrides.remove(id);
+    const bool ok =
+        overrides.isEmpty()
+            ? m_database->removeMetaValue(kOverridesKey)
+            : m_database->setMetaValue(
+                  kOverridesKey,
+                  QString::fromUtf8(QJsonDocument(overrides).toJson(QJsonDocument::Compact)));
+    if (!ok)
+        return false;
+    bump();
+    return true;
+}
+
+// 老库的 exec.agentProfiles 是「用户改完后的整份快照」。整份快照与插件声明互斥：
+// 快照一写，之后插件声明的 agent 就永远看不见了。所以首次读到时翻译成增量覆盖。
+void AgentProfile::migrateLegacyProfiles() const
+{
+    if (m_legacyChecked || !m_database)
+        return;
+    m_legacyChecked = true;
+
+    const QString legacy = m_database->metaValue(kLegacyProfilesKey);
+    if (legacy.isEmpty())
+        return;
 
     bool ok = false;
-    const QJsonArray array = decodeArray(text, &ok);
-    if (!ok)
-        return builtinProfiles();
+    const QJsonArray snapshot = decodeArray(legacy, &ok);
+    if (!ok) {
+        // 坏数据：删掉回落 L0 ∪ L1。留着只会每次解析失败，还挡住后续迁移。
+        m_database->removeMetaValue(kLegacyProfilesKey);
+        return;
+    }
 
-    QVariantList out;
-    for (const QJsonValue &value : array) {
+    QJsonObject overrides = readOverrides();
+    QSet<QString> seen;
+    for (const QJsonValue &value : snapshot) {
         if (!value.isObject())
             continue;
         const QVariantMap normalized = normalizeProfile(value.toObject().toVariantMap());
-        if (!normalized.isEmpty())
-            out.append(normalized);
+        if (normalized.isEmpty())
+            continue;
+        const QString id = normalized.value(QStringLiteral("id")).toString();
+        seen.insert(id);
+        // 与下层完全等价的条目不必留成覆盖（读的时候也会被忽略）。
+        if (!sameProfile(baseProfile(id), normalized))
+            overrides.insert(id, QJsonObject::fromVariantMap(normalized));
+    }
+
+    // 快照里没有、内置却有的 id：用户当年删掉了它，写墓碑保住这个决定。
+    // 只对 L0 内置立墓碑 —— 插件声明的 agent 在快照成形时还不存在，
+    // 拿它当「用户删过」就是凭空隐藏插件，正是 R9-01 要修的那个 bug 的镜像。
+    for (const QVariant &value : builtinProfiles()) {
+        const QString id = value.toMap().value(QStringLiteral("id")).toString();
+        if (id.isEmpty() || seen.contains(id) || overrides.contains(id))
+            continue;
+        overrides.insert(id, QJsonValue(QJsonValue::Null));
+    }
+
+    if (!overrides.isEmpty()) {
+        m_database->setMetaValue(
+            kOverridesKey,
+            QString::fromUtf8(QJsonDocument(overrides).toJson(QJsonDocument::Compact)));
+    }
+    // 迁移在 const 读路径里发生，不 bump：调用方拿到的是迁移后的结果，
+    // 从 getter 里发 changed() 只会让 QML 绑定当场重入。
+    m_database->removeMetaValue(kLegacyProfilesKey);
+}
+
+QVariantList AgentProfile::profiles() const
+{
+    migrateLegacyProfiles();
+
+    QVariantList out = baseProfiles();
+    if (!m_database)
+        return out;
+
+    const QJsonObject overrides = readOverrides();
+    for (auto it = overrides.constBegin(); it != overrides.constEnd(); ++it) {
+        const QString id = it.key();
+        const QJsonValue value = it.value();
+        if (value.isNull()) { // 墓碑
+            removeProfileById(&out, id);
+            continue;
+        }
+        if (!value.isObject())
+            continue;
+        const QVariantMap normalized = normalizeProfile(value.toObject().toVariantMap());
+        // 键与 id 不一致 = 坏数据，单条忽略而不是整份丢弃。
+        if (normalized.isEmpty() || normalized.value(QStringLiteral("id")).toString() != id)
+            continue;
+        // 与下层等价的覆盖没有信息量：迁移可能留下这种条目，读时忽略，
+        // 插件后来改了声明也能自动跟上。
+        if (sameProfile(baseProfile(id), normalized))
+            continue;
+        upsertProfile(&out, normalized);
     }
     return out;
+}
+
+void AgentProfile::setDeclaredProfiles(const QVariantList &profiles)
+{
+    QVariantList normalized;
+    for (const QVariant &value : profiles) {
+        if (!value.canConvert<QVariantMap>())
+            continue;
+        const QVariantMap profile = normalizeProfile(value.toMap());
+        if (profile.isEmpty())
+            continue; // 插件写错了不影响其它声明
+        upsertProfile(&normalized, profile);
+    }
+
+    if (sameProfileList(normalized, m_declared))
+        return;
+    m_declared = normalized;
+    bump();
+}
+
+bool AgentProfile::isAvailable(const QString &id) const
+{
+    const QVariantMap profile = profileOf(id);
+    if (profile.isEmpty())
+        return false;
+    const QString exe = profile.value(QStringLiteral("exe")).toString().trimmed();
+    if (exe.isEmpty())
+        return false;
+    const QFileInfo info(exe);
+    if (info.isAbsolute())
+        return info.isFile();
+    return !QStandardPaths::findExecutable(exe).isEmpty();
 }
 
 QVariantMap AgentProfile::profileOf(const QString &id) const
@@ -262,18 +464,12 @@ bool AgentProfile::saveProfile(const QVariantMap &profile)
         return false;
 
     const QString id = normalized.value(QStringLiteral("id")).toString();
-    QVariantList list = profiles();
-    bool replaced = false;
-    for (int i = 0; i < list.size(); ++i) {
-        if (list.at(i).toMap().value(QStringLiteral("id")).toString() == id) {
-            list[i] = normalized;
-            replaced = true;
-            break;
-        }
-    }
-    if (!replaced)
-        list.append(normalized);
-    return writeProfiles(list);
+    // 存的是「与下层的差异」而不是整份快照：与下层等价就删掉覆盖，等于恢复默认，
+    // 插件后来升级参数时用户没改过的部分也能跟着走。
+    if (sameProfile(baseProfile(id), normalized))
+        return clearOverride(id);
+
+    return writeOverride(id, QJsonObject::fromVariantMap(normalized));
 }
 
 bool AgentProfile::removeProfile(const QString &id)
@@ -284,34 +480,28 @@ bool AgentProfile::removeProfile(const QString &id)
     if (wanted.isEmpty())
         return false;
 
-    QVariantList list = profiles();
-    bool removed = false;
-    for (int i = list.size() - 1; i >= 0; --i) {
-        if (list.at(i).toMap().value(QStringLiteral("id")).toString() == wanted) {
-            list.removeAt(i);
-            removed = true;
-        }
-    }
-    if (!removed)
-        return false;
-    return writeProfiles(list);
+    const bool inBase = !baseProfile(wanted).isEmpty();
+    const QJsonObject overrides = readOverrides();
+    const bool hasOverride = overrides.contains(wanted);
+
+    if (!inBase && !hasOverride)
+        return false; // 本来就没有这个 id
+    if (inBase && hasOverride && overrides.value(wanted).isNull())
+        return false; // 已经隐藏过了
+
+    // 只存在于用户层的直接删条目；下层有的必须写墓碑，否则它会原样复活。
+    if (!inBase)
+        return clearOverride(wanted);
+    return writeOverride(wanted, QJsonValue(QJsonValue::Null));
 }
 
 bool AgentProfile::resetProfiles()
 {
     if (!m_database)
         return false;
-    m_database->removeMetaValue(kProfilesKey);
-    bump();
-    return true;
-}
-
-bool AgentProfile::writeProfiles(const QVariantList &profiles)
-{
-    if (!m_database)
-        return false;
-    if (!m_database->setMetaValue(kProfilesKey, encodeProfiles(profiles)))
-        return false;
+    m_database->removeMetaValue(kOverridesKey);
+    m_database->removeMetaValue(kLegacyProfilesKey);
+    m_legacyChecked = true;
     bump();
     return true;
 }

@@ -88,7 +88,7 @@
         "R8-04": "todo",
         "R8-05": "todo",
         "R8-06": "todo",
-        "R9-01": "todo",
+        "R9-01": "done",
         "R9-02": "todo",
         "R9-03": "todo",
         "R9-04": "todo",
@@ -2109,6 +2109,12 @@
             "branch": "feature/r10-03-tag-semantics",
             "claimedAt": 1793217268,
             "head": "83cdb76ca6e78bf47db9ee0041abb7a550369764"
+        },
+        "R9-01": {
+            "agent": "agent-r9-01",
+            "branch": "feature/r9-01-provider",
+            "claimedAt": 1793218503,
+            "head": "b32ea90077acc2ac1e47ff45fe31587184d57cc3"
         }
     },
     "version": 1

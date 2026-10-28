@@ -1,4 +1,4 @@
-// R6-03：Agent profile 的门面行为。
+// R6-03：Agent profile 的门面行为；R9-01 增补三层合并 / 墓碑 / 迁移。
 //
 // 覆盖七条：
 //   1. 内置 opencode / claude / cursor-agent 三条（codex 未实测，不内置）
@@ -8,14 +8,38 @@
 //   5. 保存校验（非法 id / exe / promptMode / output / 超时 / 空参数）与按 id 覆盖
 //   6. 删除 / 恢复内置；总开关默认关、默认 agent、cwd 白名单
 //   7. meta 读写跨实例可见（不升 user_version、不碰 task 表）
+//
+// R9-01 增补四条：
+//   8. 三层合并优先级：用户覆盖 > 插件声明 > 内置，同 id 就地覆盖、新 id 追加
+//   9. 墓碑：删掉下层条目后插件重扫不会让它复活
+//  10. 老库整份快照迁移成增量覆盖，且迁移后插件声明的 agent 不被旧快照淹没
+//  11. isAvailable：绝对路径查文件、裸命令查 PATH
 
 #include "AgentProfile.h"
 #include "Database.h"
 
 #include <QDir>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QtTest>
+
+namespace {
+
+QStringList idsOf(const QVariantList &list)
+{
+    QStringList ids;
+    for (const QVariant &value : list)
+        ids.append(value.toMap().value(QStringLiteral("id")).toString());
+    return ids;
+}
+
+// 落盘契约：这两个键名是跨版本兼容面，测试里硬编码，改名必须改这里。
+const QString kLegacyKey = QStringLiteral("exec.agentProfiles");
+const QString kOverridesKey = QStringLiteral("exec.agentProfileOverrides");
+
+} // namespace
 
 class TestAgentProfile : public QObject
 {
@@ -36,6 +60,11 @@ private slots:
     void defaultAgentRules();
     void trustedCwdRules();
     void persistsAcrossInstances();
+
+    void declaredLayerMerges();
+    void tombstoneHidesDeclared();
+    void legacySnapshotMigrates();
+    void availabilityProbe();
 
 private:
     QVariantMap customProfile(const QString &id = QStringLiteral("custom-agent")) const;
@@ -300,6 +329,139 @@ void TestAgentProfile::persistsAcrossInstances()
     QVERIFY(query.exec(QStringLiteral("PRAGMA user_version")));
     QVERIFY(query.next());
     QCOMPARE(query.value(0).toInt(), Database::kSchemaVersion);
+}
+
+void TestAgentProfile::declaredLayerMerges()
+{
+    // 插件声明：一条全新 agent，一条覆盖内置 claude
+    QVariantMap declaredClaude = customProfile(QStringLiteral("claude"));
+    declaredClaude.insert(QStringLiteral("exe"), QStringLiteral("claude-dev"));
+
+    const QVariantList declared{customProfile(QStringLiteral("plugin-agent")), declaredClaude};
+    m_profile->setDeclaredProfiles(declared);
+
+    QCOMPARE(m_profile->profiles().size(), 4); // 3 内置 + 1 新增
+    QCOMPARE(m_profile->profileOf(QStringLiteral("plugin-agent"))
+                 .value(QStringLiteral("exe"))
+                 .toString(),
+             QStringLiteral("my-agent"));
+    // 同 id 就地覆盖，位置不变；新 id 追加到末尾
+    QCOMPARE(idsOf(m_profile->profiles()),
+             (QStringList{QStringLiteral("opencode"), QStringLiteral("claude"),
+                          QStringLiteral("cursor-agent"), QStringLiteral("plugin-agent")}));
+    QCOMPARE(m_profile->profileOf(QStringLiteral("claude"))
+                 .value(QStringLiteral("exe"))
+                 .toString(),
+             QStringLiteral("claude-dev"));
+
+    // 用户层压过插件层
+    QVariantMap userEdit = customProfile(QStringLiteral("claude"));
+    userEdit.insert(QStringLiteral("exe"), QStringLiteral("claude-user"));
+    QVERIFY(m_profile->saveProfile(userEdit));
+    QCOMPARE(m_profile->profileOf(QStringLiteral("claude"))
+                 .value(QStringLiteral("exe"))
+                 .toString(),
+             QStringLiteral("claude-user"));
+
+    // 改回与下层一致 = 撤销覆盖，跟随插件声明
+    QVERIFY(m_profile->saveProfile(declaredClaude));
+    QCOMPARE(m_profile->profileOf(QStringLiteral("claude"))
+                 .value(QStringLiteral("exe"))
+                 .toString(),
+             QStringLiteral("claude-dev"));
+    QVERIFY(!m_db->metaValue(kOverridesKey).contains(QStringLiteral("claude")));
+
+    // 引用未知 id 的坏声明不得污染列表
+    m_profile->setDeclaredProfiles(
+        QVariantList{QVariantMap{{QStringLiteral("id"), QStringLiteral("x")}}});
+    QCOMPARE(m_profile->profiles().size(), 3);
+}
+
+void TestAgentProfile::tombstoneHidesDeclared()
+{
+    m_profile->setDeclaredProfiles(QVariantList{customProfile(QStringLiteral("plugin-agent"))});
+    QCOMPARE(m_profile->profiles().size(), 4);
+
+    QVERIFY(m_profile->removeProfile(QStringLiteral("plugin-agent")));
+    QVERIFY(m_profile->profileOf(QStringLiteral("plugin-agent")).isEmpty());
+    QCOMPARE(m_profile->profiles().size(), 3);
+    QVERIFY(!m_profile->removeProfile(QStringLiteral("plugin-agent"))); // 幂等
+
+    // 插件重扫后同一 id 仍被墓碑挡住 —— 声明不是用户改动的对手
+    m_profile->setDeclaredProfiles(
+        QVariantList{customProfile(QStringLiteral("plugin-agent")),
+                     customProfile(QStringLiteral("other-agent"))});
+    QVERIFY(m_profile->profileOf(QStringLiteral("plugin-agent")).isEmpty());
+    QVERIFY(!m_profile->profileOf(QStringLiteral("other-agent")).isEmpty());
+
+    // 恢复默认后墓碑一起清掉
+    QVERIFY(m_profile->resetProfiles());
+    QVERIFY(!m_profile->profileOf(QStringLiteral("plugin-agent")).isEmpty());
+}
+
+void TestAgentProfile::legacySnapshotMigrates()
+{
+    // 老库形态：整份快照 —— 用户改过 claude、删掉 opencode、加了 custom-agent，
+    // cursor-agent 保持内置原样（取真内置条目，别用 customProfile 伪造，
+    // 否则它本来就与下层不等价，断言「不留覆盖」会假失败）。
+    QVariantMap legacyClaude = customProfile(QStringLiteral("claude"));
+    legacyClaude.insert(QStringLiteral("exe"), QStringLiteral("claude-legacy"));
+
+    QVariantMap builtinCursor;
+    for (const QVariant &value : AgentProfile::builtinProfiles()) {
+        if (value.toMap().value(QStringLiteral("id")).toString()
+            == QStringLiteral("cursor-agent")) {
+            builtinCursor = value.toMap();
+        }
+    }
+    QVERIFY(!builtinCursor.isEmpty());
+
+    const QVariantList snapshot{legacyClaude, builtinCursor,
+                                customProfile(QStringLiteral("custom-agent"))};
+    QVERIFY(m_db->setMetaValue(
+        kLegacyKey,
+        QString::fromUtf8(
+            QJsonDocument(QJsonArray::fromVariantList(snapshot)).toJson(QJsonDocument::Compact))));
+
+    AgentProfile legacy(m_db);
+    QCOMPARE(idsOf(legacy.profiles()),
+             (QStringList{QStringLiteral("claude"), QStringLiteral("cursor-agent"),
+                          QStringLiteral("custom-agent")}));
+    QCOMPARE(legacy.profileOf(QStringLiteral("claude"))
+                 .value(QStringLiteral("exe"))
+                 .toString(),
+             QStringLiteral("claude-legacy"));
+
+    // 迁移后老键消失，只剩增量覆盖；与内置等价的 cursor-agent 不留覆盖
+    QVERIFY(m_db->metaValue(kLegacyKey).isEmpty());
+    const QString overrides = m_db->metaValue(kOverridesKey);
+    QVERIFY(overrides.contains(QStringLiteral("claude")));
+    QVERIFY(overrides.contains(QStringLiteral("custom-agent")));
+    QVERIFY(overrides.contains(QStringLiteral("opencode"))); // 墓碑
+    QVERIFY(!overrides.contains(QStringLiteral("cursor-agent")));
+
+    // 本卡的要害：迁移之后插件声明的 agent 不能被旧快照淹没
+    AgentProfile withPlugins(m_db);
+    withPlugins.setDeclaredProfiles(
+        QVariantList{customProfile(QStringLiteral("plugin-agent"))});
+    QVERIFY(!withPlugins.profileOf(QStringLiteral("plugin-agent")).isEmpty());
+    QCOMPARE(idsOf(withPlugins.profiles()).size(), 4); // claude/cursor/custom/plugin
+}
+
+void TestAgentProfile::availabilityProbe()
+{
+    QVERIFY(!m_profile->isAvailable(QStringLiteral("no-such-agent")));
+
+    QVariantMap abs = customProfile(QStringLiteral("abs-agent"));
+    abs.insert(QStringLiteral("exe"), QCoreApplication::applicationFilePath());
+    QVERIFY(m_profile->saveProfile(abs));
+    QVERIFY(m_profile->isAvailable(QStringLiteral("abs-agent")));
+
+    // 绝对路径但文件不存在 —— cursor-agent 那种「声明了却调不动」的形态
+    QVariantMap missing = customProfile(QStringLiteral("missing-agent"));
+    missing.insert(QStringLiteral("exe"), m_dir.filePath(QStringLiteral("no-such-cli.exe")));
+    QVERIFY(m_profile->saveProfile(missing));
+    QVERIFY(!m_profile->isAvailable(QStringLiteral("missing-agent")));
 }
 
 QTEST_GUILESS_MAIN(TestAgentProfile)

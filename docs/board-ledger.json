@@ -944,6 +944,13 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-06": {
+            "agent": "agent-gov",
+            "branch": "chore/board-registration-audit",
+            "claimedAt": 1793202658,
+            "head": "bbf919f77925890c20a0fb661e96cdcb929a7828"
+        }
+    },
     "version": 1
 }

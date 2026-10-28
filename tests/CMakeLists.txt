@@ -86,6 +86,19 @@ neonboard_add_test(tst_taskmodel
 )
 target_link_libraries(tst_taskmodel PRIVATE Qt6::Sql)
 
+# R10-01：项目维度侧表（project / task_project）的门面行为。
+# 要真库（建表 / 事务 / REPLACE 语义都要 sqlite 自己判），照 tst_taskexec 的方式开临时库。
+neonboard_add_test(tst_projectstore
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/ProjectStore.cpp
+)
+target_link_libraries(tst_projectstore PRIVATE Qt6::Sql)
+
 # R4-03 批次三：看板列清单（列由库驱动）+ 列内精确插位 + 状态/列一致性。
 # 覆盖「列顺序与角色 / 搜索落到每列 / 按列录入 / 列内插位 / 按状态移动同步列 /
 # reload 不重建模型 / 撤销连列一起还原」。

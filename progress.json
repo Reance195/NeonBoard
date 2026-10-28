@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R7-03",
-            "completedAt": 0,
-            "createdAt": 1793123355,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "fa8a90d7-8703-4b29-82a7-ff3d7b2e34b6",
-            "note": "起因：R6 只跑单步，复杂任务需多角色接力。目标：TaskExec.workflow 支持 steps[{role,agent,prompt,inputs,outputs,acceptance,scope}]；TaskRunner 按步逐步拉起（复用 R6-04），每步前记 git 基线、步后 ScopeMatcher 比对；每步产出 .neonboard/handoff/<card>/<role>.md，下一步注入上一步 handoff；每步独立 run（parent_run_id 关联、cost_ms 累计）。",
-            "orderKey": 13312,
-            "priority": 2,
-            "stage": "R7",
-            "status": "todo",
-            "tags": [
-                "R7"
-            ],
-            "title": "R7 角色链 workflow 引擎：步骤数组 + handoff 交接物",
-            "updatedAt": 1793123355
-        },
-        {
             "code": "R7-04",
             "completedAt": 0,
             "createdAt": 1793123355,
@@ -930,6 +912,24 @@
             ],
             "title": "PluginLoader 升级：apiVersion 1|2 + background/contributes",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "R7-03",
+            "completedAt": 1793210559,
+            "createdAt": 1793123355,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "fa8a90d7-8703-4b29-82a7-ff3d7b2e34b6",
+            "note": "起因：R6 只跑单步，复杂任务需多角色接力。目标：TaskExec.workflow 支持 steps[{role,agent,prompt,inputs,outputs,acceptance,scope}]；TaskRunner 按步逐步拉起（复用 R6-04），每步前记 git 基线、步后 ScopeMatcher 比对；每步产出 .neonboard/handoff/<card>/<role>.md，下一步注入上一步 handoff；每步独立 run（parent_run_id 关联、cost_ms 累计）。",
+            "orderKey": 13312,
+            "priority": 2,
+            "stage": "R7",
+            "status": "done",
+            "tags": [
+                "R7"
+            ],
+            "title": "R7 角色链 workflow 引擎：步骤数组 + handoff 交接物",
+            "updatedAt": 1793210559
         },
         {
             "code": "M05",
@@ -2149,6 +2149,6 @@
             "updatedAt": 1793207091
         }
     ],
-    "updated": "2026-10-28T17:47:38",
+    "updated": "2026-10-28T18:02:39",
     "version": 3
 }

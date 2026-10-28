@@ -37,24 +37,6 @@
             "updatedAt": 1793202572
         },
         {
-            "code": "DX-09",
-            "completedAt": 0,
-            "createdAt": 1793207814,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "50355560-9fa2-4d02-a9a7-dc6034639d74",
-            "note": "对应 GitHub issue #2。现状 80 张卡里 31 张有 acceptance/scope（首批补齐在 DX-01~DX-07 之间陆续做过），缺口在各历史阶段卡上。按维护者 2026-10-29 授权分 3 批：批一 R0~R3、批二 R4~R6、批三 DX 与 R7。关键纪律：scope 必须回溯该卡**实际改过**的路径（用 git log 该短号的提交反查），不得凭标题猜路径 —— 猜出来的 scope 会让 check_scope.py 的门禁变成自证。本卡只允许改 docs/，不触及卡片 id/title/stage。",
-            "orderKey": 23552,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 卡片验收字段补全：acceptance/scope 覆盖率归零缺口（#2，分 3 批）",
-            "updatedAt": 1793207814
-        },
-        {
             "code": "R8-01",
             "completedAt": 0,
             "createdAt": 1793213056,
@@ -1377,6 +1359,24 @@
             "updatedAt": 1792633483
         },
         {
+            "code": "DX-09",
+            "completedAt": 1793213405,
+            "createdAt": 1793207814,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "50355560-9fa2-4d02-a9a7-dc6034639d74",
+            "note": "对应 GitHub issue #2。现状 80 张卡里 31 张有 acceptance/scope（首批补齐在 DX-01~DX-07 之间陆续做过），缺口在各历史阶段卡上。按维护者 2026-10-29 授权分 3 批：批一 R0~R3、批二 R4~R6、批三 DX 与 R7。关键纪律：scope 必须回溯该卡**实际改过**的路径（用 git log 该短号的提交反查），不得凭标题猜路径 —— 猜出来的 scope 会让 check_scope.py 的门禁变成自证。本卡只允许改 docs/，不触及卡片 id/title/stage。",
+            "orderKey": 23552,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 卡片验收字段补全：acceptance/scope 覆盖率归零缺口（#2，分 3 批）",
+            "updatedAt": 1793213405
+        },
+        {
             "code": "M15",
             "completedAt": 1792633483,
             "createdAt": 1792572839,
@@ -2257,6 +2257,6 @@
             "updatedAt": 1793207091
         }
     ],
-    "updated": "2026-10-28T18:44:16",
+    "updated": "2026-10-29T02:50:05",
     "version": 3
 }

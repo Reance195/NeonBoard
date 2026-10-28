@@ -127,24 +127,6 @@
             "updatedAt": 1793202572
         },
         {
-            "code": "DX-08",
-            "completedAt": 0,
-            "createdAt": 1793207814,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "79da14c1-83e7-443a-9f45-b2004d136e5e",
-            "note": "对应 GitHub issue #11（DX-04 交付遗留）。阶段条数据已跟随 ProjectMap::stageOrder()（读路线图 §9 行序），但 qml/Main.qml 的 refreshStageData() 只挂在 taskStore.onCountsChanged 上，所以改了 §9 必须重启才可见；而面板的 ProjectMap 本身有 watcher（QFileSystemWatcher + 700ms 防抖 → refresh() → emit changed()）。修法：在 Main.qml 增加一个 target 为 projectMap 的 Connections，onChanged 里调 refreshStageData()，与面板共用同一份变更信号。验收第 2 条要求「写坏时不崩溃且保留上次有效集合」——需确认 stageOrder() 在解析失败时的行为，必要时补回退。",
-            "orderKey": 22528,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 阶段条监听路线图变更：§9 增删/重排无需重启即生效（#11）",
-            "updatedAt": 1793207814
-        },
-        {
             "code": "DX-09",
             "completedAt": 0,
             "createdAt": 1793207814,
@@ -1250,6 +1232,24 @@
             "updatedAt": 1792633483
         },
         {
+            "code": "DX-08",
+            "completedAt": 1793208841,
+            "createdAt": 1793207814,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "79da14c1-83e7-443a-9f45-b2004d136e5e",
+            "note": "对应 GitHub issue #11（DX-04 交付遗留）。阶段条数据已跟随 ProjectMap::stageOrder()（读路线图 §9 行序），但 qml/Main.qml 的 refreshStageData() 只挂在 taskStore.onCountsChanged 上，所以改了 §9 必须重启才可见；而面板的 ProjectMap 本身有 watcher（QFileSystemWatcher + 700ms 防抖 → refresh() → emit changed()）。修法：在 Main.qml 增加一个 target 为 projectMap 的 Connections，onChanged 里调 refreshStageData()，与面板共用同一份变更信号。验收第 2 条要求「写坏时不崩溃且保留上次有效集合」——需确认 stageOrder() 在解析失败时的行为，必要时补回退。",
+            "orderKey": 22528,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 阶段条监听路线图变更：§9 增删/重排无需重启即生效（#11）",
+            "updatedAt": 1793208841
+        },
+        {
             "code": "M14",
             "completedAt": 1792633483,
             "createdAt": 1792572839,
@@ -2149,6 +2149,6 @@
             "updatedAt": 1793207091
         }
     ],
-    "updated": "2026-10-28T17:16:54",
+    "updated": "2026-10-28T17:34:01",
     "version": 3
 }

@@ -1829,6 +1829,13 @@
             "title": "R8 键盘位移与拖拽可达性"
         }
     },
-    "claims": {},
+    "claims": {
+        "R7-06": {
+            "agent": "agent-r7",
+            "branch": "feature/r7-cost",
+            "claimedAt": 1793213303,
+            "head": "cbb27f7c306b936b669f9cbebf0c6ee57241af77"
+        }
+    },
     "version": 1
 }

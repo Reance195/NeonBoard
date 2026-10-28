@@ -474,7 +474,10 @@ R4 14 张、R5 5 张（含 1 张待办）、R6 9 张（含 6 张待办）—— 
 （`R4-10` 这类卡号仍不算阶段），「其他」降级为可对账的兜底桶（其他 = 全部 − 已显示之和），
 阶段条配色也改为按行序取色板。验收：`tst_boardcolumns` 两条 + `tst_projectmap` 一条，
 `ctest` 14/14；`--selftest` / `--smoke` 均通过且日志无 QML 告警。
-遗留：阶段条未监听 roadmap 文件，§9 新增行需重启应用才反映出来（面板的 ProjectMap 有 watcher）。
+遗留：**已由 DX-08 关闭**（原「阶段条未监听 roadmap 文件，§9 新增行需重启应用才反映出来」）。
+现在启动即 `ProjectMap::startWatching()` 监听 `docs/iteration-roadmap.md`，阶段条与面板共用
+`projectMap.onChanged` 这份信号；实测改 §9 后 **0.77 s** 内阶段条自动跟随（含 700 ms 防抖），
+§9 写坏时保留上次有效集合并告警一次、不崩溃，恢复后自动回到正确集合。
 
 **DX-05 会话隔离硬门（已落地 ✅）**：宪章 §7.2 要求「一 agent 一 worktree 一分支」，机制也确实在
 `agent-init` 的 `else` 分支（`git worktree add .worktrees/<agent>`）。但 2026-10-28 凌晨两个会话

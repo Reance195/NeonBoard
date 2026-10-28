@@ -70,6 +70,14 @@ public:
     // 所以阶段顺序只有一套事实源，不会出现「面板一个顺序、阶段条另一个顺序」。
     Q_INVOKABLE QStringList stageOrder() const;
 
+    // 启动即开始监听路线图（DX-08 / #11）：只定路径 + addPaths + 挂一次轻量扫描，
+    // **不跑 git、不扫目录**（构造时刻意不扫描，启动路径上不能付 1.5–2 s 的派生代价）。
+    // 为什么必须有它：watchFiles() 只在 apply() 里调，而 apply() 要等 refresh()；
+    // refresh() 又只在全景面板打开时触发 —— 于是「从没开过面板」的会话永远收不到文件变更，
+    // 阶段条只能靠重启跟随 §9。加上本方法后，文件一落盘就 700ms 防抖 → refresh → changed()，
+    // 阶段条与面板共用同一份信号，也不需要轮询。
+    Q_INVOKABLE void startWatching();
+
 signals:
     void changed();
 

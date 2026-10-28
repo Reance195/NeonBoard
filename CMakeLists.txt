@@ -77,6 +77,7 @@ qt_add_executable(NeonBoard
     src/ScopeMatcher.h src/ScopeMatcher.cpp
     src/TriageRunner.h src/TriageRunner.cpp
     src/LedgerImport.h src/LedgerImport.cpp
+    src/Scheduler.h src/Scheduler.cpp
     resources/neonboard.rc
 )
 

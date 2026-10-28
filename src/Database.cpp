@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QUuid>
@@ -236,6 +237,10 @@ bool Database::open(QString *error, const QString &pathOverride)
 
     // 任务执行运行记录侧表（R6-02）：每次执行一行，运行态与看板状态分离。
     // 同卡最多一个活跃 run 由部分唯一索引兜底；同样不升 user_version。
+    //
+    // R7-01 在同一张表上追加队列与角色链字段（queue_status / position /
+    // parent_run_id / step_index / role / handoff_path / cost_ms）：队列条目与 run
+    // 是同一行，不另开队列表；老库靠下面的 ensureColumn 逐列补（不升 user_version）。
     if (!exec(QStringLiteral(
             "CREATE TABLE IF NOT EXISTS task_run ("
             "  id TEXT PRIMARY KEY,"
@@ -251,13 +256,48 @@ bool Database::open(QString *error, const QString &pathOverride)
             "  exit_code INTEGER,"
             "  last_error TEXT,"
             "  log_path TEXT,"
-            "  scope_violation TEXT"
+            "  scope_violation TEXT,"
+            "  queue_status TEXT NOT NULL DEFAULT '',"
+            "  position INTEGER NOT NULL DEFAULT 0,"
+            "  parent_run_id TEXT NOT NULL DEFAULT '',"
+            "  step_index INTEGER NOT NULL DEFAULT 0,"
+            "  role TEXT NOT NULL DEFAULT '',"
+            "  handoff_path TEXT NOT NULL DEFAULT '',"
+            "  cost_ms INTEGER NOT NULL DEFAULT 0"
             ")"), error)) {
         return false;
+    }
+    // 老库补列：CREATE TABLE IF NOT EXISTS 对已存在的表不会加列，必须逐列 ALTER。
+    // 全部走 IF NOT EXISTS 语义（先查 table_info），重开幂等。
+    const struct {
+        const char *name;
+        const char *definition;
+    } runColumns[] = {
+        {"queue_status", "TEXT NOT NULL DEFAULT ''"},
+        {"position", "INTEGER NOT NULL DEFAULT 0"},
+        {"parent_run_id", "TEXT NOT NULL DEFAULT ''"},
+        {"step_index", "INTEGER NOT NULL DEFAULT 0"},
+        {"role", "TEXT NOT NULL DEFAULT ''"},
+        {"handoff_path", "TEXT NOT NULL DEFAULT ''"},
+        {"cost_ms", "INTEGER NOT NULL DEFAULT 0"},
+    };
+    for (const auto &column : runColumns) {
+        if (!ensureColumn(QStringLiteral("task_run"), QLatin1String(column.name),
+                          QLatin1String(column.definition), error)) {
+            return false;
+        }
     }
     if (!exec(QStringLiteral(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_task_run_active "
             "ON task_run(task_id) WHERE status IN ('queued','running')"), error)) {
+        return false;
+    }
+    // 调度器取队头（waiting 按 position）与队列视图都要扫这一列；
+    // 部分索引让「只有排队的行」参与，不拖累历史 run 的写入。
+    if (!exec(QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_task_run_queue "
+            "ON task_run(position) WHERE queue_status IN ('waiting','dispatching')"),
+            error)) {
         return false;
     }
 
@@ -753,6 +793,42 @@ bool Database::exec(const QString &sql, QString *error)
 bool Database::execQuery(const QString &sql, QString *error)
 {
     return exec(sql, error);
+}
+
+bool Database::ensureColumn(const QString &table, const QString &column,
+                           const QString &definition, QString *error)
+{
+    if (!m_db.isOpen()) {
+        if (error)
+            *error = QStringLiteral("数据库未打开");
+        return false;
+    }
+    // PRAGMA table_info 不支持绑定参数，表名/列名由调用方以字面量给（都是本文件内的常量，
+    // 不接受外部输入），这里仍做一次白名单式校验，防止误传拼出别的语句。
+    static const QRegularExpression safeName(QStringLiteral("^[A-Za-z_][A-Za-z0-9_]*$"));
+    if (!safeName.match(table).hasMatch() || !safeName.match(column).hasMatch()) {
+        if (error)
+            *error = QStringLiteral("非法的表名 / 列名：%1.%2").arg(table, column);
+        return false;
+    }
+
+    QSqlQuery info(m_db);
+    if (!info.exec(QStringLiteral("PRAGMA table_info(%1)").arg(table))) {
+        if (error)
+            *error = info.lastError().text();
+        return false;
+    }
+    bool exists = false;
+    while (info.next()) {
+        if (info.value(1).toString().compare(column, Qt::CaseInsensitive) == 0) {
+            exists = true;
+            break;
+        }
+    }
+    if (exists)
+        return true;
+    return exec(QStringLiteral("ALTER TABLE %1 ADD COLUMN %2 %3")
+                    .arg(table, column, definition), error);
 }
 
 void Database::refreshStats()

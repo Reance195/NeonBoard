@@ -224,13 +224,15 @@ $envContent = ($envLines -join "`n")
 
 # ---------- 工作区占用登记（自动，DX-05）----------
 # 以前占用登记是自愿的：Status 显示 root 空闲、两个会话都没登记，于是「谁在用这份检出」
-# 全靠口头约定。现在开区即登记 —— 锚点区登记 root，开发区登记 worktree:<agent>，
+# 全靠口头约定。现在开区即登记 —— 锚点区原地模式登记 root，其余一律登记 worktree:<agent>，
 # git-done 收尾自动 Release；后来者 agent-init 撞到占用会被拒，而不是等出事后才发现。
+# 注意判定对象是**本次要用的检出**，不是脚本所在检出：正常开区时脚本就在锚点区跑，
+# 但新建的是 .worktrees/<agent>，按 $isAnchor 判会把每个开发区都登记成 root（已踩过）。
 $pwshExe = 'powershell'
 $pwshCmd2 = Get-Command pwsh -ErrorAction SilentlyContinue
 if ($pwshCmd2) { $pwshExe = $pwshCmd2.Source }
 $wsScript = Join-Path $repoRoot 'scripts\agent-workspace.ps1'
-$claimScope = if ($isAnchor) { 'root' } else { "worktree:$Agent" }
+$claimScope = if ($InPlace -and $isAnchor) { 'root' } else { "worktree:$Agent" }
 $workspaceClaimed = $false
 if (Test-Path -LiteralPath $wsScript) {
     $claimTask = if ($Card) { $Card } else { $Branch }

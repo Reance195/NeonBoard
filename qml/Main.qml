@@ -791,68 +791,27 @@ MouseArea {
                 anchors.verticalCenter: parent.verticalCenter
             }
 
-            Rectangle {
+            // R11-02：标题栏按钮统一走 TopToolButton —— 原先「全景」「＋ 新建」
+            // 是同一套样式各抄一遍（圆角 / 边框 alpha / 悬浮底色硬编码），改主题不跟随。
+            TopToolButton {
                 id: mapButton
                 anchors.right: themePicker.left
                 anchors.rightMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
-                width: mapLabel.implicitWidth + 22
-                height: 26
-                radius: 8
-                color: mapMouse.containsMouse
-                       ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22)
-                       : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.10)
-                border.width: 1
-                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
-
-                Text {
-                    id: mapLabel
-                    anchors.centerIn: parent
-                    text: "全景"
-                    color: Theme.cyan
-                    font.pixelSize: 11
-                    font.bold: true
-                }
-
-                MouseArea {
-                    id: mapMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: window.openProjectMap()
-                }
+                text: "全景"
+                description: "打开项目全景面板"
+                onClicked: window.openProjectMap()
             }
 
-            Rectangle {
+            TopToolButton {
                 id: newTaskButton
                 anchors.right: mapButton.left
                 anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
-                width: newTaskLabel.implicitWidth + 22
-                height: 26
-                radius: 8
-                color: newTaskMouse.containsMouse
-                       ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22)
-                       : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.10)
-                border.width: 1
-                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
-
-                Text {
-                    id: newTaskLabel
-                    anchors.centerIn: parent
-                    text: "＋ 新建"
-                    color: Theme.cyan
-                    font.pixelSize: 11
-                    font.bold: true
-                }
-
-                MouseArea {
-                    id: newTaskMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: window.openTaskComposer("todo")
-                }
+                text: "＋ 新建"
+                emphasis: true
+                description: "新建任务"
+                onClicked: window.openTaskComposer("todo")
             }
         }
 
@@ -1144,67 +1103,64 @@ MouseArea {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 10
+                spacing: 8
 
+                // R11-01：顶区信息层级重排。
+                // 原先这里是一行 48 px 高的「大标题 + 三块统计盒」，顶区垂直占用近 190 px，
+                // 看板被压扁。现在标题降到 18 px 且与副标题同行，统计改成单行状态带，
+                // 整行高度从 48 px 降到 28 px —— 省下的高度直接还给三列看板。
                 RowLayout {
                     Layout.fillWidth: true
-                    Layout.topMargin: 18
+                    Layout.topMargin: 12
                     Layout.leftMargin: 20
                     Layout.rightMargin: 20
+                    spacing: 12
 
-                    ColumnLayout {
-                        spacing: 2
+                    RowLayout {
+                        spacing: 8
 
                         Text {
                             text: "工作台"
                             color: Theme.text
-                            font.pixelSize: 24
+                            font.pixelSize: 18
                             font.bold: true
                         }
 
                         Text {
                             text: "专注当下，逐项推进"
                             color: Theme.muted
-                            font.pixelSize: 11
+                            font.pixelSize: 10
                         }
                     }
 
                     Item { Layout.fillWidth: true }
 
-                    StatChip {
-                        label: "待办"
-                        value: boardColumns.todoCount
-                        accent: Theme.cyan
+                    // 统计状态带：待办 / 进行中 / 今日完成 / 逾期
+                    TopStatBar {
+                        Layout.alignment: Qt.AlignVCenter
+                        todo: boardColumns.todoCount
+                        doing: boardColumns.doingCount
+                        doneToday: taskStore.doneTodayCount
+                        overdue: taskStats.overdueCount
                     }
 
-                    StatChip {
-                        label: "进行中"
-                        value: boardColumns.doingCount
-                        accent: Theme.violet
-                    }
-
-                    StatChip {
-                        label: "今日完成"
-                        value: taskStore.doneTodayCount
-                        accent: Theme.magenta
-                    }
-
+                    // 专注按钮：与标题栏按钮同一套控件语言（圆角 / 高度 / 边框层级）
                     Rectangle {
-                        Layout.preferredWidth: 78
-                        Layout.preferredHeight: 36
-                        radius: 8
+                        Layout.preferredWidth: 64
+                        Layout.preferredHeight: 28
+                        radius: Theme.radiusControl
                         color: focusBtnMouse.containsMouse || window.focusMode
                                ? Theme.accentSoft
                                : Theme.input
                         border.width: 1
                         border.color: window.focusMode
                                       ? Qt.rgba(Theme.magenta.r, Theme.magenta.g, Theme.magenta.b, 0.45)
-                                      : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22)
+                                      : Theme.border
 
                         Text {
                             anchors.centerIn: parent
                             text: window.focusMode ? "专注中" : "专注"
-                            color: window.focusMode ? Theme.magenta : Theme.cyan
+                            color: window.focusMode ? Theme.magenta : Theme.accent
                             font.pixelSize: 11
                         }
 
@@ -1212,6 +1168,7 @@ MouseArea {
                             id: focusBtnMouse
                             anchors.fill: parent
                             hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (window.focusMode)
                                     window.toggleFocusPause()
@@ -1293,7 +1250,7 @@ MouseArea {
                     StageBar {
                         id: stageBar
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 46
+                        Layout.preferredHeight: 40
                         stages: window.stageList
                         activeStage: window.stageFilter
                         syncText: window.roadmapSyncText
@@ -1302,12 +1259,12 @@ MouseArea {
                     }
 
                     Rectangle {
-                        Layout.preferredWidth: 340
-                        height: 34
-                        radius: 8
+                        Layout.preferredWidth: 300
+                        height: 28
+                        radius: Theme.radiusControl
                         color: Theme.input
                         border.width: 1
-                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.18)
+                        border.color: Theme.border
 
                         TextField {
                             id: searchField
@@ -1326,19 +1283,21 @@ MouseArea {
                 }
 
                 // 统计横幅：热力图 + 连续天数 + 周吞吐（数据来自 taskStats，只读任务表）
+                // R11-01：高度 84 → 72（热力格 8 → 7 px，横幅内边距 9 → 6），
+                // 顶区总高度由此再省 12 px 给看板。
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.leftMargin: 20
                     Layout.rightMargin: 20
-                    Layout.preferredHeight: 84
-                    radius: 12
+                    Layout.preferredHeight: 72
+                    radius: Theme.radiusPanel
                     color: Theme.panel
                     border.width: 1
-                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.12)
+                    border.color: Theme.hairline
 
                     ActivityHeatmap {
                         anchors.fill: parent
-                        anchors.margins: 9
+                        anchors.margins: 6
                         cells: taskStats.heatmap
                         weekly: taskStats.weekly
                         streak: taskStats.streakDays

@@ -3,6 +3,12 @@ import QtQuick.Layouts
 
 // 完成度可视化：13 周热力图 + 周吞吐迷你曲线 + 连续天数。
 // 数据由 C++ taskStats 提供，组件本身不查库。
+//
+// R11-03 的三处改动：
+//   1. 热力网格由 91 个 Rectangle 改为 1 个 Canvas —— 首帧少构造 90 个 item；
+//   2. 色阶跟随主题 accent（原先写死青色，换主题时热力图不变色）；
+//   3. 无任何完成记录时给出空态文案（原先是一片 5% 白格，看不出「还没数据」），
+//      格子可悬浮看当天完成数。
 Item {
     id: heatmapRoot
 
@@ -12,11 +18,22 @@ Item {
     property int totalDone: 0
     property int bestDay: 0
 
-    implicitHeight: 66
+    readonly property int weeks: 13
+    readonly property int days: 7
+    readonly property int cellSize: 7
+    readonly property int cellGap: 2
+    readonly property real gridWidth: weeks * cellSize + (weeks - 1) * cellGap
+    readonly property real gridHeight: days * cellSize + (days - 1) * cellGap
+    readonly property bool hasData: totalDone > 0
+
+    // 当前悬浮的格子下标（-1 = 没悬停）
+    property int activeIndex: -1
+
+    implicitHeight: gridHeight
 
     RowLayout {
         anchors.fill: parent
-        spacing: 14
+        spacing: 12
 
         ColumnLayout {
             spacing: 1
@@ -29,61 +46,163 @@ Item {
             }
 
             Text {
-                text: "近 13 周 · 共 " + heatmapRoot.totalDone + " 次完成"
+                text: "近 " + heatmapRoot.weeks + " 周 · 共 " + heatmapRoot.totalDone + " 次完成"
                 color: Theme.muted
                 font.pixelSize: 9
             }
 
             Text {
-                text: heatmapRoot.bestDay > 0 ? "单日峰值 " + heatmapRoot.bestDay : "暂无记录"
+                visible: heatmapRoot.bestDay > 0
+                text: "单日峰值 " + heatmapRoot.bestDay
                 color: Theme.muted
                 font.pixelSize: 9
             }
         }
 
+        // 热力网格：一次 Canvas 画完 13×7 = 91 个格子
         Item {
-            id: grid
-            Layout.preferredWidth: 13 * 8 + 12 * 2
-            Layout.preferredHeight: 7 * 8 + 6 * 2
-            Row {
-                anchors.centerIn: parent
-                spacing: 2
+            Layout.preferredWidth: heatmapRoot.gridWidth
+            Layout.preferredHeight: heatmapRoot.gridHeight
 
-                Repeater {
-                    model: 13
+            Canvas {
+                id: gridCanvas
+                width: heatmapRoot.gridWidth
+                height: heatmapRoot.gridHeight
+                renderStrategy: Canvas.Cooperative
 
-                    delegate: Column {
-                        id: weekCol
-                        required property int index
-                        spacing: 2
+                onPaint: {
+                    const ctx = getContext("2d")
+                    ctx.clearRect(0, 0, width, height)
 
-                        Repeater {
-                            model: 7
+                    const data = heatmapRoot.cells || []
+                    const accent = Theme.accent
+                    // 没有数据时整片压暗：格子还在，但一眼看得出「还没点亮」
+                    const dim = heatmapRoot.hasData ? 1.0 : 0.30
+                    const size = heatmapRoot.cellSize
+                    const gap = heatmapRoot.cellGap
 
-                            delegate: Rectangle {
-                                required property int index
-                                width: 8
-                                height: 8
-                                radius: 2
+                    function roundRectPath(c, x, y, w, h, r) {
+                        c.beginPath()
+                        c.moveTo(x + r, y)
+                        c.lineTo(x + w - r, y)
+                        c.arcTo(x + w, y, x + w, y + r, r)
+                        c.lineTo(x + w, y + h - r)
+                        c.arcTo(x + w, y + h, x + w - r, y + h, r)
+                        c.lineTo(x + r, y + h)
+                        c.arcTo(x, y + h, x, y + h - r, r)
+                        c.lineTo(x, y + r)
+                        c.arcTo(x, y, x + r, y, r)
+                        c.closePath()
+                    }
 
-                                property var cell: heatmapRoot.cells[weekCol.index * 7 + index]
+                    for (let i = 0; i < data.length; ++i) {
+                        const cell = data[i]
+                        if (!cell || cell.level < 0)
+                            continue // 未来日期：不画
 
-                                color: {
-                                    if (!cell || cell.level < 0)
-                                        return "transparent"
-                                    switch (cell.level) {
-                                    case 0: return Qt.rgba(1, 1, 1, 0.05)
-                                    case 1: return Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.28)
-                                    case 2: return Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.48)
-                                    case 3: return Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.72)
-                                    default: return Theme.cyan
-                                    }
-                                }
+                        const week = Math.floor(i / heatmapRoot.days)
+                        const dow = i % heatmapRoot.days
+                        const x = week * (size + gap)
+                        const y = dow * (size + gap)
 
-                                border.width: cell && cell.level === 4 ? 1 : 0
-                                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.35)
-                            }
+                        let fill
+                        switch (cell.level) {
+                        case 0:
+                            fill = Qt.rgba(1, 1, 1, 0.05 * dim)
+                            break
+                        case 1:
+                            fill = Qt.rgba(accent.r, accent.g, accent.b, 0.28 * dim)
+                            break
+                        case 2:
+                            fill = Qt.rgba(accent.r, accent.g, accent.b, 0.48 * dim)
+                            break
+                        case 3:
+                            fill = Qt.rgba(accent.r, accent.g, accent.b, 0.72 * dim)
+                            break
+                        default:
+                            fill = Qt.rgba(accent.r, accent.g, accent.b, dim)
+                            break
                         }
+
+                        roundRectPath(ctx, x, y, size, size, 2)
+                        ctx.fillStyle = fill
+                        ctx.fill()
+
+                        if (cell.level === 4) {
+                            ctx.strokeStyle = Qt.rgba(accent.r, accent.g, accent.b, 0.35 * dim)
+                            ctx.lineWidth = 1
+                            ctx.stroke()
+                        }
+                    }
+                }
+            }
+
+            // 数据换主题色时重绘一次（色阶跟主题走）
+            Connections {
+                target: Theme
+                function onAccentChanged() {
+                    gridCanvas.requestPaint()
+                }
+            }
+
+            // 悬浮提示：当天日期 + 完成次数
+            MouseArea {
+                id: gridMouse
+                anchors.fill: parent
+                hoverEnabled: true
+
+                onPositionChanged: function(mouse) {
+                    const data = heatmapRoot.cells || []
+                    const size = heatmapRoot.cellSize
+                    const gap = heatmapRoot.cellGap
+                    const week = Math.floor(mouse.x / (size + gap))
+                    const dow = Math.floor(mouse.y / (size + gap))
+                    if (week < 0 || week >= heatmapRoot.weeks || dow < 0 || dow >= heatmapRoot.days) {
+                        heatmapRoot.activeIndex = -1
+                        return
+                    }
+                    heatmapRoot.activeIndex = week * heatmapRoot.days + dow
+                }
+
+                onExited: {
+                    heatmapRoot.activeIndex = -1
+                }
+            }
+
+            // 空态：没有任何完成记录时给出可读的提示，而不是一片空格子
+            Text {
+                anchors.centerIn: parent
+                visible: !heatmapRoot.hasData
+                text: "还没有完成记录 · 完成第一张卡即可点亮"
+                color: Theme.muted
+                font.pixelSize: 9
+            }
+
+            Rectangle {
+                id: gridTip
+                visible: heatmapRoot.activeIndex >= 0
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.top
+                anchors.bottomMargin: 2
+                width: gridTipText.implicitWidth + 12
+                height: 20
+                radius: 5
+                color: Theme.panelSolid
+                border.width: 1
+                border.color: Theme.border
+                z: 10
+
+                Text {
+                    id: gridTipText
+                    anchors.centerIn: parent
+                    color: Theme.text
+                    font.pixelSize: 9
+                    text: {
+                        const data = heatmapRoot.cells || []
+                        const cell = data[heatmapRoot.activeIndex]
+                        if (!cell)
+                            return ""
+                        return cell.date + " · 完成 " + cell.count + " 次"
                     }
                 }
             }
@@ -94,7 +213,7 @@ Item {
         Rectangle {
             Layout.preferredWidth: 1
             Layout.preferredHeight: 42
-            color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.12)
+            color: Theme.hairline
         }
 
         ColumnLayout {
@@ -172,15 +291,15 @@ Item {
                             ctx.lineTo(x, y)
                     }
                     ctx.lineWidth = 1.6
-                    ctx.strokeStyle = Theme.cyan
+                    ctx.strokeStyle = Theme.accent
                     ctx.stroke()
 
                     ctx.lineTo(padX + usableW, height - padY)
                     ctx.lineTo(padX, height - padY)
                     ctx.closePath()
                     const grad = ctx.createLinearGradient(0, 0, 0, height)
-                    grad.addColorStop(0, Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.28))
-                    grad.addColorStop(1, Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.0))
+                    grad.addColorStop(0, Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.28))
+                    grad.addColorStop(1, Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.0))
                     ctx.fillStyle = grad
                     ctx.fill()
 
@@ -191,6 +310,14 @@ Item {
                         ctx.beginPath()
                         ctx.arc(x, y, 1.8, 0, Math.PI * 2)
                         ctx.fill()
+                    }
+                }
+
+                // 主题色变化时重绘（吞吐曲线跟随主题）
+                Connections {
+                    target: Theme
+                    function onAccentChanged() {
+                        throughput.requestPaint()
                     }
                 }
             }
@@ -212,7 +339,9 @@ Item {
                     let idx = Math.round((mouse.x - padX) / stepX)
                     idx = Math.max(0, Math.min(data.length - 1, idx))
                     activeIndex = idx
-                    tip.text = data[idx].label + " 起那周 · " + data[idx].count + " 次"
+                    // 赋给 tipText 而不是 tip：tip 是 Rectangle，没有 text 属性，
+                    // 赋过去会在日志里刷「Cannot assign to non-existent property "text"」
+                    tipText.text = data[idx].label + " 起那周 · " + data[idx].count + " 次"
                     tip.visible = true
                 }
 
@@ -233,7 +362,7 @@ Item {
                 radius: 4
                 color: Theme.panel
                 border.width: 1
-                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.25)
+                border.color: Theme.border
                 z: 10
 
                 Text {

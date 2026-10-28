@@ -1949,8 +1949,12 @@
             "scope": [
                 "qml/components/CardDetailPanel.qml",
                 "qml/Main.qml",
-                "qml/components/TaskCard.qml",
-                "src/TaskModel.*",
+                "src/CardDetail.h",
+                "src/CardDetail.cpp",
+                "src/BoardColumns.h",
+                "src/BoardColumns.cpp",
+                "src/main.cpp",
+                "CMakeLists.txt",
                 "tests/tst_carddetail.cpp",
                 "tests/CMakeLists.txt"
             ],

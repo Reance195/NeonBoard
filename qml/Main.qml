@@ -31,6 +31,19 @@ ApplicationWindow {
             taskEditorLoader.item.openFor(id)
     }
 
+    // 卡片详情抽屉（R8-03）：看明白一张卡（Markdown 备注 + 全部元信息），并就地改
+    // 标题 / 优先级 / 标签 / 到期 / 提醒 / 重复；执行定义仍在编辑器里
+    function openCardDetail(id) {
+        if (!id || id.length === 0)
+            return
+        closeAllPanels()
+        cardDetailLoader.active = true
+        if (cardDetailLoader.item) {
+            cardDetailLoader.item.hostWindow = window
+            cardDetailLoader.item.openFor(id)
+        }
+    }
+
     // 统一新建入口：顶部按钮 / Ctrl+N / 命令面板 / 托盘共用同一弹窗
     function openTaskComposer(status, draftTitle) {
         show()
@@ -168,6 +181,9 @@ ApplicationWindow {
         projectMapLoader.active = false
         window.previewOpen = false
         execQueueDialog.close()
+        // 详情抽屉（R8-03）：与其它浮层同一套互斥纪律
+        if (cardDetailLoader.item)
+            cardDetailLoader.item.close()
     }
 
     function openSettings() {
@@ -391,6 +407,12 @@ ApplicationWindow {
                         category: "任务",
                         subtitle: window.statusLabel(t.status),
                         run: function() { window.jumpToTask(t.id) }
+                    })
+                    cmds.push({
+                        title: "卡片详情：" + title,
+                        category: "任务",
+                        subtitle: "看备注与全部元信息（Markdown 渲染）",
+                        run: function() { window.openCardDetail(t.id) }
                     })
                 })(tasks[j])
             }
@@ -1342,7 +1364,9 @@ MouseArea {
                             dragSpace: root
                             dropTarget: window.dragOverColumnId === boardColumnId
                             onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
-                            onEditRequested: function(taskId) { window.openTaskEditor(taskId) }
+                            // 双击 / 回车 / 无障碍「按下」都走详情抽屉（R8-03）：
+                            // 先让人看清楚再决定改什么，编辑器从抽屉里一键进入
+                            onEditRequested: function(taskId) { window.openCardDetail(taskId) }
                             onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
                             onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
                             onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
@@ -2605,6 +2629,17 @@ MouseArea {
         id: taskEditorLoader
         active: false
         sourceComponent: taskEditorComponent
+    }
+
+    Loader {
+        id: cardDetailLoader
+        active: false
+        sourceComponent: Component {
+            CardDetailPanel {
+                // 详情抽屉里的「打开编辑器」：先关抽屉再开编辑器，避免两个浮层并存
+                onOpenEditor: function(taskId) { window.openTaskEditor(taskId) }
+            }
+        }
     }
 
     // 执行页签的工作目录选择：放在根层，避免嵌套弹窗时 parent window 解析问题

@@ -41,6 +41,7 @@ qt_add_executable(NeonBoard
     src/PluginHost.h src/PluginHost.cpp
     src/TaskModel.h src/TaskModel.cpp
     src/TaskUndo.h src/TaskUndo.cpp
+    src/CardDetail.h src/CardDetail.cpp
     src/TaskInputParser.h
     src/TaskInputParser.cpp
     src/DataPort.h
@@ -145,6 +146,7 @@ set_source_files_properties(qml/components/FocusBadge.qml PROPERTIES QT_RESOURCE
 set_source_files_properties(qml/components/WindowButtons.qml PROPERTIES QT_RESOURCE_ALIAS "WindowButtons.qml")
 set_source_files_properties(qml/components/OnboardingOverlay.qml PROPERTIES QT_RESOURCE_ALIAS "OnboardingOverlay.qml")
 set_source_files_properties(qml/components/ProjectMapPanel.qml PROPERTIES QT_RESOURCE_ALIAS "ProjectMapPanel.qml")
+set_source_files_properties(qml/components/CardDetailPanel.qml PROPERTIES QT_RESOURCE_ALIAS "CardDetailPanel.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -178,6 +180,7 @@ qt_add_qml_module(NeonBoard
         qml/components/WindowButtons.qml
         qml/components/OnboardingOverlay.qml
         qml/components/ProjectMapPanel.qml
+        qml/components/CardDetailPanel.qml
 )
 
 qt_add_resources(NeonBoard "icons"

@@ -37,6 +37,7 @@
 #include "TriageRunner.h"
 #include "LedgerImport.h"
 #include "TaskUndo.h"
+#include "CardDetail.h"
 #include "ReminderScheduler.h"
 #include "TrayController.h"
 #include "UiSettings.h"
@@ -258,6 +259,10 @@ int main(int argc, char *argv[])
     // 任务附加属性（提醒 / 重复）：侧表 task_extra，不动 task 表结构
     TaskExtra taskExtra(&database, &taskStore);
     taskUndo.setTaskExtra(&taskExtra);
+
+    // 卡片详情抽屉（R8-03）：补丁的脏检查与保存收口，避免「没改也写一次库」。
+    // 依赖顺序：要拿 taskExtra 写提醒 / 重复（侧表），所以只能排在这里而不是 TaskUndo 之后
+    CardDetail cardDetail(&taskStore, &taskExtra, &taskUndo);
 
     // 任务执行定义（目标 / 验收 / 边界 / 执行参数）：侧表 task_exec（M0）
     TaskExec taskExec(&database, &taskStore);
@@ -1646,6 +1651,7 @@ int main(int argc, char *argv[])
     projectMap.startWatching();
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);
     engine.rootContext()->setContextProperty(QStringLiteral("boardColumns"), &boardColumns);
+    engine.rootContext()->setContextProperty(QStringLiteral("cardDetail"), &cardDetail);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);
 engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);

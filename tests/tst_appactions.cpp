@@ -19,6 +19,7 @@ private slots:
     void isKnownRejectsGarbage();
     void targetForMapsToQmlMethods();
     void targetForPaletteCarriesEmptyQuery();
+    void targetForCardDetailCarriesTaskId();
     void frameRoundTrip_data();
     void frameRoundTrip();
     void frameRejectsForeignPayload();
@@ -51,6 +52,16 @@ void TestAppActions::fromArguments_data()
                                     << QStringLiteral("palette:周报");
     QTest::newRow("命令面板空查询") << QStringList{QStringLiteral("--palette")}
                                     << QStringLiteral("palette:");
+    // 卡片详情（R8-03）：带 id 的前缀动作，优先级高于后面的面板开关
+    QTest::newRow("卡片详情带 id") << QStringList{QStringLiteral("--card-detail"),
+                                             QStringLiteral("R8-03")}
+                                    << QStringLiteral("carddetail:R8-03");
+    QTest::newRow("卡片详情空 id") << QStringList{QStringLiteral("--card-detail")}
+                                    << QStringLiteral("carddetail:");
+    QTest::newRow("详情 id 不吞下一个开关") << QStringList{QStringLiteral("--card-detail"),
+                                            QStringLiteral("x"),
+                                            QStringLiteral("--settings")}
+                                        << QStringLiteral("carddetail:x");
     // 优先级写死成一条链：同时给多个开关时结果必须可预期
     QTest::newRow("newtask 优先于 settings") << QStringList{QStringLiteral("--settings"),
                                                         QStringLiteral("--newtask")}
@@ -95,6 +106,8 @@ void TestAppActions::isKnownRejectsGarbage()
     QVERIFY(AppActions::isKnown(QStringLiteral("noop")));
     QVERIFY(AppActions::isKnown(QStringLiteral("palette:")));
     QVERIFY(AppActions::isKnown(QStringLiteral("palette:任意查询")));
+    QVERIFY(AppActions::isKnown(QStringLiteral("carddetail:")));
+    QVERIFY(AppActions::isKnown(QStringLiteral("carddetail:R8-03")));
 
     // IPC 收端白名单：本地管道名可猜，不能让对端指定任意 QML 方法名
     QVERIFY(!AppActions::isKnown(QString()));
@@ -136,6 +149,20 @@ void TestAppActions::targetForPaletteCarriesEmptyQuery()
     // 空查询也要传参：CommandPalette.openPalette(query) 没有默认值，
     // 无参调用会拿到 undefined 而不是空串
     QVERIFY(palette.hasArgument);
+}
+
+void TestAppActions::targetForCardDetailCarriesTaskId()
+{
+    const AppActions::Target detail = AppActions::targetFor(QStringLiteral("carddetail:R8-03"));
+    QCOMPARE(detail.method, QStringLiteral("openCardDetail"));
+    QCOMPARE(detail.argument, QStringLiteral("R8-03"));
+    QVERIFY(detail.hasArgument);
+
+    // id 缺失时也要传空参：让 openCardDetail 自己判断，而不是把动作退化成「只亮窗口」
+    const AppActions::Target empty = AppActions::targetFor(QStringLiteral("carddetail:"));
+    QCOMPARE(empty.method, QStringLiteral("openCardDetail"));
+    QCOMPARE(empty.argument, QString());
+    QVERIFY(empty.hasArgument);
 }
 
 void TestAppActions::frameRoundTrip_data()

@@ -303,6 +303,17 @@ QString BoardColumns::columnStatusOf(const QString &columnId) const
     return {};
 }
 
+QString BoardColumns::titleOf(const QString &columnId) const
+{
+    if (columnId.isEmpty())
+        return {};
+    for (const Column &column : m_columns) {
+        if (column.id == columnId)
+            return column.title;
+    }
+    return {};
+}
+
 int BoardColumns::countForStatus(const QString &status) const
 {
     int total = 0;

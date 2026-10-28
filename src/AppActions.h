@@ -30,11 +30,15 @@ inline constexpr auto kMap = "map";
 inline constexpr auto kNoop = "noop";
 // 前缀形式，查询串跟在冒号后：palette:<query>
 inline constexpr auto kPalettePrefix = "palette:";
+// 卡片详情抽屉（R8-03）：带卡片 id 的前缀形式，carddetail:<taskId>。
+// 单独一个 id 开关也要走这条既有的「前缀动作」路子，而不是新开一条分支 ——
+// 命令行、二次启动、托盘菜单最后是同一份 Target，行为不会分叉。
+inline constexpr auto kCardDetailPrefix = "carddetail:";
 
 // 冷启动参数 → 动作。
 // 多个面板开关同时给时按固定优先级取第一个：
-// palette > newtask > settings > plugins > appearance > map > library，都没有则 show。
-// 优先级写死成一条链，是为了「同一组参数永远得到同一个动作」。
+// palette > carddetail > newtask > settings > plugins > appearance > map > library，
+// 都没有则 show。优先级写死成一条链，是为了「同一组参数永远得到同一个动作」。
 QString fromArguments(const QStringList &arguments);
 
 // 是否为本模块认识的动作（含 palette:<query>）。

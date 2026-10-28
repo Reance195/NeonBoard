@@ -74,6 +74,9 @@ public:
     // 某状态还剩几列：用来判断「删除」是否可用（最后一列不许删）
     Q_INVOKABLE int columnCountForStatus(const QString &status) const;
     Q_INVOKABLE QString columnStatusOf(const QString &columnId) const;
+    // 卡片详情（R8-03）用：按列 id 取列标题，取不到给空串。
+    // 界面不该为此去猜 QAbstractListModel 的 role 编号，读法收在这里。
+    Q_INVOKABLE QString titleOf(const QString &columnId) const;
 
     QString lastError() const { return m_lastError; }
 

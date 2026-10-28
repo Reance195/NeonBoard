@@ -115,6 +115,22 @@ neonboard_add_test(tst_boardcolumns
 )
 target_link_libraries(tst_boardcolumns PRIVATE Qt6::Sql)
 
+# R8-03：卡片详情抽屉的后端契约 —— 补丁的脏检查 / 「没改动不写库」/ 只写变化字段 /
+# 侧表提醒与重复 / 空标题整单拒绝 / 到期与提醒按界面粒度比较。
+# 用 sqlite 临时库跑真实读写：写没写库要看 TaskModel 副本与 updated_at，mock 会把它藏起来。
+neonboard_add_test(tst_carddetail
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskUndo.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskExtra.cpp
+    ${CMAKE_SOURCE_DIR}/src/CardDetail.cpp
+)
+target_link_libraries(tst_carddetail PRIVATE Qt6::Sql)
+
 # R4-07：首启动引导的持久化与「该不该弹」判定。
 # QSettings 的 UserScope 被指到临时目录，不碰开发机真实设置。
 neonboard_add_test(tst_uisettings

@@ -38,6 +38,18 @@ QString fromArguments(const QStringList &arguments)
         return QString::fromLatin1(kPalettePrefix) + query;
     }
 
+    // 卡片详情（R8-03）：--card-detail <taskId>。id 同样可能省略（空串），
+    // 这时也照样返回前缀动作，让界面拿到空 id 后自己什么都不做。
+    const int cardDetailIndex = arguments.indexOf(flag("--card-detail"));
+    if (cardDetailIndex >= 0) {
+        QString taskId;
+        if (cardDetailIndex + 1 < arguments.size()
+            && !arguments.at(cardDetailIndex + 1).startsWith(QLatin1String("--"))) {
+            taskId = arguments.at(cardDetailIndex + 1);
+        }
+        return QString::fromLatin1(kCardDetailPrefix) + taskId;
+    }
+
     if (hasFlag(arguments, "--newtask"))
         return QString::fromLatin1(kNewTask);
     if (hasFlag(arguments, "--settings"))
@@ -59,6 +71,8 @@ bool isKnown(const QString &action)
     if (action.isEmpty())
         return false;
     if (action.startsWith(QLatin1String(kPalettePrefix)))
+        return true;
+    if (action.startsWith(QLatin1String(kCardDetailPrefix)))
         return true;
     return action == QLatin1String(kShow) || action == QLatin1String(kNewTask)
         || action == QLatin1String(kSettings) || action == QLatin1String(kPlugins)
@@ -83,6 +97,13 @@ Target targetFor(const QString &action)
         return {QStringLiteral("openProjectMap"), QString(), false};
     if (action == QLatin1String(kLibrary))
         return {QStringLiteral("openPluginLibrary"), QString(), false};
+
+    const QLatin1String cardDetailPrefix(kCardDetailPrefix);
+    if (action.startsWith(cardDetailPrefix)) {
+        // id 为空也照样调用：openCardDetail 自己会空 id 直接返回，
+        // 这里不替它判——「isKnown 认不认」与「值合不合法」是两件事。
+        return {QStringLiteral("openCardDetail"), action.mid(cardDetailPrefix.size()), true};
+    }
 
     const QLatin1String palettePrefix(kPalettePrefix);
     if (action.startsWith(palettePrefix)) {

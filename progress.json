@@ -2093,8 +2093,26 @@
             ],
             "title": "DX 测试可启动性：ctest 自带 Qt DLL 路径，避免硬错误弹窗挂死",
             "updatedAt": 1793123355
+        },
+        {
+            "code": "DX-07",
+            "completedAt": 1793207091,
+            "createdAt": 1793207091,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "d986173c-1388-4a4b-97c0-b137636e2ccd",
+            "note": "起因（2026-10-29，维护者明确授权「B：开卡制度化 + 同时补台账」）：DX-03 / DX-05 / DX-06 已按 #<短号>=done 交付并合入 main，但台账 baseline 仍停在 todo；R5-06 甚至没有 baseline 条目，--baseline-check 报「漂移 3 项 / 缺项 1 项」。baseline=<短号> done 是「拒绝重新领用」的唯一门（条款 6），靠人批量结就一定漂；每漂一次，已交付的卡就能被再领一遍重做（pitfalls 1.14 踩过），7.1 一直记作待拍板。本轮同时暴露并修掉 DX-06 的死锁：位置校验要求「代登记只能在锚点区」，而锚点区停在 main、main 禁止直接提交、§7.1 又禁止 agent 在锚点区切分支 —— 三条叠加后代登记没有任何合法执行位置。改为「位置不是凭证、内容才是」。\n\n交付（2026-10-29，agent-dx7 / chore/close-card-automation）：① derive_board_status.py 新增 --close-cards（纯函数 close_cards + 自测 6 例）与 --selftest；互斥组改为非必填以允许单独自测，缺模式时显式报错保持原口径。② git-done.ps1 合并收尾新增结卡步骤：调 --close-cards，有改动则提交 chore(board): 结卡 <短号> 并快进补推，失败只回滚不阻断合并。③ task_gate.py 解除 DX-06 死锁：cmd_ledger 不再按位置判死（pre-commit 拿不到提交信息），只提前告知；cmd_message 去掉位置限定，任何检出凭完整审计行即可代登记。④ AGENTS.md 条款 6 改写为「合入即结」+「判定凭内容而非位置」；pitfalls 7.1 改写为已解决并新增 1.18（代登记位置死锁）；iteration-roadmap 补 DX-07 段与 DX 行状态。⑤ CI 新增「结卡自测（DX-07）」一步，原 baseline 漂移步骤降级为回归探针。实测：批量结清 DX-03/DX-05/DX-06 三项漂移 + R5-06 缺项后 --baseline-check 归零、复跑幂等、diff 只动 baseline；DX-07 自身经「开发区代登记（审计行通过）→ 领用 → 实现 → 合并」全链路走通。",
+            "orderKey": 77824,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 结卡权自动化：合入 #短号=done 时同步台账 baseline，漂移不再靠人批量结",
+            "updatedAt": 1793207091
         }
     ],
-    "updated": "2026-10-28T16:22:31",
+    "updated": "2026-10-28T17:04:51",
     "version": 3
 }

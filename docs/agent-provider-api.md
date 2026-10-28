@@ -1,9 +1,11 @@
-# Agent Provider 扩展点设计（待立卡）
+# Agent Provider 扩展点设计（R9-01 已落地）
 
-> 状态：**设计稿，未实现**。本文只定义协议与迁移路径，不改任何代码。
-> 落地需要先立卡（动 `src/` 与 `plugins/`）。
+> 状态：**R9-01 已实现**（宿主侧扩展点 + 三层合并 + 老库迁移）。
+> R9-02 ~ R9-05 是四个 `plugins/agent-*` 插件，声明数据已备在
+> `scripts/agent-adapters/<agent>/agent.json`。
 >
-> 配套的站外适配器已交付，见 [agent-adapters.md](agent-adapters.md)。
+> 字段与合并语义的权威描述在 [plugin-api.md](plugin-api.md#agent-profileapiversion-2r9-01)；
+> 站外适配器见 [agent-adapters.md](agent-adapters.md)。
 
 ## 一、为什么要这个扩展点
 
@@ -64,7 +66,7 @@ QVariantList AgentProfile::builtinProfiles()   // opencode / claude / cursor-age
 | `readonlyArgs` | 否 | 只读模式追加参数；空数组表示"该 agent 无只读开关" |
 | `output` | 否 | `stream-json` / `json` / `text`，缺省 `text` |
 | `env` | 否 | 子进程附加环境变量 |
-| `stdin` | 否 | `"null"` 表示必须把标准输入接到 NUL（codex 需要） |
+| `stdin` | 否 | `"null"` 表示必须把标准输入接到 NUL（codex 需要）；**R9-05 才实现，当前声明会被忽略** |
 | `defaultTimeoutMin` | 否 | 1–480，缺省 30 |
 
 新增权限 `exec.agentProfiles`（**中风险**：声明者决定拉起哪个进程、传什么参数）。
@@ -113,14 +115,16 @@ QVariantList AgentProfile::builtinProfiles()   // opencode / claude / cursor-age
 | 侧栏槽位 | `sidebar.qml` | 一行徽标：可用 / 不可用 / 未安装适配器 |
 | 卡片槽位 | `card.qml` | 卡片上显示"本卡派给哪个 agent" |
 
-## 六、未定的两个问题（不要在实现时临场决定）
+## 六、两个待定问题（R9-01 的处置）
 
 1. **适配器安装按钮**：面板想放"一键装适配器"，但 QML 起不了进程，
-   而写 `~/.claude/settings.json` 属于越权。倾向方案：宿主只显示状态，
+   而写 `~/.claude/settings.json` 属于越权。**仍未定**，倾向：宿主只显示状态，
    安装动作交给 `scripts/install-agent-adapters.ps1`，面板给出可复制的命令。
 2. **`stdin: "null"` 与 `promptMode: "stdin"` 的冲突**：两者都要改子进程标准输入。
-   codex 是前者（连 NUL 防卡住），某些 agent 是后者（写 prompt）。
-   需要一个明确的优先级，倾向：`stdin: "null"` 只在 `promptMode != "stdin"` 时生效。
+   **R9-01 没有实现 `stdin` 字段**（`normalizeProfile` 会丢弃它），因为它要动 `TaskRunner`
+   的子进程准备逻辑，属于 R9-05 的范围。届时优先级定为：`stdin: "null"` 只在
+   `promptMode != "stdin"` 时生效。在此之前 R9-05 的 `stdin` 声明不会报错，但也**不会生效**——
+   所以那张卡的验收必须包含"真的跑通一轮 codex exec"。
 
 ## 七、建议分卡
 
@@ -129,7 +133,7 @@ QVariantList AgentProfile::builtinProfiles()   // opencode / claude / cursor-age
 
 | 卡 | 范围 | 验收 |
 | --- | --- | --- |
-| R9-01 | `AgentProfile` 支持插件声明 + 三层合并 + 老 meta 迁移 | `tst_agentprofile` 覆盖合并优先级与迁移；老库打开行为不变 |
+| R9-01 ✅ | `AgentProfile` 支持插件声明 + 三层合并 + 老 meta 迁移 | 已实现：`tst_agentprofile` 17 用例（含合并优先级 / 墓碑 / 迁移 / availability），`--plugin-report` 新增 `agentProfiles` 段 |
 | R9-02 | `plugins/agent-claude` | `--plugin-report` 能列出 claude profile；`isAvailable` 在本机为 true |
 | R9-03 | `plugins/agent-opencode` | 同上 |
 | R9-04 | `plugins/agent-cursor`（含绝对路径与不可用态展示） | 面板显示"已声明但 CLI 不在 PATH" |

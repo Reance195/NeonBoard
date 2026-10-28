@@ -188,6 +188,20 @@ void PluginLoader::scan()
             plugin[QStringLiteral("events")] = contributedEvents;
             plugin[QStringLiteral("commands")] = contributedCommands;
 
+            // R9-01：contributes.agentProfiles —— 插件声明一个可被派活的命令行 agent。
+            // 这里只做「原样搬运 + 记来源插件 id」，合法性校验在 AgentProfile::normalizeProfile：
+            // 判断 profile 是否合法的知识只有那一处，放两份必然漂移。
+            QVariantList contributedAgentProfiles;
+            for (const QJsonValue &value :
+                 contributes.value(QStringLiteral("agentProfiles")).toArray()) {
+                if (!value.isObject())
+                    continue;
+                QVariantMap entry = value.toObject().toVariantMap();
+                entry.insert(QStringLiteral("pluginId"), id);
+                contributedAgentProfiles.append(entry);
+            }
+            plugin[QStringLiteral("agentProfiles")] = contributedAgentProfiles;
+
             // 设置页：顶层 settings 或 contributes.settings，两者取先声明者
             QString settingsPath = object.value(QStringLiteral("settings")).toString().trimmed();
             if (settingsPath.isEmpty())

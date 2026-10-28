@@ -26,11 +26,15 @@
 
 | meta 键 | 内容 |
 | --- | --- |
-| `exec.agentProfiles` | 整份 profile 列表（JSON 数组）；键不存在 = 用内置，删键即恢复内置 |
+| `exec.agentProfileOverrides` | 用户层**增量**覆盖（JSON 对象 `id → profile`，`null` 为墓碑）；键不存在 = 完全跟随 L0 ∪ L1 |
 | `exec.enabled` | 执行器总开关，`"1"` 为开，**默认关** |
 | `exec.defaultAgent` | 默认 agent id（卡片未填 agent 时使用） |
 | `exec.trustedCwds` | cwd 白名单（JSON 数组），首次执行目录需在确认框勾选「信任本目录」 |
 
+- 生效列表是三层合并（R9-01）：内置 L0 < 插件 `contributes.agentProfiles`（L1）< 用户覆盖（L2）。
+  用户层只存差异，改回与下层一致即等于撤销覆盖。
+- 旧版 `exec.agentProfiles`（整份快照）在首次读取时**一次性迁移**成 overrides 并删除该键；
+  迁移只给内置 id 立墓碑——插件声明的 agent 在快照成形的年代还不存在，不能被当作「用户删过」。
 - 只写 `meta` 表，**不升 `user_version`、不动 `task` 表**。
 - 内置三条：`opencode` / `claude` / `cursor-agent`（见下表）。**codex 不内置**——
   参数面已实测（见下），但两次 `codex exec` 都没在 200 s / 420 s 内跑完一个回合，

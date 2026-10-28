@@ -603,10 +603,12 @@ R6/R7 让产品与众不同，用户每天摸到的却还是那张三年前就�
 
 **范围**（五张卡）
 
-- **R9-01 Agent Provider 扩展点**：manifest 新增 `contributes.agentProfiles`，字段完全复用现有
+- **R9-01 Agent Provider 扩展点** ✅（2026-10-29）：manifest 新增 `contributes.agentProfiles`，字段完全复用现有
   profile（**执行侧一处不改**）；`AgentProfile` 按「L0 内置 < L1 插件 < L2 用户覆盖」逐条合并。
-  用户层必须是增量覆盖 `exec.agentProfileOverrides`，**不能用现存的 `exec.agentProfiles` 整份快照** ——
-  那份一写就把插件后来声明的 agent 整个淹没。迁移不升 `user_version`、不动 `task` 表。
+  用户层是增量覆盖 `exec.agentProfileOverrides`（`null` 为墓碑），**不再用 `exec.agentProfiles` 整份快照** ——
+  那份一写就把插件后来声明的 agent 整个淹没。老快照首次读取时一次性迁移、删键，不升 `user_version`、不动 `task` 表。
+  新增 `isAvailable(id)` 与 `--plugin-report.agentProfiles`（`effective` 带 `source`/`available`，
+  `declared` 带 `authorized`）。`tst_agentprofile` 17 用例（三层合并 / 墓碑 / 迁移 / availability）。
 - **R9-02 agent-claude**：`--permission-mode plan` 是 CLI 原生只读（三档里最强的一档）。
 - **R9-03 agent-opencode**：无内置只读开关，用只读 agent 配置（`--agent plan`）兜底，设置页标注清楚。
 - **R9-04 agent-cursor**：绝对路径 + **不可用态展示**（`isAvailable`），不能等执行失败才暴露。

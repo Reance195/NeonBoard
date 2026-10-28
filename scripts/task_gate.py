@@ -278,14 +278,23 @@ def staged_files():
 
 
 def audit_problems(kind, scope, message, code_paths, definition_changes):
-    """锚点区代登记的审计判定（DX-06）。纯函数：不碰 git，便于自测与 CI 跑。
+    """台账任务定义变更的审计判定（DX-06 / DX-07）。纯函数：不碰 git，便于自测与 CI 跑。
 
     「代登记」= 这次提交改了台账的任务定义（新增/删除卡、改 id/title/stage、改 baseline）。
-    维护者被授权可以在锚点区做这件事，但必须留下可追溯凭证：
-      - 提交类型固定 chore(board)，不得混进 feat/fix/docs 等其它语义；
-      - body 必须有「授权：」与「批次：」两行（授权来源 + 批次）；
-      - 不得同时改动代码路径 —— 立卡与实现分开提交，否则事后分不清「哪条改动是被授权的定义、
-        哪条是实现」。
+    凭证有两类，来自两个不同的写入者：
+
+      A. 人工代登记（维护者在会话中授权）：
+         - 类型固定 chore(board)，不得混进 feat/fix/docs 等其它语义；
+         - body 必须有「授权：」与「批次：」两行（授权来源 + 批次）；
+         - 不得同时改动代码路径 —— 立卡与实现分开提交。
+
+      B. 脚本自动结卡（DX-07 的 git-done 收尾，只把 baseline 补成 done）：
+         它不是「谁授权加卡」，而是 git 事实的机械投影，**没有人可授权**。若也要求
+         「授权行」，收尾提交就会被自家闸门拦下 —— 实测正是这样（结卡：提交失败）。
+         所以给它一条显式通道：body 写明 `自动来源：` 即可，其余约束照旧
+         （仍必须 chore(board)、仍不得混代码）。
+         ⚠ 这条通道不发「加卡」权：自动结卡**只允许改 baseline**，一旦出现新增/删除卡片
+         或改 id/title/stage，仍按 A 类要求授权行。
     """
     if not definition_changes:
         return []
@@ -296,16 +305,23 @@ def audit_problems(kind, scope, message, code_paths, definition_changes):
             % (kind or "<空>", ("(%s)" % scope) if scope else "")
         )
     body = "\n".join((message or "").splitlines()[1:])
-    missing = [f for f in AUDIT_FIELDS if not re.search(
-        r"(?m)^\s*%s\S" % re.escape(f), body)]
-    if missing:
-        problems.append(
-            "提交 body 缺少审计行：%s（每行后要写出授权来源 / 批次号，事后可追溯）"
-            % "、".join(missing)
-        )
+
+    baseline_only = all(
+        line.startswith("改动 baseline ") for line in definition_changes
+    )
+    auto_close = bool(re.search(r"(?m)^\s*自动来源：\S", body)) and baseline_only
+
+    if not auto_close:
+        missing = [f for f in AUDIT_FIELDS if not re.search(
+            r"(?m)^\s*%s\S" % re.escape(f), body)]
+        if missing:
+            problems.append(
+                "提交 body 缺少审计行：%s（每行后要写出授权来源 / 批次号，事后可追溯）；"
+                "脚本自动结卡请改用「自动来源：」行" % "、".join(missing)
+            )
     if code_paths:
         shown = "、".join(code_paths[:5]) + ("…" if len(code_paths) > 5 else "")
-        problems.append("立卡提交不得同时改动代码路径：%s（请拆成独立提交）" % shown)
+        problems.append("立卡 / 结卡提交不得同时改动代码路径：%s（请拆成独立提交）" % shown)
     return problems
 
 
@@ -480,6 +496,28 @@ def cmd_selftest(args):
         False, "docs", "board",
         "docs(board): 把 DX-01 改回 todo",
         [], base, baseline_changed,
+    )
+
+    # ---- 自动结卡通道（DX-07）----
+    # git-done 收尾的结卡提交没有「谁授权」可写（它是 git 事实的机械投影），
+    # 若也硬要授权行，收尾会被自家闸门拦下（实测「结卡：提交失败」）。给它显式通道。
+    case(
+        "脚本自动结卡：chore(board) + 「自动来源：」行，只改 baseline → 放行",
+        True, "chore", "board",
+        "chore(board): 结卡 DX-01\n\n自动来源：git-done.ps1 合并收尾的 derive_board_status.py --close-cards。",
+        [], base, baseline_changed,
+    )
+    case(
+        "自动结卡通道**不扩权**：夹带新增卡片仍要授权行 → 拦截",
+        False, "chore", "board",
+        "chore(board): 结卡并顺手加一张\n\n自动来源：derive --close-cards",
+        [], base, new_card,
+    )
+    case(
+        "自动结卡仍不得混代码 → 拦截",
+        False, "chore", "board",
+        "chore(board): 结卡\n\n自动来源：derive --close-cards",
+        ["src/Database.cpp"], base, baseline_changed,
     )
 
     failures = []

@@ -30,6 +30,9 @@
 用法：
   python scripts/derive_board_status.py --check    校验快照与派生结果一致，不一致退出码 1
   python scripts/derive_board_status.py --write    把派生结果写回快照（仅在有实质变化时落盘）
+  python scripts/derive_board_status.py --baseline-check
+      只报「git 已交付但台账 baseline 仍非 done」与「cards 有卡但 baseline 无条目」，
+      只报不改、恒退 0（baseline 归维护者，agent 不得自行结卡）。
 """
 import argparse
 import json
@@ -213,6 +216,10 @@ def main():
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true", help="只校验，不写文件")
     mode.add_argument("--write", action="store_true", help="把派生结果写回快照")
+    mode.add_argument(
+        "--baseline-check", action="store_true",
+        help="只报台账 baseline 与 git 交付标记的漂移，不写文件、不阻断（baseline 归维护者）",
+    )
     parser.add_argument(
         "--main-ref", default=None,
         help="claims 失效判定用的主干引用（默认依次尝试 origin/main、main）",
@@ -245,6 +252,29 @@ def main():
         return 2
 
     derived, unknown, warnings = derive_status(root, set(cards.keys()))
+
+    if args.baseline_check:
+        # 「结项标记在 git 里、baseline 还在 todo」是防重复领用的门失效的唯一形态：
+        # baseline=<短号> done 才拒绝重新领用（AGENTS.md 条款 6），漂着就意味着任何人都能
+        # 把已交付的卡再领一遍。但 baseline 归维护者，本检查只报不改，且恒退 0。
+        drift = []
+        for code in sorted(cards):
+            if (derived.get(code) or "").lower() != "done":
+                continue
+            current = (baseline.get(code) or "todo").lower()
+            if current != "done":
+                drift.append((code, baseline.get(code) or "(无条目)"))
+        missing = [code for code in sorted(cards) if code not in baseline]
+        for code, current in drift:
+            print("[baseline] %s：git 历史里有 #%s=done，但 baseline 仍是 %s" % (code, code, current))
+        for code in missing:
+            print("[baseline] %s：cards 里有这张卡，baseline 却没有条目（领用门按 todo 处理）" % code)
+        print(
+            "[baseline] 漂移 %d 项 / 缺项 %d 项 —— baseline 归维护者，本检查只报不改（退出码 0）"
+            % (len(drift), len(missing))
+        )
+        return 0
+
     for code in sorted(warnings):
         print("[派生器] 提示：提交信息里的 #%s 不在看板台账中（可能是计划钩子用途，已忽略）" % code)
     problems = []

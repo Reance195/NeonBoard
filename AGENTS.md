@@ -150,6 +150,9 @@ git branch -d feature/<简述>
 
 2. 用 `scripts/agent-init.ps1 -Card <短号>` 开区，脚本会推 `refs/claims/<短号>` 完成领用；
    `baseline=<短号> done` 的卡已完成，**拒绝重新领用**。
+   > 这道重开门**只看 `origin/main` 那份台账**（`git show origin/main:docs/board-ledger.json`，`bd1bca7`）。
+   > 锚点/工作区副本与主线分叉时，本地 `baseline` 是旧的，按本地判会把已交付的卡当成可领再重做一遍；
+   > 取不到 `origin/main`（离线 / 无该引用）才退回工作区副本。
 3. 提交信息必须带 `#<短号>`：触及代码路径的提交，没有短号直接在 `commit-msg` 被拒。
 4. 推送 `main` 时逐个提交复核短号与 claim ref，手搓分支、手工 `merge --no-ff` 后直推同样绕不过。
 
@@ -157,6 +160,10 @@ git branch -d feature/<简述>
 改动全部落在 `docs/` `scripts/` `.githooks/` `.github/` 或 `*.md` 才算杂务，其余一律要有卡。
 唯一的规则实现是 `scripts/task_gate.py`（`scope` / `message` / `ledger` / `push` 四个子命令），
 钩子与 `git-done.ps1` 都调它，**不要在多处重复实现判定逻辑**。
+
+**baseline 漂移只报不改**：`scripts/derive_board_status.py --baseline-check` 对比 git 历史里的 `#短号=done`
+与台账 `baseline`，打印「漂移项 / 缺项」清单并**恒退出 0**；CI 有专门一步（只打警告）。
+`baseline` 归维护者，任何脚本与 agent 都不得由这个检查代改（代登记见上面的例外条款）。
 
 5. 卡片应声明 `acceptance`（可执行验收项）与 `scope`（允许改动的路径 glob），
    规范见 `docs/task-card.md`。`agent-init.ps1 -Card <短号>` 会把它们注入工作区的
@@ -257,6 +264,8 @@ AI 代理在本仓库干活时：
 > `progress.json` 是应用自动写回的快照，允许临时 `git stash` 后还原；**还原撞车时主线版本优先**
 > —— CI 每次回写都会动这份文件，本地快照必然冲突，此时工作区一律回退到主线版本（绝不留冲突标记，
 > 应用下次写回会把 `<<<<<<<` 打进快照），本地快照仍完整留在 stash 里并打印其提交号供取回。
+> **但若 `agent-workspace.json` 里 `root` 已被别的会话登记占用，只快进、不动 `progress.json`、不 stash**
+> ——快照交给占用者处理，避免把别人的登记踢出去（`03b4424`，坑见 `docs/pitfalls.md` 1.16）。
 > 除此之外 agent 仍不得动锚点区。
 > 不需要时可加 `-SkipAnchorSync`。
 
@@ -303,6 +312,8 @@ cd .worktrees/agent-c
 - **认领唯一入口**：所有认领必须且只能通过 `scripts/agent-init.ps1 -Card` 完成。**禁止手工 `git update-ref refs/claims/<短号>` 建本地占位来绕过 origin push** —— 早期部分认领这样做了，一度令 origin 无任何 `refs/claims/*`、服务端双领硬门事实上从未生效；现 `agent-init` 已强制非强推 `refs/claims/<短号>`（失败即 `exit 3`），闸门生效，origin 上只应存在**活动卡**的占位。本地 `refs/claims/*` 由 `git-done.ps1` / `task_gate.py` / `check_claim_refs.py` 执行 `git fetch origin '+refs/claims/*:refs/claims/*'` 从 origin 镜像回来，历史残留会被反复拉回，属孤儿占位，不得作为认领依据。
 - **fail-closed 必须联网**：`agent-init` 推 `refs/claims/<短号>` 到 origin 失败时 `sys.exit(3)` 硬阻（已实现）。agent 运行环境**必须具备 origin 写权限**；本地存在 `refs/claims/*` **不构成**有效认领，必须以 `git ls-remote origin refs/claims/<短号>` 服务端可达为准。离线 / 无写权限时认领直接失败，不得降级为「仅本地占位」。
 - **worktree 分支必须推 origin**：认领的 `fix/*` / `feature/*` 分支**必须推送到 origin** —— 不仅为 CI，更为 claim ref 指向的 commit object 在 origin 可达；否则 `ls-remote origin refs/claims/<短号>` 引用的提交在 origin 不可达，CI 领用闸门（`check_claim_refs.py`）无法校验。当前 `feature/onboarding`（R4-07）从未推 origin 即为一例。
+  `agent-init.ps1` 开区时会扫 `.worktrees/*`，把「有提交不在任何 origin 引用可达范围内」的工作区**列名警告**
+  （`03b4424`）——警告只负责让人看见，回收决定仍归人，不自动删（§7.10）。
 - **合并后必须释放占位（已实现）**：`git-done.ps1` 的 `Invoke-ClaimRefCleanup` 在推送成功后按两条判据释放：①占位指向的提交已是 `origin/main` 祖先；②台账 `claims` 中登记的分支本地与远端均已不存在（孤儿）。都不满足的活动卡一律保留。离线时只清本地，联网后下次运行补删 origin（`git push origin --delete refs/claims/<短号>`）。
 - **失效登记不再挡重新认领（已实现）**：历史缺口是「分支已合并删除、台账 `claims` 条目还留着」，这类残留曾把同一张卡的重新领用挡在防双领校验上（R4-02 踩过两次）。现 `agent-init` 在双领校验**之前**判定失效：登记分支本地 `refs/heads/*` 与 `refs/remotes/origin/*` 都不存在、且服务端 `refs/claims/<短号>` 已释放（`ls-remote --exit-code` 退出码 2），才算失效；远端不可达时保守视为仍被占用。失效项由本次领用提交顺带清理。
 - **本地孤儿 ref 清理**：任何「本地有 `refs/claims/<短号>` 但 `git ls-remote origin` 无对应 ref」的状态视为异常孤儿，应 `git update-ref -d` 删除本地项，并不得在本地保留为占位依据。
@@ -373,6 +384,11 @@ pwsh -File scripts/git-done.ps1 -Branch fix/stagebar-chip-overflow
 | `NEONBOARD_ROADMAP` | 路线图快照文件路径（默认从 exe 目录向上探测仓库根的 `progress.json`） |
 | `NEONBOARD_ROADMAP_AUTOWRITE` | 设为 `0` 关闭看板 → 快照的自动写回 |
 | `NEONBOARD_AGENT_ID` | agent 身份，供工作区占用登记与沙箱实例名使用 |
+| `NB_SESSION_ARTIFACT_DIR` | （非 `NEONBOARD_*`，应用不读）会话产物落点，`agent-init.ps1` 开区时建好并导出为 `<worktree>/.sandbox/artifacts/`（`03b4424`） |
+
+> **会话产物只往 `NB_SESSION_ARTIFACT_DIR` 写**：桌面工具的默认行为是写进**调用方 CWD**，
+> 一个未登记的未跟踪目录就足以把锚点快进同步长期卡住（`docs/pitfalls.md` 1.1 / 1.17）。
+> 第三方工具不认这个变量，发现一个产物目录就点名进 `.gitignore` 一条。
 
 **别手设变量，用统一入口**（它会同时设置以上变量并把沙箱落在当前 worktree 内）：
 

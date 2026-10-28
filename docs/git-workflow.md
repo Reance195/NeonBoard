@@ -152,7 +152,12 @@ cd .worktrees/agent-c
 不允许省略——多代理并行时「漏填」和「不需要」必须能区分开，否则会出现两人改同一张卡却都不占位。
 
 脚本基于 `origin/main` 建分支（**不能用 `main`**：`main` 已被锚点区检出，Git 不允许同一分支在两个 worktree 同时存在），
-并顺手建好 `.sandbox/` 沙箱目录与 `.agent-env.ps1`。
+并顺手建好 `.sandbox/`（含 `.sandbox/artifacts/`）与 `.agent-env.ps1`。
+
+开区时脚本会顺带做两件体检（只报不删，处置归人）：
+
+- **未推送成果**：列出「提交不在任何 `origin` 引用可达范围内」的 worktree（宪章 §7.2.1 要求认领分支必须推 origin）；
+- **闲置工作区**：超过 14 天无提交的工作区建议回收，但脚本不自动删（§7.10）。
 
 **领任务时带上 `-Card <路线图短号>`**（如 `-Card R3-01`）：开区即领用，无需再手工把卡拖到「进行中」——
 
@@ -184,6 +189,10 @@ pwsh -File scripts/dev-run.ps1 -Wait -AppArgs --smoke
 `NEONBOARD_ROADMAP_AUTOWRITE=0` / `NEONBOARD_AGENT_ID` 五个变量，
 数据库、插件、日志、`hooks.db`、路线图快照全部落在本 worktree 的 `.sandbox/` 里。
 
+> **会话产物（截图、导出、临时报告）写 `$env:NB_SESSION_ARTIFACT_DIR`**（`agent-init.ps1` 已建好并导出，
+> 指向 `.sandbox/artifacts/`）。别往仓库根或调用方 CWD 丢——一个未登记的未跟踪目录就足以卡住锚点快进
+> （`docs/pitfalls.md` 1.1 / 1.17）。
+
 ### 3. 占用登记（可选，防撞车）
 
 ```powershell
@@ -195,6 +204,9 @@ pwsh -File scripts/agent-workspace.ps1 -Action Release -Agent agent-c -Scope roo
 状态文件在 `<git-common-dir>/agent-workspace.json`（所有 worktree 共享），带文件锁；
 被占用时退出码为 `3`。
 
+`-Scope root` 的登记不只是个便条：`git-done.ps1` 的锚点快进会读它，**root 被别的会话占用时只快进、
+不动 `progress.json`、不 stash**，快照让给占用者处理（`docs/pitfalls.md` 1.16）。
+
 ### 4. 合并回 main（不必占用根目录）
 
 ```powershell
@@ -205,7 +217,21 @@ pwsh -File scripts/git-done.ps1 -Branch feature/xxx -RemoveWorktree
 后一个会被远端的 non-fast-forward 保护拒绝，重新同步后再合即可 —— 这就是串行化保证。
 
 合并前自动执行**领用闸门**：`refs/claims/<短号>` 必须存在并对应分支里的领用提交，否则拒绝合并。
-纯文档/杂务分支用 `-SkipClaimCheck` 显式跳过。分支 rebase 后领用提交被改写时，闸门按提交信息放行并提示。
+豁免只看 diff 路径，不看调用方怎么声明（`scripts/task_gate.py scope`）：改动全部落在 `docs/` `scripts/`
+`.githooks/` `.github/` 或 `*.md` 才算杂务；`-SkipClaimCheck` 已废弃，它不再能放行任何代码改动。
+分支 rebase 后领用提交被改写时，闸门按提交信息放行并提示。
+
+#### 合并推送之后的锚点快进
+
+`git-done.ps1` 推完 `main` 会把锚点区也跟上（`-SkipAnchorSync` 可关）。它**只允许快进**，
+失败原因只会是这几类，排查顺序照抄 `docs/pitfalls.md` 1.10：
+
+| 提示 | 含义 | 处置 |
+| --- | --- | --- |
+| 「锚点区有未提交改动（N 项）」并列出血缘文件 | 有工具的产物目录写进了锚点 CWD | 点名进 `.gitignore`（1.1）；agent 侧产物改投 `NB_SESSION_ARTIFACT_DIR` |
+| 「root 已被 xxx 登记占用，本次只快进、不动 progress.json」 | 别的会话按 §3 占了 root，快照让给它处理 | **不是故障**，别去抢；等占用者 Release（1.16） |
+| 「暂存失败 / 应用可能在运行」 | 主线实例正占着 `progress.json` | 关掉实例再重跑，或忽略（不影响远端合并） |
+| `Not possible to fast-forward` | 锚点 `main` 上有只在本地的提交（分叉） | **不要自行变基或改写历史**，见 `docs/pitfalls.md` 1.10 与 7.2，由维护者处置 |
 
 ### 5. 出包
 
@@ -229,6 +255,8 @@ feat(board): 支持列内精确插位 #R1-04=done
 - 短号查 `docs/board-ledger.json`；
 - **特性分支不要手工改 `progress.json`** —— 它是派生器 + CI 独占写的派生产物，合并到 `main` 后由 CI 自动回写；
 - 本地想先看派生结果：`python scripts/derive_board_status.py --check`（校验）/ `--write`（写回）；
+- **台账 baseline 漂移**另有一个只读口径：`--baseline-check` 对比 git 历史里的 `#短号=done` 与台账 `baseline`，
+  打印「漂移项 / 缺项」并恒退出 0，CI 里作为一步警告输出。`baseline` 归维护者，这个检查**只报不改**；
 - PR 上若快照与派生结果不一致，CI 会直接拦住合并。
 
 完整机制见 [docs/board-sync.md](docs/board-sync.md)。

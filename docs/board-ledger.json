@@ -916,13 +916,6 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {
-        "R6-09": {
-            "agent": "lead",
-            "branch": "feature/r6-09-ledgerimport",
-            "claimedAt": 1793134377,
-            "head": "f805b7227fb19081b111f7ef0fba12aa85057fa0"
-        }
-    },
+    "claims": {},
     "version": 1
 }

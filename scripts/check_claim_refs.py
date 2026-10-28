@@ -180,6 +180,14 @@ def main():
                         help="只跑一分支多卡判定的自测（不读仓库）")
     args = parser.parse_args()
 
+    # Windows 管道下 stdout 默认走 ANSI 代码页，打印 ✓ / ✗ 与中文直接 GBK 崩
+    # （本脚本的自测就因此让 CI 红过一轮）。与 task_gate.py / check_scope.py 同口径。
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     if args.selftest:
         return selftest()
 

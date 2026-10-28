@@ -1,0 +1,18 @@
+{
+  "id": "cursor-agent",
+  "displayName": "Cursor Agent",
+  "exe": "C:\\Users\\13706\\AppData\\Local\\cursor-agent\\cursor-agent.cmd",
+  "args": ["-p", "--output-format", "stream-json"],
+  "promptMode": "arg",
+  "readonlyArgs": ["--plan"],
+  "output": "stream-json",
+  "env": { "NO_COLOR": "1" },
+  "defaultTimeoutMin": 30,
+  "notes": [
+    "本机实测：cursor-agent 装了（v2026.10.19）但**不在 PATH 上**，必须写绝对路径，",
+    "  否则内置 profile 调不动（这是它此前「内置却不可用」的根因）",
+    "绝对路径是本机相关的，换机器要改；安装脚本会按实际探测结果重写这一项",
+    "只读走 --plan（等价 --mode=plan），是 CLI 原生只读",
+    "入站适配器：scripts/agent-adapters/cursor/neonboard-hook.ps1（~/.cursor/hooks.json）"
+  ]
+}

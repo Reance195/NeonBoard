@@ -2941,9 +2941,28 @@ MouseArea {
 
         property string taskId: ""
         property var summary: ({})
+        // R7-06 成本账：本卡累计运行耗时 + 执行次数
+        property var costTotalMs: 0
+        property int costRuns: 0
 
         function refresh() {
             summary = taskRuns.summaryOf(taskId, 30)
+            var cost = taskRuns.costSummary(taskId)
+            costTotalMs = cost ? (cost.totalCostMs || 0) : 0
+            costRuns = cost ? (cost.runs || 0) : 0
+        }
+
+        // ms → 「3 分 20 秒」/「45 秒」/「1 小时 5 分」
+        function humanCost(ms) {
+            if (ms <= 0)
+                return "—"
+            var s = Math.round(ms / 1000)
+            if (s < 60)
+                return s + " 秒"
+            var m = Math.floor(s / 60)
+            if (m < 60)
+                return s % 60 > 0 ? m + " 分 " + (s % 60) + " 秒" : m + " 分"
+            return Math.floor(m / 60) + " 小时 " + (m % 60) + " 分"
         }
 
         onOpened: refresh()
@@ -3036,6 +3055,23 @@ MouseArea {
                           + (execPanelDialog.summary.exitCode !== undefined
                              && execPanelDialog.summary.exitCode !== null
                              ? " · 退出码 " + execPanelDialog.summary.exitCode : "")
+                    color: Theme.text
+                    font.pixelSize: 11
+                }
+
+                // R7-06 成本账：本卡累计耗时（所有已结算 run 之和）
+                Text {
+                    text: "本卡累计"
+                    color: Theme.muted
+                    font.pixelSize: 11
+                    visible: execPanelDialog.costTotalMs > 0
+                }
+                Text {
+                    Layout.fillWidth: true
+                    visible: execPanelDialog.costTotalMs > 0
+                    text: execPanelDialog.humanCost(execPanelDialog.costTotalMs)
+                          + (execPanelDialog.costRuns > 0
+                             ? "（" + execPanelDialog.costRuns + " 次执行）" : "")
                     color: Theme.text
                     font.pixelSize: 11
                 }

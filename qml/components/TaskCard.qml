@@ -52,6 +52,28 @@ Rectangle {
     readonly property bool hasRunBadge: runStatus === "running" || runStatus === "queued"
                                         || runStatus === "passed" || runStatus === "blocked"
 
+    // R7-06 成本账：本卡累计运行耗时（所有已结算 run 的 cost_ms 之和）+ 执行次数。
+    // 数据来自 taskRuns.costSummary（纯聚合，不触发任何写库）。
+    readonly property var cost: {
+        var rev = taskRuns.revision   // 依赖：run 结束时重算
+        return taskRuns.costSummary(taskId)
+    }
+    readonly property var totalCostMs: cost ? (cost.totalCostMs || 0) : 0
+    readonly property int costRuns: cost ? (cost.runs || 0) : 0
+    // ms → "45s" / "3m20s" / "1h05m"，卡面紧凑展示
+    readonly property string costLabel: {
+        var ms = totalCostMs
+        if (ms <= 0)
+            return ""
+        var s = Math.round(ms / 1000)
+        if (s < 60)
+            return s + "s"
+        var m = Math.floor(s / 60)
+        if (m < 60)
+            return m + "m" + ("0" + (s % 60)).slice(-2) + "s"
+        return Math.floor(m / 60) + "h" + ("0" + (m % 60)).slice(-2) + "m"
+    }
+
     // 拖拽坐标基准（由外部注入主内容区域）
     property Item dragSpace: null
 
@@ -364,6 +386,15 @@ Rectangle {
                     visible: card.due.length > 0
                     text: card.due
                     color: card.overdue ? Theme.danger : Theme.muted
+                    font.pixelSize: 10
+                }
+
+                // 成本账（R7-06）：本卡累计运行耗时，有历史才显示
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: card.totalCostMs > 0
+                    text: "⏱ " + card.costLabel
+                    color: Theme.muted
                     font.pixelSize: 10
                 }
 

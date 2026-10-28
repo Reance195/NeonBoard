@@ -422,6 +422,47 @@ QVariantMap TaskRunStore::summaryOf(const QString &taskId, int logTailLines) con
     return out;
 }
 
+QVariantMap TaskRunStore::costSummary(const QString &taskId) const
+{
+    QVariantMap out;
+    out.insert(QStringLiteral("totalCostMs"), QVariant::fromValue<qint64>(0));
+    out.insert(QStringLiteral("runs"), 0);
+    if (!m_database || taskId.isEmpty())
+        return out;
+    const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    if (!db.isOpen())
+        return out;
+
+    // 只统计真跑完的 run（passed / blocked）：跳过与取消 cost_ms=0，不计入次数。
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "SELECT COALESCE(SUM(cost_ms), 0), COUNT(*) FROM task_run "
+        "WHERE task_id = ? AND status IN ('passed','blocked')"));
+    query.addBindValue(taskId);
+    if (!query.exec() || !query.next())
+        return out;
+    out.insert(QStringLiteral("totalCostMs"), query.value(0).toLongLong());
+    out.insert(QStringLiteral("runs"), query.value(1).toInt());
+    return out;
+}
+
+qint64 TaskRunStore::totalCostAll() const
+{
+    if (!m_database)
+        return 0;
+    const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    if (!db.isOpen())
+        return 0;
+    QSqlQuery query(db);
+    if (!query.exec(QStringLiteral(
+            "SELECT COALESCE(SUM(cost_ms), 0) FROM task_run "
+            "WHERE status IN ('passed','blocked')"))
+        || !query.next()) {
+        return 0;
+    }
+    return query.value(0).toLongLong();
+}
+
 int TaskRunStore::recoverOrphans(int staleSeconds)
 {
     const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());

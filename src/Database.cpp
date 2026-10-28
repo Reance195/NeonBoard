@@ -301,6 +301,37 @@ bool Database::open(QString *error, const QString &pathOverride)
         return false;
     }
 
+    // 项目维度（R10-01）：一张卡属于哪个项目。
+    // 起因是 R4-01 的事件桥不区分来源项目 —— 别的项目的卡会直接落进同一张 task 表，
+    // 看板上分不出来「这是哪个项目的事」。与其他侧表同一条纪律：独立表、
+    // 不往 task 表加列、不升 user_version，老版本程序开同一个库不受影响。
+    if (!exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS project ("
+            "  id TEXT PRIMARY KEY,"
+            "  name TEXT NOT NULL,"
+            "  color TEXT NOT NULL DEFAULT '',"
+            "  order_key INTEGER NOT NULL DEFAULT 0,"
+            "  created_at INTEGER NOT NULL DEFAULT 0,"
+            "  updated_at INTEGER NOT NULL DEFAULT 0"
+            ")"), error)) {
+        return false;
+    }
+    // 一卡一项目：task_id 做主键，改归属走 REPLACE 而不是追加，天然不留旧行。
+    // 未归属的卡不入表（查不到行即「未归属」），不给存量卡先铺一遍空值。
+    if (!exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS task_project ("
+            "  task_id TEXT PRIMARY KEY,"
+            "  project_id TEXT NOT NULL,"
+            "  created_at INTEGER NOT NULL DEFAULT 0"
+            ")"), error)) {
+        return false;
+    }
+    if (!exec(QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_task_project_project "
+            "ON task_project(project_id)"), error)) {
+        return false;
+    }
+
     if (m_recovered) {
         setMetaValue(QStringLiteral("db.recovered_at"),
                      QString::number(QDateTime::currentSecsSinceEpoch()));

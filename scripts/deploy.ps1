@@ -55,8 +55,18 @@ if (Test-Path -LiteralPath $dist) {
     Remove-Item -LiteralPath $dist -Recurse -Force
 }
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $build 'Release\NeonBoard.exe') -Destination $dist
-Copy-Item -LiteralPath (Join-Path $build 'Release\NeonBoardHost.exe') -Destination $dist
+# 构建产物位置：Visual Studio 多配置构建在 Release\，Ninja 单配置直接在 build\
+$exePath = Join-Path $build 'Release\NeonBoard.exe'
+if (-not (Test-Path -LiteralPath $exePath)) {
+    $exePath = Join-Path $build 'NeonBoard.exe'
+}
+$hostExePath = Join-Path $build 'Release\NeonBoardHost.exe'
+if (-not (Test-Path -LiteralPath $hostExePath)) {
+    $hostExePath = Join-Path $build 'NeonBoardHost.exe'
+}
+
+Copy-Item -LiteralPath $exePath -Destination $dist
+Copy-Item -LiteralPath $hostExePath -Destination $dist
 
 $previousErrorAction = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'

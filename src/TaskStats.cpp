@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QSqlDatabase>
 #include <QSqlQuery>
+#include <QTimer>
 
 namespace {
 constexpr int kHeatmapWeeks = 13;
@@ -28,10 +29,18 @@ int levelFor(int count)
 TaskStats::TaskStats(Database *database, TaskModel *model, QObject *parent)
     : QObject(parent)
     , m_database(database)
+    , m_model(model)
 {
     if (model)
         connect(model, &TaskModel::countsChanged, this, &TaskStats::refresh);
     refresh();
+
+    // 逾期数会随时间自己变：到点的任务就算逾期，哪怕任务集一个字没动。
+    // 只靠 countsChanged 刷新的话，这个数字会一直停在打开应用那一刻的值。
+    // 每分钟重算一次（一条 COUNT，代价可忽略）。
+    auto *timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, &TaskStats::refresh);
+    timer->start(60 * 1000);
 }
 
 void TaskStats::refresh()
@@ -39,6 +48,7 @@ void TaskStats::refresh()
     m_byDay.clear();
     m_totalDone = 0;
     m_bestDay = 0;
+    m_overdueCount = 0;
 
     if (m_database) {
         QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
@@ -55,6 +65,15 @@ void TaskStats::refresh()
                     ++m_totalDone;
                 }
             }
+
+            // 逾期数（R11-03）：未完成 + 设了到期时间 + 已经过期。
+            // 单独一条查询，不复用上面的游标 —— 上面那个还在迭代。
+            QSqlQuery overdue(db);
+            overdue.prepare(QStringLiteral(
+                "SELECT COUNT(*) FROM task WHERE status != 'done' AND due_at > 0 AND due_at < ?"));
+            overdue.addBindValue(QDateTime::currentSecsSinceEpoch());
+            if (overdue.exec() && overdue.next())
+                m_overdueCount = overdue.value(0).toInt();
         }
     }
 

@@ -301,6 +301,19 @@ neonboard_add_test(tst_ledgerimport
 )
 target_link_libraries(tst_ledgerimport PRIVATE Qt6::Sql)
 
+# R11-03：统计门面的逾期计数 —— 未完成 + 设了到期时间 + 已过期才计数。
+# 涉及 task 表，要真库（sqlite 临时库跑），与 tst_taskcolumns 同一方式。
+neonboard_add_test(tst_taskstats
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskStats.cpp
+)
+target_link_libraries(tst_taskstats PRIVATE Qt6::Sql)
+
 # 项目全景：路线图 §9 / 台账 / docs/project-map.json 的解析 + 证据实证。
 # 这组断言是「地图跟着仓库走」的护栏：表格结构、脚本路径、派生规则任一被改坏，
 # 这里先红，避免面板展示一张与仓库脱节的地图。

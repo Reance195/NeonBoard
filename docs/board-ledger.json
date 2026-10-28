@@ -1956,7 +1956,10 @@
                 "src/main.cpp",
                 "CMakeLists.txt",
                 "tests/tst_carddetail.cpp",
-                "tests/CMakeLists.txt"
+                "tests/CMakeLists.txt",
+                "src/AppActions.h",
+                "src/AppActions.cpp",
+                "tests/tst_appactions.cpp"
             ],
             "stage": "R8",
             "title": "R8 卡片详情抽屉：Markdown 笔记 + 就地编辑"

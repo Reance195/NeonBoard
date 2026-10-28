@@ -38,6 +38,14 @@ HARD_TYPES = ("feat", "fix", "refactor", "perf", "test")
 # 流程提交：建卡 / 领用 / 同步快照，由脚本产生，不带卡号也放行。
 PROCESS_SCOPES = ("claim", "roadmap")
 
+# 锚点区代登记审计（DX-06）：维护者可授权在锚点区加卡 / 改 baseline，但那条例外
+# 长期只校验「位置」（非 .worktrees 一律放行），内容没人管 —— 于是它退化成口头免责：
+# 谁都能站在锚点区以「已获授权」为名加任意卡，事后无从追溯（本仓库自查即五例）。
+# 现在把提交信息本身变成审计凭证：类型固定 chore(board)，body 必须有这两行。
+AUDIT_TYPE = "chore"
+AUDIT_SCOPE = "board"
+AUDIT_FIELDS = ("授权：", "批次：")
+
 # 任务号文法：<1-4 个字母><可选数字>-<数字>，外加历史遗留的纯 M 编号。
 # 覆盖三种真实形态：R4-10（字母+阶段数字）、DX-01 / OPS-02（纯字母阶段）、M19（小任务）。
 # 台账只把卡号当 ID，阶段归属由 stage 字段决定，所以非 R 阶段也必须有号可用，
@@ -171,6 +179,33 @@ def cmd_message(args):
     staged = [normalize(x.strip()) for x in staged.stdout.splitlines() if x.strip()]
     touches_code = bool(code_files(staged))
 
+    # 锚点区代登记审计（DX-06）：改台账任务定义时，哪怕站在锚点区也必须留下凭证。
+    # 位置校验保持不变（.worktrees 里改定义由 cmd_ledger 拒），这里补内容校验。
+    top = normalize(git("rev-parse", "--show-toplevel").stdout.strip())
+    if ".worktrees" not in top and LEDGER.replace("\\", "/") in staged:
+        try:
+            old = read_ledger("HEAD")
+            new = read_ledger(":0")
+        except (OSError, ValueError):
+            old = new = None
+        if old is not None and new is not None:
+            problems = audit_problems(
+                kind, scope, message, code_files(staged),
+                ledger_definition_changes(old, new),
+            )
+            if problems:
+                sys.stderr.write("[任务闸门] 锚点区代登记需要可审计凭证（AGENTS.md 条款 6 例外）：\n")
+                for line in problems:
+                    sys.stderr.write("  - %s\n" % line)
+                sys.stderr.write(
+                    "  正确写法：\n"
+                    "    chore(board): 登记 <批次简述>\n"
+                    "\n"
+                    "    授权：<维护者在哪次会话/哪条指令里授权的>\n"
+                    "    批次：<本批卡号，如 DX-05、R7-01>\n"
+                )
+                return 1
+
     if not touches_code and kind not in HARD_TYPES:
         return 0
 
@@ -192,32 +227,28 @@ def cmd_message(args):
     return 0
 
 
-def cmd_ledger(args):
-    top = git("rev-parse", "--show-toplevel").stdout.strip()
-    if ".worktrees" not in normalize(top):
-        return 0  # 锚点区是维护者的，不受此限
+def ledger_shape(data):
+    """把台账压成「任务定义」视图：cards 的 id/title/stage + 整份 baseline。
 
-    old = read_ledger("HEAD")
-    if old is None:
-        fail("读不到 HEAD 的台账，无法校验", 2)
-    try:
-        new = read_ledger(":0")
-    except (OSError, ValueError):
-        fail("暂存区的台账不是合法 JSON", 2)
+    claims 与卡片 note 不在视图里 —— 它们是 agent 唯一被允许写的两部分（§条款 6）。
+    """
+    cards = {}
+    for code, card in ((data or {}).get("cards") or {}).items():
+        cards[code] = {
+            "id": card.get("id", ""),
+            "title": card.get("title", ""),
+            "stage": card.get("stage", ""),
+        }
+    return cards, dict((data or {}).get("baseline") or {})
 
-    def shape(data):
-        cards = {}
-        for code, card in (data.get("cards") or {}).items():
-            cards[code] = {
-                "id": card.get("id", ""),
-                "title": card.get("title", ""),
-                "stage": card.get("stage", ""),
-            }
-        return cards, dict(data.get("baseline") or {})
 
-    old_cards, old_base = shape(old)
-    new_cards, new_base = shape(new)
+def ledger_definition_changes(old, new):
+    """列出「任务定义」层面的改动（新增/删除卡、改 id/title/stage、改 baseline）。
 
+    空列表 = 这次只动了 claims 或卡片 note，属 agent 合法范围。
+    """
+    old_cards, old_base = ledger_shape(old)
+    new_cards, new_base = ledger_shape(new)
     problems = []
     added = sorted(set(new_cards) - set(old_cards))
     removed = sorted(set(old_cards) - set(new_cards))
@@ -234,6 +265,60 @@ def cmd_ledger(args):
                 "改动 baseline %s（%s → %s）"
                 % (code, old_base.get(code, "<无>"), new_base.get(code, "<无>"))
             )
+    return problems
+
+
+def staged_files():
+    out = git("diff", "--cached", "--name-only", "--diff-filter=ACMR")
+    return [normalize(x.strip()) for x in out.stdout.splitlines() if x.strip()]
+
+
+def audit_problems(kind, scope, message, code_paths, definition_changes):
+    """锚点区代登记的审计判定（DX-06）。纯函数：不碰 git，便于自测与 CI 跑。
+
+    「代登记」= 这次提交改了台账的任务定义（新增/删除卡、改 id/title/stage、改 baseline）。
+    维护者被授权可以在锚点区做这件事，但必须留下可追溯凭证：
+      - 提交类型固定 chore(board)，不得混进 feat/fix/docs 等其它语义；
+      - body 必须有「授权：」与「批次：」两行（授权来源 + 批次）；
+      - 不得同时改动代码路径 —— 立卡与实现分开提交，否则事后分不清「哪条改动是被授权的定义、
+        哪条是实现」。
+    """
+    if not definition_changes:
+        return []
+    problems = []
+    if kind != AUDIT_TYPE or scope != AUDIT_SCOPE:
+        problems.append(
+            "立卡 / 改 baseline 必须用 chore(board): 提交（当前类型：%s%s）"
+            % (kind or "<空>", ("(%s)" % scope) if scope else "")
+        )
+    body = "\n".join((message or "").splitlines()[1:])
+    missing = [f for f in AUDIT_FIELDS if not re.search(
+        r"(?m)^\s*%s\S" % re.escape(f), body)]
+    if missing:
+        problems.append(
+            "提交 body 缺少审计行：%s（每行后要写出授权来源 / 批次号，事后可追溯）"
+            % "、".join(missing)
+        )
+    if code_paths:
+        shown = "、".join(code_paths[:5]) + ("…" if len(code_paths) > 5 else "")
+        problems.append("立卡提交不得同时改动代码路径：%s（请拆成独立提交）" % shown)
+    return problems
+
+
+def cmd_ledger(args):
+    top = git("rev-parse", "--show-toplevel").stdout.strip()
+    if ".worktrees" not in normalize(top):
+        return 0  # 锚点区是维护者的，不受此限（内容审计改由 commit-msg 的 cmd_message 把关）
+
+    old = read_ledger("HEAD")
+    if old is None:
+        fail("读不到 HEAD 的台账，无法校验", 2)
+    try:
+        new = read_ledger(":0")
+    except (OSError, ValueError):
+        fail("暂存区的台账不是合法 JSON", 2)
+
+    problems = ledger_definition_changes(old, new)
 
     if problems:
         sys.stderr.write(
@@ -305,6 +390,104 @@ def cmd_push(args):
     return 0
 
 
+def cmd_selftest(args):
+    """DX-06 的可执行自测：允许 / 拒绝各若干例，纯函数不碰 git，任何环境可跑。
+
+    为什么不放进 tests/：那是 C++ 单测目录，闸门是 python 脚本，两套跑法不同。
+    把用例钉在执行判定逻辑的同一个文件里，改规则时用例跟着一起改，不会漂。
+    """
+    def ledger_with(cards=None, baseline=None, notes=None, claims=None):
+        return {
+            "version": 3,
+            "cards": cards or {"DX-01": {"id": "a", "title": "t", "stage": "DX"}},
+            "baseline": baseline or {"DX-01": "done"},
+            "claims": claims or {},
+        }
+
+    base = ledger_with()
+    new_card = ledger_with(
+        cards={
+            "DX-01": {"id": "a", "title": "t", "stage": "DX"},
+            "DX-07": {"id": "b", "title": "新的", "stage": "DX"},
+        },
+        baseline={"DX-01": "done", "DX-07": "todo"},
+    )
+    # agent 合法范围：只改 note / 只改 claims，不动定义
+    note_only = ledger_with(
+        cards={"DX-01": {"id": "a", "title": "t", "stage": "DX", "note": "交付说明"}},
+        claims={"DX-01": {"agent": "x", "branch": "fix/x"}},
+    )
+    baseline_changed = ledger_with(baseline={"DX-01": "todo"})
+
+    cases = []
+
+    def case(name, expect_ok, kind, scope, message, code_paths, old, new):
+        problems = audit_problems(
+            kind, scope, message, code_paths, ledger_definition_changes(old, new)
+        )
+        cases.append((name, expect_ok, problems))
+
+    # ---- 允许（2 例）----
+    case(
+        "锚点区合规代登记：chore(board) + 授权行 + 批次行 + 只动台账",
+        True, "chore", "board",
+        "chore(board): 登记 R7 批次卡\n\n授权：维护者 2026-10-28 会话「授权登记 R7」\n批次：R7-01、R7-02",
+        [], base, new_card,
+    )
+    case(
+        "只改 claims / 卡片 note，不算代登记（无需凭证）",
+        True, "chore", "claim",
+        "chore(claim): 登记 #DX-01 领用到台账",
+        [], base, note_only,
+    )
+
+    # ---- 拒绝（4 例）----
+    case(
+        "立卡用了 feat 类型",
+        False, "feat", "board",
+        "feat(board): 顺手加两张卡\n\n授权：有人说过\n批次：DX-07",
+        [], base, new_card,
+    )
+    case(
+        "立卡缺「授权：」「批次：」两行",
+        False, "chore", "board",
+        "chore(board): 登记几张卡\n\n就加了几张卡而已",
+        [], base, new_card,
+    )
+    case(
+        "立卡与代码混提交",
+        False, "chore", "board",
+        "chore(board): 登记并实现\n\n授权：维护者\n批次：DX-07",
+        ["src/Database.cpp"], base, new_card,
+    )
+    case(
+        "只改 baseline 也算代登记，同样要凭证",
+        False, "docs", "board",
+        "docs(board): 把 DX-01 改回 todo",
+        [], base, baseline_changed,
+    )
+
+    failures = []
+    for name, expect_ok, problems in cases:
+        ok = not problems
+        if ok == expect_ok:
+            print("  ✓ %s（%s）" % (name, "放行" if ok else "拦截 %d 条" % len(problems)))
+        else:
+            print("  ✗ %s：期望%s，实际%s" % (
+                name, "放行" if expect_ok else "拦截",
+                "放行" if ok else "拦截 %d 条" % len(problems)))
+            for line in problems:
+                print("      - %s" % line)
+            failures.append(name)
+
+    if failures:
+        sys.stderr.write("[任务闸门] 代登记审计自测失败 %d/%d 例\n" % (len(failures), len(cases)))
+        return 1
+    print("[任务闸门] 代登记审计自测通过：%d 例（允许 2 / 拒绝 %d）"
+          % (len(cases), len(cases) - 2))
+    return 0
+
+
 def main():
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -331,6 +514,9 @@ def main():
     p.add_argument("--remote", required=True)
     p.add_argument("--local", required=True)
     p.set_defaults(func=cmd_push)
+
+    p = sub.add_parser("selftest", help="代登记审计判定的可执行自测（DX-06）")
+    p.set_defaults(func=cmd_selftest)
 
     args = parser.parse_args()
     return args.func(args)

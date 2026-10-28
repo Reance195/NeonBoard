@@ -147,6 +147,18 @@ git branch -d feature/<简述>
    > 代登记只允许追加卡片与对应的 `baseline`，不得改既有卡的 `id` / `title` / `stage`；
    > agent 不得以授权为名自行加卡，也不得通过临时 worktree、修改判定脚本或 `--no-verify` 绕过。
    > 提交信息统一用 `chore(board): ...`，并在 body 记录授权来源与批次。
+   >
+   > **这条例外已被做成可审计事实（DX-06）**，不再靠自报：锚点区任何改动台账
+   > **任务定义**（新增/删除卡、改 `id`/`title`/`stage`、改 `baseline`）的提交，都过
+   > `scripts/task_gate.py message` 的三道内容校验，缺一即拒：
+   >
+   > 1. 类型必须是 `chore(board)` —— 用 `feat` / `docs` 等语义夹带走卡片会被拒；
+   > 2. body 必须同时有 `授权：` 与 `批次：` 两行（各自后面写授权来源 / 本批卡号）；
+   > 3. 不得同时改动代码路径 —— 立卡与实现分开提交，否则事后分不清「哪条被授权、哪条是实现」。
+   >
+   > 只改 `claims` 或卡片 `note` 不算代登记，无需凭证。判定逻辑只有一处实现
+   > （`scripts/task_gate.py` 的 `audit_problems`），自带允许/拒绝各若干例的可执行自测
+   > `python scripts/task_gate.py selftest`，CI 每次都跑。
 
 2. 用 `scripts/agent-init.ps1 -Card <短号>` 开区，脚本会推 `refs/claims/<短号>` 完成领用；
    `baseline=<短号> done` 的卡已完成，**拒绝重新领用**。

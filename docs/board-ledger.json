@@ -2103,6 +2103,13 @@
             ]
         }
     },
-    "claims": {},
+    "claims": {
+        "R9-01": {
+            "agent": "agent-r9-01",
+            "branch": "feature/r9-01-provider",
+            "claimedAt": 1793218503,
+            "head": "b32ea90077acc2ac1e47ff45fe31587184d57cc3"
+        }
+    },
     "version": 1
 }

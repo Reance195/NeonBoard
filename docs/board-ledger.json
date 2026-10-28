@@ -977,7 +977,8 @@
                 "qml/Main.qml",
                 "qml/components/TopStatBar.qml",
                 "qml/components/StatChip.qml",
-                "qml/theme/Theme.qml"
+                "qml/theme/Theme.qml",
+                "CMakeLists.txt"
             ],
             "stage": "R11",
             "title": "R11 顶栏信息层级重排：标题瘦身 + 统计状态带"
@@ -999,7 +1000,8 @@
                 "qml/components/TopToolButton.qml",
                 "qml/theme/Theme.qml",
                 "qml/components/StageBar.qml",
-                "qml/components/ActivityHeatmap.qml"
+                "qml/components/ActivityHeatmap.qml",
+                "CMakeLists.txt"
             ],
             "stage": "R11",
             "title": "R11 顶栏视觉一致性：令牌化 + 统一工具按钮"
@@ -1029,7 +1031,8 @@
                 "src/TaskStats.h",
                 "src/TaskStats.cpp",
                 "tests/tst_taskstats.cpp",
-                "tests/CMakeLists.txt"
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt"
             ],
             "stage": "R11",
             "title": "R11 状态与空态反馈 + 热力图 Canvas 化"

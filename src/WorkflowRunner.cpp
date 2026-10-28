@@ -8,6 +8,7 @@
 #include "TaskExec.h"
 #include "TaskRunner.h"
 #include "TaskRunStore.h"
+#include "WorkflowPresets.h"
 
 #include <QDateTime>
 #include <QDebug>
@@ -15,7 +16,10 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QSaveFile>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QUuid>
 #include <QVariant>
 
@@ -69,6 +73,11 @@ WorkflowRunner::WorkflowRunner(Database *database, TaskExec *exec, TaskRunStore 
                     finishStep(m_activeIndex, exitCode, detail);
                 });
     }
+}
+
+void WorkflowRunner::setPresets(WorkflowPresets *presets)
+{
+    m_presets = presets;
 }
 
 int WorkflowRunner::revision() const
@@ -142,6 +151,53 @@ QString WorkflowRunner::summarizeHandoff(const QByteArray &log, int maxChars)
     return text;
 }
 
+// R7-04：卡片步骤覆盖项存于 TaskExec 的 meta 键（TaskExec.cpp 的 stepsKey）。
+// 这里只**读**一次做「有没有覆盖」判定：有覆盖就用覆盖（尊重卡片自定义），
+// 没有才用可编辑预设展开。仅读不写，键语义与 TaskExec 保持一致。
+namespace {
+QLatin1String kStepOverridePrefix("exec.workflowSteps.");
+}
+
+QString WorkflowRunner::sizeHintFor(const QString &taskId) const
+{
+    if (!m_database || taskId.isEmpty())
+        return {};
+    const QString text = m_database->metaValue(QStringLiteral("exec.triage.draft.") + taskId);
+    if (text.isEmpty())
+        return {};
+    const QJsonDocument doc = QJsonDocument::fromJson(text.toUtf8());
+    if (!doc.isObject())
+        return {};
+    QVariantMap record = doc.object().toVariantMap();
+    // 草案记录形如 {status, draft:{…estimate{size}…}}；也兼容把 estimate 直接放顶层。
+    if (!record.contains(QStringLiteral("estimate"))
+        && record.value(QStringLiteral("draft")).toMap().contains(QStringLiteral("estimate")))
+        record = record.value(QStringLiteral("draft")).toMap();
+    return record.value(QStringLiteral("estimate"))
+        .toMap()
+        .value(QStringLiteral("size"))
+        .toString()
+        .trimmed();
+}
+
+QVariantMap WorkflowRunner::cardHintFor(const QString &taskId) const
+{
+    QVariantMap out;
+    if (!m_database || taskId.isEmpty())
+        return out;
+    const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    if (!db.isOpen())
+        return out;
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral("SELECT title, priority FROM task WHERE id = ?"));
+    query.addBindValue(taskId);
+    if (!query.exec() || !query.next())
+        return out;
+    out.insert(QStringLiteral("title"), query.value(0).toString());
+    out.insert(QStringLiteral("priority"), query.value(1).toInt());
+    return out;
+}
+
 QVariantMap WorkflowRunner::start(const QString &taskId)
 {
     if (!m_profiles || !m_profiles->executorEnabled())
@@ -165,8 +221,22 @@ QVariantMap WorkflowRunner::start(const QString &taskId)
         return {{QStringLiteral("ok"), false},
                 {QStringLiteral("message"), QStringLiteral("这张卡没有指定 agent")}};
 
-    const QString workflow = exec.value(QStringLiteral("workflow")).toString().trimmed();
-    const QVariantList rawSteps = m_exec->stepsOf(taskId);
+    // R7-04：orchestrator 选 workflow —— 卡片没指定时按规模（triage estimate.size，
+    // 缺失则按卡片规模兜底）自动挑一个。选择只作用于本次链，不回写卡片定义。
+    const QString sizeHint = sizeHintFor(taskId);
+    QString workflow = exec.value(QStringLiteral("workflow")).toString().trimmed();
+    if (workflow.isEmpty() && m_presets)
+        workflow = m_presets->routeFor(sizeHint, cardHintFor(taskId));
+
+    // 步骤来源：卡片覆盖优先（尊重自定义）；无覆盖时用可编辑预设展开（按规模裁剪
+    // pm / architect，qa 永不裁）；没有 presets 门面（老路径 / 单测）时退回 TaskExec。
+    const bool hasOverride =
+        m_database && !m_database->metaValue(kStepOverridePrefix + taskId).isEmpty();
+    QVariantList rawSteps;
+    if (!hasOverride && m_presets && !workflow.isEmpty())
+        rawSteps = m_presets->stepsFor(workflow, sizeHint);
+    if (rawSteps.isEmpty())
+        rawSteps = m_exec->stepsOf(taskId);
     if (rawSteps.isEmpty()) {
         return {{QStringLiteral("ok"), false},
                 {QStringLiteral("message"),
@@ -199,6 +269,10 @@ QVariantMap WorkflowRunner::start(const QString &taskId)
         Step step;
         step.role = map.value(QStringLiteral("role")).toString();
         step.agent = map.value(QStringLiteral("agent")).toString();
+        // R7-04：步骤没指定 agent 时先按角色取默认 agent（exec.roleAgents），
+        // 再回落卡片的 agent / 全局默认 —— 让「同一角色固定用某个 agent」不必每步手填。
+        if (step.agent.isEmpty() && m_profiles)
+            step.agent = m_profiles->agentForRole(step.role);
         if (step.agent.isEmpty())
             step.agent = agent;
         step.prompt = map.value(QStringLiteral("prompt")).toString();

@@ -31,6 +31,7 @@
 #include "TaskRunStore.h"
 #include "Scheduler.h"
 #include "WorkflowRunner.h"
+#include "WorkflowPresets.h"
 #include "AcceptanceRunner.h"
 #include "ScopeMatcher.h"
 #include "TriageRunner.h"
@@ -278,10 +279,16 @@ int main(int argc, char *argv[])
     AcceptanceRunner acceptanceRunner;
     ScopeMatcher scopeMatcher;
 
+    // 预设 workflow 与 orchestrator 选型（R7-04）：预设存 meta（可编辑），
+    // 按 triage estimate.size / 卡片规模选 workflow、按规模裁剪 pm/architect（qa 永不裁）。
+    WorkflowPresets workflowPresets(&database);
+
     // 角色链 workflow 引擎（R7-03）：按步骤数组逐步拉起 agent，每步一份 handoff。
     // 每一步仍走 TaskRunner（进程 / 超时 / 日志 / 心跳复用 R6-04）。
+    // R7-04 起接上 WorkflowPresets：卡片没选 workflow 时由 orchestrator 选型。
     WorkflowRunner workflowRunner(&database, &taskExec, &taskRuns, &taskRunner, &agentProfile,
                                   &scopeMatcher, &acceptanceRunner);
+    workflowRunner.setPresets(&workflowPresets);
 
 
     // Triage 只读分析（R6-07）：草案只写 meta 表，不进台账；只读靠
@@ -822,6 +829,62 @@ int main(int argc, char *argv[])
             ok = queueVersion.exec(QStringLiteral("PRAGMA user_version")) && queueVersion.next()
                  && queueVersion.value(0).toInt() == Database::kSchemaVersion && ok;
             qInfo() << "SELFTEST queue" << taskRuns.revision();
+        }
+
+        // 预设 workflow 与 orchestrator 选型（R7-04）：内置六条 / 规模选型 / 跳过规则
+        // （qa 永不裁）/ 预设可编辑（存 meta，不升 user_version）/ 收口 summary 拼接
+        {
+            ok = WorkflowPresets::builtinPresets().size() == 6 && ok;
+            // 选型：S→fix / M→feature / L→delivery / XL→delivery；未知 → 卡片兜底 fix
+            ok = workflowPresets.routeFor(QStringLiteral("S")) == QStringLiteral("fix") && ok;
+            ok = workflowPresets.routeFor(QStringLiteral("M")) == QStringLiteral("feature") && ok;
+            ok = workflowPresets.routeFor(QStringLiteral("L")) == QStringLiteral("delivery") && ok;
+            ok = workflowPresets.routeFor(QStringLiteral("4")) == QStringLiteral("delivery") && ok;
+            ok = workflowPresets.routeFor(QString()) == QStringLiteral("fix") && ok;
+            // 跳过规则：feature 小任务可跳 pm/architect，qa 永不出现
+            const QVariantList skips = workflowPresets.skippableSteps(QStringLiteral("feature"),
+                                                                     QStringLiteral("S"));
+            ok = skips.size() == 2 && ok;
+            for (const QVariant &role : skips)
+                ok = role.toString() != QStringLiteral("qa") && ok;
+            // feature@S 展开 = engineer,qa（pm/architect 被裁掉）
+            const QVariantList smallFeature =
+                workflowPresets.stepsFor(QStringLiteral("feature"), QStringLiteral("S"));
+            ok = smallFeature.size() == 2
+                 && smallFeature.at(0).toMap().value(QStringLiteral("role")).toString()
+                        == QStringLiteral("engineer")
+                 && smallFeature.at(1).toMap().value(QStringLiteral("role")).toString()
+                        == QStringLiteral("qa") && ok;
+            // 预设可编辑：非法（skippable 含 qa）被拒；合法覆盖写 meta 后可见，reset 复位
+            QVariantMap badPreset;
+            badPreset.insert(QStringLiteral("key"), QStringLiteral("bad"));
+            badPreset.insert(QStringLiteral("steps"), QVariantList{QStringLiteral("engineer")});
+            badPreset.insert(QStringLiteral("skippable"), QVariantList{QStringLiteral("qa")});
+            ok = !workflowPresets.savePreset(badPreset) && ok;
+            QVariantMap goodPreset;
+            goodPreset.insert(QStringLiteral("key"), QStringLiteral("myfix"));
+            goodPreset.insert(QStringLiteral("label"), QStringLiteral("自定义修复"));
+            goodPreset.insert(QStringLiteral("steps"),
+                              QVariantList{QStringLiteral("engineer"), QStringLiteral("qa")});
+            ok = workflowPresets.savePreset(goodPreset) && ok;
+            ok = !workflowPresets.presetOf(QStringLiteral("myfix")).isEmpty() && ok;
+            ok = workflowPresets.resetPresets()
+                 && workflowPresets.presetOf(QStringLiteral("myfix")).isEmpty() && ok;
+            // 收口 summary：含任务号 / workflow / 步骤角色 / 建议下一步
+            const QVariantList summarySteps{
+                QVariantMap{{QStringLiteral("role"), QStringLiteral("engineer")},
+                            {QStringLiteral("status"), QStringLiteral("passed")}},
+                QVariantMap{{QStringLiteral("role"), QStringLiteral("qa")},
+                            {QStringLiteral("status"), QStringLiteral("passed")}},
+            };
+            const QString summary = WorkflowPresets::buildSummary(
+                QStringLiteral("card-1"), QStringLiteral("fix"), summarySteps,
+                QStringLiteral("修按钮"));
+            ok = summary.contains(QStringLiteral("card-1"))
+                 && summary.contains(QStringLiteral("fix"))
+                 && summary.contains(QStringLiteral("engineer"))
+                 && summary.contains(QStringLiteral("建议下一步")) && ok;
+            qInfo() << "SELFTEST workflow-presets" << workflowPresets.revision();
         }
 
         // RRULE 下一期：DAILY / INTERVAL / WEEKLY+BYDAY / 月末钳制 / 非法规则
@@ -1505,6 +1568,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskRunner"), &taskRunner);
     engine.rootContext()->setContextProperty(QStringLiteral("scheduler"), &scheduler);
     engine.rootContext()->setContextProperty(QStringLiteral("workflowRunner"), &workflowRunner);
+    engine.rootContext()->setContextProperty(QStringLiteral("workflowPresets"), &workflowPresets);
     engine.rootContext()->setContextProperty(QStringLiteral("acceptanceRunner"), &acceptanceRunner);
     engine.rootContext()->setContextProperty(QStringLiteral("scopeMatcher"), &scopeMatcher);
     engine.rootContext()->setContextProperty(QStringLiteral("triageRunner"), &triageRunner);

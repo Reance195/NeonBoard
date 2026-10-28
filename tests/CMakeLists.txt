@@ -243,8 +243,30 @@ neonboard_add_test(tst_workflow
     ${CMAKE_SOURCE_DIR}/src/ScopeMatcher.cpp
     ${CMAKE_SOURCE_DIR}/src/AcceptanceRunner.cpp
     ${CMAKE_SOURCE_DIR}/src/WorkflowRunner.cpp
+    ${CMAKE_SOURCE_DIR}/src/WorkflowPresets.cpp
 )
 target_link_libraries(tst_workflow PRIVATE Qt6::Sql)
+
+# R7-04：预设 workflow 与 orchestrator 收口 —— 内置六条（与 presetSteps 一致）/
+# 规模选型 / 跳过规则（qa 永不裁）/ 预设与映射表可编辑（存 meta，不升 user_version）/
+# 收口 summary / WorkflowRunner 接上预设后的自动选型与步骤展开。载体 cmd.exe，离线可跑。
+neonboard_add_test(tst_workflowpresets
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskExec.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskRunStore.cpp
+    ${CMAKE_SOURCE_DIR}/src/AgentProfile.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskRunner.cpp
+    ${CMAKE_SOURCE_DIR}/src/ScopeMatcher.cpp
+    ${CMAKE_SOURCE_DIR}/src/AcceptanceRunner.cpp
+    ${CMAKE_SOURCE_DIR}/src/WorkflowRunner.cpp
+    ${CMAKE_SOURCE_DIR}/src/WorkflowPresets.cpp
+)
+target_link_libraries(tst_workflowpresets PRIVATE Qt6::Sql)
 
 
 # R6-09：台账卡单向导入（ADR-0001）—— 只补空值 / 冲突只报告 / 未建卡只报告 /

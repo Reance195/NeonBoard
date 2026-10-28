@@ -11,6 +11,7 @@ class TaskRunner;
 class AgentProfile;
 class ScopeMatcher;
 class AcceptanceRunner;
+class WorkflowPresets;
 
 // 角色链 workflow 引擎（R7-03）：把「一次执行」从单步升级为按序接力的角色步骤。
 //
@@ -39,6 +40,11 @@ public:
     WorkflowRunner(Database *database, TaskExec *exec, TaskRunStore *runs, TaskRunner *runner,
                    AgentProfile *profiles, ScopeMatcher *scope, AcceptanceRunner *acceptance,
                    QObject *parent = nullptr);
+
+    // R7-04：注入预设门面后，卡片未选 workflow 时由 orchestrator 按规模选型，
+    // 步骤改由可编辑预设展开（按规模裁剪 pm/architect，qa 永不裁）。
+    // 用 setter 而不是构造参数，避免改动签名的既有调用方（单测）。
+    void setPresets(WorkflowPresets *presets);
 
     int revision() const;
     bool running() const;
@@ -116,6 +122,12 @@ private:
     void finishStep(int index, int exitCode, const QVariantMap &detail);
     void bump();
 
+    // R7-04：从 triage 草案（meta exec.triage.draft.<taskId>）读 estimate.size；
+    // 没有草案时返回空串，由 WorkflowPresets 按卡片规模兜底。
+    QString sizeHintFor(const QString &taskId) const;
+    // R7-04：卡片规模兜底用的 {title, priority}（供 WorkflowPresets::routeFor）。
+    QVariantMap cardHintFor(const QString &taskId) const;
+
     Database *m_database = nullptr;
     TaskExec *m_exec = nullptr;
     TaskRunStore *m_runs = nullptr;
@@ -123,6 +135,7 @@ private:
     AgentProfile *m_profiles = nullptr;
     ScopeMatcher *m_scope = nullptr;
     AcceptanceRunner *m_acceptance = nullptr;
+    WorkflowPresets *m_presets = nullptr;
 
     Chain m_chain;
     int m_activeIndex = -1; // 正在等结果的那一步（-1 表示没有）

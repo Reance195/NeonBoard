@@ -79,6 +79,7 @@ qt_add_executable(NeonBoard
     src/LedgerImport.h src/LedgerImport.cpp
     src/Scheduler.h src/Scheduler.cpp
     src/WorkflowRunner.h src/WorkflowRunner.cpp
+    src/WorkflowPresets.h src/WorkflowPresets.cpp
     resources/neonboard.rc
 )
 

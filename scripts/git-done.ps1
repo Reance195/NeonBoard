@@ -440,6 +440,33 @@ if ($Mode -eq 'remote') {
     # 解除临时分支占用后一并删除，工作区停在分离 HEAD 上，不留悬挂分支
     Invoke-GitQuiet @('switch', '--detach') | Out-Null
     Invoke-GitQuiet @('branch', '-d', $tmp) | Out-Null
+
+    # 台账过期领用登记清理：服务端占位与认领分支此刻都已没了，投影条目留着只会让
+    # 派生器每次报「分支已不存在」的噪声，而且要等下任何人领卡才被顺带清 ——
+    # 收尾闭环应该由「合并 + 删分支」这个动作自己完成（AGENTS.md §7.2.1 释放义务）。
+    # 分离 HEAD 上就地提交（只动 claims，台账保护钩子放行），快进补推；
+    # 离线或撞车就回滚这个提交、留待下次合并再清 —— 绝不阻断已经成功的合并。
+    $rcRes = Invoke-Cmd -File 'python' -CmdArgs @((Join-Path $repoRoot 'scripts\release-claims.py'))
+    $goneCodes = @($rcRes.Output | Where-Object { $_ -and $_ -match '^\S+$' })
+    if ($rcRes.Code -ne 0) {
+        Write-Host ("· 台账领用登记清理：脚本失败（退出码 {0}），留待下次合并再清" -f $rcRes.Code) -ForegroundColor Yellow
+    } elseif ($goneCodes.Count -gt 0) {
+        Invoke-GitQuiet @('add', 'docs/board-ledger.json') | Out-Null
+        $rcCommit = Invoke-GitQuiet @('commit', '-m', ('chore(board): 清理过期领用登记 {0}' -f ($goneCodes -join '、')))
+        if ($rcCommit.Code -ne 0) {
+            Write-Host '· 台账领用登记清理：提交失败，留待下次合并再清' -ForegroundColor Yellow
+            Invoke-GitQuiet @('checkout', '--', 'docs/board-ledger.json') | Out-Null
+        } else {
+            $rcPush = Invoke-GitQuiet @('push', 'origin', "HEAD:$MainBranch")
+            if ($rcPush.Code -eq 0) {
+                Write-Host ('✓ 台账领用登记清理：{0} 已删除并推上 {1}' -f ($goneCodes -join '、'), $MainBranch) -ForegroundColor Green
+            } else {
+                Write-Host '· 台账领用登记清理：补推失败（离线 / 主线被推进），本地回滚，留待下次合并再清' -ForegroundColor Yellow
+                Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
+            }
+        }
+    }
+
     Write-Host "`n✓ 合并完成：$Branch → origin/$MainBranch" -ForegroundColor Green
     Write-Host "   查看历史：git log --oneline --graph -10" -ForegroundColor DarkGray
     exit 0

@@ -114,6 +114,15 @@ def detect_card_from_commits(base: str) -> str | None:
 
 
 def main() -> int:
+    # Windows 管道下 Python stdout 默认走 ANSI 代码页，打印 ✓/✗ 与中文直接 GBK 崩，
+    # 退出码对了也白搭（R6-05 踩过：`UnicodeEncodeError: 'gbk' codec can't encode '✓'`）。
+    # 与 check_script_hygiene.py / task_gate.py 同一口径的 reconfigure。
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--card", default="", help="任务短号，如 R5-03；缺省从提交信息里推断")
     ap.add_argument("--base", default="origin/main", help="比较基线，默认 origin/main")

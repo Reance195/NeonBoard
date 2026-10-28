@@ -223,6 +223,10 @@ AI 代理在本仓库干活时：
 5. 不擅自提交 `build/`、`dist/`、日志；不擅自改动用户全局 Git 配置。
 6. 涉及界面行为的改动，同步更新 `README.md` 中对应描述（如功能项、快捷键、已知限制）。
 7. **收尾必须核对「需求卡」进度**：合并前对照 `docs/iteration-roadmap.md` 里对应阶段的验收项**逐条打勾**，把「已完成 X / 待做 Y」写回需求卡的 `note`，并同步该卡在看板上的状态。**禁止用「子任务全部 done」代替「需求已交付」** —— 子任务做完只说明父需求的某几项落地了，父需求要等验收项逐条满足才能结掉。
+8. **测试与构建的三个已踩坑（R6 实测，别再花时间重新发现）**：
+   - **AutoMoc 吃不熟 C++11 原始字符串**：Q_OBJECT 测试文件里写 `R"(...)"`，内容含 `)"` 会提前截断（报 missing ')'）；带花括号的 JSON fixture 会让 moc 不生成元代码，症状是链接期 `metaObject` 未解析（LNK2001），清 autogen 也未必好转。**测试数据里的 JSON / 正则一律用转义字符串拼接，别用原始字符串字面量。**
+   - **改公共头文件签名后报「无法解析的外部符号」**：多半不是签名写错，是旧 `*.obj` / `*_autogen` 没重编。删对应产物再编：`Get-ChildItem build-local -Recurse -Filter 'tst_xxx*.obj' | Remove-Item`（连同其 `*_autogen` 目录），仍走 `scripts/build.ps1`，别信链接器第一眼。
+   - **编辑 `.ps1` 会静默丢 UTF-8 BOM**（本会话连续丢了两次）：已由 `scripts/check_script_hygiene.py` 规则 C 在 CI 强制拦截。改完 `.ps1` 心里没底就跑一次卫生检查。
 
 ---
 
@@ -301,6 +305,7 @@ cd .worktrees/agent-c
 - **合并后必须释放占位（已实现）**：`git-done.ps1` 的 `Invoke-ClaimRefCleanup` 在推送成功后按两条判据释放：①占位指向的提交已是 `origin/main` 祖先；②台账 `claims` 中登记的分支本地与远端均已不存在（孤儿）。都不满足的活动卡一律保留。离线时只清本地，联网后下次运行补删 origin（`git push origin --delete refs/claims/<短号>`）。
 - **失效登记不再挡重新认领（已实现）**：历史缺口是「分支已合并删除、台账 `claims` 条目还留着」，这类残留曾把同一张卡的重新领用挡在防双领校验上（R4-02 踩过两次）。现 `agent-init` 在双领校验**之前**判定失效：登记分支本地 `refs/heads/*` 与 `refs/remotes/origin/*` 都不存在、且服务端 `refs/claims/<短号>` 已释放（`ls-remote --exit-code` 退出码 2），才算失效；远端不可达时保守视为仍被占用。失效项由本次领用提交顺带清理。
 - **本地孤儿 ref 清理**：任何「本地有 `refs/claims/<短号>` 但 `git ls-remote origin` 无对应 ref」的状态视为异常孤儿，应 `git update-ref -d` 删除本地项，并不得在本地保留为占位依据。
+- **台账过期登记一并清理（已实现）**：`git-done.ps1` 删掉认领分支后调用 `scripts/release-claims.py` 全量扫描台账 `claims`，只删「认领分支本地与远端都不存在」的条目（活动卡一律保留），作为独立的 `chore(board): 清理过期领用登记 <短号>` 提交快进补推；提交或补推失败只回滚该提交、不阻断已完成的合并。此前依赖 `claim-card.py`「下次任何人领卡时顺带清理」——顺带不保证发生，R6 收官后 `--check` 一直挂着「分支已不存在」噪声即为此。
 
 - 同一分支禁止在两个 worktree 同时检出（Git 天然强制）。
 - 每个 worktree 拥有独立的 `build/` `dist/` `.sandbox/`，体积较大，不要共享。
@@ -349,8 +354,11 @@ pwsh -File scripts/git-done.ps1 -Branch fix/stagebar-chip-overflow
 1. 先 `git diff` 看清对方改了什么，再动手；
 2. 手工合并，**禁止** `git checkout --ours/--theirs` 盲解；
 3. 解完 `git add` + `git rebase --continue`；
-4. 仓库需开启 `rerere`（`git config core.rerere.enabled true`、`core.rerere.autoupdate true`，
+4. 仓库需开启 `rerere`（`core.rerere.enabled true`、`core.rerere.autoupdate true`，
    仓库级配置，不动用户全局配置），同种冲突第二次会自动复用上次的解法。
+   > 与 `core.hooksPath` 同构：仓库级、不随 clone 传递、漏了静默失效。所以**不要靠每个
+   > agent 手工开** —— 已并入 `scripts/setup-git-hooks.ps1`（开区 / 构建 / CI 都会跑它），
+   > 漏配会被自动补上。只写在文档里必然漂（R6 全程没人开、直到收官才发现）。
 
 ### 7.6 沙箱隔离开关
 
@@ -386,8 +394,9 @@ pwsh -File scripts/dev-run.ps1 -Wait      # 前台运行（配合 --smoke 等参
 
 - `scripts/verify.ps1` 未设 `NEONBOARD_DATA_DIR` 时自开 `<BuildDir>\verify-sandbox`（设了则尊重），
   并把缺 ctest 的情况自行点源 `dev-env.ps1` —— 「唯一验收入口」不该要求调用方先记住别的；
-- `scripts/check_script_hygiene.py` 在 CI 拦两件事：上述字面量只许出现在那两个文件，
-  `git commit --no-verify` 只许出现在快照回写那一步（§11.2 第 7 条）。散文条款靠人记一定会漂。
+- `scripts/check_script_hygiene.py` 在 CI 拦三件事：上述字面量只许出现在那两个文件，
+  `git commit --no-verify` 只许出现在快照回写那一步（§11.2 第 7 条），每个 `.ps1` 必须带
+  UTF-8 BOM（§4，编辑工具会静默剥掉，本会话连续丢过两次）。散文条款靠人记一定会漂。
 
 ### 7.7 验证口径
 
@@ -632,6 +641,12 @@ agent **禁止手改**快照文件 —— 手改已造成过 v2 覆盖 v3 的事
    > 教训：**给 CI 装闸门，必须同时声明 CI 的豁免面。** 钩子与流水线各自都正确，相撞处正是
    > 「CI 既是闸门的执行环境、又是闸门的受管对象」这种双重身份；装完钩子不跑一次 main 验证，
    > 闸门就会先在自家流水线上咬人。
+8. **CI 回写撞车以主线为基底重新派生**：回写提交只动 `progress.json`，而它的唯一事实源是
+   「git 标记 + 台账」的派生结果。本地若已推过同派生结果（跑过 `derive --write`），CI 的重复
+   回写在 rebase 时必然内容撞车 —— 正确处置是 `rebase --skip` 丢弃重叠提交，在最新主线基底上
+   重新派生（派生一致则无变化早退）；**绝不手工解冲突硬拼两份快照**（会造出谁都不是的第三份
+   状态）。ci.yml「自动回写看板状态」已按「先变基 → 再派生 → 提交 → 推送」的循环实现
+   （R6 收官踩过：旧写法先派生后变基，撞车直接 abort，整轮红）。
 
 ### 11.3 验证口径
 

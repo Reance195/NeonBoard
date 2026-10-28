@@ -283,6 +283,14 @@ $l7078=[bool](netstat -ano | Select-String ':7078\s.*LISTENING')
 
 1. GitHub 只留 Watt Toolkit 负责（它能覆盖 git）；MonoCloud 要用时关掉它的系统代理，别两边同时接管。
 2. 给常用的那个加速器开**开机自启**（现在两个都没有，重启后必然全断）。
+   > 2026-10-28 09:45 复核确认：`Steam++.exe` 正在运行（PID 6456/15200，exe 在
+   > `C:\Program Files\Steam++\`），hosts 里 27 行 github 映射在位 —— 但
+   > HKCU\Run、HKLM\Run、两处启动菜单（用户级与公共级 Startup）、计划任务
+   > **四处全无 Watt/Steam++ 条目**。结论：重启后 hosts 残留 + 443 无监听 =
+   > 所有 GitHub 域名 connection refused（§4 表末行那种状态）。
+   > 处置：在 Watt 设置里勾选开机自启（它自己的开关，不代改注册表/快捷方式），
+   > 或手动往 Startup 放快捷方式；做完重启一次，用 §6 的一眼命令复核
+   > `hosts段=True 443监听=True`。
 3. `http.postbuffer=524288000`（500 MB）不是本次故障原因，但会让推送在内存里攒大包；
    若无「大文件推送被截断」的历史需求，可 `git config --global --unset http.postbuffer`。
 4. 永远不要用 `http.sslVerify=false`：本机 MITM 证书已在系统信任库，关校验只会放大中间人风险。

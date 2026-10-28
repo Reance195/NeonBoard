@@ -92,7 +92,11 @@
         "R9-02": "todo",
         "R9-03": "todo",
         "R9-04": "todo",
-        "R9-05": "todo"
+        "R9-05": "todo",
+        "R10-01": "todo",
+        "R10-02": "todo",
+        "R10-03": "todo",
+        "R10-04": "todo"
     },
     "cards": {
         "DX-01": {
@@ -1933,6 +1937,95 @@
             ],
             "depends": [
                 "R9-01"
+            ]
+        },
+        "R10-01": {
+            "id": "e0c93819-72e5-4c6b-b31d-2357fc4f47d1",
+            "title": "R10 项目维度数据层：project 表 + task_project 侧表",
+            "stage": "R10",
+            "note": "起因：看板被多来源卡污染。当前 board.db 的 115 张卡里有 13 张属于另外两个项目（抢号系统 6 张、启动窗改造 7 张），它们是经 R4-01 的 agent.task 事件桥投递进来的 —— 事件桥不区分来源项目，所有卡都落进同一个 task 表，看板上无法回答「这是哪个项目的事」。现有 board / board_column 只解决了「一块板有几列」，没有「一张卡属于哪个项目」这一维。目标：新增 project 表（id / name / color / order_key）与 task_project 侧表（task_id / project_id）承载归属。按仓库既有侧表纪律（task_link / task_extra / task_exec / task_run）**不升 user_version、不动 task 表**，老版本程序打开同一个库不受影响。ProjectStore 提供项目清单、任务归属读写、按项目聚合计数；空 project_id 表示「未归属」，与现有 column_id 空串的约定保持一致。非目标：不做项目管理界面（R10-02 只做范围切换，不含项目增删改）、不做项目级权限、不在本卡迁移存量数据的项目归属（归 R10-04）。",
+            "scope": [
+                "src/Database.h",
+                "src/Database.cpp",
+                "src/ProjectStore.h",
+                "src/ProjectStore.cpp",
+                "CMakeLists.txt",
+                "tests/tst_projectstore.cpp",
+                "tests/CMakeLists.txt"
+            ],
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_projectstore --output-on-failure",
+                "老库（user_version=2、无 project 表）打开后自动建表，且 user_version 仍为 2",
+                "同一任务重复归属同一项目不产生重复行（幂等），改归属不留旧行",
+                "删除项目后其卡片不被级联删除，只把归属置空（未归属）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "depends": []
+        },
+        "R10-02": {
+            "id": "1e7d7444-2a63-403e-894d-f3655363216c",
+            "title": "R10 两级看板：全局 ⇄ 项目范围切换",
+            "stage": "R10",
+            "note": "起因：R10-01 给了项目归属，但看板仍是一锅端 —— 115 张卡平铺在三列里，NeonBoard 的里程碑卡和别的项目的卡混在一起；阶段条只能按里程碑切，切不出「只看某个项目」。目标：顶部新增范围切换器，两个层级 —— 全局（全部项目汇总）与项目（单项目）。切换后列内卡片即时过滤，列计数与统计芯片跟随；全局视图下每张卡带项目色标，避免「看着像同一个项目」的误判。范围是视图状态而非数据改动：切换不写库、不影响 task.order_key，退出重开后回到全局。非目标：不做项目增删改界面、不做跨项目拖动（拖过去等于改归属，留后续卡）、不改 StageBar 的阶段语义（阶段是里程碑维度，与项目维度正交）。",
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/ProjectSwitcher.qml",
+                "qml/components/BoardColumn.qml",
+                "qml/components/TaskCard.qml",
+                "src/ProjectStore.h",
+                "src/ProjectStore.cpp",
+                "src/TaskFilterModel.h",
+                "src/TaskFilterModel.cpp",
+                "CMakeLists.txt"
+            ],
+            "acceptance": [
+                "build/Release/NeonBoard.exe --smoke 退出码 0 且 neonboard.log 无 QML 告警",
+                "切到某项目后列内只剩该项目卡片；切回全局，卡片数与切之前一致",
+                "全局视图下卡片可见项目色标；未归属卡显示为中性样式且不被任何项目视图收走",
+                "切换范围不写库：切换前后 task 表的 updated_at 不变"
+            ],
+            "depends": [
+                "R10-01"
+            ]
+        },
+        "R10-03": {
+            "id": "20adfe62-e911-462e-acb7-0ecf32774df5",
+            "title": "R10 标签语义修正：stageOf 扫全数组 + 卡片显示分类",
+            "stage": "R10",
+            "note": "起因：tags 一个数组里混了三种语义 —— 阶段（R0 / R4 / DX）、主题分类（插件 / 可靠性 / 性能）、角色（agent）—— 而派生只看 tags[0]：stageOf() 取 firstTag 再套阶段正则，TaskCard 也只显示 firstTag。实测 board.db 的 115 张卡里 33 张 tags 就是 [\"agent\"]，全部落进阶段条的「其他」桶；另有把主题排在阶段前面的卡同样被判错。顺序一变分类就变，这是拿数组下标当模型。目标：stageOf() 改为扫描整个 tags 数组，取第一个匹配阶段文法的标签，不再依赖位置；新增 categoryOf() 取第一个既非阶段也非角色词的标签作为展示分类；TaskCard 改显分类而非阶段号（阶段只在阶段条上体现）。角色词表集中定义，不再散落在正则里。注意：本卡只修「读」的语义，不改 tags 的存储格式与写入顺序 —— 存量数据里 [\"agent\"] 这种缺阶段信息的卡，本卡只能把它们从「显示 agent」改成「显示未分类」，补全归 R10-04。非目标：不做标签编辑器、不改 TaskInputParser 的录入解析、不改 tags 存储格式。",
+            "scope": [
+                "src/TaskModel.h",
+                "src/TaskModel.cpp",
+                "qml/components/TaskCard.qml",
+                "tests/tst_taskmodel.cpp",
+                "tests/CMakeLists.txt"
+            ],
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_taskmodel --output-on-failure",
+                "tags 为 [\"主题\",\"R0\"] 时 stageOf 返回 R0（与标签顺序无关）",
+                "tags 为 [\"agent\"] 时 stageOf 返回 OTHER，且 categoryOf 返回空串而不是 agent",
+                "tags 为 [\"R4\",\"工程\",\"agent\"] 时 categoryOf 返回 工程（跳过阶段与角色词）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "depends": []
+        },
+        "R10-04": {
+            "id": "9cc21b5f-c307-4b2b-a255-946b1448daf6",
+            "title": "R10 存量数据分类补全：115 张卡归项目 + 补分类标签",
+            "stage": "R10",
+            "note": "起因：R10-01 / R10-02 / R10-03 给了能力，但库里 115 张卡仍是老样子 —— 13 张别的项目的卡混在 NeonBoard 看板里，33 张既无阶段也无分类。能力上线不等于数据干净，这一卡专门收口存量。目标：一次性迁移脚本，按可复核的规则把存量卡归入项目与分类：标题含抢号 / 号源 / QPS / Webhook / 定时任务 / 限速 → 抢号系统；含 Rust / TS: / SplashHandover / splash / 启动窗 / bun test / cargo check → 启动窗改造；其余归 NeonBoard。脚本必须干跑优先（默认只输出对照表，不写库）、--apply 才落库、可重跑幂等、写库前自动备份 board.db，并把归类依据（命中的关键词）逐行打印以便人工复核。非目标：不改卡片标题、不删卡、不动已完成状态与 order_key。",
+            "scope": [
+                "scripts/classify-cards.py",
+                "docs/"
+            ],
+            "acceptance": [
+                "python scripts/classify-cards.py 默认干跑，输出 115 行对照表且 board.db 的 md5 不变",
+                "python scripts/classify-cards.py --apply 后归类结果为 NeonBoard 102 / 抢号系统 6 / 启动窗改造 7",
+                "重复执行 --apply 不产生重复归属行（幂等），--apply 前自动生成 board.db.bak-<时间戳>"
+            ],
+            "depends": [
+                "R10-01",
+                "R10-03"
             ]
         }
     },

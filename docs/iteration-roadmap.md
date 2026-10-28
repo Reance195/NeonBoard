@@ -383,7 +383,7 @@ feat(board): 支持列内精确插位 #R1-04=done
 | **R5** | 交付与运维 | 软件自动更新：清单 / 版本比较 / 下载校验 / 安装版静默升级 / 便携版自替换 / 发布侧清单生成 | 装了新版的用户不必手工下载；两种安装形态都能就地升级 | **完成**：UpdateManager（清单解析 / 语义化版本比较 / 缓存降级 / 下载校验）+ 安装形态判定（注册表 AppId）+ 安装版 `/VERYSILENT` + 便携版自更新脚本（纯 ASCII，主程序退出后覆盖并重启）+ 设置面板 / 命令面板 / 命令行三入口 + `scripts/build-update-manifest.ps1` 与 release.yml 产物上传回写；单测 9/9 通过、selftest OK、smoke 零 QML 报错 ✅ |
 | **R6** | 任务派发器 | 执行定义收尾、运行记录与任务锁、Agent Profile 与执行前确认、单次执行器（流式日志 / 超时 / 终止）、验收器与越界检查、结果回写与执行面板、Triage 只读分析、Loop 有限重试、（可选）台账单向导入 | 一张卡能一键执行并给出可验证结论；同卡不并发；执行完不自动 push、不自动改看板列；执行器总开关默认关闭 | **全部完成（9/9）**：R6-01 执行定义收尾 / R6-02 运行记录侧表与同卡锁 / R6-03 Agent Profile 与执行前确认 / R6-04 单次执行器 TaskRunner / R6-05 验收器与越界检查（AcceptanceRunner + ScopeMatcher）/ R6-06 执行结果回写与执行面板（latestRun/summaryOf + CLI --run-summary + 执行面板 + 卡面执行态徽章）/ R6-07 Triage 只读分析（TriageRunner，readonlyArgs + git status 前后一致双硬门）/ R6-08 Loop 失败摘要回灌与有限重试（maxAttempts 钳制 1..5、取消不重试、耗尽提示人工介入）/ R6-09 台账卡单向导入（LedgerImport，ADR-0001 只补空值 / 冲突只报告 / 幂等）均已以 `#R6-0x=done` 结项。ctest 20/20、--selftest / --smoke 退出码 0、CI 全绿；执行器总开关默认关，未开启时看板行为与引入前一致；程序不自动改看板列、不自动 push。详见 [r6-dispatcher-plan.md](r6-dispatcher-plan.md)，ADR-0001 / 0002 已接受 ✅ |
 | **R7** | 派发器进阶（队列编排 + 多 Agent 角色链） | 执行队列（FIFO 排队 / 暂停 / 调序 / 跳过 / 并发 ≤2 / 夜间批量）、任务编排调度器（排队 + 背压替代 M1 的「忙则拒绝」）、角色链 workflow（M4：workflow 升级为角色步骤数组，每步一个角色 + 一份 handoff 交接物 + 独立验收，orchestrator 选 workflow / 决策失败分支 / 收口 summary；预设 fix / feature / hotfix / docs / review / delivery）、成本账（记录每 run 耗时，卡片可见累计成本） | 多卡可入队、并发受控不互相拖慢（背压 / 限流）、队列可暂停 / 恢复 / 跳过；角色链按序接力、每步交接物落盘且下一步读上一步产出、验收各自独立；夜间批量勾选 → 排队 → 次日看结果且 UI 给预计总时长；成本账每 run 记录耗时 | **规划中**：承接 R6 推迟的「M1 之后」范围（[product-design.md](product-design.md) §5 队列与批量 / §7 Workflow / M4 角色链）；M2 Triage 与 M3 Loop 已在 R6 内（R6-07 / R6-08），本里程碑不重复 ⬜ |
-| **DX** | 开发体验 | 看板内置「项目全景」面板：里程碑（路线图 §9 表驱动）、链路（声明 + 证据实证）、骨架（真实目录扫描）、体检（宣称 vs 派生对账）；测试可启动性；领用/合并规则自洽性；阶段条数据驱动；会话隔离硬门；代登记可审计 | 打开面板即知里程碑/链路/骨架/漂移，不必查文档；仓库结构一改面板自动跟上，漏改则「断链」标红且 `tst_projectmap` 先红；一分支多卡不再靠绕；阶段条上不再有「看不见的卡」 | **部分完成**：DX-01 落地 ✅ —— 里程碑行序与主题全部取自 §9 表格（加一行即多一行）；卡片状态按 git `#短号=done` ∪ 台账 baseline 派生；链路 8 环节逐条实证 `docs/project-map.json` 的证据文件；骨架 7 组扫真实目录；派生走后台线程（0.3–0.9 s）不卡界面，文件改动 0.7 s 防抖重算。DX-02 落地 ✅ —— 测试进程自带 Qt bin 路径，没配 `PATH` 跑 `ctest` 不再弹硬错误框挂到超时。DX-03 待做 ⬜ —— 一分支多卡的领用规则（现行两道闸门在该场景下互相矛盾）。DX-04 落地 ✅ —— 阶段集合与顺序改取 §9 行序（`ProjectMap::stageOrder()`），`stageOf` 放宽到非 R 阶段，「其他」改为可对账的兜底桶（原先 R4/R5/R6 共 28 张卡在界面上不可见）；阶段条配色也改为按行序取色板，不再按 key 写死。DX-05 待做 ⬜ —— 锚点区禁止 `-InPlace`（两个会话共用检出与 HEAD，工作区与 `.sandbox` 双双失去隔离）。DX-06 待做 ⬜ —— 代登记缺内容校验（立卡可与代码混提交、授权记录无强制） |
+| **DX** | 开发体验 | 看板内置「项目全景」面板：里程碑（路线图 §9 表驱动）、链路（声明 + 证据实证）、骨架（真实目录扫描）、体检（宣称 vs 派生对账）；测试可启动性；领用/合并规则自洽性；阶段条数据驱动；会话隔离硬门；代登记可审计 | 打开面板即知里程碑/链路/骨架/漂移，不必查文档；仓库结构一改面板自动跟上，漏改则「断链」标红且 `tst_projectmap` 先红；一分支多卡不再靠绕；阶段条上不再有「看不见的卡」 | **部分完成**：DX-01 落地 ✅ —— 里程碑行序与主题全部取自 §9 表格（加一行即多一行）；卡片状态按 git `#短号=done` ∪ 台账 baseline 派生；链路 8 环节逐条实证 `docs/project-map.json` 的证据文件；骨架 7 组扫真实目录；派生走后台线程（0.3–0.9 s）不卡界面，文件改动 0.7 s 防抖重算。DX-02 落地 ✅ —— 测试进程自带 Qt bin 路径，没配 `PATH` 跑 `ctest` 不再弹硬错误框挂到超时。DX-03 待做 ⬜ —— 一分支多卡的领用规则（现行两道闸门在该场景下互相矛盾）。DX-04 落地 ✅ —— 阶段集合与顺序改取 §9 行序（`ProjectMap::stageOrder()`），`stageOf` 放宽到非 R 阶段，「其他」改为可对账的兜底桶（原先 R4/R5/R6 共 28 张卡在界面上不可见）；阶段条配色也改为按行序取色板，不再按 key 写死。DX-05 落地 ✅ —— 锚点区 `-InPlace` 直接 `exit 3`（须显式 `-ForceAnchor`，两个会话共用检出与 HEAD、工作区与 `.sandbox` 双双失去隔离的根因），占用登记改为开区自动 Claim / 合并自动 Release，新增 `agent-workspace.ps1 -Action Check` 体检。DX-06 待做 ⬜ —— 代登记缺内容校验（立卡可与代码混提交、授权记录无强制） |
 
 ### 9.1 R6 派发器（全部落地，9/9）
 
@@ -461,13 +461,31 @@ R4 14 张、R5 5 张（含 1 张待办）、R6 9 张（含 6 张待办）—— 
 `ctest` 14/14；`--selftest` / `--smoke` 均通过且日志无 QML 告警。
 遗留：阶段条未监听 roadmap 文件，§9 新增行需重启应用才反映出来（面板的 ProjectMap 有 watcher）。
 
-**DX-05 会话隔离硬门（待做 ⬜）**：宪章 §7.2 要求「一 agent 一 worktree 一分支」，机制也确实在
+**DX-05 会话隔离硬门（已落地 ✅）**：宪章 §7.2 要求「一 agent 一 worktree 一分支」，机制也确实在
 `agent-init` 的 `else` 分支（`git worktree add .worktrees/<agent>`）。但 2026-10-28 凌晨两个会话
 同时把**仓库根目录**当开发区 —— `.worktrees/` 一个都没建，HEAD 被对方切走，工作区与 `.sandbox`
 双双失去隔离。原因是 `-InPlace` 本意只用于「已是隔离检出」，在锚点区传它等于自我降级，而脚本不拦；
 配套的 `agent-workspace.ps1` 占用登记是自愿的（`Status` 显示 `root: 空闲`，两边都没做）。
-修法三道一起上：锚点区禁止 `-InPlace`（要动手须 `-ForceAnchor`）、开工自动 Claim / 收尾自动 Release、
-检出里有他人 in-place 环境时告警。详见台账 `DX-05`。
+现在三道一起收口：
+
+- **锚点区禁止 `-InPlace`**：`agent-init.ps1` 用 `git rev-parse --git-common-dir` / `--git-dir`
+  判定锚点（两者相等），命中即 `exit 3` 并提示正确用法；确需在锚点动手必须显式 `-ForceAnchor`
+  （顺带登记 `root` 占用）。检出里已留**他人**的 `.agent-env.ps1` 同样默认拒绝，同开关才可接管。
+- **开工自动登记**：`agent-init.ps1` 成功后写 `worktree:<agent>`（原地模式写 `root`），目标已被占用
+  直接 `exit 3`；`git-done.ps1` 合并成功后按当前 agent 身份自动 `Release`（身份不符拒绝）。
+- **体检**：`agent-workspace.ps1 -Action Check` 核对锚点 in-place 环境 / 一分支双检出 /
+  每个 worktree 独立 `.sandbox` / 登记与目录对账，硬冲突 `exit 3`。
+
+验收（逐条实测）：
+
+- 锚点区 `-InPlace` → `exit 3`，提示里给出 `-ForceAnchor`；`.worktrees/agent-gov` 内同命令 → `exit 0` ✅
+- 锚点区 `-InPlace -ForceAnchor` → `exit 0`，`Status` 显示 `root` 已被当前 agent 占用 ✅
+- `agent-init` 后 `Status` 显示 `worktree:agent-gov` 已登记；`Release` 后恢复「空闲」，他人 Release 被拒 ✅
+- `Check` 在干净状态下 `exit 0`；`AGENTS.md` §7.2 已写明 `-InPlace` 合法前提与 `-ForceAnchor` 用途 ✅
+- 改动的 `.ps1` 均保留 UTF-8 BOM，`check_script_hygiene.py` 通过 ✅
+
+遗留：登记文件 `<git-common-dir>/agent-workspace.json` 仍是本机共享元数据（与 `.git` 同寿命），
+跨机器/多 clone 不传递；`Check` 的僵尸登记只告警不自动回收（回收由人拍板，§7.10）。详见台账 `DX-05`。
 
 **DX-06 代登记可审计（待做 ⬜）**：宪章正文第 1 条允许「维护者显式授权代登记」，并要求
 提交信息用 `chore(board):`、body 记录授权来源与批次、且只能在锚点区执行。但 `task_gate.py`

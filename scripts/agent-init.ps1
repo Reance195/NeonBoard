@@ -15,11 +15,18 @@
       所以检测到「脚本所属检出本身已是 linked worktree」时自动转为原地初始化：
       复用当前检出，只补 .sandbox / .agent-env.ps1 / 领用登记，不再嵌套开区。
 
+    锚点区不是开发区（DX-05）：
+      锚点区（仓库根目录）的 git-dir 等于 common dir。在那里传 -InPlace 会被直接拒绝
+      （exit 3），因为它会让两个会话共享 HEAD 与 .sandbox。确需在锚点动手才加 -ForceAnchor，
+      脚本会自动登记 root 占用，让后来者撞到的是明确的报错而不是静默覆盖。
+      开发区（.worktrees/<agent>）开区即自动登记 worktree:<agent> 占用，git-done 收尾释放。
+
     用法：
       pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch fix/stagebar-chip-overflow -Card R3-01
       pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/xxx -Base origin/main -Card M19
       pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch chore/xxx -Card none
       pwsh -File scripts/agent-init.ps1 -Agent agent-c -Card R3-01 -InPlace    # 已在 worktree 里，原地初始化
+      pwsh -File scripts/agent-init.ps1 -Agent agent-c -Card R3-01 -InPlace -ForceAnchor   # 确需在锚点区动手
         # -Card 必填：领用期间该卡在台账 claims 里占位，看板卡自动转「进行中」。
         # 大任务（R#-#）可随时领；小任务（M##）仅当其父任务尚未被任何人认领时才可单独领。
         # 分支头脱离主干的期间内该卡为 doing（派生器按 head 位置判定），
@@ -37,6 +44,8 @@ param(
     [switch]$NoFetch,
     # 已在独立 worktree 里时用：不再嵌套开区（WorkBuddy Worktree Task 场景）
     [switch]$InPlace,
+    # 锚点区豁免（DX-05）：在锚点区传 -InPlace 默认直接报错；确需在锚点动手才加它
+    [switch]$ForceAnchor,
     # 强制嵌套：明知道当前是 linked worktree 也要再开一层子工作区（极少用）
     [switch]$ForceNested
 )
@@ -93,6 +102,24 @@ if ($gitDir -and $commonDir -and ($gitDir -ne $commonDir) -and -not $ForceNested
     $InPlace = $true
 }
 
+# ---------- 锚点区不是开发区（DX-05 硬门）----------
+# -InPlace 的本意是「脚本所属检出本身已经是隔离 worktree」（WorkBuddy / 手工 worktree）。
+# 在锚点区传它，等于把全仓共享的检出降级成自己的开发区：两个会话互相切走 HEAD、
+# 共用 .sandbox（2026-10-28 凌晨实测：.worktrees/ 一个都没建，双方都在根目录提交）。
+# 现在把它做成不可能：锚点区显式 -InPlace 直接拒；确需在锚点动手必须 -ForceAnchor，
+# 且自动登记 root 占用，让后来者看得见、不再撞车。
+$isAnchor = [bool]($gitDir -and $commonDir -and ($gitDir -eq $commonDir))
+if ($isAnchor -and $PSBoundParameters.ContainsKey('InPlace') -and -not $ForceAnchor) {
+    Write-Host '✗ 拒绝在锚点区原地开区（-InPlace）：锚点区不是开发区。' -ForegroundColor Red
+    Write-Host '  独立工作区： pwsh -File scripts/agent-init.ps1 -Agent <名> -Branch <分支> -Card <短号>' -ForegroundColor Yellow
+    Write-Host '  确需在锚点区动手请显式加 -ForceAnchor（会自动登记 root 占用，避免与别的会话撞车）。' -ForegroundColor Yellow
+    exit 3
+}
+if ($isAnchor -and $ForceAnchor) {
+    $InPlace = $true
+    Write-Host '⚠ 锚点区原地模式（-ForceAnchor）：锚点不是开发区，改动请尽快合并回 main 并释放占用' -ForegroundColor Yellow
+}
+
 if (-not $Branch) { $Branch = "feature/$Agent" }
 
 # -Card none：显式声明「本次不领用任何卡片」。
@@ -120,6 +147,28 @@ if ($InPlace) {
     }
     Write-Host ("· 原地初始化：复用当前检出 {0}" -f $worktree) -ForegroundColor Cyan
     Write-Host ("  分支 {0}（未嵌套创建子工作区）" -f $Branch) -ForegroundColor DarkGray
+
+    # 检出里的 .agent-env.ps1 是「谁在用这份检出」的物证。指向别人说明另一个会话
+    # 正把它当开发区（DX-05 的原始现场），两边会共享 HEAD 与 .sandbox —— 默认拒绝。
+    $probeEnv = Join-Path $worktree '.agent-env.ps1'
+    $owner = ''
+    if (Test-Path -LiteralPath $probeEnv) {
+        try {
+            $envText = [System.IO.File]::ReadAllText($probeEnv, [System.Text.Encoding]::UTF8)
+            $mOwner = [regex]::Match($envText, '(?m)^\s*\$env:NEONBOARD_AGENT_ID\s*=\s*''([^'']*)''')
+            if ($mOwner.Success) { $owner = $mOwner.Groups[1].Value.Trim() }
+        } catch { $owner = '' }
+    }
+    if ($owner -and $owner -ne $Agent) {
+        if (-not $ForceAnchor) {
+            Write-Host ("✗ 检出里已有他人 in-place 环境（NEONBOARD_AGENT_ID = {0}）" -f $owner) -ForegroundColor Red
+            Write-Host ("  路径：{0}" -f $worktree) -ForegroundColor DarkGray
+            Write-Host '  另一个会话正在用它，你们会共享 HEAD 与 .sandbox（沙箱数据互相覆盖）。' -ForegroundColor Yellow
+            Write-Host '  独立开区：去掉 -InPlace 改用 .worktrees/<agent>；确需接管请加 -ForceAnchor。' -ForegroundColor Yellow
+            exit 3
+        }
+        Write-Host ("⚠ 已按 -ForceAnchor 接管 '{0}' 的检出（请确认对方会话已停）" -f $owner) -ForegroundColor Yellow
+    }
 } else {
     $worktree = Join-Path (Join-Path $repoRoot '.worktrees') $Agent
 
@@ -172,6 +221,43 @@ if ($Card -and $Card -ne 'none') {
 }
 $envContent = ($envLines -join "`n")
 [System.IO.File]::WriteAllText($envFile, $envContent, (New-Object System.Text.UTF8Encoding($false)))
+
+# ---------- 工作区占用登记（自动，DX-05）----------
+# 以前占用登记是自愿的：Status 显示 root 空闲、两个会话都没登记，于是「谁在用这份检出」
+# 全靠口头约定。现在开区即登记 —— 锚点区登记 root，开发区登记 worktree:<agent>，
+# git-done 收尾自动 Release；后来者 agent-init 撞到占用会被拒，而不是等出事后才发现。
+$pwshExe = 'powershell'
+$pwshCmd2 = Get-Command pwsh -ErrorAction SilentlyContinue
+if ($pwshCmd2) { $pwshExe = $pwshCmd2.Source }
+$wsScript = Join-Path $repoRoot 'scripts\agent-workspace.ps1'
+$claimScope = if ($isAnchor) { 'root' } else { "worktree:$Agent" }
+$workspaceClaimed = $false
+if (Test-Path -LiteralPath $wsScript) {
+    $claimTask = if ($Card) { $Card } else { $Branch }
+    $claimOut = @()
+    $claimCode = 0
+    Push-Location $repoRoot
+    try {
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $claimOut = @(& $pwshExe -NoProfile -ExecutionPolicy Bypass -File $wsScript -Action Claim -Agent $Agent -Scope $claimScope -Task $claimTask 2>&1)
+            $claimCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+    } finally {
+        Pop-Location
+    }
+    foreach ($line in $claimOut) { Write-Host ("   {0}" -f $line) -ForegroundColor DarkGray }
+    if ($claimCode -ne 0) {
+        Write-Host ("✗ 工作区占用登记被拒绝（{0}，退出码 {1}）" -f $claimScope, $claimCode) -ForegroundColor Red
+        Write-Host '  已有会话在占用它。换一个 agent 名独立开区，或等对方释放：' -ForegroundColor Yellow
+        Write-Host '  pwsh -File scripts/agent-workspace.ps1 -Action Status' -ForegroundColor Yellow
+        exit 3
+    }
+    $workspaceClaimed = $true
+}
 
 # ---------- 领用登记（-Card <短号>） ----------
 # 领用规则：大任务（R#-#）直接领；小任务（M##）必须父任务未被任何人认领，
@@ -318,3 +404,4 @@ Write-Host ("  cmake -S . -B build -G `"Visual Studio 17 2022`" -A x64 -DCMAKE_P
 Write-Host ('  cmake --build build --config Release')
 Write-Host ("  pwsh -File scripts\dev-run.ps1          # 沙箱启动，不污染真实数据")
 if ($Card) { Write-Host ("  领用： {0}（进行中由台账 claims 派生并自动投递）" -f $Card) }
+if ($workspaceClaimed) { Write-Host ("  占用： {0}（git-done 收尾自动释放）" -f $claimScope) }

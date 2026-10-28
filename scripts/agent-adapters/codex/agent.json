@@ -1,0 +1,24 @@
+{
+  "id": "codex",
+  "displayName": "Codex CLI",
+  "exe": "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.1021.3705.0_x64__2p2nqsd0c76g0\\app\\resources\\codex.exe",
+  "args": ["exec", "--json"],
+  "promptMode": "arg",
+  "readonlyArgs": ["-s", "read-only"],
+  "output": "json",
+  "env": { "NO_COLOR": "1" },
+  "defaultTimeoutMin": 30,
+  "stdin": "null",
+  "notes": [
+    "本机实测：codex-cli 0.164.0-alpha.11.1，Microsoft Store 版，CLI 本体不在 PATH，",
+    "  藏在 WindowsApps 的版本号目录里；升级后版本号会变，安装脚本按通配探测重写",
+    "stdin 必须重定向到 NUL：不重定向会卡在「Reading additional input from stdin...」",
+    "--json 是事件流不是最终回复，末条回复要另用 -o <file> 收（执行器需自行管理该文件）",
+    "只读走 -s read-only，是原生沙箱（实测确实拦住写文件）",
+    "**未实测整轮**：此前两次 exec 都没在 200s / 420s 内跑完一个回合（走本地代理，",
+    "  且 config.toml 把 provider 指向 127.0.0.1:15721 的自定义网关）。按",
+    "  docs/agent-profile.md §12.1「禁止内置未实测 profile」—— 本条**默认不启用**，",
+    "  需先跑通一次以 turn.completed 结束的 exec 再打开",
+    "Codex 没有 hooks 机制，拿不到内部待办清单；入站只能靠 scripts/agent-adapters/codex/neonboard-codex.ps1 的 -Run 包一层"
+  ]
+}

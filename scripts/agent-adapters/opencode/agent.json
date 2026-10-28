@@ -1,0 +1,17 @@
+{
+  "id": "opencode",
+  "displayName": "opencode",
+  "exe": "opencode",
+  "args": ["run", "--format", "json"],
+  "promptMode": "arg",
+  "readonlyArgs": ["--agent", "plan"],
+  "output": "json",
+  "env": { "NO_COLOR": "1" },
+  "defaultTimeoutMin": 30,
+  "notes": [
+    "本机实测：Volta 安装的 opencode 在 PATH 上（~/AppData/Local/Volta/bin/opencode）",
+    "opencode 没有内置只读开关，readonlyArgs 用一个只读 agent 配置（plan）来兜",
+    "入站适配器：scripts/agent-adapters/opencode/neonboard-todo-bridge.js（opencode 插件）",
+    "这是唯一在本机已有入站适配器的 agent，其余三个都照它的契约实现"
+  ]
+}

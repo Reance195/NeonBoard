@@ -1,0 +1,16 @@
+{
+  "id": "claude",
+  "displayName": "Claude Code",
+  "exe": "claude",
+  "args": ["-p", "--output-format", "stream-json"],
+  "promptMode": "arg",
+  "readonlyArgs": ["--permission-mode", "plan"],
+  "output": "stream-json",
+  "env": { "NO_COLOR": "1" },
+  "defaultTimeoutMin": 30,
+  "notes": [
+    "本机实测：Volta 安装的 claude 在 PATH 上（~/AppData/Local/Volta/bin/claude）",
+    "只读走 --permission-mode plan（CLI 原生，属于 docs/agent-profile.md 三档里最强的一档）",
+    "入站适配器：scripts/agent-adapters/claude/neonboard-hook.ps1（Claude Code hooks）"
+  ]
+}

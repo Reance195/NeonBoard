@@ -968,6 +968,13 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-07": {
+            "agent": "agent-dx7",
+            "branch": "chore/close-card-automation",
+            "claimedAt": 1793206034,
+            "head": "682db332c1b782d754018873962308f3786c6512"
+        }
+    },
     "version": 1
 }

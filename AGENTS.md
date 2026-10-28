@@ -156,7 +156,7 @@ git branch -d feature/<简述>
    > 3. 不得同时改动代码路径 —— 立卡与实现分开提交，否则事后分不清「哪条被授权、哪条是实现」。
    >
    > 只改 `claims` 或卡片 `note` 不算代登记，无需凭证。判定逻辑只有一处实现
-   > （`scripts/task_gate.py` 的 `audit_problems`），自带允许/拒绝各若干例的可执行自测
+   > （`scripts/task_gate.py` 的 `audit_problems`），自带 9 例（含自动结卡通道与不扩权）的可执行自测
    > `python scripts/task_gate.py selftest`，CI 每次都跑。
    >
    > **为什么不再限定「只能在锚点区」**：锚点区检出停在 `main`、`pre-commit` 规则 1 禁止在
@@ -185,8 +185,11 @@ git branch -d feature/<简述>
 补成 `done`（缺 baseline 条目的卡按标记补 `done` / `todo`），作为独立的
 `chore(board): 结卡 <短号>` 提交快进补推；提交或补推失败只回滚该提交，不阻断已完成的合并。
 
-- **agent 仍不得手改 `baseline`**：自动结卡只由 `git-done` 的收尾步骤执行（提交体注明「自动来源」），
-  agent 手改仍被 `task_gate.py` 拒 —— 「谁改」与「怎么改」是两件事，别混。
+- **agent 仍不得手改 `baseline`**：自动结卡只由 `git-done` 的收尾步骤执行，提交体必须写
+  `自动来源：` 一行，agent 手改仍被 `task_gate.py` 拒 —— 「谁改」与「怎么改」是两件事，别混。
+  这条「自动来源」是**审计闸门认可的自动通道**（DX-07 补）：它没有「谁授权」可写（结卡是
+  git 事实的机械投影），所以不再要求 `授权：` / `批次：`；但**只对「仅改 baseline」生效** ——
+  一旦夹带新增/删除卡片或改 `id`/`title`/`stage`，仍按人工代登记要授权行，通道不扩权。
 - `derive_board_status.py --baseline-check` 从「只报不改的待决项」降级为**回归探针**：
   漂移非零只说明那次结卡提交没成功（离线 / 撞车 / 脚本失败），CI 打警告但不阻断 job。
 - 自测：`python scripts/derive_board_status.py --selftest`（有标记则结 / 无标记不动 /

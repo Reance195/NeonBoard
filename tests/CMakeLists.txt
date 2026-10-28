@@ -226,6 +226,27 @@ neonboard_add_test(tst_scheduler
 )
 target_link_libraries(tst_scheduler PRIVATE Qt6::Sql)
 
+# R7-03：角色链 workflow 引擎 —— 预设步骤 / 步骤校验 / 卡片覆盖存 meta /
+# 交接物路径与 prompt 注入 / 摘要保留尾部 / 两步链端到端 / 失败即停。
+# 载体 cmd.exe（ComSpec 指到 profile 的 exe），离线可跑。
+neonboard_add_test(tst_workflow
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskExec.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskRunStore.cpp
+    ${CMAKE_SOURCE_DIR}/src/AgentProfile.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskRunner.cpp
+    ${CMAKE_SOURCE_DIR}/src/ScopeMatcher.cpp
+    ${CMAKE_SOURCE_DIR}/src/AcceptanceRunner.cpp
+    ${CMAKE_SOURCE_DIR}/src/WorkflowRunner.cpp
+)
+target_link_libraries(tst_workflow PRIVATE Qt6::Sql)
+
+
 # R6-09：台账卡单向导入（ADR-0001）—— 只补空值 / 冲突只报告 / 未建卡只报告 /
 # 幂等 / note「目标：」段作 goal。台账 fixture 在临时目录，不碰真实台账。
 neonboard_add_test(tst_ledgerimport

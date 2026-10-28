@@ -715,3 +715,50 @@ bool TaskRunStore::failQueued(const QString &runId, const QString &message)
     detail.insert(QStringLiteral("costMs"), 0);
     return release(runId, QStringLiteral("blocked"), detail);
 }
+
+bool TaskRunStore::annotate(const QString &runId, const QVariantMap &fields)
+{
+    if (runId.isEmpty())
+        return false;
+    const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    if (!db.isOpen())
+        return false;
+
+    // 只允许补这几个标注列：它们是「这一步是谁、第几步、属于哪条母 run」的事实，
+    // 不参与状态机；命中别的键一律忽略，避免这条入口被用来改 status / cost_ms。
+    const struct {
+        const char *key;
+        const char *column;
+    } allowed[] = {
+        {"role", "role"},
+        {"stepIndex", "step_index"},
+        {"parentRunId", "parent_run_id"},
+        {"handoffPath", "handoff_path"},
+    };
+    QStringList sets;
+    QVariantList values;
+    for (const auto &field : allowed) {
+        const QString key = QLatin1String(field.key);
+        if (!fields.contains(key))
+            continue;
+        sets << QStringLiteral("%1 = ?").arg(QLatin1String(field.column));
+        values << fields.value(key);
+    }
+    if (sets.isEmpty())
+        return true; // 没有可写的标注，不算失败
+
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral("UPDATE task_run SET %1 WHERE id = ?")
+                      .arg(sets.join(QStringLiteral(", "))));
+    for (const QVariant &value : values)
+        query.addBindValue(value);
+    query.addBindValue(runId);
+    if (!query.exec()) {
+        qWarning() << "TaskRunStore: annotate failed:" << query.lastError().text();
+        return false;
+    }
+    if (query.numRowsAffected() <= 0)
+        return false;
+    bump();
+    return true;
+}

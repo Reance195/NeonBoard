@@ -104,6 +104,11 @@ public:
     // 派发失败（缺 agent / profile / 启动失败）：把该行结算成 blocked，别把队列卡死。
     Q_INVOKABLE bool failQueued(const QString &runId, const QString &message);
 
+    // 只补运行态标注（role / stepIndex / parentRunId / handoffPath），**不结算 run**。
+    // 角色链（R7-03）每步启动后要把「这一步是哪个角色、第几步」记进同一条 run 行；
+    // 走 release 会把 run 结算掉，所以单给一个轻量写入口。
+    Q_INVOKABLE bool annotate(const QString &runId, const QVariantMap &fields);
+
 signals:
     void changed();
 

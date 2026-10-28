@@ -41,6 +41,32 @@ public:
     // 清空整行（回到「未定义执行参数」）。
     Q_INVOKABLE bool clearExec(const QString &taskId);
 
+    // ---- 角色链步骤数组（R7-03）----
+    //
+    // workflow 仍是「预设名」（fix / feature / hotfix / docs / review / delivery）；
+    // 卡片可覆盖每步参数（换 agent / 补 acceptance / 补 scope），但不能跳步改变交付物契约。
+    // 覆盖项存 meta 表 `exec.workflowSteps.<taskId>`（JSON），**不往 task_exec 加列**：
+    // 侧表列变更要走 Database::ensureColumn，而 R7-03 的 scope 不含 Database.cpp；
+    // 用 meta 同样不升 user_version。
+    //
+    // 每条步骤：{role, agent, prompt?, acceptance[], scope[]}
+    //   role      pm / architect / engineer / qa / writer / orchestrator
+    //   agent     该步用哪个 profile（空则用卡片的 agent）
+    //   prompt    该步的任务描述（空则用卡片的 goal）
+    //   acceptance / scope 该步独立验收与边界（复用 R6-05）
+    Q_INVOKABLE QVariantList stepsOf(const QString &taskId) const;
+    Q_INVOKABLE bool setSteps(const QString &taskId, const QVariantList &steps);
+    Q_INVOKABLE bool clearSteps(const QString &taskId);
+
+    // 预设步骤（纯函数，供 QML / 测试直接用）：未知 workflow 返回空表。
+    static QVariantList presetSteps(const QString &workflow);
+
+    // 校验并归一化步骤数组：{ok, steps[], error?}
+    // 未知角色 / acceptance 非字符串数组 / 空步骤数组都算非法。
+    static QVariantMap normalizeSteps(const QVariantList &input);
+
+    static bool isKnownRole(const QString &role);
+
 signals:
     void changed();
 

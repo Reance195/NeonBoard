@@ -87,7 +87,12 @@
         "R8-03": "todo",
         "R8-04": "todo",
         "R8-05": "todo",
-        "R8-06": "todo"
+        "R8-06": "todo",
+        "R9-01": "todo",
+        "R9-02": "todo",
+        "R9-03": "todo",
+        "R9-04": "todo",
+        "R9-05": "todo"
     },
     "cards": {
         "DX-01": {
@@ -1827,6 +1832,108 @@
             ],
             "stage": "R8",
             "title": "R8 键盘位移与拖拽可达性"
+        },
+        "R9-01": {
+            "id": "7950d182-237d-4ba3-a12e-a991b5b58cee",
+            "title": "R9 Agent Provider 扩展点：插件声明 profile + 三层合并",
+            "stage": "R9",
+            "note": "起因：出站执行器（R6）已全绿，但 agent 的定义写死在 src/AgentProfile.cpp 的 builtinProfiles() 里 —— 加一个 agent 要改 C++，插件平台形同虚设；而 cursor-agent 装了却不在 PATH、codex 有明确的不内置理由，这类本机事实内置表根本表达不了。目标：manifest 新增 contributes.agentProfiles，字段完全复用现有 profile（执行侧一处不改），AgentProfile 按「L0 内置 < L1 插件 < L2 用户覆盖」逐条合并，同 id 后者胜。用户层必须是增量覆盖 exec.agentProfileOverrides，不能用现存的 exec.agentProfiles 整份快照 —— 那份一写就把插件后来声明的 agent 整个淹没。迁移不升 user_version、不动 task 表。非目标：不改 TaskRunner / 不改协议 / 不做沙箱。设计稿见 docs/agent-provider-api.md。",
+            "scope": [
+                "src/AgentProfile.h",
+                "src/AgentProfile.cpp",
+                "src/PluginLoader.h",
+                "src/PluginLoader.cpp",
+                "src/PluginRuntime.h",
+                "src/PluginRuntime.cpp",
+                "src/main.cpp",
+                "tests/tst_agentprofile.cpp",
+                "tests/CMakeLists.txt",
+                "docs/plugin-api.md"
+            ],
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_agentprofile --output-on-failure",
+                "三层合并优先级可验证：同 id 时 用户覆盖 > 插件声明 > 内置；墓碑 null 能隐藏内置 id",
+                "老库（写了 exec.agentProfiles 整份快照）迁移后行为与迁移前一致，且新装插件声明的 agent 不会被旧快照淹没",
+                "NeonBoard.exe --plugin-report 能列出插件声明的 profile 与「声明未授权」缺口",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "depends": []
+        },
+        "R9-02": {
+            "id": "bc57dbd0-f2e6-4707-a127-2c9474850a06",
+            "title": "R9 官方插件 agent-claude：声明 Claude Code profile",
+            "stage": "R9",
+            "note": "把本机实测过的 claude 参数搬进 plugins/agent-claude/ 的 manifest（数据现成：scripts/agent-adapters/claude/agent.json）。插件同时贡献命令「派给 Claude Code」与设置页，设置页显示 exe 是否可用。只读模式走 --permission-mode plan（CLI 原生，三档里最强的一档）。",
+            "scope": [
+                "plugins/agent-claude/",
+                "tests/tst_agentprofile.cpp"
+            ],
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_agentprofile --output-on-failure",
+                "NeonBoard.exe --plugin-report 列出 claude profile 且来源标为插件",
+                "本机 isAvailable(claude) 为 true（claude 在 PATH 上）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "depends": [
+                "R9-01"
+            ]
+        },
+        "R9-03": {
+            "id": "58d7b62a-fbbf-4ce6-ae5d-50e17dade7ad",
+            "title": "R9 官方插件 agent-opencode：声明 opencode profile",
+            "stage": "R9",
+            "note": "同 R9-02，声明 opencode（数据见 scripts/agent-adapters/opencode/agent.json）。opencode 没有内置只读开关，readonlyArgs 用一个只读 agent 配置（plan）兜底 ——属 agent-profile.md 三档里的「工具白名单」档，要在设置页标注清楚。",
+            "scope": [
+                "plugins/agent-opencode/",
+                "tests/tst_agentprofile.cpp"
+            ],
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_agentprofile --output-on-failure",
+                "NeonBoard.exe --plugin-report 列出 opencode profile 且来源标为插件",
+                "本机 isAvailable(opencode) 为 true",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "depends": [
+                "R9-01"
+            ]
+        },
+        "R9-04": {
+            "id": "b681065d-babd-49bc-8dd1-3f255fce5927",
+            "title": "R9 官方插件 agent-cursor：绝对路径与不可用态",
+            "stage": "R9",
+            "note": "声明 cursor-agent。本机实测：cursor-agent 装了（v2026.10.19）但**不在 PATH**，内置 profile 写 exe: cursor-agent 调不动 —— 这正是它「内置却不可用」的根因。本卡必须写绝对路径，并让设置页能显示「已声明但 CLI 不在 PATH」，而不是等到执行失败才暴露。",
+            "scope": [
+                "plugins/agent-cursor/",
+                "tests/tst_agentprofile.cpp"
+            ],
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_agentprofile --output-on-failure",
+                "profile 的 exe 用绝对路径时 isAvailable 判定正确（存在即 true）",
+                "exe 找不到时 isAvailable 为 false，且设置页显示「已声明但不可用」而非静默",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "depends": [
+                "R9-01"
+            ]
+        },
+        "R9-05": {
+            "id": "07807019-f391-487c-bd5d-4a3796f6b371",
+            "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置",
+            "stage": "R9",
+            "note": "声明 codex。两个本机实测约束必须落进拼装逻辑：1) stdin 不重定向会卡在「Reading additional input from stdin...」，必须接 NUL；2) --json 是事件流不是最终回复，末条回复要另用 -o <file> 收。**默认不启用**：此前两次 exec 都没在 200s / 420s 内跑完一个回合（provider 指向127.0.0.1:15721 本地网关），按 agent-profile.md §12.1「禁止内置未实测 profile」，需先跑通一次以 turn.completed 结束的 exec 才允许打开。",
+            "scope": [
+                "plugins/agent-codex/",
+                "tests/tst_agentprofile.cpp"
+            ],
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_agentprofile --output-on-failure",
+                "profile 声明 stdin=null 时，执行器把子进程标准输入接到 NUL（不重定向的回归用例）",
+                "未跑通整轮 exec 前，该 profile 默认不出现在可用列表",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
+            "depends": [
+                "R9-01"
+            ]
         }
     },
     "claims": {},

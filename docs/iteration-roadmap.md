@@ -384,7 +384,8 @@ feat(board): 支持列内精确插位 #R1-04=done
 | **R6** | 任务派发器 | 执行定义收尾、运行记录与任务锁、Agent Profile 与执行前确认、单次执行器（流式日志 / 超时 / 终止）、验收器与越界检查、结果回写与执行面板、Triage 只读分析、Loop 有限重试、（可选）台账单向导入 | 一张卡能一键执行并给出可验证结论；同卡不并发；执行完不自动 push、不自动改看板列；执行器总开关默认关闭 | **全部完成（9/9）**：R6-01 执行定义收尾 / R6-02 运行记录侧表与同卡锁 / R6-03 Agent Profile 与执行前确认 / R6-04 单次执行器 TaskRunner / R6-05 验收器与越界检查（AcceptanceRunner + ScopeMatcher）/ R6-06 执行结果回写与执行面板（latestRun/summaryOf + CLI --run-summary + 执行面板 + 卡面执行态徽章）/ R6-07 Triage 只读分析（TriageRunner，readonlyArgs + git status 前后一致双硬门）/ R6-08 Loop 失败摘要回灌与有限重试（maxAttempts 钳制 1..5、取消不重试、耗尽提示人工介入）/ R6-09 台账卡单向导入（LedgerImport，ADR-0001 只补空值 / 冲突只报告 / 幂等）均已以 `#R6-0x=done` 结项。ctest 20/20、--selftest / --smoke 退出码 0、CI 全绿；执行器总开关默认关，未开启时看板行为与引入前一致；程序不自动改看板列、不自动 push。详见 [r6-dispatcher-plan.md](r6-dispatcher-plan.md)，ADR-0001 / 0002 已接受 ✅ |
 | **R7** | 派发器进阶（队列编排 + 多 Agent 角色链） | 执行队列（FIFO 排队 / 暂停 / 调序 / 跳过 / 并发 ≤2 / 夜间批量）、任务编排调度器（排队 + 背压替代 M1 的「忙则拒绝」）、角色链 workflow（M4：workflow 升级为角色步骤数组，每步一个角色 + 一份 handoff 交接物 + 独立验收，orchestrator 选 workflow / 决策失败分支 / 收口 summary；预设 fix / feature / hotfix / docs / review / delivery）、成本账（记录每 run 耗时，卡片可见累计成本） | 多卡可入队、并发受控不互相拖慢（背压 / 限流）、队列可暂停 / 恢复 / 跳过；角色链按序接力、每步交接物落盘且下一步读上一步产出、验收各自独立；夜间批量勾选 → 排队 → 次日看结果且 UI 给预计总时长；成本账每 run 记录耗时 | **规划中**：承接 R6 推迟的「M1 之后」范围（[product-design.md](product-design.md) §5 队列与批量 / §7 Workflow / M4 角色链）；M2 Triage 与 M3 Loop 已在 R6 内（R6-07 / R6-08），本里程碑不重复 ⬜ |
 | **DX** | 开发体验 | 看板内置「项目全景」面板：里程碑（路线图 §9 表驱动）、链路（声明 + 证据实证）、骨架（真实目录扫描）、体检（宣称 vs 派生对账）；测试可启动性；领用/合并规则自洽性；阶段条数据驱动；会话隔离硬门；代登记可审计 | 打开面板即知里程碑/链路/骨架/漂移，不必查文档；仓库结构一改面板自动跟上，漏改则「断链」标红且 `tst_projectmap` 先红；一分支多卡不再靠绕；阶段条上不再有「看不见的卡」 | **部分完成**：DX-01 落地 ✅ —— 里程碑行序与主题全部取自 §9 表格（加一行即多一行）；卡片状态按 git `#短号=done` ∪ 台账 baseline 派生；链路 8 环节逐条实证 `docs/project-map.json` 的证据文件；骨架 7 组扫真实目录；派生走后台线程（0.3–0.9 s）不卡界面，文件改动 0.7 s 防抖重算。DX-02 落地 ✅ —— 测试进程自带 Qt bin 路径，没配 `PATH` 跑 `ctest` 不再弹硬错误框挂到超时。DX-03 落地 ✅ —— 一分支多卡合法化（闸门改逐短号持证：多领合法、缺证照拒；agent-init 补领幂等；方向倒置只告警；check_claim_refs.py --selftest 7 例接入 CI）。DX-04 落地 ✅ —— 阶段集合与顺序改取 §9 行序（`ProjectMap::stageOrder()`），`stageOf` 放宽到非 R 阶段，「其他」改为可对账的兜底桶（原先 R4/R5/R6 共 28 张卡在界面上不可见）；阶段条配色也改为按行序取色板，不再按 key 写死。DX-05 落地 ✅ —— 锚点区 `-InPlace` 直接 `exit 3`（须显式 `-ForceAnchor`，两个会话共用检出与 HEAD、工作区与 `.sandbox` 双双失去隔离的根因），占用登记改为开区自动 Claim / 合并自动 Release，新增 `agent-workspace.ps1 -Action Check` 体检。DX-06 落地 ✅ —— 代登记内容校验生效（立卡须 `chore(board)` + 「授权：」「批次：」两行、不得与代码混提交，`task_gate.py selftest` 9 例接入 CI）。DX-07 落地 ✅ —— 结卡权自动化：git-done 收尾按 #<短号>=done 自动补 aseline（derive_board_status.py --close-cards + 6 例自测、CI 每次跑），并把 DX-06「代登记只能在锚点区」的死锁解掉（改为凭审计凭证，任何检出可代登记） |
-| **R8** | 记忆点收尾 | 主题包格式与外部加载、主题包市场（浏览 / 安装 / 卸载）、卡片详情抽屉（Markdown 笔记 + 就地编辑）、详情进阶（子任务进度环 + 审计时间线 `task_event` 侧表）、拖拽手感升级（涟漪 / 光轨 / 磁吸 / 列高亮）、键盘位移与拖拽可达性 | 第三方主题可安装，换配色不必改代码；详情能回答「这张卡的前世今生」；拖拽全程有落点有轨迹，键盘也能做完同样的事；`Motion.reduced` 时全部新动效瞬时 | **规划中**：承接 §5 P1 第 4–6 项（R2 只做完了记忆点的一半）；六张卡 R8-01 ~ R8-06 已登记台账（出生即带 `acceptance` / `scope` / `depends`，不进 DX-09 补账批次）⬜ 详见 [§9.4](#94-r8-记忆点收尾主题包--卡片详情--拖拽手感规划中) 与 [r8-experience-plan.md](r8-experience-plan.md) |
+| **R8** | 记忆点收尾 | 主题包格式与外部加载、主题包市场（浏览 / 安装 / 卸载）、卡片详情抽屉（Markdown 笔记 + 就地编辑）、详情进阶（子任务进度环 + 审计时间线 `task_event` 侧表）、拖拽手感升级（涟漪 / 光轨 / 磁吸 / 列高亮）、键盘位移与拖拽可达性 | 第三方主题可安装，换配色不必改代码；详情能回答「这张卡的前世今生」；拖拽全程有落点有轨迹，键盘也能做完同样的事；`Motion.reduced` 时全部新动效瞬时 | **规划中**：承接 §5 P1 第 4–6 项（R2 只做完了记忆点的一半）；六张卡 R8-01 ~ R8-06 已登记台账（出生即带 `acceptance` / `scope` / `depends`，不进 DX-09 补账批次）⬜ 详见 [§9.4](#94-r8-记忆点收尾主题包--卡片详情--拖拽手感规划中) 与 [r8-experience-plan.md](r8-experience-plan.md)
+| **R9** | Agent 适配插件化 | Agent Provider 扩展点（插件声明 agent profile + 三层合并 + 老 meta 迁移）、四个官方插件（agent-claude / agent-opencode / agent-cursor / agent-codex） | 新增一个 agent = 加一个插件，不改 C++；「已声明但 CLI 不可用」在设置页可见而非等到执行失败；老库打开行为不变 | **进行中**：站外适配器（统一投递器 + 四个 agent 适配器）已交付，见 [agent-adapters.md](agent-adapters.md)；站内扩展点设计稿见 [agent-provider-api.md](agent-provider-api.md)；五张卡 R9-01 ~ R9-05 已登记台账 ⬜ 详见 [§9.5](#95-r9-agent-适配插件化进行中) | |
 
 ### 9.1 R6 派发器（全部落地，9/9）
 
@@ -581,6 +582,43 @@ R6/R7 让产品与众不同，用户每天摸到的却还是那张三年前就�
 
 **待拍板**：① 附件是否进详情（涉及备份与 DataPort 导出，可能打破 §10「数据可导出可还原」）；
 ② 是否允许插件贡献主题（P2 原文预留，建议格式稳定一轮后再谈）；③ 审计事件保留窗口。
+
+### 9.5 R9 Agent 适配插件化（进行中）
+
+**判断依据**：入站（Agent → 看板）早在 R4-01 就通了协议与消费端，但投递侧一直没有唯一实现 ——
+每个适配器各自拼 JSON、各自找 exe；出站（看板 → Agent）的执行器 R6 已 9/9 全绿，
+可 agent 的定义却写死在 `src/AgentProfile.cpp:194` 的 `builtinProfiles()` 里。
+结果就是**插件平台能贡献事件 / 槽位 / 命令 / 设置页，唯独不能贡献「一个 agent」**。
+
+三条本机实测把这个缺口钉死了：
+
+- **cursor-agent 装了却不在 PATH**（`AppData\Local\cursor-agent`，v2026.10.19），
+  内置 profile 写 `exe: "cursor-agent"` 调不动 —— 这是它「内置却不可用」的根因，
+  而"必须写绝对路径"这种本机事实，内置表天生表达不了。
+- **codex 在 Store 版里**（`WindowsApps\OpenAI.Codex_*\app\resources\codex.exe`），
+  有明确的不内置理由（未实测整轮），却连"可被声明"的入口都没有。
+- **Qoder 本机未安装、MiniMax Code 只有 GUI 无 CLI** —— 清单需要能增删，而不是改一次 C++ 编译一次。
+
+**范围**（五张卡）
+
+- **R9-01 Agent Provider 扩展点**：manifest 新增 `contributes.agentProfiles`，字段完全复用现有
+  profile（**执行侧一处不改**）；`AgentProfile` 按「L0 内置 < L1 插件 < L2 用户覆盖」逐条合并。
+  用户层必须是增量覆盖 `exec.agentProfileOverrides`，**不能用现存的 `exec.agentProfiles` 整份快照** ——
+  那份一写就把插件后来声明的 agent 整个淹没。迁移不升 `user_version`、不动 `task` 表。
+- **R9-02 agent-claude**：`--permission-mode plan` 是 CLI 原生只读（三档里最强的一档）。
+- **R9-03 agent-opencode**：无内置只读开关，用只读 agent 配置（`--agent plan`）兜底，设置页标注清楚。
+- **R9-04 agent-cursor**：绝对路径 + **不可用态展示**（`isAvailable`），不能等执行失败才暴露。
+- **R9-05 agent-codex**：`stdin: "null"`（不重定向会卡在读取 stdin）+ `-o <file>` 收末条回复；
+  **未跑通一次以 `turn.completed` 结束的 exec 前默认不启用**（`agent-profile.md` §12.1）。
+
+**出口标准**：`--plugin-report` 能列出插件声明的 profile 与来源；四个 agent 的设置页能看出
+「可用 / 不可用 / 未授权」；老库（写了整份快照）迁移前后行为一致；`ctest` 全绿、`--selftest` 退出码 0。
+
+**依赖**：R6-03（Agent Profile 与执行前确认）提供 profile 的形状与执行侧；R4-01（Agent 任务桥）
+提供入站协议 —— R9 只补出站的定义从哪来，不重复这两者。
+
+**非目标**：不做 agent 进程沙箱、不做多 agent 并发编排（R7）、不把站外适配器的安装动作塞进 QML
+（QML 起不了进程，面板只显示状态，安装交给 `scripts/install-agent-adapters.ps1`）。
 
 ## 10. 验收指标（“炫酷”可量化）
 

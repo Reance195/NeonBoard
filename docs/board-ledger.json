@@ -1010,6 +1010,13 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-09": {
+            "agent": "agent-dx9",
+            "branch": "docs/dx9-acceptance-scope",
+            "claimedAt": 1793211797,
+            "head": "37c66027fb11d34e4665d99af75eca4a2287be31"
+        }
+    },
     "version": 1
 }

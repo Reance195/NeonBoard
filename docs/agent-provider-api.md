@@ -124,13 +124,16 @@ QVariantList AgentProfile::builtinProfiles()   // opencode / claude / cursor-age
 
 ## 七、建议分卡
 
+> **卡号已避开 R8**：R8-01~R8-06 已被「主题包 / 主题市场 / 卡片详情 / 拖拽手感 / 键盘位移」
+> 占满（2026-10-29 登记），本批次顺延到 **R9**。立卡前务必再核一次台账，别照抄本文档的号。
+
 | 卡 | 范围 | 验收 |
 | --- | --- | --- |
-| R8-01 | `AgentProfile` 支持插件声明 + 三层合并 + 老 meta 迁移 | `tst_agentprofile` 覆盖合并优先级与迁移；老库打开行为不变 |
-| R8-02 | `plugins/agent-claude` | `--plugin-report` 能列出 claude profile；`isAvailable` 在本机为 true |
-| R8-03 | `plugins/agent-opencode` | 同上 |
-| R8-04 | `plugins/agent-cursor`（含绝对路径与不可用态展示） | 面板显示"已声明但 CLI 不在 PATH" |
-| R8-05 | `plugins/agent-codex`（含 `stdin: "null"`） | 跑通一次以 `turn.completed` 结束的 `exec` 才允许启用 |
+| R9-01 | `AgentProfile` 支持插件声明 + 三层合并 + 老 meta 迁移 | `tst_agentprofile` 覆盖合并优先级与迁移；老库打开行为不变 |
+| R9-02 | `plugins/agent-claude` | `--plugin-report` 能列出 claude profile；`isAvailable` 在本机为 true |
+| R9-03 | `plugins/agent-opencode` | 同上 |
+| R9-04 | `plugins/agent-cursor`（含绝对路径与不可用态展示） | 面板显示"已声明但 CLI 不在 PATH" |
+| R9-05 | `plugins/agent-codex`（含 `stdin: "null"`） | 跑通一次以 `turn.completed` 结束的 `exec` 才允许启用 |
 
 五个插件的 profile 数据已按现有格式备好，在 `scripts/agent-adapters/<agent>/agent.json`，
 实现时直接搬进 manifest，不需要重新实测参数（参数面已实测，见 agent-adapters.md 第二节）。

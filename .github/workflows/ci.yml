@@ -203,28 +203,38 @@ jobs:
         run: |
           # 主线合并后由 CI 统一回写快照状态，特性分支完全不碰 progress.json，
           # 多代理并行也不会产生快照冲突。
-          python scripts/derive_board_status.py --write
-          if ($LASTEXITCODE -ne 0) { throw '看板状态派生失败' }
           git config user.name  'neonboard-ci'
           git config user.email 'neonboard-ci@users.noreply.github.com'
-          git add progress.json
-          # 注意：PowerShell 里 if (命令) 判断的是输出而不是退出码，必须显式看 $LASTEXITCODE
-          git diff --cached --quiet
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host '看板状态无变化，无需回写'
-            exit 0
-          }
           # 快照回写提交是全仓库唯一的钩子豁免（AGENTS.md §11.2 第 7 条）。
           # 起因：ad5134d 给 CI 装上 core.hooksPath 后，本 job 的检出停在 main，
           # pre-commit 的「禁止在受保护分支直接提交」把这条回写提交拒了（10-26 之前
           # 无钩子，回写一直正常）。豁免只给这一条命令，且它只提交 progress.json。
-          git commit --no-verify -m 'ci(board): 自动回写看板状态'
-          if ($LASTEXITCODE -ne 0) { throw "看板状态回写提交失败（退出码 $LASTEXITCODE）" }
-          # 推送前同步并重试：构建这几分钟里主线可能已被别的提交推进（fetch first）
+          #
+          # 构建这几分钟里主线可能已被别的提交推进（fetch first）：循环内先变基
+          # 再派生，保证派生依据是最新主线的 git 标记。冲突处置：回写只动
+          # progress.json，它的唯一事实源就是「git 标记 + 台账」的派生结果（§11）。
+          # 主线若已含同派生结果（本地跑过 derive --write —— R6 收官踩过：CI 回写
+          # 提交 rebase 撞内容冲突、整轮红），我们的提交就是重叠提交，--skip 丢弃
+          # 即可；绝不手工解冲突硬拼两份快照（会造出谁都不是的第三份状态）。
           for ($i = 1; $i -le 3; $i++) {
             git fetch origin main --quiet
             git rebase origin/main
-            if ($LASTEXITCODE -ne 0) { git rebase --abort 2>$null; throw 'rebase 到 origin/main 失败' }
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "· 回写与主线撞车（第 $i 次）：丢弃重叠的回写提交，以最新主线重新派生"
+              git rebase --skip
+              if ($LASTEXITCODE -ne 0) { git rebase --abort 2>$null; throw '看板回写 rebase --skip 仍失败' }
+            }
+            python scripts/derive_board_status.py --write
+            if ($LASTEXITCODE -ne 0) { throw '看板状态派生失败' }
+            git add progress.json
+            # 注意：PowerShell 里 if (命令) 判断的是输出而不是退出码，必须显式看 $LASTEXITCODE
+            git diff --cached --quiet
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host '看板状态无变化，无需回写'
+              exit 0
+            }
+            git commit --no-verify -m 'ci(board): 自动回写看板状态'
+            if ($LASTEXITCODE -ne 0) { throw "看板状态回写提交失败（退出码 $LASTEXITCODE）" }
             git push origin HEAD:main
             if ($LASTEXITCODE -eq 0) { break }
             if ($i -eq 3) { throw '看板回写推送重试 3 次仍失败' }

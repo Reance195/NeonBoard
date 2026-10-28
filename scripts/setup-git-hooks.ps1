@@ -70,6 +70,28 @@ if ($current -eq $desired) {
     Write-Host '· 已安装仓库钩子（core.hooksPath = .githooks）' -ForegroundColor Green
 }
 
+# ---------- rerere：解冲突记忆（同为不随 clone 传递的仓库级配置）----------
+# AGENTS.md §7.5 要求开启 rerere，但它和 core.hooksPath 一个性质：仓库级、不随 clone
+# 走、漏了静默失效。只写在文档里靠每个 agent 手工开必然漂 —— 本机实测就是 R6 全程没人
+# 开、直到收官才发现。本脚本是「仓库级 git 配置的唯一装配点」，rerere 就在这里一并装上。
+# 幂等；-Check 只校验钩子路径，不因 rerere 缺失而红（CI 用不到它，它只是解冲突加速器）。
+foreach ($key in @('core.rerere.enabled', 'core.rerere.autoupdate')) {
+    $cur = (& git -C $repoRoot config --local --get $key 2>$null)
+    $curVal = if ($LASTEXITCODE -eq 0) { ([string]$cur).Trim() } else { '' }
+    if ($curVal -eq 'true') {
+        if (-not $Check) { Write-Host ("· {0} 已就位" -f $key) -ForegroundColor DarkGray }
+    } elseif ($Check) {
+        Write-Host ("· {0} 未开启（不影响 CI，本地/多代理解冲突建议开）" -f $key) -ForegroundColor DarkGray
+    } else {
+        & git -C $repoRoot config --local $key 'true'
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host ("[rerere] 写入 {0} 失败" -f $key) -ForegroundColor Red
+            exit 1
+        }
+        Write-Host ("· 已开启 {0}" -f $key) -ForegroundColor Green
+    }
+}
+
 # ---------- 体检：装了不等于能跑 ----------
 # Windows 上钩子由 sh 执行：文件一旦被检出成 CRLF，shebang 会带上 \r 而找不到解释器，
 # 表现是「钩子静静地不执行」——比没装更难排查，所以每次都顺手量一遍。

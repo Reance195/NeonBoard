@@ -944,6 +944,13 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-03": {
+            "agent": "agent-dx3",
+            "branch": "chore/claims-list-multicard",
+            "claimedAt": 1793203500,
+            "head": "a6dd11ec4645470842999f19f3d708fc7eaa214d"
+        }
+    },
     "version": 1
 }

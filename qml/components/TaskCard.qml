@@ -42,6 +42,13 @@ Rectangle {
         var latest = taskRuns.latestRun(taskId)
         return latest && latest.status ? latest.status : ""
     }
+    // R7-02：队列中（waiting）与执行中（running）视觉上要能分开 ——
+    // 前者是「还没轮到」，后者是「正在跑」。queueStatus 由 task_run 侧表给出。
+    readonly property string runQueueStatus: {
+        var rev = taskRuns.revision
+        var latest = taskRuns.latestRun(taskId)
+        return latest && latest.queueStatus ? latest.queueStatus : ""
+    }
     readonly property bool hasRunBadge: runStatus === "running" || runStatus === "queued"
                                         || runStatus === "passed" || runStatus === "blocked"
 
@@ -360,7 +367,9 @@ Rectangle {
                     font.pixelSize: 10
                 }
 
-                // 执行态小徽章（R6-06）：running 脉冲 / passed 绿点 / blocked 红点
+                // 执行态小徽章（R6-06 + R7-02）：
+                //   排队中 → 空心时钟点（不脉冲，还没轮到）
+                //   执行中 → 青色脉冲；passed 绿点 / blocked 红点
                 Rectangle {
                     id: runBadge
                     anchors.verticalCenter: parent.verticalCenter
@@ -370,12 +379,15 @@ Rectangle {
                     radius: 4
                     color: (card.runStatus === "passed") ? Theme.success
                           : (card.runStatus === "blocked") ? Theme.danger
-                          : Theme.cyan
+                          : (card.runQueueStatus === "waiting" ? "transparent" : Theme.cyan)
+                    border.width: card.runQueueStatus === "waiting" ? 1 : 0
+                    border.color: Theme.muted
                     opacity: (card.runStatus === "running" || card.runStatus === "queued")
                              ? 0.4 + 0.6 * runPulse.value : 1.0
 
                     SequentialAnimation {
                         id: runPulseAnim
+                        // 排队中不脉冲：脉冲的语义是「正在跑」，排队还没开始
                         running: card.runStatus === "running" || card.runStatus === "queued"
                         loops: Animation.Infinite
                         NumberAnimation { target: runPulse; property: "value"; from: 0; to: 1; duration: 700; easing.type: Easing.InOutSine }

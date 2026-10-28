@@ -71,6 +71,17 @@ jobs:
           python scripts/check_script_hygiene.py
           if ($LASTEXITCODE -ne 0) { throw '脚本卫生检查未通过' }
 
+      - name: 代登记审计自测（DX-06）
+        shell: pwsh
+        run: |
+          # 「维护者可授权代登记」这条例外长期只校验位置（非 .worktrees 直接放行），
+          # 内容没人管，等于口头免责。现在提交信息本身就是审计凭证：类型固定 chore(board)、
+          # body 必须有「授权：」「批次：」两行、且不得与代码混提交。
+          # 判定逻辑在 scripts/task_gate.py（唯一实现），此处只跑它的可执行自测：
+          # 允许与拒绝各若干例（含混提交、缺审计行），规则改动时用例跟着一起改。
+          python scripts/task_gate.py selftest
+          if ($LASTEXITCODE -ne 0) { throw '代登记审计自测未通过：允许/拒绝用例与预期不符' }
+
       - name: 领用闸门（服务端 claim ref）
         if: github.event_name == 'pull_request'
         shell: pwsh

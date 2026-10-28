@@ -35,6 +35,7 @@
 | 文档 | 说明 |
 | --- | --- |
 | `docs/task-card.md` | 任务卡五段式规范 |
+| `docs/pitfalls.md` | 踩坑经验台账；第七节是「尚无解决方案、需人拍板」清单 |
 | `docs/r6-dispatcher-plan.md` | R6 任务派发器：卡片拆分、验收、波次与登记片段 |
 | `docs/adr/` | 架构决策记录（编号、格式与索引见 `README.md`） |
 | `docs/perf-baseline.json` | 性能基线（CI 每次比对） |

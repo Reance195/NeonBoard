@@ -1010,6 +1010,13 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {},
+    "claims": {
+        "R7-05": {
+            "agent": "agent-r7",
+            "branch": "feature/r7-nightbatch",
+            "claimedAt": 1793211948,
+            "head": "b97f2faee740ba05b613a1d01c92fd50488e08a8"
+        }
+    },
     "version": 1
 }

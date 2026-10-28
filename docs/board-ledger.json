@@ -1008,13 +1008,6 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {
-        "DX-08": {
-            "agent": "agent-dx8",
-            "branch": "fix/stagebar-watch-roadmap",
-            "claimedAt": 1793207169,
-            "head": "68a8fb1414081720eb7b4d32b0ffb29a4288f04b"
-        }
-    },
+    "claims": {},
     "version": 1
 }

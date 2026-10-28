@@ -270,10 +270,20 @@ AI 代理在本仓库干活时：
 > 不需要时可加 `-SkipAnchorSync`。
 
 锚点区的 `.git` 是所有 worktree 共享的元数据目录，但**工作区本身不属于任何 agent**。
-需要登记占用时走脚本，别口头约定：
+占用登记**不再是自愿动作**（DX-05）：
+
+- 开区即登记：`agent-init.ps1` 给开发区写 `worktree:<agent>`、锚点区原地模式写 `root`，
+  有人占着同一个目标时后来者直接被拒（退出码 3），不必等出事才发现。
+- 收尾即释放：`git-done.ps1` 合并成功后按当前检出的 agent 身份自动 `Release`，
+  只释放自己那份（身份不符时脚本拒绝），不留僵尸登记。
+- 自检即体检：`-Action Check` 一次性核对「锚点区有没有他人 in-place 环境 / 同一分支是否被两个
+  检出占用 / 每个 `.worktrees/<名>` 是否各有独立 `.sandbox` / 登记与目录是否对得上」，
+  有硬冲突退出码 3；登记缺项、僵尸占用只告警（回收由人拍板，§7.10）。
 
 ```powershell
+pwsh -File scripts/agent-workspace.ps1 -Action Check      # 隔离自检（先跑这个）
 pwsh -File scripts/agent-workspace.ps1 -Action Status
+pwsh -File scripts/agent-workspace.ps1 -Action Claim  -Agent agent-c -Scope worktree:agent-c
 pwsh -File scripts/agent-workspace.ps1 -Action Claim  -Agent agent-c -Scope root -Task "阶段条修复"
 pwsh -File scripts/agent-workspace.ps1 -Action Release -Agent agent-c -Scope root
 ```
@@ -319,6 +329,13 @@ cd .worktrees/agent-c
 - **本地孤儿 ref 清理**：任何「本地有 `refs/claims/<短号>` 但 `git ls-remote origin` 无对应 ref」的状态视为异常孤儿，应 `git update-ref -d` 删除本地项，并不得在本地保留为占位依据。
 - **台账过期登记一并清理（已实现）**：`git-done.ps1` 删掉认领分支后调用 `scripts/release-claims.py` 全量扫描台账 `claims`，只删「认领分支本地与远端都不存在」的条目（活动卡一律保留），作为独立的 `chore(board): 清理过期领用登记 <短号>` 提交快进补推；提交或补推失败只回滚该提交、不阻断已完成的合并。此前依赖 `claim-card.py`「下次任何人领卡时顺带清理」——顺带不保证发生，R6 收官后 `--check` 一直挂着「分支已不存在」噪声即为此。
 
+- **`-InPlace` 的合法前提是「当前检出本身已是隔离 worktree」**（DX-05 硬门）：锚点区
+  （`git-dir` 等于 `common-dir`）传 `-InPlace`，`agent-init.ps1` 直接拒绝并 `exit 3` ——
+  在锚点区原地开区等于让两个会话共享 HEAD 与 `.sandbox`（2026-10-28 凌晨的现场：
+  `.worktrees/` 一个都没建，双方都在根目录提交）。确需在锚点动手必须显式 `-ForceAnchor`，
+  它会顺带登记 `root` 占用；检出里已留下**他人**的 `.agent-env.ps1`（`NEONBOARD_AGENT_ID`
+  ≠ 当前 agent）时同样默认拒绝，同一个开关才可接管。WorkBuddy / 手工 worktree 的自动原地模式
+  不受影响：它们本来就是 linked worktree。
 - 同一分支禁止在两个 worktree 同时检出（Git 天然强制）。
 - 每个 worktree 拥有独立的 `build/` `dist/` `.sandbox/`，体积较大，不要共享。
 - worktree 用完必须回收：`git worktree remove .worktrees/<agent>`

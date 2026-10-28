@@ -99,6 +99,55 @@ function Get-AnchorRootClaim {
     return $null
 }
 
+# 开发区（.worktrees/<agent>）占用的收尾释放（DX-05）：开区时 agent-init 自动登记，
+# 合并成功即释放；不释放的话登记会一直显示「被别人占用」，后来者开同名目录会被误拦。
+# 只释放「自己」那份 —— agent 身份取自当前检出（NEONBOARD_AGENT_ID / .agent-env.ps1），
+# 与登记者不一致时 agent-workspace.ps1 会自己拒绝，绝不踢掉别人的占用。
+function Release-WorkspaceClaim {
+    param([string]$Root)
+    $agent = $env:NEONBOARD_AGENT_ID
+    if (-not $agent) {
+        $envFile = Join-Path $Root '.agent-env.ps1'
+        if (Test-Path -LiteralPath $envFile) {
+            try {
+                $txt = [System.IO.File]::ReadAllText($envFile, [System.Text.Encoding]::UTF8)
+                $m = [regex]::Match($txt, '(?m)^\s*\$env:NEONBOARD_AGENT_ID\s*=\s*''([^'']*)''')
+                if ($m.Success) { $agent = $m.Groups[1].Value.Trim() }
+            } catch { $agent = '' }
+        }
+    }
+    if (-not $agent) {
+        Write-Host '· 工作区占用：读不到 agent 身份，跳过释放（可手工 agent-workspace.ps1 -Action Release）' -ForegroundColor DarkGray
+        return
+    }
+    $leaf = Split-Path -Leaf $Root
+    $scope = if ((Split-Path -Leaf (Split-Path -Parent $Root)) -eq '.worktrees') { "worktree:$leaf" } else { 'root' }
+    $wsScript = Join-Path $Root 'scripts\agent-workspace.ps1'
+    if (-not (Test-Path -LiteralPath $wsScript)) { return }
+    $pwshExe = 'powershell'
+    $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($pwshCmd) { $pwshExe = $pwshCmd.Source }
+    $out = @()
+    $code = 0
+    Push-Location $Root
+    try {
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $out = @(& $pwshExe -NoProfile -ExecutionPolicy Bypass -File $wsScript -Action Release -Agent $agent -Scope $scope 2>&1)
+            $code = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+    } finally {
+        Pop-Location
+    }
+    foreach ($line in $out) { Write-Host ("   {0}" -f $line) -ForegroundColor DarkGray }
+    if ($code -ne 0) {
+        Write-Host ("· 工作区占用未释放（{0}，退出码 {1}），不影响已完成的合并" -f $scope, $code) -ForegroundColor Yellow
+    }
+}
+
 # 合并推送成功后，把锚点区快进到最新 main —— 否则维护者回到根目录看到的还是旧代码。
 # 只做 fast-forward：锚点有本地提交 / 非 main / 有 progress.json 之外的改动时一律跳过。
 # progress.json 是应用自动写回的快照：上游没动它时直接快进，应用常驻占用文件也不会挡；
@@ -210,8 +259,7 @@ function Sync-AnchorWorktree {
     }
 }
 
-# 合并收尾：释放已合并 / 孤儿任务的认领占位（refs/claims/<短号>）。
-# 判据（满足任一即释放）：
+# 合并收尾：释放已合并 / 孤儿任务的认领占位（refs/claims/<短号>）。# 判据（满足任一即释放）：
 #   1) 占位指向的提交已是 origin/<Main> 的祖先（任务已合入主线）；
 #   2) 台账 claims 中该卡的认领分支已不存在（本地 / 远端均无），属历史残留孤儿。
 # 二者都不满足（分支仍存在且未合入，如开发中的卡）则保留，可被领用闸门正常校验。
@@ -476,6 +524,9 @@ if ($Mode -eq 'remote') {
         }
     }
 
+    # 开发区占用收尾释放（DX-05）：合并已经成功，这里失败只当卫生问题告警，不回头改结果
+    Release-WorkspaceClaim -Root $repoRoot
+
     # 解除临时分支占用后一并删除，工作区停在分离 HEAD 上，不留悬挂分支
     Invoke-GitQuiet @('switch', '--detach') | Out-Null
     Invoke-GitQuiet @('branch', '-d', $tmp) | Out-Null
@@ -534,6 +585,9 @@ if (-not $KeepBranch) {
     Invoke-Git branch -d $Branch | Out-Null
     Write-Host "✓ 已删除分支 $Branch" -ForegroundColor DarkGray
 }
+
+# 开发区占用收尾释放（DX-05）：与 remote 模式同一口径
+Release-WorkspaceClaim -Root $repoRoot
 
 Write-Host "`n✓ 合并完成：$Branch → $MainBranch" -ForegroundColor Green
 Write-Host "   查看历史：git log --oneline --graph -10" -ForegroundColor DarkGray

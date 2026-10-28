@@ -8,6 +8,7 @@
 #include "TaskRunStore.h"
 
 #include <QDebug>
+#include <QDateTime>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QTimer>
@@ -221,6 +222,73 @@ int Scheduler::estimateRemainingSec(int fallbackSec) const
     // 保守估计：正在跑的 run 仍占着槽位，按 ceil(waiting / slotCount) 算
     const int waves = (waiting + slotCount - 1) / slotCount;
     return perRunSec * waves;
+}
+
+int Scheduler::cardAvgCostMs(const QString &taskId) const
+{
+    if (!m_database || taskId.isEmpty())
+        return 0;
+    const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    if (!db.isOpen())
+        return 0;
+    // 只统计真跑完的 run（cost_ms>0 且 passed / blocked），跳过与取消不计入
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "SELECT AVG(cost_ms) FROM task_run "
+        "WHERE task_id = ? AND cost_ms > 0 AND status IN ('passed','blocked')"));
+    query.addBindValue(taskId);
+    if (!query.exec() || !query.next())
+        return 0;
+    return static_cast<int>(query.value(0).toDouble());
+}
+
+QVariantMap Scheduler::nightBatchEstimate(const QStringList &taskIds, int fallbackSec) const
+{
+    QVariantMap out;
+    const int slotCount = qMax(1, concurrency());
+    const int globalAvgMs = historyAvgCostMs();
+    const int perRunFallback = qMax(1, fallbackSec);
+
+    QVariantList perCard;
+    qint64 sumSec = 0;
+    for (const QString &raw : taskIds) {
+        const QString id = raw.trimmed();
+        if (id.isEmpty())
+            continue;
+        int avgMs = cardAvgCostMs(id);
+        if (avgMs <= 0)
+            avgMs = globalAvgMs;
+        const int sec = avgMs > 0 ? qMax(1, avgMs / 1000) : perRunFallback;
+        sumSec += sec;
+        perCard.append(QVariantMap{{QStringLiteral("taskId"), id},
+                                   {QStringLiteral("sec"), sec}});
+    }
+    if (perCard.isEmpty()) {
+        out.insert(QStringLiteral("ok"), true);
+        out.insert(QStringLiteral("totalSec"), 0);
+        out.insert(QStringLiteral("finishAt"), 0);
+        out.insert(QStringLiteral("concurrency"), slotCount);
+        out.insert(QStringLiteral("perCard"), perCard);
+        return out;
+    }
+    // 按并发折算：N 条串行总量在 slotCount 路并行下约为 ceil(sum / slotCount)
+    const int totalSec = static_cast<int>((sumSec + slotCount - 1) / slotCount);
+    out.insert(QStringLiteral("ok"), true);
+    out.insert(QStringLiteral("totalSec"), totalSec);
+    out.insert(QStringLiteral("finishAt"), QDateTime::currentSecsSinceEpoch() + totalSec);
+    out.insert(QStringLiteral("concurrency"), slotCount);
+    out.insert(QStringLiteral("perCard"), perCard);
+    return out;
+}
+
+QVariantMap Scheduler::enqueueNightBatch(const QStringList &taskIds, const QVariantMap &fields)
+{
+    QVariantMap result = enqueueMany(taskIds, fields);
+    // 估算按入参卡列表算（queued 里是 runId，不是 taskId）
+    result.insert(QStringLiteral("estimate"),
+                  nightBatchEstimate(taskIds,
+                                     fields.value(QStringLiteral("fallbackSec"), 300).toInt()));
+    return result;
 }
 
 QString Scheduler::precheckQueued(const QString &taskId) const

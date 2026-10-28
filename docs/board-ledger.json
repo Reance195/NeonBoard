@@ -977,7 +977,7 @@
                 "R7-02"
             ],
             "id": "7a432ab6-6774-476f-ba06-970b4389514a",
-            "note": "目标：看板 Ctrl/Shift 多选卡 →「加入夜间队列」→ 全部入队（R7-01）；预计总时长基于各卡历史平均耗时或 triage estimate 求和，UI 显示「预计 X 分钟，约 HH:MM 完成」；完成后复用 R1 提醒/托盘辉光通知，失败卡标记 blocked 不阻断其余。",
+            "note": "目标：看板 Ctrl/Shift 多选卡 →「加入夜间队列」→ 全部入队（R7-01）；预计总时长基于各卡历史平均耗时或 triage estimate 求和，UI 显示「预计 X 分钟，约 HH:MM 完成」；完成后复用 R1 提醒/托盘辉光通知，失败卡标记 blocked 不阻断其余。【交付 2026-10-29 / agent-r7 / feature/r7-nightbatch】① Scheduler 增 nightBatchEstimate（逐卡历史均值 cost_ms，无历史回落全局均值/兜底，按并发折算总时长与 finishAt）与 enqueueNightBatch（复用 enqueueMany，附 estimate）。② qml/Main.qml 增「夜间批量执行」对话框：勾选待办卡 → 显示已选 N / 预计总时长 / 约 HH:MM 完成 / 并发 → 一键入队；入口在命令面板。③ main.cpp 把 scheduler.queueDrained 接到托盘 showMessage（复用 R1 托盘通道）做完成通知。④ 单卡失败不阻断其余：队列按 FIFO 推进，缺 agent 的卡被 precheck 结算成 blocked 后继续派发下一条（tst_nightbatch 用「坏卡 no-such-agent + 好卡 cmd」实测）。⑤ 新增 tests/tst_nightbatch 8 例。验收：ctest 24/24（含 tst_nightbatch）、--selftest / --smoke 通过。偏差：卡面 Ctrl/Shift 直接多选需改 BoardColumn/TaskCard（不在本卡 scope），改用「勾选清单」实现「勾选多卡 → 排队」；预计总时长用「历史耗时」而非 triage estimate（草案无时长字段）。已完成 5 / 待做 0。",
             "scope": [
                 "qml/Main.qml",
                 "src/Scheduler.*",
@@ -1010,6 +1010,13 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {},
+    "claims": {
+        "R7-05": {
+            "agent": "agent-r7",
+            "branch": "feature/r7-nightbatch",
+            "claimedAt": 1793211948,
+            "head": "b97f2faee740ba05b613a1d01c92fd50488e08a8"
+        }
+    },
     "version": 1
 }

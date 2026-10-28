@@ -268,6 +268,24 @@ neonboard_add_test(tst_workflowpresets
 )
 target_link_libraries(tst_workflowpresets PRIVATE Qt6::Sql)
 
+# R7-05：夜间批量模式 —— 多选卡按序入队 / 预计总时长（兜底值·按并发折算·单卡历史均值）/
+# enqueueNightBatch 返回估算 / 单卡失败（缺 agent）不阻断其余 / schema 版本不变。
+# 好卡走 cmd.exe，坏卡指向不存在的 agent。
+neonboard_add_test(tst_nightbatch
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskExec.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskRunStore.cpp
+    ${CMAKE_SOURCE_DIR}/src/AgentProfile.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskRunner.cpp
+    ${CMAKE_SOURCE_DIR}/src/Scheduler.cpp
+)
+target_link_libraries(tst_nightbatch PRIVATE Qt6::Sql)
+
 
 # R6-09：台账卡单向导入（ADR-0001）—— 只补空值 / 冲突只报告 / 未建卡只报告 /
 # 幂等 / note「目标：」段作 goal。台账 fixture 在临时目录，不碰真实台账。

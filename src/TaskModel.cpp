@@ -66,7 +66,12 @@ QVariant TaskModel::data(const QModelIndex &index, int role) const
     case CompletedAtRole:
         return task.completedAt;
     case TagRole:
-        return firstTag(task.tags);
+        // R10-03：卡面显示的是「分类」而不是首个标签。
+        // 之前这里返回 firstTag，于是 tags 为 ["R0","主题"] 的卡顶着阶段号、
+        // ["agent"] 的卡顶着角色名，真正的分类（主题 / 插件 / 可靠性）永远排在第二位被吞掉。
+        // 注意：taskById() / allTasks() 的 "tags" 键仍返回首标签 —— 那两个是导出与
+        // 插件快照用的（DataPort 三格式导出读的就是它），本卡不动它们的语义。
+        return categoryOf(task.tags);
     case DueRole:
         return dueText(task.dueAt);
     default:
@@ -1215,17 +1220,74 @@ QString TaskModel::dueText(qint64 dueAt)
     return QDateTime::fromSecsSinceEpoch(dueAt).toString(QStringLiteral("MM-dd"));
 }
 
-QString TaskModel::stageOf(const QString &tags)
+namespace {
+
+// 阶段文法：短号前缀（R4 / DX / OPS），不是卡号（R4-10 带横线，不匹配）。
+// 1–4 个字母 + 可选数字；5 个字母的 agent 天然不匹配，另由 isRoleTag 兜住。
+const QRegularExpression &stageTagPattern()
 {
-    const QString tag = firstTag(tags).trimmed();
-    // 阶段名是「短号前缀」而不是卡号：R4 / DX / OPS 都算阶段，但 R4-10 这种具体卡号不算
-    // （卡归它所属的阶段，不该每张卡各成一个阶段）。认不出的一律落 OTHER，
-    // 由 stageList() 统一折进「其他」并给出可对账的计数，不再静默吞掉。
     static const QRegularExpression pattern(QStringLiteral("^[A-Za-z]{1,4}\\d*$"),
                                             QRegularExpression::CaseInsensitiveOption);
-    if (pattern.match(tag).hasMatch())
-        return tag.toUpper();
+    return pattern;
+}
+
+// 把 tags 解析成标签列表。正常是 JSON 数组；历史上也有直接存裸字符串的行，
+// 那种情况整体当一个标签，不丢内容。
+QStringList tagList(const QString &tags)
+{
+    QStringList list;
+    const QJsonDocument document = QJsonDocument::fromJson(tags.toUtf8());
+    if (document.isArray()) {
+        const QJsonArray array = document.array();
+        for (const QJsonValue &value : array) {
+            const QString tag = value.toString().trimmed();
+            if (!tag.isEmpty())
+                list.append(tag);
+        }
+    } else {
+        const QString tag = tags.trimmed();
+        if (!tag.isEmpty())
+            list.append(tag);
+    }
+    return list;
+}
+
+} // namespace
+
+bool TaskModel::isRoleTag(const QString &tag)
+{
+    // 目前只有 agent 一种角色词。集中在这里，免得将来加 runner / reviewer 时
+    // 散落成多处正则，各自漏改。
+    static const QStringList roles = {QStringLiteral("agent")};
+    return roles.contains(tag.trimmed(), Qt::CaseInsensitive);
+}
+
+QString TaskModel::stageOf(const QString &tags)
+{
+    // R10-03：扫**整份**数组而不是只看第一个 —— 标签顺序不该决定阶段归属。
+    // 之前 firstTag 取首位，于是 ["主题","R0"] 这种把分类排在前面的卡被判成「其他」，
+    // 只有 ["agent"] 的卡同样落兜底桶，33 张卡因此在阶段条上不可见。
+    for (const QString &tag : tagList(tags)) {
+        if (isRoleTag(tag))
+            continue;
+        if (stageTagPattern().match(tag).hasMatch())
+            return tag.toUpper();
+    }
+    // 认不出的一律落 OTHER，由 stageList() 统一折进「其他」并给出可对账的计数。
     return QStringLiteral("OTHER");
+}
+
+QString TaskModel::categoryOf(const QString &tags)
+{
+    for (const QString &tag : tagList(tags)) {
+        if (isRoleTag(tag))
+            continue;
+        if (stageTagPattern().match(tag).hasMatch())
+            continue;
+        return tag;
+    }
+    // 只有阶段和角色词时不编造分类：返回空串，由界面决定怎么显示「未分类」。
+    return {};
 }
 
 QVariantList TaskModel::stageList(const QStringList &stageOrder) const

@@ -312,7 +312,8 @@ build/Release/NeonBoard.exe --smoke
 
 - 单测：失败 run → 摘要含末尾日志片段与失败原因；重试生成新 run 且 `attempt=2`；取消不改看板列；
 - 手工：跑一张失败卡 → 卡面红点 → 面板显示摘要 → 重试 → 成功后点「标为已办结」，列变为 done 且可 `Ctrl+Z` 撤销；
-- 截图：`docs/screenshots/exec-panel.png`。
+- 截图：`docs/screenshots/task-exec-tab.png`（执行页签）、`exec-confirm.png`（执行前确认）、`exec-settings.png`（全局开关）；
+  「执行中面板 + 卡面红点」的整屏截图待人工补拍（自动化验收不含截图，见 `docs/pitfalls.md` 7.4）。
 
 **scope**：`src/TaskRunStore.*`、`src/main.cpp`、`qml/Main.qml`、`qml/components/TaskCard.qml`、`tests/tst_runsummary.cpp`、`tests/CMakeLists.txt`、`CMakeLists.txt`、`docs/screenshots/**`
 

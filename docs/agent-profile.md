@@ -32,8 +32,9 @@
 | `exec.trustedCwds` | cwd 白名单（JSON 数组），首次执行目录需在确认框勾选「信任本目录」 |
 
 - 只写 `meta` 表，**不升 `user_version`、不动 `task` 表**。
-- 内置三条：`opencode` / `claude` / `cursor-agent`（见下表）。**codex 未实测，不内置**，
-  需要时在 设置 → 任务执行 里手工新增。
+- 内置三条：`opencode` / `claude` / `cursor-agent`（见下表）。**codex 不内置**——
+  参数面已实测（见下），但两次 `codex exec` 都没在 200 s / 420 s 内跑完一个回合，
+  按 §12.1「禁止内置未实测 profile」的标准不达标；需要时在 设置 → 任务执行 里手工新增。
 - 用户增删改后整份列表落 meta；`恢复内置` 即删除该键。
 
 ### 内置 profile
@@ -51,9 +52,22 @@
 | **opencode** | `opencode run "<prompt>"` | `--format default`（格式化）或 `--format json`（原始 JSON 事件） | `--model provider/model`、`--agent <name>` | 无内置只读开关；用 `--agent` 指向一个只读 agent 配置，或 `--pure` 禁用外部插件 |
 | **claude** | `claude -p "<prompt>"` | `--output-format text \| json \| stream-json` | `--model` | `--permission-mode`（含 plan）、`--allowedTools` 白名单；`--dangerously-skip-permissions` 危险，默认禁用 |
 | **cursor-agent** | `cursor-agent -p "<prompt>"` | `--output-format text \| json \| stream-json` | `--model` | **`--plan`**（等价 `--mode=plan`），天然只读 |
-| **codex** | `codex exec "<prompt>"`（**未实测**） | 待验证 | `-m` | 待验证（已知有 `--sandbox read-only`，需实测确认） |
+| **codex**（v0.163.0，参数面实测见下） | `codex exec "<prompt>"`（**必须重定向 stdin**，否则卡在读取 stdin） | `--json`（JSONL 事件流）/ `-o <file>`（末条回复）/ `--output-schema <file>` | `-m <model>`、`-c model_reasoning_effort="low"` | **`-s read-only`**（原生沙箱，实测确实拦住写文件）；`-C <dir>` 指定工作根、`--ephemeral` 不落会话文件 |
 
-> 本机未安装 codex，表中标注「待验证」的项**不要**直接写进生产 profile，先在目标机器实测再落。
+### codex 实测记录（2026-10-28，codex-cli 0.163.0）
+
+在仓库外的临时 git 目录里跑了两次，两次都没走完一个回合（`timeout` 200 s / 420 s，退出码均 124）：
+
+- 会话头打印 `sandbox: read-only`、`approval: never`；事件顺序是
+  `thread.started` → `item.completed{type:"error"}`（自定义 provider 的模型名没有元数据，退化到 fallback metadata）
+  → `turn.started` → `item.started` / `item.completed{type:"command_execution"}`，之后没有结束事件。
+- **只读沙箱是真的**：显式要求它创建一个文件，`evil.txt` 没有落盘；两次跑完 `git status --porcelain` 与跑前逐字一致。
+- **两个必须写进拼装逻辑的坑**：
+  1. stdin 不重定向会卡在 `Reading additional input from stdin...`，脚本调用一律把 stdin 接到 NUL；
+  2. `--json` 输出的是事件流而不是最终回复，末条回复要另用 `-o <file>` 收。
+- **结论**：参数面够用（`codex exec -s read-only -C <cwd> --json -o <out>`），但一回合耗时不可控，
+  达不到 executor 的超时口径，**所以仍不内置**。要内置的前提是在目标机器上跑通一次以
+  `turn.completed` 结束的 exec，并把实测到的耗时与失败判定补回本节。
 
 ## 只读模式怎么保证（triage 必须）
 

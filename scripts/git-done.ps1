@@ -111,6 +111,13 @@ function Sync-AnchorWorktree {
     $snapshotOnly = $dirty.Count -gt 0 -and @($dirty | Where-Object { $_.ToString() -notmatch '(^\S+\s+|\s)progress\.json$' }).Count -eq 0
     if ($dirty.Count -gt 0 -and -not $snapshotOnly) {
         Write-Host ("· 锚点同步：锚点区有未提交改动（{0} 项），跳过快进" -f $dirty.Count) -ForegroundColor Yellow
+        # 只报数量等于没报：拖脏锚点的通常是某个桌面工具往调用方 CWD 吐的产物目录，
+        # 不点名就查不出是谁（docs/pitfalls.md 1.1 / 7.7）。
+        $dirty | Select-Object -First 10 | ForEach-Object { Write-Host ("     {0}" -f $_) -ForegroundColor Yellow }
+        if ($dirty.Count -gt 10) {
+            Write-Host ("     …另有 {0} 项未列出" -f ($dirty.Count - 10)) -ForegroundColor Yellow
+        }
+        Write-Host '     工具产物目录请补进 .gitignore，别让它长期卡住锚点同步' -ForegroundColor DarkGray
         return
     }
 

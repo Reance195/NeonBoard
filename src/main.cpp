@@ -1712,6 +1712,13 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     });
     tray.updateStats(taskStore.todoCount(), taskStore.doingCount(), taskStore.doneTodayCount());
 
+    // 夜间批量完成通知（R7-05）：队列跑空（queueDrained）时通过托盘提示一次，
+    // 复用 R1 的托盘通道 —— 批量多在夜里跑，用户不一定盯着界面。
+    QObject::connect(&scheduler, &Scheduler::queueDrained, &tray, [&tray]() {
+        tray.showMessage(QStringLiteral("夜间批量已完成"),
+                         QStringLiteral("执行队列已跑空，可到「执行队列」面板查看结果。"));
+    });
+
     // 更新（R5-01）：发现新版本时托盘提示一次；安装动作一旦交出去
     // （安装包进程或便携版自更新脚本），本进程必须退出，否则文件被占用、覆盖失败。
     QObject::connect(&updateManager, &UpdateManager::updateFound, &tray,

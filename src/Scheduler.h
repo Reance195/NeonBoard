@@ -68,6 +68,20 @@ public:
     // 预计剩余时长（秒）：按历史 run 的平均 cost_ms 估，没有历史时给 fallbackSec/条。
     Q_INVOKABLE int estimateRemainingSec(int fallbackSec = 300) const;
 
+    // ---- 夜间批量（R7-05）----
+    //
+    // 逐卡估算耗时（该卡历史 run 的平均 cost_ms；无历史用全局均值；再退 fallbackSec），
+    // 按当前并发折算总时长与预计完成时刻。返回：
+    //   {ok, totalSec, finishAt(epoch 秒), concurrency, perCard:[{taskId, sec}]}
+    // 空列表 / 无卡时 totalSec = finishAt = 0。
+    Q_INVOKABLE QVariantMap nightBatchEstimate(const QStringList &taskIds,
+                                               int fallbackSec = 300) const;
+
+    // 一次把多张卡加入夜间队列（复用 enqueueMany），并附带预计总时长，
+    // 供「加入夜间队列」一步完成。返回 enqueueMany 的结果 + estimate。
+    Q_INVOKABLE QVariantMap enqueueNightBatch(const QStringList &taskIds,
+                                              const QVariantMap &fields = {});
+
     // 显式触发一次派发（入队 / 运行结束 / 恢复 / 调序后调用；幂等，多余的调用无副作用）。
     // 用一个 0 延迟的定时器合并同一轮事件里的多次触发，避免递归启动。
     Q_INVOKABLE void triggerDispatch();
@@ -86,6 +100,8 @@ private:
     QString precheckQueued(const QString &taskId) const;
     void failDispatch(const QString &runId, const QString &taskId, const QString &message);
     int historyAvgCostMs() const;
+    // R7-05：单卡的历史平均耗时（ms）；无历史返回 0。
+    int cardAvgCostMs(const QString &taskId) const;
     void bump();
 
     Database *m_database = nullptr;

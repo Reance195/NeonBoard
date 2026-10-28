@@ -2128,6 +2128,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R10-04": {
+            "agent": "agent-cat",
+            "branch": "feature/r10-04-classify-cards",
+            "claimedAt": 1793219708,
+            "head": "01bde5603e5aed91ba5619d7a5fe622bd998bcb1"
+        }
+    },
     "version": 1
 }

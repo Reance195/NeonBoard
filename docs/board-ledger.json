@@ -1008,6 +1008,13 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {},
+    "claims": {
+        "R7-02": {
+            "agent": "agent-r7",
+            "branch": "feature/r7-queue-ui",
+            "claimedAt": 1793207204,
+            "head": "422942d2bd399a021ad0121f9395b7501c4bc3e7"
+        }
+    },
     "version": 1
 }

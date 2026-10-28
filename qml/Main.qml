@@ -48,6 +48,8 @@ ApplicationWindow {
     // 预览中心：仅主线实例有入口，面板同样按需加载
     property bool previewPending: false
     property bool previewOpen: false
+    // 执行队列（R7-02）：队列是运行态，所有实例都能看自己本机的队列
+    property bool execQueueOpen: false
 
     // 专注模式：倒计时环 + 背景压暗 + 托盘剩余时间（R2-01）
     property bool focusMode: false
@@ -165,6 +167,7 @@ ApplicationWindow {
             previewLoader.item.close()
         projectMapLoader.active = false
         window.previewOpen = false
+        execQueueDialog.close()
     }
 
     function openSettings() {
@@ -212,6 +215,17 @@ ApplicationWindow {
         execPanelDialog.taskId = taskId
         execPanelDialog.refresh()
         execPanelDialog.open()
+    }
+
+    // 执行队列（R7-02）：排队中 / 在跑的 run、并发指示、预计完成时间，
+    // 可在面板里暂停 / 恢复 / 调序 / 跳过。队列是运行态，不改卡片所在列。
+    function openExecQueue() {
+        show()
+        raise()
+        requestActivate()
+        closeAllPanels()
+        execQueueDialog.refresh()
+        execQueueDialog.open()
     }
 
     // 预览中心：列出各 agent 工作区，可一键构建并启动隔离的预览实例
@@ -334,6 +348,7 @@ ApplicationWindow {
         add("打开插件库", "面板", "已装 / 可装插件", function() { window.openPluginLibrary() })
         add("打开设置面板", "面板", "热键 / 数据路径 / 开机自启", function() { window.openSettings() })
         add("打开项目全景图", "面板", "里程碑进度 + 开发链路，点节点钻取细节", function() { window.openProjectMap() })
+        add("打开执行队列", "面板", "排队中 / 在跑的 run，可暂停 · 调序 · 跳过", function() { window.openExecQueue() })
         add("检查软件更新", "面板", "当前 " + updateManager.currentVersion + "，查看是否有新版本",
             function() { window.openSettings(); updateManager.checkForUpdates(false) })
         add("打开外观面板", "面板", "主题预设 / 画质 / 减弱动效", function() { window.openAppearance() })
@@ -638,6 +653,9 @@ ApplicationWindow {
         // 一行诊断：出问题时能直接从日志看出「该弹没弹 / 不该弹却弹了」
         console.info("ONBOARD", window.onboardVisible ? "show" : "skip",
                      "tasks", taskStore.count, "done", uiSettings.onboardingDone)
+        // --exec-queue：启动即打开队列面板（截图 / 排障用，与 --map / --appearance 同类）
+        if (initialExecQueue)
+            window.openExecQueue()
     }
 
     Rectangle {
@@ -834,20 +852,23 @@ MouseArea {
                     Item { Layout.preferredHeight: 8 }
 
                     Repeater {
-                        // 预览中心只在主线实例出现：agent 沙箱实例里再嵌套预览入口只会混淆
+                        // 「队列」所有实例都有（队列是本机运行态，沙箱实例同样要能看自己的队列）；
+                        // 「预览」只在主线实例出现：agent 沙箱实例里再嵌套预览入口只会混淆。
                         model: previewHub.hostInstance
-                               ? ["看板", "插件", "设置", "预览"]
-                               : ["看板", "插件", "设置"]
+                               ? ["看板", "插件", "设置", "队列", "预览"]
+                               : ["看板", "插件", "设置", "队列"]
 
                         delegate: Rectangle {
                             Layout.fillWidth: true
                             height: 34
                             radius: 8
-                            color: (index === 0 || (index === 3 && window.previewOpen))
+                            color: (index === 0 || (index === 3 && window.execQueueOpen)
+                                    || (index === 4 && window.previewOpen))
                                    ? Theme.accentSoft
                                    : (navMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04)
                                                              : "transparent")
-                            border.width: (index === 0 || (index === 3 && window.previewOpen)) ? 1 : 0
+                            border.width: (index === 0 || (index === 3 && window.execQueueOpen)
+                                           || (index === 4 && window.previewOpen)) ? 1 : 0
                             border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22)
 
                             Text {
@@ -855,9 +876,30 @@ MouseArea {
                                 anchors.leftMargin: 10
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: modelData
-                                color: (index === 0 || (index === 3 && window.previewOpen))
+                                color: (index === 0 || (index === 3 && window.execQueueOpen)
+                                        || (index === 4 && window.previewOpen))
                                        ? Theme.cyan : Theme.muted
                                 font.pixelSize: 13
+                            }
+
+                            // 队列徽章：有 run 在排队 / 在跑时给出数量，不用点进去也知道
+                            Rectangle {
+                                anchors.right: parent.right
+                                anchors.rightMargin: 8
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: index === 3 && (scheduler.queueLength + scheduler.running) > 0
+                                height: 16
+                                width: queueCountText.implicitWidth + 10
+                                radius: 5
+                                color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.18)
+
+                                Text {
+                                    id: queueCountText
+                                    anchors.centerIn: parent
+                                    text: scheduler.running + "/" + (scheduler.queueLength + scheduler.running)
+                                    color: Theme.cyan
+                                    font.pixelSize: 9
+                                }
                             }
 
                             MouseArea {
@@ -870,6 +912,8 @@ MouseArea {
                                     } else if (index === 2) {
                                         window.openSettings()
                                     } else if (index === 3) {
+                                        window.openExecQueue()
+                                    } else if (index === 4) {
                                         window.openPreview()
                                     }
                                 }
@@ -1445,6 +1489,9 @@ MouseArea {
                 }
             }
         }
+
+        // 执行队列面板（R7-02）内联在文件末尾的 Dialog 里（不是 Loader）：
+        // 它只在点开时才 refresh，构造成本可忽略，没必要为它多一个按需加载层。
 
         // 项目全景侧边浮层：按需加载（右锚定，z 高层级）
         Loader {
@@ -3029,6 +3076,16 @@ MouseArea {
                     onClicked: Qt.openUrlExternally("file:///" + execPanelDialog.summary.logPath)
                 }
 
+                // R7-02：从执行面板直接跳到队列（排队 / 在跑的都在这看）
+                Button {
+                    text: "执行队列"
+                    visible: execPanelDialog.summary.hasRun === true
+                    onClicked: {
+                        execPanelDialog.close()
+                        window.openExecQueue()
+                    }
+                }
+
                 Item { Layout.fillWidth: true }
 
                 Button {
@@ -3080,6 +3137,426 @@ MouseArea {
             function onRunFinished(runId, detail) {
                 if (execPanelDialog.opened)
                     execPanelDialog.refresh()
+            }
+        }
+    }
+
+    // 执行队列（R7-02）：让用户看见「谁在排队、谁在跑、还要多久」并直接操作。
+    //
+    // 硬约束（与 R7-01 的分工一致）：
+    //   - 只读 scheduler.queueView / estimateRemainingSec，操作全部转成 Scheduler 的
+    //     pause / resume / reorder / skip —— 界面不碰数据库、不碰进程。
+    //   - 队列是运行态，不是看板状态：调序 / 跳过都不改卡片所在列（沿用 ADR-0002）。
+    //   - 只用 Theme.xxx 令牌，不写死颜色（AGENTS.md §10.1）。
+    Dialog {
+        id: execQueueDialog
+        parent: window.contentItem
+        anchors.centerIn: parent
+        modal: true
+        focus: true
+        padding: 20
+        width: Math.min(760, window.width - 80)
+        closePolicy: Popup.CloseOnEscape
+
+        property var rows: []
+        property int concurrencyCount: 1
+        property bool queuePaused: false
+        property int estimateSec: 0
+        // 最近一次操作的提示（已跳过 / 已到队首等），避免静默失败
+        property string notice: ""
+
+        function refresh() {
+            rows = scheduler.queueView(100)
+            concurrencyCount = scheduler.concurrency
+            queuePaused = scheduler.paused
+            estimateSec = scheduler.estimateRemainingSec(300)
+        }
+
+        // 秒 → 「12 分 30 秒」/「约 01:20 完成」
+        function humanDuration(sec) {
+            if (sec <= 0)
+                return "—"
+            if (sec < 60)
+                return sec + " 秒"
+            var m = Math.floor(sec / 60)
+            var s = Math.round(sec % 60)
+            if (m >= 60)
+                return Math.floor(m / 60) + " 小时 " + (m % 60) + " 分"
+            return s > 0 ? m + " 分 " + s + " 秒" : m + " 分"
+        }
+
+        function finishClock(sec) {
+            if (sec <= 0)
+                return ""
+            var d = new Date(Date.now() + sec * 1000)
+            return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2)
+        }
+
+        // 已运行时长（秒）：started_at 为空表示还没开始跑
+        function runDuration(row) {
+            if (!row || !row.startedAt)
+                return 0
+            return Math.max(0, Math.floor((Date.now() / 1000) - row.startedAt))
+        }
+
+        function stateLabel(row) {
+            var q = row.queueStatus || ""
+            if (q === "running")
+                return "执行中"
+            if (q === "dispatching")
+                return "启动中"
+            return "排队中"
+        }
+
+        function stateColor(row) {
+            var q = row.queueStatus || ""
+            if (q === "running")
+                return Theme.cyan
+            if (q === "dispatching")
+                return Theme.warning
+            return Theme.muted
+        }
+
+        function waitingCount() {
+            var n = 0
+            for (var i = 0; i < rows.length; ++i) {
+                if ((rows[i].queueStatus || "") === "waiting")
+                    ++n
+            }
+            return n
+        }
+
+        onOpened: refresh()
+
+        background: Rectangle {
+            color: Theme.panelSolid
+            radius: 16
+            border.width: 1
+            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 10
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                    text: "执行队列"
+                    color: Theme.text
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+
+                Text {
+                    text: "EXEC QUEUE"
+                    color: Theme.muted
+                    font.pixelSize: 10
+                    font.letterSpacing: 1.2
+                }
+
+                Item { Layout.fillWidth: true }
+
+                // 暂停 / 恢复：只停派发，不杀在跑的 run
+                Rectangle {
+                    width: 62
+                    height: 22
+                    radius: 6
+                    color: execQueueDialog.queuePaused
+                           ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.18)
+                           : Theme.accentSoft
+                    border.width: 1
+                    border.color: execQueueDialog.queuePaused ? Theme.warning : Theme.borderStrong
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: execQueueDialog.queuePaused ? "▶ 恢复" : "⏸ 暂停"
+                        color: execQueueDialog.queuePaused ? Theme.warning : Theme.cyan
+                        font.pixelSize: 10
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (execQueueDialog.queuePaused)
+                                scheduler.resumeQueue()
+                            else
+                                scheduler.pauseQueue()
+                            execQueueDialog.refresh()
+                        }
+                    }
+                }
+            }
+
+            // 概览：并发 / 排队数 / 预计完成
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 16
+
+                Text {
+                    text: "并发 " + scheduler.running + "/" + execQueueDialog.concurrencyCount
+                    color: Theme.text
+                    font.pixelSize: 11
+                }
+
+                Text {
+                    text: "排队 " + execQueueDialog.waitingCount()
+                    color: Theme.muted
+                    font.pixelSize: 11
+                }
+
+                Text {
+                    visible: execQueueDialog.queuePaused
+                    text: "⏸ 队列已暂停，不会派发新的 run"
+                    color: Theme.warning
+                    font.pixelSize: 11
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    text: execQueueDialog.estimateSec > 0
+                          ? "预计 " + execQueueDialog.humanDuration(execQueueDialog.estimateSec)
+                            + "，约 " + execQueueDialog.finishClock(execQueueDialog.estimateSec) + " 完成"
+                          : ""
+                    color: Theme.muted
+                    font.pixelSize: 11
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: Theme.border
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: execQueueDialog.rows.length === 0
+                text: "队列为空。在卡片上点「执行」，排队中的 run 会出现在这里。"
+                color: Theme.muted
+                font.pixelSize: 11
+                wrapMode: Text.WordWrap
+            }
+
+            // 队列列表：waiting / dispatching / running
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(320, execQueueDialog.rows.length * 62 + 16)
+                visible: execQueueDialog.rows.length > 0
+                radius: 10
+                color: Theme.panel
+                border.width: 1
+                border.color: Theme.border
+
+                ListView {
+                    id: execQueueList
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 6
+                    clip: true
+                    model: execQueueDialog.rows
+
+                    ScrollBar.vertical: ScrollBar {
+                        width: 6
+                        policy: execQueueList.contentHeight > execQueueList.height
+                                ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                    }
+
+                    delegate: Rectangle {
+                        required property var modelData
+
+                        width: execQueueList.width
+                        height: 56
+                        radius: 8
+                        color: (modelData.queueStatus || "") === "running"
+                               ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.10)
+                               : Theme.card
+                        border.width: 1
+                        border.color: (modelData.queueStatus || "") === "running"
+                                      ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.42)
+                                      : Theme.border
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 10
+
+                            // 状态点：只有 running 才脉冲（脉冲语义 = 正在跑）
+                            Rectangle {
+                                width: 8
+                                height: 8
+                                radius: 4
+                                color: execQueueDialog.stateColor(modelData)
+                                opacity: (modelData.queueStatus || "") === "running"
+                                         ? 0.4 + 0.6 * itemPulse.value : 1.0
+
+                                SequentialAnimation {
+                                    running: (modelData.queueStatus || "") === "running"
+                                    loops: Animation.Infinite
+                                    NumberAnimation {
+                                        target: itemPulse; property: "value"
+                                        from: 0; to: 1; duration: 700
+                                        easing.type: Easing.InOutSine
+                                    }
+                                    NumberAnimation {
+                                        target: itemPulse; property: "value"
+                                        from: 1; to: 0; duration: 700
+                                        easing.type: Easing.InOutSine
+                                    }
+                                }
+
+                                QtObject {
+                                    id: itemPulse
+                                    property real value: 0
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.title || modelData.taskId
+                                    color: Theme.text
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: {
+                                        var parts = [execQueueDialog.stateLabel(modelData)]
+                                        if ((modelData.queueStatus || "") === "running")
+                                            parts.push("已运行 " + execQueueDialog.humanDuration(
+                                                           execQueueDialog.runDuration(modelData)))
+                                        if ((modelData.role || "").length > 0)
+                                            parts.push("角色 " + modelData.role)
+                                        if (modelData.agent)
+                                            parts.push(modelData.agent)
+                                        if ((modelData.lastError || "").length > 0)
+                                            parts.push(modelData.lastError)
+                                        return parts.join(" · ")
+                                    }
+                                    color: Theme.muted
+                                    font.pixelSize: 10
+                                    elide: Text.ElideRight
+                                }
+                            }
+
+                            // 调序 / 跳过：只对 waiting 生效（running 的不许被打断）
+                            Text {
+                                visible: (modelData.queueStatus || "") === "waiting"
+                                text: "↑"
+                                color: upMouse.containsMouse ? Theme.cyan : Theme.muted
+                                font.pixelSize: 13
+                                MouseArea {
+                                    id: upMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (!scheduler.reorder(modelData.id, -1))
+                                            execQueueDialog.notice = "已经是最前面一条"
+                                        execQueueDialog.refresh()
+                                    }
+                                }
+                            }
+
+                            Text {
+                                visible: (modelData.queueStatus || "") === "waiting"
+                                text: "↓"
+                                color: downMouse.containsMouse ? Theme.cyan : Theme.muted
+                                font.pixelSize: 13
+                                MouseArea {
+                                    id: downMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (!scheduler.reorder(modelData.id, 1))
+                                            execQueueDialog.notice = "已经是最后面一条"
+                                        execQueueDialog.refresh()
+                                    }
+                                }
+                            }
+
+                            Text {
+                                visible: (modelData.queueStatus || "") === "waiting"
+                                text: "跳过"
+                                color: skipMouse.containsMouse ? Theme.danger : Theme.muted
+                                font.pixelSize: 10
+                                MouseArea {
+                                    id: skipMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (!scheduler.skip(modelData.id))
+                                            execQueueDialog.notice = "该条已不在等待状态"
+                                        else
+                                            execQueueDialog.notice =
+                                                "已跳过：" + (modelData.title || "")
+                                        execQueueDialog.refresh()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: execQueueDialog.notice.length > 0
+                text: execQueueDialog.notice
+                color: Theme.warning
+                font.pixelSize: 10
+                wrapMode: Text.Wrap
+            }
+
+            // 底部：说明 + 关闭
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "队列顺序只影响运行态，不改卡片所在列；跳过 / 失败都不会自动把卡标为已办结。"
+                    color: Theme.muted
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
+                }
+
+                Button {
+                    text: "关闭"
+                    onClicked: execQueueDialog.close()
+                }
+            }
+        }
+
+        // 队列变化（入队 / 派发 / 结束 / 暂停）时刷新；面板开着才刷
+        Connections {
+            target: scheduler
+            function onChanged() {
+                if (execQueueDialog.opened)
+                    execQueueDialog.refresh()
+            }
+        }
+
+        // 每秒刷一次「已运行时长」：不依赖 revision，避免心跳把整个面板重建
+        Timer {
+            interval: 1000
+            repeat: true
+            running: execQueueDialog.opened
+            onTriggered: {
+                if (execQueueDialog.opened)
+                    execQueueDialog.refresh()
             }
         }
     }

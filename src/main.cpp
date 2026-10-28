@@ -1508,6 +1508,9 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     if (stageIndex >= 0 && stageIndex + 1 < arguments.size())
         initialStage = arguments.at(stageIndex + 1).trimmed().toUpper();
     engine.rootContext()->setContextProperty(QStringLiteral("initialStage"), initialStage);
+    // 启动即打开执行队列面板：--exec-queue（截图 / 排障用，与 --map / --appearance 同类）
+    const bool initialExecQueue = arguments.contains(QStringLiteral("--exec-queue"));
+    engine.rootContext()->setContextProperty(QStringLiteral("initialExecQueue"), initialExecQueue);
     // 低配 / 无障碍降级：关闭动态霓虹背景（NEONBOARD_NO_BG=1 启动）
     const bool noBackground = qEnvironmentVariableIsSet("NEONBOARD_NO_BG");
     engine.rootContext()->setContextProperty(QStringLiteral("noBackground"), noBackground);

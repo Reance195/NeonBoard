@@ -944,13 +944,6 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {
-        "DX-05": {
-            "agent": "agent-gov",
-            "branch": "fix/claim-scope-worktree",
-            "claimedAt": 1793202473,
-            "head": "98c6ab445ae140acffd75b983981e86d0ce1df8b"
-        }
-    },
+    "claims": {},
     "version": 1
 }

@@ -99,7 +99,11 @@
                 "qml/Main.qml",
                 "docs/project-map.json",
                 "docs/iteration-roadmap.md",
-                "tests/tst_projectmap.cpp"
+                "tests/tst_projectmap.cpp",
+                "CMakeLists.txt",
+                "scripts/**",
+                "src/main.cpp",
+                "tests/**"
             ],
             "stage": "DX",
             "title": "DX 项目全景面板：四层事实源实时派生（路线图 / 台账 / git / 文件系统对账）"
@@ -113,7 +117,8 @@
             "id": "e51b1418-7d7b-47d1-a0d5-a3a242396b0e",
             "note": "起因：在没把 Qt bin 加进 PATH 的终端里直接跑 ctest，13 个测试进程全在加载 Qt6Core.dll 处失败，Windows 各弹一个「系统错误」硬错误框，进程卡在框上不退出，ctest 只能等到 TIMEOUT 120s；表象像测试卡死，实际是根本没启动，且每跑一轮攒一批弹窗。目标：neonboard_add_test 给每个测试加 ENVIRONMENT_MODIFICATION 把 $<TARGET_FILE_DIR:Qt6::Core> 前置进 PATH，覆盖「忘了配 PATH」「双击 exe」两类场景；不写死 C:/Qt 路径，换机器/换 Qt 版本自动跟随。验收：PATH 里没有 Qt bin 时 ctest 仍 13/13 通过且零弹窗。",
             "scope": [
-                "tests/CMakeLists.txt"
+                "tests/CMakeLists.txt",
+                "docs/iteration-roadmap.md"
             ],
             "stage": "DX",
             "title": "DX 测试可启动性：ctest 自带 Qt DLL 路径，避免硬错误弹窗挂死"
@@ -135,7 +140,8 @@
                 "scripts/claim-card.py",
                 "scripts/agent-init.ps1",
                 "AGENTS.md",
-                "docs/board-ledger.json"
+                "docs/board-ledger.json",
+                "docs/iteration-roadmap.md"
             ],
             "stage": "DX",
             "title": "DX 一分支多卡：领用占位列表化，或提供从既有分支拆卡的脚本"
@@ -220,7 +226,8 @@
                 "AGENTS.md",
                 "docs/pitfalls.md",
                 "docs/iteration-roadmap.md",
-                "docs/board-ledger.json"
+                "docs/board-ledger.json",
+                ".github/workflows/ci.yml"
             ],
             "stage": "DX",
             "title": "DX 结卡权自动化：合入 #短号=done 时同步台账 baseline，漂移不再靠人批量结"
@@ -239,7 +246,9 @@
                 "src/ProjectMap.cpp",
                 "src/ProjectMap.h",
                 "tests/**",
-                "docs/board-ledger.json"
+                "docs/board-ledger.json",
+                "docs/iteration-roadmap.md",
+                "src/main.cpp"
             ],
             "stage": "DX",
             "title": "DX 阶段条监听路线图变更：§9 增删/重排无需重启即生效（#11）"
@@ -253,7 +262,7 @@
                 "分 3 批交付（R0~R3 / R4~R6 / DX+R7），每批单独提交并各自可回滚"
             ],
             "id": "50355560-9fa2-4d02-a9a7-dc6034639d74",
-            "note": "对应 GitHub issue #2。现状 80 张卡里 31 张有 acceptance/scope（首批补齐在 DX-01~DX-07 之间陆续做过），缺口在各历史阶段卡上。按维护者 2026-10-29 授权分 3 批：批一 R0~R3、批二 R4~R6、批三 DX 与 R7。关键纪律：scope 必须回溯该卡**实际改过**的路径（用 git log 该短号的提交反查），不得凭标题猜路径 —— 猜出来的 scope 会让 check_scope.py 的门禁变成自证。本卡只允许改 docs/，不触及卡片 id/title/stage。",
+            "note": "对应 GitHub issue #2。现状 80 张卡里 31 张有 acceptance/scope（首批补齐在 DX-01~DX-07 之间陆续做过），缺口在各历史阶段卡上。按维护者 2026-10-29 授权分 3 批：批一 R0~R3、批二 R4~R6、批三 DX 与 R7。关键纪律：scope 必须回溯该卡**实际改过**的路径（用 git log 该短号的提交反查），不得凭标题猜路径 —— 猜出来的 scope 会让 check_scope.py 的门禁变成自证。本卡只允许改 docs/，不触及卡片 id/title/stage。\n\n交付（2026-10-29 / agent-dx9 / docs/dx9-acceptance-scope）：分 3 批落地 —— 批次 1（6569a04）R0~R3 共 42 张补 acceptance/scope；批次 2（0b9da0a）R4 共 7 张补齐；批次 3 复核既有 33 张，并修正 13 张 scope 与提交实际改动路径的偏差（DX-01/02/03/07/08、R4-05/09/10、R5-01/02/03、R7-01/03）。字段来源：有 #短号 提交的卡按提交反查改动文件；M01~M18 与 R0 系列无独立提交（随 3088a37/af738f4/6f21441/4b91bb7/bf03291/17d8be8/2925107/ea7794c/e215115 批量交付），scope 按模块归属划定。覆盖：82/82 卡 acceptance 与 scope 均非空；44 张有提交可反查的卡经脚本审计，改动全部落在 scope 内。已完成 5 / 待做 0",
             "scope": [
                 "docs/board-ledger.json",
                 "docs/task-card.md",
@@ -1109,7 +1118,10 @@
                 "src/**",
                 ".github/workflows/ci.yml",
                 "docs/testing.md",
-                "docs/board-ledger.json"
+                "docs/board-ledger.json",
+                "README.md",
+                ".gitignore",
+                "CMakeLists.txt"
             ],
             "stage": "R4",
             "title": "R4 自动化测试体系 + CI 质量门禁"
@@ -1186,7 +1198,10 @@
                 "qml/**",
                 "scripts/derive_board_status.py",
                 "scripts/agent-init.ps1",
-                "docs/**"
+                "docs/**",
+                "CMakeLists.txt",
+                "tests/**",
+                "README.md"
             ],
             "stage": "R4",
             "title": "R4 任务流转自动化：领用可见 + 统一新建入口"
@@ -1201,7 +1216,8 @@
                 "scripts/**",
                 ".githooks/**",
                 ".github/**",
-                "docs/**"
+                "docs/**",
+                "AGENTS.md"
             ],
             "stage": "R4",
             "title": "R4 任务治理：任务先行，禁止无任务改代码"
@@ -1222,7 +1238,14 @@
                 "src/main.cpp",
                 "scripts/build-update-manifest.ps1",
                 ".github/workflows/release.yml",
-                "docs/auto-update.md"
+                "docs/auto-update.md",
+                ".github/workflows/ci.yml",
+                "CMakeLists.txt",
+                "README.md",
+                "docs/iteration-roadmap.md",
+                "qml/Main.qml",
+                "qml/components/SettingsPanel.qml",
+                "tests/**"
             ],
             "stage": "R5",
             "title": "R5 软件自动更新：检查 / 校验 / 静默升级 / 便携版自更新"
@@ -1240,7 +1263,9 @@
             "scope": [
                 "src/UpdateManager*",
                 "src/main.cpp",
-                "docs/auto-update.md"
+                "docs/auto-update.md",
+                ".github/workflows/release.yml",
+                "scripts/build-update-manifest.ps1"
             ],
             "stage": "R5",
             "title": "R5 更新检查韧性：逐源超时不吃光总预算 + 回退路径的校验值兜底"
@@ -1263,7 +1288,9 @@
                 "scripts/build-update-manifest.ps1",
                 ".github/workflows/release.yml",
                 "CMakeLists.txt",
-                "docs/**"
+                "docs/**",
+                "update.json",
+                "README.md"
             ],
             "stage": "R5",
             "title": "R5 发布 v0.1.1：版本号单源化 + 端到端升级验证"
@@ -1545,7 +1572,8 @@
                 "src/main.cpp",
                 "tests/tst_scheduler.cpp",
                 "tests/CMakeLists.txt",
-                "CMakeLists.txt"
+                "CMakeLists.txt",
+                "src/Database.h"
             ],
             "stage": "R7",
             "title": "R7 执行队列与调度器：FIFO + 并发≤2 + 背压 + 暂停/调序/跳过"
@@ -1587,7 +1615,10 @@
                 "src/AcceptanceRunner.*",
                 "tests/tst_workflow.cpp",
                 "tests/CMakeLists.txt",
-                "CMakeLists.txt"
+                "CMakeLists.txt",
+                "src/TaskRunStore.*",
+                "src/WorkflowRunner.*",
+                "src/main.cpp"
             ],
             "stage": "R7",
             "title": "R7 角色链 workflow 引擎：步骤数组 + handoff 交接物"

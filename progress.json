@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R5-04",
-            "completedAt": 0,
-            "createdAt": 1793098683,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "4c95eebc-891c-4196-9fb9-b88a0f6cf41f",
-            "note": "起因：R5-02 把单源超时从 10 秒压到 6 秒、总预算从 15 秒提到 25 秒后，默认源自检仍偶发「检查更新失败：连接超时」—— 三源串行时，raw.githubusercontent.com 常年只挂不答吃满 6 秒，GitHub API 单次 5-7 秒，最坏情况 6+6+7=19 秒逼近总预算，一旦某个源抖动即超时。根治方向：候选源并行竞速，所有源同时发起请求，首个成功者胜出，其余立即取消。目标：① UpdateManager::checkForUpdates 改为并发请求所有候选源（QNetworkAccessManager 多次 get）；② 任一源返回有效清单即胜出，取消其余请求（QNetworkReply::abort）；③ 全部失败才报错误，按失败原因优先级取最严重的；④ 保留单源看门狗（防单个请求挂死），但总预算改为「所有源最慢那个的超时」而非串行累加；⑤ 命令行 --check-update 与设置面板检查按钮行为一致。验收：默认源（gitee raw → github raw → API）自检稳定 < 8 秒（此前偶发 19 秒超时）；断网时仍走缓存降级；单测覆盖并发竞速场景（mock 一慢一快两个源，快的胜出）。",
-            "orderKey": 10240,
-            "priority": 2,
-            "stage": "R5",
-            "status": "todo",
-            "tags": [
-                "R5"
-            ],
-            "title": "R5 更新检查并行竞速：候选源并发请求取首个成功",
-            "updatedAt": 1793098683
-        },
-        {
             "code": "R7-01",
             "completedAt": 0,
             "createdAt": 1793123355,
@@ -145,24 +127,6 @@
             "updatedAt": 1793125542
         },
         {
-            "code": "DX-05",
-            "completedAt": 0,
-            "createdAt": 1793126566,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "345b40c4-13dc-4efe-bcd6-b4108c96c52a",
-            "note": "现象（2026-10-28 02:xx 实测）：两个会话（agent-map2 与 lead）同时把仓库根目录当开发区 —— `git worktree list` 只有锚点区一条、`.worktrees/` 不存在；锚点区里躺着 `.sandbox/` 和 `.agent-env.ps1`（内容写着 NEONBOARD_AGENT_ID=agent-map2）；HEAD 被对方切到 feature/r6-04-taskrunner，我上一轮刚挪回 main 随即被覆盖；git-done 因「工作区有未提交改动」拒绝了合并且未说明是别人的在制品。根因不是机制缺失：agent-init 的 else 分支本来就会 `git worktree add .worktrees/<agent>`，但 `-InPlace` 分支本意只用于「已是隔离检出」，在锚点区传它等于把共享检出当自己的开发区，脚本不拦；配套的 agent-workspace.ps1 的 root 占用登记是自愿的（Status 显示 root 空闲，两边都没做）；task_gate 在非 .worktrees 检出还直接放行台账校验，越乱越松。两种隔离要分清：worktree 隔离文件与 HEAD，.sandbox 隔离运行时数据（DB/日志/hooks），本次两者都没生效。目标：把「绕过」变成「不可能」—— 硬门 + 自动占用 + 他人在制品告警，三道一起。",
-            "orderKey": 19456,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 会话隔离硬门：锚点区禁止 -InPlace，占用登记改为自动",
-            "updatedAt": 1793126566
-        },
-        {
             "code": "DX-06",
             "completedAt": 0,
             "createdAt": 1793127238,
@@ -179,6 +143,24 @@
             ],
             "title": "DX 代登记可审计：chore(board) 强制记录授权来源与批次，立卡不得与代码混提交",
             "updatedAt": 1793127238
+        },
+        {
+            "code": "R5-06",
+            "completedAt": 0,
+            "createdAt": 1793202572,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "f8a3b2c1-4d5e-6f7a-8b9c-0d1e2f3a4b5c",
+            "note": "起因：当前全量覆盖升级，每次下载 27-41 MB，用户等待时间长。目标：实现混合增量升级——① 资源文件（QML/图片/配置）走文件级增量，只下载新增/修改的文件；② 二进制文件（exe/dll）走 bsdiff 二进制增量，生成 patch 文件，客户端用 bspatch 合并；③ 发布侧（release.ps1）对比新旧版本，生成增量包（delta.zip）+ 校验清单；④ 客户端（UpdateManager）下载增量包，先合并二进制，再覆盖资源，最后校验完整性；⑤ 失败回滚：合并前备份旧文件，失败则恢复。验收：v0.1.3 → v0.1.4 增量升级后功能完整；增量包体积 < 全量包的 30%；升级失败可回滚到旧版本。",
+            "orderKey": 21504,
+            "priority": 2,
+            "stage": "R5",
+            "status": "todo",
+            "tags": [
+                "R5"
+            ],
+            "title": "R5 混合增量升级：文件级 + bsdiff 二进制增量",
+            "updatedAt": 1793202572
         },
         {
             "code": "R0-01",
@@ -768,6 +750,24 @@
             "updatedAt": 1792725723
         },
         {
+            "code": "R5-04",
+            "completedAt": 1793202572,
+            "createdAt": 1793098683,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "4c95eebc-891c-4196-9fb9-b88a0f6cf41f",
+            "note": "起因：R5-02 把单源超时从 10 秒压到 6 秒、总预算从 15 秒提到 25 秒后，默认源自检仍偶发「检查更新失败：连接超时」—— 三源串行时，raw.githubusercontent.com 常年只挂不答吃满 6 秒，GitHub API 单次 5-7 秒，最坏情况 6+6+7=19 秒逼近总预算，一旦某个源抖动即超时。根治方向：候选源并行竞速，所有源同时发起请求，首个成功者胜出，其余立即取消。目标：① UpdateManager::checkForUpdates 改为并发请求所有候选源（QNetworkAccessManager 多次 get）；② 任一源返回有效清单即胜出，取消其余请求（QNetworkReply::abort）；③ 全部失败才报错误，按失败原因优先级取最严重的；④ 保留单源看门狗（防单个请求挂死），但总预算改为「所有源最慢那个的超时」而非串行累加；⑤ 命令行 --check-update 与设置面板检查按钮行为一致。验收：默认源（gitee raw → github raw → API）自检稳定 < 8 秒（此前偶发 19 秒超时）；断网时仍走缓存降级；单测覆盖并发竞速场景（mock 一慢一快两个源，快的胜出）。",
+            "orderKey": 10240,
+            "priority": 2,
+            "stage": "R5",
+            "status": "done",
+            "tags": [
+                "R5"
+            ],
+            "title": "R5 更新检查并行竞速：候选源并发请求取首个成功",
+            "updatedAt": 1793202572
+        },
+        {
             "completedAt": 1792748224,
             "createdAt": 1792724521,
             "deleted": false,
@@ -1118,6 +1118,24 @@
             ],
             "title": "规则引擎 rules.js + plan.rules 规则 schema",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "DX-05",
+            "completedAt": 1793202572,
+            "createdAt": 1793126566,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "345b40c4-13dc-4efe-bcd6-b4108c96c52a",
+            "note": "现象（2026-10-28 02:xx 实测）：两个会话（agent-map2 与 lead）同时把仓库根目录当开发区 —— `git worktree list` 只有锚点区一条、`.worktrees/` 不存在；锚点区里躺着 `.sandbox/` 和 `.agent-env.ps1`（内容写着 NEONBOARD_AGENT_ID=agent-map2）；HEAD 被对方切到 feature/r6-04-taskrunner，我上一轮刚挪回 main 随即被覆盖；git-done 因「工作区有未提交改动」拒绝了合并且未说明是别人的在制品。根因不是机制缺失：agent-init 的 else 分支本来就会 `git worktree add .worktrees/<agent>`，但 `-InPlace` 分支本意只用于「已是隔离检出」，在锚点区传它等于把共享检出当自己的开发区，脚本不拦；配套的 agent-workspace.ps1 的 root 占用登记是自愿的（Status 显示 root 空闲，两边都没做）；task_gate 在非 .worktrees 检出还直接放行台账校验，越乱越松。两种隔离要分清：worktree 隔离文件与 HEAD，.sandbox 隔离运行时数据（DB/日志/hooks），本次两者都没生效。目标：把「绕过」变成「不可能」—— 硬门 + 自动占用 + 他人在制品告警，三道一起。",
+            "orderKey": 19456,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 会话隔离硬门：锚点区禁止 -InPlace，占用登记改为自动",
+            "updatedAt": 1793202572
         },
         {
             "code": "M11",
@@ -2077,6 +2095,6 @@
             "updatedAt": 1793123355
         }
     ],
-    "updated": "2026-10-28T05:07:15",
+    "updated": "2026-10-28T15:49:32",
     "version": 3
 }

@@ -263,213 +263,752 @@
             "title": "DX 卡片验收字段补全：acceptance/scope 覆盖率归零缺口（#2，分 3 批）"
         },
         "M01": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_pluginpackage --output-on-failure",
+                "build/Release/NeonBoard.exe --plugin-report 每个插件条目带 permissions 字段",
+                "越权 API 调用被拒并写入日志（permission denied）"
+            ],
             "id": "9bddece6-d4f8-4963-990e-b9d27a06d7c1",
+            "scope": [
+                "src/PluginContext.*",
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": "PluginContext：每插件 API 门面 + 权限校验 #M01"
         },
         "M02": {
+            "acceptance": [
+                "build/Release/NeonBoard.exe --plugin-report 退出码 0 且列出已加载插件与槽位",
+                "前台插件经 pluginHost 代理访问宿主 API；后台插件拿到子上下文门面（同名遮蔽）",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）"
+            ],
             "id": "e6c26e08-85af-4001-8cf9-73439d2e885f",
+            "scope": [
+                "src/PluginHost.*",
+                "src/PluginRuntime.*",
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": "PluginHost 改造：服务层 + 前台代理 #M02"
         },
         "M03": {
+            "acceptance": [
+                "--plugin-report 中 plan-hook 条目 background=true（后台入口自动加载）",
+                "事件订阅/派发在 --smoke 日志中无 \"no such signal\" 报错",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
             "id": "5762fa1f-2cf2-4fec-a36e-a702e3ac8ffa",
+            "scope": [
+                "src/PluginEventBus.*",
+                "src/PluginRuntime.*",
+                "src/main.cpp",
+                "CMakeLists.txt"
+            ],
             "stage": "R3",
             "title": "PluginEventBus + PluginRuntime：事件总线与后台运行时 #M03"
         },
         "M04": {
+            "acceptance": [
+                "build/Release/NeonBoard.exe --plugin-report 条目数 >= 3（官方源 + 示例插件）",
+                "manifest 的 apiVersion 为 1 或 2 都能加载；缺字段按 1 处理并告警",
+                "ctest --test-dir build -C Release -R tst_pluginpackage --output-on-failure"
+            ],
             "id": "5e8d30e9-956f-43a1-a83f-edc5c1bbb425",
+            "scope": [
+                "src/PluginLoader.*",
+                "plugins-samples/**",
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": "PluginLoader 升级：apiVersion 1|2 + background/contributes #M04"
         },
         "M05": {
+            "acceptance": [
+                "moveTaskToEnd 把任务插到目标列末尾；moveTask 仍插到最前（老插件零改动）",
+                "任务增删改分别触发 taskAdded/taskRemoved/taskChanged（--selftest 断言）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
             "id": "7744b7b4-5062-4891-899f-46052c072ece",
+            "scope": [
+                "src/TaskModel.*",
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": "TaskModel：任务事件信号 + moveTaskToEnd #M05"
         },
         "M06": {
+            "acceptance": [
+                "meta 表读写往返通过（--selftest 断言 plan.rules / plugins.disabled 可读回）",
+                "ctest --test-dir build -C Release -R tst_databasemigration --output-on-failure（user_version 不变）"
+            ],
             "id": "b76bf7bb-a759-419c-908e-3189cac03d51",
+            "scope": [
+                "src/Database.*"
+            ],
             "stage": "R3",
             "title": "Database：meta 读写 API #M06"
         },
         "M07": {
+            "acceptance": [
+                "hooks.db 与 board.db 物理隔离：投递事件后 board.db 的 mtime 不变",
+                "build/Release/NeonBoard.exe --emit-hook-file <tmp> --hook-event hook.commit 退出码 0 且 hooks.db 出现待消费事件",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
             "id": "26d9879e-193c-43f3-b32d-35e775a146bc",
+            "scope": [
+                "src/HookEventQueue.*",
+                "src/AppPaths.*",
+                "src/main.cpp",
+                "CMakeLists.txt"
+            ],
             "stage": "R3",
             "title": "HookEventQueue：独立 hooks.db 事件队列 #M07"
         },
         "M08": {
+            "acceptance": [
+                "--emit-hook-file <tmp> --hook-event hook.commit 只投递不执行：退出码 0，任务状态不变",
+                "应用未运行时投递的事件在下次启动被补投递（hooks.db delivered 标记翻转）"
+            ],
             "id": "a20714c8-27c5-4c37-9093-ef8b10e26dd3",
+            "scope": [
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": "CLI --emit-hook：只投递不执行 #M08"
         },
         "M09": {
+            "acceptance": [
+                "提交信息含 #短号 后，常驻实例在一个轮询周期内把对应任务转到目标列",
+                "Select-String -Path plugins/plan-hook/background.qml -Pattern \"hook.commit\" 命中",
+                "Select-String -Path src/*.cpp -Pattern \"plan\\.rules\" 无命中（规则只在插件侧）"
+            ],
             "id": "4c03c0e5-cafa-4ae8-b404-71b2276fb13b",
+            "scope": [
+                "plugins/plan-hook/**",
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": "plan-hook 后台插件：订阅 hook.commit 执行规则 #M09"
         },
         "M10": {
+            "acceptance": [
+                "rules.js 支持 #T12 / #T12=done / #T12=todo 三种标记，整词匹配且大小写不敏感",
+                "规则可增删改并落 meta.plan.rules，重启后仍生效",
+                "同一短号命中多卡时全部流转；已在目标列则跳过写库"
+            ],
             "id": "16ae9de1-6061-4cbe-aea9-92328a5c596d",
+            "scope": [
+                "plugins/plan-hook/rules.js",
+                "plugins/plan-hook/plugin.json"
+            ],
             "stage": "R3",
             "title": "规则引擎 rules.js + plan.rules 规则 schema #M10"
         },
         "M11": {
+            "acceptance": [
+                "plan-hook 面板可编辑规则、手动执行一次并显示执行记录",
+                "手动执行与钩子触发走同一份 rules.js（无第二套实现）",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）"
+            ],
             "id": "45ef5f03-d58e-474f-a57e-0d49acb8311f",
+            "scope": [
+                "plugins/plan-hook/main.qml",
+                "qml/components/PluginPanel.qml",
+                "qml/Main.qml"
+            ],
             "stage": "R3",
             "title": "plan-hook 面板：规则编辑器 + 手动执行 + 执行记录 #M11"
         },
         "M12": {
+            "acceptance": [
+                "git commit 提交信息含 #短号 后 hooks.db 出现 hook.commit 事件，钩子退出码恒为 0",
+                "钩子文件为 LF 无 BOM；找不到 exe 或投递失败时不阻断提交",
+                "Select-String -Path .githooks/post-commit -Pattern \"sync-roadmap\" 命中（快照同步未被覆盖）"
+            ],
             "id": "e823f822-2e81-4be2-81e9-327ac0176762",
+            "scope": [
+                ".githooks/post-commit",
+                "src/HookEventQueue.*",
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": ".githooks/post-commit：投递 hook 事件 #M12"
         },
         "M13": {
+            "acceptance": [
+                "插件库侧栏列出本地与市场条目，可打开/启用/禁用/安装/卸载/更新",
+                "安装或卸载后 PluginRuntime::reload() 被调用，侧栏条目与实际一致",
+                "--plugin-report 与侧栏条目一致"
+            ],
             "id": "189e6f97-d75b-4e27-b8df-643793b37508",
+            "scope": [
+                "qml/components/PluginLibraryPanel.qml",
+                "qml/Main.qml",
+                "src/PluginLibrary.*"
+            ],
             "stage": "R3",
             "title": "插件库侧栏：打开/启用/禁用/安装/卸载/更新 #M13"
         },
         "M14": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_pluginpackage --output-on-failure",
+                "篡改 sha256 的 .neon 包 --install-plugin-file 退出码 2 且包未落盘",
+                "files 含 ../../evil.qml 的包被拒，目标目录无 evil.qml"
+            ],
             "id": "3cbbcee6-85ec-437b-b886-4fbcf1adfccf",
+            "scope": [
+                "src/PluginPackage.*",
+                "src/PluginMarket.*",
+                "tests/tst_pluginpackage.cpp",
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt"
+            ],
             "stage": "R3",
             "title": ".neon 包格式 + PluginMarket：校验与原子安装 #M14"
         },
         "M15": {
+            "acceptance": [
+                "设置面板可增删改市场源，落 meta.plugin.market.sources（JSON 数组）",
+                "旧版单地址 plugin.market.source 自动迁移为一个源",
+                "build/Release/NeonBoard.exe --market-refresh 退出码 0，多源同 id 取版本高者"
+            ],
             "id": "20eb6e7d-772c-4aa3-b2a3-28571bd131f8",
+            "scope": [
+                "src/PluginMarket.*",
+                "qml/components/SettingsPanel.qml",
+                "qml/components/PluginLibraryPanel.qml",
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": "市场源配置：内置 GitHub 默认地址 + 设置可改 #M15"
         },
         "M16": {
+            "acceptance": [
+                "build/Release/NeonBoard.exe --market-install plan-hook 退出码 0（一键安装）",
+                "--plugin-report 能看到 plan-hook 与 agent-bridge（官方源纳入扫描）",
+                "卸载只删用户安装区，plugins/ 与 plugins-samples/ 原样保留"
+            ],
             "id": "55c3f461-b251-4d40-8b28-0b6c9e22676f",
+            "scope": [
+                "src/PluginLibrary.*",
+                "qml/components/PluginLibraryPanel.qml",
+                "plugins/plan-hook/**",
+                "src/PluginLoader.cpp"
+            ],
             "stage": "R3",
             "title": "plan-hook 一键安装 + 官方源纳入扫描 #M16"
         },
         "M17": {
+            "acceptance": [
+                "12 条端到端用例逐条执行通过（命令与结果记在 docs/testing.md）",
+                "pwsh -File scripts/verify.ps1 全过",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
             "id": "7fcab2a2-d0d7-4757-a960-f313ddc12d7c",
+            "scope": [
+                "docs/testing.md",
+                "docs/plan-hook.md",
+                "docs/plugin-api.md",
+                "plugins-samples/**"
+            ],
             "stage": "R3",
             "title": "端到端验收：12 条用例 #M17"
         },
         "M18": {
+            "acceptance": [
+                "docs/plugin-api.md 覆盖 apiVersion 2：permissions/background/contributes/slots/commands",
+                "docs/plan-hook.md 记录规则 schema、标记语法与投递链路",
+                "README 与文档描述和 --plugin-report 实际字段一致"
+            ],
             "id": "e92eeb3c-e4f8-462f-a192-d7277e468474",
+            "scope": [
+                "docs/plugin-api.md",
+                "docs/plan-hook.md",
+                "README.md"
+            ],
             "stage": "R3",
             "title": "文档同步：plugin-api v2 + plan-hook.md #M18"
         },
         "R0-01": {
+            "acceptance": [
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "Select-String -Path qml/theme/Theme.qml -Pattern 'key: \"' 命中 6 行（6 套预设）",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）",
+                "切换 6 套预设后背景/卡片/芯片颜色随 Theme.xxx 渐变，组件内无硬编码色值"
+            ],
             "id": "1c015b79-5b10-4e3b-a26c-55cde4d9b1f4",
+            "scope": [
+                "qml/theme/*.qml",
+                "qml/components/*.qml",
+                "qml/Main.qml",
+                "qml/NeonBackground.qml",
+                "docs/themes/**",
+                "src/UiSettings.*",
+                "src/main.cpp",
+                "CMakeLists.txt",
+                "README.md",
+                "docs/iteration-roadmap.md"
+            ],
             "stage": "R0",
             "title": "主题引擎 v1：6 套预设 + 换色渐变"
         },
         "R0-02": {
+            "acceptance": [
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "build/Release/NeonBoard.exe --export-roadmap <tmp> 导出的卡片状态与 progress.json 一致",
+                "阶段条 chip 计数与台账各阶段卡数一致（R0..R7 每个阶段都可见）"
+            ],
             "id": "2c558b15-9cb4-4377-9e99-acb7a2c06cf2",
+            "scope": [
+                "qml/components/StageBar.qml",
+                "qml/components/BoardColumn.qml",
+                "src/RoadmapSync.*",
+                "qml/Main.qml",
+                "src/TaskModel.*",
+                "src/TaskFilterModel.*",
+                "src/main.cpp",
+                "CMakeLists.txt",
+                ".githooks/post-commit"
+            ],
             "stage": "R0",
             "title": "路线图进度上板：里程碑可视化"
         },
         "R0-03": {
+            "acceptance": [
+                "(Get-Content qml/Main.qml).Count -le 1200（拆分后行数）",
+                "qml/components 下的拆分组件可独立实例化：--smoke 无 QML 报错",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
             "id": "58f08be1-a2cd-4dfe-b8ef-ad32ab222dcf",
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/*.qml",
+                "qml/theme/*.qml",
+                "qml/NeonBackground.qml",
+                "src/UiSettings.*",
+                "src/main.cpp",
+                "CMakeLists.txt"
+            ],
             "stage": "R0",
             "title": "组件拆分：Main.qml 1605 → 1180 行"
         },
         "R0-04": {
+            "acceptance": [
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）",
+                "拖拽落位有涟漪、勾选完成有光扫、删除有故障抖动；开启减弱动效后全部退化为瞬时"
+            ],
             "id": "c8e0b613-133f-4ea4-8322-e37a3525553c",
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/TaskCard.qml",
+                "qml/components/BoardColumn.qml",
+                "qml/components/StatChip.qml",
+                "qml/theme/Motion.qml"
+            ],
             "stage": "R0",
             "title": "R0 收尾：落位涟漪 / 勾选光扫 / 删除故障"
         },
         "R0-05": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_uisettings --output-on-failure",
+                "Select-String -Path src/UiSettings.h -Pattern \"Q_PROPERTY\" 命中 themePreset/quality/reducedMotion 三行",
+                "改主题/画质/减弱动效后重启应用仍保持（QSettings 落盘到沙箱 ini）"
+            ],
             "id": "918e95ad-58db-4a30-9eb0-11d7d5a4000f",
+            "scope": [
+                "qml/components/*.qml",
+                "qml/Main.qml",
+                "qml/NeonBackground.qml",
+                "qml/theme/*.qml",
+                "src/UiSettings.*",
+                "src/main.cpp",
+                "CMakeLists.txt"
+            ],
             "stage": "R0",
             "title": "外观面板：主题/画质/减弱动效"
         },
         "R0-06": {
+            "acceptance": [
+                "Select-String -Path qml/NeonBackground.qml -Pattern \"Theme\\.\" 命中 >= 4 行（uBase/uPrimary/uSecondary/uAccent 取令牌）",
+                "画质档 低/中/高 对应 uQuality 0/1/2，切换后 shader 参数随之变化",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）"
+            ],
             "id": "e4ecf05e-e865-4656-b8a0-29f147fd217b",
+            "scope": [
+                "qml/NeonBackground.qml",
+                "qml/theme/*.qml",
+                "qml/components/*.qml",
+                "qml/Main.qml",
+                "shaders/neon.frag",
+                "src/UiSettings.*",
+                "src/main.cpp",
+                "CMakeLists.txt"
+            ],
             "stage": "R0",
             "title": "霓虹背景联动主题色 + 画质分档"
         },
         "R0-07": {
+            "acceptance": [
+                "build/Release/NeonBoard.exe --smoke 输出首帧/首屏耗时指标",
+                "build/Release/NeonBoard.exe --benchload 退出码 0",
+                "docs/iteration-roadmap.md 的 R0 小节记录启动耗时基线与瓶颈定位结论"
+            ],
             "id": "b599acd5-373b-4b39-b72a-98a4e7697402",
+            "scope": [
+                "docs/iteration-roadmap.md",
+                "README.md",
+                "src/main.cpp",
+                "scripts/build.ps1"
+            ],
             "stage": "R0",
             "title": "启动性能剖析：定位真实瓶颈"
         },
         "R0-08": {
+            "acceptance": [
+                "Select-String -Path qml/components/*.qml,qml/Main.qml -Pattern \"#[0-9A-Fa-f]{6}\" 无命中（颜色只在 qml/theme/Theme.qml）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）"
+            ],
             "id": "ef0685b5-168b-4089-bcbe-5c5a4e81b8f0",
+            "scope": [
+                "qml/theme/*.qml",
+                "qml/components/*.qml",
+                "qml/Main.qml",
+                "qml/NeonBackground.qml",
+                "src/UiSettings.*",
+                "src/main.cpp",
+                "CMakeLists.txt"
+            ],
             "stage": "R0",
             "title": "颜色令牌化：零硬编码"
         },
         "R0-09": {
+            "acceptance": [
+                "pwsh -File scripts/deploy.ps1 产出可独立运行的便携目录（含 Qt DLL）",
+                "便携目录里的 NeonBoard.exe --selftest 退出码 0",
+                "Select-String -Path .github/workflows/ci.yml -Pattern \"upload-artifact\" 命中（CI 上传便携版）"
+            ],
             "id": "a2f9c6f2-4c60-4e5e-b445-b95fbaf7ba82",
+            "scope": [
+                "scripts/deploy.ps1",
+                ".github/workflows/ci.yml",
+                "README.md",
+                "CMakeLists.txt"
+            ],
             "stage": "R0",
             "title": "便携版打包 + 实跑验证"
         },
         "R0-10": {
+            "acceptance": [
+                "Select-String -Path qml/Main.qml -Pattern \"Loader\" 命中（重型面板按需实例化）",
+                "build/Release/NeonBoard.exe --smoke 首屏耗时低于拆分前基线（记录在 docs/iteration-roadmap.md）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
             "id": "ac7ba1ac-06ea-4c21-a5f5-5bd11e5a7c2e",
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/*.qml",
+                "src/main.cpp",
+                "CMakeLists.txt"
+            ],
             "stage": "R0",
             "title": "R0 启动瘦身：重型面板按需加载"
         },
         "R1-01": {
+            "acceptance": [
+                "到期任务触发托盘提醒；逾期任务在卡片上标红并在侧栏计数",
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "30s 轮询调度器在 --smoke 日志中只启动一次，无重复触发"
+            ],
             "id": "76d2a804-c2f8-4173-8b90-2d0a49a876f0",
+            "scope": [
+                "CMakeLists.txt",
+                "README.md",
+                "docs/iteration-roadmap.md",
+                "qml/Main.qml",
+                "src/Database.cpp",
+                "src/ReminderScheduler.*",
+                "src/TaskExtra.*",
+                "src/main.cpp"
+            ],
             "stage": "R1",
             "title": "R1 提醒 + 逾期提醒"
         },
         "R1-02": {
+            "acceptance": [
+                "完成一个 RRULE 任务后自动派生下一期，撤销时连带删除派生任务",
+                "qml/components/TaskCard.qml 显示重复标记（Select-String -Pattern \"recurrence|RRULE\" 命中）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
             "id": "562f52c5-9119-4c08-8547-85963ec542c6",
+            "scope": [
+                "README.md",
+                "docs/iteration-roadmap.md",
+                "qml/Main.qml",
+                "qml/components/TaskCard.qml",
+                "src/TaskExtra.*",
+                "src/TaskUndo.*",
+                "src/main.cpp"
+            ],
             "stage": "R1",
             "title": "R1 重复任务（RFC 5545 RRULE）"
         },
         "R1-03": {
+            "acceptance": [
+                "Ctrl+K 打开命令面板，可搜索并跳转定位到目标任务卡片",
+                "Esc 关闭面板；输入为空时列出最近任务",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）"
+            ],
             "id": "00f23528-e400-49bc-8f21-f4193f8c0c1d",
+            "scope": [
+                "CMakeLists.txt",
+                "qml/Main.qml",
+                "qml/components/BoardColumn.qml",
+                "qml/components/CommandPalette.qml",
+                "qml/components/TaskCard.qml",
+                "src/main.cpp"
+            ],
             "stage": "R1",
             "title": "R1 命令面板（Ctrl+K）"
         },
         "R1-04": {
+            "acceptance": [
+                "拖拽卡片可在列内精确插位并显示霓虹插入指示线",
+                "Ctrl+Z 可撤销删除/移动/完成/编辑四类操作",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
             "id": "abfe0b9c-6ac6-4df8-8bd5-c8071888ae6c",
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/BoardColumn.qml",
+                "qml/components/TaskCard.qml",
+                "qml/components/SettingsPanel.qml",
+                "src/TaskModel.*",
+                "src/TaskUndo.*",
+                "src/main.cpp"
+            ],
             "stage": "R1",
             "title": "R1 列内插位 + 通用撤销"
         },
         "R1-05": {
+            "acceptance": [
+                "PRAGMA table_info(task) 无 parent_id 列（关联只存 task_link 边表）",
+                "子卡显示「↳ 父卡」并缩进，父卡显示 done/total 进度环",
+                "setParent(B,A) 在已有 setParent(A,B) 时返回 false（成环被拒，--selftest 断言）"
+            ],
             "id": "6e16c4e4-6254-4da1-be47-f93a6daad9d2",
+            "scope": [
+                "CMakeLists.txt",
+                "qml/components/TaskCard.qml",
+                "src/Database.cpp",
+                "src/TaskFilterModel.*",
+                "src/TaskTree.*",
+                "src/main.cpp"
+            ],
             "stage": "R1",
             "title": "R1 子任务 + 卡片霓虹进度环"
         },
         "R1-06": {
+            "acceptance": [
+                "build/Release/NeonBoard.exe --export-tasks <tmp> 后 --import-tasks <tmp> 往返任务数一致",
+                "数据目录 backups/ 下生成每日自动备份",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
             "id": "1e4b499b-940b-4917-8437-0bdbc86ae302",
+            "scope": [
+                "CMakeLists.txt",
+                "qml/components/SettingsPanel.qml",
+                "src/DataPort.*",
+                "src/main.cpp"
+            ],
             "stage": "R1",
             "title": "R1 导入导出 + 自动备份"
         },
         "R1-07": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_taskinputparser --output-on-failure",
+                "输入「明天 15:00 #工作 !2」时实时预览到期/优先级/标签三个芯片",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）"
+            ],
             "id": "7c1d5e93-4a26-4f8b-9d31-2b6e0a54c7f2",
             "note": "R1-2 交付：新增 src/TaskInputParser 解析中文日期（今天/明天/后天/周五/下周三）、时段（15:00、9点半、下午3点）、标签 #工作、优先级 !2；快速添加框输入时实时预览（到期 / 优先级 / 标签 三个霓虹芯片）。验收：--selftest 解析断言全过、沙箱 --smoke 零 QML 报错、预览芯片截图确认。已完成 1 / 待做 0",
+            "scope": [
+                "CMakeLists.txt",
+                "qml/Main.qml",
+                "qml/components/BoardColumn.qml",
+                "src/TaskFilterModel.*",
+                "src/TaskInputParser.*",
+                "src/TaskModel.*",
+                "src/main.cpp",
+                "tests/tst_taskinputparser.cpp",
+                "tests/CMakeLists.txt"
+            ],
             "stage": "R1",
             "title": "R1 快速录入解析：中文日期/时段/标签/优先级"
         },
         "R2-01": {
+            "acceptance": [
+                "专注模式倒计时环可启动/暂停/结束，结束后写一条统计记录",
+                "完成热力图按周展示最近活跃度（ActivityHeatmap 有数据）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0"
+            ],
             "id": "5424c1dd-7581-4c6c-a441-108774588d81",
+            "scope": [
+                "CMakeLists.txt",
+                "README.md",
+                "qml/Main.qml",
+                "qml/components/ActivityHeatmap.qml",
+                "qml/components/FocusRing.qml",
+                "src/TaskStats.*",
+                "src/TrayController.*",
+                "src/main.cpp"
+            ],
             "stage": "R2",
             "title": "R2 专注模式 + 统计可视化"
         },
         "R2-02": {
+            "acceptance": [
+                "背景 shader 支持负载/专注/完成脉冲三通道，切换主题后参数随 Theme 令牌变化",
+                "画质档「低」时关闭 shader 特效（NeonBackground.active=false）",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）"
+            ],
             "id": "e5aa6c5a-570e-426b-84c6-1f2114d8ff93",
+            "scope": [
+                "README.md",
+                "docs/iteration-roadmap.md",
+                "qml/Main.qml",
+                "qml/NeonBackground.qml",
+                "shaders/neon.frag"
+            ],
             "stage": "R2",
             "title": "R2 Shader 场景化 + 主题包"
         },
         "R3-01": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过",
+                "--plugin-report 列出 plan-hook / agent-bridge / plugins-samples 插件",
+                "R3-02 ~ R3-05 四张子卡验收项全部通过"
+            ],
             "id": "90daab15-2707-4716-b687-0cf0d3320ba1",
+            "scope": [
+                "src/Plugin*.*",
+                "qml/components/Plugin*.qml",
+                "plugins-samples/surfaces/**",
+                "docs/plugin-api.md",
+                "qml/Main.qml",
+                "qml/components/SettingsPanel.qml",
+                "qml/components/TaskCard.qml",
+                "src/Database.*",
+                "src/TaskModel.*",
+                "src/main.cpp",
+                "CMakeLists.txt",
+                "README.md"
+            ],
             "stage": "R3",
             "title": "R3 插件平台 2.0"
         },
         "R3-02": {
+            "acceptance": [
+                "插件 settings.qml 在设置页渲染（plugins-samples/surfaces 的 settings 槽位可见）",
+                "manifest 的 contributes.settings 被 PluginLoader 识别（--plugin-report 可见）",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）"
+            ],
             "id": "edee6194-747d-4f79-9b28-5957039846eb",
+            "scope": [
+                "CMakeLists.txt",
+                "README.md",
+                "docs/plugin-api.md",
+                "plugins-samples/surfaces/*.qml",
+                "plugins-samples/surfaces/plugin.json",
+                "qml/Main.qml",
+                "qml/components/Plugin*.qml",
+                "qml/components/SettingsPanel.qml",
+                "qml/components/TaskCard.qml",
+                "src/PluginContext.*",
+                "src/PluginHost.*",
+                "src/PluginLoader.cpp",
+                "src/PluginRuntime.*",
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": "插件 settings.qml + 设置页声明"
         },
         "R3-03": {
+            "acceptance": [
+                "插件注册的命令出现在 Ctrl+K 命令面板并可执行",
+                "插件注册的快捷键在 manifest 声明后生效，冲突时给出告警",
+                "--plugin-report 列出 commands 条目"
+            ],
             "id": "1586cd08-ac57-471d-b178-cbb65874a9b0",
+            "scope": [
+                "CMakeLists.txt",
+                "README.md",
+                "docs/plugin-api.md",
+                "plugins-samples/surfaces/*.qml",
+                "plugins-samples/surfaces/plugin.json",
+                "qml/Main.qml",
+                "qml/components/Plugin*.qml",
+                "qml/components/SettingsPanel.qml",
+                "qml/components/TaskCard.qml",
+                "src/PluginContext.*",
+                "src/PluginHost.*",
+                "src/PluginLoader.cpp",
+                "src/PluginRuntime.*",
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": "插件命令注册 / 快捷键注册"
         },
         "R3-04": {
+            "acceptance": [
+                "plugins-samples/surfaces 的四个槽位（sidebar/bottom/card/main）均可渲染",
+                "卡片字段槽位在 TaskCard 上显示插件内容",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）"
+            ],
             "id": "29bc27fb-a04b-4b0a-9dd7-4ff81be7b657",
+            "scope": [
+                "CMakeLists.txt",
+                "README.md",
+                "docs/plugin-api.md",
+                "plugins-samples/surfaces/*.qml",
+                "plugins-samples/surfaces/plugin.json",
+                "qml/Main.qml",
+                "qml/components/Plugin*.qml",
+                "qml/components/SettingsPanel.qml",
+                "qml/components/TaskCard.qml",
+                "src/PluginContext.*",
+                "src/PluginHost.*",
+                "src/PluginLoader.cpp",
+                "src/PluginRuntime.*",
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": "插件多槽位（侧栏 + 底部面板 + 卡片字段）"
         },
         "R3-05": {
+            "acceptance": [
+                "首次调用敏感 API 弹出权限授权弹窗，来源（插件 id + 目录）可见",
+                "拒绝后该权限记为未授予，后续调用被拒并写日志",
+                "已授予权限落 meta，重启后不再重复弹窗"
+            ],
             "id": "51713f83-0c17-4fcc-8290-994c5e04a504",
+            "scope": [
+                "CMakeLists.txt",
+                "README.md",
+                "docs/plugin-api.md",
+                "plugins-samples/surfaces/*.qml",
+                "plugins-samples/surfaces/plugin.json",
+                "qml/Main.qml",
+                "qml/components/Plugin*.qml",
+                "qml/components/SettingsPanel.qml",
+                "qml/components/TaskCard.qml",
+                "src/PluginContext.*",
+                "src/PluginHost.*",
+                "src/PluginLoader.cpp",
+                "src/PluginRuntime.*",
+                "src/main.cpp"
+            ],
             "stage": "R3",
             "title": "插件权限授权弹窗与来源提示"
         },

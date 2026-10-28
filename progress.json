@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R7-06",
-            "completedAt": 0,
-            "createdAt": 1793123355,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "1ecfbbd3-e038-4e3e-aaa0-c5f1ad8380dd",
-            "note": "目标：task_run.cost_ms 在 run 结束写入（含 running 时长，不含排队）；TaskRunStore 提供 totalCost(cardId) 聚合；执行面板（R6-06）与卡面显示「本卡累计耗时 X」；token 计量留接口（开放问题 #6，后续）。",
-            "orderKey": 16384,
-            "priority": 2,
-            "stage": "R7",
-            "status": "todo",
-            "tags": [
-                "R7"
-            ],
-            "title": "R7 成本账",
-            "updatedAt": 1793123355
-        },
-        {
             "code": "R5-06",
             "completedAt": 0,
             "createdAt": 1793202572,
@@ -1077,6 +1059,24 @@
             ],
             "title": "R4 多板 / 自定义列架构解锁",
             "updatedAt": 1793002946
+        },
+        {
+            "code": "R7-06",
+            "completedAt": 1793214203,
+            "createdAt": 1793123355,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "1ecfbbd3-e038-4e3e-aaa0-c5f1ad8380dd",
+            "note": "目标：task_run.cost_ms 在 run 结束写入（含 running 时长，不含排队）；TaskRunStore 提供 totalCost(cardId) 聚合；执行面板（R6-06）与卡面显示「本卡累计耗时 X」；token 计量留接口（开放问题 #6，后续）。",
+            "orderKey": 16384,
+            "priority": 2,
+            "stage": "R7",
+            "status": "done",
+            "tags": [
+                "R7"
+            ],
+            "title": "R7 成本账",
+            "updatedAt": 1793214203
         },
         {
             "code": "M07",
@@ -2257,6 +2257,6 @@
             "updatedAt": 1793207091
         }
     ],
-    "updated": "2026-10-29T02:50:05",
+    "updated": "2026-10-28T19:03:23",
     "version": 3
 }

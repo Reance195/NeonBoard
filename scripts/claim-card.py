@@ -59,7 +59,20 @@ if code not in cards:
 
 # 已完成的卡不允许重新领用：done 表示验收项已逐条满足并合并，再领用只能说明
 # 这次改动没有对应任务，属于「先写代码后找卡」。真要继续做请新开卡。
-baseline = data.get("baseline") or {}
+# 这道门只看**主线**的 baseline，不看调用方的工作区副本：锚点区与 origin/main 分叉时
+# （docs/pitfalls.md 7.4）工作区里的 baseline 是旧的，已交付的卡会被当成可领用重做一遍。
+# 取不到 origin/main（离线 / 没有该引用）时退回工作区副本，行为与原来一致。
+main_data = data
+shown = subprocess.run(
+    ["git", "-C", root, "show", "origin/main:docs/board-ledger.json"],
+    capture_output=True, check=False,
+)
+if shown.returncode == 0:
+    try:
+        main_data = json.loads(shown.stdout.decode("utf-8-sig"))
+    except ValueError:
+        main_data = data
+baseline = main_data.get("baseline") or {}
 if baseline.get(code) == "done":
     sys.stderr.write("[领用] 卡片 %s 已完成（baseline=done），不允许重新领用\n" % code)
     sys.stderr.write("        如需继续改动，请在台账新开一张卡再领用。\n")

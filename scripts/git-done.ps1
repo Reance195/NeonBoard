@@ -557,6 +557,35 @@ if ($Mode -eq 'remote') {
         }
     }
 
+    # 结卡自动化（DX-07）：baseline=<短号> done 是「拒绝重新领用」的唯一门（条款 6）。
+    # 过去靠维护者记得批量结 —— 一定漂；每漂一次，已交付的卡就能被再领一遍重做
+    # （pitfalls 1.14 踩过，7.1 记作「待拍板」）。现在合并成功即结：从 git 事实里取
+    # 最后一次 #<短号>=done，把 baseline 补成 done（顺带补掉缺 baseline 条目的卡）。
+    # 与上面的 claims 清理同一套路 —— 分离 HEAD 上就地提交、快进补推；
+    # 失败只回滚该提交，绝不阻断已经成功的合并。
+    $ccRes = Invoke-Cmd -File 'python' -CmdArgs @((Join-Path $repoRoot 'scripts\derive_board_status.py'), '--close-cards')
+    $closedCodes = @($ccRes.Output | Where-Object { $_ -and $_ -match '^\S+$' })
+    if ($ccRes.Code -ne 0) {
+        Write-Host ("· 结卡：派生器失败（退出码 {0}），baseline 留待下次合并再结" -f $ccRes.Code) -ForegroundColor Yellow
+    } elseif ($closedCodes.Count -gt 0) {
+        Invoke-GitQuiet @('add', 'docs/board-ledger.json') | Out-Null
+        $ccBody = "对象：按 git 标记 #<短号>=done 自动结卡（DX-07），把 baseline 补成 done。`n`n" +
+                  "自动来源：git-done.ps1 合并收尾的 derive_board_status.py --close-cards。"
+        $ccCommit = Invoke-GitQuiet @('commit', '-m', ('chore(board): 结卡 {0}' -f ($closedCodes -join '、')), '-m', $ccBody)
+        if ($ccCommit.Code -ne 0) {
+            Write-Host '· 结卡：提交失败，baseline 留待下次合并再结' -ForegroundColor Yellow
+            Invoke-GitQuiet @('checkout', '--', 'docs/board-ledger.json') | Out-Null
+        } else {
+            $ccPush = Invoke-GitQuiet @('push', 'origin', "HEAD:$MainBranch")
+            if ($ccPush.Code -eq 0) {
+                Write-Host ('✓ 结卡：{0} 的 baseline 已补为 done 并推上 {1}' -f ($closedCodes -join '、'), $MainBranch) -ForegroundColor Green
+            } else {
+                Write-Host '· 结卡：补推失败（离线 / 主线被推进），本地回滚，留待下次合并再结' -ForegroundColor Yellow
+                Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
+            }
+        }
+    }
+
     Write-Host "`n✓ 合并完成：$Branch → origin/$MainBranch" -ForegroundColor Green
     Write-Host "   查看历史：git log --oneline --graph -10" -ForegroundColor DarkGray
     exit 0

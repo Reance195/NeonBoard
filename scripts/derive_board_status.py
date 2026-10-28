@@ -200,6 +200,71 @@ def sort_key(item):
     return (STATUS_RANK.get(status, 3), status, int(item.get("orderKey", 0) or 0), item.get("id", ""))
 
 
+def close_cards(cards, baseline, derived):
+    """结卡判定（DX-07）—— 纯函数，不碰磁盘，便于自测与复用。
+
+    返回 (new_baseline, changed_codes)：
+      - git 里最后一次标记是 done 的卡 → baseline 补成 done（结卡）；
+      - 缺 baseline 条目、git 里也没有 done 标记的卡 → 补 todo（消缺项，领用门按 todo 处理）；
+      - 其余一律不动（不把 done 改回 todo —— 结过的卡由人用 #<短号>=todo 显式重开）。
+    只改 baseline，不碰 cards 的 id/title/stage。
+    """
+    out = dict(baseline)
+    changed = []
+    for code in sorted(cards):
+        mark = (derived.get(code) or "").lower()
+        current = (out.get(code) or "").lower()
+        want = ""
+        if mark == "done":
+            want = "done"
+        elif code not in out:
+            want = "todo"
+        if want and want != current:
+            out[code] = want
+            changed.append(code)
+    return out, changed
+
+
+def selftest():
+    """--close-cards 的可执行自测（DX-07 验收项）：四种情形一次跑完。"""
+    cards = {"A-1": {}, "B-2": {}, "C-3": {}, "D-4": {}}
+    cases = []
+
+    # ① 有 done 标记且 baseline 是 todo → 结卡
+    base = {"A-1": "todo", "B-2": "todo", "C-3": "done"}
+    derived = {"A-1": "done", "B-2": "doing", "C-3": "done"}
+    out, changed = close_cards(cards, base, derived)
+    cases.append(("有 #done 标记 → baseline 补 done", out.get("A-1") == "done" and "A-1" in changed))
+
+    # ② 无 done 标记 → 不动（doing 不能被当成 done，也不能被改回 todo）
+    cases.append(("无 #done 标记 → baseline 保持 todo", out.get("B-2") == "todo" and "B-2" not in changed))
+
+    # ③ 已经 done → 不重复结（幂等）
+    cases.append(("已 done → 不重复改动", out.get("C-3") == "done" and "C-3" not in changed))
+
+    # ④ 缺 baseline 条目 → 补 todo（消缺项，且绝不误结为 done）
+    cases.append(("缺条目且无标记 → 补 todo 而非 done", out.get("D-4") == "todo"
+                  and "D-4" in changed))
+
+    # ⑤ 幂等：对结果再跑一次应无变化
+    out2, changed2 = close_cards(cards, out, derived)
+    cases.append(("对结果再跑一次 → 无变化", out2 == out and changed2 == []))
+
+    # ⑥ 反向保护：done 的卡即便 git 里没标记也不得被动回 todo
+    base_done = {"C-3": "done"}
+    out3, _ = close_cards({"C-3": {}}, base_done, {})
+    cases.append(("已 done 但无标记 → 保持 done（不擅自重开）", out3.get("C-3") == "done"))
+
+    failed = [name for name, ok in cases if not ok]
+    for name, ok in cases:
+        print("  %s %s" % ("✓" if ok else "✗", name))
+    if failed:
+        sys.stderr.write("[派生器] 结卡自测失败 %d/%d 例\n" % (len(failed), len(cases)))
+        return 1
+    print("[派生器] 结卡自测通过：%d 例" % len(cases))
+    return 0
+
+
 def main():
     # Windows 控制台默认是 cp1252，打印中文会直接抛 UnicodeEncodeError，
     # CI 里正是这样崩的 —— 强制把标准输出切到 UTF-8。
@@ -213,18 +278,36 @@ def main():
     parser.add_argument("--repo", default=repo_root(), help="仓库根目录")
     parser.add_argument("--snapshot", default="progress.json", help="快照相对路径")
     parser.add_argument("--ledger", default=os.path.join("docs", "board-ledger.json"), help="台账相对路径")
-    mode = parser.add_mutually_exclusive_group(required=True)
+    # 互斥组改为非必填：--selftest 不读仓库，允许单独使用；
+    # 缺少实际 mode 时由下方显式报错（保持原有「必须选一个模式」的口径）。
+    mode = parser.add_mutually_exclusive_group(required=False)
     mode.add_argument("--check", action="store_true", help="只校验，不写文件")
     mode.add_argument("--write", action="store_true", help="把派生结果写回快照")
     mode.add_argument(
         "--baseline-check", action="store_true",
         help="只报台账 baseline 与 git 交付标记的漂移，不写文件、不阻断（baseline 归维护者）",
     )
+    mode.add_argument(
+        "--close-cards", action="store_true",
+        help="结卡（DX-07）：把 git 里已有 #<短号>=done 的卡的 baseline 补成 done；"
+             "写回台账的 baseline 字段，输出实际结掉的短号，一行一个",
+    )
     parser.add_argument(
         "--main-ref", default=None,
         help="claims 失效判定用的主干引用（默认依次尝试 origin/main、main）",
     )
+    parser.add_argument(
+        "--selftest", action="store_true",
+        help="只跑结卡判定的自测（不读仓库、不需要快照）；与各 mode 互不影响",
+    )
     args = parser.parse_args()
+
+    # 自测不依赖任何文件，先于 mode 校验与磁盘读取执行
+    if args.selftest:
+        return selftest()
+
+    if not any((args.check, args.write, args.baseline_check, args.close_cards)):
+        parser.error("必须指定 --check / --write / --baseline-check / --close-cards 之一")
 
     root = os.path.abspath(args.repo)
     snapshot_path = os.path.join(root, args.snapshot)
@@ -253,10 +336,40 @@ def main():
 
     derived, unknown, warnings = derive_status(root, set(cards.keys()))
 
+    if args.close_cards:
+        # 结卡自动化（DX-07）：baseline=<短号> done 是「拒绝重新领用」的唯一门（条款 6）。
+        # 过去靠维护者记得批量结 —— 一定漂，每漂一次已交付的卡就能被再领一遍重做
+        # （pitfalls 1.14 踩过；7.1 记作「待拍板」）。现在由 git 事实直接结：
+        # 历史里最后一次 #<短号> 标记是 done 的卡，baseline 补成 done。
+        #
+        # 只动 baseline，不碰 cards（id/title/stage）——与 agent 的合法写范围一致；
+        # 缺 baseline 条目的卡按 git 标记补 done 或 todo，消除「有卡无条目」的缺项。
+        # 输出被改动的短号（一行一个），调用方据此决定是否产生提交；无输出 = 无变化。
+        changed = []
+        baseline_out = dict(baseline)
+        for code in sorted(cards):
+            mark = (derived.get(code) or "").lower()
+            current = (baseline_out.get(code) or "").lower()
+            want = "done" if mark == "done" else ("todo" if code not in baseline_out else current)
+            if want and want != current:
+                baseline_out[code] = want
+                changed.append(code)
+        if changed:
+            ledger["baseline"] = dict(sorted(baseline_out.items()))
+            tmp = ledger_path + ".tmp"
+            with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+                json.dump(ledger, fh, indent=4, sort_keys=True, ensure_ascii=False)
+                fh.write("\n")
+            os.replace(tmp, ledger_path)
+            for code in changed:
+                print(code)
+        return 0
+
     if args.baseline_check:
         # 「结项标记在 git 里、baseline 还在 todo」是防重复领用的门失效的唯一形态：
         # baseline=<短号> done 才拒绝重新领用（AGENTS.md 条款 6），漂着就意味着任何人都能
-        # 把已交付的卡再领一遍。但 baseline 归维护者，本检查只报不改，且恒退 0。
+        # 把已交付的卡再领一遍。DX-07 起改由 `--close-cards` 在合并收尾自动结，
+        # 本检查降级为**回归探针**：它不再是「只报不改」的待决项，而是验「自动结有没有生效」。
         drift = []
         for code in sorted(cards):
             if (derived.get(code) or "").lower() != "done":
@@ -269,10 +382,13 @@ def main():
             print("[baseline] %s：git 历史里有 #%s=done，但 baseline 仍是 %s" % (code, code, current))
         for code in missing:
             print("[baseline] %s：cards 里有这张卡，baseline 却没有条目（领用门按 todo 处理）" % code)
-        print(
-            "[baseline] 漂移 %d 项 / 缺项 %d 项 —— baseline 归维护者，本检查只报不改（退出码 0）"
-            % (len(drift), len(missing))
-        )
+        if drift or missing:
+            print(
+                "[baseline] 漂移 %d 项 / 缺项 %d 项 —— 应已被 git-done 收尾的 --close-cards 结掉；"
+                "仍漂说明那次结卡提交没成功（见 git-done 输出）" % (len(drift), len(missing))
+            )
+        else:
+            print("[baseline] 漂移 0 项 / 缺项 0 项 —— 结卡自动化（DX-07）生效")
         return 0
 
     for code in sorted(warnings):

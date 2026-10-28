@@ -179,22 +179,26 @@ def cmd_message(args):
     staged = [normalize(x.strip()) for x in staged.stdout.splitlines() if x.strip()]
     touches_code = bool(code_files(staged))
 
-    # 锚点区代登记审计（DX-06）：改台账任务定义时，哪怕站在锚点区也必须留下凭证。
-    # 位置校验保持不变（.worktrees 里改定义由 cmd_ledger 拒），这里补内容校验。
-    top = normalize(git("rev-parse", "--show-toplevel").stdout.strip())
-    if ".worktrees" not in top and LEDGER.replace("\\", "/") in staged:
+    # 代登记审计（DX-06 + DX-07）：只要这次提交改了台账**任务定义**，就必须留下凭证。
+    #
+    # DX-07 修正了 DX-06 的一处死锁：原先位置校验要求「代登记只能在锚点区」，
+    # 但锚点区检出在 main 上、pre-commit 规则 1 禁止在 main 提交、§7.1 又禁止 agent
+    # 在锚点区切分支 —— 三条叠加后，代登记**没有任何合法执行位置**（实测被三道闸门连续拒）。
+    # 结论：位置不是凭证，**内容才是**。改成「任何检出里都能代登记，但必须带完整审计行」，
+    # 由提交信息本身证明授权来源；cmd_ledger 相应只拦「没有审计凭证的定义变更」。
+    if LEDGER.replace("\\", "/") in staged:
         try:
             old = read_ledger("HEAD")
             new = read_ledger(":0")
         except (OSError, ValueError):
             old = new = None
-        if old is not None and new is not None:
+        if old is not None and new is not None and ledger_definition_changes(old, new):
             problems = audit_problems(
                 kind, scope, message, code_files(staged),
                 ledger_definition_changes(old, new),
             )
             if problems:
-                sys.stderr.write("[任务闸门] 锚点区代登记需要可审计凭证（AGENTS.md 条款 6 例外）：\n")
+                sys.stderr.write("[任务闸门] 代登记需要可审计凭证（AGENTS.md 条款 6 例外）：\n")
                 for line in problems:
                     sys.stderr.write("  - %s\n" % line)
                 sys.stderr.write(
@@ -306,9 +310,16 @@ def audit_problems(kind, scope, message, code_paths, definition_changes):
 
 
 def cmd_ledger(args):
+    """pre-commit 阶段的台账保护：拦住**没有凭证也会被拒**的定义变更，但不单独判死刑。
+
+    DX-07 修正：本命令跑在 pre-commit，**手里没有提交信息**，所以它无法判定一次定义变更
+    是否带了「授权：」「批次：」两行 —— 原先靠「只允许锚点区」来替代判定，结果与
+    「锚点区禁止 agent 切分支 / main 禁止直接提交」撞成死锁。现在把判定权交给
+    `cmd_message`（commit-msg 阶段，那里才有 message），本命令只负责**提前告知**：
+    有定义变更就打印即将被审计什么，让写提交信息的人当场知道该怎么写。
+    """
     top = git("rev-parse", "--show-toplevel").stdout.strip()
-    if ".worktrees" not in normalize(top):
-        return 0  # 锚点区是维护者的，不受此限（内容审计改由 commit-msg 的 cmd_message 把关）
+    in_worktree = ".worktrees" in normalize(top)
 
     old = read_ledger("HEAD")
     if old is None:
@@ -319,18 +330,22 @@ def cmd_ledger(args):
         fail("暂存区的台账不是合法 JSON", 2)
 
     problems = ledger_definition_changes(old, new)
+    if not problems:
+        return 0  # 只动 claims / note：agent 的合法范围，直接放行
 
-    if problems:
-        sys.stderr.write(
-            "[任务闸门] agent 工作区不允许改台账的任务定义：\n"
-        )
-        for line in problems:
-            sys.stderr.write("  - %s\n" % line)
-        sys.stderr.write(
-            "  允许的只有：claims 领用登记、卡片 note 交付说明。\n"
-            "  立卡 / 改状态基线属于人工授权动作，请在锚点区由维护者完成。\n"
-        )
-        return 1
+    where = "agent 工作区" if in_worktree else "锚点区"
+    sys.stderr.write("[任务闸门] %s正在改动台账的任务定义：\n" % where)
+    for line in problems:
+        sys.stderr.write("  - %s\n" % line)
+    sys.stderr.write(
+        "  这本身是允许的（维护者可授权代登记），但**提交信息必须带审计凭证**，\n"
+        "  由 commit-msg 阶段硬校验，缺一即拒：\n"
+        "    chore(board): 登记 <批次简述>\n"
+        "\n"
+        "    授权：<维护者在哪次会话/哪条指令里授权的>\n"
+        "    批次：<本批卡号，如 DX-05、R7-01>\n"
+        "  且该提交不得同时改动代码路径（立卡与实现分开提交）。\n"
+    )
     return 0
 
 

@@ -102,7 +102,7 @@
                 "build/Release/NeonBoard.exe --map 退出时 neonboard.log 无 QML 告警"
             ],
             "id": "56336b95-b51d-41db-bd24-70086e43945c",
-            "note": "起因：面板里的里程碑主题与开发链路是 QML 手写常量，仓库改了面板不跟，等于挂着一张会撒谎的地图。目标：里程碑解析 iteration-roadmap.md §9 表格（行序即顺序，主题/目标/出口/宣称全部取自表格，加一行 R8/DX 面板自动多一行）；卡片状态按 git #短号=done ∪ 台账 baseline 派生（标记制度 R4 才有，只看 git 会把 R0 读成 0/10）；链路改为 docs/project-map.json 声明 + 逐条 evidence 存在性实证，缺文件即断链；骨架扫真实目录（文件数/行数/最近提交）；新增体检页签把「宣称 vs 派生」「台账 vs 路线图」「证据缺失」四类不一致分级暴露。派生在后台线程跑（3 次 git 合并 + 约 180 个文件扫描，0.3–0.9 s），文件改动 0.7 s 防抖自动重算；新增 --map 诊断入口与 tst_projectmap 护栏。",
+            "note": "起因：面板里的里程碑主题与开发链路是 QML 手写常量，仓库改了面板不跟，等于挂着一张会撒谎的地图。目标：里程碑解析 iteration-roadmap.md §9 表格（行序即顺序，主题/目标/出口/宣称全部取自表格，加一行 R8/DX 面板自动多一行）；卡片状态按 git #短号=done ∪ 台账 baseline 派生（标记制度 R4 才有，只看 git 会把 R0 读成 0/10）；链路改为 docs/project-map.json 声明 + 逐条 evidence 存在性实证，缺文件即断链；骨架扫真实目录（文件数/行数/最近提交）；新增体检页签把「宣称 vs 派生」「台账 vs 路线图」「证据缺失」四类不一致分级暴露。派生在后台线程跑（3 次 git 合并 + 约 180 个文件扫描，0.3–0.9 s），文件改动 0.7 s 防抖自动重算；新增 --map 诊断入口与 tst_projectmap 护栏。\n已完成 1 / 待做 0 —— 项目全景面板改为四层事实源实时派生",
             "scope": [
                 "src/ProjectMap.*",
                 "src/AppActions.*",
@@ -126,7 +126,7 @@
                 "build/tests/CTestTestfile.cmake 里每个测试都带 ENVIRONMENT_MODIFICATION PATH=path_list_prepend:<Qt bin>"
             ],
             "id": "e51b1418-7d7b-47d1-a0d5-a3a242396b0e",
-            "note": "起因：在没把 Qt bin 加进 PATH 的终端里直接跑 ctest，13 个测试进程全在加载 Qt6Core.dll 处失败，Windows 各弹一个「系统错误」硬错误框，进程卡在框上不退出，ctest 只能等到 TIMEOUT 120s；表象像测试卡死，实际是根本没启动，且每跑一轮攒一批弹窗。目标：neonboard_add_test 给每个测试加 ENVIRONMENT_MODIFICATION 把 $<TARGET_FILE_DIR:Qt6::Core> 前置进 PATH，覆盖「忘了配 PATH」「双击 exe」两类场景；不写死 C:/Qt 路径，换机器/换 Qt 版本自动跟随。验收：PATH 里没有 Qt bin 时 ctest 仍 13/13 通过且零弹窗。",
+            "note": "起因：在没把 Qt bin 加进 PATH 的终端里直接跑 ctest，13 个测试进程全在加载 Qt6Core.dll 处失败，Windows 各弹一个「系统错误」硬错误框，进程卡在框上不退出，ctest 只能等到 TIMEOUT 120s；表象像测试卡死，实际是根本没启动，且每跑一轮攒一批弹窗。目标：neonboard_add_test 给每个测试加 ENVIRONMENT_MODIFICATION 把 $<TARGET_FILE_DIR:Qt6::Core> 前置进 PATH，覆盖「忘了配 PATH」「双击 exe」两类场景；不写死 C:/Qt 路径，换机器/换 Qt 版本自动跟随。验收：PATH 里没有 Qt bin 时 ctest 仍 13/13 通过且零弹窗。\n已完成 1 / 待做 0 —— 测试进程自带 Qt DLL 路径，避免硬错误弹窗挂死",
             "scope": [
                 "tests/CMakeLists.txt",
                 "docs/iteration-roadmap.md"
@@ -143,7 +143,7 @@
                 "ctest 13/13 与 CI 全绿"
             ],
             "id": "ad91032e-f7aa-411b-92e2-5c1c8d113808",
-            "note": "起因（2026-10-28 合并 DX-01/DX-02 时的真实经过）：两条规则互相打架 —— git-done 的领用闸门要求「一个分支只能领一张卡」（check_claim_refs 发现多个领用短号即失败），而 task_gate push 规则是逐提交校验 refs/claims/<卡号>。结果：一条分支装两张卡时，第二张卡在分支上无处领用；本次只能把 DX-02 的占位建在一次性分支上、推完再释放，属于绕行而非正解。同一根因还导致领用提交被迫排在实现提交之后（方向倒置：先写代码后领用），两道闸门都查不出这种倒置。目标二选一：A) claims 列表化 —— 一个分支可登记多张卡，闸门按「分支 ∪ 提交」校验且仍能防双领（改动面小：check_claim_refs 去掉唯一限制 + claims 改成列表 + agent-init 支持多次领用）；B) 新增 scripts/split-card.ps1 —— 把既有分支按卡号拆成单卡分支（重建该卡的提交与台账差异并补领用），更贴合「一卡一分支」原意但要处理台账冲突。不论选哪条，都要能回答「一分支多卡是否合法」这一个问题，而不是靠绕。\n\n交付（2026-10-29，agent-dx3 / chore/claims-list-multicard，路线 A：claims 列表化）：① check_claim_refs.py 去掉「一个分支只允许领一张卡」，改为**逐短号校验**：分支历史里出现的每个领用短号都必须在服务端各有自己的 refs/claims/<短号>，少一张照拒（缺证不改判）、多张合法，并给出「补领：agent-init -InPlace -Card <短号>」的指引。② agent-init.ps1 增加领用幂等门：本分支已出现该短号的领用提交就跳过登记，否则每次补领都会多出两条同卡号提交（实测踩过，已修复）。③ 新增方向校验（只告警）：某张卡的实现提交早于其领用提交 = 先写代码后补领用，闸门给提示但不阻断（历史分支仍需补领）。④ 新增 --selftest（7 例：短号提取 / 去重 / 方向告警正反例 / 流程提交不误报 / 多卡口径），CI 加「一分支多卡自测（DX-03）」一步。⑤ AGENTS.md §7.2 补「一分支多卡是合法的」条目（补领方式、提交口径、台账 claims 字典、方向告警、自测入口）。实测（临时仓、真实 git refs）：两卡一分支只给一张建占位 → exit 1 并点名缺证的那张；两张都建占位 → exit 0；实现早于领用 → 告警且放行；本分支单卡 → exit 0。未在主线分支实跑「两卡合一」合入：当前台账没有第二张可领的卡，绕开它需要手工建卡（违反条款 6）。",
+            "note": "起因（2026-10-28 合并 DX-01/DX-02 时的真实经过）：两条规则互相打架 —— git-done 的领用闸门要求「一个分支只能领一张卡」（check_claim_refs 发现多个领用短号即失败），而 task_gate push 规则是逐提交校验 refs/claims/<卡号>。结果：一条分支装两张卡时，第二张卡在分支上无处领用；本次只能把 DX-02 的占位建在一次性分支上、推完再释放，属于绕行而非正解。同一根因还导致领用提交被迫排在实现提交之后（方向倒置：先写代码后领用），两道闸门都查不出这种倒置。目标二选一：A) claims 列表化 —— 一个分支可登记多张卡，闸门按「分支 ∪ 提交」校验且仍能防双领（改动面小：check_claim_refs 去掉唯一限制 + claims 改成列表 + agent-init 支持多次领用）；B) 新增 scripts/split-card.ps1 —— 把既有分支按卡号拆成单卡分支（重建该卡的提交与台账差异并补领用），更贴合「一卡一分支」原意但要处理台账冲突。不论选哪条，都要能回答「一分支多卡是否合法」这一个问题，而不是靠绕。\n\n交付（2026-10-29，agent-dx3 / chore/claims-list-multicard，路线 A：claims 列表化）：① check_claim_refs.py 去掉「一个分支只允许领一张卡」，改为**逐短号校验**：分支历史里出现的每个领用短号都必须在服务端各有自己的 refs/claims/<短号>，少一张照拒（缺证不改判）、多张合法，并给出「补领：agent-init -InPlace -Card <短号>」的指引。② agent-init.ps1 增加领用幂等门：本分支已出现该短号的领用提交就跳过登记，否则每次补领都会多出两条同卡号提交（实测踩过，已修复）。③ 新增方向校验（只告警）：某张卡的实现提交早于其领用提交 = 先写代码后补领用，闸门给提示但不阻断（历史分支仍需补领）。④ 新增 --selftest（7 例：短号提取 / 去重 / 方向告警正反例 / 流程提交不误报 / 多卡口径），CI 加「一分支多卡自测（DX-03）」一步。⑤ AGENTS.md §7.2 补「一分支多卡是合法的」条目（补领方式、提交口径、台账 claims 字典、方向告警、自测入口）。实测（临时仓、真实 git refs）：两卡一分支只给一张建占位 → exit 1 并点名缺证的那张；两张都建占位 → exit 0；实现早于领用 → 告警且放行；本分支单卡 → exit 0。未在主线分支实跑「两卡合一」合入：当前台账没有第二张可领的卡，绕开它需要手工建卡（违反条款 6）。\n已完成 1 / 待做 0 —— 一分支多卡改为逐短号持证",
             "scope": [
                 "scripts/check_claim_refs.py",
                 "scripts/task_gate.py",
@@ -166,7 +166,7 @@
                 "ctest 13/13 与 CI 全绿"
             ],
             "id": "adc1c767-f2b1-4d80-b6e4-b185602ace36",
-            "note": "现象（2026-10-28 实测）：看板阶段条只显示「全部 / R0 / R1 / R2 / R3 / 其他」，但 board.db 里实际存在 R4 14 张、R5 5 张（4 done + 1 todo）、R6 9 张（3 done + 6 todo）。因为这些阶段既不在 buildStageList 的 order 数组里、也不计入 OTHER（OTHER 只统计 stageOf 归不了 R\\d+ 的卡），R4/R5/R6 共 28 张卡在界面上完全不可见 —— R6 还有 6 张待办、R5 还有 1 张待办，等于未完成的工作在进度条上凭空消失。根因与全景面板 DX-01 修掉的是同一个：qml/Main.qml 的 buildStageList 把阶段集合写死成 ['R0','R1','R2','R3','OTHER']，而 src/TaskModel.cpp 的 stageOf 只认 ^R\\d+$（DX 这类非 R 阶段一律落 OTHER）。目标：阶段集合与顺序改为取自路线图 §9（ProjectMap 已能解析，可直接复用），stageOf 宽容识别任意短号前缀；「其他」改为兜底桶且保证可对账。（备注：先前口头说的「其他 39/33」是我看错了截图，实际是 33/33，不存在 done>total；真问题是 R4/R5/R6 被吞。）\n\n【交付 2026-10-28 / agent-map3】六处改动：\n1) src/ProjectMap.h/.cpp 新增 stageOrder()：只读 §9 表格返回阶段行序，不跑 git、不扫文件；\n   与面板 milestones() 共用同一份 readRoadmap 解析，顺序因此只有一套事实源。\n2) src/TaskModel.cpp stageOf 正则由 ^R\\d+$ 放宽为 ^[A-Za-z]{1,4}\\d*$：\n   DX / OPS 这类非 R 阶段不再落 OTHER；卡号（R4-10）仍不算阶段。\n3) 新增 TaskModel::stageList(stageOrder)：按给定顺序输出 [{key,label,total,done,doing,todo}]，\n   顺序之外的阶段统一折进「其他」，满足 其他 = 全部 − 已显示之和（可对账）。\n   顺序由调用方传入，模型层刻意不依赖 ProjectMap —— 否则每个链了 TaskModel 的测试\n   二进制都得把 QProcess / 文件监听一起链进来（分层倒置，链接期就暴露了）。\n4) qml/Main.qml 删掉写死的 order/labels 与 buildStageList()，改为消费 stageList。\n5) qml/components/StageBar.qml accentFor 由按 key 写死改为按行序取色板\n   （阶段从 4 个变 9 个后不再撞成同色），「其他」固定用 muted 与真实阶段区分。\n6) 单测：tst_boardcolumns 两条（非 R 阶段归类、阶段条覆盖与「其他」可对账）\n   + tst_projectmap 一条（stageOrder 与 §9 行序一致）。\n\n【验测】ctest 14/14 通过；--selftest 与 --smoke 均通过，沙箱日志无 QML 报错\n（修掉了一处 ReferenceError：delegate 声明了 required property 后，index 不再自动注入，\n必须显式 `required property int index`）。\n\n【遗留】§9 新增阶段行后需重启应用才反映到阶段条：refreshStageData() 只在任务数变化时触发，\n阶段条没有监听 roadmap 文件（面板 ProjectMap 有 watcher）。留待后续处理。",
+            "note": "现象（2026-10-28 实测）：看板阶段条只显示「全部 / R0 / R1 / R2 / R3 / 其他」，但 board.db 里实际存在 R4 14 张、R5 5 张（4 done + 1 todo）、R6 9 张（3 done + 6 todo）。因为这些阶段既不在 buildStageList 的 order 数组里、也不计入 OTHER（OTHER 只统计 stageOf 归不了 R\\d+ 的卡），R4/R5/R6 共 28 张卡在界面上完全不可见 —— R6 还有 6 张待办、R5 还有 1 张待办，等于未完成的工作在进度条上凭空消失。根因与全景面板 DX-01 修掉的是同一个：qml/Main.qml 的 buildStageList 把阶段集合写死成 ['R0','R1','R2','R3','OTHER']，而 src/TaskModel.cpp 的 stageOf 只认 ^R\\d+$（DX 这类非 R 阶段一律落 OTHER）。目标：阶段集合与顺序改为取自路线图 §9（ProjectMap 已能解析，可直接复用），stageOf 宽容识别任意短号前缀；「其他」改为兜底桶且保证可对账。（备注：先前口头说的「其他 39/33」是我看错了截图，实际是 33/33，不存在 done>total；真问题是 R4/R5/R6 被吞。）\n\n【交付 2026-10-28 / agent-map3】六处改动：\n1) src/ProjectMap.h/.cpp 新增 stageOrder()：只读 §9 表格返回阶段行序，不跑 git、不扫文件；\n   与面板 milestones() 共用同一份 readRoadmap 解析，顺序因此只有一套事实源。\n2) src/TaskModel.cpp stageOf 正则由 ^R\\d+$ 放宽为 ^[A-Za-z]{1,4}\\d*$：\n   DX / OPS 这类非 R 阶段不再落 OTHER；卡号（R4-10）仍不算阶段。\n3) 新增 TaskModel::stageList(stageOrder)：按给定顺序输出 [{key,label,total,done,doing,todo}]，\n   顺序之外的阶段统一折进「其他」，满足 其他 = 全部 − 已显示之和（可对账）。\n   顺序由调用方传入，模型层刻意不依赖 ProjectMap —— 否则每个链了 TaskModel 的测试\n   二进制都得把 QProcess / 文件监听一起链进来（分层倒置，链接期就暴露了）。\n4) qml/Main.qml 删掉写死的 order/labels 与 buildStageList()，改为消费 stageList。\n5) qml/components/StageBar.qml accentFor 由按 key 写死改为按行序取色板\n   （阶段从 4 个变 9 个后不再撞成同色），「其他」固定用 muted 与真实阶段区分。\n6) 单测：tst_boardcolumns 两条（非 R 阶段归类、阶段条覆盖与「其他」可对账）\n   + tst_projectmap 一条（stageOrder 与 §9 行序一致）。\n\n【验测】ctest 14/14 通过；--selftest 与 --smoke 均通过，沙箱日志无 QML 报错\n（修掉了一处 ReferenceError：delegate 声明了 required property 后，index 不再自动注入，\n必须显式 `required property int index`）。\n\n【遗留】§9 新增阶段行后需重启应用才反映到阶段条：refreshStageData() 只在任务数变化时触发，\n阶段条没有监听 roadmap 文件（面板 ProjectMap 有 watcher）。留待后续处理。\n已完成 1 / 待做 0 —— 阶段条改为按路线图 §9 渲染，R4/R5/R6 共 28 张卡不再消失",
             "scope": [
                 "qml/Main.qml",
                 "qml/components/StageBar.qml",
@@ -190,7 +190,7 @@
                 "可复现验收：两个 shell 同时按文档操作，各自拿到独立 worktree 与独立 .sandbox，互不干扰；并有自动化脚本断言隔离成立"
             ],
             "id": "345b40c4-13dc-4efe-bcd6-b4108c96c52a",
-            "note": "现象（2026-10-28 02:xx 实测）：两个会话（agent-map2 与 lead）同时把仓库根目录当开发区 —— `git worktree list` 只有锚点区一条、`.worktrees/` 不存在；锚点区里躺着 `.sandbox/` 和 `.agent-env.ps1`（内容写着 NEONBOARD_AGENT_ID=agent-map2）；HEAD 被对方切到 feature/r6-04-taskrunner，我上一轮刚挪回 main 随即被覆盖；git-done 因「工作区有未提交改动」拒绝了合并且未说明是别人的在制品。根因不是机制缺失：agent-init 的 else 分支本来就会 `git worktree add .worktrees/<agent>`，但 `-InPlace` 分支本意只用于「已是隔离检出」，在锚点区传它等于把共享检出当自己的开发区，脚本不拦；配套的 agent-workspace.ps1 的 root 占用登记是自愿的（Status 显示 root 空闲，两边都没做）；task_gate 在非 .worktrees 检出还直接放行台账校验，越乱越松。两种隔离要分清：worktree 隔离文件与 HEAD，.sandbox 隔离运行时数据（DB/日志/hooks），本次两者都没生效。目标：把「绕过」变成「不可能」—— 硬门 + 自动占用 + 他人在制品告警，三道一起。\n\n交付（2026-10-28，agent-gov / fix/anchor-inplace-hardgate）：① 锚点区 `-InPlace` 改为硬拒（exit 3），须显式 `-ForceAnchor`，同时登记 root 占用；检出内已留他人 `.agent-env.ps1` 时同类拒绝，同开关才可接管。② `agent-init` 成功后自动登记占用（开发区 `worktree:<agent>`、锚点原地模式 `root`），目标被占用即 exit 3。③ `git-done` 合并成功后按当前 agent 身份自动 Release，身份不符拒绝，不留僵尸登记。④ `agent-workspace.ps1` 新增 `-Action Check`：锚点他人 in-place / 一分支双检出 / 每个 worktree 独立 .sandbox / 登记与目录对账，硬冲突 exit 3。⑤ AGENTS.md §7.1 占用登记三条、§7.2 `-InPlace` 合法前提已改。验收 5 项逐条实测（锚点 -InPlace exit 3、-ForceAnchor exit 0、Claim/Release 归属校验、Check exit 0、.ps1 BOM 与语法检查）全部通过。",
+            "note": "现象（2026-10-28 02:xx 实测）：两个会话（agent-map2 与 lead）同时把仓库根目录当开发区 —— `git worktree list` 只有锚点区一条、`.worktrees/` 不存在；锚点区里躺着 `.sandbox/` 和 `.agent-env.ps1`（内容写着 NEONBOARD_AGENT_ID=agent-map2）；HEAD 被对方切到 feature/r6-04-taskrunner，我上一轮刚挪回 main 随即被覆盖；git-done 因「工作区有未提交改动」拒绝了合并且未说明是别人的在制品。根因不是机制缺失：agent-init 的 else 分支本来就会 `git worktree add .worktrees/<agent>`，但 `-InPlace` 分支本意只用于「已是隔离检出」，在锚点区传它等于把共享检出当自己的开发区，脚本不拦；配套的 agent-workspace.ps1 的 root 占用登记是自愿的（Status 显示 root 空闲，两边都没做）；task_gate 在非 .worktrees 检出还直接放行台账校验，越乱越松。两种隔离要分清：worktree 隔离文件与 HEAD，.sandbox 隔离运行时数据（DB/日志/hooks），本次两者都没生效。目标：把「绕过」变成「不可能」—— 硬门 + 自动占用 + 他人在制品告警，三道一起。\n\n交付（2026-10-28，agent-gov / fix/anchor-inplace-hardgate）：① 锚点区 `-InPlace` 改为硬拒（exit 3），须显式 `-ForceAnchor`，同时登记 root 占用；检出内已留他人 `.agent-env.ps1` 时同类拒绝，同开关才可接管。② `agent-init` 成功后自动登记占用（开发区 `worktree:<agent>`、锚点原地模式 `root`），目标被占用即 exit 3。③ `git-done` 合并成功后按当前 agent 身份自动 Release，身份不符拒绝，不留僵尸登记。④ `agent-workspace.ps1` 新增 `-Action Check`：锚点他人 in-place / 一分支双检出 / 每个 worktree 独立 .sandbox / 登记与目录对账，硬冲突 exit 3。⑤ AGENTS.md §7.1 占用登记三条、§7.2 `-InPlace` 合法前提已改。验收 5 项逐条实测（锚点 -InPlace exit 3、-ForceAnchor exit 0、Claim/Release 归属校验、Check exit 0、.ps1 BOM 与语法检查）全部通过。\n已完成 1 / 待做 0 —— 占用登记按本次检出判作用域",
             "scope": [
                 "scripts/agent-init.ps1",
                 "scripts/agent-workspace.ps1",
@@ -210,7 +210,7 @@
                 "AGENTS.md 把「立卡独立成提交、不与代码混提交」写成硬条款"
             ],
             "id": "601a7c46-3b90-4361-9bb1-4998139fad80",
-            "note": "起因（2026-10-28 本会话自查）：我以「维护者授权代登记」名义连加五张卡（DX-01~DX-05），其中 DX-01 把卡片塞进 feat 代码提交（7f66b3e）、DX-02 塞进 chore(tests)（ad41540），DX-03~DX-05 用了 chore(roadmap) 前缀且五张卡的 body 全都没记录授权来源与批次。AGENTS.md 正文第 1 条的例外条款要求「只能在锚点区执行 + 提交信息用 chore(board) + body 记录授权来源与批次」，但 task_gate.py 只校验了位置（非 .worktrees 直接放行），完全没校验内容 —— 于是例外条款事实上退化成「口头免责」：只要在锚点区，谁都能以「已获授权」为名加任意卡，事后无从追溯。对照实验：我在 .worktrees/agent-map 里立卡被闸门正确拦下（位置校验有效），说明缺的是内容校验而不是位置校验。目标：把代登记从「信任」变成「可审计事实」—— 提交信息与 body 就是审计凭证。\n\n交付（2026-10-28，agent-gov / chore/board-registration-audit）：① scripts/task_gate.py 新增 audit_problems() 与 ledger_definition_changes()：锚点区改动台账任务定义（新增/删除卡、改 id/title/stage、改 baseline）时，提交必须为 chore(board)、body 含「授权：」「批次：」两行、且不得同时改动代码路径，缺一即拒；只改 claims/note 不算代登记、无需凭证。② cmd_ledger 复用同一组函数，agent 工作区行为不变（仍拒绝任何定义变更）。③ 新增子命令 selftest（6 例：允许 2 / 拒绝 4，含混提交与缺审计行），CI 加「代登记审计自测（DX-06）」一步。④ AGENTS.md 条款 6 例外段写明三道校验与自测入口。实测：锚点区 feat 类型立卡 exit 1、缺批次行 exit 1、定义变更+代码混提交 exit 1、合规 chore(board) exit 0、只补 note exit 0。",
+            "note": "起因（2026-10-28 本会话自查）：我以「维护者授权代登记」名义连加五张卡（DX-01~DX-05），其中 DX-01 把卡片塞进 feat 代码提交（7f66b3e）、DX-02 塞进 chore(tests)（ad41540），DX-03~DX-05 用了 chore(roadmap) 前缀且五张卡的 body 全都没记录授权来源与批次。AGENTS.md 正文第 1 条的例外条款要求「只能在锚点区执行 + 提交信息用 chore(board) + body 记录授权来源与批次」，但 task_gate.py 只校验了位置（非 .worktrees 直接放行），完全没校验内容 —— 于是例外条款事实上退化成「口头免责」：只要在锚点区，谁都能以「已获授权」为名加任意卡，事后无从追溯。对照实验：我在 .worktrees/agent-map 里立卡被闸门正确拦下（位置校验有效），说明缺的是内容校验而不是位置校验。目标：把代登记从「信任」变成「可审计事实」—— 提交信息与 body 就是审计凭证。\n\n交付（2026-10-28，agent-gov / chore/board-registration-audit）：① scripts/task_gate.py 新增 audit_problems() 与 ledger_definition_changes()：锚点区改动台账任务定义（新增/删除卡、改 id/title/stage、改 baseline）时，提交必须为 chore(board)、body 含「授权：」「批次：」两行、且不得同时改动代码路径，缺一即拒；只改 claims/note 不算代登记、无需凭证。② cmd_ledger 复用同一组函数，agent 工作区行为不变（仍拒绝任何定义变更）。③ 新增子命令 selftest（6 例：允许 2 / 拒绝 4，含混提交与缺审计行），CI 加「代登记审计自测（DX-06）」一步。④ AGENTS.md 条款 6 例外段写明三道校验与自测入口。实测：锚点区 feat 类型立卡 exit 1、缺批次行 exit 1、定义变更+代码混提交 exit 1、合规 chore(board) exit 0、只补 note exit 0。\n已完成 1 / 待做 0 —— 代登记强制记录授权来源与批次",
             "scope": [
                 "scripts/task_gate.py",
                 "AGENTS.md",
@@ -229,7 +229,7 @@
                 "python scripts/check_script_hygiene.py 与 CI 全绿"
             ],
             "id": "d986173c-1388-4a4b-97c0-b137636e2ccd",
-            "note": "起因（2026-10-29，维护者明确授权「B：开卡制度化 + 同时补台账」）：DX-03 / DX-05 / DX-06 已按 #<短号>=done 交付并合入 main，但台账 baseline 仍停在 todo；R5-06 甚至没有 baseline 条目，--baseline-check 报「漂移 3 项 / 缺项 1 项」。baseline=<短号> done 是「拒绝重新领用」的唯一门（条款 6），靠人批量结就一定漂；每漂一次，已交付的卡就能被再领一遍重做（pitfalls 1.14 踩过），7.1 一直记作待拍板。本轮同时暴露并修掉 DX-06 的死锁：位置校验要求「代登记只能在锚点区」，而锚点区停在 main、main 禁止直接提交、§7.1 又禁止 agent 在锚点区切分支 —— 三条叠加后代登记没有任何合法执行位置。改为「位置不是凭证、内容才是」。\n\n交付（2026-10-29，agent-dx7 / chore/close-card-automation）：① derive_board_status.py 新增 --close-cards（纯函数 close_cards + 自测 6 例）与 --selftest；互斥组改为非必填以允许单独自测，缺模式时显式报错保持原口径。② git-done.ps1 合并收尾新增结卡步骤：调 --close-cards，有改动则提交 chore(board): 结卡 <短号> 并快进补推，失败只回滚不阻断合并。③ task_gate.py 解除 DX-06 死锁：cmd_ledger 不再按位置判死（pre-commit 拿不到提交信息），只提前告知；cmd_message 去掉位置限定，任何检出凭完整审计行即可代登记。④ AGENTS.md 条款 6 改写为「合入即结」+「判定凭内容而非位置」；pitfalls 7.1 改写为已解决并新增 1.18（代登记位置死锁）；iteration-roadmap 补 DX-07 段与 DX 行状态。⑤ CI 新增「结卡自测（DX-07）」一步，原 baseline 漂移步骤降级为回归探针。实测：批量结清 DX-03/DX-05/DX-06 三项漂移 + R5-06 缺项后 --baseline-check 归零、复跑幂等、diff 只动 baseline；DX-07 自身经「开发区代登记（审计行通过）→ 领用 → 实现 → 合并」全链路走通。",
+            "note": "起因（2026-10-29，维护者明确授权「B：开卡制度化 + 同时补台账」）：DX-03 / DX-05 / DX-06 已按 #<短号>=done 交付并合入 main，但台账 baseline 仍停在 todo；R5-06 甚至没有 baseline 条目，--baseline-check 报「漂移 3 项 / 缺项 1 项」。baseline=<短号> done 是「拒绝重新领用」的唯一门（条款 6），靠人批量结就一定漂；每漂一次，已交付的卡就能被再领一遍重做（pitfalls 1.14 踩过），7.1 一直记作待拍板。本轮同时暴露并修掉 DX-06 的死锁：位置校验要求「代登记只能在锚点区」，而锚点区停在 main、main 禁止直接提交、§7.1 又禁止 agent 在锚点区切分支 —— 三条叠加后代登记没有任何合法执行位置。改为「位置不是凭证、内容才是」。\n\n交付（2026-10-29，agent-dx7 / chore/close-card-automation）：① derive_board_status.py 新增 --close-cards（纯函数 close_cards + 自测 6 例）与 --selftest；互斥组改为非必填以允许单独自测，缺模式时显式报错保持原口径。② git-done.ps1 合并收尾新增结卡步骤：调 --close-cards，有改动则提交 chore(board): 结卡 <短号> 并快进补推，失败只回滚不阻断合并。③ task_gate.py 解除 DX-06 死锁：cmd_ledger 不再按位置判死（pre-commit 拿不到提交信息），只提前告知；cmd_message 去掉位置限定，任何检出凭完整审计行即可代登记。④ AGENTS.md 条款 6 改写为「合入即结」+「判定凭内容而非位置」；pitfalls 7.1 改写为已解决并新增 1.18（代登记位置死锁）；iteration-roadmap 补 DX-07 段与 DX 行状态。⑤ CI 新增「结卡自测（DX-07）」一步，原 baseline 漂移步骤降级为回归探针。实测：批量结清 DX-03/DX-05/DX-06 三项漂移 + R5-06 缺项后 --baseline-check 归零、复跑幂等、diff 只动 baseline；DX-07 自身经「开发区代登记（审计行通过）→ 领用 → 实现 → 合并」全链路走通。\n已完成 1 / 待做 0 —— 结卡权自动化，合入即结",
             "scope": [
                 "scripts/derive_board_status.py",
                 "scripts/git-done.ps1",
@@ -251,7 +251,7 @@
                 "ctest 全绿；--smoke 后沙箱日志无 QML 报错（grep ReferenceError/TypeError/Unable to assign）"
             ],
             "id": "79da14c1-83e7-443a-9f45-b2004d136e5e",
-            "note": "对应 GitHub issue #11（DX-04 交付遗留）。阶段条数据已跟随 ProjectMap::stageOrder()（读路线图 §9 行序），但 qml/Main.qml 的 refreshStageData() 只挂在 taskStore.onCountsChanged 上，所以改了 §9 必须重启才可见；而面板的 ProjectMap 本身有 watcher（QFileSystemWatcher + 700ms 防抖 → refresh() → emit changed()）。修法：在 Main.qml 增加一个 target 为 projectMap 的 Connections，onChanged 里调 refreshStageData()，与面板共用同一份变更信号。验收第 2 条要求「写坏时不崩溃且保留上次有效集合」——需确认 stageOrder() 在解析失败时的行为，必要时补回退。\n\n交付（2026-10-29，agent-dx8 / fix/stagebar-watch-roadmap，对应 issue #11）：① qml/Main.qml 增加 target=projectMap 的 Connections，onChanged 调 refreshStageData()，阶段条与面板共用同一份变更信号。② refreshStageData() 增加回退：stageOrder() 返回空（读不到 / 表格缺列）时保留上次有效集合并告警一次，恢复后自动复位告警标志。③ 关键根因修复：ProjectMap::watchFiles() 原先只在 apply() 里调，而 apply() 要等 refresh()、refresh() 只在全景面板首次打开时触发 —— 从没开过面板的会话永远收不到文件变更。新增 startWatching()（只定路径 + addPaths，不跑 git、不扫目录），在 main.cpp 设置上下文属性后立即调用。实测：启动 9 阶段 → 运行中插入 §9 行，0.77s 后 10 阶段（<1s，含 700ms 防抖）→ 写坏 §9 保留 10 项并告警一次、进程存活 → 还原后自动回到 9 阶段。ctest 21/21，--smoke exit 0 且日志无 QML 致命错误。附一行 STAGE refresh 诊断日志，便于日后从日志确认 watcher 是否真的触发。",
+            "note": "对应 GitHub issue #11（DX-04 交付遗留）。阶段条数据已跟随 ProjectMap::stageOrder()（读路线图 §9 行序），但 qml/Main.qml 的 refreshStageData() 只挂在 taskStore.onCountsChanged 上，所以改了 §9 必须重启才可见；而面板的 ProjectMap 本身有 watcher（QFileSystemWatcher + 700ms 防抖 → refresh() → emit changed()）。修法：在 Main.qml 增加一个 target 为 projectMap 的 Connections，onChanged 里调 refreshStageData()，与面板共用同一份变更信号。验收第 2 条要求「写坏时不崩溃且保留上次有效集合」——需确认 stageOrder() 在解析失败时的行为，必要时补回退。\n\n交付（2026-10-29，agent-dx8 / fix/stagebar-watch-roadmap，对应 issue #11）：① qml/Main.qml 增加 target=projectMap 的 Connections，onChanged 调 refreshStageData()，阶段条与面板共用同一份变更信号。② refreshStageData() 增加回退：stageOrder() 返回空（读不到 / 表格缺列）时保留上次有效集合并告警一次，恢复后自动复位告警标志。③ 关键根因修复：ProjectMap::watchFiles() 原先只在 apply() 里调，而 apply() 要等 refresh()、refresh() 只在全景面板首次打开时触发 —— 从没开过面板的会话永远收不到文件变更。新增 startWatching()（只定路径 + addPaths，不跑 git、不扫目录），在 main.cpp 设置上下文属性后立即调用。实测：启动 9 阶段 → 运行中插入 §9 行，0.77s 后 10 阶段（<1s，含 700ms 防抖）→ 写坏 §9 保留 10 项并告警一次、进程存活 → 还原后自动回到 9 阶段。ctest 21/21，--smoke exit 0 且日志无 QML 致命错误。附一行 STAGE refresh 诊断日志，便于日后从日志确认 watcher 是否真的触发。\n已完成 1 / 待做 0 —— 阶段条监听路线图，§9 改动免重启",
             "scope": [
                 "qml/Main.qml",
                 "src/ProjectMap.cpp",
@@ -294,7 +294,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": "PluginContext：每插件 API 门面 + 权限校验 #M01"
+            "title": "PluginContext：每插件 API 门面 + 权限校验 #M01",
+            "note": "已完成 1 / 待做 0 —— PluginContext：每插件 API 门面 + 权限校验"
         },
         "M02": {
             "acceptance": [
@@ -309,7 +310,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": "PluginHost 改造：服务层 + 前台代理 #M02"
+            "title": "PluginHost 改造：服务层 + 前台代理 #M02",
+            "note": "已完成 1 / 待做 0 —— PluginHost 改造：服务层 + 前台代理"
         },
         "M03": {
             "acceptance": [
@@ -325,7 +327,8 @@
                 "CMakeLists.txt"
             ],
             "stage": "R3",
-            "title": "PluginEventBus + PluginRuntime：事件总线与后台运行时 #M03"
+            "title": "PluginEventBus + PluginRuntime：事件总线与后台运行时 #M03",
+            "note": "已完成 1 / 待做 0 —— PluginEventBus + PluginRuntime：事件总线与后台运行时"
         },
         "M04": {
             "acceptance": [
@@ -340,7 +343,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": "PluginLoader 升级：apiVersion 1|2 + background/contributes #M04"
+            "title": "PluginLoader 升级：apiVersion 1|2 + background/contributes #M04",
+            "note": "已完成 1 / 待做 0 —— PluginLoader 升级：apiVersion 1|2 + background/contributes"
         },
         "M05": {
             "acceptance": [
@@ -354,7 +358,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": "TaskModel：任务事件信号 + moveTaskToEnd #M05"
+            "title": "TaskModel：任务事件信号 + moveTaskToEnd #M05",
+            "note": "已完成 1 / 待做 0 —— TaskModel：任务事件信号 + moveTaskToEnd"
         },
         "M06": {
             "acceptance": [
@@ -366,7 +371,8 @@
                 "src/Database.*"
             ],
             "stage": "R3",
-            "title": "Database：meta 读写 API #M06"
+            "title": "Database：meta 读写 API #M06",
+            "note": "已完成 1 / 待做 0 —— Database：meta 读写 API"
         },
         "M07": {
             "acceptance": [
@@ -382,7 +388,8 @@
                 "CMakeLists.txt"
             ],
             "stage": "R3",
-            "title": "HookEventQueue：独立 hooks.db 事件队列 #M07"
+            "title": "HookEventQueue：独立 hooks.db 事件队列 #M07",
+            "note": "已完成 1 / 待做 0 —— HookEventQueue：独立 hooks.db 事件队列"
         },
         "M08": {
             "acceptance": [
@@ -394,7 +401,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": "CLI --emit-hook：只投递不执行 #M08"
+            "title": "CLI --emit-hook：只投递不执行 #M08",
+            "note": "已完成 1 / 待做 0 —— CLI --emit-hook：只投递不执行"
         },
         "M09": {
             "acceptance": [
@@ -408,7 +416,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": "plan-hook 后台插件：订阅 hook.commit 执行规则 #M09"
+            "title": "plan-hook 后台插件：订阅 hook.commit 执行规则 #M09",
+            "note": "已完成 1 / 待做 0 —— plan-hook 后台插件：订阅 hook.commit 执行规则"
         },
         "M10": {
             "acceptance": [
@@ -422,7 +431,8 @@
                 "plugins/plan-hook/plugin.json"
             ],
             "stage": "R3",
-            "title": "规则引擎 rules.js + plan.rules 规则 schema #M10"
+            "title": "规则引擎 rules.js + plan.rules 规则 schema #M10",
+            "note": "已完成 1 / 待做 0 —— 规则引擎 rules.js + plan.rules 规则 schema"
         },
         "M11": {
             "acceptance": [
@@ -437,7 +447,8 @@
                 "qml/Main.qml"
             ],
             "stage": "R3",
-            "title": "plan-hook 面板：规则编辑器 + 手动执行 + 执行记录 #M11"
+            "title": "plan-hook 面板：规则编辑器 + 手动执行 + 执行记录 #M11",
+            "note": "已完成 1 / 待做 0 —— plan-hook 面板：规则编辑器 + 手动执行 + 执行记录"
         },
         "M12": {
             "acceptance": [
@@ -452,7 +463,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": ".githooks/post-commit：投递 hook 事件 #M12"
+            "title": ".githooks/post-commit：投递 hook 事件 #M12",
+            "note": "已完成 1 / 待做 0 —— .githooks/post-commit：投递 hook 事件"
         },
         "M13": {
             "acceptance": [
@@ -467,7 +479,8 @@
                 "src/PluginLibrary.*"
             ],
             "stage": "R3",
-            "title": "插件库侧栏：打开/启用/禁用/安装/卸载/更新 #M13"
+            "title": "插件库侧栏：打开/启用/禁用/安装/卸载/更新 #M13",
+            "note": "已完成 1 / 待做 0 —— 插件库侧栏：打开/启用/禁用/安装/卸载/更新"
         },
         "M14": {
             "acceptance": [
@@ -484,7 +497,8 @@
                 "CMakeLists.txt"
             ],
             "stage": "R3",
-            "title": ".neon 包格式 + PluginMarket：校验与原子安装 #M14"
+            "title": ".neon 包格式 + PluginMarket：校验与原子安装 #M14",
+            "note": "已完成 1 / 待做 0 —— .neon 包格式 + PluginMarket：校验与原子安装"
         },
         "M15": {
             "acceptance": [
@@ -500,7 +514,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": "市场源配置：内置 GitHub 默认地址 + 设置可改 #M15"
+            "title": "市场源配置：内置 GitHub 默认地址 + 设置可改 #M15",
+            "note": "已完成 1 / 待做 0 —— 市场源配置：内置 GitHub 默认地址 + 设置可改"
         },
         "M16": {
             "acceptance": [
@@ -516,7 +531,8 @@
                 "src/PluginLoader.cpp"
             ],
             "stage": "R3",
-            "title": "plan-hook 一键安装 + 官方源纳入扫描 #M16"
+            "title": "plan-hook 一键安装 + 官方源纳入扫描 #M16",
+            "note": "已完成 1 / 待做 0 —— plan-hook 一键安装 + 官方源纳入扫描"
         },
         "M17": {
             "acceptance": [
@@ -532,7 +548,8 @@
                 "plugins-samples/**"
             ],
             "stage": "R3",
-            "title": "端到端验收：12 条用例 #M17"
+            "title": "端到端验收：12 条用例 #M17",
+            "note": "已完成 1 / 待做 0 —— 端到端验收：12 条用例"
         },
         "M18": {
             "acceptance": [
@@ -547,7 +564,8 @@
                 "README.md"
             ],
             "stage": "R3",
-            "title": "文档同步：plugin-api v2 + plan-hook.md #M18"
+            "title": "文档同步：plugin-api v2 + plan-hook.md #M18",
+            "note": "已完成 1 / 待做 0 —— 文档同步：plugin-api v2 + plan-hook.md"
         },
         "R0-01": {
             "acceptance": [
@@ -570,7 +588,8 @@
                 "docs/iteration-roadmap.md"
             ],
             "stage": "R0",
-            "title": "主题引擎 v1：6 套预设 + 换色渐变"
+            "title": "主题引擎 v1：6 套预设 + 换色渐变",
+            "note": "已完成 1 / 待做 0 —— 主题引擎 v1：6 套预设 + 换色渐变"
         },
         "R0-02": {
             "acceptance": [
@@ -591,7 +610,8 @@
                 ".githooks/post-commit"
             ],
             "stage": "R0",
-            "title": "路线图进度上板：里程碑可视化"
+            "title": "路线图进度上板：里程碑可视化",
+            "note": "已完成 1 / 待做 0 —— 路线图进度上板：里程碑可视化"
         },
         "R0-03": {
             "acceptance": [
@@ -610,7 +630,8 @@
                 "CMakeLists.txt"
             ],
             "stage": "R0",
-            "title": "组件拆分：Main.qml 1605 → 1180 行"
+            "title": "组件拆分：Main.qml 1605 → 1180 行",
+            "note": "已完成 1 / 待做 0 —— 组件拆分：Main.qml 1605 → 1180 行"
         },
         "R0-04": {
             "acceptance": [
@@ -627,7 +648,8 @@
                 "qml/theme/Motion.qml"
             ],
             "stage": "R0",
-            "title": "R0 收尾：落位涟漪 / 勾选光扫 / 删除故障"
+            "title": "R0 收尾：落位涟漪 / 勾选光扫 / 删除故障",
+            "note": "已完成 1 / 待做 0 —— 收尾：落位涟漪 / 勾选光扫 / 删除故障"
         },
         "R0-05": {
             "acceptance": [
@@ -646,7 +668,8 @@
                 "CMakeLists.txt"
             ],
             "stage": "R0",
-            "title": "外观面板：主题/画质/减弱动效"
+            "title": "外观面板：主题/画质/减弱动效",
+            "note": "已完成 1 / 待做 0 —— 外观面板：主题/画质/减弱动效"
         },
         "R0-06": {
             "acceptance": [
@@ -666,7 +689,8 @@
                 "CMakeLists.txt"
             ],
             "stage": "R0",
-            "title": "霓虹背景联动主题色 + 画质分档"
+            "title": "霓虹背景联动主题色 + 画质分档",
+            "note": "已完成 1 / 待做 0 —— 霓虹背景联动主题色 + 画质分档"
         },
         "R0-07": {
             "acceptance": [
@@ -682,7 +706,8 @@
                 "scripts/build.ps1"
             ],
             "stage": "R0",
-            "title": "启动性能剖析：定位真实瓶颈"
+            "title": "启动性能剖析：定位真实瓶颈",
+            "note": "已完成 1 / 待做 0 —— 启动性能剖析：定位真实瓶颈"
         },
         "R0-08": {
             "acceptance": [
@@ -701,7 +726,8 @@
                 "CMakeLists.txt"
             ],
             "stage": "R0",
-            "title": "颜色令牌化：零硬编码"
+            "title": "颜色令牌化：零硬编码",
+            "note": "已完成 1 / 待做 0 —— 颜色令牌化：零硬编码"
         },
         "R0-09": {
             "acceptance": [
@@ -717,7 +743,8 @@
                 "CMakeLists.txt"
             ],
             "stage": "R0",
-            "title": "便携版打包 + 实跑验证"
+            "title": "便携版打包 + 实跑验证",
+            "note": "已完成 1 / 待做 0 —— 便携版打包 + 实跑验证"
         },
         "R0-10": {
             "acceptance": [
@@ -733,7 +760,8 @@
                 "CMakeLists.txt"
             ],
             "stage": "R0",
-            "title": "R0 启动瘦身：重型面板按需加载"
+            "title": "R0 启动瘦身：重型面板按需加载",
+            "note": "已完成 1 / 待做 0 —— 启动瘦身：重型面板按需加载"
         },
         "R1-01": {
             "acceptance": [
@@ -753,7 +781,8 @@
                 "src/main.cpp"
             ],
             "stage": "R1",
-            "title": "R1 提醒 + 逾期提醒"
+            "title": "R1 提醒 + 逾期提醒",
+            "note": "已完成 1 / 待做 0 —— 任务提醒+逾期提醒，侧表 task_extra + 30s 轮询调度器"
         },
         "R1-02": {
             "acceptance": [
@@ -772,7 +801,8 @@
                 "src/main.cpp"
             ],
             "stage": "R1",
-            "title": "R1 重复任务（RFC 5545 RRULE）"
+            "title": "R1 重复任务（RFC 5545 RRULE）",
+            "note": "已完成 1 / 待做 0 —— 重复任务 RRULE，完成派生下一期 + 撤销连带删除"
         },
         "R1-03": {
             "acceptance": [
@@ -790,7 +820,8 @@
                 "src/main.cpp"
             ],
             "stage": "R1",
-            "title": "R1 命令面板（Ctrl+K）"
+            "title": "R1 命令面板（Ctrl+K）",
+            "note": "已完成 1 / 待做 0 —— 命令面板（Ctrl+K）"
         },
         "R1-04": {
             "acceptance": [
@@ -809,7 +840,8 @@
                 "src/main.cpp"
             ],
             "stage": "R1",
-            "title": "R1 列内插位 + 通用撤销"
+            "title": "R1 列内插位 + 通用撤销",
+            "note": "已完成 1 / 待做 0 —— 列内插位 + 通用撤销"
         },
         "R1-05": {
             "acceptance": [
@@ -827,7 +859,8 @@
                 "src/main.cpp"
             ],
             "stage": "R1",
-            "title": "R1 子任务 + 卡片霓虹进度环"
+            "title": "R1 子任务 + 卡片霓虹进度环",
+            "note": "已完成 1 / 待做 0 —— 子任务 + 卡片霓虹进度环"
         },
         "R1-06": {
             "acceptance": [
@@ -843,7 +876,8 @@
                 "src/main.cpp"
             ],
             "stage": "R1",
-            "title": "R1 导入导出 + 自动备份"
+            "title": "R1 导入导出 + 自动备份",
+            "note": "已完成 1 / 待做 0 —— 导入导出 + 自动备份"
         },
         "R1-07": {
             "acceptance": [
@@ -885,7 +919,8 @@
                 "src/main.cpp"
             ],
             "stage": "R2",
-            "title": "R2 专注模式 + 统计可视化"
+            "title": "R2 专注模式 + 统计可视化",
+            "note": "已完成 1 / 待做 0 —— 专注倒计时环与完成热力图统计"
         },
         "R2-02": {
             "acceptance": [
@@ -902,7 +937,8 @@
                 "shaders/neon.frag"
             ],
             "stage": "R2",
-            "title": "R2 Shader 场景化 + 主题包"
+            "title": "R2 Shader 场景化 + 主题包",
+            "note": "已完成 1 / 待做 0 —— 背景场景化三通道 + 完成脉冲 + 专注追光"
         },
         "R3-01": {
             "acceptance": [
@@ -926,7 +962,8 @@
                 "README.md"
             ],
             "stage": "R3",
-            "title": "R3 插件平台 2.0"
+            "title": "R3 插件平台 2.0",
+            "note": "已完成 1 / 待做 0 —— 插件平台 2.0"
         },
         "R3-02": {
             "acceptance": [
@@ -952,7 +989,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": "插件 settings.qml + 设置页声明"
+            "title": "插件 settings.qml + 设置页声明",
+            "note": "已完成 1 / 待做 0 —— 插件平台2.0 设置页槽位命令与权限授权"
         },
         "R3-03": {
             "acceptance": [
@@ -978,7 +1016,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": "插件命令注册 / 快捷键注册"
+            "title": "插件命令注册 / 快捷键注册",
+            "note": "已完成 1 / 待做 0 —— 插件平台2.0 设置页槽位命令与权限授权"
         },
         "R3-04": {
             "acceptance": [
@@ -1004,7 +1043,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": "插件多槽位（侧栏 + 底部面板 + 卡片字段）"
+            "title": "插件多槽位（侧栏 + 底部面板 + 卡片字段）",
+            "note": "已完成 1 / 待做 0 —— 插件平台2.0 设置页槽位命令与权限授权"
         },
         "R3-05": {
             "acceptance": [
@@ -1030,7 +1070,8 @@
                 "src/main.cpp"
             ],
             "stage": "R3",
-            "title": "插件权限授权弹窗与来源提示"
+            "title": "插件权限授权弹窗与来源提示",
+            "note": "已完成 1 / 待做 0 —— 插件平台2.0 设置页槽位命令与权限授权"
         },
         "R4-01": {
             "acceptance": [
@@ -1045,7 +1086,8 @@
                 "src/main.cpp"
             ],
             "stage": "R4",
-            "title": "R4 Agent 任务桥（通用事件协议 + opencode 适配器）"
+            "title": "R4 Agent 任务桥（通用事件协议 + opencode 适配器）",
+            "note": "已完成 1 / 待做 0 —— Agent 任务桥（通用事件协议 + opencode 适配器）"
         },
         "R4-02": {
             "acceptance": [
@@ -1073,7 +1115,8 @@
                 "tests/tst_windowsintegration.cpp"
             ],
             "stage": "R4",
-            "title": "R4 Windows 原生集成：toast / 文件关联 / 跳转列表"
+            "title": "R4 Windows 原生集成：toast / 文件关联 / 跳转列表",
+            "note": "已完成 1 / 待做 0 —— 二次启动转发与跳转列表的实现说明"
         },
         "R4-03": {
             "acceptance": [
@@ -1101,7 +1144,8 @@
                 "tests/tst_taskcolumns.cpp"
             ],
             "stage": "R4",
-            "title": "R4 多板 / 自定义列架构解锁"
+            "title": "R4 多板 / 自定义列架构解锁",
+            "note": "已完成 1 / 待做 0 —— 列管理支持增列改名调序与删列迁卡"
         },
         "R4-04": {
             "acceptance": [
@@ -1116,7 +1160,8 @@
                 "src/main.cpp"
             ],
             "stage": "R4",
-            "title": "R4 数据可靠性：WAL / 损坏恢复 / 迁移兼容"
+            "title": "R4 数据可靠性：WAL / 损坏恢复 / 迁移兼容",
+            "note": "已完成 1 / 待做 0 —— WAL 完整性校验与损坏库自动恢复"
         },
         "R4-05": {
             "acceptance": [
@@ -1135,7 +1180,8 @@
                 "CMakeLists.txt"
             ],
             "stage": "R4",
-            "title": "R4 自动化测试体系 + CI 质量门禁"
+            "title": "R4 自动化测试体系 + CI 质量门禁",
+            "note": "已完成 1 / 待做 0 —— README 补充单元测试与门禁说明"
         },
         "R4-06": {
             "acceptance": [
@@ -1151,7 +1197,8 @@
                 "qml/components/TaskCard.qml"
             ],
             "stage": "R4",
-            "title": "R4 键盘完整性 / 无障碍"
+            "title": "R4 键盘完整性 / 无障碍",
+            "note": "已完成 1 / 待做 0 —— 看板键盘导航与卡片无障碍语义"
         },
         "R4-07": {
             "acceptance": [
@@ -1173,7 +1220,8 @@
                 "tests/tst_uisettings.cpp"
             ],
             "stage": "R4",
-            "title": "R4 首次体验引导"
+            "title": "R4 首次体验引导",
+            "note": "已完成 1 / 待做 0 —— 引导标记不再单开 ini，补任务模板与重看入口"
         },
         "R4-08": {
             "acceptance": [
@@ -1203,7 +1251,7 @@
                 "新建弹窗可建卡并落到指定列"
             ],
             "id": "f1b3f7e5-ad1c-4872-95fc-b95f00e49cd4",
-            "note": "目标：agent 只负责领任务、干活、提交，其余看板全自动。范围：派生器支持扫描各 worktree 台账并输出 JSON；看板内定时派生并应用状态（领用即进行中），卡片显示领用人/分支 chip；顶部「＋ 新建」弹窗统一任务入口（列/父卡/解析预览）。验收：agent 领卡后看板卡自动转进行中并显示 agent 标签；合并后自动结卡；新建弹窗可建卡并落到指定列。",
+            "note": "目标：agent 只负责领任务、干活、提交，其余看板全自动。范围：派生器支持扫描各 worktree 台账并输出 JSON；看板内定时派生并应用状态（领用即进行中），卡片显示领用人/分支 chip；顶部「＋ 新建」弹窗统一任务入口（列/父卡/解析预览）。验收：agent 领卡后看板卡自动转进行中并显示 agent 标签；合并后自动结卡；新建弹窗可建卡并落到指定列。\n已完成 1 / 待做 0 —— 领用可见与统一新建入口",
             "scope": [
                 "src/**",
                 "qml/**",
@@ -1231,7 +1279,8 @@
                 "AGENTS.md"
             ],
             "stage": "R4",
-            "title": "R4 任务治理：任务先行，禁止无任务改代码"
+            "title": "R4 任务治理：任务先行，禁止无任务改代码",
+            "note": "已完成 1 / 待做 0 —— 任务先行闸门，无任务禁止改代码"
         },
         "R5-01": {
             "acceptance": [
@@ -1316,7 +1365,7 @@
                 "R5-03"
             ],
             "id": "4c95eebc-891c-4196-9fb9-b88a0f6cf41f",
-            "note": "起因：R5-02 把单源超时从 10 秒压到 6 秒、总预算从 15 秒提到 25 秒后，默认源自检仍偶发「检查更新失败：连接超时」—— 三源串行时，raw.githubusercontent.com 常年只挂不答吃满 6 秒，GitHub API 单次 5-7 秒，最坏情况 6+6+7=19 秒逼近总预算，一旦某个源抖动即超时。根治方向：候选源并行竞速，所有源同时发起请求，首个成功者胜出，其余立即取消。目标：① UpdateManager::checkForUpdates 改为并发请求所有候选源（QNetworkAccessManager 多次 get）；② 任一源返回有效清单即胜出，取消其余请求（QNetworkReply::abort）；③ 全部失败才报错误，按失败原因优先级取最严重的；④ 保留单源看门狗（防单个请求挂死），但总预算改为「所有源最慢那个的超时」而非串行累加；⑤ 命令行 --check-update 与设置面板检查按钮行为一致。验收：默认源（gitee raw → github raw → API）自检稳定 < 8 秒（此前偶发 19 秒超时）；断网时仍走缓存降级；单测覆盖并发竞速场景（mock 一慢一快两个源，快的胜出）。",
+            "note": "起因：R5-02 把单源超时从 10 秒压到 6 秒、总预算从 15 秒提到 25 秒后，默认源自检仍偶发「检查更新失败：连接超时」—— 三源串行时，raw.githubusercontent.com 常年只挂不答吃满 6 秒，GitHub API 单次 5-7 秒，最坏情况 6+6+7=19 秒逼近总预算，一旦某个源抖动即超时。根治方向：候选源并行竞速，所有源同时发起请求，首个成功者胜出，其余立即取消。目标：① UpdateManager::checkForUpdates 改为并发请求所有候选源（QNetworkAccessManager 多次 get）；② 任一源返回有效清单即胜出，取消其余请求（QNetworkReply::abort）；③ 全部失败才报错误，按失败原因优先级取最严重的；④ 保留单源看门狗（防单个请求挂死），但总预算改为「所有源最慢那个的超时」而非串行累加；⑤ 命令行 --check-update 与设置面板检查按钮行为一致。验收：默认源（gitee raw → github raw → API）自检稳定 < 8 秒（此前偶发 19 秒超时）；断网时仍走缓存降级；单测覆盖并发竞速场景（mock 一慢一快两个源，快的胜出）。\n已完成 1 / 待做 0 —— 候选源并行竞速，首个成功者胜出",
             "scope": [
                 "src/UpdateManager.*",
                 "tests/tst_updatemanager.cpp",
@@ -1335,7 +1384,7 @@
                 "R5-03"
             ],
             "id": "3c520d5a-a9b7-4140-8040-17e2bca8b9e8",
-            "note": "起因：安装包的桌面与开始菜单快捷方式都指向 NeonBoardHost.exe（installer/neonboard.iss 的 [Icons]），但 CMakeLists.txt 里 qt_add_executable(NeonBoardHost ...) 的源列表没带 resources/neonboard.rc，exe 里连 RT_GROUP_ICON 资源都没有（EnumResourceNamesW 返回失败），Windows 只能退回通用 exe 图标；同一目录的 NeonBoard.exe 因为带了 .rc 所以正常。目标：给 NeonBoardHost 源列表追加 resources/neonboard.rc，让 Host 自身带图标，桌面、开始菜单、postinstall 启动项一并恢复。不改 installer：升级安装会重建 [Icons]，快捷方式随新 Host 自愈；已在本机手工设过 IconLocation 的桌面项不受影响。",
+            "note": "起因：安装包的桌面与开始菜单快捷方式都指向 NeonBoardHost.exe（installer/neonboard.iss 的 [Icons]），但 CMakeLists.txt 里 qt_add_executable(NeonBoardHost ...) 的源列表没带 resources/neonboard.rc，exe 里连 RT_GROUP_ICON 资源都没有（EnumResourceNamesW 返回失败），Windows 只能退回通用 exe 图标；同一目录的 NeonBoard.exe 因为带了 .rc 所以正常。目标：给 NeonBoardHost 源列表追加 resources/neonboard.rc，让 Host 自身带图标，桌面、开始菜单、postinstall 启动项一并恢复。不改 installer：升级安装会重建 [Icons]，快捷方式随新 Host 自愈；已在本机手工设过 IconLocation 的桌面项不受影响。\n已完成 1 / 待做 0 —— Host 内嵌应用图标，快捷方式不再裸奔",
             "scope": [
                 "CMakeLists.txt"
             ],
@@ -1387,7 +1436,7 @@
                 "build/Release/NeonBoard.exe --selftest 退出码 0 且断言 user_version 仍为 2"
             ],
             "id": "0921b037-54ca-45e4-ab4a-7c82f484be92",
-            "note": "起因：执行器需要可追溯的 run 身份与「同卡不并发」的锁，而 task 表不能加列、user_version 不能升。目标：新增侧表 task_run（id / task_id / agent / cwd / workflow / status / attempt / 时间戳 / heartbeat / exit_code / last_error / log_path / scope_violation）+ 同卡活跃 run 的部分唯一索引，配套 TaskRunStore 做创建/心跳/结束/孤儿回收，启动时把心跳超 90 秒的 running 判为 blocked（进程中断）。交付（2026-10-27）：task_run 侧表 + 部分唯一索引 + TaskRunStore（acquire / heartbeat / release / activeRun / runsOf / recoverOrphans）+ taskRuns 上下文属性 + selftest 断言；ctest 11/11 通过。",
+            "note": "起因：执行器需要可追溯的 run 身份与「同卡不并发」的锁，而 task 表不能加列、user_version 不能升。目标：新增侧表 task_run（id / task_id / agent / cwd / workflow / status / attempt / 时间戳 / heartbeat / exit_code / last_error / log_path / scope_violation）+ 同卡活跃 run 的部分唯一索引，配套 TaskRunStore 做创建/心跳/结束/孤儿回收，启动时把心跳超 90 秒的 running 判为 blocked（进程中断）。交付（2026-10-27）：task_run 侧表 + 部分唯一索引 + TaskRunStore（acquire / heartbeat / release / activeRun / runsOf / recoverOrphans）+ taskRuns 上下文属性 + selftest 断言；ctest 11/11 通过。\n已完成 1 / 待做 0 —— 运行记录侧表与同卡锁",
             "scope": [
                 "src/Database.cpp",
                 "src/TaskRunStore.*",
@@ -1436,7 +1485,7 @@
                 "R6-03"
             ],
             "id": "e81fa56f-348d-4d47-80b6-376dd8665e64",
-            "note": "起因：定义、profile、锁都齐了，缺真正拉起 agent 的引擎。目标：TaskRunner 受控启动 QProcess（校验定义 → 取锁 → 建 run），stdout/stderr 按行流式写 runs/<runId>.log 并脱敏 token / key / 长十六进制串，心跳每 10 秒；超时强杀并标 blocked（timeout）；取消先 terminate 后 kill，Windows 用 Job Object 回收整棵进程树；已有活跃 run 时新请求直接拒绝（M1 不排队）。交付（2026-10-28）：新增 TaskRunner（QObject，Q_PROPERTY revision / activeCount），两条入口 start(taskId) 走执行定义解析（execOf → agent → profile → argv，timeoutMin 缺省回退 profile.defaultTimeoutMin 再回退 600 秒）、startRaw(exe, args, cwd, timeoutSec, promptToStdin, prompt) 供测试与嵌入；总开关关闭时两条入口均拒绝，同卡已有活跃 run 直接返回 busy 不排队。进程侧 QProcess::SeparateChannels + readyReadStandardOutput/Error 增量累积，日志先过 desensitize() 三层正则（敏感键值 / sk- ghp_ xox* 前缀令牌 / 32 位以上十六进制串 → [已脱敏]）再上屏并落盘 runs/<runId>.log，凭据不留在磁盘；心跳 10 秒（kHeartbeatMs，孤儿判定 90 秒），超时 terminate → 5 秒宽限 → killTree 并标 blocked(lastError=执行超时)，取消 killTree 标 cancelled，终态经 release 写回 exit_code / last_error / log_path / scope_violation 四列。Windows 用 CreateJobObject + JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE 把 pid 挂进作业对象，取消与超时走 TerminateJobObject 回收整棵进程树，避免 agent 拉起的编译器 / git / 包管理器残留在后台；非 Windows 退化为 QProcess::kill。启动失败（waitForStarted 超时）补 release blocked + lastError 携带 QProcess::errorString，不留 run 挂在 running 上。已接入 main.cpp 并以 taskRunner 暴露给 QML。验收：ctest 14/14（tst_taskrunner 9 用例：拒未开启 / 未知 agent / 正常执行且日志落盘 / 忙则拒绝 / 非零退出 blocked / 手动终止 cancelled / 凭据脱敏），--selftest 退出码 0，--smoke 退出码 0 且无 QML 报错；CI 两轮全绿（1f0c9f2 基础版、707c04c 安全强化）。影响：不升 user_version、不动 task 表；执行器总开关默认关，未开启时不启动任何进程。顺带修复 startRaw 传参漏拼 exe 导致把首个参数当程序名、QProcess 报「系统找不到指定的文件」的问题。",
+            "note": "起因：定义、profile、锁都齐了，缺真正拉起 agent 的引擎。目标：TaskRunner 受控启动 QProcess（校验定义 → 取锁 → 建 run），stdout/stderr 按行流式写 runs/<runId>.log 并脱敏 token / key / 长十六进制串，心跳每 10 秒；超时强杀并标 blocked（timeout）；取消先 terminate 后 kill，Windows 用 Job Object 回收整棵进程树；已有活跃 run 时新请求直接拒绝（M1 不排队）。交付（2026-10-28）：新增 TaskRunner（QObject，Q_PROPERTY revision / activeCount），两条入口 start(taskId) 走执行定义解析（execOf → agent → profile → argv，timeoutMin 缺省回退 profile.defaultTimeoutMin 再回退 600 秒）、startRaw(exe, args, cwd, timeoutSec, promptToStdin, prompt) 供测试与嵌入；总开关关闭时两条入口均拒绝，同卡已有活跃 run 直接返回 busy 不排队。进程侧 QProcess::SeparateChannels + readyReadStandardOutput/Error 增量累积，日志先过 desensitize() 三层正则（敏感键值 / sk- ghp_ xox* 前缀令牌 / 32 位以上十六进制串 → [已脱敏]）再上屏并落盘 runs/<runId>.log，凭据不留在磁盘；心跳 10 秒（kHeartbeatMs，孤儿判定 90 秒），超时 terminate → 5 秒宽限 → killTree 并标 blocked(lastError=执行超时)，取消 killTree 标 cancelled，终态经 release 写回 exit_code / last_error / log_path / scope_violation 四列。Windows 用 CreateJobObject + JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE 把 pid 挂进作业对象，取消与超时走 TerminateJobObject 回收整棵进程树，避免 agent 拉起的编译器 / git / 包管理器残留在后台；非 Windows 退化为 QProcess::kill。启动失败（waitForStarted 超时）补 release blocked + lastError 携带 QProcess::errorString，不留 run 挂在 running 上。已接入 main.cpp 并以 taskRunner 暴露给 QML。验收：ctest 14/14（tst_taskrunner 9 用例：拒未开启 / 未知 agent / 正常执行且日志落盘 / 忙则拒绝 / 非零退出 blocked / 手动终止 cancelled / 凭据脱敏），--selftest 退出码 0，--smoke 退出码 0 且无 QML 报错；CI 两轮全绿（1f0c9f2 基础版、707c04c 安全强化）。影响：不升 user_version、不动 task 表；执行器总开关默认关，未开启时不启动任何进程。顺带修复 startRaw 传参漏拼 exe 导致把首个参数当程序名、QProcess 报「系统找不到指定的文件」的问题。\n已完成 1 / 待做 0 —— 单次执行器 TaskRunner 拉起 QProcess",
             "scope": [
                 "src/TaskRunner.*",
                 "src/TaskRunStore.*",
@@ -1459,7 +1508,7 @@
                 "R6-04"
             ],
             "id": "dd95c213-2cba-42a5-b4cf-71773d644b96",
-            "note": "起因：进程退出码 0 不等于任务完成，agent 也可能改到 scope 之外。目标：AcceptanceRunner 顺序执行 acceptance（command 走白名单脚本路径、不经过 shell、拒绝管道与重定向；assert 先支持 file.exists）+ ScopeMatcher 跑前记 git status 基线、跑后比对差异路径与卡片 scope（scope 为空不检查）；三者合并判定 passed / blocked 并写入 last_error。交付（2026-10-28）：新增 AcceptanceRunner（parseItem 双形态解析：command 首 token 必须命中程序白名单（pwsh/powershell/python/python3/ctest/cmake/git/node/clang-format，可替换）或指向 cwd 内真实脚本路径，QProcess argv 直起不经过 shell，解析期即拒绝含 | > < & ; 的条目；assert 由内置检查器执行，v1 只做 file.exists(\"path\")（支持双引号/单引号/裸路径三种形态），http.* / json.* 留接口判「暂不支持」不算通过）+ run() 顺序执行 fail-fast（第一条失败即停，results 带每条 item/kind/ok/exitCode/output 末尾 2000 字符/reason/ms，lastError 指出第几条）+ verdict() 聚合判定（agent 退出码 0 + acceptance 全过 + 无越界 = passed，否则 blocked，lastError 用「；」拼接多因）。新增 ScopeMatcher（captureBaseline 记 git status --porcelain -uall 基线，changedPaths 取「当前有而基线没有」的差异路径（基线里已有的脏文件不算本次 run 产生），check 用卡片 scope glob 匹配（glob→正则与 scripts/check_scope.py 的 glob_to_regex 同语义：**/ 零跨层、** 任意、* 与 ? 不跨 /、反斜杠与 ./ 前缀归一、重命名取新路径、引号剥离）；scope 为空或 git 不可用（非仓库）→ skipped 不阻断，violations 非空 → ok=false + reason 列出越界路径）。两类均不写库、不改 run 状态、不改看板列（回写是 R6-06）。验收：ctest 16/16（tst_acceptance 10 用例：分词带引号段/shell 语法拒绝/白名单外拒绝/cwd 脚本路径放行/file.exists 命中与未命中/不支持断言/fail-fast 与真实 python 进程退出码 3/verdict 多因聚合；tst_scopematcher 9 用例：glob 纯函数/porcelain 解析/临时 git 仓库基线比对/命中与越界/空 scope 跳过/非 git 目录跳过/基线脏文件不误算），--selftest 退出码 0，--smoke 退出码 0 无 QML 报错，verify.ps1 全过。影响：不升 user_version、不动 task 表；执行器总开关未开启时无任何行为变化。",
+            "note": "起因：进程退出码 0 不等于任务完成，agent 也可能改到 scope 之外。目标：AcceptanceRunner 顺序执行 acceptance（command 走白名单脚本路径、不经过 shell、拒绝管道与重定向；assert 先支持 file.exists）+ ScopeMatcher 跑前记 git status 基线、跑后比对差异路径与卡片 scope（scope 为空不检查）；三者合并判定 passed / blocked 并写入 last_error。交付（2026-10-28）：新增 AcceptanceRunner（parseItem 双形态解析：command 首 token 必须命中程序白名单（pwsh/powershell/python/python3/ctest/cmake/git/node/clang-format，可替换）或指向 cwd 内真实脚本路径，QProcess argv 直起不经过 shell，解析期即拒绝含 | > < & ; 的条目；assert 由内置检查器执行，v1 只做 file.exists(\"path\")（支持双引号/单引号/裸路径三种形态），http.* / json.* 留接口判「暂不支持」不算通过）+ run() 顺序执行 fail-fast（第一条失败即停，results 带每条 item/kind/ok/exitCode/output 末尾 2000 字符/reason/ms，lastError 指出第几条）+ verdict() 聚合判定（agent 退出码 0 + acceptance 全过 + 无越界 = passed，否则 blocked，lastError 用「；」拼接多因）。新增 ScopeMatcher（captureBaseline 记 git status --porcelain -uall 基线，changedPaths 取「当前有而基线没有」的差异路径（基线里已有的脏文件不算本次 run 产生），check 用卡片 scope glob 匹配（glob→正则与 scripts/check_scope.py 的 glob_to_regex 同语义：**/ 零跨层、** 任意、* 与 ? 不跨 /、反斜杠与 ./ 前缀归一、重命名取新路径、引号剥离）；scope 为空或 git 不可用（非仓库）→ skipped 不阻断，violations 非空 → ok=false + reason 列出越界路径）。两类均不写库、不改 run 状态、不改看板列（回写是 R6-06）。验收：ctest 16/16（tst_acceptance 10 用例：分词带引号段/shell 语法拒绝/白名单外拒绝/cwd 脚本路径放行/file.exists 命中与未命中/不支持断言/fail-fast 与真实 python 进程退出码 3/verdict 多因聚合；tst_scopematcher 9 用例：glob 纯函数/porcelain 解析/临时 git 仓库基线比对/命中与越界/空 scope 跳过/非 git 目录跳过/基线脏文件不误算），--selftest 退出码 0，--smoke 退出码 0 无 QML 报错，verify.ps1 全过。影响：不升 user_version、不动 task 表；执行器总开关未开启时无任何行为变化。\n已完成 1 / 待做 0 —— 验收器与越界检查",
             "scope": [
                 "src/AcceptanceRunner.*",
                 "src/ScopeMatcher.*",
@@ -1481,7 +1530,7 @@
                 "R6-05"
             ],
             "id": "a62d2df7-3073-4173-9821-b330958ad547",
-            "note": "起因：结果只进 run 表，人看不到也做不了决定。目标：run 终态（状态 / 耗时 / 退出码 / 摘要 / 越界 / 日志路径）回写并在执行面板展示，卡面加执行态徽章；提供查看完整日志、重试（attempt+1）与「标为已办结」（走既有完成路径、可撤销）；程序不自动改看板列、不自动 push。交付（2026-10-28）：TaskRunStore 新增 latestRun(taskId)（活跃 run 优先，其次 started_at 倒序）与 summaryOf(taskId, logTailLines)（最近一次 run 的行 + durationSec + logTail 末尾 N 行，面板不加载整个日志文件）；acquire 缺省 attempt 自动取「上一轮 + 1」（重试 = 新建 run 递增轮次，历史不覆盖；显式 attempt 仍被尊重，为 R6-08 留口）。main.cpp 新增 CLI --run-summary <taskId>：输出该卡最近一次 run 的紧凑 JSON（utilityMode 不撞单实例锁；无 run 输出 {\"hasRun\":false} 退出码 0，缺 taskId 退出码 2）。Main.qml：执行前确认框「确认执行」从占位提示改为真正调 taskRunner.start（busy 拒绝原样回显），成功后打开执行面板；新增执行面板 Dialog（结论徽章 通过/失败受阻/取消/执行中、轮次、耗时+退出码、失败原因、越界改动、日志末尾 30 行滚动区、查看完整日志（外部打开 logPath）、重试（终态后可点，新 run attempt+1）、标为已办结（仅 passed 可点，走 taskUndo.moveTask 既有完成路径，保留 Ctrl+Z 撤销）；taskRunner.runFinished 触发面板自动刷新）；执行页签新增「执行态」按钮（有 run 记录才显示）。TaskCard.qml：卡面执行态小徽章（running/queued 青色脉冲、passed 绿点、blocked 红点，数据经 taskRuns.revision 建立绑定，不改卡片既有信息层级）。程序不自动改看板列、不自动 push（R6 硬约束）。验收：ctest 17/17（tst_runsummary 6 用例：无 run 摘要 hasRun=false / 失败 run 摘要含 exitCode+lastError+durationSec+logTail 末尾 5 行 / 重试 attempt 1→2→3 且显式 attempt 被尊重、历史不覆盖 / latestRun 活跃优先 / 取消 run 后 task 列保持 todo 且 user_version 仍为 2），--smoke 退出码 0 无 QML 报错，--selftest 退出码 0，--run-summary 两种退出码实测通过，verify.ps1 全过。影响：不升 user_version、不动 task 表、不加新表；执行器总开关默认关时行为与原来一致。遗留：面板截图 docs/screenshots/exec-panel.png 需 GUI 手工补（自动化验收项不含截图）。",
+            "note": "起因：结果只进 run 表，人看不到也做不了决定。目标：run 终态（状态 / 耗时 / 退出码 / 摘要 / 越界 / 日志路径）回写并在执行面板展示，卡面加执行态徽章；提供查看完整日志、重试（attempt+1）与「标为已办结」（走既有完成路径、可撤销）；程序不自动改看板列、不自动 push。交付（2026-10-28）：TaskRunStore 新增 latestRun(taskId)（活跃 run 优先，其次 started_at 倒序）与 summaryOf(taskId, logTailLines)（最近一次 run 的行 + durationSec + logTail 末尾 N 行，面板不加载整个日志文件）；acquire 缺省 attempt 自动取「上一轮 + 1」（重试 = 新建 run 递增轮次，历史不覆盖；显式 attempt 仍被尊重，为 R6-08 留口）。main.cpp 新增 CLI --run-summary <taskId>：输出该卡最近一次 run 的紧凑 JSON（utilityMode 不撞单实例锁；无 run 输出 {\"hasRun\":false} 退出码 0，缺 taskId 退出码 2）。Main.qml：执行前确认框「确认执行」从占位提示改为真正调 taskRunner.start（busy 拒绝原样回显），成功后打开执行面板；新增执行面板 Dialog（结论徽章 通过/失败受阻/取消/执行中、轮次、耗时+退出码、失败原因、越界改动、日志末尾 30 行滚动区、查看完整日志（外部打开 logPath）、重试（终态后可点，新 run attempt+1）、标为已办结（仅 passed 可点，走 taskUndo.moveTask 既有完成路径，保留 Ctrl+Z 撤销）；taskRunner.runFinished 触发面板自动刷新）；执行页签新增「执行态」按钮（有 run 记录才显示）。TaskCard.qml：卡面执行态小徽章（running/queued 青色脉冲、passed 绿点、blocked 红点，数据经 taskRuns.revision 建立绑定，不改卡片既有信息层级）。程序不自动改看板列、不自动 push（R6 硬约束）。验收：ctest 17/17（tst_runsummary 6 用例：无 run 摘要 hasRun=false / 失败 run 摘要含 exitCode+lastError+durationSec+logTail 末尾 5 行 / 重试 attempt 1→2→3 且显式 attempt 被尊重、历史不覆盖 / latestRun 活跃优先 / 取消 run 后 task 列保持 todo 且 user_version 仍为 2），--smoke 退出码 0 无 QML 报错，--selftest 退出码 0，--run-summary 两种退出码实测通过，verify.ps1 全过。影响：不升 user_version、不动 task 表、不加新表；执行器总开关默认关时行为与原来一致。遗留：面板截图 docs/screenshots/exec-panel.png 需 GUI 手工补（自动化验收项不含截图）。\n已完成 1 / 待做 0 —— 执行结果回写与执行面板",
             "scope": [
                 "src/TaskRunStore.*",
                 "src/main.cpp",
@@ -1505,7 +1554,7 @@
                 "R6-03"
             ],
             "id": "d32f7e28-e4cc-4cb6-bb7b-6fe9db6974a9",
-            "note": "起因：一句话需求直接派发，agent 只能猜范围与验收。目标：按 docs/agent-triage.md 的 schema 与 prompt 落地 TriageRunner，用 profile 的只读参数强制只读（分析前后 git status 必须一致，有差异即判失败）；严格 JSON 校验、questions 截断到 3 条、非法 glob 丢弃、acceptance 为空补默认；草案只写 board.db，人在执行页签预览并采纳后才回填表单，confidence 低于 0.5 时禁止一键执行。交付（2026-10-28）：新增 TriageRunner（QObject，revision 属性）。强制只读三道硬门：① profile 必须配 readonlyArgs，没有即拒绝分析（不接受「prompt 里写别改文件」的约定）；② 命令行用 AgentProfile::argv(id, readonly=true) 拼装（opencode --agent plan / claude --permission-mode plan / cursor-agent --plan），argv 直起不经过 shell；③ 分析前后各取一次 git status --porcelain -uall（复用 ScopeMatcher::porcelainStatus），有差异直接判 readonly-violation 失败并列出改动路径。前置校验链：总开关开 → 有 agent（缺省回退 defaultAgent）→ profile 存在 → cwd 非空且在信任白名单 → 同卡无分析在跑。输出解析：extractJson 从带解释文字/代码围栏的输出里抠第一个平衡 {...} 块（字符串内花括号与转义引号不干扰配平，坏块跳过找下一个）；缺必填字段（understanding/affected/scope_draft/acceptance_draft/questions/estimate/confidence）或非法 JSON → 自动重跑一次，仍失败标记 status=draft 并附原始输出（末尾 4000 字符）。validateDraft 清洗：questions 截断到 3 条、非法 glob 丢弃（isValidGlob 拒空串/绝对路径/盘符/反斜杠/..，与 check_scope.py 与 ScopeMatcher 同语义）、acceptance_draft 为空补默认 pwsh -File scripts/verify.ps1、confidence<0.5 → draft.executable=false。prompt 模板按 docs/agent-triage.md 通用骨架 + fix/feature/review 专项段拼装。草案只写 meta 表 exec.triage.draft.<taskId>（draftOf/clearDraft 读写，triageFinished 信号带全量结果），不进台账、不加表、不升 user_version。Main.qml：执行页签「先分析」按钮（先把 agent/cwd/workflow 落 task_exec 再拉起）+ 草案预览块（理解/风险/scope/验收/问题/清洗提示）+ 「采纳草案」回填表单（executable=false 时禁用）+「忽略」清草案；execBlocker 新增一条：置信度低于 0.5 禁止一键执行（先拆分或澄清）；triageFinished 到达时自动刷新打开中的编辑面板。docs/agent-triage.md 补「实现现状」一节。验收：ctest 18/18（tst_triage 10 用例：JSON 抠取含围栏/字符串内花括号/坏块跳过，glob 合法性 11 断言，完整草案校验，截断与补默认与丢弃非法项及 problems 文案，缺字段报 missing，confidence 0.3 不可执行 0.5 可执行，prompt 模板四形态，草案 meta 存取与幂等清除，start 前置拒绝链含无只读参数硬拒），--selftest 退出码 0（新增 triage 段 20+ 断言），verify.ps1 全过。影响：执行器总开关默认关，未开启时 start 直接拒绝，看板行为与未引入时一致。遗留：对真实 agent 的手工只读验证（跑一张真卡后 git status 为空）需人操作，自动化侧由基线比对硬门兜底。",
+            "note": "起因：一句话需求直接派发，agent 只能猜范围与验收。目标：按 docs/agent-triage.md 的 schema 与 prompt 落地 TriageRunner，用 profile 的只读参数强制只读（分析前后 git status 必须一致，有差异即判失败）；严格 JSON 校验、questions 截断到 3 条、非法 glob 丢弃、acceptance 为空补默认；草案只写 board.db，人在执行页签预览并采纳后才回填表单，confidence 低于 0.5 时禁止一键执行。交付（2026-10-28）：新增 TriageRunner（QObject，revision 属性）。强制只读三道硬门：① profile 必须配 readonlyArgs，没有即拒绝分析（不接受「prompt 里写别改文件」的约定）；② 命令行用 AgentProfile::argv(id, readonly=true) 拼装（opencode --agent plan / claude --permission-mode plan / cursor-agent --plan），argv 直起不经过 shell；③ 分析前后各取一次 git status --porcelain -uall（复用 ScopeMatcher::porcelainStatus），有差异直接判 readonly-violation 失败并列出改动路径。前置校验链：总开关开 → 有 agent（缺省回退 defaultAgent）→ profile 存在 → cwd 非空且在信任白名单 → 同卡无分析在跑。输出解析：extractJson 从带解释文字/代码围栏的输出里抠第一个平衡 {...} 块（字符串内花括号与转义引号不干扰配平，坏块跳过找下一个）；缺必填字段（understanding/affected/scope_draft/acceptance_draft/questions/estimate/confidence）或非法 JSON → 自动重跑一次，仍失败标记 status=draft 并附原始输出（末尾 4000 字符）。validateDraft 清洗：questions 截断到 3 条、非法 glob 丢弃（isValidGlob 拒空串/绝对路径/盘符/反斜杠/..，与 check_scope.py 与 ScopeMatcher 同语义）、acceptance_draft 为空补默认 pwsh -File scripts/verify.ps1、confidence<0.5 → draft.executable=false。prompt 模板按 docs/agent-triage.md 通用骨架 + fix/feature/review 专项段拼装。草案只写 meta 表 exec.triage.draft.<taskId>（draftOf/clearDraft 读写，triageFinished 信号带全量结果），不进台账、不加表、不升 user_version。Main.qml：执行页签「先分析」按钮（先把 agent/cwd/workflow 落 task_exec 再拉起）+ 草案预览块（理解/风险/scope/验收/问题/清洗提示）+ 「采纳草案」回填表单（executable=false 时禁用）+「忽略」清草案；execBlocker 新增一条：置信度低于 0.5 禁止一键执行（先拆分或澄清）；triageFinished 到达时自动刷新打开中的编辑面板。docs/agent-triage.md 补「实现现状」一节。验收：ctest 18/18（tst_triage 10 用例：JSON 抠取含围栏/字符串内花括号/坏块跳过，glob 合法性 11 断言，完整草案校验，截断与补默认与丢弃非法项及 problems 文案，缺字段报 missing，confidence 0.3 不可执行 0.5 可执行，prompt 模板四形态，草案 meta 存取与幂等清除，start 前置拒绝链含无只读参数硬拒），--selftest 退出码 0（新增 triage 段 20+ 断言），verify.ps1 全过。影响：执行器总开关默认关，未开启时 start 直接拒绝，看板行为与未引入时一致。遗留：对真实 agent 的手工只读验证（跑一张真卡后 git status 为空）需人操作，自动化侧由基线比对硬门兜底。\n已完成 1 / 待做 0 —— Triage 只读分析生成执行草案",
             "scope": [
                 "src/TriageRunner.*",
                 "src/AgentProfile.*",
@@ -1531,7 +1580,7 @@
                 "R6-05"
             ],
             "id": "e2ef6d16-e853-4a26-b3a8-b7e5f70bcebb",
-            "note": "起因：agent 首轮失败很常见，重跑时把失败上下文带上才可能自愈。目标：maxAttempts 生效（上限 5、默认 1），失败且未到上限时把 last_error 末尾 200 行注入下一轮 prompt，新建 run 并 attempt+1，每轮日志独立；人取消后不再自动重试，轮数耗尽终态 blocked 并提示人工介入。交付（2026-10-28）：TaskRunner 落地有限重试循环。start(taskId) 从执行定义读 maxAttempts（钳制 1..5，默认 1 等价不循环，行为与 R6-04 完全一致）；startRaw 增加 maxAttempts 参数。进程失败（非取消）且 attempt < maxAttempts 时走 tryRetry：①当前 run 先结算 blocked，日志独立落盘（每轮一个 runs/<runId>.log，历史不覆盖）并发 runFinished 让 UI 看到每轮结果；②失败摘要 = lastError 前置 + 日志末尾 200 行（再截 8000 字符、换行单行化成 ⏎，注入 argv 安全）；③摘要以「【上一轮失败摘要（第 N 轮）】」段注入下一轮 prompt —— stdin 模式直接追加，arg 模式只在 argv 末尾恰为原 prompt 时替换（start() 经 AgentProfile::argv 拼装必是此形态；startRaw 自带的自定义命令如 cmd /c exit 5 末尾不是 prompt，绝不乱改，命令语义优先）；④新 run 经 acquire 缺省 attempt 自增（R6-06 已备）。人取消（ending=cancelled）不进重试路径；轮数耗尽时最后一条 run 的 lastError 追加「（已重试 N 轮，需人工介入）」。重试取锁失败（理论不发生）兜底走正常 settle 防死循环；重试进程启动失败同样 settle blocked 不留孤儿。验收：ctest 19/19（tst_runloop 7 用例：默认不重试只留 1 条 blocked / maxAttempts=3 产出 3 条 run attempt 1-3 且 3 个独立日志文件 / 取消后无延迟重试（等 500ms 复核）/ 耗尽后 lastError 含需人工介入 / failureSummary 截断单行化 lastError 前置与空日志形态），tst_taskrunner 9 用例回归全过（R6-04 行为不变），--selftest 退出码 0，verify.ps1 全过。影响：不升 user_version、不加表；执行面板（R6-06）天然按轮展示——每轮 runFinished 都会刷新。",
+            "note": "起因：agent 首轮失败很常见，重跑时把失败上下文带上才可能自愈。目标：maxAttempts 生效（上限 5、默认 1），失败且未到上限时把 last_error 末尾 200 行注入下一轮 prompt，新建 run 并 attempt+1，每轮日志独立；人取消后不再自动重试，轮数耗尽终态 blocked 并提示人工介入。交付（2026-10-28）：TaskRunner 落地有限重试循环。start(taskId) 从执行定义读 maxAttempts（钳制 1..5，默认 1 等价不循环，行为与 R6-04 完全一致）；startRaw 增加 maxAttempts 参数。进程失败（非取消）且 attempt < maxAttempts 时走 tryRetry：①当前 run 先结算 blocked，日志独立落盘（每轮一个 runs/<runId>.log，历史不覆盖）并发 runFinished 让 UI 看到每轮结果；②失败摘要 = lastError 前置 + 日志末尾 200 行（再截 8000 字符、换行单行化成 ⏎，注入 argv 安全）；③摘要以「【上一轮失败摘要（第 N 轮）】」段注入下一轮 prompt —— stdin 模式直接追加，arg 模式只在 argv 末尾恰为原 prompt 时替换（start() 经 AgentProfile::argv 拼装必是此形态；startRaw 自带的自定义命令如 cmd /c exit 5 末尾不是 prompt，绝不乱改，命令语义优先）；④新 run 经 acquire 缺省 attempt 自增（R6-06 已备）。人取消（ending=cancelled）不进重试路径；轮数耗尽时最后一条 run 的 lastError 追加「（已重试 N 轮，需人工介入）」。重试取锁失败（理论不发生）兜底走正常 settle 防死循环；重试进程启动失败同样 settle blocked 不留孤儿。验收：ctest 19/19（tst_runloop 7 用例：默认不重试只留 1 条 blocked / maxAttempts=3 产出 3 条 run attempt 1-3 且 3 个独立日志文件 / 取消后无延迟重试（等 500ms 复核）/ 耗尽后 lastError 含需人工介入 / failureSummary 截断单行化 lastError 前置与空日志形态），tst_taskrunner 9 用例回归全过（R6-04 行为不变），--selftest 退出码 0，verify.ps1 全过。影响：不升 user_version、不加表；执行面板（R6-06）天然按轮展示——每轮 runFinished 都会刷新。\n已完成 1 / 待做 0 —— Loop 失败摘要回灌与有限重试",
             "scope": [
                 "src/TaskRunner.*",
                 "src/TaskRunStore.*",
@@ -1550,7 +1599,7 @@
                 "R6-01"
             ],
             "id": "2bcd2b26-1143-495f-991f-a56926ebd529",
-            "note": "起因：开发卡的 acceptance / scope 在台账里已有一份，board.db 里还要手填一遍，容易漂移。目标：按 ADR-0001 做单向导入——读 board-ledger.json，按短号找到对应任务，只补 task_exec 里为空的 acceptance / scope / goal（note 首段），冲突只报告不覆盖，未建卡只报告不自动建；不提供反向写入台账的入口。本卡不阻塞正式发布。交付（2026-10-28）：按 ADR-0001 落地台账 → board.db 单向导入。新增 LedgerImport：parseLedgerFile 读 docs/board-ledger.json 的 cards（code/id/title/note/acceptance/scope）；findTaskId 优先按卡片 id 精确匹配，兜底按标题内嵌短号整词匹配（#R6-09 这类，与计划钩子同款正则）；importOne 只补 task_exec 里为空的字段 —— goal 取台账 note 的「目标：」段（无则取首段、去前缀、截 300 字符，避免长篇背景灌进 goal）、acceptance 与 scope 只在看板侧为空列表时补；两边都有且不同 → 记入 conflicts（带 field/ledger/board 三值）只报告不覆盖；台账有而看板没建卡 → 记入 missing，不自动建卡；importAll 返回 {imported, conflicts, missing, unchanged}，幂等（真实台账 78 卡实测：首导补 31 张，再导 0 变更）。importCard 支持单卡导入（短号大小写不敏感）。CLI：--import-ledger [path|短号]（参数是存在的文件按该台账全量导入，是短号只导一张，缺省自动探测仓库台账；utilityMode 不撞单实例锁，结果输出紧凑 JSON）。Main.qml 执行页签新增「台账导入」按钮（标题含短号才显示）：导入成功后把补进来的 goal/acceptance/scope 回填表单，冲突/未建卡/无变化各有提示。反向（board.db → 台账）没有代码路径，UI 无按钮，符合 ADR-0001「agent 不可能通过执行链路自授权改边界」。验收：ctest 20/20（tst_ledgerimport 9 用例：台账解析含坏 JSON 报错 / goalFromNote 四形态 / 全量导入只补空值且未建卡不自动建 / 二次导入幂等零变更 / 三项冲突全报出且原值保留 / missing 单卡 / 单卡导入大小写不敏感与不存在短号报错），--selftest 退出码 0，verify.ps1 全过，CLI 实测幂等。影响：不升 user_version、不加表；台账文件只读，本卡不提供任何写台账入口。",
+            "note": "起因：开发卡的 acceptance / scope 在台账里已有一份，board.db 里还要手填一遍，容易漂移。目标：按 ADR-0001 做单向导入——读 board-ledger.json，按短号找到对应任务，只补 task_exec 里为空的 acceptance / scope / goal（note 首段），冲突只报告不覆盖，未建卡只报告不自动建；不提供反向写入台账的入口。本卡不阻塞正式发布。交付（2026-10-28）：按 ADR-0001 落地台账 → board.db 单向导入。新增 LedgerImport：parseLedgerFile 读 docs/board-ledger.json 的 cards（code/id/title/note/acceptance/scope）；findTaskId 优先按卡片 id 精确匹配，兜底按标题内嵌短号整词匹配（#R6-09 这类，与计划钩子同款正则）；importOne 只补 task_exec 里为空的字段 —— goal 取台账 note 的「目标：」段（无则取首段、去前缀、截 300 字符，避免长篇背景灌进 goal）、acceptance 与 scope 只在看板侧为空列表时补；两边都有且不同 → 记入 conflicts（带 field/ledger/board 三值）只报告不覆盖；台账有而看板没建卡 → 记入 missing，不自动建卡；importAll 返回 {imported, conflicts, missing, unchanged}，幂等（真实台账 78 卡实测：首导补 31 张，再导 0 变更）。importCard 支持单卡导入（短号大小写不敏感）。CLI：--import-ledger [path|短号]（参数是存在的文件按该台账全量导入，是短号只导一张，缺省自动探测仓库台账；utilityMode 不撞单实例锁，结果输出紧凑 JSON）。Main.qml 执行页签新增「台账导入」按钮（标题含短号才显示）：导入成功后把补进来的 goal/acceptance/scope 回填表单，冲突/未建卡/无变化各有提示。反向（board.db → 台账）没有代码路径，UI 无按钮，符合 ADR-0001「agent 不可能通过执行链路自授权改边界」。验收：ctest 20/20（tst_ledgerimport 9 用例：台账解析含坏 JSON 报错 / goalFromNote 四形态 / 全量导入只补空值且未建卡不自动建 / 二次导入幂等零变更 / 三项冲突全报出且原值保留 / missing 单卡 / 单卡导入大小写不敏感与不存在短号报错），--selftest 退出码 0，verify.ps1 全过，CLI 实测幂等。影响：不升 user_version、不加表；台账文件只读，本卡不提供任何写台账入口。\n已完成 1 / 待做 0 —— 台账卡单向导入",
             "scope": [
                 "src/LedgerImport.*",
                 "src/TaskExec.*",
@@ -1575,7 +1624,7 @@
                 "R6-06"
             ],
             "id": "8dff38e0-71b9-4f66-9f64-4e088a1e0b90",
-            "note": "起因：R6 忙时直接拒绝，多卡只能一张张手工触发，派发器还谈不上编排。目标：task_run 增队列字段与全局并发上限（meta exec.concurrency，默认 1≤2）；Scheduler 消费循环按 position 取最早、并发达上限暂停、心跳超时回收；支持 pause/resume/reorder/skip；不升 user_version，新列 IF NOT EXISTS。",
+            "note": "起因：R6 忙时直接拒绝，多卡只能一张张手工触发，派发器还谈不上编排。目标：task_run 增队列字段与全局并发上限（meta exec.concurrency，默认 1≤2）；Scheduler 消费循环按 position 取最早、并发达上限暂停、心跳超时回收；支持 pause/resume/reorder/skip；不升 user_version，新列 IF NOT EXISTS。\n已完成 1 / 待做 0 —— 落地执行队列与调度器",
             "scope": [
                 "src/Database.cpp",
                 "src/TaskRunStore.*",
@@ -1598,7 +1647,7 @@
                 "R7-01"
             ],
             "id": "c01732ab-9086-40b1-8005-048bee527cd1",
-            "note": "起因：队列在后台跑，用户看不见也操作不了。目标：新增「执行队列」面板，列出 waiting/running 的 run（卡标题/步骤/已运行时长/最近一行日志）、并发指示 x/N、预计剩余；支持暂停/恢复队列、调序、跳过单条；卡面增加「队列中」态徽章。",
+            "note": "起因：队列在后台跑，用户看不见也操作不了。目标：新增「执行队列」面板，列出 waiting/running 的 run（卡标题/步骤/已运行时长/最近一行日志）、并发指示 x/N、预计剩余；支持暂停/恢复队列、调序、跳过单条；卡面增加「队列中」态徽章。\n已完成 1 / 待做 0 —— 队列视图与并发指示 UI",
             "scope": [
                 "qml/Main.qml",
                 "qml/components/TaskCard.qml",
@@ -1618,7 +1667,7 @@
                 "R7-01"
             ],
             "id": "fa8a90d7-8703-4b29-82a7-ff3d7b2e34b6",
-            "note": "起因：R6 只跑单步，复杂任务需多角色接力。目标：TaskExec.workflow 支持 steps[{role,agent,prompt,inputs,outputs,acceptance,scope}]；TaskRunner 按步逐步拉起（复用 R6-04），每步前记 git 基线、步后 ScopeMatcher 比对；每步产出 .neonboard/handoff/<card>/<role>.md，下一步注入上一步 handoff；每步独立 run（parent_run_id 关联、cost_ms 累计）。",
+            "note": "起因：R6 只跑单步，复杂任务需多角色接力。目标：TaskExec.workflow 支持 steps[{role,agent,prompt,inputs,outputs,acceptance,scope}]；TaskRunner 按步逐步拉起（复用 R6-04），每步前记 git 基线、步后 ScopeMatcher 比对；每步产出 .neonboard/handoff/<card>/<role>.md，下一步注入上一步 handoff；每步独立 run（parent_run_id 关联、cost_ms 累计）。\n已完成 1 / 待做 0 —— 角色链 workflow 引擎与 handoff 交接物",
             "scope": [
                 "src/TaskRunner.*",
                 "src/TaskExec.*",

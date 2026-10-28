@@ -208,6 +208,24 @@ neonboard_add_test(tst_runloop
 )
 target_link_libraries(tst_runloop PRIVATE Qt6::Sql)
 
+# R7-01：执行队列与调度器 —— FIFO 顺序 / 同卡防重 / 并发上限与背压 / 暂停·调序·跳过 /
+# 派发失败结算成 blocked / 孤儿回收不误杀排队条目 / schema 版本不变。
+# 不真拉起 agent 进程（用不存在的 agent 让 TaskRunner::start 立刻失败）。
+neonboard_add_test(tst_scheduler
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskExec.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskRunStore.cpp
+    ${CMAKE_SOURCE_DIR}/src/AgentProfile.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskRunner.cpp
+    ${CMAKE_SOURCE_DIR}/src/Scheduler.cpp
+)
+target_link_libraries(tst_scheduler PRIVATE Qt6::Sql)
+
 # R6-09：台账卡单向导入（ADR-0001）—— 只补空值 / 冲突只报告 / 未建卡只报告 /
 # 幂等 / note「目标：」段作 goal。台账 fixture 在临时目录，不碰真实台账。
 neonboard_add_test(tst_ledgerimport

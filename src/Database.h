@@ -74,6 +74,11 @@ private:
     bool migrateToV2(QString *error);
     bool exec(const QString &sql, QString *error = nullptr);
     bool execQuery(const QString &sql, QString *error = nullptr);
+    // 幂等补列：表已存在但没有该列时才 ALTER TABLE ADD COLUMN。
+    // 只给侧表用（task_link / task_extra / task_exec / task_run）——
+    // 主表 task 的列变更必须走 user_version 迁移，不许在这里加。
+    bool ensureColumn(const QString &table, const QString &column, const QString &definition,
+                      QString *error = nullptr);
 
     QSqlDatabase m_db;
     QString m_path;

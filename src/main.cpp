@@ -29,6 +29,7 @@
 #include "TaskExec.h"
 #include "TaskRunner.h"
 #include "TaskRunStore.h"
+#include "Scheduler.h"
 #include "TriageRunner.h"
 #include "LedgerImport.h"
 #include "TaskUndo.h"
@@ -265,6 +266,10 @@ int main(int argc, char *argv[])
 
     // 任务执行器（R6-04）：拉起 agent 进程 / 流式日志 / 超时·终止 / 生命周期
     TaskRunner taskRunner(&database, &taskRuns, &agentProfile, &taskExec);
+
+    // 执行队列调度器（R7-01）：FIFO + 并发≤2 + 背压 + 暂停/调序/跳过。
+    // 只负责「取队头交给 TaskRunner」，进程与门锁仍归 TaskRunner / TaskRunStore。
+    Scheduler scheduler(&database, &taskRuns, &taskRunner, &agentProfile, &taskExec, &taskStore);
 
     // Triage 只读分析（R6-07）：草案只写 meta 表，不进台账；只读靠
     // profile readonlyArgs + 分析前后 git status 一致两道硬门
@@ -685,6 +690,125 @@ int main(int argc, char *argv[])
             ok = runVersion.exec(QStringLiteral("PRAGMA user_version")) && runVersion.next()
                  && runVersion.value(0).toInt() == Database::kSchemaVersion && ok;
             qInfo() << "SELFTEST runs" << taskRuns.revision();
+        }
+
+        // 执行队列与调度器（R7-01）：新列存在 / 入队即排队 / 同卡防重 / 调序 / 跳过 /
+        // 并发上限钳制 / 队列不跨会话恢复 / user_version 仍不变
+        {
+            const QSqlDatabase queueConn = QSqlDatabase::database(database.connectionName());
+            // 新列必须都在（老库靠 ensureColumn 补，这里断言最终形态）
+            const QStringList requiredColumns = {
+                QStringLiteral("queue_status"), QStringLiteral("position"),
+                QStringLiteral("parent_run_id"), QStringLiteral("step_index"),
+                QStringLiteral("role"), QStringLiteral("handoff_path"),
+                QStringLiteral("cost_ms"),
+            };
+            QSqlQuery columnQuery(queueConn);
+            ok = columnQuery.exec(QStringLiteral("PRAGMA table_info(task_run)")) && ok;
+            QStringList actualColumns;
+            while (columnQuery.next())
+                actualColumns.append(columnQuery.value(1).toString());
+            for (const QString &column : requiredColumns)
+                ok = actualColumns.contains(column) && ok;
+
+            const QString queueTaskId = taskStore.addTask(QStringLiteral("selftest-queue"));
+            ok = !queueTaskId.isEmpty() && ok;
+            const QVariantMap queued = taskRuns.enqueue(queueTaskId);
+            const QString queuedRunId = queued.value(QStringLiteral("runId")).toString();
+            ok = queued.value(QStringLiteral("ok")).toBool() && !queuedRunId.isEmpty() && ok;
+            ok = queued.value(QStringLiteral("position")).toInt() > 0 && ok;
+            // 入队后该行是 queued/waiting，没有 started_at
+            const QVariantMap queuedRow = taskRuns.run(queuedRunId);
+            ok = queuedRow.value(QStringLiteral("status")).toString() == QStringLiteral("queued")
+                 && queuedRow.value(QStringLiteral("queueStatus")).toString()
+                        == QStringLiteral("waiting") && ok;
+            ok = queuedRow.value(QStringLiteral("startedAt")).isNull() && ok;
+            // 同卡再入队必须 busy（含排队中的自己）
+            const QVariantMap queueBusy = taskRuns.enqueue(queueTaskId);
+            ok = !queueBusy.value(QStringLiteral("ok")).toBool()
+                 && queueBusy.value(QStringLiteral("code")).toString() == QStringLiteral("busy")
+                 && ok;
+
+            // 加第二条排队，验证调序
+            const QString queueTaskId2 = taskStore.addTask(QStringLiteral("selftest-queue-2"));
+            const QVariantMap queued2 = taskRuns.enqueue(queueTaskId2);
+            const QString queuedRunId2 = queued2.value(QStringLiteral("runId")).toString();
+            ok = queued2.value(QStringLiteral("ok")).toBool() && ok;
+            ok = queued2.value(QStringLiteral("position")).toInt()
+                     > queued.value(QStringLiteral("position")).toInt() && ok;
+            // 第二条上移一次 → position 应排到第一条前面
+            ok = taskRuns.reorder(queuedRunId2, -1) && ok;
+            QSqlQuery orderQuery(queueConn);
+            orderQuery.prepare(QStringLiteral(
+                "SELECT id FROM task_run WHERE queue_status = 'waiting' "
+                "ORDER BY position ASC LIMIT 1"));
+            ok = orderQuery.exec() && orderQuery.next()
+                 && orderQuery.value(0).toString() == queuedRunId2 && ok;
+            // 只有两条时再上移无效（没有更早的 waiting）
+            ok = !taskRuns.reorder(queuedRunId2, -1) && ok;
+
+            // 跳过：终态 cancelled、queue_status=done、cost_ms=0，且不再出现在队列里
+            ok = taskRuns.skip(queuedRunId2) && ok;
+            const QVariantMap skipped = taskRuns.run(queuedRunId2);
+            ok = skipped.value(QStringLiteral("status")).toString() == QStringLiteral("cancelled")
+                 && skipped.value(QStringLiteral("queueStatus")).toString()
+                        == QStringLiteral("done") && ok;
+            ok = skipped.value(QStringLiteral("costMs")).toLongLong() == 0 && ok;
+            bool stillQueued = false;
+            for (const QVariant &row : taskRuns.waitingRuns())
+                stillQueued = stillQueued
+                              || row.toMap().value(QStringLiteral("id")).toString() == queuedRunId2;
+            ok = !stillQueued && ok;
+
+            // 派发：waiting → dispatching → acquire 提升为 running（不新建行）
+            ok = taskRuns.beginDispatch(queuedRunId) && ok;
+            const QVariantMap promoted = taskRuns.acquire(queueTaskId);
+            ok = promoted.value(QStringLiteral("ok")).toBool() && ok;
+            // 提升的是同一行，不是新 runId
+            ok = promoted.value(QStringLiteral("runId")).toString() == queuedRunId && ok;
+            const QVariantMap runningRow = taskRuns.run(queuedRunId);
+            ok = runningRow.value(QStringLiteral("status")).toString() == QStringLiteral("running")
+                 && runningRow.value(QStringLiteral("queueStatus")).toString()
+                        == QStringLiteral("running") && ok;
+            ok = !runningRow.value(QStringLiteral("startedAt")).isNull() && ok;
+            // 结算：queue_status=done，cost_ms 由 running 时长补（≥0）
+            ok = taskRuns.release(queuedRunId, QStringLiteral("passed")) && ok;
+            const QVariantMap finished = taskRuns.run(queuedRunId);
+            ok = finished.value(QStringLiteral("queueStatus")).toString()
+                        == QStringLiteral("done")
+                 && finished.value(QStringLiteral("costMs")).toLongLong() >= 0 && ok;
+
+            // 并发上限钳制：默认 1，设置只接受 1..2
+            ok = taskRuns.concurrency() == 1 && ok;
+            ok = taskRuns.setConcurrency(9) && taskRuns.concurrency() == TaskRunStore::kMaxConcurrency
+                 && ok;
+            ok = taskRuns.setConcurrency(2) && taskRuns.concurrency() == 2 && ok;
+            ok = taskRuns.setConcurrency(0) && taskRuns.concurrency() == 1 && ok;
+            // 暂停 / 恢复落 meta
+            ok = taskRuns.setQueuePaused(true) && taskRuns.queuePaused() && ok;
+            ok = taskRuns.setQueuePaused(false) && !taskRuns.queuePaused() && ok;
+
+            // 队列不跨会话恢复：重开 store 后残留的 waiting 行要变 cancelled
+            const QVariantMap leftover = taskRuns.enqueue(queueTaskId);
+            ok = leftover.value(QStringLiteral("ok")).toBool() && ok;
+            {
+                TaskRunStore reopened(&database);
+                const QVariantMap cancelledRow =
+                    reopened.run(leftover.value(QStringLiteral("runId")).toString());
+                ok = cancelledRow.value(QStringLiteral("status")).toString()
+                        == QStringLiteral("cancelled")
+                     && cancelledRow.value(QStringLiteral("queueStatus")).toString()
+                            == QStringLiteral("done") && ok;
+            }
+            // 恢复默认并发，别把自检的副作用留给真实实例
+            taskRuns.setConcurrency(1);
+            taskStore.deleteTask(queueTaskId);
+            taskStore.deleteTask(queueTaskId2);
+
+            QSqlQuery queueVersion(queueConn);
+            ok = queueVersion.exec(QStringLiteral("PRAGMA user_version")) && queueVersion.next()
+                 && queueVersion.value(0).toInt() == Database::kSchemaVersion && ok;
+            qInfo() << "SELFTEST queue" << taskRuns.revision();
         }
 
         // RRULE 下一期：DAILY / INTERVAL / WEEKLY+BYDAY / 月末钳制 / 非法规则
@@ -1366,6 +1490,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("agentProfile"), &agentProfile);
     engine.rootContext()->setContextProperty(QStringLiteral("taskRuns"), &taskRuns);
     engine.rootContext()->setContextProperty(QStringLiteral("taskRunner"), &taskRunner);
+    engine.rootContext()->setContextProperty(QStringLiteral("scheduler"), &scheduler);
     engine.rootContext()->setContextProperty(QStringLiteral("triageRunner"), &triageRunner);
     engine.rootContext()->setContextProperty(QStringLiteral("ledgerImport"), &ledgerImport);
     engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);

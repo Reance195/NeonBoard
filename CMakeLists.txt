@@ -78,6 +78,7 @@ qt_add_executable(NeonBoard
     src/TriageRunner.h src/TriageRunner.cpp
     src/LedgerImport.h src/LedgerImport.cpp
     src/Scheduler.h src/Scheduler.cpp
+    src/WorkflowRunner.h src/WorkflowRunner.cpp
     resources/neonboard.rc
 )
 

@@ -17,6 +17,13 @@
 
 namespace {
 
+// R7-03：步骤覆盖项存 meta（不往 task_exec 加列 —— 侧表加列要走 Database::ensureColumn，
+// 而 R7-03 的 scope 不含 Database.cpp；meta 同样不升 user_version）。
+QString stepsKey(const QString &taskId)
+{
+    return QStringLiteral("exec.workflowSteps.") + taskId;
+}
+
 QString encodeList(const QVariant &value)
 {
     QJsonArray array;
@@ -246,5 +253,175 @@ void TaskExec::removeRowFor(const QString &taskId)
     query.prepare(QStringLiteral("DELETE FROM task_exec WHERE task_id = ?"));
     query.addBindValue(taskId);
     query.exec();
+    // R7-03：步骤覆盖项跟着一起清，别留下指向已删卡的 meta 垃圾
+    m_database->removeMetaValue(stepsKey(taskId));
     bump();
+}
+
+// ---- 角色链步骤数组（R7-03）----
+
+QVariantList TaskExec::presetSteps(const QString &workflow)
+{
+    // 与 docs/product-design.md §7 的预设一致；顺序就是接力顺序。
+    const QString name = workflow.trimmed().toLower();
+    auto step = [](const QString &role, const QString &prompt) {
+        return QVariantMap{
+            {QStringLiteral("role"), role},
+            {QStringLiteral("agent"), QString()},
+            {QStringLiteral("prompt"), prompt},
+            {QStringLiteral("acceptance"), QVariantList()},
+            {QStringLiteral("scope"), QVariantList()},
+        };
+    };
+
+    if (name == QLatin1String("fix")) {
+        return {step(QStringLiteral("engineer"), QStringLiteral("按卡片定义修复问题")),
+                step(QStringLiteral("qa"), QStringLiteral("复核修复结果与回归风险"))};
+    }
+    if (name == QLatin1String("feature")) {
+        return {step(QStringLiteral("pm"), QStringLiteral("把需求拆成可交付的验收项")),
+                step(QStringLiteral("architect"), QStringLiteral("给出实现方案与改动边界")),
+                step(QStringLiteral("engineer"), QStringLiteral("按方案实现")),
+                step(QStringLiteral("qa"), QStringLiteral("验收实现与边界"))};
+    }
+    if (name == QLatin1String("hotfix")) {
+        // 单步修复：跳过评审，但 qa 仍然要跑（验收不能被省掉）
+        return {step(QStringLiteral("engineer"), QStringLiteral("紧急修复，最小改动面")),
+                step(QStringLiteral("qa"), QStringLiteral("确认紧急修复没有副作用"))};
+    }
+    if (name == QLatin1String("docs")) {
+        return {step(QStringLiteral("writer"), QStringLiteral("按卡片定义更新文档"))};
+    }
+    if (name == QLatin1String("review")) {
+        return {step(QStringLiteral("orchestrator"), QStringLiteral("只读复核：给结论与建议"))};
+    }
+    if (name == QLatin1String("delivery")) {
+        return {step(QStringLiteral("pm"), QStringLiteral("确认交付范围")),
+                step(QStringLiteral("architect"), QStringLiteral("确认方案与风险")),
+                step(QStringLiteral("engineer"), QStringLiteral("实现交付内容")),
+                step(QStringLiteral("qa"), QStringLiteral("完整验收")),
+                step(QStringLiteral("orchestrator"), QStringLiteral("收口：写 summary 与下一步建议"))};
+    }
+    return {};
+}
+
+bool TaskExec::isKnownRole(const QString &role)
+{
+    static const QStringList known = {
+        QStringLiteral("pm"),     QStringLiteral("architect"), QStringLiteral("engineer"),
+        QStringLiteral("qa"),     QStringLiteral("writer"),    QStringLiteral("orchestrator"),
+    };
+    return known.contains(role.trimmed().toLower());
+}
+
+QVariantMap TaskExec::normalizeSteps(const QVariantList &input)
+{
+    QVariantMap out;
+    if (input.isEmpty()) {
+        out.insert(QStringLiteral("ok"), false);
+        out.insert(QStringLiteral("error"), QStringLiteral("步骤数组不能为空"));
+        return out;
+    }
+
+    // acceptance / scope 必须是字符串数组（与 exec.acceptance 同一口径）
+    const auto cleanList = [](const QVariant &value, bool *ok) {
+        QVariantList list;
+        for (const QVariant &item : value.toList()) {
+            const QString text = item.toString().trimmed();
+            if (text.isEmpty()) {
+                *ok = false;
+                return list;
+            }
+            list.append(text);
+        }
+        *ok = true;
+        return list;
+    };
+
+    QVariantList normalized;
+    for (const QVariant &value : input) {
+        const QVariantMap raw = value.toMap();
+        const QString role = raw.value(QStringLiteral("role")).toString().trimmed().toLower();
+        if (!isKnownRole(role)) {
+            out.insert(QStringLiteral("ok"), false);
+            out.insert(QStringLiteral("error"),
+                       QStringLiteral("未知角色：%1").arg(role.isEmpty() ? QStringLiteral("<空>")
+                                                                      : role));
+            return out;
+        }
+        bool ok = true;
+        const QVariantList acceptance = cleanList(raw.value(QStringLiteral("acceptance")), &ok);
+        if (!ok) {
+            out.insert(QStringLiteral("ok"), false);
+            out.insert(QStringLiteral("error"),
+                       QStringLiteral("%1 步的 acceptance 必须是字符串数组").arg(role));
+            return out;
+        }
+        const QVariantList scope = cleanList(raw.value(QStringLiteral("scope")), &ok);
+        if (!ok) {
+            out.insert(QStringLiteral("ok"), false);
+            out.insert(QStringLiteral("error"),
+                       QStringLiteral("%1 步的 scope 必须是字符串数组").arg(role));
+            return out;
+        }
+
+        normalized.append(QVariantMap{
+            {QStringLiteral("role"), role},
+            {QStringLiteral("agent"), raw.value(QStringLiteral("agent")).toString().trimmed()},
+            {QStringLiteral("prompt"), raw.value(QStringLiteral("prompt")).toString().trimmed()},
+            {QStringLiteral("acceptance"), acceptance},
+            {QStringLiteral("scope"), scope},
+        });
+    }
+
+    out.insert(QStringLiteral("ok"), true);
+    out.insert(QStringLiteral("steps"), normalized);
+    return out;
+}
+
+QVariantList TaskExec::stepsOf(const QString &taskId) const
+{
+    if (!m_database || taskId.isEmpty())
+        return {};
+    // 卡片覆盖优先；没有覆盖项就用预设。两者都没有（workflow 未定）返回空表。
+    const QString raw = m_database->metaValue(stepsKey(taskId));
+    if (!raw.isEmpty()) {
+        const QJsonDocument doc = QJsonDocument::fromJson(raw.toUtf8());
+        if (doc.isArray()) {
+            const QVariantMap normalized = normalizeSteps(doc.toVariant().toList());
+            if (normalized.value(QStringLiteral("ok")).toBool())
+                return normalized.value(QStringLiteral("steps")).toList();
+        }
+    }
+    const QVariantMap exec = execOf(taskId);
+    return presetSteps(exec.value(QStringLiteral("workflow")).toString());
+}
+
+bool TaskExec::setSteps(const QString &taskId, const QVariantList &steps)
+{
+    if (!m_database || taskId.isEmpty())
+        return false;
+    if (!m_tasks || m_tasks->taskById(taskId).isEmpty())
+        return false;
+    const QVariantMap normalized = normalizeSteps(steps);
+    if (!normalized.value(QStringLiteral("ok")).toBool())
+        return false;
+    const QJsonArray array =
+        QJsonArray::fromVariantList(normalized.value(QStringLiteral("steps")).toList());
+    if (!m_database->setMetaValue(
+            stepsKey(taskId),
+            QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact))))
+        return false;
+    bump();
+    return true;
+}
+
+bool TaskExec::clearSteps(const QString &taskId)
+{
+    if (!m_database || taskId.isEmpty())
+        return false;
+    if (!m_database->removeMetaValue(stepsKey(taskId)))
+        return false;
+    bump();
+    return true;
 }

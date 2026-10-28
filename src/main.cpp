@@ -30,6 +30,9 @@
 #include "TaskRunner.h"
 #include "TaskRunStore.h"
 #include "Scheduler.h"
+#include "WorkflowRunner.h"
+#include "AcceptanceRunner.h"
+#include "ScopeMatcher.h"
 #include "TriageRunner.h"
 #include "LedgerImport.h"
 #include "TaskUndo.h"
@@ -270,6 +273,16 @@ int main(int argc, char *argv[])
     // 执行队列调度器（R7-01）：FIFO + 并发≤2 + 背压 + 暂停/调序/跳过。
     // 只负责「取队头交给 TaskRunner」，进程与门锁仍归 TaskRunner / TaskRunStore。
     Scheduler scheduler(&database, &taskRuns, &taskRunner, &agentProfile, &taskExec, &taskStore);
+
+    // 验收器与越界检查（R6-05）：角色链每步独立验收要用（R7-03 起真正接上）
+    AcceptanceRunner acceptanceRunner;
+    ScopeMatcher scopeMatcher;
+
+    // 角色链 workflow 引擎（R7-03）：按步骤数组逐步拉起 agent，每步一份 handoff。
+    // 每一步仍走 TaskRunner（进程 / 超时 / 日志 / 心跳复用 R6-04）。
+    WorkflowRunner workflowRunner(&database, &taskExec, &taskRuns, &taskRunner, &agentProfile,
+                                  &scopeMatcher, &acceptanceRunner);
+
 
     // Triage 只读分析（R6-07）：草案只写 meta 表，不进台账；只读靠
     // profile readonlyArgs + 分析前后 git status 一致两道硬门
@@ -1491,6 +1504,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskRuns"), &taskRuns);
     engine.rootContext()->setContextProperty(QStringLiteral("taskRunner"), &taskRunner);
     engine.rootContext()->setContextProperty(QStringLiteral("scheduler"), &scheduler);
+    engine.rootContext()->setContextProperty(QStringLiteral("workflowRunner"), &workflowRunner);
+    engine.rootContext()->setContextProperty(QStringLiteral("acceptanceRunner"), &acceptanceRunner);
+    engine.rootContext()->setContextProperty(QStringLiteral("scopeMatcher"), &scopeMatcher);
     engine.rootContext()->setContextProperty(QStringLiteral("triageRunner"), &triageRunner);
     engine.rootContext()->setContextProperty(QStringLiteral("ledgerImport"), &ledgerImport);
     engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);

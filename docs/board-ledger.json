@@ -1013,22 +1013,88 @@
             "title": "插件权限授权弹窗与来源提示"
         },
         "R4-01": {
+            "acceptance": [
+                "投递 agent-task-event v1 事件后插件建卡/流转/对账；同 sessionId+todoId 重复投递不增卡",
+                "docs/agent-task-event.md 的 envelope 字段与实现一致",
+                "build/Release/NeonBoard.exe --hook-event agent.task --emit-hook-file <tmp> 退出码 0"
+            ],
             "id": "70b49c4e-6102-4d8f-beda-33671c5b739e",
+            "scope": [
+                "plugins/agent-bridge/**",
+                "docs/agent-task-event.md",
+                "src/main.cpp"
+            ],
             "stage": "R4",
             "title": "R4 Agent 任务桥（通用事件协议 + opencode 适配器）"
         },
         "R4-02": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R \"tst_appactions|tst_windowsintegration\" --output-on-failure",
+                "第二次启动把动作转发给首个实例（单实例 key 生效）",
+                "任务栏跳转列表项可触发新建任务/打开看板"
+            ],
             "id": "51a132f8-ee80-40dd-a753-488336b123c9",
+            "scope": [
+                ".gitignore",
+                "AGENTS.md",
+                "CMakeLists.txt",
+                "README.md",
+                "docs/iteration-roadmap.md",
+                "docs/testing.md",
+                "docs/windows-integration.md",
+                "scripts/agent-init.ps1",
+                "src/AppActions.*",
+                "src/SingleInstance.*",
+                "src/WindowsIntegration.*",
+                "src/host/HostMain.cpp",
+                "src/main.cpp",
+                "tests/CMakeLists.txt",
+                "tests/tst_appactions.cpp",
+                "tests/tst_windowsintegration.cpp"
+            ],
             "stage": "R4",
             "title": "R4 Windows 原生集成：toast / 文件关联 / 跳转列表"
         },
         "R4-03": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R \"tst_boardcolumns|tst_taskcolumns|tst_databasemigration\" --output-on-failure",
+                "可增列/改名/调序/删列（删列把卡迁到目标列），列由数据库驱动渲染",
+                "老库升级后 user_version 正确且卡片不丢"
+            ],
             "id": "cffdfbbb-46f5-4cae-a2c3-d3e64e0d2047",
+            "scope": [
+                "CMakeLists.txt",
+                "docs/iteration-roadmap.md",
+                "docs/testing.md",
+                "qml/Main.qml",
+                "qml/components/BoardColumn.qml",
+                "qml/components/ColumnManager.qml",
+                "src/BoardColumns.*",
+                "src/Database.*",
+                "src/TaskFilterModel.*",
+                "src/TaskModel.*",
+                "src/TaskUndo.*",
+                "src/main.cpp",
+                "tests/CMakeLists.txt",
+                "tests/tst_boardcolumns.cpp",
+                "tests/tst_databasemigration.cpp",
+                "tests/tst_taskcolumns.cpp"
+            ],
             "stage": "R4",
             "title": "R4 多板 / 自定义列架构解锁"
         },
         "R4-04": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_databasemigration --output-on-failure",
+                "损坏的 board.db 启动时自动恢复并留备份，退出码 0",
+                "PRAGMA journal_mode 返回 wal"
+            ],
             "id": "a1880fc6-2060-4a72-b445-b3ba81fb8bad",
+            "scope": [
+                "README.md",
+                "src/Database.*",
+                "src/main.cpp"
+            ],
             "stage": "R4",
             "title": "R4 数据可靠性：WAL / 损坏恢复 / 迁移兼容"
         },
@@ -1049,18 +1115,61 @@
             "title": "R4 自动化测试体系 + CI 质量门禁"
         },
         "R4-06": {
+            "acceptance": [
+                "Tab/方向键可在列与卡片间移动，Enter 打开、Space 勾选完成",
+                "卡片暴露无障碍语义（QML Accessible.name/role 已设置）",
+                "build/Release/NeonBoard.exe --smoke 后沙箱日志无 QML 报错（grep ReferenceError|TypeError|Unable to assign）"
+            ],
             "id": "39d80b78-a666-49aa-b199-f363c5c2efc6",
+            "scope": [
+                "README.md",
+                "qml/Main.qml",
+                "qml/components/BoardColumn.qml",
+                "qml/components/TaskCard.qml"
+            ],
             "stage": "R4",
             "title": "R4 键盘完整性 / 无障碍"
         },
         "R4-07": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_uisettings --output-on-failure",
+                "首次启动显示三步引导并建示例卡；完成后不再自动弹出，可从设置重看",
+                "引导标记存 UiSettings（不再单开 ini 文件）"
+            ],
             "id": "a78db4c2-f1ec-45ba-8c43-915d8ca4bdb5",
+            "scope": [
+                "CMakeLists.txt",
+                "README.md",
+                "docs/iteration-roadmap.md",
+                "docs/testing.md",
+                "qml/Main.qml",
+                "qml/components/OnboardingOverlay.qml",
+                "qml/components/TaskComposer.qml",
+                "src/UiSettings.*",
+                "tests/CMakeLists.txt",
+                "tests/tst_uisettings.cpp"
+            ],
             "stage": "R4",
             "title": "R4 首次体验引导"
         },
         "R4-08": {
+            "acceptance": [
+                "pwsh -File scripts/build.ps1 使用 Ninja 生成器构建成功",
+                "第二次构建 sccache 命中（构建日志可见命中率，耗时下降）",
+                "scripts/add-defender-exclusion.ps1 幂等可重复执行（管理员下）"
+            ],
             "id": "6067b32f-68b8-4b07-a63b-d8ad54fd153d",
             "note": "已完成 0 / 待做：Ninja 构建器接入、编译缓存（sccache/ccache）、Defender 排除 build 目录、Main.qml 拆分；保留 QML 预编译不动（启动速度优先）。",
+            "scope": [
+                ".github/workflows/ci.yml",
+                "CMakeLists.txt",
+                "README.md",
+                "qml/Main.qml",
+                "qml/components/FocusBadge.qml",
+                "qml/components/WindowButtons.qml",
+                "scripts/add-defender-exclusion.ps1",
+                "scripts/build.ps1"
+            ],
             "stage": "R4",
             "title": "R4 构建与编译提速：Ninja / sccache / Defender 排除 / Main.qml 拆分"
         },

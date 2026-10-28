@@ -58,6 +58,18 @@ public:
     QString defaultAgent() const;
     Q_INVOKABLE bool setDefaultAgent(const QString &id);
 
+    // ---- 角色 → agent 映射（R7-04）----
+    // 角色链每步缺 agent 时按角色取默认 agent（meta exec.roleAgents，JSON 对象）。
+    // 不校验角色名是否「已知」—— 角色白名单归 TaskExec，本类只当键值对存取，
+    // 免得为一次校验把 TaskExec 依赖拉进 AgentProfile 的测试目标。
+    QVariantMap roleAgents() const;
+    // 某角色对应的 agent：映射命中且该 profile 仍存在才返回，否则回落 defaultAgent()。
+    Q_INVOKABLE QString agentForRole(const QString &role) const;
+    // 设某角色的 agent；agentId 为空表示清除该角色映射。未知 profile 拒绝。
+    Q_INVOKABLE bool setRoleAgent(const QString &role, const QString &agentId);
+    // 清空整张角色映射表。
+    Q_INVOKABLE bool clearRoleAgents();
+
     // cwd 白名单（meta exec.trustedCwds）：首次执行前需在确认框勾选「信任本目录」。
     QStringList trustedCwds() const;
     Q_INVOKABLE bool isTrustedCwd(const QString &cwd) const;

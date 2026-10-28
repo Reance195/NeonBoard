@@ -16,6 +16,7 @@ const QString kProfilesKey = QStringLiteral("exec.agentProfiles");
 const QString kEnabledKey = QStringLiteral("exec.enabled");
 const QString kDefaultAgentKey = QStringLiteral("exec.defaultAgent");
 const QString kTrustedKey = QStringLiteral("exec.trustedCwds");
+const QString kRoleAgentsKey = QStringLiteral("exec.roleAgents");
 
 const QStringList kPromptModes = {
     QStringLiteral("arg"), QStringLiteral("stdin"),
@@ -389,6 +390,72 @@ bool AgentProfile::setDefaultAgent(const QString &id)
     if (ok)
         bump();
     return ok;
+}
+
+// ---- 角色 → agent 映射（R7-04）----
+
+QVariantMap AgentProfile::roleAgents() const
+{
+    if (!m_database)
+        return {};
+    // 存的是 JSON 对象（role → agentId），不是数组；单独解析，别复用 decodeArray
+    const QString text = m_database->metaValue(kRoleAgentsKey);
+    if (text.isEmpty())
+        return {};
+    const QJsonDocument doc = QJsonDocument::fromJson(text.toUtf8());
+    if (!doc.isObject())
+        return {};
+    return doc.object().toVariantMap();
+}
+
+QString AgentProfile::agentForRole(const QString &role) const
+{
+    const QString wanted = role.trimmed().toLower();
+    if (!wanted.isEmpty()) {
+        const QString mapped = roleAgents().value(wanted).toString().trimmed();
+        if (!mapped.isEmpty() && !profileOf(mapped).isEmpty())
+            return mapped;
+    }
+    return defaultAgent();
+}
+
+bool AgentProfile::setRoleAgent(const QString &role, const QString &agentId)
+{
+    if (!m_database)
+        return false;
+    const QString wanted = role.trimmed().toLower();
+    if (wanted.isEmpty())
+        return false;
+
+    QVariantMap map = roleAgents();
+    const QString agent = agentId.trimmed();
+    if (agent.isEmpty()) {
+        if (!map.contains(wanted))
+            return true;
+        map.remove(wanted);
+    } else {
+        if (profileOf(agent).isEmpty())
+            return false; // 不许把角色指到不存在的 profile
+        map.insert(wanted, agent);
+    }
+
+    if (map.isEmpty())
+        return clearRoleAgents();
+    const QJsonDocument doc(QJsonObject::fromVariantMap(map));
+    if (!m_database->setMetaValue(kRoleAgentsKey,
+                                  QString::fromUtf8(doc.toJson(QJsonDocument::Compact))))
+        return false;
+    bump();
+    return true;
+}
+
+bool AgentProfile::clearRoleAgents()
+{
+    if (!m_database)
+        return false;
+    m_database->removeMetaValue(kRoleAgentsKey);
+    bump();
+    return true;
 }
 
 QStringList AgentProfile::trustedCwds() const

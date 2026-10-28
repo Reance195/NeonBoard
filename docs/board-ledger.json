@@ -953,11 +953,13 @@
                 "R7-03"
             ],
             "id": "c8cda60b-1cb0-4727-808e-c0dd4a7f4d47",
-            "note": "目标：内置可编辑预设 fix/feature/hotfix/docs/review/delivery（存 board.db meta）；orchestrator 按 triage estimate 或卡片大小选 workflow，失败分支（qa→engineer）受 maxAttempts 约束，收口写 summary.md 并给「建议下一步」；小任务走 fix 不允许跳 qa；执行前确认框展示完整 workflow 与交接物契约。",
+            "note": "目标：内置可编辑预设 fix/feature/hotfix/docs/review/delivery（存 board.db meta）；orchestrator 按 triage estimate 或卡片大小选 workflow，失败分支（qa→engineer）受 maxAttempts 约束，收口写 summary.md 并给「建议下一步」；小任务走 fix 不允许跳 qa；执行前确认框展示完整 workflow 与交接物契约。【交付 2026-10-29 / agent-r7 / feature/r7-presets】① 新增 WorkflowPresets（src/WorkflowPresets.*）：六条内置预设（steps 角色序与 TaskExec::presetSteps 一致，单测逐条断言），预设与「规模→workflow」映射表存 meta（exec.presets / exec.presets.routing），可编辑、删键即回内置，不升 user_version；routeFor 按 triage estimate.size 选型（缺则按卡片 title/priority 兜底）；skippableSteps/stepsFor 只在小任务裁 pm/architect，qa 由硬规则 isProtectedRole 挡在 skippable 之外（永不裁）。② AgentProfile 增角色→agent 映射（meta exec.roleAgents）：agentForRole 解析每步默认 agent，回落 defaultAgent。③ WorkflowRunner 经 setPresets 注入：卡片未选 workflow 时 orchestrator 选型、无覆盖时按可编辑预设展开步骤（按规模裁剪）、每步缺 agent 时按角色解析；用 setter 注入而非改构造签名，既有 tst_workflow 零改动。④ buildSummary 收口给出逐步结果/累计耗时/建议下一步。⑤ 新增 tests/tst_workflowpresets 9 例。【实际改动纳入 scope】src/WorkflowRunner.*、src/main.cpp（本卡原 scope 漏列，一并补入）。未做：qa 失败在链内回灌 engineer（沿用 TaskRunner 的 maxAttempts，见头注「不做的」）；确认框展示步骤的 QML UI（不在本卡 scope）。已完成 5 / 待做 0。",
             "scope": [
                 "src/WorkflowPresets.*",
                 "src/TaskRunner.*",
                 "src/AgentProfile.*",
+                "src/WorkflowRunner.*",
+                "src/main.cpp",
                 "tests/tst_workflowpresets.cpp",
                 "tests/CMakeLists.txt",
                 "CMakeLists.txt"
@@ -1008,6 +1010,13 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {},
+    "claims": {
+        "R7-04": {
+            "agent": "agent-r7",
+            "branch": "feature/r7-presets",
+            "claimedAt": 1793210033,
+            "head": "9360e0e18719f18b725c55eaf62735d5f7e3e90d"
+        }
+    },
     "version": 1
 }

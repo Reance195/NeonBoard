@@ -2128,6 +2128,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R8-03": {
+            "agent": "agent-r8c",
+            "branch": "feature/r8-card-detail",
+            "claimedAt": 1793213329,
+            "head": "9c7ef8d8121547169009fdeb4620496f3c3c8dad"
+        }
+    },
     "version": 1
 }

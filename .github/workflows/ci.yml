@@ -82,6 +82,17 @@ jobs:
           python scripts/task_gate.py selftest
           if ($LASTEXITCODE -ne 0) { throw '代登记审计自测未通过：允许/拒绝用例与预期不符' }
 
+      - name: 一分支多卡自测（DX-03）
+        shell: pwsh
+        run: |
+          # 领用闸门原先「一个分支只允许领一张卡」，与 task_gate push 的逐提交校验打架：
+          # 两卡一分支时第二张无处领用，只能把占位建在一次性分支上再释放（属于绕行）。
+          # 现口径改为「每个出现在分支上的短号都必须各自持证」—— 多领合法、缺证照拒，
+          # 顺带能识别「先写代码后补领用」的方向倒置（只告警）。
+          # 判定实现在 scripts/check_claim_refs.py（唯一实现），此处只跑其纯函数自测。
+          python scripts/check_claim_refs.py --selftest
+          if ($LASTEXITCODE -ne 0) { throw '一分支多卡自测未通过：短号提取 / 方向告警用例与预期不符' }
+
       - name: 领用闸门（服务端 claim ref）
         if: github.event_name == 'pull_request'
         shell: pwsh

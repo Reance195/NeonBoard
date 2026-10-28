@@ -271,11 +271,27 @@ if (Test-Path -LiteralPath $wsScript) {
 #      把 claims[<code>] = {agent, branch, head, claimedAt} 写进**本 worktree** 的台账副本
 #   3) 第二个提交把登记落进分支；合并回 main 后 CI 派生即可识别 doing
 #   4) 显式 --emit-hook-file 投一次 #<code>=doing 兜底（不阻塞、幂等）
+#
+# 一分支多卡（DX-03）：在同一个检出里再跑一次 -InPlace -Card <另一张卡> 就是补领，
+# 会**追加**一条领用登记而不重写已有的。所以这里必须先判「本卡是否已领」——
+# 已领就整段跳过，否则每补领一次都会多出两条同卡号的领用提交（实测踩过）。
 if ($Card) {
     $code = $Card.TrimStart('#').ToUpperInvariant()
     if ($code -notmatch '^([A-Za-z]{1,4}\d*-\d+|M\d+)$') {
         throw "领用失败：-Card 需为路线图短号（如 R3-01 / M19），收到：$Card"
     }
+
+    # 幂等门：本分支历史里已有该短号的领用提交 → 不重复领用
+    $claimSubject = "chore(claim): 领取 #{0} 实施任务" -f $code
+    $branchSubjects = @(& git -C $worktree log --format=%s 2>$null)
+    if ($branchSubjects -contains $claimSubject) {
+        Write-Host ("· #{0} 已在本分支领用，跳过重复登记（一分支多卡允许，只补缺的卡）" -f $code) -ForegroundColor DarkGray
+        $Card = ''
+    }
+}
+
+if ($Card) {
+    $code = $Card.TrimStart('#').ToUpperInvariant()
 
     # 子卡领用需要读本地看板的父子边；数据目录口径统一走 nb-paths.ps1
     . (Join-Path $repoRoot 'scripts\nb-paths.ps1')

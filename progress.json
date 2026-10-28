@@ -1,42 +1,6 @@
 {
     "items": [
         {
-            "code": "R7-01",
-            "completedAt": 0,
-            "createdAt": 1793123355,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "8dff38e0-71b9-4f66-9f64-4e088a1e0b90",
-            "note": "起因：R6 忙时直接拒绝，多卡只能一张张手工触发，派发器还谈不上编排。目标：task_run 增队列字段与全局并发上限（meta exec.concurrency，默认 1≤2）；Scheduler 消费循环按 position 取最早、并发达上限暂停、心跳超时回收；支持 pause/resume/reorder/skip；不升 user_version，新列 IF NOT EXISTS。",
-            "orderKey": 11264,
-            "priority": 2,
-            "stage": "R7",
-            "status": "todo",
-            "tags": [
-                "R7"
-            ],
-            "title": "R7 执行队列与调度器：FIFO + 并发≤2 + 背压 + 暂停/调序/跳过",
-            "updatedAt": 1793123355
-        },
-        {
-            "code": "R7-02",
-            "completedAt": 0,
-            "createdAt": 1793123355,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "c01732ab-9086-40b1-8005-048bee527cd1",
-            "note": "起因：队列在后台跑，用户看不见也操作不了。目标：新增「执行队列」面板，列出 waiting/running 的 run（卡标题/步骤/已运行时长/最近一行日志）、并发指示 x/N、预计剩余；支持暂停/恢复队列、调序、跳过单条；卡面增加「队列中」态徽章。",
-            "orderKey": 12288,
-            "priority": 2,
-            "stage": "R7",
-            "status": "todo",
-            "tags": [
-                "R7"
-            ],
-            "title": "R7 队列视图与并发指示 UI",
-            "updatedAt": 1793123355
-        },
-        {
             "code": "R7-03",
             "completedAt": 0,
             "createdAt": 1793123355,
@@ -839,6 +803,24 @@
             "updatedAt": 1792748225
         },
         {
+            "code": "R7-01",
+            "completedAt": 1793209658,
+            "createdAt": 1793123355,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "8dff38e0-71b9-4f66-9f64-4e088a1e0b90",
+            "note": "起因：R6 忙时直接拒绝，多卡只能一张张手工触发，派发器还谈不上编排。目标：task_run 增队列字段与全局并发上限（meta exec.concurrency，默认 1≤2）；Scheduler 消费循环按 position 取最早、并发达上限暂停、心跳超时回收；支持 pause/resume/reorder/skip；不升 user_version，新列 IF NOT EXISTS。",
+            "orderKey": 11264,
+            "priority": 2,
+            "stage": "R7",
+            "status": "done",
+            "tags": [
+                "R7"
+            ],
+            "title": "R7 执行队列与调度器：FIFO + 并发≤2 + 背压 + 暂停/调序/跳过",
+            "updatedAt": 1793209658
+        },
+        {
             "code": "M02",
             "completedAt": 1792588621,
             "createdAt": 1792572839,
@@ -893,6 +875,24 @@
             ],
             "title": "PluginEventBus + PluginRuntime：事件总线与后台运行时",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "R7-02",
+            "completedAt": 1793209658,
+            "createdAt": 1793123355,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "c01732ab-9086-40b1-8005-048bee527cd1",
+            "note": "起因：队列在后台跑，用户看不见也操作不了。目标：新增「执行队列」面板，列出 waiting/running 的 run（卡标题/步骤/已运行时长/最近一行日志）、并发指示 x/N、预计剩余；支持暂停/恢复队列、调序、跳过单条；卡面增加「队列中」态徽章。",
+            "orderKey": 12288,
+            "priority": 2,
+            "stage": "R7",
+            "status": "done",
+            "tags": [
+                "R7"
+            ],
+            "title": "R7 队列视图与并发指示 UI",
+            "updatedAt": 1793209658
         },
         {
             "code": "R3-05",
@@ -2149,6 +2149,6 @@
             "updatedAt": 1793207091
         }
     ],
-    "updated": "2026-10-28T17:34:01",
+    "updated": "2026-10-28T17:47:38",
     "version": 3
 }

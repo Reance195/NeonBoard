@@ -142,15 +142,14 @@ git branch -d feature/<简述>
    **agent 不得自行加卡、改卡的标题/阶段、改 `baseline`** —— 否则就是自授权，
    所有领用闸门都会退化成自证；agent 只能写 `claims` 领用登记与卡片 `note` 交付说明。
 
-   > **例外：维护者可显式授权代登记。** 授权必须由维护者在会话中对**具体批次**明确下达，
-   > 且只能在**锚点区**执行（`scripts/task_gate.py ledger` 对锚点区不拦截）。
+   > **例外：维护者可显式授权代登记。** 授权必须由维护者在会话中对**具体批次**明确下达。
    > 代登记只允许追加卡片与对应的 `baseline`，不得改既有卡的 `id` / `title` / `stage`；
    > agent 不得以授权为名自行加卡，也不得通过临时 worktree、修改判定脚本或 `--no-verify` 绕过。
    > 提交信息统一用 `chore(board): ...`，并在 body 记录授权来源与批次。
    >
-   > **这条例外已被做成可审计事实（DX-06）**，不再靠自报：锚点区任何改动台账
-   > **任务定义**（新增/删除卡、改 `id`/`title`/`stage`、改 `baseline`）的提交，都过
-   > `scripts/task_gate.py message` 的三道内容校验，缺一即拒：
+   > **判定凭「内容」而非「位置」**（DX-06 建立、DX-07 修正）：只要一次提交改了台账的
+   > **任务定义**（新增/删除卡、改 `id`/`title`/`stage`、改 `baseline`），无论它来自哪个检出，
+   > 都过 `scripts/task_gate.py message` 的三道内容校验，缺一即拒：
    >
    > 1. 类型必须是 `chore(board)` —— 用 `feat` / `docs` 等语义夹带走卡片会被拒；
    > 2. body 必须同时有 `授权：` 与 `批次：` 两行（各自后面写授权来源 / 本批卡号）；
@@ -159,6 +158,12 @@ git branch -d feature/<简述>
    > 只改 `claims` 或卡片 `note` 不算代登记，无需凭证。判定逻辑只有一处实现
    > （`scripts/task_gate.py` 的 `audit_problems`），自带允许/拒绝各若干例的可执行自测
    > `python scripts/task_gate.py selftest`，CI 每次都跑。
+   >
+   > **为什么不再限定「只能在锚点区」**：锚点区检出停在 `main`、`pre-commit` 规则 1 禁止在
+   > `main` 提交、§7.1 又禁止 agent 在锚点区切分支 —— 三条叠加后，「只能在锚点区代登记」
+   > 等于**没有任何合法执行位置**（DX-07 实测被三道闸门连续拒）。位置不是凭证，提交信息里的
+   > 授权行才是；`cmd_ledger`（`pre-commit` 阶段，手里没有提交信息）只负责提前告知要写什么，
+   > 真判定留给 `cmd_message`（`commit-msg` 阶段）。
 
 2. 用 `scripts/agent-init.ps1 -Card <短号>` 开区，脚本会推 `refs/claims/<短号>` 完成领用；
    `baseline=<短号> done` 的卡已完成，**拒绝重新领用**。
@@ -173,9 +178,19 @@ git branch -d feature/<简述>
 唯一的规则实现是 `scripts/task_gate.py`（`scope` / `message` / `ledger` / `push` 四个子命令），
 钩子与 `git-done.ps1` 都调它，**不要在多处重复实现判定逻辑**。
 
-**baseline 漂移只报不改**：`scripts/derive_board_status.py --baseline-check` 对比 git 历史里的 `#短号=done`
-与台账 `baseline`，打印「漂移项 / 缺项」清单并**恒退出 0**；CI 有专门一步（只打警告）。
-`baseline` 归维护者，任何脚本与 agent 都不得由这个检查代改（代登记见上面的例外条款）。
+**结卡自动化（DX-07 起）**：`baseline=<短号> done` 是「拒绝重新领用」的唯一门，过去靠维护者
+记得批量结 —— 一定漂，每漂一次已交付的卡就能被再领一遍重做（`docs/pitfalls.md` 1.14 踩过，
+7.1 曾记作「待拍板」）。现在**合入即结**：`git-done.ps1` 在合并推送成功后调
+`derive_board_status.py --close-cards`，从 git 事实（最后一次 `#<短号>=` 标记）把 baseline
+补成 `done`（缺 baseline 条目的卡按标记补 `done` / `todo`），作为独立的
+`chore(board): 结卡 <短号>` 提交快进补推；提交或补推失败只回滚该提交，不阻断已完成的合并。
+
+- **agent 仍不得手改 `baseline`**：自动结卡只由 `git-done` 的收尾步骤执行（提交体注明「自动来源」），
+  agent 手改仍被 `task_gate.py` 拒 —— 「谁改」与「怎么改」是两件事，别混。
+- `derive_board_status.py --baseline-check` 从「只报不改的待决项」降级为**回归探针**：
+  漂移非零只说明那次结卡提交没成功（离线 / 撞车 / 脚本失败），CI 打警告但不阻断 job。
+- 自测：`python scripts/derive_board_status.py --selftest`（有标记则结 / 无标记不动 /
+  已结不重复 / 缺条目补 todo 而非 done / 幂等 / 不擅自重开），CI 每次跑。
 
 5. 卡片应声明 `acceptance`（可执行验收项）与 `scope`（允许改动的路径 glob），
    规范见 `docs/task-card.md`。`agent-init.ps1 -Card <短号>` 会把它们注入工作区的

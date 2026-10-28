@@ -219,12 +219,24 @@ jobs:
           python scripts/derive_board_status.py --check
           if ($LASTEXITCODE -ne 0) { throw '看板状态与提交历史/台账不一致，请运行 python scripts/derive_board_status.py --write 后提交' }
 
-      - name: 台账 baseline 漂移提示（只报不改）
+      - name: 结卡自测（DX-07）
         shell: pwsh
         run: |
           # baseline=<短号> done 是「拒绝重新领用」的门（AGENTS.md 条款 6）。
-          # git 历史里已有 #短号=done 而 baseline 还停在 todo，等于已交付的卡能被任何人再领一遍。
-          # baseline 归维护者，所以这一步只打印清单、不改台账、也不影响 job 结论（docs/pitfalls.md 7.1）。
+          # 过去靠维护者记得批量结 —— 一定漂；每漂一次，已交付的卡就能被再领一遍重做
+          # （docs/pitfalls.md 1.14 踩过，7.1 曾记作「待拍板」）。DX-07 起由 git-done 收尾的
+          # `derive_board_status.py --close-cards` 按 git 标记自动结。
+          # 判定实现在 derive_board_status.py（纯函数 close_cards），此处跑它的自测：
+          # 有标记则结 / 无标记不动 / 已结不重复 / 缺条目补 todo 而非 done / 幂等 / 不擅自重开。
+          python scripts/derive_board_status.py --selftest
+          if ($LASTEXITCODE -ne 0) { throw '结卡自测未通过：结卡判定用例与预期不符' }
+
+      - name: 台账 baseline 漂移回归探针（DX-07 起从待决项降为探针）
+        shell: pwsh
+        run: |
+          # DX-07 之前这一步的定位是「只报不改的待决项」（pitfalls 7.1）。结卡自动化后，
+          # 它降级为**回归探针**：漂移非零说明 git-done 那次结卡提交没成功（离线/撞车/脚本失败）。
+          # 仍不阻断 job —— 结卡失败不该连带整轮红，但必须让人看见。
           python scripts/derive_board_status.py --baseline-check
           if ($LASTEXITCODE -ne 0) {
             Write-Host "· baseline 检查未能完成（退出码 $LASTEXITCODE），按设计不阻断本 job" -ForegroundColor Yellow

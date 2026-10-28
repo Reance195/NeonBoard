@@ -7,6 +7,8 @@
         "DX-05": "done",
         "DX-06": "done",
         "DX-07": "done",
+        "DX-08": "todo",
+        "DX-09": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -222,6 +224,43 @@
             ],
             "stage": "DX",
             "title": "DX 结卡权自动化：合入 #短号=done 时同步台账 baseline，漂移不再靠人批量结"
+        },
+        "DX-08": {
+            "acceptance": [
+                "应用运行中修改 docs/iteration-roadmap.md §9 表格行（新增/重排/删除），1 秒内阶段条自动更新，无需重启",
+                "文件写坏（如表格缺列）时不崩溃：保留上一次有效的阶段集合，并在日志给出一次告警",
+                "不引入轮询：复用 ProjectMap 已有的 QFileSystemWatcher + 700ms 防抖",
+                "ctest 全绿；--smoke 后沙箱日志无 QML 报错（grep ReferenceError/TypeError/Unable to assign）"
+            ],
+            "id": "79da14c1-83e7-443a-9f45-b2004d136e5e",
+            "note": "对应 GitHub issue #11（DX-04 交付遗留）。阶段条数据已跟随 ProjectMap::stageOrder()（读路线图 §9 行序），但 qml/Main.qml 的 refreshStageData() 只挂在 taskStore.onCountsChanged 上，所以改了 §9 必须重启才可见；而面板的 ProjectMap 本身有 watcher（QFileSystemWatcher + 700ms 防抖 → refresh() → emit changed()）。修法：在 Main.qml 增加一个 target 为 projectMap 的 Connections，onChanged 里调 refreshStageData()，与面板共用同一份变更信号。验收第 2 条要求「写坏时不崩溃且保留上次有效集合」——需确认 stageOrder() 在解析失败时的行为，必要时补回退。",
+            "scope": [
+                "qml/Main.qml",
+                "src/ProjectMap.cpp",
+                "src/ProjectMap.h",
+                "tests/**",
+                "docs/board-ledger.json"
+            ],
+            "stage": "DX",
+            "title": "DX 阶段条监听路线图变更：§9 增删/重排无需重启即生效（#11）"
+        },
+        "DX-09": {
+            "acceptance": [
+                "docs/board-ledger.json 的 cards[*].acceptance 覆盖率 100%，每项是可执行命令或可观察断言",
+                "docs/board-ledger.json 的 cards[*].scope 覆盖率 100%，能覆盖该卡实际改动过的路径",
+                "python scripts/check_scope.py --card <短号> --base origin/main 对已合并的历史卡不报错",
+                "python scripts/derive_board_status.py --check 与 --baseline-check 均不因此失败",
+                "分 3 批交付（R0~R3 / R4~R6 / DX+R7），每批单独提交并各自可回滚"
+            ],
+            "id": "50355560-9fa2-4d02-a9a7-dc6034639d74",
+            "note": "对应 GitHub issue #2。现状 80 张卡里 31 张有 acceptance/scope（首批补齐在 DX-01~DX-07 之间陆续做过），缺口在各历史阶段卡上。按维护者 2026-10-29 授权分 3 批：批一 R0~R3、批二 R4~R6、批三 DX 与 R7。关键纪律：scope 必须回溯该卡**实际改过**的路径（用 git log 该短号的提交反查），不得凭标题猜路径 —— 猜出来的 scope 会让 check_scope.py 的门禁变成自证。本卡只允许改 docs/，不触及卡片 id/title/stage。",
+            "scope": [
+                "docs/board-ledger.json",
+                "docs/task-card.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "DX",
+            "title": "DX 卡片验收字段补全：acceptance/scope 覆盖率归零缺口（#2，分 3 批）"
         },
         "M01": {
             "id": "9bddece6-d4f8-4963-990e-b9d27a06d7c1",

@@ -972,13 +972,15 @@
             ],
             "depends": [],
             "id": "5109ad17-773d-4d56-b47a-9728d5befce9",
-            "note": "起因：顶区（标题行 + 阶段条 + 统计横幅）合计约 190 px 垂直占用，把三列看板压扁；其中「工作台」24 px 大标题是每屏不变的装饰性文案，而 3 块 110×48 的统计盒只为放 3 个数字 —— 信息密度低、视觉重量失衡。目标：标题降到 18 px 并与副标题收紧行距；统计指标改为单行「状态带」（待办 / 进行中 / 今日完成 / 逾期），去掉大盒子，改为细分隔线分组 + 零值降饱和；整条顶区垂直占用至少压缩 40 px，腾给看板。非目标：不看板列与卡片本体，不改数据结构。",
+            "note": "起因：顶区（标题行 + 阶段条 + 统计横幅）合计约 190 px 垂直占用，把三列看板压扁；其中「工作台」24 px 大标题是每屏不变的装饰性文案，而 3 块 110×48 的统计盒只为放 3 个数字 —— 信息密度低、视觉重量失衡。目标：标题降到 18 px 并与副标题收紧行距；统计指标改为单行「状态带」（待办 / 进行中 / 今日完成 / 逾期），去掉大盒子，改为细分隔线分组 + 零值降饱和；整条顶区垂直占用至少压缩 40 px，腾给看板。非目标：不看板列与卡片本体，不改数据结构。交付（2026-10-29）：已完成 —— 标题 18 px 且与副标题同行；新增 qml/components/TopStatBar.qml 单行状态带（待办 / 进行中 / 今日完成 / 逾期，零值降饱和、逾期用危险色）；StatChip.qml 改为紧凑指标项。顶区垂直占用 190 → 140 px，实测省 50 px（前后截图对比：看板列区起点上移 75 物理 px / dpr 1.5）。验收：ctest 4/4 通过、--selftest 与 --smoke 退出码 0、冒烟日志无 QML 错误。待做：无（看板列与卡片本体另开卡）。",
             "scope": [
                 "qml/Main.qml",
                 "qml/components/TopStatBar.qml",
                 "qml/components/StatChip.qml",
                 "qml/theme/Theme.qml",
-                "CMakeLists.txt"
+                "CMakeLists.txt",
+                "README.md",
+                "docs/iteration-roadmap.md"
             ],
             "stage": "R11",
             "title": "R11 顶栏信息层级重排：标题瘦身 + 统计状态带"
@@ -994,14 +996,16 @@
                 "R11-01"
             ],
             "id": "6f3631a5-c658-423f-b4c3-395d95cb5b03",
-            "note": "起因：标题栏「全景」「＋ 新建」两处按钮是同一套样式各抄一遍（圆角 / 边框 / 悬浮色硬编码 rgba(Theme.cyan, ...)），统计横幅与阶段条又各自用另一套圆角与边框 alpha；改主题时这几处不会跟着走。目标：抽出 TopToolButton 单一实现（圆角 / 高度 / 内边距 / 悬浮态统一），新增 Theme 语义令牌（hairline / glow / 面板描边层级），顶栏与横幅内不再出现颜色字面量。非目标：不改窗口按钮与主题预设本身。",
+            "note": "起因：标题栏「全景」「＋ 新建」两处按钮是同一套样式各抄一遍（圆角 / 边框 / 悬浮色硬编码 rgba(Theme.cyan, ...)），统计横幅与阶段条又各自用另一套圆角与边框 alpha；改主题时这几处不会跟着走。目标：抽出 TopToolButton 单一实现（圆角 / 高度 / 内边距 / 悬浮态统一），新增 Theme 语义令牌（hairline / glow / 面板描边层级），顶栏与横幅内不再出现颜色字面量。非目标：不改窗口按钮与主题预设本身。交付（2026-10-29）：已完成 —— 新增 qml/components/TopToolButton.qml（圆角 / 高度 / 内边距 / 悬浮态 / 无障碍名统一），标题栏两处按钮改用它，Main.qml 不再保留重复样式代码；Theme.qml 新增 hairline / divider / glowSoft / dangerSoft 等语义令牌与圆角阶梯（radiusPanel / radiusCard / radiusControl）；顶栏、阶段条、统计横幅内的颜色字面量全部收敛到 Theme 令牌。待做：无。",
             "scope": [
                 "qml/Main.qml",
                 "qml/components/TopToolButton.qml",
                 "qml/theme/Theme.qml",
                 "qml/components/StageBar.qml",
                 "qml/components/ActivityHeatmap.qml",
-                "CMakeLists.txt"
+                "CMakeLists.txt",
+                "README.md",
+                "docs/iteration-roadmap.md"
             ],
             "stage": "R11",
             "title": "R11 顶栏视觉一致性：令牌化 + 统一工具按钮"
@@ -1022,7 +1026,7 @@
                 "R11-02"
             ],
             "id": "ebb9cbde-2a8b-44e7-aac8-609c73d066c7",
-            "note": "起因：统计横幅左侧 13×7 = 91 个 Rectangle 构成的热力图常驻构造（首帧白付 91 个 item 的代价），色阶写死青色不跟主题；没有任何完成记录时整片是 5% 白格，看不出「还没数据」；热力格没有悬浮提示；阶段条的路线图同步失败只靠一行小字变色区分；窄窗口下阶段 chip 会被 RowLayout 压扁变形。另外「逾期」是看板最该被看见的状态，却只在卡片上以呼吸描边呈现、没有数字。目标：热力图改 Canvas 一次绘制（item 数 91 -> 2）、色阶跟随主题 accent、无数据时给空态文案、热力格悬浮显示当天完成数；阶段条同步失败加图标与悬浮说明、窄窗口改横向滚动；新增 taskStats.overdueCount 与统计带上的逾期指标。非目标：不改看板列与卡片本体。",
+            "note": "起因：统计横幅左侧 13×7 = 91 个 Rectangle 构成的热力图常驻构造（首帧白付 91 个 item 的代价），色阶写死青色不跟主题；没有任何完成记录时整片是 5% 白格，看不出「还没数据」；热力格没有悬浮提示；阶段条的路线图同步失败只靠一行小字变色区分；窄窗口下阶段 chip 会被 RowLayout 压扁变形。另外「逾期」是看板最该被看见的状态，却只在卡片上以呼吸描边呈现、没有数字。目标：热力图改 Canvas 一次绘制（item 数 91 -> 2）、色阶跟随主题 accent、无数据时给空态文案、热力格悬浮显示当天完成数；阶段条同步失败加图标与悬浮说明、窄窗口改横向滚动；新增 taskStats.overdueCount 与统计带上的逾期指标。非目标：不改看板列与卡片本体。交付（2026-10-29）：已完成 —— 热力网格改为 1 个 Canvas 绘制（91 图元 → 1）、色阶跟随主题 accent、无完成记录时显示空态文案、热力格悬浮显示当天日期与完成次数；阶段条同步状态加 ● / ⚠ 图标与悬浮说明、阶段 chip 放进 Flickable 横向滚动（修掉原先 chip 溢出压住搜索框的缺陷）；src/TaskStats 新增 overdueCount（未完成 + due_at 已过期，含每分钟自刷新）并新增 tests/tst_taskstats.cpp 四条用例。顺带修掉一个既有 bug：悬浮提示把文案赋给 Rectangle 的 tip.text（Rectangle 无 text 属性），日志一直刷「Cannot assign to non-existent property」。验收：tst_taskstats 等 ctest 4/4 通过、--selftest 与 --smoke 退出码 0、日志无 QML 错误。待做：无。",
             "scope": [
                 "qml/components/ActivityHeatmap.qml",
                 "qml/components/StageBar.qml",
@@ -1032,7 +1036,9 @@
                 "src/TaskStats.cpp",
                 "tests/tst_taskstats.cpp",
                 "tests/CMakeLists.txt",
-                "CMakeLists.txt"
+                "CMakeLists.txt",
+                "README.md",
+                "docs/iteration-roadmap.md"
             ],
             "stage": "R11",
             "title": "R11 状态与空态反馈 + 热力图 Canvas 化"

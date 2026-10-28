@@ -91,6 +91,13 @@
   其它会话合入的代码若没带结项标记，note 与 baseline 就会漂。
 - **解法 / 预防**：结项必须带结项标记；发现漂移**不要顺手补 baseline**，这条已记在第七节 7.1。
 
+### 1.10 锚点同步没生效时的三步定位
+
+- **第一步看原因**：`Sync-AnchorWorktree` 只会打这四类提示——锚点不在 `main` / 有未提交改动 N 项 / 暂存失败 / 无法快进。
+- **脏文件类**：`git -C <锚点> status --porcelain`。只有 `progress.json` 是被允许的；冒出未跟踪目录就按 1.1 补 `.gitignore`。
+- **分叉类**：`git log --oneline origin/main..main` 有输出，说明锚点有本地提交（见 7.4），**不要自行变基或改写历史**。
+- **占用类**：只有 `progress.json` 脏却暂存失败，是主线实例正占着该文件；1.2 之后这类已少见，重跑一次即可。
+
 ---
 
 ## 二、脚本与编码（PowerShell / Python）
@@ -294,17 +301,29 @@
   于是可能出现两个会话同时在锚点区 stash / 快进 / 暂存快照（实际已遇到：快照的已暂存改动来自另一会话）。
 - **卡在哪**：要不要让 `Sync-AnchorWorktree` 在 root 被占用时直接跳过，需要定；目前只能靠人错开。
 
-### 7.4 codex CLI 未实测，不内置 profile
+### 7.4 锚点区落下「只在本地的提交」，快进同步从此长期失效
+
+- **现状**：锚点 `main` 上出现过 `chore(release): v0.1.3 …` 这类只在本地、没在 `origin/main` 的提交。
+  `Sync-AnchorWorktree` 只做快进，遇到分叉立即放弃（`fatal: Not possible to fast-forward`），
+  于是锚点会越漂越远，而且**这个本地提交不在远端**——机器出问题它就没了。
+- **为什么会发生**：发版/版本号提交天然发生在根目录（维护者在那儿跑 `release.ps1`），
+  而宪章条款 1/5 又禁止在 `main` 上直接提交；两条规则在「发版」这个场景里没接上。
+- **识别**：`git log --oneline origin/main..main` 有输出即分叉；`git rev-list --count main..origin/main` 看落后多少。
+- **卡在哪**：处置要么把这个本地提交补推到远端（需要人决定用哪个分支承载、是否算合法主线内容），
+  要么改发版流程（版本 bump 走独立分支 + `git-done` 合并，锚点不产生本地提交）。
+  **需要维护者定发版归属**；agent 不得在锚点区提交、也不得自行变基或改写历史。
+
+### 7.5 codex CLI 未实测，不内置 profile
 
 - **现状**：内置只有 opencode / claude / cursor-agent（§12.1 禁止内置未实测 profile）。
 - **需要**：实测后补命令行拼装、只读模式与输出格式，并更新 [`agent-profile.md`](agent-profile.md)；在那之前由用户自行新增 profile。
 
-### 7.5 执行面板截图缺 GUI 手工补拍
+### 7.6 执行面板截图缺 GUI 手工补拍
 
 - **现状**：R6-06 遗留 `docs/screenshots/exec-panel.png` 未出（自动化验收项不含截图）。
 - **需要**：在沙箱里跑一次执行流程后补拍，并同步 `README.md` 的功能描述（§五 第 6 条）。
 
-### 7.6 工具产物目录还会继续长
+### 7.7 工具产物目录还会继续长
 
 - **现状**：`.gitignore` 现在逐个点名（`.workbuddy/`、`.qoder-credits/`）。每接入一个新桌面工具，就可能冒出一个写 CWD 的目录，
   在补进 `.gitignore` 之前它会静默拖脏锚点（1.1）。

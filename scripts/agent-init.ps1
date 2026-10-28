@@ -135,6 +135,10 @@ if ($InPlace) {
 
 $sandbox = Join-Path $worktree '.sandbox'
 New-Item -ItemType Directory -Path $sandbox -Force | Out-Null
+# 会话产物的显式落点：桌面工具默认往调用方 CWD 写，落在锚点就会拖脏它、卡住 git-done 的快进同步
+# （docs/pitfalls.md 1.1 / 7.7）。我方脚本与文档统一约定写到这里；外部工具不吃这个变量的仍靠 .gitignore 点名。
+$artifacts = Join-Path $sandbox 'artifacts'
+New-Item -ItemType Directory -Path $artifacts -Force | Out-Null
 
 $envFile = Join-Path $worktree '.agent-env.ps1'
 $envLines = @(
@@ -144,7 +148,8 @@ $envLines = @(
     "`$env:NEONBOARD_INSTANCE = '$Agent'",
     "`$env:NEONBOARD_ROADMAP = '$(Join-Path $sandbox 'progress.json')'",
     "`$env:NEONBOARD_ROADMAP_AUTOWRITE = '0'",
-    "`$env:NEONBOARD_AGENT_ID = '$Agent'"
+    "`$env:NEONBOARD_AGENT_ID = '$Agent'",
+    "`$env:NB_SESSION_ARTIFACT_DIR = '$artifacts'"
 )
 
 # ---------- 任务卡字段注入（docs/task-card.md）----------
@@ -257,6 +262,33 @@ foreach ($line in $porcelain) {
         if ((($path -replace '\\', '/')) -like '*/.worktrees/*') { $nested += $path }
     }
 }
+# ---------- 未推送成果警告（宪章 §7.2.1，只提示不代劳）----------
+# HEAD 上有提交、但没有任何 origin 引用能到达它 = 这份成果只在这台机器上。
+# 认领分支不推 origin，claim ref 指向的提交在远端不可达，CI 领用闸门也校验不了。
+# 判定用本地已有的 origin/* 引用，不额外联网（开区前面已经 fetch 过一次）。
+$orphans = @()
+foreach ($path in $nested) {
+    $cntRaw = & git -C $path rev-list --count HEAD --not --remotes=origin 2>$null | Select-Object -First 1
+    if (-not $cntRaw) { continue }
+    $cnt = 0
+    if (-not [int]::TryParse(($cntRaw -replace '\s', ''), [ref]$cnt)) { continue }
+    if ($cnt -gt 0) {
+        $refName = (& git -C $path symbolic-ref --quiet --short HEAD 2>$null | Select-Object -First 1)
+        if (-not $refName) { $refName = '(detached)' }
+        $orphans += [pscustomobject]@{ Path = $path; Branch = ($refName | Out-String).Trim(); Count = $cnt }
+    }
+}
+if ($orphans.Count -gt 0) {
+    Write-Host ''
+    Write-Host ("⚠ 未推送成果：{0} 个工作区的提交不在任何 origin 引用可达范围内" -f $orphans.Count) -ForegroundColor Yellow
+    foreach ($o in $orphans) {
+        $leaf = Split-Path -Leaf $o.Path
+        Write-Host ("    {0,-16} {1,-28} 本地独有 {2} 个提交" -f $leaf, $o.Branch, $o.Count) -ForegroundColor Yellow
+    }
+    Write-Host '    宪章 §7.2.1：认领分支必须推 origin，否则 claim ref 指向的提交远端不可达；机器故障这份成果就没了。' -ForegroundColor DarkGray
+    Write-Host '    确认无独有内容再回收 —— 自动清理极易端掉正在跑的任务，删不删由人决定（§7.10）。' -ForegroundColor DarkGray
+}
+
 if ($nested.Count -ge 5) {
     $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     Write-Host ''

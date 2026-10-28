@@ -122,6 +122,8 @@ set_source_files_properties(qml/theme/Theme.qml PROPERTIES QT_RESOURCE_ALIAS "Th
 set_source_files_properties(qml/theme/Motion.qml PROPERTIES QT_RESOURCE_ALIAS "Motion.qml")
 set_source_files_properties(qml/components/WinButton.qml PROPERTIES QT_RESOURCE_ALIAS "WinButton.qml")
 set_source_files_properties(qml/components/StatChip.qml PROPERTIES QT_RESOURCE_ALIAS "StatChip.qml")
+set_source_files_properties(qml/components/TopStatBar.qml PROPERTIES QT_RESOURCE_ALIAS "TopStatBar.qml")
+set_source_files_properties(qml/components/TopToolButton.qml PROPERTIES QT_RESOURCE_ALIAS "TopToolButton.qml")
 set_source_files_properties(qml/components/TaskCard.qml PROPERTIES QT_RESOURCE_ALIAS "TaskCard.qml")
 set_source_files_properties(qml/components/BoardColumn.qml PROPERTIES QT_RESOURCE_ALIAS "BoardColumn.qml")
 set_source_files_properties(qml/components/ColumnManager.qml PROPERTIES QT_RESOURCE_ALIAS "ColumnManager.qml")
@@ -153,6 +155,8 @@ qt_add_qml_module(NeonBoard
         qml/theme/Motion.qml
         qml/components/WinButton.qml
         qml/components/StatChip.qml
+        qml/components/TopStatBar.qml
+        qml/components/TopToolButton.qml
         qml/components/TaskCard.qml
         qml/components/BoardColumn.qml
         qml/components/ColumnManager.qml

@@ -141,6 +141,21 @@ QtObject {
     readonly property color glow: Qt.rgba(cyan.r, cyan.g, cyan.b, 0.35)
     readonly property color accentSoft: Qt.rgba(cyan.r, cyan.g, cyan.b, 0.16)
 
+    // R11-02：面板描边层级与分组分隔线。
+    // 顶栏 / 统计横幅原先各自写死 rgba(Theme.cyan, 0.10~0.32)，改主题时不会跟着走；
+    // 这里把「面板级细线 / 分组分隔线 / 各类柔和底色」收成令牌，组件只取名不取字面量。
+    readonly property color hairline: Qt.rgba(cyan.r, cyan.g, cyan.b, 0.10)
+    readonly property color divider: Qt.rgba(text.r, text.g, text.b, 0.10)
+    readonly property color glowSoft: Qt.rgba(cyan.r, cyan.g, cyan.b, 0.22)
+    readonly property color dangerSoft: Qt.rgba(danger.r, danger.g, danger.b, 0.16)
+    readonly property color warningSoft: Qt.rgba(warning.r, warning.g, warning.b, 0.16)
+    readonly property color successSoft: Qt.rgba(success.r, success.g, success.b, 0.16)
+
+    // 圆角阶梯：面板 12 / 卡片 10 / 控件 8 —— 全应用只用这三档。
+    readonly property int radiusPanel: 12
+    readonly property int radiusCard: 10
+    readonly property int radiusControl: 8
+
     // 语义化别名：让组件读起来更自解释
     readonly property color accent: cyan
     readonly property color accent2: magenta

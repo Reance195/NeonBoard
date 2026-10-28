@@ -1,42 +1,6 @@
 {
     "items": [
         {
-            "code": "R7-04",
-            "completedAt": 0,
-            "createdAt": 1793123355,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "c8cda60b-1cb0-4727-808e-c0dd4a7f4d47",
-            "note": "目标：内置可编辑预设 fix/feature/hotfix/docs/review/delivery（存 board.db meta）；orchestrator 按 triage estimate 或卡片大小选 workflow，失败分支（qa→engineer）受 maxAttempts 约束，收口写 summary.md 并给「建议下一步」；小任务走 fix 不允许跳 qa；执行前确认框展示完整 workflow 与交接物契约。",
-            "orderKey": 14336,
-            "priority": 2,
-            "stage": "R7",
-            "status": "todo",
-            "tags": [
-                "R7"
-            ],
-            "title": "R7 预设 workflow + orchestrator 收口",
-            "updatedAt": 1793123355
-        },
-        {
-            "code": "R7-05",
-            "completedAt": 0,
-            "createdAt": 1793123355,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "7a432ab6-6774-476f-ba06-970b4389514a",
-            "note": "目标：看板 Ctrl/Shift 多选卡 →「加入夜间队列」→ 全部入队（R7-01）；预计总时长基于各卡历史平均耗时或 triage estimate 求和，UI 显示「预计 X 分钟，约 HH:MM 完成」；完成后复用 R1 提醒/托盘辉光通知，失败卡标记 blocked 不阻断其余。",
-            "orderKey": 15360,
-            "priority": 2,
-            "stage": "R7",
-            "status": "todo",
-            "tags": [
-                "R7"
-            ],
-            "title": "R7 夜间批量模式",
-            "updatedAt": 1793123355
-        },
-        {
             "code": "R7-06",
             "completedAt": 0,
             "createdAt": 1793123355,
@@ -89,6 +53,114 @@
             ],
             "title": "DX 卡片验收字段补全：acceptance/scope 覆盖率归零缺口（#2，分 3 批）",
             "updatedAt": 1793207814
+        },
+        {
+            "code": "R8-01",
+            "completedAt": 0,
+            "createdAt": 1793213056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "adc2d2e2-fecd-480d-b45d-a71790893f21",
+            "note": "起因：qml/theme/Theme.qml 的 presets 是编译期常量，改配色必须改代码，6 套就是天花板。目标：定义 themepack.json（12 令牌 + key/name/desc）；启动时扫描 AppPaths::themeDir() 把合法包追加进可选列表，用户包 key 统一前缀 user:<id> 避免与内置撞名；坏包逐个跳过并记日志，至少一个坏包不能让应用起不来。非目标：不做市场与在线下载，不支持包带脚本 / 自定义字体 / 自定义布局（那等于把主题变成代码）。详见 docs/r8-experience-plan.md 第 5 节。",
+            "orderKey": 24576,
+            "priority": 2,
+            "stage": "R8",
+            "status": "todo",
+            "tags": [
+                "R8"
+            ],
+            "title": "R8 主题包格式与外部加载",
+            "updatedAt": 1793213056
+        },
+        {
+            "code": "R8-02",
+            "completedAt": 0,
+            "createdAt": 1793213056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "2d375be8-7374-4081-93ea-e1e9cdeeb2f1",
+            "note": "起因：只有本地加载，用户拿不到别人做的包。目标：市场索引可配置 + 本地缓存 + 断网降级；列表带预览图与来源标注（内置 / 用户安装）；安装沿用插件市场那套「临时目录 + 原子替换」，失败回滚；卸载回落到内置预设。非目标：签名与发布者信誉（路线图 §8 明确不做）、付费、用户上传。详见 docs/r8-experience-plan.md 第 5 节。",
+            "orderKey": 25600,
+            "priority": 2,
+            "stage": "R8",
+            "status": "todo",
+            "tags": [
+                "R8"
+            ],
+            "title": "R8 主题包市场：浏览 / 安装 / 卸载",
+            "updatedAt": 1793213056
+        },
+        {
+            "code": "R8-03",
+            "completedAt": 0,
+            "createdAt": 1793213056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "2557b1bb-6556-4dfc-b59c-6798880a75eb",
+            "note": "起因：task.note 字段存在但只能在 Main.qml 内联表单里当纯文本改，P1 第 5 条「卡片详情层」挂了很久。目标：双击 / 回车打开详情抽屉，标题 / 优先级 / 标签 / 到期 / 提醒 / 备注一次改完；备注用 Qt 自带 Text.MarkdownText 渲染（编辑时回落纯文本），不引第三方；抽屉注册进既有浮层互斥集合，Esc / 点击外部关闭。非目标：附件不在本卡（见 docs/r8-experience-plan.md 第 10 节待拍板 A），不改 task 表结构。",
+            "orderKey": 26624,
+            "priority": 2,
+            "stage": "R8",
+            "status": "todo",
+            "tags": [
+                "R8"
+            ],
+            "title": "R8 卡片详情抽屉：Markdown 笔记 + 就地编辑",
+            "updatedAt": 1793213056
+        },
+        {
+            "code": "R8-04",
+            "completedAt": 0,
+            "createdAt": 1793213056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "6534bfc1-a0d0-40c4-b88b-23a3bcf13971",
+            "note": "起因：改动历史无处可查，task 表只有 created_at / updated_at / completed_at 三个时间戳，「什么时候从待办移到进行中」只能看最终值。目标：新增侧表 task_event(id, task_id, kind, payload, at)，沿用 task_extra / task_link 的惯例——不动 task 表、不升 user_version、老版本程序开同一个库不受影响；详情抽屉底部按时间倒序渲染时间线，子任务区改为「进度环 + 逐条子卡」。非目标：不做 undo/redo 回放（撤销仍走 TaskUndo）、不做跨设备事件同步。",
+            "orderKey": 27648,
+            "priority": 2,
+            "stage": "R8",
+            "status": "todo",
+            "tags": [
+                "R8"
+            ],
+            "title": "R8 详情进阶：子任务进度环 + 审计时间线",
+            "updatedAt": 1793213056
+        },
+        {
+            "code": "R8-05",
+            "completedAt": 0,
+            "createdAt": 1793213056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "f66edb38-c7f3-4ef5-834e-239054526ab7",
+            "note": "起因：TaskCard 现在只是把原卡降到 opacity 0.35 跟着鼠标走，BoardColumn 画一条插入线，「拖拽手感升级」等于没做。目标：拖拽物带光轨尾迹；落点处叠一圈霓虹涟漪（不替换 R1-1 的插入线）；两卡之间磁吸到最近落点并有轻微回弹；跨列时目标列整体高亮；时长与 easing 全部取自 Motion，reduced 或低画质档退化为瞬时。非目标：不改落点定位算法（moveTaskBefore 语义不变）、不做触屏手势。",
+            "orderKey": 28672,
+            "priority": 2,
+            "stage": "R8",
+            "status": "todo",
+            "tags": [
+                "R8"
+            ],
+            "title": "R8 拖拽手感升级：涟漪 / 光轨 / 磁吸 / 列高亮",
+            "updatedAt": 1793213056
+        },
+        {
+            "code": "R8-06",
+            "completedAt": 0,
+            "createdAt": 1793213056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "4c70a2ff-f74d-4ce2-aa73-dc6e8c209d58",
+            "note": "起因：拖拽是纯鼠标能力，P1 第 6 条承诺的 Ctrl+←/→ 一直没做，无障碍要求「同样的事能用别的方式做完」。目标：选中卡后 Ctrl+←/→ 跨列移、Ctrl+↑/↓ 列内调位；拖拽中 Esc 取消回原位；关键状态变化走 Accessible 播报（移到了哪一列 / 已取消拖拽）。非目标：不做自定义快捷键绑定（R3 已把快捷键注册做成插件能力）。",
+            "orderKey": 29696,
+            "priority": 2,
+            "stage": "R8",
+            "status": "todo",
+            "tags": [
+                "R8"
+            ],
+            "title": "R8 键盘位移与拖拽可达性",
+            "updatedAt": 1793213056
         },
         {
             "code": "R0-01",
@@ -949,6 +1021,42 @@
             ],
             "title": "TaskModel：任务事件信号 + moveTaskToEnd",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "R7-04",
+            "completedAt": 1793213056,
+            "createdAt": 1793123355,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "c8cda60b-1cb0-4727-808e-c0dd4a7f4d47",
+            "note": "目标：内置可编辑预设 fix/feature/hotfix/docs/review/delivery（存 board.db meta）；orchestrator 按 triage estimate 或卡片大小选 workflow，失败分支（qa→engineer）受 maxAttempts 约束，收口写 summary.md 并给「建议下一步」；小任务走 fix 不允许跳 qa；执行前确认框展示完整 workflow 与交接物契约。",
+            "orderKey": 14336,
+            "priority": 2,
+            "stage": "R7",
+            "status": "done",
+            "tags": [
+                "R7"
+            ],
+            "title": "R7 预设 workflow + orchestrator 收口",
+            "updatedAt": 1793213056
+        },
+        {
+            "code": "R7-05",
+            "completedAt": 1793213056,
+            "createdAt": 1793123355,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "7a432ab6-6774-476f-ba06-970b4389514a",
+            "note": "目标：看板 Ctrl/Shift 多选卡 →「加入夜间队列」→ 全部入队（R7-01）；预计总时长基于各卡历史平均耗时或 triage estimate 求和，UI 显示「预计 X 分钟，约 HH:MM 完成」；完成后复用 R1 提醒/托盘辉光通知，失败卡标记 blocked 不阻断其余。",
+            "orderKey": 15360,
+            "priority": 2,
+            "stage": "R7",
+            "status": "done",
+            "tags": [
+                "R7"
+            ],
+            "title": "R7 夜间批量模式",
+            "updatedAt": 1793213056
         },
         {
             "code": "M06",
@@ -2149,6 +2257,6 @@
             "updatedAt": 1793207091
         }
     ],
-    "updated": "2026-10-28T18:02:39",
+    "updated": "2026-10-28T18:44:16",
     "version": 3
 }

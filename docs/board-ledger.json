@@ -944,6 +944,13 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-05": {
+            "agent": "agent-gov",
+            "branch": "fix/anchor-inplace-hardgate",
+            "claimedAt": 1793201223,
+            "head": "286b31dabeafea2558dbde5fbc3b257ba521dd8f"
+        }
+    },
     "version": 1
 }

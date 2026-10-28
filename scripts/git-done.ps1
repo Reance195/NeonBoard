@@ -79,6 +79,26 @@ function Get-AnchorWorktree {
     return $null
 }
 
+# 锚点区（root）的占用登记：由 scripts/agent-workspace.ps1 写在 git common dir，所有 worktree 共享。
+# 读不到 / 文件损坏一律按「未占用」处理 —— 登记文件的问题不能反过来停掉锚点同步。
+function Get-AnchorRootClaim {
+    param([string]$Anchor)
+    # 一律按锚点路径解析，不按调用方 CWD：git-done 通常在 agent worktree 里跑，
+    # CWD 解析出来的虽然也是同一份共享 common dir，但依赖调用位置本身就是不稳的源头。
+    $dirRes = Invoke-GitQuiet @('-C', $Anchor, 'rev-parse', '--path-format=absolute', '--git-common-dir')
+    if ($dirRes.Code -ne 0) { return $null }
+    $dir = ($dirRes.Output | Select-Object -First 1).ToString().Trim()
+    if ($dir -notmatch '^[A-Za-z]:[\\/]' -and $dir -notmatch '^/') { $dir = Join-Path $Anchor $dir }
+    $file = Join-Path $dir 'agent-workspace.json'
+    if (-not (Test-Path -LiteralPath $file)) { return $null }
+    try {
+        # 必须显式按 UTF-8 读：Windows PowerShell 5.1 会把无 BOM 的 UTF-8 当 GBK，中文尾字节会撑破 JSON
+        $obj = ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8))
+        if ($obj.PSObject.Properties.Name -contains 'root' -and $obj.root) { return $obj.root }
+    } catch { return $null }
+    return $null
+}
+
 # 合并推送成功后，把锚点区快进到最新 main —— 否则维护者回到根目录看到的还是旧代码。
 # 只做 fast-forward：锚点有本地提交 / 非 main / 有 progress.json 之外的改动时一律跳过。
 # progress.json 是应用自动写回的快照：上游没动它时直接快进，应用常驻占用文件也不会挡；
@@ -106,6 +126,16 @@ function Sync-AnchorWorktree {
         return
     }
 
+    # root 占用登记：别人正声明「我要在锚点区动手」时，快进照做（非破坏性），
+    # 但绝不 stash 那份 progress.json —— 快照的处置权归占用者，否则两边互相把对方的改动暂存掉（docs/pitfalls.md 7.3）。
+    $rootClaim = Get-AnchorRootClaim -Anchor $anchor
+    if ($rootClaim) {
+        $who = [string]$rootClaim.agent
+        if (-not $who) { $who = '(未记名)' }
+        $task = [string]$rootClaim.task
+        Write-Host ("⚠ 锚点同步：root 已被 '{0}' 登记占用{1}，本次只快进、不动 progress.json" -f $who, $(if ($task) { "（$task）" } else { '' })) -ForegroundColor Yellow
+    }
+
     $dirtyRes = Invoke-GitQuiet @('-C', $anchor, 'status', '--porcelain')
     $dirty = @($dirtyRes.Output | Where-Object { $_ -and $_.ToString().Trim() -ne '' })
     $snapshotOnly = $dirty.Count -gt 0 -and @($dirty | Where-Object { $_.ToString() -notmatch '(^\S+\s+|\s)progress\.json$' }).Count -eq 0
@@ -129,7 +159,7 @@ function Sync-AnchorWorktree {
 
     $stashed = $false
     $stashSha = ''
-    if (-not $mergeOk -and $snapshotOnly) {
+    if (-not $mergeOk -and $snapshotOnly -and -not $rootClaim) {
         Write-Host '· 锚点同步：临时暂存 progress.json 后重试 ...' -ForegroundColor DarkGray
         $stashRes = Invoke-GitQuiet @('-C', $anchor, 'stash', 'push', '-q', '-m', 'git-done 锚点同步临时暂存', '--', 'progress.json')
         $stashed = ($stashRes.Code -eq 0)
@@ -174,7 +204,9 @@ function Sync-AnchorWorktree {
     if ($mergeOk) {
         Write-Host '✓ 锚点区已同步到最新 main' -ForegroundColor Green
     } else {
-        Write-Host '· 锚点同步未完成（本地提交 / 未跟踪文件冲突），不影响远端合并' -ForegroundColor Yellow
+        $why = '本地提交 / 未跟踪文件冲突'
+        if ($rootClaim -and $snapshotOnly) { $why = 'root 被占用（按登记让给占用者处理快照）' }
+        Write-Host ("· 锚点同步未完成（{0}），不影响远端合并" -f $why) -ForegroundColor Yellow
     }
 }
 

@@ -1949,8 +1949,12 @@
             "scope": [
                 "qml/components/CardDetailPanel.qml",
                 "qml/Main.qml",
-                "qml/components/TaskCard.qml",
-                "src/TaskModel.*",
+                "src/CardDetail.h",
+                "src/CardDetail.cpp",
+                "src/BoardColumns.h",
+                "src/BoardColumns.cpp",
+                "src/main.cpp",
+                "CMakeLists.txt",
                 "tests/tst_carddetail.cpp",
                 "tests/CMakeLists.txt"
             ],
@@ -2128,13 +2132,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "R8-03": {
-            "agent": "agent-r8c",
-            "branch": "feature/r8-card-detail",
-            "claimedAt": 1793213329,
-            "head": "9c7ef8d8121547169009fdeb4620496f3c3c8dad"
-        }
-    },
+    "claims": {},
     "version": 1
 }

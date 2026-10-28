@@ -2103,6 +2103,13 @@
             ]
         }
     },
-    "claims": {},
+    "claims": {
+        "R10-03": {
+            "agent": "agent-cat",
+            "branch": "feature/r10-03-tag-semantics",
+            "claimedAt": 1793217268,
+            "head": "83cdb76ca6e78bf47db9ee0041abb7a550369764"
+        }
+    },
     "version": 1
 }

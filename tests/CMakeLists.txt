@@ -76,6 +76,16 @@ neonboard_add_test(tst_taskcolumns
 )
 target_link_libraries(tst_taskcolumns PRIVATE Qt6::Sql)
 
+# R10-03：标签语义修正（阶段与分类的派生与标签顺序无关）。
+# 只调 TaskModel 的静态派生函数，但 TaskModel.cpp 整体编入，故仍带上 Database / 解析器。
+neonboard_add_test(tst_taskmodel
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+)
+target_link_libraries(tst_taskmodel PRIVATE Qt6::Sql)
+
 # R4-03 批次三：看板列清单（列由库驱动）+ 列内精确插位 + 状态/列一致性。
 # 覆盖「列顺序与角色 / 搜索落到每列 / 按列录入 / 列内插位 / 按状态移动同步列 /
 # reload 不重建模型 / 撤销连列一起还原」。

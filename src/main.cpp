@@ -1495,6 +1495,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("ledgerImport"), &ledgerImport);
     engine.rootContext()->setContextProperty(QStringLiteral("boardSync"), &boardSync);
     engine.rootContext()->setContextProperty(QStringLiteral("projectMap"), &projectMap);
+    // 阶段条跟随路线图（DX-08 / #11）：启动即开始监听 docs/iteration-roadmap.md，
+    // 不必等全景面板首次打开才 watchFiles()。只 addPaths，不派生（不跑 git、不扫目录）。
+    projectMap.startWatching();
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);
     engine.rootContext()->setContextProperty(QStringLiteral("boardColumns"), &boardColumns);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);

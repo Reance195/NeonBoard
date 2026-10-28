@@ -233,7 +233,7 @@
                 "ctest 全绿；--smoke 后沙箱日志无 QML 报错（grep ReferenceError/TypeError/Unable to assign）"
             ],
             "id": "79da14c1-83e7-443a-9f45-b2004d136e5e",
-            "note": "对应 GitHub issue #11（DX-04 交付遗留）。阶段条数据已跟随 ProjectMap::stageOrder()（读路线图 §9 行序），但 qml/Main.qml 的 refreshStageData() 只挂在 taskStore.onCountsChanged 上，所以改了 §9 必须重启才可见；而面板的 ProjectMap 本身有 watcher（QFileSystemWatcher + 700ms 防抖 → refresh() → emit changed()）。修法：在 Main.qml 增加一个 target 为 projectMap 的 Connections，onChanged 里调 refreshStageData()，与面板共用同一份变更信号。验收第 2 条要求「写坏时不崩溃且保留上次有效集合」——需确认 stageOrder() 在解析失败时的行为，必要时补回退。",
+            "note": "对应 GitHub issue #11（DX-04 交付遗留）。阶段条数据已跟随 ProjectMap::stageOrder()（读路线图 §9 行序），但 qml/Main.qml 的 refreshStageData() 只挂在 taskStore.onCountsChanged 上，所以改了 §9 必须重启才可见；而面板的 ProjectMap 本身有 watcher（QFileSystemWatcher + 700ms 防抖 → refresh() → emit changed()）。修法：在 Main.qml 增加一个 target 为 projectMap 的 Connections，onChanged 里调 refreshStageData()，与面板共用同一份变更信号。验收第 2 条要求「写坏时不崩溃且保留上次有效集合」——需确认 stageOrder() 在解析失败时的行为，必要时补回退。\n\n交付（2026-10-29，agent-dx8 / fix/stagebar-watch-roadmap，对应 issue #11）：① qml/Main.qml 增加 target=projectMap 的 Connections，onChanged 调 refreshStageData()，阶段条与面板共用同一份变更信号。② refreshStageData() 增加回退：stageOrder() 返回空（读不到 / 表格缺列）时保留上次有效集合并告警一次，恢复后自动复位告警标志。③ 关键根因修复：ProjectMap::watchFiles() 原先只在 apply() 里调，而 apply() 要等 refresh()、refresh() 只在全景面板首次打开时触发 —— 从没开过面板的会话永远收不到文件变更。新增 startWatching()（只定路径 + addPaths，不跑 git、不扫目录），在 main.cpp 设置上下文属性后立即调用。实测：启动 9 阶段 → 运行中插入 §9 行，0.77s 后 10 阶段（<1s，含 700ms 防抖）→ 写坏 §9 保留 10 项并告警一次、进程存活 → 还原后自动回到 9 阶段。ctest 21/21，--smoke exit 0 且日志无 QML 致命错误。附一行 STAGE refresh 诊断日志，便于日后从日志确认 watcher 是否真的触发。",
             "scope": [
                 "qml/Main.qml",
                 "src/ProjectMap.cpp",
@@ -1008,6 +1008,13 @@
             "title": "R7 成本账"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-08": {
+            "agent": "agent-dx8",
+            "branch": "fix/stagebar-watch-roadmap",
+            "claimedAt": 1793207169,
+            "head": "68a8fb1414081720eb7b4d32b0ffb29a4288f04b"
+        }
+    },
     "version": 1
 }

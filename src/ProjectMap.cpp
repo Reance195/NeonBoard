@@ -683,6 +683,16 @@ void ProjectMap::watchFiles()
         m_watcher->addPaths(absolute);
 }
 
+void ProjectMap::startWatching()
+{
+    // 只定路径 + 挂监视，不做派生（DX-08 / #11）。
+    // m_sourcePath 原本只在 apply() 里赋值，而 apply() 排在「面板首次打开」之后 ——
+    // 从没开过面板的会话因此永远不会 watchFiles()，阶段条收不到任何文件变更信号。
+    if (m_sourcePath.isEmpty())
+        m_sourcePath = findRepoRoot();
+    watchFiles();
+}
+
 QVariantList ProjectMap::milestones()
 {
     return m_milestones;

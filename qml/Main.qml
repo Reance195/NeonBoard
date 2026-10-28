@@ -433,6 +433,8 @@ ApplicationWindow {
     // §9 之外的阶段折进「其他」并给出可对账的计数。QML 只负责画，
     // 不再自己写死一份阶段清单 —— 否则 §9 加了行、界面还得跟着改（DX-04）。
     property var stageList: []
+    // §9 解析失败已告警过（避免编辑器连写时每次 change 都刷一行日志）
+    property bool roadmapStageWarned: false
 
     function setStageFilter(stage) {
         stageFilter = stage
@@ -442,7 +444,23 @@ ApplicationWindow {
     function refreshStageData() {
         // 阶段顺序由 projectMap 给出（读路线图 §9 的行序，只读一份 md、不跑 git）；
         // 模型层保持零依赖，测试里也能直接传一组顺序进来断言。
-        stageList = taskStore.stageList(projectMap.stageOrder())
+        var order = projectMap.stageOrder()
+        // 路线图被写坏时 stageOrder() 返回空列表（读不到文件 / §9 表格缺列都会走这条）。
+        // 空列表会把阶段条清空 —— 比「停在上一份有效集合」糟得多，所以这里保留旧值并告警一次。
+        // 编辑器半截写入也是合法中间态，下一秒补全后 projectMap.onChanged 会再调进来，届时自然恢复。
+        if (order.length === 0 && stageList.length > 0) {
+            if (!roadmapStageWarned) {
+                roadmapStageWarned = true
+                console.warn("STAGE", "路线图 §9 解析为空，保留上次阶段集合",
+                             stageList.length, "项")
+            }
+            return
+        }
+        roadmapStageWarned = false
+        stageList = taskStore.stageList(order)
+        // 一行诊断：§9 改动后靠它能直接从日志确认「watcher 真的触发了、阶段集合换成了新的」
+        // （DX-08 验收要求「1 秒内自动更新」，没有这行就只能靠肉眼看界面）。
+        console.info("STAGE", "refresh", order.length, "阶段")
     }
 
     // 路线图（仓库 progress.json）与看板的双向同步状态
@@ -625,6 +643,17 @@ ApplicationWindow {
         // 完成任务时背景爆发一次能量脉冲
         function onTaskCompleted(id) {
             background.burst()
+        }
+    }
+
+    // 阶段条跟随路线图（DX-08 / #11）：§9 表格行改动后无需重启。
+    // 复用 ProjectMap 已有的「文件监听 + 700ms 防抖」—— 它 watch 了 docs/iteration-roadmap.md，
+    // 落盘后 refresh() 再 emit changed()，阶段条与面板因此共用同一份变更信号（不引入轮询）。
+    // 原先阶段条只挂在 taskStore.onCountsChanged 上，改 §9 必须重启才可见（DX-04 遗留）。
+    Connections {
+        target: projectMap
+        function onChanged() {
+            window.refreshStageData()
         }
     }
 

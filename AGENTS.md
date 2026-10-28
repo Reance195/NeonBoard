@@ -233,6 +233,7 @@ AI 代理在本仓库干活时：
 ## 六、相关文档
 
 - 完整操作手册（含命令示例与常见问题）：[`docs/git-workflow.md`](docs/git-workflow.md)
+- 踩坑经验台账（现象/根因/解法 + 未解决清单）：[`docs/pitfalls.md`](docs/pitfalls.md)
 - 贡献者约定：[`CONTRIBUTING.md`](CONTRIBUTING.md)
 - 项目说明与构建：[`README.md`](README.md)
 

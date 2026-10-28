@@ -6,6 +6,7 @@
         "DX-04": "done",
         "DX-05": "todo",
         "DX-06": "todo",
+        "DX-07": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -197,6 +198,29 @@
             ],
             "stage": "DX",
             "title": "DX 代登记可审计：chore(board) 强制记录授权来源与批次，立卡不得与代码混提交"
+        },
+        "DX-07": {
+            "acceptance": [
+                "python scripts/derive_board_status.py --baseline-check 在主线为「漂移 0 项 / 缺项 0 项」",
+                "git-done.ps1 合并成功后，若本次合入的提交带 #<短号>=done 且该卡 baseline 仍非 done，自动补一条 chore(board) 结卡提交（只改 baseline）",
+                "任务闸门 selftest 覆盖：代登记在开发区凭审计凭证可提交、缺授权行/批次行/混代码仍拒",
+                "task_gate.py 允许脚本自动写 baseline（agent 手改 baseline 仍禁止），提交体标明自动来源",
+                "AGENTS.md 条款 6 与 docs/pitfalls.md 7.1 改写：结卡权从「维护者批量结」改为「合入标记即结」",
+                "python scripts/check_script_hygiene.py 与 CI 全绿"
+            ],
+            "id": "d986173c-1388-4a4b-97c0-b137636e2ccd",
+            "note": "起因（2026-10-29，维护者明确授权「B：开卡制度化 + 同时补台账」）：DX-03 / DX-05 / DX-06 已按 #<短号>=done 交付并合入 main，但台账 baseline 仍停在 todo；R5-06 甚至没有 baseline 条目，--baseline-check 报「漂移 3 项 / 缺项 1 项」。baseline=<短号> done 是「拒绝重新领用」的唯一门（条款 6），靠人批量结就一定漂；每漂一次，已交付的卡就能被再领一遍重做（pitfalls 1.14 踩过），7.1 一直记作待拍板。本轮同时暴露并修掉 DX-06 的死锁：位置校验要求「代登记只能在锚点区」，而锚点区停在 main、main 禁止直接提交、§7.1 又禁止 agent 在锚点区切分支 —— 三条叠加后代登记没有任何合法执行位置。改为「位置不是凭证、内容才是」。",
+            "scope": [
+                "scripts/derive_board_status.py",
+                "scripts/git-done.ps1",
+                "scripts/task_gate.py",
+                "AGENTS.md",
+                "docs/pitfalls.md",
+                "docs/iteration-roadmap.md",
+                "docs/board-ledger.json"
+            ],
+            "stage": "DX",
+            "title": "DX 结卡权自动化：合入 #短号=done 时同步台账 baseline，漂移不再靠人批量结"
         },
         "M01": {
             "id": "9bddece6-d4f8-4963-990e-b9d27a06d7c1",

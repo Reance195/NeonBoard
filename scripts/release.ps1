@@ -160,7 +160,11 @@ try {
         Write-Host '  构建日志：build\release-build.log' -ForegroundColor DarkGray
     }
 
+    # 构建产物位置：Visual Studio 多配置构建在 Release\，Ninja 单配置直接在 build\
     $exe = Join-Path $build 'Release\NeonBoard.exe'
+    if (-not (Test-Path -LiteralPath $exe)) {
+        $exe = Join-Path $build 'NeonBoard.exe'
+    }
     if (-not (Test-Path -LiteralPath $exe)) { throw "找不到构建产物：$exe" }
 
     $running = @(Get-Process -Name 'NeonBoard' -ErrorAction SilentlyContinue)

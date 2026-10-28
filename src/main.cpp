@@ -798,6 +798,12 @@ int main(int argc, char *argv[])
                         == QStringLiteral("done")
                  && finished.value(QStringLiteral("costMs")).toLongLong() >= 0 && ok;
 
+            // 成本账（R7-06）：本卡累计聚合 + 全库累计（纯读聚合，不改状态）
+            ok = taskRuns.costSummary(queueTaskId).value(QStringLiteral("runs")).toInt() >= 1 && ok;
+            ok = taskRuns.costSummary(queueTaskId).value(QStringLiteral("totalCostMs")).toLongLong()
+                     >= 0
+                 && taskRuns.totalCostAll() >= 0 && ok;
+
             // 并发上限钳制：默认 1，设置只接受 1..2
             ok = taskRuns.concurrency() == 1 && ok;
             ok = taskRuns.setConcurrency(9) && taskRuns.concurrency() == TaskRunStore::kMaxConcurrency

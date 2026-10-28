@@ -70,6 +70,17 @@ public:
     // 没有 run 返回 {hasRun:false}。
     Q_INVOKABLE QVariantMap summaryOf(const QString &taskId, int logTailLines = 30) const;
 
+    // ---- 成本账（R7-06）----
+    // 某卡的累计成本摘要：{totalCostMs, runs}。
+    //   totalCostMs = SUM(cost_ms)（只累加 passed / blocked 的 run；跳过 / 取消记为 0）；
+    //   runs        = 这些 run 的条数（「本卡执行过 N 次」）。
+    // 纯读聚合，不改任何状态、不新增列 —— cost_ms 在 release 时已按 running 时长写入。
+    // token 计量留接口：后续若要记 token，另起侧表 / 列，不塞进这里（开放问题 #6）。
+    Q_INVOKABLE QVariantMap costSummary(const QString &taskId) const;
+
+    // 全部卡片的累计耗时（ms）：给执行面板 / 统计芯片做总账。
+    Q_INVOKABLE qint64 totalCostAll() const;
+
     // 把心跳早于 now-staleSeconds 的活跃 run 判为 blocked，返回处理条数。
     // 队列里 wait 中的行不参与：它们没在跑，等久了也不该被杀。
     Q_INVOKABLE int recoverOrphans(int staleSeconds = kStaleSeconds);

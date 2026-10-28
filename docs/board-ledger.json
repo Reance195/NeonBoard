@@ -1683,7 +1683,7 @@
                 "R7-01"
             ],
             "id": "1ecfbbd3-e038-4e3e-aaa0-c5f1ad8380dd",
-            "note": "目标：task_run.cost_ms 在 run 结束写入（含 running 时长，不含排队）；TaskRunStore 提供 totalCost(cardId) 聚合；执行面板（R6-06）与卡面显示「本卡累计耗时 X」；token 计量留接口（开放问题 #6，后续）。",
+            "note": "目标：task_run.cost_ms 在 run 结束写入（含 running 时长，不含排队）；TaskRunStore 提供 totalCost(cardId) 聚合；执行面板（R6-06）与卡面显示「本卡累计耗时 X」；token 计量留接口（开放问题 #6，后续）。【交付 2026-10-29 / agent-r7 / feature/r7-cost】① TaskRunStore 增 costSummary(taskId)（{totalCostMs=SUM(cost_ms), runs=已结算 run 条数}，只统计 passed/blocked，跳过/取消 cost_ms=0 不计）与 totalCostAll()（全库累计），纯读聚合、不加列、不升 user_version；cost_ms 在 release 时按 running 时长（finished-started，ms）写入，排队时间不计。② 卡面（TaskCard.qml）在 due 旁显示「⏱ 45s / 3m20s / 1h05m」，有历史才显示。③ 执行面板（Main.qml）在「耗时」下增「本卡累计 X（N 次执行）」。④ token 计量留接口（头注写明：后续另起侧表/列，不塞进 cost_ms）。⑤ tst_taskruns 增 costSummaryAggregates（累计/次数/跳过不计/自动补时长），--selftest 增两条聚合断言。验收：ctest 24/24（含 tst_taskruns）、--selftest / --smoke 通过。已完成 5 / 待做 0。",
             "scope": [
                 "src/TaskRunStore.*",
                 "src/main.cpp",

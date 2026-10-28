@@ -27,6 +27,7 @@ private slots:
     void acquireRejectsSecondActiveRun();
     void releaseWritesDetail();
     void orphanRunBecomesBlocked();
+    void costSummaryAggregates();
     void schemaVersionStaysAtV2();
 
 private:
@@ -117,6 +118,53 @@ void TestTaskRuns::releaseWritesDetail()
     QVERIFY(after.value(QStringLiteral("finishedAt")).toLongLong() > 0);
 
     QCOMPARE(m_store->runsOf(QStringLiteral("task-b")).size(), 1);
+}
+
+void TestTaskRuns::costSummaryAggregates()
+{
+    const QString task = QStringLiteral("task-cost");
+
+    // 没有 run：0 / 0
+    const QVariantMap empty = m_store->costSummary(task);
+    QCOMPARE(empty.value(QStringLiteral("totalCostMs")).toLongLong(), qint64(0));
+    QCOMPARE(empty.value(QStringLiteral("runs")).toInt(), 0);
+
+    // 第一次执行 1500ms
+    const QString r1 = m_store->acquire(task).value(QStringLiteral("runId")).toString();
+    QVERIFY(!r1.isEmpty());
+    QVERIFY(m_store->release(r1, QStringLiteral("passed"),
+                             QVariantMap{{QStringLiteral("costMs"), 1500}}));
+    QVariantMap s = m_store->costSummary(task);
+    QCOMPARE(s.value(QStringLiteral("totalCostMs")).toLongLong(), qint64(1500));
+    QCOMPARE(s.value(QStringLiteral("runs")).toInt(), 1);
+    // cost_ms 确实写进了 run 行
+    QCOMPARE(m_store->run(r1).value(QStringLiteral("costMs")).toLongLong(), qint64(1500));
+
+    // 第二次执行 2500ms（blocked 也计入）→ 累计 4000 / 2 次
+    const QString r2 = m_store->acquire(task).value(QStringLiteral("runId")).toString();
+    QVERIFY(m_store->release(r2, QStringLiteral("blocked"),
+                             QVariantMap{{QStringLiteral("costMs"), 2500}}));
+    s = m_store->costSummary(task);
+    QCOMPARE(s.value(QStringLiteral("totalCostMs")).toLongLong(), qint64(4000));
+    QCOMPARE(s.value(QStringLiteral("runs")).toInt(), 2);
+
+    // 跳过（cancelled，cost 0）不计次数、不加成本
+    const QString r3 = m_store->enqueue(task).value(QStringLiteral("runId")).toString();
+    QVERIFY(!r3.isEmpty());
+    QVERIFY(m_store->skip(r3));
+    s = m_store->costSummary(task);
+    QCOMPARE(s.value(QStringLiteral("totalCostMs")).toLongLong(), qint64(4000));
+    QCOMPARE(s.value(QStringLiteral("runs")).toInt(), 2);
+
+    // 未显式给 costMs 时按 running 时长补（≥0），且累加不倒退
+    const QString r4 = m_store->acquire(task).value(QStringLiteral("runId")).toString();
+    QVERIFY(m_store->release(r4, QStringLiteral("passed")));
+    s = m_store->costSummary(task);
+    QCOMPARE(s.value(QStringLiteral("runs")).toInt(), 3);
+    QVERIFY(s.value(QStringLiteral("totalCostMs")).toLongLong() >= 4000);
+
+    // 全库累计 ≥ 本卡累计
+    QVERIFY(m_store->totalCostAll() >= s.value(QStringLiteral("totalCostMs")).toLongLong());
 }
 
 void TestTaskRuns::orphanRunBecomesBlocked()

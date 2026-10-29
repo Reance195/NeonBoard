@@ -23,6 +23,7 @@
 #include "WindowsIntegration.h"
 #include "BoardColumns.h"
 #include "DragFeel.h"
+#include "KeyMove.h"
 #include "TaskFilterModel.h"
 #include "TaskModel.h"
 #include "TaskTree.h"
@@ -386,6 +387,9 @@ int main(int argc, char *argv[])
     // 会在退出时先于引擎析构，QML 侧那条 Timer 绑定重新求值就拿到 null，
     // 日志里冒出一行 "Cannot call method ... of null"。注册位置和寿命位置是两件事。
     DragFeel dragFeel;
+    // 键盘跨列位移（R8-06）：只算目标列与落位，写库仍走 taskUndo。
+    // 与 DragFeel 同理，声明在引擎之前 —— 否则退出时 QML 绑定重算会拿到 null。
+    KeyMove keyMove;
     boardColumns.setTaskTree(&taskTree);
     // 项目维度（R10-01 数据层 / R10-02 视图）：门面在列容器之前建，范围过滤才有东西可问。
     // 只读侧表，不碰 task 表 —— 切范围是视图状态，不写库。
@@ -1665,6 +1669,7 @@ int main(int argc, char *argv[])
     // 项目清单与卡片归属（R10-02）：切换器读 projects()，卡片角标读 taskProject()
     engine.rootContext()->setContextProperty(QStringLiteral("projectStore"), &projectStore);
     engine.rootContext()->setContextProperty(QStringLiteral("dragFeel"), &dragFeel);
+    engine.rootContext()->setContextProperty(QStringLiteral("keyMove"), &keyMove);
     engine.rootContext()->setContextProperty(QStringLiteral("cardDetail"), &cardDetail);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);

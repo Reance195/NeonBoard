@@ -2087,7 +2087,11 @@
                 "qml/Main.qml",
                 "src/AppActions.*",
                 "tests/tst_keymove.cpp",
-                "tests/CMakeLists.txt"
+                "tests/CMakeLists.txt",
+                "src/KeyMove.h",
+                "src/KeyMove.cpp",
+                "src/main.cpp",
+                "CMakeLists.txt"
             ],
             "stage": "R8",
             "title": "R8 键盘位移与拖拽可达性"

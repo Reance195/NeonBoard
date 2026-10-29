@@ -175,6 +175,7 @@ Rectangle {
             parts.push("到期 " + card.due)
         if (card.tag.length > 0)
             parts.push("标签 " + card.tag)
+        parts.push("Ctrl 加左右方向键移到相邻列")
         return parts.join("，")
     }
     Accessible.focusable: true
@@ -515,6 +516,11 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
+                    // 快捷动作要能被读屏逐一点到：否则这三颗按钮对读屏用户等于不存在，
+                    // 只能靠空格/Delete 的等价快捷键硬记
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "开始执行「" + card.title + "」"
+                    Accessible.onPressAction: card.startRequested()
                     onClicked: card.startRequested()
                 }
             }
@@ -538,6 +544,10 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
+                    Accessible.role: Accessible.Button
+                    Accessible.name: (card.taskStatus === "done" ? "恢复「" : "完成「") + card.title + "」"
+                    Accessible.onPressAction: card.taskStatus === "done" ? card.restoreRequested()
+                                                                        : card.playSweep()
                     onClicked: card.taskStatus === "done" ? card.restoreRequested()
                                                          : card.playSweep()
                 }
@@ -562,6 +572,9 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "删除「" + card.title + "」"
+                    Accessible.onPressAction: card.playGlitch()
                     onClicked: card.playGlitch()
                 }
             }

@@ -469,6 +469,9 @@ ApplicationWindow {
     }
 
     property bool dragActive: false
+    // 拖拽被 Esc 取消：鼠标还按着、但这次拖拽已经作废。
+    // 之后所有 dragMoved / dragEnded 都直接丢弃 —— 松手不能落库，也不能进撤销栈。
+    property bool dragAborted: false
     // 松手后的收尾：拖影还要淡出 settleMs 毫秒才彻底消失。
     // 数据在 endTaskDrag 里已经写完了，这段时间纯粹是视觉收尾，绝不阻塞落库。
     property bool dragSettling: false
@@ -549,6 +552,50 @@ ApplicationWindow {
         return null
     }
 
+    // 键盘跨列移动（R8-06）：选中 → Ctrl+←/→ → 卡落到相邻列的同一相对位置。
+    //
+    // 落位规则与鼠标拖拽共用一套：KeyMove 只算「去第几列 / 落第几位」，
+    // 真正写库仍然走 taskUndo，所以 Ctrl+Z 的行为和拖拽完全一致。
+    // 边界（已经在最左/最右）**不移动也不进撤销栈** —— 否则按一下 Ctrl+Z 像没反应。
+    function moveCardAcrossColumns(taskId, delta) {
+        if (!taskId || taskId.length === 0)
+            return false
+        var task = taskStore.taskById(taskId)
+        if (!task || !task.id)
+            return false
+        var cols = columnItems()
+        var current = -1
+        for (var i = 0; i < cols.length; ++i) {
+            if (cols[i].columnId === task.columnId) {
+                current = i
+                break
+            }
+        }
+        if (current < 0)
+            return false
+        var target = keyMove.stepFor(current, delta, cols.length)
+        if (target < 0)
+            return false
+        var fromIds = cols[current].taskIds()
+        var fromIndex = fromIds.indexOf(taskId)
+        var targetCol = cols[target]
+        var targetIds = targetCol.taskIds()
+        var index = keyMove.insertIndexFor(fromIndex, targetIds.length)
+        var beforeId = index < targetIds.length ? targetIds[index] : ""
+        if (!taskUndo.moveTaskBeforeColumn(taskId, targetCol.columnId, beforeId))
+            return false
+        // 选中跟着卡走：连按两次 Ctrl+→ 能一路搬到第三列，不用重新选
+        if (cols[current] !== targetCol) {
+            cols[current].selectedId = ""
+            cols[current].selectionChanged("")
+        }
+        targetCol.selectId(taskId)
+        targetCol.focusList()
+        // 读屏播报：键盘移动没有指针位置可循，结果必须主动念出来
+        keyMove.announce("已移到「" + targetCol.title + "」第 " + (index + 1) + " 位，Ctrl+Z 可撤销")
+        return true
+    }
+
     function beginTaskDrag(id, title, status, x, y) {
         dragTaskId = id
         dragTaskTitle = title
@@ -557,10 +604,31 @@ ApplicationWindow {
         dragY = y
         dragSnapY = -1
         dragSettling = false
+        dragAborted = false
         dragOverColumnId = boardColumns.columnIdForStatus(status)
         dragActive = true
         dragTrail.reset()
         dragTrail.feed(x, y)
+    }
+
+    // Esc 取消拖拽（R8-06）：卡回原位、拖影消失、**一条撤销记录都不留**。
+    // 拖拽期间数据库一个字节都没动过（只在松手时写），所以「取消」等价于
+    // 把界面状态丢掉 —— 这也正是「取消不该可撤销」的实现方式：没有可回滚的东西。
+    function cancelTaskDrag() {
+        if (!dragActive)
+            return false
+        dragAborted = true
+        dragActive = false
+        dragSettling = false
+        dragSnapY = -1
+        dragOverColumnId = ""
+        dragTaskId = ""
+        dragTaskTitle = ""
+        dragTaskStatus = ""
+        dragTrail.reset()
+        clearDropMarks()
+        keyMove.announce("已取消拖拽，卡片回到原位")
+        return true
     }
 
     function clearDropMarks() {
@@ -574,6 +642,9 @@ ApplicationWindow {
     }
 
     function updateTaskDrag(x, y) {
+        // 取消之后鼠标可能还按着继续移动：丢弃，别把指示线又画出来
+        if (dragAborted)
+            return
         dragX = x
         dragY = y
         dragTrail.feed(x, y)
@@ -600,6 +671,11 @@ ApplicationWindow {
     }
 
     function endTaskDrag(x, y) {
+        if (dragAborted) {
+            // Esc 已经取消过：松手只是把鼠标放开，不许落库、不许进撤销栈
+            dragAborted = false
+            return
+        }
         if (!dragActive)
             return
         dragX = x
@@ -651,6 +727,14 @@ ApplicationWindow {
     Shortcut {
         sequence: "Ctrl+Z"
         onActivated: window.undoLastAction()
+    }
+
+    // Esc 取消拖拽（R8-06）：鼠标按着也能按，卡回原位且不留撤销记录。
+    // 只在拖拽中启用 —— 弹层有自己的 CloseOnEscape，不能被这条抢掉。
+    Shortcut {
+        sequence: "Escape"
+        enabled: window.dragActive
+        onActivated: window.cancelTaskDrag()
     }
 
     property string undoToastText: "任务已删除"
@@ -1415,6 +1499,10 @@ MouseArea {
                             dragSpace: root
                             dropTarget: window.dragOverColumnId === boardColumnId
                             onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
+                            // Ctrl+←/→：把选中卡搬到相邻列（落位规则与拖拽同一套）
+                            onCardMoveRequested: function(taskId, delta) {
+                                window.moveCardAcrossColumns(taskId, delta)
+                            }
                             // 双击 / 回车 / 无障碍「按下」都走详情抽屉（R8-03）：
                             // 先让人看清楚再决定改什么，编辑器从抽屉里一键进入
                             onEditRequested: function(taskId) { window.openCardDetail(taskId) }

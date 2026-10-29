@@ -70,10 +70,37 @@ Copy-Item -LiteralPath $hostExePath -Destination $dist
 
 $previousErrorAction = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
-& $windeployqt --release --qmldir (Join-Path $root 'qml') --compiler-runtime (Join-Path $dist 'NeonBoard.exe') 2>&1 | ForEach-Object { Write-Host $_ }
+# 程序在 main.cpp 里写死 QQuickStyle::setStyle("Basic")，运行时只加载 Basic 一套样式。
+# windeployqt 默认会把 Fusion/Imagine/Material/Universal 及各自的 styleimpl 一并打进包，
+# 这些 DLL 永远不会被 load —— 白白增大包体、拖慢便携包解压与 Defender 首扫。这里显式排除，
+# 只留 Basic（quickcontrols2basic / *basicstyleimpl 不在排除列表，默认保留）。
+$wdqtArgs = @(
+    '--release', '--qmldir', (Join-Path $root 'qml'), '--compiler-runtime',
+    '--no-quickcontrols2fusion', '--no-quickcontrols2fusionstyleimpl',
+    '--no-quickcontrols2imagine', '--no-quickcontrols2imaginestyleimpl',
+    '--no-quickcontrols2material', '--no-quickcontrols2materialstyleimpl',
+    '--no-quickcontrols2universal', '--no-quickcontrols2universalstyleimpl',
+    '--no-quickcontrols2fluentwinui3styleimpl', '--no-quickcontrols2windowsstyleimpl',
+    (Join-Path $dist 'NeonBoard.exe')
+)
+& $windeployqt @wdqtArgs 2>&1 | ForEach-Object { Write-Host $_ }
 $deployExit = $LASTEXITCODE
 $ErrorActionPreference = $previousErrorAction
 if ($deployExit -ne 0) { throw "windeployqt failed: $deployExit" }
+
+# windeployqt 的 --no-<style> 只排除样式 DLL，QtQuick/Controls 下各样式的 QML 模块目录
+# 仍会被 --qmldir 扫描带进来（FluentWinUI3 一个就 5.9MB / 836 文件）。既然只用 Basic，
+# 这里把未用样式的 QML 目录一并删掉：Basic 与共享 impl 保留，其余整目录移除。
+$controlsDir = Join-Path $dist 'qml\QtQuick\Controls'
+if (Test-Path -LiteralPath $controlsDir) {
+    foreach ($style in 'Fusion','Imagine','Material','Universal','FluentWinUI3','Windows') {
+        $styleDir = Join-Path $controlsDir $style
+        if (Test-Path -LiteralPath $styleDir) {
+            Remove-Item -LiteralPath $styleDir -Recurse -Force
+            Write-Host "Pruned unused style: $style"
+        }
+    }
+}
 
 $plugins = Join-Path $dist 'plugins'
 New-Item -ItemType Directory -Path $plugins -Force | Out-Null

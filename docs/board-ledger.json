@@ -99,7 +99,8 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "R0-11": "todo"
     },
     "cards": {
         "DX-01": {
@@ -2202,6 +2203,30 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "R0-11": {
+            "acceptance": [
+                "连续 3 次 CI 的 --smoke startup 中位数 ≤ 2000ms（基线 3772ms 见 docs/perf-baseline.json）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0 且 ctest 全绿",
+                "pwsh -File scripts/verify.ps1 全过，--smoke 日志零 QML 告警"
+            ],
+            "id": "159dabf6-8b1a-4954-8182-cce05155b10e",
+            "note": "起因：GitHub issue #4 —— CI `--smoke` 实测 startup=3772ms，目标冷启动 ≤2000ms。路线图 §3.1「剩余可做」四项：数据库建表/迁移线程化+延后首帧（数十 ms）、Shader 预热（.qsb 首次链接放 Splash 阶段，冷态 BOOT shown 比热态多 1–2 s，可能秒级）、回退字体加载阻塞首帧（数十 ms）、插件扫描后台化（实测仅 2–8 ms，优先级下调）。边界（issue #4 原文）：不改插件协议与数据库 schema。",
+            "scope": [
+                "src/Database.*",
+                "src/PluginLoader.*",
+                "src/SplashWindow.*",
+                "src/Metrics.*",
+                "src/main.cpp",
+                "qml/**",
+                "resources/**",
+                "shaders/**",
+                "tests/**",
+                "CMakeLists.txt",
+                "docs/perf-baseline.json"
+            ],
+            "stage": "R0",
+            "title": "R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）"
         }
     },
     "claims": {},

@@ -17,7 +17,7 @@
 | [1](https://github.com/Reance195/NeonBoard/issues/1) | CI 格式检查与范围检查切成硬门禁 | CI | 依赖 #2 的 scope 覆盖 | **前置已解除**（#2 已由 `DX-09` 结卡），本项仍待做 |
 | [2](https://github.com/Reance195/NeonBoard/issues/2) | 补齐 49 张卡片的 acceptance 与 scope | 流程 | — | **已交付**：`#DX-09=done`（`d9e3c42`），台账 93 卡 `acceptance` / `scope` 覆盖率 100% |
 | [3](https://github.com/Reance195/NeonBoard/issues/3) | 接入测试覆盖率（OpenCppCoverage） | CI | — | 待做 |
-| [4](https://github.com/Reance195/NeonBoard/issues/4) | 首次启动 3.7s → 2s 以内 | 性能 | — | **待立卡**：路线图 §3.1「剩余可做」列了四个瓶颈（数据库 / 插件扫描 / 字体 / Shader 预热），台账里没有对应短号，两边挂着没人领 |
+| [4](https://github.com/Reance195/NeonBoard/issues/4) | 首次启动 3.7s → 2s 以内 | 性能 | — | **已立卡 `R0-11`**（2026-10-29 代登记）：台账已登记，四项瓶颈（数据库 / Shader 预热 / 字体 / 插件扫描）收口 + `perf-baseline.json` 收紧，可用 `agent-init.ps1 -Card R0-11` 领用 |
 | [5](https://github.com/Reance195/NeonBoard/issues/5) | 上架 winget | 分发 | — | 待做 |
 | [6](https://github.com/Reance195/NeonBoard/issues/6) | 建立 `docs/adr/` 与首批决策记录 | 文档 | — | **主体已交付**：目录规范 + 首批两篇 ADR 已落地（见下方说明），issue 可确认后关闭 |
 | [7](https://github.com/Reance195/NeonBoard/issues/7) | 对外发布（按 announcement 草稿） | 文档 | — | 待做 |
@@ -45,7 +45,7 @@ R7-01 ~ R7-06 六张卡**全部已交付并结项**（`#R7-0x=done` + `chore(boa
 
 ```
 #1（切硬门禁，前置已解除，可立即开工）
-#4（首启优化 —— 先在台账立卡，再按 perf-baseline 定位瓶颈）
+#4（首启优化 —— 已立卡 R0-11，按 perf-baseline 定位瓶颈后可直接领用）
 #3（覆盖率） → #5（winget） → #7（发布）
 ```
 
@@ -69,5 +69,5 @@ R7-01 ~ R7-06 六张卡**全部已交付并结项**（`#R7-0x=done` + `chore(boa
 按 `AGENTS.md` 条款 6：先确认 issue 对应到看板台账里的卡片短号，
 再用 `scripts/agent-init.ps1 -Card <短号>` 开工作区，收尾跑 `scripts/verify.ps1`。
 
-> **台账里没有短号的 issue（当前是 #4）不能直接开卡**：立卡权归维护者
+> **台账里没有短号的 issue 不能直接开卡**：立卡权归维护者
 > （条款 6 第 1 点，agent 不得自行加卡），需先由维护者登记进 `docs/board-ledger.json`。

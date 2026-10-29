@@ -502,6 +502,7 @@ void TestAgentProfile::officialPluginManifests()
     // 每加一个官方 agent 插件就追加一项；漏加等于该插件没有守护。
     const QStringList manifests{
         QStringLiteral("agent-claude"),
+        QStringLiteral("agent-opencode"),
     };
 
     for (const QString &dirName : manifests) {

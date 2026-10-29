@@ -1,0 +1,25 @@
+{
+    "id": "com.lin.agent-cursor",
+    "name": "Cursor Agent",
+    "version": "1.0.0",
+    "apiVersion": 2,
+    "description": "声明 Cursor Agent 的出站执行 profile：卡片派活时以 cursor-agent -p --output-format stream-json 拉起，只读走 --plan。",
+    "main": "main.qml",
+    "permissions": ["exec.agentProfiles"],
+    "contributes": {
+        "agentProfiles": [
+            {
+                "id": "cursor-agent",
+                "displayName": "Cursor Agent",
+                "exe": "cursor-agent",
+                "args": ["-p", "--output-format", "stream-json"],
+                "promptMode": "arg",
+                "readonlyArgs": ["--plan"],
+                "output": "stream-json",
+                "env": { "NO_COLOR": "1" },
+                "defaultTimeoutMin": 30
+            }
+        ],
+        "commands": []
+    }
+}

@@ -30,6 +30,22 @@ const QStringList kOutputModes = {
     QStringLiteral("stream-json"), QStringLiteral("json"), QStringLiteral("text"),
 };
 
+// exe 是否能被拉起：绝对路径查文件、裸命令查 PATH。
+//
+// 必须独立于 isAvailable(id)：profiles() 要给每一行带可用性，而 isAvailable 反过来
+// 又要读 profileOf(id) → profiles()，直接在 profiles() 里调 isAvailable 会无限递归。
+// 判据本身只有这一处，两处各写一遍必然有一处先漂。
+bool profileRunnable(const QVariantMap &profile)
+{
+    const QString exe = profile.value(QStringLiteral("exe")).toString().trimmed();
+    if (exe.isEmpty())
+        return false;
+    const QFileInfo info(exe);
+    if (info.isAbsolute())
+        return info.isFile();
+    return !QStandardPaths::findExecutable(exe).isEmpty();
+}
+
 QVariantMap makeBuiltin(const QString &id, const QString &displayName, const QString &exe,
                         const QStringList &args, const QStringList &readonlyArgs,
                         const QString &output)
@@ -384,28 +400,36 @@ QVariantList AgentProfile::profiles() const
     migrateLegacyProfiles();
 
     QVariantList out = baseProfiles();
-    if (!m_database)
-        return out;
-
-    const QJsonObject overrides = readOverrides();
-    for (auto it = overrides.constBegin(); it != overrides.constEnd(); ++it) {
-        const QString id = it.key();
-        const QJsonValue value = it.value();
-        if (value.isNull()) { // 墓碑
-            removeProfileById(&out, id);
-            continue;
+    if (m_database) {
+        const QJsonObject overrides = readOverrides();
+        for (auto it = overrides.constBegin(); it != overrides.constEnd(); ++it) {
+            const QString id = it.key();
+            const QJsonValue value = it.value();
+            if (value.isNull()) { // 墓碑
+                removeProfileById(&out, id);
+                continue;
+            }
+            if (!value.isObject())
+                continue;
+            const QVariantMap normalized = normalizeProfile(value.toObject().toVariantMap());
+            // 键与 id 不一致 = 坏数据，单条忽略而不是整份丢弃。
+            if (normalized.isEmpty() || normalized.value(QStringLiteral("id")).toString() != id)
+                continue;
+            // 与下层等价的覆盖没有信息量：迁移可能留下这种条目，读时忽略，
+            // 插件后来改了声明也能自动跟上。
+            if (sameProfile(baseProfile(id), normalized))
+                continue;
+            upsertProfile(&out, normalized);
         }
-        if (!value.isObject())
-            continue;
-        const QVariantMap normalized = normalizeProfile(value.toObject().toVariantMap());
-        // 键与 id 不一致 = 坏数据，单条忽略而不是整份丢弃。
-        if (normalized.isEmpty() || normalized.value(QStringLiteral("id")).toString() != id)
-            continue;
-        // 与下层等价的覆盖没有信息量：迁移可能留下这种条目，读时忽略，
-        // 插件后来改了声明也能自动跟上。
-        if (sameProfile(baseProfile(id), normalized))
-            continue;
-        upsertProfile(&out, normalized);
+    }
+
+    // 可用性在最后注入，且只进返回值不落盘：它是本机瞬时事实（PATH 会变、盘会拔），
+    // 存进 meta 就会在换机器后变成谎话。
+    // 这也是它不能进 normalizeProfile 白名单的原因 —— 那份输出是要写库的。
+    for (qsizetype i = 0; i < out.size(); ++i) {
+        QVariantMap row = out.at(i).toMap();
+        row.insert(QStringLiteral("available"), profileRunnable(row));
+        out[i] = row;
     }
     return out;
 }
@@ -433,13 +457,7 @@ bool AgentProfile::isAvailable(const QString &id) const
     const QVariantMap profile = profileOf(id);
     if (profile.isEmpty())
         return false;
-    const QString exe = profile.value(QStringLiteral("exe")).toString().trimmed();
-    if (exe.isEmpty())
-        return false;
-    const QFileInfo info(exe);
-    if (info.isAbsolute())
-        return info.isFile();
-    return !QStandardPaths::findExecutable(exe).isEmpty();
+    return profileRunnable(profile);
 }
 
 QVariantMap AgentProfile::profileOf(const QString &id) const

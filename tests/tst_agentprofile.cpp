@@ -90,6 +90,7 @@ private slots:
     void tombstoneHidesDeclared();
     void legacySnapshotMigrates();
     void availabilityProbe();
+    void availabilityInModel();
     void officialPluginManifests();
 
 private:
@@ -490,6 +491,40 @@ void TestAgentProfile::availabilityProbe()
     QVERIFY(!m_profile->isAvailable(QStringLiteral("missing-agent")));
 }
 
+void TestAgentProfile::availabilityInModel()
+{
+    // R9-04：profiles() 的每一行都要带 available，且与 isAvailable(id) 同源。
+    // 设置页靠这一列把「已声明但不可用」标出来 —— 缺了它，不可用的 agent 与
+    // 可用的在列表里长得一模一样，要等到派活失败才发现。
+    for (const QVariant &value : m_profile->profiles()) {
+        const QVariantMap row = value.toMap();
+        const QString id = row.value(QStringLiteral("id")).toString();
+        QVERIFY2(row.contains(QStringLiteral("available")), qPrintable(id));
+        QCOMPARE(row.value(QStringLiteral("available")).toBool(), m_profile->isAvailable(id));
+    }
+
+    // 绝对路径：存在即 true，不存在即 false（cursor-agent 那种「声明了却调不动」的形态）
+    QVariantMap real = customProfile(QStringLiteral("real-agent"));
+    real.insert(QStringLiteral("exe"), QCoreApplication::applicationFilePath());
+    QVERIFY(m_profile->saveProfile(real));
+
+    QVariantMap ghost = customProfile(QStringLiteral("ghost-agent"));
+    ghost.insert(QStringLiteral("exe"), m_dir.filePath(QStringLiteral("no-such-cli.exe")));
+    QVERIFY(m_profile->saveProfile(ghost));
+
+    QVariantMap byId;
+    for (const QVariant &value : m_profile->profiles())
+        byId.insert(value.toMap().value(QStringLiteral("id")).toString(), value.toMap());
+
+    const QVariantMap realRow = byId.value(QStringLiteral("real-agent")).toMap();
+    const QVariantMap ghostRow = byId.value(QStringLiteral("ghost-agent")).toMap();
+    QVERIFY(realRow.value(QStringLiteral("available")).toBool());
+    QVERIFY(!ghostRow.value(QStringLiteral("available")).toBool());
+
+    // available 是本机瞬时事实，不许落盘：PATH 会变、盘会拔，存进 meta 就变成谎话。
+    QVERIFY(!m_db->metaValue(kOverridesKey).contains(QStringLiteral("available")));
+}
+
 void TestAgentProfile::officialPluginManifests()
 {
     // 官方 agent 插件声明的 profile 会 upsert 覆盖同 id 的内置条目（L1 > L0）。
@@ -503,6 +538,7 @@ void TestAgentProfile::officialPluginManifests()
     const QStringList manifests{
         QStringLiteral("agent-claude"),
         QStringLiteral("agent-opencode"),
+        QStringLiteral("agent-cursor"),
     };
 
     for (const QString &dirName : manifests) {

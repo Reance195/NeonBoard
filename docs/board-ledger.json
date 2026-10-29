@@ -1211,7 +1211,7 @@
         "R13-01": {
             "acceptance": [
                 "scripts/verify.ps1 全过（build + ctest + selftest + smoke）",
-                "定位结论落 docs/pitfalls.md：写明「0 条的那一瞬间」到底发生在哪一层（QML 完成时 / 模型重建时 / 跨次日志混读），给出可复现的判定步骤；若证实是日志混读而非真 bug，同样要写清证据链并说明为何不必改代码",
+                "定位结论落 docs/pitfalls.md：按 note 里的证伪顺序给出结论（选窗选错 / 状态不一致 / 真竞态），附进程 PID 与数据目录的对应关系；若证实不是产品 bug，同样要写清证据链并说明为何不必改代码",
                 "onboardVisible 改为随 taskStore.count 与 uiSettings.onboardingDone 变化可重算：count 由 0 变为非 0 且用户尚未确认引导时自动收起，不再依赖 Component.onCompleted 的单次判定",
                 "tests/tst_uisettings.cpp 覆盖三种组合（空板 + 未完成 → true、有卡 + 未完成 → false、空板 + 已完成 → false），与既有 3 例合并后全绿",
                 "连续 5 次「清空数据目录 → 首启」不出现「有卡却显示 0 条」或「有卡却弹引导」；同一次运行的 ONBOARD 诊断行与 TaskModel: loaded 行 count 一致",
@@ -1219,7 +1219,7 @@
             ],
             "depends": [],
             "id": "3e762880-cd0b-447b-bf4d-ef15dc8495e4",
-            "note": "现象（2026-10-29 发现，R10-05 验收截图时偶发撞见）：全新数据目录首次启动，三列全空、顶部统计全 0，并自动弹出「先记一条任务」引导；同一数据库复跑一次即恢复，任务数回到 139。当时用主仓库 exe 在同一个真实仓库根下复跑是正常的，说明与 R10-05 的 QML 布局改动无因果关系，属启动期就绪判定范畴。\n\n判定链路上有两处薄弱点：\n1) qml/Main.qml 的 onboardVisible 只在 Component.onCompleted 里算一次 —— uiSettings.shouldOnboard(taskStore.count)，此后 count 怎么变都不重算，那一刻读到 0 就永久误弹；\n2) 空板判定与列模型各自读自己的快照（列模型还叠了项目范围过滤），任一处先于数据就绪都可能给出「全空」的错误结论。\n\n尚未定论的疑点（开工时优先证伪）：TaskModel::load() 在 src/main.cpp:277 是同步调用、早于 QML 引擎加载，按这条路径 onCompleted 时 count 不可能是 0。因此要么存在第二条加载/重建路径（路线图首次全量同步、RoadmapSync 或 LedgerImport 触发的 reload）在 QML 起来之后把模型清空再填回；要么日志里的「loaded 139 tasks」与那张截图并非同一次运行 —— neonboard.log 是追加写，跨次混读会得出自相矛盾的结论。先分清是「真竞态」还是「读日志的方式错了」，再决定改不改代码。\n\n目标：把「是否该弹引导」「是否该显示空态」从启动瞬间的一次快照，改成随 count 变化可重算的派生状态，并留下能区分「真空板」与「尚未就绪」的判据。\n\n边界：只修就绪判定与引导触发，不改引导文案与三步流程，不改数据加载 SQL，不碰 R10 的项目范围语义。",
+            "note": "现象（2026-10-29 发现，R10-05 验收截图时偶发撞见）：全新数据目录首次启动，三列全空、顶部统计全 0，并自动弹出「先记一条任务」引导；同一数据库复跑一次即恢复，任务数回到 139。当时用主仓库 exe 在同一个真实仓库根下复跑是正常的，说明与 R10-05 的 QML 布局改动无因果关系，属启动期就绪判定范畴。\n\n判定链路上有两处薄弱点：\n1) qml/Main.qml 的 onboardVisible 只在 Component.onCompleted 里算一次 —— uiSettings.shouldOnboard(taskStore.count)，此后 count 怎么变都不重算，那一刻读到 0 就永久误弹；\n2) 空板判定与列模型各自读自己的快照（列模型还叠了项目范围过滤），任一处先于数据就绪都可能给出「全空」的错误结论。\n\n第一轮实证（2026-10-29 21:55，空数据目录 + --smoke）：\n- 启动期 TaskModel::load() 确实被调用两次：loaded 0（.656，空库）→ 426 ms 后 loaded 139（.082），第二次来自 RoadmapSync::importFrom() 末尾的 m_tasks->load()（src/RoadmapSync.cpp:323）。count=0 的窗口真实存在。\n- 但 QML 侧 BOOT loaded 在 1852 ms，远晚于导入完成（约 .500 s）；ONBOARD 判定处 count=139 正确。有库的数据目录复跑同样正常（125 → 139 两次 load，ONBOARD 读到 139）。\n- 空库全量导入实测是「应用 139 项、跳过 0 项」；progress.json 在仓库根且未被同步写回（mtime 早于实验），所以「已同步但库空 → 跳过全部」这条也不成立。\n- 单看时序，正常启动不会误弹。\n\n开工按这个顺序证伪，别直接改代码：\n1) 最强候选 —— 那张「0 条 + 首启引导」截图可能根本不是我这次跑的实例。并行会话的 NeonBoard 用不带后缀的 instance key（本工作区是 com.lin.NeonBoard.single-instance.agent-cat），窗口尺寸又同为 1180×640，截图脚本按「尺寸 > 1200×700」选窗会选错；空数据目录的实例显示 0 条 + 首启引导本就是正确行为。先核对截图对应进程的 PID 与数据目录。\n2) 若确属本实例，再查「progress.json / 台账认为已同步而库为空」这类状态不一致。\n3) 最后才考虑 QML onCompleted 与导入的竞态 —— 需要构造导入慢于 QML 加载的场景（冷启动 + 大快照）。\n\n目标：把「是否该弹引导」「是否该显示空态」从启动瞬间的一次快照，改成随 count 变化可重算的派生状态，并留下能区分「真空板」与「尚未就绪」的判据。\n\n边界：只修就绪判定与引导触发，不改引导文案与三步流程，不改数据加载 SQL，不碰 R10 的项目范围语义。",
             "scope": [
                 "qml/Main.qml",
                 "src/UiSettings.cpp",

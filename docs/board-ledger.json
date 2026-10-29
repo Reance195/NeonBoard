@@ -2258,11 +2258,11 @@
         }
     },
     "claims": {
-        "DX-10": {
-            "agent": "agent-cat",
-            "branch": "feature/dx10-contract-audit",
-            "claimedAt": 1793252835,
-            "head": "13a21a6def7faa6de4a0963fbc28662fad69fba5"
+        "R0-11": {
+            "agent": "agent-docsync",
+            "branch": "HEAD",
+            "claimedAt": 1793254675,
+            "head": "7d4d55d467553d8032784c40c4e120429a0c66c2"
         }
     },
     "version": 1

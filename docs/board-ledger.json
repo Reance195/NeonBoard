@@ -2355,6 +2355,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R13-01": {
+            "agent": "agent-cat",
+            "branch": "fix/r13-01-onboard-recompute",
+            "claimedAt": 1793288741,
+            "head": "1aa87668e4036cfce1fa7ce3a1de5efbfedd1a9e"
+        }
+    },
     "version": 1
 }

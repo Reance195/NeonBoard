@@ -388,6 +388,22 @@
 - **根因**：`HookEventQueue` 一投出就 `markDelivered`，插件后台还没 ready 时事件被丢弃。
 - **解法 / 预防**：验证事件链路必须用**常驻实例**（§11.3）；只跑 `--smoke` 通过不代表插件收到了事件。
 
+### 4.6 截图按「尺寸」选窗，会截到并行会话的实例
+
+- **现象**：R10-05 验收截到一张「三列全空 + 首启引导弹窗」的图，同一份日志却写着
+  `ONBOARD skip tasks 139`。据此怀疑启动期 model reset 与 QML 绑定有竞态，还立了 R13-01。
+- **根因**：截图脚本按「窗口尺寸 > 1200×700 且句柄连续 2 秒稳定」挑主窗口。并行会话的 NeonBoard
+  用**不同的 instance key**（worktree 里是 `com.lin.NeonBoard.single-instance.agent-cat`，锚点区不带后缀），
+  两个实例可以同时跑；窗口尺寸又完全一致（1180×640 @ dpr 1.5 → 1770×960），按尺寸挑谁都可能中。
+  空数据目录的那个实例显示 0 条 + 首启引导是**正确行为**，被当成了 bug。
+- **判据**：拿**截图文件 mtime** 去对日志里的运行区间。那张图 21:44:03，落在 21:43:54 那次运行的
+  窗口生命周期内（`BOOT shown` 21:43:57），而该进程 21:43:55 明确记着 `ONBOARD skip tasks 139` ——
+  同一个进程「日志说不弹、截图却弹」，只能是截错了窗口。
+- **解法 / 预防**：选窗别只看尺寸。给实例起不同名字（`NEONBOARD_INSTANCE`），截图时按
+  **进程 PID 或窗口标题**锁定自己拉起的那个，并在图旁记下 PID 与 `AppPaths::dataDir()`。
+- **教训**：**「日志说 A、界面显示 B」时，先怀疑观察对象不是同一个，再怀疑程序有 bug。**
+  排查多实例程序，第一件事是确认「我眼前这个窗口是谁」。
+
 ---
 
 ## 五、网络与远程操作
@@ -427,6 +443,22 @@
 - **现象**：升级后注册表版本没变，安装器却没报错。
 - **根因**：残留的 `NeonBoardHost.exe` 进程占着目标文件。
 - **解法 / 预防**：升级前先清掉残留 Host 进程；链路验证用 `--update-apply`，可配 `--update-source` 指向本地清单（`docs/auto-update.md`）。
+
+### 6.4 启动期 `TaskModel::load()` 会被调两次，count 从 0 跳到实际条数
+
+- **现象**：空数据目录首启的日志里有两行 `TaskModel: loaded`：`loaded 0 tasks` → 426 ms 后
+  `loaded 139 tasks`。任何「只看一眼 count 就下结论」的判定都可能读到中间那个 0。
+- **根因**：第一次来自 `src/main.cpp` 的初始加载；第二次是 `RoadmapSync::importFrom()` 末尾
+  的 `m_tasks->load()`（`src/RoadmapSync.cpp:323`）—— 路线图快照导进库之后要整体重建一次模型。
+  两次都走 `beginResetModel()` / `endResetModel()`，是完整的 reset，不是增量。
+- **实测时序**：`loaded 0`（.656）→ 导入 139 项（.085 `应用 139、跳过 0`）→ `BOOT engine`（2.188）
+  → `BOOT loaded`（3.375）→ `ONBOARD skip tasks 139`。QML 加载比导入晚 1.3 秒，所以正常的
+  启动路径踩不到那个 0；但只要有人把判定提前、或 QML 预热变快，就会踩。
+- **解法 / 预防**（R13-01）：把依赖 count 的判定做成**可重算**的派生状态，挂在
+  `taskStore.onCountsChanged` 上，不要只在 `Component.onCompleted` 里算一次。
+  纯函数判定（`UiSettings::shouldOnboard`）不许加缓存 —— `tst_uisettings` 有专门一条守着。
+- **教训**：**「启动瞬间读到的 count」不是事实，是快照。** 凡是要拿它做判断的地方，
+  都得回答一个问题：数据后来变了，这个判断会跟着变吗？
 
 ---
 

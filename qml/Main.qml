@@ -72,9 +72,27 @@ ApplicationWindow {
 
     // 首启动引导：仅在「从未完成引导」且看板为空时自动出现
     property bool onboardVisible: false
+    // 「重看新手引导」开出来的：不受自动判定影响，关掉即止
+    property bool onboardManual: false
+
+    // 引导该不该出现，必须跟着任务数重算，而不是启动瞬间算一次就固化。
+    // 启动期 TaskModel::load() 会被调两次（第二次来自 RoadmapSync::importFrom 末尾）：
+    // 空库首启实测 0 条 → 426 ms 后 139 条。若只在 Component.onCompleted 判定一次，
+    // 一旦那一刻还没就绪，「尚未就绪」就被当成「空板」，把三步说明塞给有数据的用户，
+    // 而且数据后来填回来也不会收起。
+    function refreshOnboard(verbose) {
+        if (window.onboardManual)
+            return
+        const next = uiSettings.shouldOnboard(taskStore.count)
+        if (next !== window.onboardVisible || verbose)
+            console.info("ONBOARD", next ? "show" : "skip", "tasks", taskStore.count,
+                         "done", uiSettings.onboardingDone)
+        window.onboardVisible = next
+    }
 
     function finishOnboarding() {
         window.onboardVisible = false
+        window.onboardManual = false
         uiSettings.onboardingDone = true
     }
 
@@ -82,6 +100,7 @@ ApplicationWindow {
     function replayOnboarding() {
         onboarding.restart()
         window.closeAllPanels()
+        window.onboardManual = true
         window.onboardVisible = true
     }
 
@@ -845,16 +864,23 @@ ApplicationWindow {
         }
     }
 
+    // 任务数一变就重算引导的显隐（R13-01）：路线图同步会在启动后把模型整体
+    // 重建一次，count 从 0 跳到实际条数；不重算的话，「还没就绪」会被当成「空板」。
+    Connections {
+        target: taskStore
+        function onCountsChanged() {
+            window.refreshOnboard(false)
+        }
+    }
+
     Component.onCompleted: {
         refreshStageData()
         setStageFilter(initialStage)
         pluginLoader.scan()
         // 判定收在 UiSettings::shouldOnboard（未完成过 且 空板）：老用户换机重装
-        // 也该直接看到自己的看板，而不是被三步说明挡在门外
-        window.onboardVisible = uiSettings.shouldOnboard(taskStore.count)
-        // 一行诊断：出问题时能直接从日志看出「该弹没弹 / 不该弹却弹了」
-        console.info("ONBOARD", window.onboardVisible ? "show" : "skip",
-                     "tasks", taskStore.count, "done", uiSettings.onboardingDone)
+        // 也该直接看到自己的看板，而不是被三步说明挡在门外。
+        // 这里只是第一次算；之后每次 countsChanged 都会重算（见下方 Connections）。
+        window.refreshOnboard(true)
         // --exec-queue：启动即打开队列面板（截图 / 排障用，与 --map / --appearance 同类）
         if (initialExecQueue)
             window.openExecQueue()

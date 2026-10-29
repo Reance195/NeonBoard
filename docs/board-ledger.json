@@ -99,7 +99,8 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "R0-11": "todo"
     },
     "cards": {
         "DX-01": {
@@ -942,7 +943,7 @@
                 "R10-01"
             ],
             "id": "1e7d7444-2a63-403e-894d-f3655363216c",
-            "note": "起因：R10-01 给了项目归属，但看板仍是一锅端 —— 115 张卡平铺在三列里，NeonBoard 的里程碑卡和别的项目的卡混在一起；阶段条只能按里程碑切，切不出「只看某个项目」。目标：顶部新增范围切换器，两个层级 —— 全局（全部项目汇总）与项目（单项目）。切换后列内卡片即时过滤，列计数与统计芯片跟随；全局视图下每张卡带项目色标，避免「看着像同一个项目」的误判。范围是视图状态而非数据改动：切换不写库、不影响 task.order_key，退出重开后回到全局。非目标：不做项目增删改界面、不做跨项目拖动（拖过去等于改归属，留后续卡）、不改 StageBar 的阶段语义（阶段是里程碑维度，与项目维度正交）。",
+            "note": "起因：R10-01 给了项目归属，但看板仍是一锅端 —— 115 张卡平铺在三列里，NeonBoard 的里程碑卡和别的项目的卡混在一起；阶段条只能按里程碑切，切不出「只看某个项目」。目标：顶部新增范围切换器，两个层级 —— 全局（全部项目汇总）与项目（单项目）。切换后列内卡片即时过滤，列计数与统计芯片跟随；全局视图下每张卡带项目色标，避免「看着像同一个项目」的误判。范围是视图状态而非数据改动：切换不写库、不影响 task.order_key，退出重开后回到全局。非目标：不做项目增删改界面、不做跨项目拖动（拖过去等于改归属，留后续卡）、不改 StageBar 的阶段语义（阶段是里程碑维度，与项目维度正交）。 已完成 1 / 待做 0 —— 两级看板：全局 ⇄ 项目范围切换，基于 R10-01 项目归属数据层（d9ab85d）",
             "scope": [
                 "qml/Main.qml",
                 "qml/components/ProjectSwitcher.qml",
@@ -2051,7 +2052,7 @@
             ],
             "depends": [],
             "id": "f66edb38-c7f3-4ef5-834e-239054526ab7",
-            "note": "起因：TaskCard 现在只是把原卡降到 opacity 0.35 跟着鼠标走，BoardColumn 画一条插入线，「拖拽手感升级」等于没做。目标：拖拽物带光轨尾迹；落点处叠一圈霓虹涟漪（不替换 R1-1 的插入线）；两卡之间磁吸到最近落点并有轻微回弹；跨列时目标列整体高亮；时长与 easing 全部取自 Motion，reduced 或低画质档退化为瞬时。非目标：不改落点定位算法（moveTaskBefore 语义不变）、不做触屏手势。",
+            "note": "起因：TaskCard 现在只是把原卡降到 opacity 0.35 跟着鼠标走，BoardColumn 画一条插入线，「拖拽手感升级」等于没做。目标：拖拽物带光轨尾迹；落点处叠一圈霓虹涟漪（不替换 R1-1 的插入线）；两卡之间磁吸到最近落点并有轻微回弹；跨列时目标列整体高亮；时长与 easing 全部取自 Motion，reduced 或低画质档退化为瞬时。非目标：不改落点定位算法（moveTaskBefore 语义不变）、不做触屏手势。 已完成 1 / 待做 0 —— 拖拽手感升级：磁吸回弹 / 光轨尾迹 / 落点涟漪 / 跨列目标列高亮，时长与 easing 全取 Motion 令牌，reduced 退化瞬时（109ef92）",
             "scope": [
                 "qml/components/TaskCard.qml",
                 "qml/components/BoardColumn.qml",
@@ -2127,7 +2128,7 @@
                 "R9-01"
             ],
             "id": "bc57dbd0-f2e6-4707-a127-2c9474850a06",
-            "note": "把本机实测过的 claude 参数搬进 plugins/agent-claude/ 的 manifest（数据现成：scripts/agent-adapters/claude/agent.json）。插件同时贡献命令「派给 Claude Code」与设置页，设置页显示 exe 是否可用。只读模式走 --permission-mode plan（CLI 原生，三档里最强的一档）。",
+            "note": "把本机实测过的 claude 参数搬进 plugins/agent-claude/ 的 manifest（数据现成：scripts/agent-adapters/claude/agent.json）。插件同时贡献命令「派给 Claude Code」与设置页，设置页显示 exe 是否可用。只读模式走 --permission-mode plan（CLI 原生，三档里最强的一档）。 已完成 1 / 待做 0 —— agent-claude 官方插件声明 Claude Code profile，插件目录 plugins/agent-claude/，新增 agent 不再需要改 C++（e4b2cf6）",
             "scope": [
                 "plugins/agent-claude/",
                 "tests/tst_agentprofile.cpp"
@@ -2146,7 +2147,7 @@
                 "R9-01"
             ],
             "id": "58d7b62a-fbbf-4ce6-ae5d-50e17dade7ad",
-            "note": "同 R9-02，声明 opencode（数据见 scripts/agent-adapters/opencode/agent.json）。opencode 没有内置只读开关，readonlyArgs 用一个只读 agent 配置（plan）兜底 ——属 agent-profile.md 三档里的「工具白名单」档，要在设置页标注清楚。",
+            "note": "同 R9-02，声明 opencode（数据见 scripts/agent-adapters/opencode/agent.json）。opencode 没有内置只读开关，readonlyArgs 用一个只读 agent 配置（plan）兜底 ——属 agent-profile.md 三档里的「工具白名单」档，要在设置页标注清楚。 已完成 1 / 待做 0 —— agent-opencode 官方插件声明 opencode profile，数据见 scripts/agent-adapters/opencode/agent.json（d5d5f0d）",
             "scope": [
                 "plugins/agent-opencode/",
                 "tests/tst_agentprofile.cpp"
@@ -2165,7 +2166,7 @@
                 "R9-01"
             ],
             "id": "b681065d-babd-49bc-8dd1-3f255fce5927",
-            "note": "声明 cursor-agent。本机实测：cursor-agent 装了（v2026.10.19）但**不在 PATH**，内置 profile 写 exe: cursor-agent 调不动 —— 这正是它「内置却不可用」的根因。本卡必须写绝对路径，并让设置页能显示「已声明但 CLI 不在 PATH」，而不是等到执行失败才暴露。",
+            "note": "声明 cursor-agent。本机实测：cursor-agent 装了（v2026.10.19）但**不在 PATH**，内置 profile 写 exe: cursor-agent 调不动 —— 这正是它「内置却不可用」的根因。本卡必须写绝对路径，并让设置页能显示「已声明但 CLI 不在 PATH」，而不是等到执行失败才暴露。 已完成 1 / 待做 0 —— agent-cursor 官方插件：绝对路径解析（cursor-agent 不在 PATH 也可用）+ 不可用态进设置页列表（186b0e9）",
             "scope": [
                 "plugins/agent-cursor/",
                 "tests/tst_agentprofile.cpp",
@@ -2188,7 +2189,7 @@
                 "R9-01"
             ],
             "id": "07807019-f391-487c-bd5d-4a3796f6b371",
-            "note": "声明 codex。两个本机实测约束必须落进拼装逻辑：1) stdin 不重定向会卡在「Reading additional input from stdin...」，必须接 NUL；2) --json 是事件流不是最终回复，末条回复要另用 -o <file> 收。**默认不启用**：此前两次 exec 都没在 200s / 420s 内跑完一个回合（provider 指向127.0.0.1:15721 本地网关），按 agent-profile.md §12.1「禁止内置未实测 profile」，需先跑通一次以 turn.completed 结束的 exec 才允许打开。",
+            "note": "声明 codex。两个本机实测约束必须落进拼装逻辑：1) stdin 不重定向会卡在「Reading additional input from stdin...」，必须接 NUL；2) --json 是事件流不是最终回复，末条回复要另用 -o <file> 收。**默认不启用**：此前两次 exec 都没在 200s / 420s 内跑完一个回合（provider 指向127.0.0.1:15721 本地网关），按 agent-profile.md §12.1「禁止内置未实测 profile」，需先跑通一次以 turn.completed 结束的 exec 才允许打开。 已完成 1 / 待做 0 —— agent-codex 官方插件：stdin 接 NUL 防挂起 + 启用前置校验（5529dda）",
             "scope": [
                 "plugins/agent-codex/",
                 "tests/tst_agentprofile.cpp",
@@ -2202,6 +2203,30 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "R0-11": {
+            "acceptance": [
+                "连续 3 次 CI 的 --smoke startup 中位数 ≤ 2000ms（基线 3772ms 见 docs/perf-baseline.json）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0 且 ctest 全绿",
+                "pwsh -File scripts/verify.ps1 全过，--smoke 日志零 QML 告警"
+            ],
+            "id": "159dabf6-8b1a-4954-8182-cce05155b10e",
+            "note": "起因：GitHub issue #4 —— CI `--smoke` 实测 startup=3772ms，目标冷启动 ≤2000ms。路线图 §3.1「剩余可做」四项：数据库建表/迁移线程化+延后首帧（数十 ms）、Shader 预热（.qsb 首次链接放 Splash 阶段，冷态 BOOT shown 比热态多 1–2 s，可能秒级）、回退字体加载阻塞首帧（数十 ms）、插件扫描后台化（实测仅 2–8 ms，优先级下调）。边界（issue #4 原文）：不改插件协议与数据库 schema。",
+            "scope": [
+                "src/Database.*",
+                "src/PluginLoader.*",
+                "src/SplashWindow.*",
+                "src/Metrics.*",
+                "src/main.cpp",
+                "qml/**",
+                "resources/**",
+                "shaders/**",
+                "tests/**",
+                "CMakeLists.txt",
+                "docs/perf-baseline.json"
+            ],
+            "stage": "R0",
+            "title": "R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）"
         }
     },
     "claims": {},

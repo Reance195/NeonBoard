@@ -38,6 +38,18 @@ void Metrics::onFrameSwapped()
 {
     if (m_startupMs < 0) {
         m_startupMs = s_startup.elapsed();
+        // CPU 时间与墙钟同时取：两者之差就是「等 I/O / 等调度」的部分。
+        // 冷启动时这个差值能占到一半以上，说明瓶颈在磁盘而不是代码。
+        FILETIME created{}, exited{}, kernel{}, user{};
+        if (GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user)) {
+            auto toMs = [](const FILETIME &ft) {
+                ULARGE_INTEGER value{};
+                value.LowPart = ft.dwLowDateTime;
+                value.HighPart = ft.dwHighDateTime;
+                return static_cast<qint64>(value.QuadPart / 10000); // 100ns → ms
+            };
+            m_startupCpuMs = toMs(kernel) + toMs(user);
+        }
         emit startupMeasured();
     }
 
@@ -66,9 +78,12 @@ void Metrics::tick()
 
 QString Metrics::report() const
 {
-    return QStringLiteral("startup=%1ms fps=%2 mem=%3MB frames=%4")
+    // cpu 放在最后：CI 的 check-perf.ps1 用正则从这一行里抓 startup / fps / mem，
+    // 老字段保持在原位，加字段不改变它们的可匹配性。
+    return QStringLiteral("startup=%1ms fps=%2 mem=%3MB frames=%4 cpu=%5ms")
         .arg(m_startupMs)
         .arg(QString::number(m_fps, 'f', 1))
         .arg(m_workingSetMb)
-        .arg(m_frameCount);
+        .arg(m_frameCount)
+        .arg(m_startupCpuMs);
 }

@@ -203,18 +203,41 @@ int main(int argc, char *argv[])
 
     const bool hosted = arguments.contains(QStringLiteral("--hosted"));
     std::unique_ptr<SplashWindow> splash;
+    // Splash 的「呼吸」停留是纯等待：五处 pump 加起来 330 ms，全部叠加在用户等的那一刻。
+    // 热启动时这 330 ms 是节奏感（进度条一格格亮起来），冷启动时就是白等 ——
+    // 慢机器上用户已经盯着同一个画面两秒，再按剧本多停 330 ms 只会更像卡住。
+    // 折中：给整段停留一个总预算，谁先花完谁先走完。动画仍然逐段推进，
+    // 只是不再对每一段都保证最低停留时长。
+    // 预算可用 NEONBOARD_SPLASH_BUDGET 覆盖（毫秒；0 = 完全不停留）。
+    // 留这个口子是为了让「停留到底吃掉多少启动时间」可以被 A/B 量出来，
+    // 而不是只能靠读代码估算 —— 与 NEONBOARD_NO_BG 同一套诊断约定。
+    bool splashBudgetSet = false;
+    const int splashBudgetEnv = qEnvironmentVariableIntValue("NEONBOARD_SPLASH_BUDGET",
+                                                             &splashBudgetSet);
+    int splashPumpBudgetMs = splashBudgetSet ? qMax(0, splashBudgetEnv) : 160;
+    const auto splashPump = [&splash, &splashPumpBudgetMs](int holdMs) {
+        if (!splash)
+            return;
+        // 预算用完之后仍然要 pump(0)：它至少跑一轮 processEvents + repaint，
+        // 进度条才会真的画到屏幕上。跳过它的话画面会停在 36% 不动，
+        // 看起来像卡死 —— 那比多等 330 ms 还糟。
+        const int spend = qMin(holdMs, splashPumpBudgetMs);
+        splashPumpBudgetMs -= spend;
+        splash->pump(spend);
+    };
+
     if (!utilityMode && !smokeMode && !silentStart) {
         splash = std::make_unique<SplashWindow>();
         splash->setStage(0.06, QStringLiteral("BOOTING NEON RUNTIME"));
         splash->show();
-        splash->pump(70);
+        splashPump(70);
     }
 
-    const auto splashStage = [&splash](qreal progress, const QString &label, int holdMs) {
+    const auto splashStage = [&splash, &splashPump](qreal progress, const QString &label, int holdMs) {
         if (!splash)
             return;
         splash->setStage(progress, label);
-        splash->pump(holdMs);
+        splashPump(holdMs);
     };
 
     QElapsedTimer fontTimer;
@@ -1156,8 +1179,9 @@ int main(int argc, char *argv[])
     }
 
     Metrics metrics;
-    QObject::connect(&metrics, &Metrics::startupMeasured, [&boot]() {
-        qInfo() << "BOOT firstframe" << boot.elapsed();
+    QObject::connect(&metrics, &Metrics::startupMeasured, [&boot, &metrics]() {
+        // 同时打墙钟与 CPU：墙钟随机器负载乱飘，CPU 才是改动有没有用的判据
+        qInfo() << "BOOT firstframe" << boot.elapsed() << "cpu" << metrics.startupCpuMs();
     });
     UiSettings uiSettings;
     // 外部主题包（R8-01）：启动即扫描 themes/ 目录。

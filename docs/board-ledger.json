@@ -2198,6 +2198,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R8-05": {
+            "agent": "agent-r8drag",
+            "branch": "feature/r8-drag-feel",
+            "claimedAt": 1793247638,
+            "head": "1d565294df5c618882972ba9f594961a8e783dc8"
+        }
+    },
     "version": 1
 }

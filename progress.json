@@ -73,24 +73,6 @@
             "updatedAt": 1793213056
         },
         {
-            "code": "R8-06",
-            "completedAt": 0,
-            "createdAt": 1793213056,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "4c70a2ff-f74d-4ce2-aa73-dc6e8c209d58",
-            "note": "起因：拖拽是纯鼠标能力，P1 第 6 条承诺的 Ctrl+←/→ 一直没做，无障碍要求「同样的事能用别的方式做完」。目标：选中卡后 Ctrl+←/→ 跨列移、Ctrl+↑/↓ 列内调位；拖拽中 Esc 取消回原位；关键状态变化走 Accessible 播报（移到了哪一列 / 已取消拖拽）。非目标：不做自定义快捷键绑定（R3 已把快捷键注册做成插件能力）。",
-            "orderKey": 29696,
-            "priority": 2,
-            "stage": "R8",
-            "status": "todo",
-            "tags": [
-                "R8"
-            ],
-            "title": "R8 键盘位移与拖拽可达性",
-            "updatedAt": 1793213056
-        },
-        {
             "code": "R0-11",
             "completedAt": 0,
             "createdAt": 1793252504,
@@ -107,6 +89,24 @@
             ],
             "title": "R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）",
             "updatedAt": 1793252504
+        },
+        {
+            "code": "DX-10",
+            "completedAt": 0,
+            "createdAt": 1793252963,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "994f9282-52b4-40eb-995b-9d6a1c4a66f5",
+            "note": "起因（2026-10-29，维护者本会话授权「立」）：R10-02 立卡时漏写 src/main.cpp / src/BoardColumns.* / tests 三个实现必需路径，agent 两次靠 chore(board) 自行补 scope 才做完 —— 而 scripts/task_gate.py 的 ledger_shape() 只提取 id / title / stage / baseline，scope 与 acceptance 根本不进判定。也就是说：给自己扩大可改范围、或把验收条件改软，既不留痕也无需凭证，甚至能夹在 feat 提交里过去。这与条款 6「agent 不得自授权」直接冲突：卡片的可改范围是任务定义的一部分，不是备注。\n\n本次把 scope / acceptance 纳入任务定义视图，但保留「可纠正」：允许改，条件是单独一条 chore(board) 提交 + 「授权：」「批次：」两行 + 不与代码路径同提交。自动结卡通道（只改 baseline）不扩权，仍按「自动来源：」走。\n\n边界与已知局限：授权行是自述，闸门无法验真伪，它的价值是留痕与可复核（谁在哪个批次改了什么），真正的门仍是维护者复核；比较时忽略数组顺序与首尾空白，避免纯排版调整触发审计。存量 101 张卡已全部具备 scope/acceptance（DX-09 收口），本次不回溯改历史卡。\n\n状态：待办",
+            "orderKey": 32768,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "任务契约纳入审计：scope / acceptance 变更必须留痕",
+            "updatedAt": 1793252963
         },
         {
             "code": "R0-01",
@@ -1506,6 +1506,24 @@
             "updatedAt": 1792719894
         },
         {
+            "code": "R8-06",
+            "completedAt": 1793252963,
+            "createdAt": 1793213056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "4c70a2ff-f74d-4ce2-aa73-dc6e8c209d58",
+            "note": "起因：拖拽是纯鼠标能力，P1 第 6 条承诺的 Ctrl+←/→ 一直没做，无障碍要求「同样的事能用别的方式做完」。目标：选中卡后 Ctrl+←/→ 跨列移、Ctrl+↑/↓ 列内调位；拖拽中 Esc 取消回原位；关键状态变化走 Accessible 播报（移到了哪一列 / 已取消拖拽）。非目标：不做自定义快捷键绑定（R3 已把快捷键注册做成插件能力）。",
+            "orderKey": 29696,
+            "priority": 2,
+            "stage": "R8",
+            "status": "done",
+            "tags": [
+                "R8"
+            ],
+            "title": "R8 键盘位移与拖拽可达性",
+            "updatedAt": 1793252963
+        },
+        {
             "code": "R9-05",
             "completedAt": 1793252504,
             "createdAt": 1793251716,
@@ -2491,6 +2509,6 @@
             "updatedAt": 1793251716
         }
     ],
-    "updated": "2026-10-29T13:41:44",
+    "updated": "2026-10-29T13:49:23",
     "version": 3
 }

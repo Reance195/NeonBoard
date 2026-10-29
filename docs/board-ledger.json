@@ -111,7 +111,10 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "DX-14": "todo",
+        "DX-15": "todo",
+        "DX-16": "todo"
     },
     "cards": {
         "DX-01": {
@@ -2497,6 +2500,64 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "DX-14": {
+            "title": "文档与闸门随实现同步：回写迁至 board.yml 后的过期条文",
+            "note": "起因（2026-10-30，DX-13 实施后复查）：看板回写职责已从 ci.yml 迁到\n`.github/workflows/board.yml`，ci.yml 里的「自动回写看板状态」与 PR-only 的\n「看板状态一致性校验」两步都被移除，board.yml 本身不装仓库钩子、用普通\n`git commit` 即可 —— **当前全仓库实际零 `--no-verify` 豁免**。但条文档案仍指向旧实现：\n\n1. AGENTS.md §11.2 第 7 条（约 L714-722）：仍写「全仓库只允许 ci.yml『自动回写看板状态』\n   这一步用 `git commit --no-verify`」，该步骤已不存在；\n2. AGENTS.md §11.2 第 8 条（约 L728-730）：「ci.yml 已按先变基→再派生→提交→推送的循环实现」\n   → 应改为 board.yml，并补上现在的两级写者关系（本地 git-done 的 Sync-BoardSnapshot 为\n   第一写者、board.yml 为确定性兜底）与撞车时的处置；\n3. AGENTS.md L480（§7.6 卫生检查说明）同样引用「§11.2 第 7 条」的旧豁免面；\n4. scripts/check_script_hygiene.py 规则 B（L29-30）：\n   `NO_VERIFY_ALLOW = {\".github/workflows/ci.yml\"}` —— 白名单指向一个已不含该命令的文件，\n   等于豁免面与实现脱钩；\n5. docs/board-sync.md（L42 / L68）与 docs/iteration-roadmap.md（L304）：仍写\n   「合并到 main → CI 跑 `--write` 并自动提交」，未反映 board.yml 与本地 git-done 两级链路。\n\n这条是 DX-13 自身暴露的元问题：实现改了、条文没跟着改，下一次照着文档做事就会踩空。\n§11.2 第 7 条里「给 CI 装闸门必须同时声明豁免面」的教训本身仍然成立，要保留。\n\n边界：只同步文档与卫生检查规则，不改 board.yml / ci.yml 的实际行为，不改 pre-push 规则 4。\n\n状态：待办",
+            "acceptance": [
+                "`grep -rn \"自动回写看板状态\" AGENTS.md docs/*.md` 全部指向 board.yml，无「ci.yml 回写步骤」的残留描述",
+                "AGENTS.md §11.2 第 7 条改写为「当前零豁免：board.yml 不装仓库钩子，故回写用普通 git commit」，并保留原教训段（装钩子必须同时声明豁免面）",
+                "AGENTS.md §11.2 第 8 条改成 board.yml 的变基循环，并写明两级写者：本地 git-done Sync-BoardSnapshot（第一写者，fail-soft）→ board.yml（兜底，9~13 秒）；撞车时的 rebase 处置沿用既有约定",
+                "scripts/check_script_hygiene.py 规则 B 白名单不再指向已删除步骤；新增断言：`.github/workflows/*.yml` 全部不含 `--no-verify`；`python scripts/check_script_hygiene.py` 通过",
+                "docs/board-sync.md 与 docs/iteration-roadmap.md 的回写链路表更新为「本地 git-done → board.yml 兜底」两级",
+                "`python scripts/derive_board_status.py --repo . --check` 退出 0；`python scripts/task_gate.py selftest` 全过"
+            ],
+            "scope": [
+                "AGENTS.md",
+                "scripts/check_script_hygiene.py",
+                "docs/board-sync.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "id": "2e1c06fe-d44b-40ce-9ca8-b44363e86328",
+            "stage": "DX",
+            "depends": []
+        },
+        "DX-15": {
+            "title": "验收口径分层：纯脚本/配置类卡片免全量编译",
+            "note": "起因（2026-10-30，DX-13 实施实测）：卡片改动只含 `scripts/git-done.ps1`、`scripts/verify.ps1`、\n`docs/pitfalls.md`、`.github/workflows/*.yml`，**零 C++ / QML 改动**，但验收项仍写\n「ctest 34/34 + verify.ps1 全过」，于是新开的 worktree 付了一次全量编译（512 目标、\n20~30 分钟）。而脚本层就能完成的验证 —— PowerShell 语法解析、`check_script_hygiene`、\nYAML 解析、`check_scope` —— 与编译完全无关，这几项当时已全绿。\n\n成本是不对称的：脚本类改动付 15~30 分钟编译费，买到的是与改动无关的确认；\n真正的回归保护由 CI 的全量构建提供，本地再跑一遍是重复。\n\n边界：不降低代码类卡片的验收强度（编译 + ctest + verify 照旧）；全量编译仍由 CI 兜底；\n不改 ctest 用例，不改 CI 门槛。",
+            "acceptance": [
+                "docs/task-card.md 写明两类验收口径：代码类 = 编译 + ctest + verify.ps1；脚本/配置类 = PS 语法解析 + check_script_hygiene + YAML 解析 + check_scope，并给出判定规则（scope 内无 .cpp/.h/.qml/CMakeLists.txt 即判为脚本类）",
+                "scripts/verify.ps1 提供只跑脚本层检查的模式（如 -ScriptOnly），退出码语义与全量模式一致",
+                "AGENTS.md §7.7 验证口径补充该分层，并写明「全量编译交 CI」",
+                "以一张纯脚本/配置类卡片实测：脚本类验收全流程 ≤ 1 分钟，且不触发任何编译",
+                "`python scripts/check_script_hygiene.py` 通过；ctest 与 CI 既有门槛不变"
+            ],
+            "scope": [
+                "docs/task-card.md",
+                "scripts/verify.ps1",
+                "AGENTS.md"
+            ],
+            "id": "195c8f3c-67f2-466c-a999-fe5e76bbd807",
+            "stage": "DX",
+            "depends": []
+        },
+        "DX-16": {
+            "title": "构建反馈回路成本：新 worktree 冷启动与编译缓存未生效",
+            "note": "实测（2026-10-30，新建的 `.worktrees/agent-dx13`）：512 个目标全量重编，进度停在\n510/512 —— 剩下的是 `NeonBoard.exe`（4.98 MB）与 `tst_projectmap` 两个**链接**目标\n（单线程、吃内存，进度条看着不动），跑到 28 分钟仍未完成；而 CI 上同样全量是\n10m36s / 16m00s。被中止后续编只补完最后 2 个链接目标就结束了，说明绝大多数成本是\n一次性冷启动而非增量。\n\n三个成因：\n1. 新 worktree 的 `build/` 是空的：moc、rcc、QML 预编译（qmlcache AOT）、shader 编译\n   全跑一遍，光 CMake 配置就 20 秒；\n2. `.worktrees/` 下 agent-cat / agent-dx13 / agent-modsplit / agent-r011 **各有独立 build**，\n   并行会话同时在编时 8 核被分摊；\n3. R4-08 已结卡引入 sccache，但本机 `sccache --show-stats` 取不到统计，**是否真的生效\n   从未验证过** —— 结卡≠生效。\n\n边界：不引入跨 worktree 共享 build 目录（会破坏会话隔离）；不要求缩短 CI 时长；\n不改 CMake 构建图。目标是让「慢在哪」可观测，而不是盲目提速。",
+            "acceptance": [
+                "核实 sccache/ccache 在本机是否真的生效并给出命中率数据；未生效则记录原因与开启方式",
+                "scripts/build.ps1 输出（或落日志）构建耗时与缓存命中摘要，便于判断时间花在哪一段",
+                "docs/pitfalls.md 记录：新 worktree 首次构建 ≈ 20~30 分钟、8 核被并行 worktree 分摊、零 C++ 改动不必全量、被中止后续编只需补剩余链接目标",
+                "不改 CI 时长要求，不改 CMake 构建图；`python scripts/check_script_hygiene.py` 通过"
+            ],
+            "scope": [
+                "scripts/build.ps1",
+                "docs/pitfalls.md",
+                "AGENTS.md"
+            ],
+            "id": "d757eb59-4e65-444a-a3b7-323189e16ea0",
+            "stage": "DX",
+            "depends": []
         }
     },
     "claims": {

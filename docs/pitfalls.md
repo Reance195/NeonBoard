@@ -335,6 +335,20 @@
 - **结论**：Basic style 深色面板里**滑块靠右 = 选中**；`checked` 绑定 + `onToggled` 写回是正确用法。
 - **预防**：判定界面状态要截图放大核对指针位置，或直接读 `meta` 表值，别凭缩略图印象改代码。
 
+### 3.8 双击 `build\NeonBoard.exe` 连弹四个「找不到 Qt6xxx.dll」
+
+- **现象**：装好 Qt 的开发机上双击构建产物，按顺序弹出 `Qt6Sql.dll` → `Qt6Widgets.dll` →
+  `Qt6QuickControls2.dll` → `Qt6Quick.dll` 四个系统错误框，点四次「确定」才退出。
+- **根因**：`build/` 只是编译产物目录，CMake 里没有 windeployqt 的 POST_BUILD，exe 旁边**没有**
+  任何 Qt DLL；只有 `dist/NeonBoard`（`scripts/deploy.ps1` 出包）才自带运行时。同理，
+  `build\Release\NeonBoard.exe`（VS 多配置）与 `build\NeonBoard.exe`（Ninja 单配置）都不能直接双击。
+- **解法**：要能双击就用便携版 —— `pwsh -File scripts/deploy.ps1`，然后开 `dist\NeonBoard\NeonBoard.exe`；
+  要跑构建产物就让它带上 Qt bin —— `pwsh -File scripts/dev-run.ps1` 会自动解析 Qt bin 并前置到 PATH
+  （顺序：本工作区 `build\CMakeCache.txt` → 锚点区同名文件 → `NEONBOARD_QT_BIN` → `QT_ROOT_DIR` →
+  `C:\Qt\<版本>\msvc*_64\bin` 取最高版本），也可手动 `$env:NEONBOARD_QT_BIN='C:\Qt\6.8.3\msvc2022_64\bin'`。
+- **预防**：别把「exe 双击能开」当成构建成功的证据 —— 构建只证明编译链接过了；
+  运行验证走 `--selftest` / `--smoke`，出包验证走 `dist\NeonBoard`（DX-11）。
+
 ---
 
 ## 四、界面验收与自动化

@@ -1,0 +1,27 @@
+{
+    "id": "com.lin.agent-codex",
+    "name": "Codex CLI",
+    "version": "1.0.0",
+    "apiVersion": 2,
+    "description": "声明 Codex CLI 的出站执行 profile：exec --json 逐事件输出、-s read-only 只读沙箱、标准输入接 NUL。整轮 exec 尚未跑通，默认不启用。",
+    "main": "main.qml",
+    "permissions": ["exec.agentProfiles"],
+    "contributes": {
+        "agentProfiles": [
+            {
+                "id": "codex",
+                "displayName": "Codex CLI",
+                "exe": "codex",
+                "args": ["exec", "--json"],
+                "promptMode": "arg",
+                "readonlyArgs": ["-s", "read-only"],
+                "output": "json",
+                "env": { "NO_COLOR": "1" },
+                "defaultTimeoutMin": 30,
+                "stdin": "null",
+                "enabled": false
+            }
+        ],
+        "commands": []
+    }
+}

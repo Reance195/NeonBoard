@@ -42,6 +42,8 @@ private slots:
     void rejectsWhenDisabled();
     void missingOrUnknownAgent();
     void runsToPassedWithLog();
+    void stdinNullFeedsNothing();
+    void stdinPromptIsWritten();
     void rejectsBusyTask();
     void nonzeroExitsBlocked();
     void manualStopCancels();
@@ -139,6 +141,55 @@ void TestTaskRunner::runsToPassedWithLog()
     const QString logPath = detail.value(QStringLiteral("logPath")).toString();
     QVERIFY(!logPath.isEmpty());
     QVERIFY(QFile::exists(logPath));
+}
+
+void TestTaskRunner::stdinNullFeedsNothing()
+{
+    // R9-05：声明 stdin="null" 的 profile（codex）不读标准输入，执行器必须把子进程的
+    // 标准输入接到 NUL。载体用 `cmd /c more` —— more 把标准输入原样回显到标准输出，
+    // 于是「到底喂进去了什么」在日志里直接可见，不用猜。
+    QSignalSpy finished(m_runner, &TaskRunner::runFinished);
+
+    const QVariantMap r = m_runner->startRaw(
+        QStringLiteral("task-stdin-null"), kCmd, {QStringLiteral("/c"), QStringLiteral("more")},
+        m_dir.path(), 60, /*promptToStdin=*/true, QStringLiteral("SHOULD-NOT-APPEAR"),
+        /*maxAttempts=*/1, /*stdinNull=*/true);
+    QVERIFY2(r.value(QStringLiteral("ok")).toBool(),
+             qPrintable(r.value(QStringLiteral("message")).toString()));
+
+    // 不接 NUL 的话 more 会一直等 EOF，这条断言就是它的回归防线
+    QVERIFY2(finished.wait(15000), "stdin=null 的进程 15s 未结束：NUL 没接上，子进程在等 EOF");
+    const QVariantMap detail = finished.at(0).at(1).toMap();
+    QCOMPARE(detail.value(QStringLiteral("exitCode")).toInt(), 0);
+
+    QFile log(detail.value(QStringLiteral("logPath")).toString());
+    QVERIFY(log.open(QIODevice::ReadOnly));
+    QVERIFY2(!log.readAll().contains("SHOULD-NOT-APPEAR"),
+             "stdin=null 时不该把 prompt 写进标准输入");
+}
+
+void TestTaskRunner::stdinPromptIsWritten()
+{
+    // 另一半：promptMode=stdin 必须真把 prompt 写进去再关写端。
+    // 此前 setupProcess 的那个分支是空的（只有一句 Q_UNUSED），注释却写着
+    // 「由 setupProcess 写标准输入」—— 声明 stdin 的 profile 实际拿到空 prompt，
+    // 表现为「agent 收到任务却什么都没干」，极难归因。R9-05 一并修掉。
+    QSignalSpy finished(m_runner, &TaskRunner::runFinished);
+
+    const QVariantMap r = m_runner->startRaw(
+        QStringLiteral("task-stdin-prompt"), kCmd, {QStringLiteral("/c"), QStringLiteral("more")},
+        m_dir.path(), 60, /*promptToStdin=*/true, QStringLiteral("STDIN-PAYLOAD-42"),
+        /*maxAttempts=*/1, /*stdinNull=*/false);
+    QVERIFY2(r.value(QStringLiteral("ok")).toBool(),
+             qPrintable(r.value(QStringLiteral("message")).toString()));
+
+    QVERIFY2(finished.wait(15000), "写端没关，子进程等 EOF 挂住了");
+    const QVariantMap detail = finished.at(0).at(1).toMap();
+    QCOMPARE(detail.value(QStringLiteral("exitCode")).toInt(), 0);
+
+    QFile log(detail.value(QStringLiteral("logPath")).toString());
+    QVERIFY(log.open(QIODevice::ReadOnly));
+    QVERIFY2(log.readAll().contains("STDIN-PAYLOAD-42"), "prompt 没有写进子进程的标准输入");
 }
 
 void TestTaskRunner::rejectsBusyTask()

@@ -54,7 +54,8 @@ public:
     Q_INVOKABLE QVariantMap startRaw(const QString &taskId, const QString &exe,
                                      const QStringList &args, const QString &cwd = QString(),
                                      int timeoutSec = 600, bool promptToStdin = false,
-                                     const QString &prompt = QString(), int maxAttempts = 1);
+                                     const QString &prompt = QString(), int maxAttempts = 1,
+                                     bool stdinNull = false);
 
     // 手动终止运行中的 run（SIGTERM 宽限后 kill）→ cancelled。
     Q_INVOKABLE bool stop(const QString &runId);
@@ -95,13 +96,17 @@ private:
         QString cwd;
         QString prompt; // 原始 prompt（stdin 模式重试时追加失败摘要段）
         bool promptToStdin = false;
+        // R9-05：把子进程标准输入接到 NUL（profile 的 stdin="null"）。
+        // 与 promptToStdin 互斥：两者都要动同一条标准输入，优先 null —— 声明了
+        // 「别从 stdin 读」的 agent（codex）若还收到 prompt，说明 profile 本身写错了。
+        bool stdinNull = false;
         int timeoutSec = 600;
         int maxAttempts = 1; // 钳制 1..5；默认 1 等价于不循环
         int attempt = 1;
     };
 
     bool setupProcess(Process &p, const QString &cwd, const QStringList &args, bool promptToStdin,
-                      const QString &prompt, int timeoutSec);
+                      const QString &prompt, int timeoutSec, bool stdinNull = false);
     // 失败重试（R6-08）：释放当前 run（blocked + 摘要），取新锁（attempt 自增），
     // 把失败摘要注入 prompt 后重新拉起。返回 false 表示没法重试（锁被占等），
     // 调用方走正常 settle。

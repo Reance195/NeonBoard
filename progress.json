@@ -55,24 +55,6 @@
             "updatedAt": 1793213056
         },
         {
-            "code": "R8-03",
-            "completedAt": 0,
-            "createdAt": 1793213056,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "2557b1bb-6556-4dfc-b59c-6798880a75eb",
-            "note": "起因：task.note 字段存在但只能在 Main.qml 内联表单里当纯文本改，P1 第 5 条「卡片详情层」挂了很久。目标：双击 / 回车打开详情抽屉，标题 / 优先级 / 标签 / 到期 / 提醒 / 备注一次改完；备注用 Qt 自带 Text.MarkdownText 渲染（编辑时回落纯文本），不引第三方；抽屉注册进既有浮层互斥集合，Esc / 点击外部关闭。非目标：附件不在本卡（见 docs/r8-experience-plan.md 第 10 节待拍板 A），不改 task 表结构。",
-            "orderKey": 26624,
-            "priority": 2,
-            "stage": "R8",
-            "status": "todo",
-            "tags": [
-                "R8"
-            ],
-            "title": "R8 卡片详情抽屉：Markdown 笔记 + 就地编辑",
-            "updatedAt": 1793213056
-        },
-        {
             "code": "R8-04",
             "completedAt": 0,
             "createdAt": 1793213056,
@@ -88,24 +70,6 @@
                 "R8"
             ],
             "title": "R8 详情进阶：子任务进度环 + 审计时间线",
-            "updatedAt": 1793213056
-        },
-        {
-            "code": "R8-05",
-            "completedAt": 0,
-            "createdAt": 1793213056,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "f66edb38-c7f3-4ef5-834e-239054526ab7",
-            "note": "起因：TaskCard 现在只是把原卡降到 opacity 0.35 跟着鼠标走，BoardColumn 画一条插入线，「拖拽手感升级」等于没做。目标：拖拽物带光轨尾迹；落点处叠一圈霓虹涟漪（不替换 R1-1 的插入线）；两卡之间磁吸到最近落点并有轻微回弹；跨列时目标列整体高亮；时长与 easing 全部取自 Motion，reduced 或低画质档退化为瞬时。非目标：不改落点定位算法（moveTaskBefore 语义不变）、不做触屏手势。",
-            "orderKey": 28672,
-            "priority": 2,
-            "stage": "R8",
-            "status": "todo",
-            "tags": [
-                "R8"
-            ],
-            "title": "R8 拖拽手感升级：涟漪 / 光轨 / 磁吸 / 列高亮",
             "updatedAt": 1793213056
         },
         {
@@ -125,6 +89,24 @@
             ],
             "title": "R8 键盘位移与拖拽可达性",
             "updatedAt": 1793213056
+        },
+        {
+            "code": "R9-05",
+            "completedAt": 0,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "07807019-f391-487c-bd5d-4a3796f6b371",
+            "note": "声明 codex。两个本机实测约束必须落进拼装逻辑：1) stdin 不重定向会卡在「Reading additional input from stdin...」，必须接 NUL；2) --json 是事件流不是最终回复，末条回复要另用 -o <file> 收。**默认不启用**：此前两次 exec 都没在 200s / 420s 内跑完一个回合（provider 指向127.0.0.1:15721 本地网关），按 agent-profile.md §12.1「禁止内置未实测 profile」，需先跑通一次以 turn.completed 结束的 exec 才允许打开。",
+            "orderKey": 30720,
+            "priority": 2,
+            "stage": "R9",
+            "status": "todo",
+            "tags": [
+                "R9"
+            ],
+            "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置",
+            "updatedAt": 1793251716
         },
         {
             "code": "R0-01",
@@ -1415,6 +1397,24 @@
             "updatedAt": 1792633483
         },
         {
+            "code": "R8-03",
+            "completedAt": 1793251716,
+            "createdAt": 1793213056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "2557b1bb-6556-4dfc-b59c-6798880a75eb",
+            "note": "起因：task.note 字段存在但只能在 Main.qml 内联表单里当纯文本改，P1 第 5 条「卡片详情层」挂了很久。目标：双击 / 回车打开详情抽屉，标题 / 优先级 / 标签 / 到期 / 提醒 / 备注一次改完；备注用 Qt 自带 Text.MarkdownText 渲染（编辑时回落纯文本），不引第三方；抽屉注册进既有浮层互斥集合，Esc / 点击外部关闭。非目标：附件不在本卡（见 docs/r8-experience-plan.md 第 10 节待拍板 A），不改 task 表结构。",
+            "orderKey": 26624,
+            "priority": 2,
+            "stage": "R8",
+            "status": "done",
+            "tags": [
+                "R8"
+            ],
+            "title": "R8 卡片详情抽屉：Markdown 笔记 + 就地编辑",
+            "updatedAt": 1793251716
+        },
+        {
             "code": "M17",
             "completedAt": 1792588621,
             "createdAt": 1792572839,
@@ -1469,6 +1469,24 @@
             ],
             "title": "R1 快速录入解析：中文日期/时段/标签/优先级",
             "updatedAt": 1792659560
+        },
+        {
+            "code": "R8-05",
+            "completedAt": 1793251716,
+            "createdAt": 1793213056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "f66edb38-c7f3-4ef5-834e-239054526ab7",
+            "note": "起因：TaskCard 现在只是把原卡降到 opacity 0.35 跟着鼠标走，BoardColumn 画一条插入线，「拖拽手感升级」等于没做。目标：拖拽物带光轨尾迹；落点处叠一圈霓虹涟漪（不替换 R1-1 的插入线）；两卡之间磁吸到最近落点并有轻微回弹；跨列时目标列整体高亮；时长与 easing 全部取自 Motion，reduced 或低画质档退化为瞬时。非目标：不改落点定位算法（moveTaskBefore 语义不变）、不做触屏手势。",
+            "orderKey": 28672,
+            "priority": 2,
+            "stage": "R8",
+            "status": "done",
+            "tags": [
+                "R8"
+            ],
+            "title": "R8 拖拽手感升级：涟漪 / 光轨 / 磁吸 / 列高亮",
+            "updatedAt": 1793251716
         },
         {
             "completedAt": 1792719894,
@@ -2255,8 +2273,206 @@
             ],
             "title": "DX 结卡权自动化：合入 #短号=done 时同步台账 baseline，漂移不再靠人批量结",
             "updatedAt": 1793207091
+        },
+        {
+            "code": "R10-01",
+            "completedAt": 1793251716,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "e0c93819-72e5-4c6b-b31d-2357fc4f47d1",
+            "note": "起因：看板被多来源卡污染。当前 board.db 的 115 张卡里有 13 张属于另外两个项目（抢号系统 6 张、启动窗改造 7 张），它们是经 R4-01 的 agent.task 事件桥投递进来的 —— 事件桥不区分来源项目，所有卡都落进同一个 task 表，看板上无法回答「这是哪个项目的事」。现有 board / board_column 只解决了「一块板有几列」，没有「一张卡属于哪个项目」这一维。目标：新增 project 表（id / name / color / order_key）与 task_project 侧表（task_id / project_id）承载归属。按仓库既有侧表纪律（task_link / task_extra / task_exec / task_run）**不升 user_version、不动 task 表**，老版本程序打开同一个库不受影响。ProjectStore 提供项目清单、任务归属读写、按项目聚合计数；空 project_id 表示「未归属」，与现有 column_id 空串的约定保持一致。非目标：不做项目管理界面（R10-02 只做范围切换，不含项目增删改）、不做项目级权限、不在本卡迁移存量数据的项目归属（归 R10-04）。\n已完成 1 / 待做 0 —— 项目维度侧表与 ProjectStore 门面",
+            "orderKey": 78848,
+            "priority": 2,
+            "stage": "R10",
+            "status": "done",
+            "tags": [
+                "R10"
+            ],
+            "title": "R10 项目维度数据层：project 表 + task_project 侧表",
+            "updatedAt": 1793251716
+        },
+        {
+            "code": "R10-02",
+            "completedAt": 1793251716,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "1e7d7444-2a63-403e-894d-f3655363216c",
+            "note": "起因：R10-01 给了项目归属，但看板仍是一锅端 —— 115 张卡平铺在三列里，NeonBoard 的里程碑卡和别的项目的卡混在一起；阶段条只能按里程碑切，切不出「只看某个项目」。目标：顶部新增范围切换器，两个层级 —— 全局（全部项目汇总）与项目（单项目）。切换后列内卡片即时过滤，列计数与统计芯片跟随；全局视图下每张卡带项目色标，避免「看着像同一个项目」的误判。范围是视图状态而非数据改动：切换不写库、不影响 task.order_key，退出重开后回到全局。非目标：不做项目增删改界面、不做跨项目拖动（拖过去等于改归属，留后续卡）、不改 StageBar 的阶段语义（阶段是里程碑维度，与项目维度正交）。",
+            "orderKey": 79872,
+            "priority": 2,
+            "stage": "R10",
+            "status": "done",
+            "tags": [
+                "R10"
+            ],
+            "title": "R10 两级看板：全局 ⇄ 项目范围切换",
+            "updatedAt": 1793251716
+        },
+        {
+            "code": "R10-03",
+            "completedAt": 1793251716,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "20adfe62-e911-462e-acb7-0ecf32774df5",
+            "note": "起因：tags 一个数组里混了三种语义 —— 阶段（R0 / R4 / DX）、主题分类（插件 / 可靠性 / 性能）、角色（agent）—— 而派生只看 tags[0]：stageOf() 取 firstTag 再套阶段正则，TaskCard 也只显示 firstTag。实测 board.db 的 115 张卡里 33 张 tags 就是 [\"agent\"]，全部落进阶段条的「其他」桶；另有把主题排在阶段前面的卡同样被判错。顺序一变分类就变，这是拿数组下标当模型。目标：stageOf() 改为扫描整个 tags 数组，取第一个匹配阶段文法的标签，不再依赖位置；新增 categoryOf() 取第一个既非阶段也非角色词的标签作为展示分类；TaskCard 改显分类而非阶段号（阶段只在阶段条上体现）。角色词表集中定义，不再散落在正则里。注意：本卡只修「读」的语义，不改 tags 的存储格式与写入顺序 —— 存量数据里 [\"agent\"] 这种缺阶段信息的卡，本卡只能把它们从「显示 agent」改成「显示未分类」，补全归 R10-04。非目标：不做标签编辑器、不改 TaskInputParser 的录入解析、不改 tags 存储格式。\n已完成 1 / 待做 0 —— 标签派生改扫全数组，卡面显示分类而非首个标签",
+            "orderKey": 80896,
+            "priority": 2,
+            "stage": "R10",
+            "status": "done",
+            "tags": [
+                "R10"
+            ],
+            "title": "R10 标签语义修正：stageOf 扫全数组 + 卡片显示分类",
+            "updatedAt": 1793251716
+        },
+        {
+            "code": "R10-04",
+            "completedAt": 1793251716,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "9cc21b5f-c307-4b2b-a255-946b1448daf6",
+            "note": "起因：R10-01 / R10-02 / R10-03 给了能力，但库里 115 张卡仍是老样子 —— 13 张别的项目的卡混在 NeonBoard 看板里，33 张既无阶段也无分类。能力上线不等于数据干净，这一卡专门收口存量。目标：一次性迁移脚本，按可复核的规则把存量卡归入项目与分类：标题含抢号 / 号源 / QPS / Webhook / 定时任务 / 限速 → 抢号系统；含 Rust / TS: / SplashHandover / splash / 启动窗 / bun test / cargo check → 启动窗改造；其余归 NeonBoard。脚本必须干跑优先（默认只输出对照表，不写库）、--apply 才落库、可重跑幂等、写库前自动备份 board.db，并把归类依据（命中的关键词）逐行打印以便人工复核。非目标：不改卡片标题、不删卡、不动已完成状态与 order_key。",
+            "orderKey": 81920,
+            "priority": 2,
+            "stage": "R10",
+            "status": "done",
+            "tags": [
+                "R10"
+            ],
+            "title": "R10 存量数据分类补全：115 张卡归项目 + 补分类标签",
+            "updatedAt": 1793251716
+        },
+        {
+            "code": "R11-01",
+            "completedAt": 1793251716,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "5109ad17-773d-4d56-b47a-9728d5befce9",
+            "note": "起因：顶区（标题行 + 阶段条 + 统计横幅）合计约 190 px 垂直占用，把三列看板压扁；其中「工作台」24 px 大标题是每屏不变的装饰性文案，而 3 块 110×48 的统计盒只为放 3 个数字 —— 信息密度低、视觉重量失衡。目标：标题降到 18 px 并与副标题收紧行距；统计指标改为单行「状态带」（待办 / 进行中 / 今日完成 / 逾期），去掉大盒子，改为细分隔线分组 + 零值降饱和；整条顶区垂直占用至少压缩 40 px，腾给看板。非目标：不看板列与卡片本体，不改数据结构。交付（2026-10-29）：已完成 —— 标题 18 px 且与副标题同行；新增 qml/components/TopStatBar.qml 单行状态带（待办 / 进行中 / 今日完成 / 逾期，零值降饱和、逾期用危险色）；StatChip.qml 改为紧凑指标项。顶区垂直占用 190 → 140 px，实测省 50 px（前后截图对比：看板列区起点上移 75 物理 px / dpr 1.5）。验收：ctest 4/4 通过、--selftest 与 --smoke 退出码 0、冒烟日志无 QML 错误。待做：无（看板列与卡片本体另开卡）。（scope 为本批三张卡的并集（一个分支领多张卡，DX-03 口径）。）",
+            "orderKey": 82944,
+            "priority": 2,
+            "stage": "R11",
+            "status": "done",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 顶栏信息层级重排：标题瘦身 + 统计状态带",
+            "updatedAt": 1793251716
+        },
+        {
+            "code": "R11-02",
+            "completedAt": 1793251716,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "6f3631a5-c658-423f-b4c3-395d95cb5b03",
+            "note": "起因：标题栏「全景」「＋ 新建」两处按钮是同一套样式各抄一遍（圆角 / 边框 / 悬浮色硬编码 rgba(Theme.cyan, ...)），统计横幅与阶段条又各自用另一套圆角与边框 alpha；改主题时这几处不会跟着走。目标：抽出 TopToolButton 单一实现（圆角 / 高度 / 内边距 / 悬浮态统一），新增 Theme 语义令牌（hairline / glow / 面板描边层级），顶栏与横幅内不再出现颜色字面量。非目标：不改窗口按钮与主题预设本身。交付（2026-10-29）：已完成 —— 新增 qml/components/TopToolButton.qml（圆角 / 高度 / 内边距 / 悬浮态 / 无障碍名统一），标题栏两处按钮改用它，Main.qml 不再保留重复样式代码；Theme.qml 新增 hairline / divider / glowSoft / dangerSoft 等语义令牌与圆角阶梯（radiusPanel / radiusCard / radiusControl）；顶栏、阶段条、统计横幅内的颜色字面量全部收敛到 Theme 令牌。待做：无。（scope 为本批三张卡的并集（一个分支领多张卡，DX-03 口径）。）",
+            "orderKey": 83968,
+            "priority": 2,
+            "stage": "R11",
+            "status": "done",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 顶栏视觉一致性：令牌化 + 统一工具按钮",
+            "updatedAt": 1793251716
+        },
+        {
+            "code": "R11-03",
+            "completedAt": 1793251716,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "ebb9cbde-2a8b-44e7-aac8-609c73d066c7",
+            "note": "起因：统计横幅左侧 13×7 = 91 个 Rectangle 构成的热力图常驻构造（首帧白付 91 个 item 的代价），色阶写死青色不跟主题；没有任何完成记录时整片是 5% 白格，看不出「还没数据」；热力格没有悬浮提示；阶段条的路线图同步失败只靠一行小字变色区分；窄窗口下阶段 chip 会被 RowLayout 压扁变形。另外「逾期」是看板最该被看见的状态，却只在卡片上以呼吸描边呈现、没有数字。目标：热力图改 Canvas 一次绘制（item 数 91 -> 2）、色阶跟随主题 accent、无数据时给空态文案、热力格悬浮显示当天完成数；阶段条同步失败加图标与悬浮说明、窄窗口改横向滚动；新增 taskStats.overdueCount 与统计带上的逾期指标。非目标：不改看板列与卡片本体。交付（2026-10-29）：已完成 —— 热力网格改为 1 个 Canvas 绘制（91 图元 → 1）、色阶跟随主题 accent、无完成记录时显示空态文案、热力格悬浮显示当天日期与完成次数；阶段条同步状态加 ● / ⚠ 图标与悬浮说明、阶段 chip 放进 Flickable 横向滚动（修掉原先 chip 溢出压住搜索框的缺陷）；src/TaskStats 新增 overdueCount（未完成 + due_at 已过期，含每分钟自刷新）并新增 tests/tst_taskstats.cpp 四条用例。顺带修掉一个既有 bug：悬浮提示把文案赋给 Rectangle 的 tip.text（Rectangle 无 text 属性），日志一直刷「Cannot assign to non-existent property」。验收：tst_taskstats 等 ctest 4/4 通过、--selftest 与 --smoke 退出码 0、日志无 QML 错误。待做：无。（scope 为本批三张卡的并集（一个分支领多张卡，DX-03 口径）。）",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "R11",
+            "status": "done",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 状态与空态反馈 + 热力图 Canvas 化",
+            "updatedAt": 1793251716
+        },
+        {
+            "code": "R9-01",
+            "completedAt": 1793251716,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "7950d182-237d-4ba3-a12e-a991b5b58cee",
+            "note": "起因：出站执行器（R6）已全绿，但 agent 的定义写死在 src/AgentProfile.cpp 的 builtinProfiles() 里 —— 加一个 agent 要改 C++，插件平台形同虚设；而 cursor-agent 装了却不在 PATH、codex 有明确的不内置理由，这类本机事实内置表根本表达不了。目标：manifest 新增 contributes.agentProfiles，字段完全复用现有 profile（执行侧一处不改），AgentProfile 按「L0 内置 < L1 插件 < L2 用户覆盖」逐条合并，同 id 后者胜。用户层必须是增量覆盖 exec.agentProfileOverrides，不能用现存的 exec.agentProfiles 整份快照 —— 那份一写就把插件后来声明的 agent 整个淹没。迁移不升 user_version、不动 task 表。非目标：不改 TaskRunner / 不改协议 / 不做沙箱。设计稿见 docs/agent-provider-api.md。\n已完成 1 / 待做 0 —— 插件可声明 agent profile，用户层改为增量覆盖",
+            "orderKey": 86016,
+            "priority": 2,
+            "stage": "R9",
+            "status": "done",
+            "tags": [
+                "R9"
+            ],
+            "title": "R9 Agent Provider 扩展点：插件声明 profile + 三层合并",
+            "updatedAt": 1793251716
+        },
+        {
+            "code": "R9-02",
+            "completedAt": 1793251716,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "bc57dbd0-f2e6-4707-a127-2c9474850a06",
+            "note": "把本机实测过的 claude 参数搬进 plugins/agent-claude/ 的 manifest（数据现成：scripts/agent-adapters/claude/agent.json）。插件同时贡献命令「派给 Claude Code」与设置页，设置页显示 exe 是否可用。只读模式走 --permission-mode plan（CLI 原生，三档里最强的一档）。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "R9",
+            "status": "done",
+            "tags": [
+                "R9"
+            ],
+            "title": "R9 官方插件 agent-claude：声明 Claude Code profile",
+            "updatedAt": 1793251716
+        },
+        {
+            "code": "R9-03",
+            "completedAt": 1793251716,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "58d7b62a-fbbf-4ce6-ae5d-50e17dade7ad",
+            "note": "同 R9-02，声明 opencode（数据见 scripts/agent-adapters/opencode/agent.json）。opencode 没有内置只读开关，readonlyArgs 用一个只读 agent 配置（plan）兜底 ——属 agent-profile.md 三档里的「工具白名单」档，要在设置页标注清楚。",
+            "orderKey": 88064,
+            "priority": 2,
+            "stage": "R9",
+            "status": "done",
+            "tags": [
+                "R9"
+            ],
+            "title": "R9 官方插件 agent-opencode：声明 opencode profile",
+            "updatedAt": 1793251716
+        },
+        {
+            "code": "R9-04",
+            "completedAt": 1793251716,
+            "createdAt": 1793251716,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "b681065d-babd-49bc-8dd1-3f255fce5927",
+            "note": "声明 cursor-agent。本机实测：cursor-agent 装了（v2026.10.19）但**不在 PATH**，内置 profile 写 exe: cursor-agent 调不动 —— 这正是它「内置却不可用」的根因。本卡必须写绝对路径，并让设置页能显示「已声明但 CLI 不在 PATH」，而不是等到执行失败才暴露。",
+            "orderKey": 89088,
+            "priority": 2,
+            "stage": "R9",
+            "status": "done",
+            "tags": [
+                "R9"
+            ],
+            "title": "R9 官方插件 agent-cursor：绝对路径与不可用态",
+            "updatedAt": 1793251716
         }
     ],
-    "updated": "2026-10-28T19:03:23",
+    "updated": "2026-10-29T13:28:36",
     "version": 3
 }

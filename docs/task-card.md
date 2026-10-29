@@ -35,6 +35,19 @@
 - `docs/plugin-api.md` 精确路径
 - `plugins/*/plugin.json` 单层通配
 
+## scope / acceptance 是契约，不是备注
+
+两者与 `title` / `stage` 一样属于**任务定义**（DX-10）：`scope` 决定 agent 被允许改哪些路径，
+`acceptance` 决定怎样算做完。改它们跟加卡同权，同样受 `scripts/task_gate.py` 的代登记审计：
+
+- 必须单独一条 `chore(board):` 提交，body 写「授权：」「批次：」两行；
+- 不得与代码路径同提交（先调整契约再动手，或反过来，但别混在一条提交里）；
+- 自动结卡（`derive_board_status.py --close-cards`）只改 `baseline`，**这条通道不扩权**。
+
+比对时忽略数组顺序与首尾空白，纯排版整理不算定义变更，不会要求凭证。但放宽 `scope`
+或改软 `acceptance` 一定会在提交信息里留下授权来源 —— 这是留给事后复核的痕迹；
+闸门无法验证「谁真的批准过」，真正的门仍是维护者复核。
+
 ## 产出：合并提交 body 四段
 
 `docs/git-workflow.md` 要求 `merge: 合入 <分支名>` 作为标题，正文补四段：

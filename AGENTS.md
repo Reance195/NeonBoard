@@ -147,16 +147,23 @@ git branch -d feature/<简述>
    > agent 不得以授权为名自行加卡，也不得通过临时 worktree、修改判定脚本或 `--no-verify` 绕过。
    > 提交信息统一用 `chore(board): ...`，并在 body 记录授权来源与批次。
    >
-   > **判定凭「内容」而非「位置」**（DX-06 建立、DX-07 修正）：只要一次提交改了台账的
-   > **任务定义**（新增/删除卡、改 `id`/`title`/`stage`、改 `baseline`），无论它来自哪个检出，
+   > **判定凭「内容」而非「位置」**（DX-06 建立、DX-07 修正、DX-10 扩到卡片契约）：
+   > 只要一次提交改了台账的**任务定义**（新增/删除卡、改 `id`/`title`/`stage`、
+   > 改 `scope`/`acceptance`、改 `baseline`），无论它来自哪个检出，
    > 都过 `scripts/task_gate.py message` 的三道内容校验，缺一即拒：
    >
    > 1. 类型必须是 `chore(board)` —— 用 `feat` / `docs` 等语义夹带走卡片会被拒；
    > 2. body 必须同时有 `授权：` 与 `批次：` 两行（各自后面写授权来源 / 本批卡号）；
    > 3. 不得同时改动代码路径 —— 立卡与实现分开提交，否则事后分不清「哪条被授权、哪条是实现」。
    >
+   > **`scope` / `acceptance` 属任务定义**（DX-10）：`scope` 决定 agent 被允许改哪些路径，
+   > `acceptance` 决定怎样算做完 —— 放任它们不进审计，等于留着一条「自我扩权、自我放宽验收
+   > 且不留痕」的后门（R10-02 立卡漏写三个必需路径，agent 两次自补 `scope` 做完，无人可追溯）。
+   > 因此改这两项与加卡同权：单独一条 `chore(board)` + 授权/批次两行 + 不得与代码混提交。
+   > 比对时忽略顺序与首尾空白（纯排版整理不触发）；自动结卡只改 `baseline`，**不给这条通道扩权**。
+   >
    > 只改 `claims` 或卡片 `note` 不算代登记，无需凭证。判定逻辑只有一处实现
-   > （`scripts/task_gate.py` 的 `audit_problems`），自带 9 例（含自动结卡通道与不扩权）的可执行自测
+   > （`scripts/task_gate.py` 的 `audit_problems`），自带 15 例（含自动结卡通道与不扩权）的可执行自测
    > `python scripts/task_gate.py selftest`，CI 每次都跑。
    >
    > **为什么不再限定「只能在锚点区」**：锚点区检出停在 `main`、`pre-commit` 规则 1 禁止在

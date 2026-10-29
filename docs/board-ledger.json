@@ -53,6 +53,7 @@
         "R11-01": "done",
         "R11-02": "done",
         "R11-03": "done",
+        "R12-01": "todo",
         "R2-01": "done",
         "R2-02": "done",
         "R3-01": "done",
@@ -101,8 +102,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "R12-01": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -1147,6 +1147,23 @@
             ],
             "stage": "R11",
             "title": "R11 状态与空态反馈 + 热力图 Canvas 化"
+        },
+        "R12-01": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（build + ctest + selftest + smoke）",
+                "NeonBoardHost.exe 的 RT_GROUP_ICON 资源计数 >= 1（图标资源已内嵌 exe）",
+                "rg 'IDI_APPLICATION' src/host/HostMain.cpp 无匹配，且 rg 'LoadIconW(GetModuleHandleW' src/host/HostMain.cpp 有匹配（托盘图标取自模块资源而非系统通用图标）",
+                "人工确认：沙箱启动宿主进程，托盘显示 NeonBoard 霓虹图标（不再是系统通用图标）"
+            ],
+            "depends": [],
+            "id": "33c99e8c-638d-484e-88c8-69761d8345fa",
+            "note": "起因：常驻宿主进程 NeonBoardHost.exe 的托盘图标用 LoadIconW(nullptr, IDI_APPLICATION)（系统通用图标），从未使用 neonboard 图标；neonboard.ico 早已经 resources/neonboard.rc 内嵌进 Host exe（R5-05 只修了快捷方式图标，托盘代码未跟着改）。目标：宿主托盘图标改用内嵌的应用图标。",
+            "scope": [
+                "src/host/HostMain.cpp",
+                "resources/neonboard.rc"
+            ],
+            "stage": "R12",
+            "title": "R12 宿主托盘图标：改用内嵌 neonboard.ico"
         },
         "R2-01": {
             "acceptance": [
@@ -2268,25 +2285,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "R12-01": {
-            "acceptance": [
-                "pwsh -File scripts/verify.ps1 全过（build + ctest + selftest + smoke）",
-                "NeonBoardHost.exe 的 RT_GROUP_ICON 资源计数 >= 1（图标资源已内嵌 exe）",
-                "rg 'IDI_APPLICATION' src/host/HostMain.cpp 无匹配，且 rg 'LoadIconW(GetModuleHandleW' src/host/HostMain.cpp 有匹配（托盘图标取自模块资源而非系统通用图标）",
-                "人工确认：沙箱启动宿主进程，托盘显示 NeonBoard 霓虹图标（不再是系统通用图标）"
-            ],
-            "depends": [],
-            "id": "33c99e8c-638d-484e-88c8-69761d8345fa",
-            "note": "起因：常驻宿主进程 NeonBoardHost.exe 的托盘图标用 LoadIconW(nullptr, IDI_APPLICATION)（系统通用图标），从未使用 neonboard 图标；neonboard.ico 早已经 resources/neonboard.rc 内嵌进 Host exe（R5-05 只修了快捷方式图标，托盘代码未跟着改）。目标：宿主托盘图标改用内嵌的应用图标。",
-            "scope": [
-                "src/host/HostMain.cpp",
-                "resources/neonboard.rc"
-            ],
-            "stage": "R12",
-            "title": "R12 宿主托盘图标：改用内嵌 neonboard.ico"
         }
     },
-    "claims": {},
+    "claims": {
+        "R12-01": {
+            "agent": "agent-tray",
+            "branch": "fix/host-tray-icon",
+            "claimedAt": 1793278718,
+            "head": "c34580d5c169ebe84b3dd25b7e4ed1baea67e1b0"
+        }
+    },
     "version": 1
 }

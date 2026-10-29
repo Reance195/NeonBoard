@@ -2257,6 +2257,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-10": {
+            "agent": "agent-cat",
+            "branch": "feature/dx10-contract-audit",
+            "claimedAt": 1793252835,
+            "head": "13a21a6def7faa6de4a0963fbc28662fad69fba5"
+        }
+    },
     "version": 1
 }

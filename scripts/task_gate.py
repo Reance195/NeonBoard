@@ -7,8 +7,9 @@
   1. scope   —— 一次改动是「代码」还是「杂务豁免」：白名单之外一律算代码。
                豁免只看路径，不看人怎么声明（禁止再用「我觉得这是杂务」绕过）。
   2. message —— 触及代码的提交必须带路线图短号（#R4-10 / #M19），且短号已登记在台账。
-  3. ledger  —— agent 工作区只能写 claims 与卡片 note，不能加卡、不能改 baseline。
-               台账是「人授权任务」的唯一入口，agent 不得自己给自己发任务。
+  3. ledger  —— agent 工作区只能写 claims 与卡片 note；加卡、改 id/title/stage、
+               改 baseline、改 scope / acceptance（卡片契约）都属于任务定义变更，
+               必须凭审计凭证，不得自授权。
   4. push    —— 推送到主干的每个代码提交都必须有服务端 refs/claims/<短号> 占位。
 
 用法：
@@ -231,10 +232,36 @@ def cmd_message(args):
     return 0
 
 
+def contract_items(value):
+    """把 scope / acceptance 规整成可比较的集合：去首尾空白、丢空项、排序。
+
+    顺序不承载语义（check_scope.py 按集合判定越界），所以**只调换顺序或改空白
+    不算任务定义变更** —— 否则一次纯排版整理就会要求审计凭证，规则会被绕过。
+    """
+    if not isinstance(value, list):
+        return []
+    return sorted(str(item).strip() for item in value if str(item).strip())
+
+
+def contract_delta(old_items, new_items):
+    """给出可读的增删摘要，让人不必打开 diff 就知道这次动了什么。"""
+    added = [item for item in new_items if item not in old_items]
+    removed = [item for item in old_items if item not in new_items]
+    parts = []
+    if added:
+        parts.append("新增 %d 项" % len(added))
+    if removed:
+        parts.append("删除 %d 项" % len(removed))
+    return "、".join(parts) or "内容调整"
+
+
 def ledger_shape(data):
-    """把台账压成「任务定义」视图：cards 的 id/title/stage + 整份 baseline。
+    """把台账压成「任务定义」视图：cards 的 id/title/stage/scope/acceptance + 整份 baseline。
 
     claims 与卡片 note 不在视图里 —— 它们是 agent 唯一被允许写的两部分（§条款 6）。
+    scope / acceptance 是卡片契约（DX-10）：scope 决定「允许改哪些路径」，
+    acceptance 决定「怎样算做完」。放任它们不进视图，等于给 agent 留了一条
+    自我扩权、自我放宽验收的后门，且不留任何痕迹。
     """
     cards = {}
     for code, card in ((data or {}).get("cards") or {}).items():
@@ -242,13 +269,16 @@ def ledger_shape(data):
             "id": card.get("id", ""),
             "title": card.get("title", ""),
             "stage": card.get("stage", ""),
+            "scope": contract_items(card.get("scope")),
+            "acceptance": contract_items(card.get("acceptance")),
         }
     return cards, dict((data or {}).get("baseline") or {})
 
 
 def ledger_definition_changes(old, new):
-    """列出「任务定义」层面的改动（新增/删除卡、改 id/title/stage、改 baseline）。
+    """列出「任务定义」层面的改动。
 
+    含：新增/删除卡、改 id/title/stage、改 scope/acceptance、改 baseline。
     空列表 = 这次只动了 claims 或卡片 note，属 agent 合法范围。
     """
     old_cards, old_base = ledger_shape(old)
@@ -261,8 +291,20 @@ def ledger_definition_changes(old, new):
     if removed:
         problems.append("删除卡片：%s" % "、".join(removed))
     for code in sorted(set(old_cards) & set(new_cards)):
-        if old_cards[code] != new_cards[code]:
-            problems.append("改动卡片定义 %s（id/title/stage 被修改）" % code)
+        before, after = old_cards[code], new_cards[code]
+        renamed = [field for field in ("id", "title", "stage")
+                   if before[field] != after[field]]
+        if renamed:
+            problems.append(
+                "改动卡片定义 %s（%s 被修改）" % (code, "/".join(renamed)))
+        if before["scope"] != after["scope"]:
+            problems.append(
+                "改 scope：%s（%s）"
+                % (code, contract_delta(before["scope"], after["scope"])))
+        if before["acceptance"] != after["acceptance"]:
+            problems.append(
+                "改 acceptance：%s（%s）"
+                % (code, contract_delta(before["acceptance"], after["acceptance"])))
     for code in sorted(set(old_base) | set(new_base)):
         if old_base.get(code) != new_base.get(code):
             problems.append(
@@ -278,30 +320,34 @@ def staged_files():
 
 
 def audit_problems(kind, scope, message, code_paths, definition_changes):
-    """台账任务定义变更的审计判定（DX-06 / DX-07）。纯函数：不碰 git，便于自测与 CI 跑。
+    """台账任务定义变更的审计判定（DX-06 / DX-07 / DX-10）。纯函数：不碰 git，便于自测与 CI 跑。
 
-    「代登记」= 这次提交改了台账的任务定义（新增/删除卡、改 id/title/stage、改 baseline）。
+    「代登记」= 这次提交改了台账的任务定义（新增/删除卡、改 id/title/stage、
+    改 scope/acceptance、改 baseline）。
     凭证有两类，来自两个不同的写入者：
 
       A. 人工代登记（维护者在会话中授权）：
          - 类型固定 chore(board)，不得混进 feat/fix/docs 等其它语义；
          - body 必须有「授权：」与「批次：」两行（授权来源 + 批次）；
          - 不得同时改动代码路径 —— 立卡与实现分开提交。
+         DX-10 起 scope / acceptance 也走这条：可改范围与验收条件是任务契约，
+         改它跟加卡一样需要授权与留痕（R10-02 实测过两次自补 scope 不留痕）。
 
       B. 脚本自动结卡（DX-07 的 git-done 收尾，只把 baseline 补成 done）：
          它不是「谁授权加卡」，而是 git 事实的机械投影，**没有人可授权**。若也要求
          「授权行」，收尾提交就会被自家闸门拦下 —— 实测正是这样（结卡：提交失败）。
          所以给它一条显式通道：body 写明 `自动来源：` 即可，其余约束照旧
          （仍必须 chore(board)、仍不得混代码）。
-         ⚠ 这条通道不发「加卡」权：自动结卡**只允许改 baseline**，一旦出现新增/删除卡片
-         或改 id/title/stage，仍按 A 类要求授权行。
+         ⚠ 这条通道不发「加卡」权：自动结卡**只允许改 baseline**，一旦出现新增/删除卡片、
+         改 id/title/stage、改 scope/acceptance，仍按 A 类要求授权行。
     """
     if not definition_changes:
         return []
     problems = []
     if kind != AUDIT_TYPE or scope != AUDIT_SCOPE:
         problems.append(
-            "立卡 / 改 baseline 必须用 chore(board): 提交（当前类型：%s%s）"
+            "改任务定义（立卡 / 改 scope / 改 acceptance / 改 baseline）"
+            "必须用 chore(board): 提交（当前类型：%s%s）"
             % (kind or "<空>", ("(%s)" % scope) if scope else "")
         )
     body = "\n".join((message or "").splitlines()[1:])
@@ -321,7 +367,8 @@ def audit_problems(kind, scope, message, code_paths, definition_changes):
             )
     if code_paths:
         shown = "、".join(code_paths[:5]) + ("…" if len(code_paths) > 5 else "")
-        problems.append("立卡 / 结卡提交不得同时改动代码路径：%s（请拆成独立提交）" % shown)
+        problems.append(
+            "改任务定义的提交不得同时改动代码路径：%s（请拆成独立提交）" % shown)
     return problems
 
 
@@ -356,11 +403,11 @@ def cmd_ledger(args):
     sys.stderr.write(
         "  这本身是允许的（维护者可授权代登记），但**提交信息必须带审计凭证**，\n"
         "  由 commit-msg 阶段硬校验，缺一即拒：\n"
-        "    chore(board): 登记 <批次简述>\n"
+        "    chore(board): 立卡 / 调整 scope / 结卡 <批次简述>\n"
         "\n"
         "    授权：<维护者在哪次会话/哪条指令里授权的>\n"
         "    批次：<本批卡号，如 DX-05、R7-01>\n"
-        "  且该提交不得同时改动代码路径（立卡与实现分开提交）。\n"
+        "  且该提交不得同时改动代码路径（契约调整与实现分开提交）。\n"
     )
     return 0
 
@@ -450,6 +497,47 @@ def cmd_selftest(args):
     )
     baseline_changed = ledger_with(baseline={"DX-01": "todo"})
 
+    # DX-10：scope / acceptance 是卡片契约，改它跟加卡一样要凭证
+    contract = ledger_with(cards={
+        "DX-01": {
+            "id": "a", "title": "t", "stage": "DX",
+            "scope": ["src/a.cpp", "src/b.cpp"],
+            "acceptance": ["跑通 A", "跑通 B"],
+        },
+    })
+    scope_widened = ledger_with(cards={
+        "DX-01": {
+            "id": "a", "title": "t", "stage": "DX",
+            "scope": ["src/a.cpp", "src/b.cpp", "src/c.cpp"],
+            "acceptance": ["跑通 A", "跑通 B"],
+        },
+    })
+    # 只调换顺序 + 首尾空白：不该被当成定义变更，否则排版整理会被规则拦住
+    contract_reordered = ledger_with(cards={
+        "DX-01": {
+            "id": "a", "title": "t", "stage": "DX",
+            "scope": ["  src/b.cpp", "src/a.cpp "],
+            "acceptance": ["跑通 B", "跑通 A"],
+        },
+    })
+    acceptance_softened = ledger_with(cards={
+        "DX-01": {
+            "id": "a", "title": "t", "stage": "DX",
+            "scope": ["src/a.cpp", "src/b.cpp"],
+            "acceptance": ["跑通 A"],
+        },
+    })
+    scope_and_baseline = ledger_with(
+        cards={
+            "DX-01": {
+                "id": "a", "title": "t", "stage": "DX",
+                "scope": ["src/a.cpp", "src/b.cpp", "src/c.cpp"],
+                "acceptance": ["跑通 A", "跑通 B"],
+            },
+        },
+        baseline={"DX-01": "todo"},
+    )
+
     cases = []
 
     def case(name, expect_ok, kind, scope, message, code_paths, old, new):
@@ -458,7 +546,7 @@ def cmd_selftest(args):
         )
         cases.append((name, expect_ok, problems))
 
-    # ---- 允许（2 例）----
+    # ---- 允许（4 例）----
     case(
         "锚点区合规代登记：chore(board) + 授权行 + 批次行 + 只动台账",
         True, "chore", "board",
@@ -471,8 +559,20 @@ def cmd_selftest(args):
         "chore(claim): 登记 #DX-01 领用到台账",
         [], base, note_only,
     )
+    case(
+        "改 scope 带审计行、只动台账 → 放行（可纠正，但必须留痕）",
+        True, "chore", "board",
+        "chore(board): 补 R10-02 的 scope\n\n授权：维护者 2026-10-29 会话\n批次：R10-02",
+        [], contract, scope_widened,
+    )
+    case(
+        "只调换 scope / acceptance 顺序或改空白，不算定义变更 → 放行",
+        True, "chore", "board",
+        "chore(board): 整理卡片契约排版",
+        [], contract, contract_reordered,
+    )
 
-    # ---- 拒绝（4 例）----
+    # ---- 拒绝（8 例）----
     case(
         "立卡用了 feat 类型",
         False, "feat", "board",
@@ -496,6 +596,30 @@ def cmd_selftest(args):
         False, "docs", "board",
         "docs(board): 把 DX-01 改回 todo",
         [], base, baseline_changed,
+    )
+    case(
+        "只改 scope、无审计行 → 拦截（DX-10 的核心用例）",
+        False, "chore", "board",
+        "chore(board): 顺手补一下 scope",
+        [], contract, scope_widened,
+    )
+    case(
+        "scope 变更与代码路径混提交 → 拦截",
+        False, "chore", "board",
+        "chore(board): 补 scope 并实现\n\n授权：维护者\n批次：R10-02",
+        ["src/TaskFilterModel.cpp"], contract, scope_widened,
+    )
+    case(
+        "改软 acceptance（少一条验收）无审计行 → 拦截",
+        False, "chore", "board",
+        "chore(board): 把验收条件改成一条",
+        [], contract, acceptance_softened,
+    )
+    case(
+        "自动结卡通道不扩权：夹带 scope 改动仍要授权行 → 拦截",
+        False, "chore", "board",
+        "chore(board): 结卡 DX-01\n\n自动来源：derive_board_status.py --close-cards",
+        [], contract, scope_and_baseline,
     )
 
     # ---- 自动结卡通道（DX-07）----
@@ -536,8 +660,9 @@ def cmd_selftest(args):
     if failures:
         sys.stderr.write("[任务闸门] 代登记审计自测失败 %d/%d 例\n" % (len(failures), len(cases)))
         return 1
-    print("[任务闸门] 代登记审计自测通过：%d 例（允许 2 / 拒绝 %d）"
-          % (len(cases), len(cases) - 2))
+    allowed = len([1 for _, expect_ok, _ in cases if expect_ok])
+    print("[任务闸门] 代登记审计自测通过：%d 例（允许 %d / 拒绝 %d）"
+          % (len(cases), allowed, len(cases) - allowed))
     return 0
 
 

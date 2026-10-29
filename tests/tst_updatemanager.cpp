@@ -7,6 +7,8 @@
 #include <QtTest>
 
 #include "UpdateManager.h"
+#include "DeltaUpdate.h"
+#include "BsdiffWrapper.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -230,6 +232,234 @@ private slots:
         QVERIFY(!manager.updateSources().isEmpty());
         QCOMPARE(manager.state(), QStringLiteral("idle"));
         QVERIFY(!manager.updateAvailable());
+    }
+
+    // ---- R5-06：增量升级 ----
+
+    void bsdiffRoundTrip()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString oldFile = dir.filePath(QStringLiteral("app-old.bin"));
+        const QString newFile = dir.filePath(QStringLiteral("app-new.bin"));
+        const QString patchFile = dir.filePath(QStringLiteral("app.patch"));
+        const QString outFile = dir.filePath(QStringLiteral("app-out.bin"));
+
+        // 模拟「大部分相同、局部修改」的二进制：bsdiff 的主场
+        QByteArray oldData(256 * 1024, 0);
+        for (int i = 0; i < oldData.size(); i += 7)
+            oldData[i] = static_cast<char>(i % 251);
+        QByteArray newData = oldData;
+        for (int i = 1000; i < 1000 + 4096; ++i)
+            newData[i] = static_cast<char>(i * 31 + 7);
+        newData.append(QStringLiteral("trailing-chunk").toUtf8());
+        {
+            QFile f(oldFile);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write(oldData);
+            f.close();
+            f.setFileName(newFile);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write(newData);
+            f.close();
+        }
+
+        QString error;
+        QVERIFY2(Bsdiff::createPatch(oldFile, newFile, patchFile, &error), qPrintable(error));
+        QVERIFY(QFile::exists(patchFile));
+        // 相似文件的 patch 必须明显小于新文件，否则增量没有意义
+        QVERIFY(QFileInfo(patchFile).size() < newData.size() / 4);
+
+        QVERIFY2(Bsdiff::applyPatch(oldFile, patchFile, outFile, &error), qPrintable(error));
+        {
+            QFile f(outFile);
+            QVERIFY(f.open(QIODevice::ReadOnly));
+            QCOMPARE(f.readAll(), newData);
+        }
+
+        // 损坏的 patch（截断）必须失败，且不得写出目标文件
+        const QString badPatch = dir.filePath(QStringLiteral("bad.patch"));
+        {
+            QFile src(patchFile);
+            QVERIFY(src.open(QIODevice::ReadOnly));
+            QByteArray all = src.readAll();
+            all.chop(all.size() / 3);
+            QFile dst(badPatch);
+            QVERIFY(dst.open(QIODevice::WriteOnly));
+            dst.write(all);
+            dst.close();
+        }
+        const QString badOut = dir.filePath(QStringLiteral("bad-out.bin"));
+        QVERIFY(!Bsdiff::applyPatch(oldFile, badPatch, badOut, &error));
+        QVERIFY(!QFile::exists(badOut));
+    }
+
+    void deltaBuildApplyRoundTrip()
+    {
+        QTemporaryDir base;
+        QVERIFY(base.isValid());
+        const QString oldDir = base.filePath(QStringLiteral("old"));
+        const QString newDir = base.filePath(QStringLiteral("new"));
+        const QString outDir = base.filePath(QStringLiteral("delta"));
+        const QString installDir = base.filePath(QStringLiteral("install"));
+        const QString stagedDir = base.filePath(QStringLiteral("staged"));
+
+        // 旧版：资源 a.qml、b.qml + 二进制 app.exe + 将被删除的 old-only.txt
+        QDir().mkpath(oldDir + QStringLiteral("/qml"));
+        auto writeFile = [](const QString &path, const QByteArray &content) {
+            QDir().mkpath(QFileInfo(path).absolutePath());
+            QFile f(path);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write(content);
+            f.close();
+        };
+        writeFile(oldDir + QStringLiteral("/qml/a.qml"), QStringLiteral("A v1").toUtf8());
+        writeFile(oldDir + QStringLiteral("/qml/b.qml"), QStringLiteral("B unchanged").toUtf8());
+        writeFile(oldDir + QStringLiteral("/old-only.txt"), QStringLiteral("bye").toUtf8());
+        QByteArray oldExe(64 * 1024, 0xAB);
+        for (int i = 0; i < oldExe.size(); ++i)
+            oldExe[i] = static_cast<char>(i % 131);
+        writeFile(oldDir + QStringLiteral("/app.exe"), oldExe);
+
+        // 新版：a.qml 修改、b.qml 不变、新增 c.qml、app.exe 修改、old-only.txt 删除
+        QDir().mkpath(newDir + QStringLiteral("/qml"));
+        writeFile(newDir + QStringLiteral("/qml/a.qml"), QStringLiteral("A v2 modified").toUtf8());
+        writeFile(newDir + QStringLiteral("/qml/b.qml"), QStringLiteral("B unchanged").toUtf8());
+        writeFile(newDir + QStringLiteral("/qml/c.qml"), QStringLiteral("C new").toUtf8());
+        QByteArray newExe = oldExe;
+        for (int i = 5000; i < 5000 + 2048; ++i)
+            newExe[i] = static_cast<char>(i * 17 + 3);
+        newExe.append('!');
+        writeFile(newDir + QStringLiteral("/app.exe"), newExe);
+
+        // 安装目录 = 旧版的一份拷贝（模拟用户机器）
+        QDir().mkpath(installDir + QStringLiteral("/qml"));
+        QVERIFY(QFile::copy(oldDir + QStringLiteral("/qml/a.qml"), installDir + QStringLiteral("/qml/a.qml")));
+        QVERIFY(QFile::copy(oldDir + QStringLiteral("/qml/b.qml"), installDir + QStringLiteral("/qml/b.qml")));
+        QVERIFY(QFile::copy(oldDir + QStringLiteral("/old-only.txt"), installDir + QStringLiteral("/old-only.txt")));
+        QVERIFY(QFile::copy(oldDir + QStringLiteral("/app.exe"), installDir + QStringLiteral("/app.exe")));
+
+        // 构建增量包
+        DeltaUpdate::DeltaInfo info;
+        QString error;
+        QVERIFY2(DeltaUpdate::buildDelta(oldDir, newDir, QStringLiteral("0.1.3"),
+                                         QStringLiteral("0.1.4"), outDir, &info, &error),
+                 qPrintable(error));
+        QCOMPARE(info.fromVersion, QStringLiteral("0.1.3"));
+        QCOMPARE(info.toVersion, QStringLiteral("0.1.4"));
+        QCOMPARE(info.changes.size(), 4); // a 改 + c 增 + exe 改 + old-only 删
+        QVERIFY(QFile::exists(outDir + QStringLiteral("/delta.json")));
+        QVERIFY(QFile::exists(outDir + QStringLiteral("/files/qml/a.qml")));
+        QVERIFY(QFile::exists(outDir + QStringLiteral("/files/qml/c.qml")));
+        QVERIFY(QFile::exists(outDir + QStringLiteral("/patches/app.exe.patch")));
+        // 未修改的 b.qml 不得进包
+        QVERIFY(!QFile::exists(outDir + QStringLiteral("/files/qml/b.qml")));
+
+        // 应用增量：资源直接落安装目录，二进制进暂存目录
+        QVERIFY2(DeltaUpdate::applyDelta(outDir, installDir, stagedDir, &error), qPrintable(error));
+        auto readAll = [](const QString &path) -> QByteArray {
+            QFile f(path);
+            if (!f.open(QIODevice::ReadOnly))
+                return QByteArray();
+            return f.readAll();
+        };
+        QCOMPARE(readAll(installDir + QStringLiteral("/qml/a.qml")),
+                 QStringLiteral("A v2 modified").toUtf8());
+        QCOMPARE(readAll(installDir + QStringLiteral("/qml/c.qml")),
+                 QStringLiteral("C new").toUtf8());
+        QVERIFY(!QFile::exists(installDir + QStringLiteral("/old-only.txt")));
+        // 旧 exe 还在安装目录（进程占用中，由自更新脚本退出后替换）
+        QCOMPARE(readAll(installDir + QStringLiteral("/app.exe")), oldExe);
+        // 合并后的新 exe 在暂存目录，且与新版逐字节一致
+        QCOMPARE(readAll(stagedDir + QStringLiteral("/app.exe")), newExe);
+    }
+
+    void deltaApplyVersionMismatchRollsBack()
+    {
+        QTemporaryDir base;
+        QVERIFY(base.isValid());
+        const QString oldDir = base.filePath(QStringLiteral("old"));
+        const QString newDir = base.filePath(QStringLiteral("new"));
+        const QString outDir = base.filePath(QStringLiteral("delta"));
+        const QString installDir = base.filePath(QStringLiteral("install"));
+        const QString stagedDir = base.filePath(QStringLiteral("staged"));
+
+        auto writeFile = [](const QString &path, const QByteArray &content) {
+            QDir().mkpath(QFileInfo(path).absolutePath());
+            QFile f(path);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write(content);
+            f.close();
+        };
+        writeFile(oldDir + QStringLiteral("/app.exe"), QByteArray(32 * 1024, 0x5A));
+        writeFile(oldDir + QStringLiteral("/a.qml"), QStringLiteral("v1").toUtf8());
+        writeFile(newDir + QStringLiteral("/app.exe"), QByteArray(32 * 1024, 0x5B));
+        writeFile(newDir + QStringLiteral("/a.qml"), QStringLiteral("v2").toUtf8());
+        writeFile(installDir + QStringLiteral("/app.exe"), QByteArray(32 * 1024, 0x5A));
+        writeFile(installDir + QStringLiteral("/a.qml"), QStringLiteral("v1").toUtf8());
+
+        DeltaUpdate::DeltaInfo info;
+        QString error;
+        QVERIFY2(DeltaUpdate::buildDelta(oldDir, newDir, QStringLiteral("0.1.3"),
+                                         QStringLiteral("0.1.4"), outDir, &info, &error),
+                 qPrintable(error));
+
+        // 安装目录里的旧文件被「换过」（用户实际版本与增量源版本不符）
+        writeFile(installDir + QStringLiteral("/a.qml"), QStringLiteral("tampered").toUtf8());
+        QVERIFY(!DeltaUpdate::applyDelta(outDir, installDir, stagedDir, &error));
+        // 回滚：安装目录保持应用前状态
+        {
+            QFile f(installDir + QStringLiteral("/a.qml"));
+            QVERIFY(f.open(QIODevice::ReadOnly));
+            QCOMPARE(f.readAll(), QStringLiteral("tampered").toUtf8());
+        }
+        // 没有产生任何暂存产物
+        QVERIFY(!QFile::exists(stagedDir + QStringLiteral("/app.exe")));
+    }
+
+    void parseManifestDeltaArtifact()
+    {
+        const QByteArray json =
+            "{\"version\":1,\"latest\":\"0.1.4\",\"artifacts\":["
+            "{\"kind\":\"portable\",\"url\":\"NeonBoard-0.1.4-portable.zip\","
+            "\"sha256\":\"abc\",\"size\":100},"
+            "{\"kind\":\"delta\",\"url\":\"delta-0.1.3-0.1.4.zip\","
+            "\"sha256\":\"def\",\"size\":20,\"fromVersion\":\"0.1.3\"}]}";
+        QString error;
+        const UpdateManager::ReleaseInfo info = UpdateManager::parseManifest(json, &error);
+        QVERIFY2(info.valid(), qPrintable(error));
+        QCOMPARE(info.deltaUrl, QStringLiteral("delta-0.1.3-0.1.4.zip"));
+        QCOMPARE(info.deltaSha256, QStringLiteral("def"));
+        QCOMPARE(info.deltaSize, static_cast<qint64>(20));
+        QCOMPARE(info.deltaFromVersion, QStringLiteral("0.1.3"));
+
+        // 版本恰好匹配才可用
+        QVERIFY(info.deltaApplicable(QStringLiteral("0.1.3")));
+        QVERIFY(!info.deltaApplicable(QStringLiteral("0.1.2")));
+        QVERIFY(!info.deltaApplicable(QStringLiteral("0.1.4")));
+
+        // 没有 fromVersion 的 delta 条目：保守视为不可用（宁走全量）
+        const QByteArray json2 =
+            "{\"version\":1,\"latest\":\"0.1.4\",\"artifacts\":["
+            "{\"kind\":\"delta\",\"url\":\"d.zip\",\"sha256\":\"x\",\"size\":1}]}";
+        const UpdateManager::ReleaseInfo info2 = UpdateManager::parseManifest(json2, &error);
+        QVERIFY(info2.valid());
+        QVERIFY(!info2.deltaApplicable(QStringLiteral("0.1.3")));
+    }
+
+    void buildDeltaUpdateScriptIsAsciiAndCrlf()
+    {
+        const QString staged = QDir::temp().absoluteFilePath(QStringLiteral("staged-x"));
+        const QString target = QDir::temp().absoluteFilePath(QStringLiteral("target-x"));
+        const QString script = UpdateManager::buildDeltaUpdateScript(staged, target);
+        // 恒为 ASCII：中文路径机器上 cmd 按 GBK 解析，非 ASCII 会炸
+        for (const QChar ch : script)
+            QVERIFY(ch.unicode() < 128);
+        // CRLF 行尾 + 关键步骤齐全
+        QVERIFY(script.contains(QStringLiteral("\r\n")));
+        QVERIFY(script.contains(QStringLiteral("robocopy")));
+        QVERIFY(script.contains(QStringLiteral("NeonBoardHost.exe")));
+        QVERIFY(script.contains(QStringLiteral("waitloop")));
     }
 };
 

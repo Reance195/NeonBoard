@@ -158,9 +158,22 @@ neonboard_add_test(tst_uisettings
 neonboard_add_test(tst_updatemanager
     ${CMAKE_SOURCE_DIR}/src/UpdateManager.cpp
     ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/DeltaUpdate.cpp
+    ${CMAKE_SOURCE_DIR}/src/BsdiffWrapper.cpp
+    ${CMAKE_SOURCE_DIR}/thirdparty/bsdiff/bsdiff.c
+    ${CMAKE_SOURCE_DIR}/thirdparty/bsdiff/bspatch.c
+    ${CMAKE_SOURCE_DIR}/thirdparty/bzip2/bzlib.c
+    ${CMAKE_SOURCE_DIR}/thirdparty/bzip2/blocksort.c
+    ${CMAKE_SOURCE_DIR}/thirdparty/bzip2/huffman.c
+    ${CMAKE_SOURCE_DIR}/thirdparty/bzip2/crctable.c
+    ${CMAKE_SOURCE_DIR}/thirdparty/bzip2/randtable.c
+    ${CMAKE_SOURCE_DIR}/thirdparty/bzip2/compress.c
+    ${CMAKE_SOURCE_DIR}/thirdparty/bzip2/decompress.c
 )
 # QNetworkAccessManager 与 QDesktopServices
 target_link_libraries(tst_updatemanager PRIVATE Qt6::Network Qt6::Gui)
+# bsdiff / bzip2 头在 thirdparty/ 下，BsdiffWrapper.cpp 按仓库根相对路径包含
+target_include_directories(tst_updatemanager PRIVATE ${CMAKE_SOURCE_DIR})
 
 # M0：任务执行定义侧表（task_exec）——默认值 / 往返 / 校验 / 清空 / 删除同步。
 # 侧表读写要真库，用 sqlite 临时库跑（与 tst_taskcolumns 同一方式）。

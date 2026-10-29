@@ -918,7 +918,7 @@
             ],
             "depends": [],
             "id": "e0c93819-72e5-4c6b-b31d-2357fc4f47d1",
-            "note": "起因：看板被多来源卡污染。当前 board.db 的 115 张卡里有 13 张属于另外两个项目（抢号系统 6 张、启动窗改造 7 张），它们是经 R4-01 的 agent.task 事件桥投递进来的 —— 事件桥不区分来源项目，所有卡都落进同一个 task 表，看板上无法回答「这是哪个项目的事」。现有 board / board_column 只解决了「一块板有几列」，没有「一张卡属于哪个项目」这一维。目标：新增 project 表（id / name / color / order_key）与 task_project 侧表（task_id / project_id）承载归属。按仓库既有侧表纪律（task_link / task_extra / task_exec / task_run）**不升 user_version、不动 task 表**，老版本程序打开同一个库不受影响。ProjectStore 提供项目清单、任务归属读写、按项目聚合计数；空 project_id 表示「未归属」，与现有 column_id 空串的约定保持一致。非目标：不做项目管理界面（R10-02 只做范围切换，不含项目增删改）、不做项目级权限、不在本卡迁移存量数据的项目归属（归 R10-04）。",
+            "note": "起因：看板被多来源卡污染。当前 board.db 的 115 张卡里有 13 张属于另外两个项目（抢号系统 6 张、启动窗改造 7 张），它们是经 R4-01 的 agent.task 事件桥投递进来的 —— 事件桥不区分来源项目，所有卡都落进同一个 task 表，看板上无法回答「这是哪个项目的事」。现有 board / board_column 只解决了「一块板有几列」，没有「一张卡属于哪个项目」这一维。目标：新增 project 表（id / name / color / order_key）与 task_project 侧表（task_id / project_id）承载归属。按仓库既有侧表纪律（task_link / task_extra / task_exec / task_run）**不升 user_version、不动 task 表**，老版本程序打开同一个库不受影响。ProjectStore 提供项目清单、任务归属读写、按项目聚合计数；空 project_id 表示「未归属」，与现有 column_id 空串的约定保持一致。非目标：不做项目管理界面（R10-02 只做范围切换，不含项目增删改）、不做项目级权限、不在本卡迁移存量数据的项目归属（归 R10-04）。\n已完成 1 / 待做 0 —— 项目维度侧表与 ProjectStore 门面",
             "scope": [
                 "src/Database.h",
                 "src/Database.cpp",
@@ -970,7 +970,7 @@
             ],
             "depends": [],
             "id": "20adfe62-e911-462e-acb7-0ecf32774df5",
-            "note": "起因：tags 一个数组里混了三种语义 —— 阶段（R0 / R4 / DX）、主题分类（插件 / 可靠性 / 性能）、角色（agent）—— 而派生只看 tags[0]：stageOf() 取 firstTag 再套阶段正则，TaskCard 也只显示 firstTag。实测 board.db 的 115 张卡里 33 张 tags 就是 [\"agent\"]，全部落进阶段条的「其他」桶；另有把主题排在阶段前面的卡同样被判错。顺序一变分类就变，这是拿数组下标当模型。目标：stageOf() 改为扫描整个 tags 数组，取第一个匹配阶段文法的标签，不再依赖位置；新增 categoryOf() 取第一个既非阶段也非角色词的标签作为展示分类；TaskCard 改显分类而非阶段号（阶段只在阶段条上体现）。角色词表集中定义，不再散落在正则里。注意：本卡只修「读」的语义，不改 tags 的存储格式与写入顺序 —— 存量数据里 [\"agent\"] 这种缺阶段信息的卡，本卡只能把它们从「显示 agent」改成「显示未分类」，补全归 R10-04。非目标：不做标签编辑器、不改 TaskInputParser 的录入解析、不改 tags 存储格式。",
+            "note": "起因：tags 一个数组里混了三种语义 —— 阶段（R0 / R4 / DX）、主题分类（插件 / 可靠性 / 性能）、角色（agent）—— 而派生只看 tags[0]：stageOf() 取 firstTag 再套阶段正则，TaskCard 也只显示 firstTag。实测 board.db 的 115 张卡里 33 张 tags 就是 [\"agent\"]，全部落进阶段条的「其他」桶；另有把主题排在阶段前面的卡同样被判错。顺序一变分类就变，这是拿数组下标当模型。目标：stageOf() 改为扫描整个 tags 数组，取第一个匹配阶段文法的标签，不再依赖位置；新增 categoryOf() 取第一个既非阶段也非角色词的标签作为展示分类；TaskCard 改显分类而非阶段号（阶段只在阶段条上体现）。角色词表集中定义，不再散落在正则里。注意：本卡只修「读」的语义，不改 tags 的存储格式与写入顺序 —— 存量数据里 [\"agent\"] 这种缺阶段信息的卡，本卡只能把它们从「显示 agent」改成「显示未分类」，补全归 R10-04。非目标：不做标签编辑器、不改 TaskInputParser 的录入解析、不改 tags 存储格式。\n已完成 1 / 待做 0 —— 标签派生改扫全数组，卡面显示分类而非首个标签",
             "scope": [
                 "src/TaskModel.h",
                 "src/TaskModel.cpp",
@@ -1997,7 +1997,7 @@
             ],
             "depends": [],
             "id": "2557b1bb-6556-4dfc-b59c-6798880a75eb",
-            "note": "起因：task.note 字段存在但只能在 Main.qml 内联表单里当纯文本改，P1 第 5 条「卡片详情层」挂了很久。目标：双击 / 回车打开详情抽屉，标题 / 优先级 / 标签 / 到期 / 提醒 / 备注一次改完；备注用 Qt 自带 Text.MarkdownText 渲染（编辑时回落纯文本），不引第三方；抽屉注册进既有浮层互斥集合，Esc / 点击外部关闭。非目标：附件不在本卡（见 docs/r8-experience-plan.md 第 10 节待拍板 A），不改 task 表结构。",
+            "note": "起因：task.note 字段存在但只能在 Main.qml 内联表单里当纯文本改，P1 第 5 条「卡片详情层」挂了很久。目标：双击 / 回车打开详情抽屉，标题 / 优先级 / 标签 / 到期 / 提醒 / 备注一次改完；备注用 Qt 自带 Text.MarkdownText 渲染（编辑时回落纯文本），不引第三方；抽屉注册进既有浮层互斥集合，Esc / 点击外部关闭。非目标：附件不在本卡（见 docs/r8-experience-plan.md 第 10 节待拍板 A），不改 task 表结构。\n已完成 1 / 待做 0 —— 卡片详情抽屉：Markdown 备注 + 就地编辑",
             "scope": [
                 "qml/components/CardDetailPanel.qml",
                 "qml/Main.qml",
@@ -2094,7 +2094,7 @@
             ],
             "depends": [],
             "id": "7950d182-237d-4ba3-a12e-a991b5b58cee",
-            "note": "起因：出站执行器（R6）已全绿，但 agent 的定义写死在 src/AgentProfile.cpp 的 builtinProfiles() 里 —— 加一个 agent 要改 C++，插件平台形同虚设；而 cursor-agent 装了却不在 PATH、codex 有明确的不内置理由，这类本机事实内置表根本表达不了。目标：manifest 新增 contributes.agentProfiles，字段完全复用现有 profile（执行侧一处不改），AgentProfile 按「L0 内置 < L1 插件 < L2 用户覆盖」逐条合并，同 id 后者胜。用户层必须是增量覆盖 exec.agentProfileOverrides，不能用现存的 exec.agentProfiles 整份快照 —— 那份一写就把插件后来声明的 agent 整个淹没。迁移不升 user_version、不动 task 表。非目标：不改 TaskRunner / 不改协议 / 不做沙箱。设计稿见 docs/agent-provider-api.md。",
+            "note": "起因：出站执行器（R6）已全绿，但 agent 的定义写死在 src/AgentProfile.cpp 的 builtinProfiles() 里 —— 加一个 agent 要改 C++，插件平台形同虚设；而 cursor-agent 装了却不在 PATH、codex 有明确的不内置理由，这类本机事实内置表根本表达不了。目标：manifest 新增 contributes.agentProfiles，字段完全复用现有 profile（执行侧一处不改），AgentProfile 按「L0 内置 < L1 插件 < L2 用户覆盖」逐条合并，同 id 后者胜。用户层必须是增量覆盖 exec.agentProfileOverrides，不能用现存的 exec.agentProfiles 整份快照 —— 那份一写就把插件后来声明的 agent 整个淹没。迁移不升 user_version、不动 task 表。非目标：不改 TaskRunner / 不改协议 / 不做沙箱。设计稿见 docs/agent-provider-api.md。\n已完成 1 / 待做 0 —— 插件可声明 agent profile，用户层改为增量覆盖",
             "scope": [
                 "src/AgentProfile.h",
                 "src/AgentProfile.cpp",

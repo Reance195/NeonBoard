@@ -11,6 +11,7 @@
         "DX-09": "done",
         "DX-10": "done",
         "DX-11": "done",
+        "DX-12": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -622,6 +623,29 @@
             "stage": "R3",
             "title": "文档同步：plugin-api v2 + plan-hook.md #M18"
         },
+        "DX-12": {
+        "id": "9c79649b-7fa2-40cd-a95a-5696d0053682",
+        "stage": "DX",
+        "title": "DX 开发链路三处重复成本：代理变量、执行策略、残留工作区提示",
+        "note": "起因（2026-10-29/30，实施 R13-01 时亲历；维护者「立卡」授权代登记）：同一个会话里连续被三件与产品无关的事挡住，每件都花了时间定位，而且三者会在每个 agent 会话重复出现。\\n\\n1) verify.ps1 撞代理变量：本机同时存在 HTTP_PROXY 与 https_proxy（仅大小写不同），PowerShell 的 Env 驱动器枚举时抛「已添加项」，而 verify.ps1 内部用 Start-Process 拉起 exe（第 93 / 104 行），--selftest 与 --smoke 两个阶段因此直接失败、退出码 1。**构建与 ctest 明明全绿**，被误报成验收不过。\\n\\n2) 脚本执行策略：本机 Get-ExecutionPolicy -List 全部为 Undefined（即默认 Restricted）。以 `&` 方式直接调用 build.ps1 会被拒绝 —— 脚本根本没执行，表现为「无输出 + 退出码 1」，极易误判成脚本坏了或输出被吞；文档里写的 `pwsh -File scripts/build.ps1` 同样跑不起来。可靠写法是 Windows PowerShell 加 -ExecutionPolicy Bypass 再 -File 调用。该错误用法散落在 20+ 个文件（docs/git-workflow.md 一处就有 19 处）。\\n\\n3) agent-init.ps1 遇到已存在的 worktree 或同名分支时直接 throw（第 176 / 182 行），只说「如需重建请先 git worktree remove」，不告诉那个残留里有没有未提交改动、有没有未推送的提交 —— 而这正是 §7.10 明令「删不删由人决定」的东西，缺了信息就没法决定。\\n\\n边界：第 3 项**不自动删除**任何 worktree 或分支（§7.10：自动清理极易端掉正在跑的任务），只做诊断并给出可执行命令；第 2 项不追求改完 20 个文档，优先修「入口 + 最常被引用的几处」，其余随遇随改。",
+        "acceptance": [
+            "在有 HTTP_PROXY / https_proxy 重名的机器上直接跑 scripts/verify.ps1，退出码为 0，且 --selftest / --smoke 两个阶段都有执行记录（不再是「Start-Process 已添加项」）",
+            "提供一个在默认 Restricted 策略下也能一次跑通的调用方式：setup-git-hooks.ps1 检测到 Restricted 时给出 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned 的明确指引，或统一入口自带 Bypass；AGENTS.md 与 docs/git-workflow.md 的「构建 / 开区 / 验收」三处示例按该方式改写，照抄即可成功",
+            "agent-init.ps1 在 worktree 或分支已存在时，输出残留的诊断信息（对应分支名、是否有未提交改动、是否有未推送提交）与一条可直接复制的清理命令；不自动删除",
+            "python scripts/check_script_hygiene.py 通过；scripts/verify.ps1 全过、ctest 全绿",
+            "docs/pitfalls.md 记录三条现象的判据 —— 尤其是「无输出 + 退出码 1」要先怀疑执行策略，而不是脚本坏了"
+        ],
+        "scope": [
+            "scripts/verify.ps1",
+            "scripts/agent-init.ps1",
+            "scripts/setup-git-hooks.ps1",
+            "AGENTS.md",
+            "docs/git-workflow.md",
+            "docs/pitfalls.md",
+            "docs/iteration-roadmap.md"
+        ],
+        "depends": []
+    },
         "R0-01": {
             "acceptance": [
                 "build/Release/NeonBoard.exe --selftest 退出码 0",

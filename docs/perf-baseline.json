@@ -1,7 +1,8 @@
 {
+  "smokeCpuMs": 700,
   "smokeStartupMs": 4000,
   "smokeFps": 60,
   "smokeMemMb": 200,
-  "updatedAt": "2026-10-27",
-  "note": "CI --smoke 基线。startup 超过 baseline×1.5 会告警（非阻断）。测到真实值后用 scripts/check-perf.ps1 -Update 刷新，或手工改本文件。"
+  "updatedAt": "2026-10-30",
+  "note": "CI --smoke 基线。达标门 = cpu（首帧 CPU 时间）：smokeCpuMs×1.5≈1050ms 对应 R0-11 验收上限 ≤1000ms，超过即告警。墙钟 startup 受 CI runner Defender 冷扫主导（2026-10-30 实测便携包 11381ms / build-Release 6368ms，两者 cpu 均约 700ms），非应用可控，仅作信息性趋势、不作达标门。用 scripts/check-perf.ps1 -Update 刷新，或手工改本文件。"
 }

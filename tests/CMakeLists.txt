@@ -403,6 +403,13 @@ neonboard_add_test(tst_taskevent
 )
 target_link_libraries(tst_taskevent PRIVATE Qt6::Sql)
 
+# R8-01：外部主题包 —— 合法包解析 / #RGB 与 #RRGGBB / 坏 JSON、缺令牌、非法色值、
+# 非法 id 统统拒绝 / 目录里坏包跳过其余照常 / 同 key 后者覆盖 / 重新扫描能增删。
+neonboard_add_test(tst_themepack
+    ${CMAKE_SOURCE_DIR}/src/ThemePack.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+)
+
 # 项目全景：路线图 §9 / 台账 / docs/project-map.json 的解析 + 证据实证。
 # 这组断言是「地图跟着仓库走」的护栏：表格结构、脚本路径、派生规则任一被改坏，
 # 这里先红，避免面板展示一张与仓库脱节的地图。

@@ -64,6 +64,7 @@ qt_add_executable(NeonBoard
     src/TaskTree.h src/TaskTree.cpp
     src/TaskExtra.h src/TaskExtra.cpp
     src/TaskAudit.h src/TaskAudit.cpp
+    src/ThemePack.h src/ThemePack.cpp
     src/ProjectStore.h src/ProjectStore.cpp
     src/TaskExec.h src/TaskExec.cpp
     src/ReminderScheduler.h src/ReminderScheduler.cpp

@@ -8,8 +8,8 @@ QtObject {
     id: root
 
     // ================= 主题预设 =================
-    // 6 套预设，覆盖不同「气质」：冷色科技 / 暖色活力 / 中性克制
-    readonly property var presets: [
+    // 6 套内置预设，覆盖不同「气质」：冷色科技 / 暖色活力 / 中性克制
+    readonly property var builtinPresets: [
         {
             key: "neon",
             name: "霓虹青",
@@ -95,6 +95,27 @@ QtObject {
             danger: "#EF4444"
         }
     ]
+
+    // 外部主题包（R8-01）：把 themes/ 目录里的 themepack.json 追加在内置预设之后。
+    // 撞 key 的包直接丢掉 —— 内置那 6 套是「一定存在」的锚点，不许被同名包顶掉，
+    // 否则用户装了个叫 neon 的包，重启后外观突然变了却找不到原因。
+    readonly property var presets: {
+        const out = builtinPresets.slice()
+        const external = typeof themePacks !== "undefined" ? themePacks.packs() : []
+        for (let i = 0; i < external.length; ++i) {
+            const pack = external[i]
+            let duplicate = false
+            for (let j = 0; j < out.length; ++j) {
+                if (out[j].key === pack.key) {
+                    duplicate = true
+                    break
+                }
+            }
+            if (!duplicate)
+                out.push(pack)
+        }
+        return out
+    }
 
     property int presetIndex: 0
     property string presetKey: "neon"
@@ -203,6 +224,10 @@ QtObject {
             danger = p.danger
             return
         }
+        // 主题包被删掉之后（或换了一台机器），存着的 key 找不到：
+        // 退回第一套内置预设，别停在一个已经不存在的外观上。
+        if (presets.length > 0 && key !== presets[0].key)
+            applyPresetByKey(presets[0].key, animate)
     }
 
     function nextPreset() {

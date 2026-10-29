@@ -159,6 +159,66 @@ Item {
                 }
             }
 
+            // ---------- 外部主题包（R8-01）----------
+            // 装进来的包已经混进 Theme.presets 一起列在上面了；这里只交代
+            // 「主题包放在哪」和「哪个没装上」—— 后者不显示的话，用户只会看到
+            // 自己丢进去的文件「没反应」。
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Text {
+                    text: themePacks.count > 0
+                          ? ("外部主题包 " + themePacks.count + " 个")
+                          : "支持外部主题包"
+                    color: Theme.muted
+                    font.pixelSize: 9
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Rectangle {
+                    Layout.preferredWidth: 58
+                    Layout.preferredHeight: 18
+                    radius: 9
+                    color: dirMouse.containsMouse
+                           ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                           : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.10)
+                    border.width: 1
+                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.30)
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "打开目录"
+                        color: Theme.cyan
+                        font.pixelSize: 9
+                    }
+
+                    MouseArea {
+                        id: dirMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Qt.openUrlExternally("file:///" + themePacks.ensureDir())
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: themePacks.skippedCount > 0
+                text: {
+                    const list = themePacks.skipped()
+                    if (list.length === 0)
+                        return ""
+                    const first = list[0]
+                    return "有 " + list.length + " 个包没装上：" + first.file + "（" + first.reason + "）"
+                }
+                color: Theme.warning
+                font.pixelSize: 9
+                wrapMode: Text.WordWrap
+            }
+
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 1

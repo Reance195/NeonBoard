@@ -30,6 +30,7 @@
 #include "TaskStats.h"
 #include "TaskAudit.h"
 #include "TaskExtra.h"
+#include "ThemePack.h"
 #include "TaskExec.h"
 #include "TaskRunner.h"
 #include "TaskRunStore.h"
@@ -1158,6 +1159,9 @@ int main(int argc, char *argv[])
         qInfo() << "BOOT firstframe" << boot.elapsed();
     });
     UiSettings uiSettings;
+    // 外部主题包（R8-01）：启动即扫描 themes/ 目录。
+    // 坏包只跳过并记一行日志，绝不拦住启动 —— 主题是锦上添花，不是启动前置条件。
+    ThemePack themePacks;
     WindowController windowController;
     Hotkey hotkey;
     TrayController tray(hosted);
@@ -1678,6 +1682,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("keyMove"), &keyMove);
     engine.rootContext()->setContextProperty(QStringLiteral("cardDetail"), &cardDetail);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
+    engine.rootContext()->setContextProperty(QStringLiteral("themePacks"), &themePacks);
     engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);
 engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     engine.rootContext()->setContextProperty(QStringLiteral("previewHub"), &previewHub);

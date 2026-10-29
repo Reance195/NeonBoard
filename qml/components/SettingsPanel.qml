@@ -536,6 +536,27 @@ Rectangle {
                                     font.pixelSize: 11
                                 }
 
+                                // R9-04：exe 在本机解析不到时显式标注。
+                                // 不标的话列表里这一行与可用的长得一样，派活时才失败，
+                                // 而失败会被执行器记成「进程启动失败」，看不出根因是 CLI 没装。
+                                Rectangle {
+                                    visible: profileRow.modelData.available === false
+                                    width: unavailableLabel.implicitWidth + 10
+                                    height: 15
+                                    radius: 7
+                                    color: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.14)
+                                    border.width: 1
+                                    border.color: Theme.warning
+
+                                    Text {
+                                        id: unavailableLabel
+                                        anchors.centerIn: parent
+                                        text: "不可用"
+                                        color: Theme.warning
+                                        font.pixelSize: 8
+                                    }
+                                }
+
                                 Text {
                                     text: profileRow.modelData.id
                                     color: Theme.muted
@@ -581,7 +602,10 @@ Rectangle {
                                       + (profileRow.modelData.args || []).join(" ")
                                       + (profileRow.modelData.promptMode === "stdin"
                                          ? " · prompt 走 stdin" : "")
-                                color: Theme.muted
+                                      + (profileRow.modelData.available === false
+                                         ? " · 已声明但不可用（exe 找不到）" : "")
+                                color: profileRow.modelData.available === false
+                                       ? Theme.warning : Theme.muted
                                 font.pixelSize: 9
                                 elide: Text.ElideRight
                             }

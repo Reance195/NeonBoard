@@ -43,6 +43,9 @@ public:
     // 为什么用户层不能用现存的 exec.agentProfiles 整份快照：那份一写就把插件后来声明的
     // agent 整个淹没 —— 插件装了却在列表里看不见。所以新写入一律走 overrides，
     // 老快照只在 migrateLegacyIfNeeded() 里被一次性翻译成 overrides 后删除。
+    //
+    // R9-04 起每条额外带 available：exe 在本机是否解析得到（绝对路径查文件、裸命令查 PATH）。
+    // 它只进返回值**不落盘** —— PATH 会变、盘会拔，存进 meta 就变成谎话。
     QVariantList profiles() const;
     // 未知 id 返回空 map。
     Q_INVOKABLE QVariantMap profileOf(const QString &id) const;

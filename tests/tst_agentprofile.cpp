@@ -19,8 +19,11 @@
 #include "Database.h"
 
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -38,6 +41,28 @@ QStringList idsOf(const QVariantList &list)
 // 落盘契约：这两个键名是跨版本兼容面，测试里硬编码，改名必须改这里。
 const QString kLegacyKey = QStringLiteral("exec.agentProfiles");
 const QString kOverridesKey = QStringLiteral("exec.agentProfileOverrides");
+
+// 从测试二进制所在目录向上找仓库根：Ninja 单配置是 build/，VS 多配置是 build/Release/，
+// 靠 plugins/agent-claude/plugin.json 存不存在判定，不写死层数。
+QString sourceRoot()
+{
+    QDir dir(QCoreApplication::applicationDirPath());
+    for (int depth = 0; depth < 4; ++depth) {
+        if (QFileInfo::exists(dir.filePath(QStringLiteral("plugins/agent-claude/plugin.json"))))
+            return dir.absolutePath();
+        if (!dir.cdUp())
+            break;
+    }
+    return QString();
+}
+
+QStringList jsonToStringList(const QJsonValue &value)
+{
+    QStringList out;
+    for (const QJsonValue &item : value.toArray())
+        out.append(item.toString());
+    return out;
+}
 
 } // namespace
 
@@ -65,6 +90,7 @@ private slots:
     void tombstoneHidesDeclared();
     void legacySnapshotMigrates();
     void availabilityProbe();
+    void officialPluginManifests();
 
 private:
     QVariantMap customProfile(const QString &id = QStringLiteral("custom-agent")) const;
@@ -462,6 +488,72 @@ void TestAgentProfile::availabilityProbe()
     missing.insert(QStringLiteral("exe"), m_dir.filePath(QStringLiteral("no-such-cli.exe")));
     QVERIFY(m_profile->saveProfile(missing));
     QVERIFY(!m_profile->isAvailable(QStringLiteral("missing-agent")));
+}
+
+void TestAgentProfile::officialPluginManifests()
+{
+    // 官方 agent 插件声明的 profile 会 upsert 覆盖同 id 的内置条目（L1 > L0）。
+    // 于是「插件参数写错」不会报错，只会让派活拉起的命令与内置表 / 文档悄悄分叉 ——
+    // 界面照样显示 claude，跑起来却是另一组参数。这里逐字段钉死。
+    const QString root = sourceRoot();
+    QVERIFY2(!root.isEmpty(),
+             "定位不到仓库根（plugins/agent-claude/plugin.json）：测试二进制应在 build/ 下");
+
+    // 每加一个官方 agent 插件就追加一项；漏加等于该插件没有守护。
+    const QStringList manifests{
+        QStringLiteral("agent-claude"),
+    };
+
+    for (const QString &dirName : manifests) {
+        const QString path = root + QStringLiteral("/plugins/") + dirName
+                             + QStringLiteral("/plugin.json");
+        QFile file(path);
+        QVERIFY2(file.open(QIODevice::ReadOnly), qPrintable(path));
+
+        QJsonParseError parseError{};
+        const QJsonObject manifest = QJsonDocument::fromJson(file.readAll(), &parseError).object();
+        QVERIFY2(parseError.error == QJsonParseError::NoError, qPrintable(parseError.errorString()));
+
+        // 没有 exec.agentProfiles 权限的声明会被静默忽略：插件看起来装上了，却毫无作用
+        const QStringList permissions =
+            jsonToStringList(manifest.value(QStringLiteral("permissions")));
+        QVERIFY2(permissions.contains(QStringLiteral("exec.agentProfiles")),
+                 qPrintable(dirName + QStringLiteral(" 缺 exec.agentProfiles 权限声明")));
+
+        const QJsonObject contributes = manifest.value(QStringLiteral("contributes")).toObject();
+        const QJsonArray declaredList = contributes.value(QStringLiteral("agentProfiles")).toArray();
+        QCOMPARE(int(declaredList.size()), 1);
+
+        const QJsonObject entry = declaredList.at(0).toObject();
+        const QVariantMap declared = entry.toVariantMap();
+        const QString id = declared.value(QStringLiteral("id")).toString();
+
+        QVariantMap builtin;
+        for (const QVariant &value : AgentProfile::builtinProfiles()) {
+            if (value.toMap().value(QStringLiteral("id")).toString() == id)
+                builtin = value.toMap();
+        }
+        QVERIFY2(!builtin.isEmpty(), qPrintable(QStringLiteral("内置表里没有 %1").arg(id)));
+
+        for (const QString &key : {QStringLiteral("displayName"), QStringLiteral("exe"),
+                                   QStringLiteral("promptMode"), QStringLiteral("output")}) {
+            QCOMPARE(declared.value(key).toString(), builtin.value(key).toString());
+        }
+        for (const QString &key : {QStringLiteral("args"), QStringLiteral("readonlyArgs")}) {
+            QCOMPARE(jsonToStringList(entry.value(key)), builtin.value(key).toStringList());
+        }
+        QCOMPARE(declared.value(QStringLiteral("defaultTimeoutMin")).toInt(),
+                 builtin.value(QStringLiteral("defaultTimeoutMin")).toInt());
+        QVERIFY(declared.value(QStringLiteral("env")).toMap()
+                == builtin.value(QStringLiteral("env")).toMap());
+
+        // 走一遍真实合并路径：声明覆盖内置之后，argv 必须与覆盖前逐字一致
+        AgentProfile merged(m_db);
+        merged.setDeclaredProfiles(QVariantList{declared});
+        const QString prompt = QStringLiteral("派活验证");
+        QCOMPARE(merged.argv(id, true, prompt), m_profile->argv(id, true, prompt));
+        QCOMPARE(merged.argv(id, false, prompt), m_profile->argv(id, false, prompt));
+    }
 }
 
 QTEST_GUILESS_MAIN(TestAgentProfile)

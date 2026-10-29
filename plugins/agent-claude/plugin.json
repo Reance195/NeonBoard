@@ -1,0 +1,25 @@
+{
+    "id": "com.lin.agent-claude",
+    "name": "Claude Code",
+    "version": "1.0.0",
+    "apiVersion": 2,
+    "description": "声明 Claude Code 的出站执行 profile：卡片派活时以 claude -p --output-format stream-json 拉起，只读走 --permission-mode plan。",
+    "main": "main.qml",
+    "permissions": ["exec.agentProfiles"],
+    "contributes": {
+        "agentProfiles": [
+            {
+                "id": "claude",
+                "displayName": "Claude Code",
+                "exe": "claude",
+                "args": ["-p", "--output-format", "stream-json"],
+                "promptMode": "arg",
+                "readonlyArgs": ["--permission-mode", "plan"],
+                "output": "stream-json",
+                "env": { "NO_COLOR": "1" },
+                "defaultTimeoutMin": 30
+            }
+        ],
+        "commands": []
+    }
+}

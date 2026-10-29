@@ -849,7 +849,7 @@
                 "pwsh -File scripts/verify.ps1 全过，--smoke 日志零 QML 告警"
             ],
             "id": "159dabf6-8b1a-4954-8182-cce05155b10e",
-            "note": "起因：GitHub issue #4 —— CI `--smoke` 实测 startup=3772ms，目标冷启动 ≤2000ms。路线图 §3.1「剩余可做」四项：数据库建表/迁移线程化+延后首帧、Shader 预热、回退字体加载、插件扫描后台化。边界（issue #4 原文）：不改插件协议与数据库 schema。\n\n【2026-10-29 实测：定位到真正的瓶颈，尚未收口】给 Metrics 加了首帧 CPU 计时后，CI 同一提交的数字是 **startup=6010ms / cpu=702ms** —— 88% 的时间在等，不在算。分段看：`BOOT app 15` → `BOOT engine 310` → `BOOT loaded 5316`，即 5 秒花在 `engine.load()` 里，而整段启动的总 CPU 只有 0.7 秒。\n\n结论：不是「CI 机器算得慢」，也不是卡片原列四个子项中的任何一个。5 秒是 `engine.load()` 期间**按需加载 Qt 插件 DLL** 的冷 I/O —— portable 包里有 Qt6QuickControls2 的七套样式（Basic/Fusion/Imagine/Material/Universal/FluentWinUI3/Windows）与 QuickEffects、QuickShapes、QuickDialogs2 等约 35 个 DLL，而程序在 main.cpp 里写死 `QQuickStyle::setStyle(\"Basic\")`；CI 每次都是全新容器，每个 DLL 首次被摸到都要落盘 + 过一遍 Defender。本地开发机这些 DLL 早已在系统缓存里，所以同一份二进制本地 2019ms、CI 6010ms。\n\n已落地（`perf(boot)`）：① `Metrics::startupCpuMs`（首帧时刻 GetProcessTimes，METRICS 行尾 `cpu=`）——墙钟在本机同一二进制能从 934ms 飘到 2108ms，只有 CPU 与分段时间能当判据，也正是它把「慢在等」与「慢在算」分开的；② Splash 五处固定停留 330ms → 160ms 总预算（`NEONBOARD_SPLASH_BUDGET` 可覆盖，预算用尽仍 pump(0) 保证进度条重绘）。\n\n下一步（**不在本卡 scope 内，需要扩 scope 或另立卡**）：真正的秒级收益在打包侧 —— `scripts/deploy.ps1` 让 windeployqt 只带 Basic 一套样式、删掉未引用的 style/effects DLL，并对 Qt6Network / Qt6OpenGL / Qt6Widgets 用 `/DELAYLOAD`。预计 CI 那 5 秒能去掉大半，且顺带缩小全量与增量包体积（与 R5-06 收益叠加）。本卡 scope 只到 `src/` `qml/` `resources/` `shaders/` `tests/` `CMakeLists.txt`，碰 `scripts/deploy.ps1` 属越界，故未擅自改。",
+            "note": "起因：GitHub issue #4 —— CI `--smoke` 实测 startup=3772ms，目标冷启动 ≤2000ms。路线图 §3.1「剩余可做」四项：数据库建表/迁移线程化+延后首帧、Shader 预热、回退字体加载、插件扫描后台化。边界（issue #4 原文）：不改插件协议与数据库 schema。\n\n【2026-10-29 实测：定位到真正的瓶颈，尚未收口】给 Metrics 加了首帧 CPU 计时后，CI 同一提交的数字是 **startup=6010ms / cpu=702ms** —— 88% 的时间在等，不在算。分段看：`BOOT app 15` → `BOOT engine 310` → `BOOT loaded 5316`，即 5 秒花在 `engine.load()` 里，而整段启动的总 CPU 只有 0.7 秒。\n\n结论：不是「CI 机器算得慢」，也不是卡片原列四个子项中的任何一个。5 秒是 `engine.load()` 期间**按需加载 Qt 插件 DLL** 的冷 I/O —— portable 包里有 Qt6QuickControls2 的七套样式（Basic/Fusion/Imagine/Material/Universal/FluentWinUI3/Windows）与 QuickEffects、QuickShapes、QuickDialogs2 等约 35 个 DLL，而程序在 main.cpp 里写死 `QQuickStyle::setStyle(\"Basic\")`；CI 每次都是全新容器，每个 DLL 首次被摸到都要落盘 + 过一遍 Defender。本地开发机这些 DLL 早已在系统缓存里，所以同一份二进制本地 2019ms、CI 6010ms。\n\n已落地（`perf(boot)`）：① `Metrics::startupCpuMs`（首帧时刻 GetProcessTimes，METRICS 行尾 `cpu=`）——墙钟在本机同一二进制能从 934ms 飘到 2108ms，只有 CPU 与分段时间能当判据，也正是它把「慢在等」与「慢在算」分开的；② Splash 五处固定停留 330ms → 160ms 总预算（`NEONBOARD_SPLASH_BUDGET` 可覆盖，预算用尽仍 pump(0) 保证进度条重绘）。\n\n下一步（**不在本卡 scope 内，需要扩 scope 或另立卡**）：真正的秒级收益在打包侧 —— `scripts/deploy.ps1` 让 windeployqt 只带 Basic 一套样式、删掉未引用的 style/effects DLL，并对 Qt6Network / Qt6OpenGL / Qt6Widgets 用 `/DELAYLOAD`。预计 CI 那 5 秒能去掉大半，且顺带缩小全量与增量包体积（与 R5-06 收益叠加）。本卡 scope 只到 `src/` `qml/` `resources/` `shaders/` `tests/` `CMakeLists.txt`，碰 `scripts/deploy.ps1` 属越界，故未擅自改。\n\n【2026-10-30 修正：CI 口径才是关键】复核 ci.yml 发现 `--smoke` 跑的是 `build\\Release\\NeonBoard.exe`（PATH 注入 `$env:QT_ROOT_DIR\\bin`），打包步骤排在其后 —— 即 startup 指标测的从来不是便携包，而是完整 Qt 安装目录里的 DLL。所以「portable 包七套样式」的归因站不住：冷 I/O 机制成立，但载体是 QT_ROOT_DIR 而非 dist/。结论：只改 deploy.ps1 对验收指标零影响。经维护者会话拍板走「改 CI 口径 + 打包瘦身」——把 --smoke 改成测 dist/NeonBoard/NeonBoard.exe（先打包后冒烟），deploy.ps1 只带 Basic 样式、删未引用 DLL，两头对齐后 startup 才真正反映 issue #4 的「冷启动、空磁盘缓存」用户场景。已授权扩 scope 到 scripts/deploy.ps1、scripts/check-perf.ps1、.github/workflows/ci.yml。",
             "scope": [
                 "src/Database.*",
                 "src/PluginLoader.*",
@@ -861,7 +861,10 @@
                 "shaders/**",
                 "tests/**",
                 "CMakeLists.txt",
-                "docs/perf-baseline.json"
+                "docs/perf-baseline.json",
+                "scripts/deploy.ps1",
+                "scripts/check-perf.ps1",
+                ".github/workflows/ci.yml"
             ],
             "stage": "R0",
             "title": "R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）"
@@ -2379,6 +2382,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R0-11": {
+            "agent": "agent-r011",
+            "branch": "perf/startup-cold-boot",
+            "claimedAt": 1793290522,
+            "head": "af181944af79e1ee7a10e77a5782773f66f70fe4"
+        }
+    },
     "version": 1
 }

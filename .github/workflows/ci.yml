@@ -152,11 +152,31 @@ jobs:
           Get-Content selftest.err -ErrorAction SilentlyContinue
           if ($proc.ExitCode -ne 0) { throw "自检失败，退出码 $($proc.ExitCode)" }
 
+      - name: 打包便携版
+        # 排在冒烟之前：startup 指标要测的是真正发布的便携包（冷启动、无系统缓存），
+        # 而不是 build/Release 下靠 QT_ROOT_DIR\bin 注入 DLL 的开发态 exe（见 R0-11）。
+        shell: pwsh
+        run: |
+          $proc = Start-Process -FilePath 'pwsh' -ArgumentList '-NoProfile','-File','scripts\deploy.ps1','-SkipBuild' `
+            -Wait -PassThru -NoNewWindow
+          if ($proc.ExitCode -ne 0) { throw "便携版打包失败，退出码 $($proc.ExitCode)" }
+          $exe = Join-Path $PWD 'dist\NeonBoard\NeonBoard.exe'
+          if (-not (Test-Path $exe)) { throw '便携版产物缺失' }
+
+      - name: 验证便携版可独立运行
+        shell: pwsh
+        run: |
+          # 便携版自带 Qt 运行库，无需再注入 PATH；此步验证 windeployqt 是否打包完整
+          $exe = Join-Path $PWD 'dist\NeonBoard\NeonBoard.exe'
+          $proc = Start-Process -FilePath $exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow
+          if ($proc.ExitCode -ne 0) { throw "便携版自检失败，退出码 $($proc.ExitCode)" }
+
       - name: 冒烟启动并检查日志
         shell: pwsh
         run: |
-          $env:PATH = "$env:QT_ROOT_DIR\bin;$env:PATH"
-          $exe = Join-Path $PWD 'build\Release\NeonBoard.exe'
+          # 测便携包本体：自带 Qt 运行库，无需注入 QT_ROOT_DIR\bin，
+          # 这样 startup 反映的是 issue #4 的「冷启动、空磁盘缓存」用户场景。
+          $exe = Join-Path $PWD 'dist\NeonBoard\NeonBoard.exe'
           # 日志位置的唯一口径（尊重 NEONBOARD_DATA_DIR，与本地 verify.ps1 同一个函数）
           . (Join-Path $PWD 'scripts\nb-paths.ps1')
           $log = Get-NbLogFile
@@ -190,23 +210,6 @@ jobs:
           . (Join-Path $PWD 'scripts\nb-paths.ps1')
           $log = Get-NbLogFile
           pwsh -NoProfile -File scripts/check-perf.ps1 -LogPath $log
-
-      - name: 打包便携版
-        shell: pwsh
-        run: |
-          $proc = Start-Process -FilePath 'pwsh' -ArgumentList '-NoProfile','-File','scripts\deploy.ps1','-SkipBuild' `
-            -Wait -PassThru -NoNewWindow
-          if ($proc.ExitCode -ne 0) { throw "便携版打包失败，退出码 $($proc.ExitCode)" }
-          $exe = Join-Path $PWD 'dist\NeonBoard\NeonBoard.exe'
-          if (-not (Test-Path $exe)) { throw '便携版产物缺失' }
-
-      - name: 验证便携版可独立运行
-        shell: pwsh
-        run: |
-          # 便携版自带 Qt 运行库，无需再注入 PATH；此步验证 windeployqt 是否打包完整
-          $exe = Join-Path $PWD 'dist\NeonBoard\NeonBoard.exe'
-          $proc = Start-Process -FilePath $exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow
-          if ($proc.ExitCode -ne 0) { throw "便携版自检失败，退出码 $($proc.ExitCode)" }
 
       - name: 看板状态一致性校验
         if: github.event_name == 'pull_request'

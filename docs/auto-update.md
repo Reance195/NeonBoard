@@ -53,14 +53,18 @@ https://api.github.com/repos/Reance195/NeonBoard/releases/latest
   "htmlUrl": "https://github.com/Reance195/NeonBoard/releases/latest",
   "artifacts": [
     { "kind": "setup",    "url": "NeonBoard-Setup-0.2.0.exe",     "sha256": "…", "size": 12345 },
-    { "kind": "portable", "url": "NeonBoard-0.2.0-portable.zip",  "sha256": "…", "size": 67890 }
+    { "kind": "portable", "url": "NeonBoard-0.2.0-portable.zip",  "sha256": "…", "size": 67890 },
+    { "kind": "delta",    "url": "delta-0.1.3-0.2.0.zip",         "sha256": "…", "size": 1234, "fromVersion": "0.1.3" }
   ]
 }
 ```
 
 - `url` 写文件名也可以：客户端会按清单所在地址补全（与插件市场同约定）。
 - `size` 只用于界面显示，不参与校验。
-- `kind` 只有 `setup` / `portable` 两种，对应下面的安装形态。
+- `kind` 有 `setup` / `portable` / `delta` 三种，前两种对应安装形态，`delta` 是增量包（见下节）。
+- `delta` 条目必须带 `fromVersion`：增量包只从该版本升到 `latest`，客户端当前版本
+  **恰好等于** `fromVersion` 才会走增量，否则自动回退全量。缺 `fromVersion` 的 delta
+  条目视为不可用（宁走全量，不赌版本）。
 
 ### 兜底：GitHub Releases API
 
@@ -100,6 +104,36 @@ portable-sha256: <64 位十六进制>
 
 清单里没有对应形态的产物时，客户端只提示「暂未提供当前安装方式的更新包」，不会装错包。
 
+### 增量更新（R5-06）
+
+全量包 27–41 MB，增量包通常只有几 MB。清单里给了 `delta` 条目且当前版本恰好等于
+`fromVersion` 时，「立即更新」优先走增量；**任一步失败自动回退全量**，用户无感。
+
+增量包（`delta.zip`）布局：
+
+```text
+delta.json              变更清单（fromVersion / toVersion / changes[]）
+files/<相对路径>         新增 / 修改的资源文件（QML、图片、配置等，全量内容）
+patches/<相对路径>.patch 修改的二进制文件（exe/dll）的 bsdiff patch
+```
+
+客户端流程（`UpdateManager::downloadAndApplyDelta`）：
+
+1. 下载 `delta.zip`，校验 SHA-256（校验值来自清单）；
+2. 解压后**预校验**：安装目录里 Modified/Deleted 的旧文件 SHA-256 必须与清单一致
+   （不一致 = 用户实际版本与 `fromVersion` 不符，直接放弃增量）；
+3. 备份将被修改/删除的文件 → 应用变更：资源直接覆盖安装目录，二进制用 bsdiff
+   合并到**暂存目录**（正在运行的 exe/dll 不能被替换）→ 逐文件校验；
+4. 任一步失败：恢复备份、删除新增文件，回退全量；
+5. 成功：生成自更新脚本（与便携版同构：杀宿主 → 等主进程退出 → robocopy 暂存
+   二进制进安装目录 → 重新拉起），应用退出后完成替换。
+
+发布侧：`scripts/build-delta.ps1` 调 `neonboard-delta-tool`（与主程序共用
+`DeltaUpdate` / `BsdiffWrapper` 源码）对比新旧版本目录生成上述布局，再打 zip、
+算 SHA-256，产出 `delta-manifest-entry.json`（可直接并入 `update.json` 的
+`artifacts`）。`release.ps1` 支持 `-DeltaFromDir <旧版目录> -DeltaFromVersion <旧版本>`
+在出包时顺带生成。
+
 ## 4. 发布
 
 **版本号只有一个来源：`CMakeLists.txt` 的 `project(NeonBoard VERSION x.y.z)`。**
@@ -118,6 +152,9 @@ portable-sha256: <64 位十六进制>
 打 `v*` 标签触发 `.github/workflows/release.yml`，在原有安装包之外新增：
 
 1. 便携目录打 zip：`NeonBoard-<版本>-portable.zip`
+2. 增量包（可选）：`release.ps1 -DeltaFromDir <上一版便携目录> -DeltaFromVersion <上一版本号>`，
+   产出 `dist/delta/delta.zip` + `delta-manifest-entry.json`；把条目并入 `update.json`
+   的 `artifacts` 即可。上一版目录可用上一版的 portable zip 解压得到
 2. 生成清单：`scripts/build-update-manifest.ps1`（算 SHA-256 与体积）
 3. 把两行 `*-sha256:` 写进 Release 正文（`dist/RELEASE-NOTES.md` → `body_path`）——
    GitHub API 回退路径唯一的校验值来源
@@ -166,6 +203,8 @@ pwsh -File scripts/build-update-manifest.ps1 -Version 0.2.0 `
   全部候选地址都失败时用它兜底，界面会标注「离线：使用 … 缓存的更新信息」。
 - 日志关键词：`Update:`（版本与形态）、`CHECK-UPDATE`、`UPDATE-APPLY`、`UPDATE-SOURCE`。
 - 便携版更新的执行日志：`%TEMP%\neonboard-update.log`（脚本自己写的）。
+- 增量更新的执行日志：`%TEMP%\neonboard-delta-update.log`（自更新脚本自己写的）；
+  增量失败回退全量时应用日志里会有一条 `增量更新失败，回退全量下载：…` 的警告。
 - 想完整走一遍流程又不想真装：把源指到本地 `update.json`，检查与下载校验都能验证；
   **别在常用目录里触发「立即更新」**，便携版会真的覆盖 exe。
 - 下载卡在 0% 不动：产物下载有「60 秒没有任何字节就中止」的判定（`kDownloadStallMs`），

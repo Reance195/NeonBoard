@@ -2477,7 +2477,7 @@
             "id": "1f8c0c3d-41b9-4011-99db-1149df73cbfc",
             "stage": "DX",
             "title": "收尾闭环：结卡后必须刷新看板快照（git-done 快照漂移）",
-            "note": "起因（2026-10-30，维护者本会话「你立卡就行」授权代登记）：连续两次结卡后 `progress.json` 快照滞后于台账 —— DX-11（2026-10-29）与 R13-01（2026-10-30 00:33 发现）都是 `derive_board_status.py --check` 退出 1、报「待同步：卡片 X 状态 todo → done」。同一病症两现，说明不是谁忘了跑命令，而是收尾脚本的路径本身有洞。\n\n根因在 scripts/git-done.ps1 的两条路径各缺一半：\n1) L351-371 的快照校正整段包在 `if ($snapshotLines.Count -gt 0)` 里 —— 只有应用（RoadmapSync）已经把 progress.json 写脏时才跑 `derive --write`；agent 在 worktree 里跑、应用没写回快照时（progress.json 干净），这一整段被直接跳过。\n2) L566-580 的结卡自动化只 `add docs/board-ledger.json` 后提交推送 —— `--close-cards` 把 baseline 补成 done，却从不刷新 progress.json。\n两者叠加：只要会话没让应用写回快照，结卡就必然留下漂移，唯一兜底是 CI 自动回写，而 CI 不可依赖（R13-01 这次就没兜住）。\n\n修复方向：把「刷新快照」从「脏了才修」改成收尾必做的一步 —— 结卡成功后再跑一次 `derive_board_status.py --write`，快照变脏就 `chore(roadmap):` 提交并推 main；沿用该脚本已有的 fail-soft 约定（派生失败只告警、不阻断已经成功的合并）。同时在 verify.ps1 的收尾步骤加入 `derive --check`，让漂移当场报红而不是等人下次撞见。\n\n边界：只动收尾脚本与坑点文档，不改台账语义、不改 derive 的判定规则、不动 CI；不填平别人的在制品（锚点区 untracked 文件一律不碰）。\n\n状态：待办",
+            "note": "起因（2026-10-30，维护者本会话「你立卡就行」授权代登记）：连续两次结卡后 `progress.json` 快照滞后于台账 —— DX-11（2026-10-29）与 R13-01（2026-10-30 00:33 发现）都是 `derive_board_status.py --check` 退出 1、报「待同步：卡片 X 状态 todo → done」。同一病症两现，说明不是谁忘了跑命令，而是收尾脚本的路径本身有洞。\n\n根因在 scripts/git-done.ps1 的两条路径各缺一半：\n1) L351-371 的快照校正整段包在 `if ($snapshotLines.Count -gt 0)` 里 —— 只有应用（RoadmapSync）已经把 progress.json 写脏时才跑 `derive --write`；agent 在 worktree 里跑、应用没写回快照时（progress.json 干净），这一整段被直接跳过。\n2) L566-580 的结卡自动化只 `add docs/board-ledger.json` 后提交推送 —— `--close-cards` 把 baseline 补成 done，却从不刷新 progress.json。\n两者叠加：只要会话没让应用写回快照，结卡就必然留下漂移，唯一兜底是 CI 自动回写，而 CI 不可依赖（R13-01 这次就没兜住）。\n\n修复方向：把「刷新快照」从「脏了才修」改成收尾必做的一步 —— 结卡成功后再跑一次 `derive_board_status.py --write`，快照变脏就 `chore(roadmap):` 提交并推 main；沿用该脚本已有的 fail-soft 约定（派生失败只告警、不阻断已经成功的合并）。同时在 verify.ps1 的收尾步骤加入 `derive --check`，让漂移当场报红而不是等人下次撞见。\n\n方案（2026-10-30 维护者拍板 A+B）：A = git-done.ps1 结卡路径必刷快照（本地零延迟）；B = 新增独立轻量 workflow .github/workflows/board.yml 作为确定性兜底门 —— 实测 ci.yml 的「看板状态一致性校验」带 if: pull_request，而本仓库零 PR（gh pr list --state all 为空），该步骤从未运行（run 40922484744 实测 skipped）；且 workflow 的 paths-ignore 含 docs/**，结卡这类 docs-only 提交根本不触发 CI。故看板校验必须从 build job 拆出独立 job，并去掉 ci.yml 里重复的「自动回写看板状态」步骤，保持 progress.json 单写者。边界：只动收尾脚本、看板 workflow 与坑点文档，不改台账语义、不改 derive 的判定规则、不动 CI；不填平别人的在制品（锚点区 untracked 文件一律不碰）。\n\n状态：待办",
             "acceptance": [
                 "构造「应用未写回快照」场景（progress.json 干净、分支带 #<短号>=done）：git-done.ps1 走完收尾后，progress.json 被刷新并推上 main，新克隆/新 worktree 跑 python scripts/derive_board_status.py --check 退出 0",
                 "结卡路径必跑 --write：不再依赖「progress.json 已脏」这一前提（git-done.ps1 L351 的条件判断改为覆盖结卡场景）",
@@ -2485,12 +2485,16 @@
                 "scripts/verify.ps1 收尾步骤加入 derive --check，漂移时 verify 报红并给出 python scripts/derive_board_status.py --write 的修复提示",
                 "本卡落地时顺带填平 R13-01 的现存漂移，交付后 python scripts/derive_board_status.py --repo . --check 退出 0",
                 "python scripts/check_script_hygiene.py 通过；docs/pitfalls.md 新增条目写明判据（--check 退出 1 且报「待同步」= 结卡漏刷快照，先查 git-done 是否走过结卡路径）",
-                "pwsh -File scripts/verify.ps1 全过（编译 → ctest → selftest → smoke）"
+                "pwsh -File scripts/verify.ps1 全过（编译 → ctest → selftest → smoke）",
+                "新增 .github/workflows/board.yml：独立轻量 job（只 checkout + python，不装 Qt、不编译），对 push 到 main 且改动 docs/board-ledger.json 的提交触发并自动 --write 回写；对 pull_request 只跑 --check 并抛错阻塞",
+                "board.yml 自身 paths-ignore 含 progress.json，CI 回写提交不得触发自激循环；ci.yml 移除「自动回写看板状态」步骤，progress.json 保持单写者"
             ],
             "scope": [
                 "scripts/git-done.ps1",
                 "scripts/verify.ps1",
-                "docs/pitfalls.md"
+                "docs/pitfalls.md",
+                ".github/workflows/board.yml",
+                ".github/workflows/ci.yml"
             ],
             "depends": []
         }

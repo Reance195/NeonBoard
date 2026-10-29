@@ -91,6 +91,24 @@
             "updatedAt": 1793295841
         },
         {
+            "code": "DX-13",
+            "completedAt": 0,
+            "createdAt": 1793296823,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "1f8c0c3d-41b9-4011-99db-1149df73cbfc",
+            "note": "起因（2026-10-30，维护者本会话「你立卡就行」授权代登记）：连续两次结卡后 `progress.json` 快照滞后于台账 —— DX-11（2026-10-29）与 R13-01（2026-10-30 00:33 发现）都是 `derive_board_status.py --check` 退出 1、报「待同步：卡片 X 状态 todo → done」。同一病症两现，说明不是谁忘了跑命令，而是收尾脚本的路径本身有洞。\n\n根因在 scripts/git-done.ps1 的两条路径各缺一半：\n1) L351-371 的快照校正整段包在 `if ($snapshotLines.Count -gt 0)` 里 —— 只有应用（RoadmapSync）已经把 progress.json 写脏时才跑 `derive --write`；agent 在 worktree 里跑、应用没写回快照时（progress.json 干净），这一整段被直接跳过。\n2) L566-580 的结卡自动化只 `add docs/board-ledger.json` 后提交推送 —— `--close-cards` 把 baseline 补成 done，却从不刷新 progress.json。\n两者叠加：只要会话没让应用写回快照，结卡就必然留下漂移，唯一兜底是 CI 自动回写，而 CI 不可依赖（R13-01 这次就没兜住）。\n\n修复方向：把「刷新快照」从「脏了才修」改成收尾必做的一步 —— 结卡成功后再跑一次 `derive_board_status.py --write`，快照变脏就 `chore(roadmap):` 提交并推 main；沿用该脚本已有的 fail-soft 约定（派生失败只告警、不阻断已经成功的合并）。同时在 verify.ps1 的收尾步骤加入 `derive --check`，让漂移当场报红而不是等人下次撞见。\n\n边界：只动收尾脚本与坑点文档，不改台账语义、不改 derive 的判定规则、不动 CI；不填平别人的在制品（锚点区 untracked 文件一律不碰）。\n\n状态：待办",
+            "orderKey": 6144,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "收尾闭环：结卡后必须刷新看板快照（git-done 快照漂移）",
+            "updatedAt": 1793296823
+        },
+        {
             "code": "R0-11",
             "completedAt": 0,
             "createdAt": 1793252504,
@@ -2671,6 +2689,6 @@
             "updatedAt": 1793281760
         }
     ],
-    "updated": "2026-10-29T17:44:01",
+    "updated": "2026-10-30T02:00:23",
     "version": 3
 }

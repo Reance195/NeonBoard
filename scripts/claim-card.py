@@ -40,13 +40,11 @@ code, agent, branch = sys.argv[2], sys.argv[3], sys.argv[4]
 if len(sys.argv) > 5:
     board_db = sys.argv[5]
 else:
-    # 与 PowerShell 侧 scripts/nb-paths.ps1 同一口径：沙箱变量优先，否则落真实数据目录。
-    # 跨语言共用不了一份实现，两处都由 scripts/check_script_hygiene.py 盯住别漂移。
-    data_dir = os.environ.get("NEONBOARD_DATA_DIR")
-    if not data_dir:
-        appdata = os.environ.get("APPDATA") or os.path.expanduser("~")
-        data_dir = os.path.join(appdata, "com.lin", "NeonBoard")
-    board_db = os.path.join(data_dir, "board.db")
+    # 数据目录口径唯一实现在 scripts/nb_paths.py（与 PowerShell 侧 nb-paths.ps1 同构）：
+    # 沙箱变量优先，否则落真实数据目录；由 check_script_hygiene.py 规则 A 盯住。
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from nb_paths import board_db_path
+    board_db = str(board_db_path())
 
 ledger = os.path.join(root, "docs", "board-ledger.json")
 tmp = ledger + ".tmp"

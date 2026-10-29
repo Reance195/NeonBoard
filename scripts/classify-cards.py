@@ -89,14 +89,10 @@ CREATE TABLE IF NOT EXISTS task_project (
 
 
 def default_db_path() -> Path:
-    """与 AppPaths::dataDir() 的落点保持一致。"""
-    env = os.environ.get("NEONBOARD_DATA_DIR")
-    if env:
-        return Path(env) / "board.db"
-    appdata = os.environ.get("APPDATA")
-    if appdata:
-        return Path(appdata) / "com.lin" / "NeonBoard" / "board.db"
-    return Path.home() / "com.lin" / "NeonBoard" / "board.db"
+    """与 AppPaths::dataDir() 的落点保持一致：统一取 scripts/nb_paths.py 的口径。"""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from nb_paths import board_db_path
+    return board_db_path()
 
 
 def classify(title: str):

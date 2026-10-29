@@ -2162,7 +2162,11 @@
             "note": "声明 cursor-agent。本机实测：cursor-agent 装了（v2026.10.19）但**不在 PATH**，内置 profile 写 exe: cursor-agent 调不动 —— 这正是它「内置却不可用」的根因。本卡必须写绝对路径，并让设置页能显示「已声明但 CLI 不在 PATH」，而不是等到执行失败才暴露。",
             "scope": [
                 "plugins/agent-cursor/",
-                "tests/tst_agentprofile.cpp"
+                "tests/tst_agentprofile.cpp",
+                "src/AgentProfile.h",
+                "src/AgentProfile.cpp",
+                "qml/components/SettingsPanel.qml",
+                "docs/agent-provider-api.md"
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-cursor：绝对路径与不可用态"
@@ -2181,7 +2185,12 @@
             "note": "声明 codex。两个本机实测约束必须落进拼装逻辑：1) stdin 不重定向会卡在「Reading additional input from stdin...」，必须接 NUL；2) --json 是事件流不是最终回复，末条回复要另用 -o <file> 收。**默认不启用**：此前两次 exec 都没在 200s / 420s 内跑完一个回合（provider 指向127.0.0.1:15721 本地网关），按 agent-profile.md §12.1「禁止内置未实测 profile」，需先跑通一次以 turn.completed 结束的 exec 才允许打开。",
             "scope": [
                 "plugins/agent-codex/",
-                "tests/tst_agentprofile.cpp"
+                "tests/tst_agentprofile.cpp",
+                "src/AgentProfile.h",
+                "src/AgentProfile.cpp",
+                "src/TaskRunner.cpp",
+                "docs/agent-provider-api.md",
+                "docs/agent-profile.md"
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"

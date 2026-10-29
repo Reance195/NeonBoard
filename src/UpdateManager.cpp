@@ -1,6 +1,7 @@
 #include "UpdateManager.h"
 
 #include "AppPaths.h"
+#include "DeltaUpdate.h"
 
 #include <QCryptographicHash>
 #include <QCoreApplication>
@@ -291,6 +292,12 @@ UpdateManager::ReleaseInfo UpdateManager::parseManifest(const QByteArray &json, 
                 info.portableUrl = url;
                 info.portableSha256 = sha;
                 info.portableSize = size;
+            } else if (kind == QLatin1String("delta")) {
+                info.deltaUrl = url;
+                info.deltaSha256 = sha;
+                info.deltaSize = size;
+                info.deltaFromVersion = trimVersionPrefix(
+                    item.value(QStringLiteral("fromVersion")).toString());
             }
         }
     }
@@ -719,6 +726,7 @@ void UpdateManager::handleManifest(const QByteArray &payload, const QString &fro
     // 清单里只写文件名（同一目录下分发）时补全成绝对地址
     info.setupUrl = resolveUrl(info.setupUrl, fromUrl);
     info.portableUrl = resolveUrl(info.portableUrl, fromUrl);
+    info.deltaUrl = resolveUrl(info.deltaUrl, fromUrl);
 
     storeCachedManifest(fromUrl, payload);
     m_latest = info;
@@ -730,9 +738,12 @@ void UpdateManager::handleManifest(const QByteArray &payload, const QString &fro
     emit lastCheckChanged();
 
     const int cmp = compareVersion(info.version, currentVersion());
+    // 可用 = 有当前形态的全量产物，或有恰好适用的增量包（增量失败时若全量产物
+    // 存在仍可回退；只有增量没有全量时，增量失败就报错，不会装错包）
+    const bool hasKindArtifact = installKind() == QLatin1String("installed")
+        ? !info.setupUrl.isEmpty() : !info.portableUrl.isEmpty();
     m_updateAvailable = cmp > 0 && info.version != m_skippedVersion
-        && (installKind() == QLatin1String("installed") ? !info.setupUrl.isEmpty()
-                                                        : !info.portableUrl.isEmpty());
+        && (hasKindArtifact || info.deltaApplicable(currentVersion()));
 
     if (cmp <= 0) {
         setState(QStringLiteral("uptodate"));
@@ -771,10 +782,14 @@ bool UpdateManager::useCachedManifest()
         return false;
     info.setupUrl = resolveUrl(info.setupUrl, root.value(QStringLiteral("url")).toString());
     info.portableUrl = resolveUrl(info.portableUrl, root.value(QStringLiteral("url")).toString());
+    info.deltaUrl = resolveUrl(info.deltaUrl, root.value(QStringLiteral("url")).toString());
 
     m_latest = info;
     m_updateAvailable = compareVersion(info.version, currentVersion()) > 0
-        && info.version != m_skippedVersion;
+        && info.version != m_skippedVersion
+        && ((installKind() == QLatin1String("installed") ? !info.setupUrl.isEmpty()
+                                                          : !info.portableUrl.isEmpty())
+            || info.deltaApplicable(currentVersion()));
     setStatusText(QStringLiteral("离线：使用 %1 缓存的更新信息")
                       .arg(QDateTime::fromSecsSinceEpoch(fetchedAt).toString(QStringLiteral("MM-dd hh:mm"))));
     setState(m_updateAvailable ? QStringLiteral("available") : QStringLiteral("uptodate"));
@@ -824,6 +839,19 @@ void UpdateManager::downloadAndInstall()
 {
     if (state() != QLatin1String("available"))
         return;
+
+    // 优先增量（仅当前版本恰好等于增量源版本时）；任一步失败自动回退全量下载
+    if (m_latest.deltaApplicable(currentVersion())) {
+        setState(QStringLiteral("downloading"));
+        setProgress(0);
+        setStatusText(QStringLiteral("正在下载增量包 %1…").arg(m_latest.version));
+        QString deltaError;
+        if (downloadAndApplyDelta(&deltaError))
+            return; // 成功：installLaunched 已发出，宿主准备退出
+        qWarning() << "增量更新失败，回退全量下载：" << deltaError;
+        setStatusText(QStringLiteral("增量更新失败，改用全量下载…"));
+    }
+
     const QString url = artifactUrl();
     if (url.isEmpty()) {
         openDownloadPage();
@@ -859,6 +887,189 @@ void UpdateManager::installWithSetup(const QString &file)
         return;
     }
     emit installLaunched();
+}
+
+bool UpdateManager::downloadAndApplyDelta(QString *error)
+{
+    if (!m_latest.valid()) {
+        if (error)
+            *error = QStringLiteral("无可用更新信息");
+        return false;
+    }
+    // 增量包只在当前版本恰好等于源版本时可用，否则回退全量
+    if (!m_latest.deltaApplicable(currentVersion())) {
+        if (error)
+            *error = QStringLiteral("增量包不适用（当前版本与源版本不一致）");
+        return false;
+    }
+
+    const QString tempRoot = QDir::temp().absoluteFilePath(
+        QStringLiteral("neonboard-delta-%1").arg(m_latest.version));
+    QDir(tempRoot).removeRecursively();
+    if (!QDir().mkpath(tempRoot)) {
+        if (error)
+            *error = QStringLiteral("无法创建临时目录：%1").arg(tempRoot);
+        return false;
+    }
+    const QString deltaFile = tempRoot + QStringLiteral("/delta.zip");
+    const QString extractDir = tempRoot + QStringLiteral("/extract");
+    const QString stagedDir = tempRoot + QStringLiteral("/staged");
+
+    // 1) 下载增量包（同步；进度照常走 progress 信号，嵌套事件循环会派发）
+    QNetworkRequest request(QUrl(m_latest.deltaUrl));
+    request.setHeader(QNetworkRequest::UserAgentHeader,
+                      QStringLiteral("NeonBoard-UpdateManager"));
+    QNetworkReply *reply = m_network->get(request);
+
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    connect(reply, &QNetworkReply::downloadProgress, this,
+            [this](qint64 received, qint64 total) {
+                if (total > 0)
+                    setProgress(static_cast<int>(received * 100 / total));
+            });
+    QTimer timeoutTimer;
+    timeoutTimer.setSingleShot(true);
+    connect(&timeoutTimer, &QTimer::timeout, reply, &QNetworkReply::abort);
+    timeoutTimer.start(120000); // 增量包通常几 MB，总超时 120 秒
+    loop.exec();
+
+    const QByteArray payload = reply->readAll();
+    const QNetworkReply::NetworkError netError = reply->error();
+    const QString netErrorText = reply->errorString();
+    reply->deleteLater();
+    if (netError != QNetworkReply::NoError) {
+        if (error)
+            *error = QStringLiteral("下载增量包失败：%1").arg(netErrorText);
+        QDir(tempRoot).removeRecursively();
+        return false;
+    }
+
+    // 2) 校验 SHA-256（清单给了才校验）
+    if (!m_latest.deltaSha256.isEmpty()) {
+        const QString actual = QString::fromLatin1(
+            QCryptographicHash::hash(payload, QCryptographicHash::Sha256).toHex());
+        if (actual.toLower() != m_latest.deltaSha256.toLower()) {
+            if (error)
+                *error = QStringLiteral("增量包校验失败");
+            QDir(tempRoot).removeRecursively();
+            return false;
+        }
+    }
+
+    QFile outFile(deltaFile);
+    if (!outFile.open(QIODevice::WriteOnly | QIODevice::Truncate)
+        || outFile.write(payload) != payload.size()) {
+        if (error)
+            *error = QStringLiteral("无法写入增量包：%1").arg(outFile.errorString());
+        QDir(tempRoot).removeRecursively();
+        return false;
+    }
+    outFile.close();
+
+    // 3) 解压
+    QString stepError;
+    if (!extractZip(deltaFile, extractDir, &stepError)) {
+        if (error)
+            *error = QStringLiteral("解压增量包失败：%1").arg(stepError);
+        QDir(tempRoot).removeRecursively();
+        return false;
+    }
+
+    // 4) 应用：资源直接覆盖安装目录，二进制 bsdiff 合并到暂存目录；失败自动回滚
+    const QString installDir = QCoreApplication::applicationDirPath();
+    if (!DeltaUpdate::applyDelta(extractDir, installDir, stagedDir, &stepError)) {
+        if (error)
+            *error = QStringLiteral("应用增量失败：%1").arg(stepError);
+        QDir(tempRoot).removeRecursively();
+        return false;
+    }
+
+    // 5) 自更新脚本：进程退出后把暂存二进制拷入安装目录并重启
+    if (!launchDeltaSelfUpdater(stagedDir, installDir, &stepError)) {
+        if (error)
+            *error = stepError;
+        QDir(tempRoot).removeRecursively();
+        return false;
+    }
+
+    // 成功：tempRoot 保留给自更新脚本（staged 拷完由脚本自行清理）
+    setStatusText(QStringLiteral("更新完成，正在重启…"));
+    emit installLaunched();
+    return true;
+}
+
+bool UpdateManager::launchDeltaSelfUpdater(const QString &stagedDir,
+                                           const QString &targetDir, QString *error)
+{
+    const QString scriptPath = QDir::temp().absoluteFilePath(
+        QStringLiteral("neonboard-deltaupdate-%1.bat").arg(m_latest.version));
+    QFile script(scriptPath);
+    if (!script.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        if (error)
+            *error = QStringLiteral("无法写入更新脚本：%1").arg(scriptPath);
+        return false;
+    }
+    // bat 必须是 CRLF + 纯 ASCII，否则中文路径的机器上 cmd 解析会炸
+    script.write(buildDeltaUpdateScript(stagedDir, targetDir).toLatin1());
+    script.close();
+
+    const bool started = QProcess::startDetached(QStringLiteral("cmd.exe"),
+                                                  {QStringLiteral("/c"), scriptPath});
+    if (!started) {
+        if (error)
+            *error = QStringLiteral("无法启动更新脚本");
+        return false;
+    }
+    return true;
+}
+
+QString UpdateManager::buildDeltaUpdateScript(const QString &stagedDir,
+                                              const QString &targetDir)
+{
+    // 与便携版自更新脚本同构：恒为 ASCII，路径双引号包裹。
+    // 区别只在拷贝源：这里只拷暂存目录里的二进制（资源已在应用阶段直接覆盖）。
+    QString waitName = QFileInfo(QCoreApplication::applicationFilePath()).fileName();
+    if (waitName.isEmpty())
+        waitName = QStringLiteral("NeonBoard.exe"); // 无应用实例时（单测）退回主程序名
+    const QString hostName = QStringLiteral("NeonBoardHost.exe");
+    const QString exeName = QStringLiteral("NeonBoard.exe");
+
+    QStringList lines;
+    lines << QStringLiteral("@echo off");
+    lines << QStringLiteral("setlocal");
+    lines << QStringLiteral("rem NeonBoard delta self-update (generated, ASCII only)");
+    lines << QStringLiteral("set \"SRC=%1\"").arg(QDir::toNativeSeparators(stagedDir));
+    lines << QStringLiteral("set \"DST=%1\"").arg(QDir::toNativeSeparators(targetDir));
+    lines << QStringLiteral("set \"LOG=%1\\neonboard-delta-update.log\"")
+                 .arg(QDir::toNativeSeparators(QStandardPaths::writableLocation(
+                     QStandardPaths::TempLocation)));
+    lines << QStringLiteral("echo delta update start %DATE% %TIME% > \"%LOG%\"");
+    // 托盘宿主常驻但不持有数据，强制结束没有风险
+    lines << QStringLiteral("taskkill /F /IM %1 >>\"%LOG%\" 2>&1").arg(hostName);
+    // 等主进程自己退出（它启动本脚本后就 quit），不要反过来强杀它
+    lines << QStringLiteral(":waitloop");
+    lines << QStringLiteral("tasklist /FI \"IMAGENAME eq %1\" 2>NUL | find /I \"%1\" >NUL")
+                 .arg(waitName);
+    lines << QStringLiteral("if not errorlevel 1 (");
+    lines << QStringLiteral("  ping -n 2 127.0.0.1 >NUL");
+    lines << QStringLiteral("  goto waitloop");
+    lines << QStringLiteral(")");
+    lines << QStringLiteral("robocopy \"%SRC%\" \"%DST%\" /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP >>\"%LOG%\" 2>&1");
+    // robocopy 的 0-7 都是成功，>=8 才是失败
+    lines << QStringLiteral("if errorlevel 8 (");
+    lines << QStringLiteral("  echo robocopy failed >>\"%LOG%\"");
+    lines << QStringLiteral("  exit /b 1");
+    lines << QStringLiteral(")");
+    lines << QStringLiteral("if exist \"%DST%\\%1\" (").arg(hostName);
+    lines << QStringLiteral("  start \"\" \"%DST%\\%1\" --open").arg(hostName);
+    lines << QStringLiteral(") else (");
+    lines << QStringLiteral("  start \"\" \"%DST%\\%1\"").arg(exeName);
+    lines << QStringLiteral(")");
+    lines << QStringLiteral("rmdir /S /Q \"%SRC%\" >>\"%LOG%\" 2>&1");
+    lines << QStringLiteral("del /F /Q \"%~f0\"");
+    lines << QString();
+    return lines.join(QStringLiteral("\r\n"));
 }
 
 void UpdateManager::installPortable(const QString &zipFile)

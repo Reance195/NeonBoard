@@ -20,7 +20,10 @@ param(
     [switch]$SkipInstaller,
     [switch]$SkipSelfTest,
     [switch]$AllowDirty,
-    [switch]$KillRunning
+    [switch]$KillRunning,
+    # 增量包（R5-06，可选）：给旧版目录与旧版本号，出包时顺带生成 delta.zip
+    [string]$DeltaFromDir = '',
+    [string]$DeltaFromVersion = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -196,6 +199,19 @@ try {
     Write-Host '· 生成便携版 ...' -ForegroundColor Cyan
     & (Join-Path $PSScriptRoot 'deploy.ps1') -SkipBuild -OutDir $portable
     if ($LASTEXITCODE -ne 0) { throw "便携版生成失败：$LASTEXITCODE" }
+
+    # ---- 增量包（可选，R5-06）----
+    # 对比旧版目录与本次便携版，生成 dist/delta/delta.zip + 清单条目；
+    # 发布人把 delta-manifest-entry.json 并入 update.json 的 artifacts 即可。
+    if ($DeltaFromDir) {
+        if (-not $DeltaFromVersion) { throw '给了 -DeltaFromDir 就必须给 -DeltaFromVersion（旧版本号）' }
+        Write-Host ("· 生成增量包（{0} → {1}）..." -f $DeltaFromVersion, $appVersion) -ForegroundColor Cyan
+        & (Join-Path $PSScriptRoot 'build-delta.ps1') `
+            -FromDir $DeltaFromDir -ToDir $portable `
+            -FromVersion $DeltaFromVersion -ToVersion $appVersion `
+            -OutDir (Join-Path $dist 'delta')
+        if ($LASTEXITCODE -ne 0) { throw "增量包生成失败：$LASTEXITCODE" }
+    }
 
     # ---- 安装包 ----
     $setup = $null

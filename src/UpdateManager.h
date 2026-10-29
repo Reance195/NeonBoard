@@ -82,8 +82,18 @@ public:
         QString portableSha256;
         qint64 setupSize = 0;
         qint64 portableSize = 0;
+        QString deltaUrl;      ///< 增量包 URL（可选）
+        QString deltaSha256;   ///< 增量包 SHA-256（可选）
+        qint64 deltaSize = 0;  ///< 增量包大小（可选）
+        QString deltaFromVersion; ///< 增量包源版本（客户端须恰好在此版本才可用）
 
         bool valid() const { return !version.isEmpty(); }
+        /** 增量包是否可用：有 URL 且当前版本恰好是源版本 */
+        bool deltaApplicable(const QString &currentVersion) const
+        {
+            return !deltaUrl.isEmpty() && !deltaFromVersion.isEmpty()
+                   && compareVersion(currentVersion, deltaFromVersion) == 0;
+        }
     };
 
     // ---- 纯逻辑（可离线单测）----
@@ -96,6 +106,9 @@ public:
     /** 便携版自更新脚本内容。恒为 ASCII：cmd 按本地代码页解析 bat，
      *  中文注释或中文路径会让脚本在某些机器上直接语法错误。 */
     static QString buildPortableUpdateScript(const QString &sourceDir, const QString &targetDir);
+    /** 增量自更新脚本：等主进程退出后，把暂存目录里的二进制拷入安装目录并重启。
+     *  同样恒为 ASCII。 */
+    static QString buildDeltaUpdateScript(const QString &stagedDir, const QString &targetDir);
     /** zip 可能多包一层目录，这里定位真正含 NeonBoard.exe 的根 */
     static QString locatePayloadRoot(const QString &extractDir);
     /** Inno Setup 卸载项的注册表路径（安装形态判定的依据） */
@@ -143,6 +156,9 @@ public:
     bool checkBlocking(int timeoutMs, QString *error);
     /** 同步下载当前形态对应的产物到 destFile（含 SHA-256 校验） */
     bool downloadBlocking(const QString &destFile, QString *error);
+    /** 同步下载并应用增量包（版本不匹配 / 任一步失败返回 false，调用方回退全量）。
+     *  成功时已启动自更新脚本并发出 installLaunched，宿主应准备退出。 */
+    bool downloadAndApplyDelta(QString *error);
 
 signals:
     void stateChanged();
@@ -188,6 +204,7 @@ private:
     bool verifyFile(const QString &path, const QString &expectedSha256, QString *error);
     bool extractZip(const QString &zipFile, const QString &destDir, QString *error);
     bool launchSelfUpdater(const QString &payloadDir, QString *error);
+    bool launchDeltaSelfUpdater(const QString &stagedDir, const QString &targetDir, QString *error);
 
     void loadSettings();
     void saveSources();

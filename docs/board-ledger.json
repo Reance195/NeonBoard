@@ -9,6 +9,7 @@
         "DX-07": "done",
         "DX-08": "done",
         "DX-09": "done",
+        "DX-10": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -37,6 +38,7 @@
         "R0-08": "done",
         "R0-09": "done",
         "R0-10": "done",
+        "R0-11": "todo",
         "R1-01": "done",
         "R1-02": "done",
         "R1-03": "done",
@@ -94,14 +96,12 @@
         "R8-03": "done",
         "R8-04": "todo",
         "R8-05": "done",
-        "R8-06": "todo",
+        "R8-06": "done",
         "R9-01": "done",
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "R0-11": "todo",
-        "DX-10": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -290,6 +290,29 @@
             ],
             "stage": "DX",
             "title": "DX 卡片验收字段补全：acceptance/scope 覆盖率归零缺口（#2，分 3 批）"
+        },
+        "DX-10": {
+            "acceptance": [
+                "python scripts/task_gate.py selftest 新增覆盖：只改 scope 或只改 acceptance 无凭证被拒；带「授权：」「批次：」两行通过；scope 与代码路径同提交被拒；仅调换 scope 顺序或改首尾空白不判为定义变更",
+                "ledger_shape() 输出包含 scope 与 acceptance（比较时忽略顺序与空白），ledger_definition_changes() 对 scope 变更报出「改 scope：<短号>」，acceptance 同理",
+                "python scripts/derive_board_status.py --selftest 全绿，--close-cards 仍只改 baseline（「自动来源：」通道不扩权，夹带 scope 改动仍要授权行）",
+                "chore(board) 缺审计行时的报错文案点明 scope / acceptance 属任务定义，并写出应补的两行，不看文档也知道怎么改",
+                "AGENTS.md 条款 6、docs/task-card.md、docs/pitfalls.md 三处写明：scope 是契约不是备注，扩权必须单独提交并写清授权来源，不得夹在实现提交里",
+                "CI 全绿：task_gate selftest、derive_board_status selftest、check_script_hygiene 与 C++ 测试均通过"
+            ],
+            "depends": [],
+            "id": "994f9282-52b4-40eb-995b-9d6a1c4a66f5",
+            "note": "起因（2026-10-29，维护者本会话授权「立」）：R10-02 立卡时漏写 src/main.cpp / src/BoardColumns.* / tests 三个实现必需路径，agent 两次靠 chore(board) 自行补 scope 才做完 —— 而 scripts/task_gate.py 的 ledger_shape() 只提取 id / title / stage / baseline，scope 与 acceptance 根本不进判定。也就是说：给自己扩大可改范围、或把验收条件改软，既不留痕也无需凭证，甚至能夹在 feat 提交里过去。这与条款 6「agent 不得自授权」直接冲突：卡片的可改范围是任务定义的一部分，不是备注。\n\n本次把 scope / acceptance 纳入任务定义视图，但保留「可纠正」：允许改，条件是单独一条 chore(board) 提交 + 「授权：」「批次：」两行 + 不与代码路径同提交。自动结卡通道（只改 baseline）不扩权，仍按「自动来源：」走。\n\n边界与已知局限：授权行是自述，闸门无法验真伪，它的价值是留痕与可复核（谁在哪个批次改了什么），真正的门仍是维护者复核；比较时忽略数组顺序与首尾空白，避免纯排版调整触发审计。存量 101 张卡已全部具备 scope/acceptance（DX-09 收口），本次不回溯改历史卡。\n\n状态：待办",
+            "scope": [
+                "scripts/task_gate.py",
+                "AGENTS.md",
+                "docs/task-card.md",
+                "docs/pitfalls.md",
+                "docs/iteration-roadmap.md",
+                ".github/workflows/ci.yml"
+            ],
+            "stage": "DX",
+            "title": "任务契约纳入审计：scope / acceptance 变更必须留痕"
         },
         "M01": {
             "acceptance": [
@@ -771,6 +794,30 @@
             ],
             "stage": "R0",
             "title": "R0 启动瘦身：重型面板按需加载"
+        },
+        "R0-11": {
+            "acceptance": [
+                "连续 3 次 CI 的 --smoke startup 中位数 ≤ 2000ms（基线 3772ms 见 docs/perf-baseline.json）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0 且 ctest 全绿",
+                "pwsh -File scripts/verify.ps1 全过，--smoke 日志零 QML 告警"
+            ],
+            "id": "159dabf6-8b1a-4954-8182-cce05155b10e",
+            "note": "起因：GitHub issue #4 —— CI `--smoke` 实测 startup=3772ms，目标冷启动 ≤2000ms。路线图 §3.1「剩余可做」四项：数据库建表/迁移线程化+延后首帧（数十 ms）、Shader 预热（.qsb 首次链接放 Splash 阶段，冷态 BOOT shown 比热态多 1–2 s，可能秒级）、回退字体加载阻塞首帧（数十 ms）、插件扫描后台化（实测仅 2–8 ms，优先级下调）。边界（issue #4 原文）：不改插件协议与数据库 schema。",
+            "scope": [
+                "src/Database.*",
+                "src/PluginLoader.*",
+                "src/SplashWindow.*",
+                "src/Metrics.*",
+                "src/main.cpp",
+                "qml/**",
+                "resources/**",
+                "shaders/**",
+                "tests/**",
+                "CMakeLists.txt",
+                "docs/perf-baseline.json"
+            ],
+            "stage": "R0",
+            "title": "R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）"
         },
         "R1-01": {
             "acceptance": [
@@ -2208,53 +2255,6 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "R0-11": {
-            "acceptance": [
-                "连续 3 次 CI 的 --smoke startup 中位数 ≤ 2000ms（基线 3772ms 见 docs/perf-baseline.json）",
-                "build/Release/NeonBoard.exe --selftest 退出码 0 且 ctest 全绿",
-                "pwsh -File scripts/verify.ps1 全过，--smoke 日志零 QML 告警"
-            ],
-            "id": "159dabf6-8b1a-4954-8182-cce05155b10e",
-            "note": "起因：GitHub issue #4 —— CI `--smoke` 实测 startup=3772ms，目标冷启动 ≤2000ms。路线图 §3.1「剩余可做」四项：数据库建表/迁移线程化+延后首帧（数十 ms）、Shader 预热（.qsb 首次链接放 Splash 阶段，冷态 BOOT shown 比热态多 1–2 s，可能秒级）、回退字体加载阻塞首帧（数十 ms）、插件扫描后台化（实测仅 2–8 ms，优先级下调）。边界（issue #4 原文）：不改插件协议与数据库 schema。",
-            "scope": [
-                "src/Database.*",
-                "src/PluginLoader.*",
-                "src/SplashWindow.*",
-                "src/Metrics.*",
-                "src/main.cpp",
-                "qml/**",
-                "resources/**",
-                "shaders/**",
-                "tests/**",
-                "CMakeLists.txt",
-                "docs/perf-baseline.json"
-            ],
-            "stage": "R0",
-            "title": "R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）"
-        },
-        "DX-10": {
-            "acceptance": [
-                "python scripts/task_gate.py selftest 新增覆盖：只改 scope 或只改 acceptance 无凭证被拒；带「授权：」「批次：」两行通过；scope 与代码路径同提交被拒；仅调换 scope 顺序或改首尾空白不判为定义变更",
-                "ledger_shape() 输出包含 scope 与 acceptance（比较时忽略顺序与空白），ledger_definition_changes() 对 scope 变更报出「改 scope：<短号>」，acceptance 同理",
-                "python scripts/derive_board_status.py --selftest 全绿，--close-cards 仍只改 baseline（「自动来源：」通道不扩权，夹带 scope 改动仍要授权行）",
-                "chore(board) 缺审计行时的报错文案点明 scope / acceptance 属任务定义，并写出应补的两行，不看文档也知道怎么改",
-                "AGENTS.md 条款 6、docs/task-card.md、docs/pitfalls.md 三处写明：scope 是契约不是备注，扩权必须单独提交并写清授权来源，不得夹在实现提交里",
-                "CI 全绿：task_gate selftest、derive_board_status selftest、check_script_hygiene 与 C++ 测试均通过"
-            ],
-            "depends": [],
-            "id": "994f9282-52b4-40eb-995b-9d6a1c4a66f5",
-            "note": "起因（2026-10-29，维护者本会话授权「立」）：R10-02 立卡时漏写 src/main.cpp / src/BoardColumns.* / tests 三个实现必需路径，agent 两次靠 chore(board) 自行补 scope 才做完 —— 而 scripts/task_gate.py 的 ledger_shape() 只提取 id / title / stage / baseline，scope 与 acceptance 根本不进判定。也就是说：给自己扩大可改范围、或把验收条件改软，既不留痕也无需凭证，甚至能夹在 feat 提交里过去。这与条款 6「agent 不得自授权」直接冲突：卡片的可改范围是任务定义的一部分，不是备注。\n\n本次把 scope / acceptance 纳入任务定义视图，但保留「可纠正」：允许改，条件是单独一条 chore(board) 提交 + 「授权：」「批次：」两行 + 不与代码路径同提交。自动结卡通道（只改 baseline）不扩权，仍按「自动来源：」走。\n\n边界与已知局限：授权行是自述，闸门无法验真伪，它的价值是留痕与可复核（谁在哪个批次改了什么），真正的门仍是维护者复核；比较时忽略数组顺序与首尾空白，避免纯排版调整触发审计。存量 101 张卡已全部具备 scope/acceptance（DX-09 收口），本次不回溯改历史卡。\n\n状态：待办",
-            "scope": [
-                "scripts/task_gate.py",
-                "AGENTS.md",
-                "docs/task-card.md",
-                "docs/pitfalls.md",
-                "docs/iteration-roadmap.md",
-                ".github/workflows/ci.yml"
-            ],
-            "stage": "DX",
-            "title": "任务契约纳入审计：scope / acceptance 变更必须留痕"
         }
     },
     "claims": {},

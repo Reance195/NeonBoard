@@ -19,6 +19,24 @@
             "updatedAt": 1793281760
         },
         {
+            "code": "R13-01",
+            "completedAt": 0,
+            "createdAt": 1793282220,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "3e762880-cd0b-447b-bf4d-ef15dc8495e4",
+            "note": "现象（2026-10-29 发现，R10-05 验收截图时偶发撞见）：全新数据目录首次启动，三列全空、顶部统计全 0，并自动弹出「先记一条任务」引导；同一数据库复跑一次即恢复，任务数回到 139。当时用主仓库 exe 在同一个真实仓库根下复跑是正常的，说明与 R10-05 的 QML 布局改动无因果关系，属启动期就绪判定范畴。\n\n判定链路上有两处薄弱点：\n1) qml/Main.qml 的 onboardVisible 只在 Component.onCompleted 里算一次 —— uiSettings.shouldOnboard(taskStore.count)，此后 count 怎么变都不重算，那一刻读到 0 就永久误弹；\n2) 空板判定与列模型各自读自己的快照（列模型还叠了项目范围过滤），任一处先于数据就绪都可能给出「全空」的错误结论。\n\n尚未定论的疑点（开工时优先证伪）：TaskModel::load() 在 src/main.cpp:277 是同步调用、早于 QML 引擎加载，按这条路径 onCompleted 时 count 不可能是 0。因此要么存在第二条加载/重建路径（路线图首次全量同步、RoadmapSync 或 LedgerImport 触发的 reload）在 QML 起来之后把模型清空再填回；要么日志里的「loaded 139 tasks」与那张截图并非同一次运行 —— neonboard.log 是追加写，跨次混读会得出自相矛盾的结论。先分清是「真竞态」还是「读日志的方式错了」，再决定改不改代码。\n\n目标：把「是否该弹引导」「是否该显示空态」从启动瞬间的一次快照，改成随 count 变化可重算的派生状态，并留下能区分「真空板」与「尚未就绪」的判据。\n\n边界：只修就绪判定与引导触发，不改引导文案与三步流程，不改数据加载 SQL，不碰 R10 的项目范围语义。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "R13",
+            "status": "todo",
+            "tags": [
+                "R13"
+            ],
+            "title": "R13 首启就绪竞态：看板偶发全空 + 引导误弹",
+            "updatedAt": 1793282220
+        },
+        {
             "code": "R0-11",
             "completedAt": 0,
             "createdAt": 1793252504,
@@ -2563,6 +2581,6 @@
             "updatedAt": 1793281760
         }
     ],
-    "updated": "2026-10-29T21:49:20",
+    "updated": "2026-10-29T13:57:00",
     "version": 3
 }

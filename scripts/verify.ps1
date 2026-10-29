@@ -1,6 +1,6 @@
 ﻿# verify.ps1 —— 唯一验收入口：本地和 CI 用同一把尺子
 #
-# 四步：编译 → 单元测试(ctest) → 数据库自检(--selftest) → 冒烟启动(--smoke)
+# 五步：编译 → 单元测试(ctest) → 数据库自检(--selftest) → 冒烟启动(--smoke) → 看板一致性(derive --check)
 # 任务卡的 acceptance 就写「pwsh -File scripts/verify.ps1 全过」。
 #
 # 两处自兜底（本脚本的定位是「拿到就能跑」，不该要求调用方先记住别的）：
@@ -121,6 +121,30 @@ if ($bad) {
     Fail "冒烟日志检测到致命错误（$($bad.Count) 行）"
 }
 
+
+# ---------- 5. 看板状态一致性（DX-13） ----------
+Step '看板状态一致性（derive --check）'
+# progress.json 是「git 标记 + 台账」的派生产物（§11），漂移的判据只有一个：
+# derive --check 退出 1 并报「待同步：卡片 X 状态 a → b」。
+# 只在主干上阻断：特性分支按既有约定完全不碰 progress.json（ci.yml 原话），
+# 分支上带 #短号=done 而快照未重算是正常的，那里只告警不拦验收。
+$deriveScript = Join-Path $repoRoot 'scripts\derive_board_status.py'
+if ((Test-Path $deriveScript) -and (Get-Command python -ErrorAction SilentlyContinue)) {
+    & python $deriveScript --repo $repoRoot --check
+    $deriveCode = $LASTEXITCODE
+    if ($deriveCode -ne 0) {
+        $onMain = ((git rev-parse --abbrev-ref HEAD).Trim() -eq 'main')
+        $hint = 'python scripts/derive_board_status.py --write'
+        if ($onMain) {
+            Fail "看板状态与 git 历史/台账不一致（退出码 $deriveCode），请先跑 $hint 并提交"
+        } else {
+            Write-Host ("! 看板快照落后于派生结果（退出码 {0}）；合并收尾会由 git-done 自动刷新，或手工跑 {1}" -f $deriveCode, $hint) -ForegroundColor Yellow
+        }
+    }
+} else {
+    Write-Host '· 跳过：未找到 scripts/derive_board_status.py 或 python' -ForegroundColor DarkGray
+}
+
 Write-Host ''
-Write-Host '✓ 验收通过：编译 / ctest / --selftest / --smoke 全过' -ForegroundColor Green
+Write-Host '✓ 验收通过：编译 / ctest / --selftest / --smoke / 看板一致性 全过' -ForegroundColor Green
 exit 0

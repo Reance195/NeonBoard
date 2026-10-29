@@ -69,6 +69,68 @@ function Invoke-Git {
 # 失败不抛，由调用方按 Code 自行处置（探测类命令用这里）
 function Invoke-GitQuiet { param([string[]]$GitArgs) return Invoke-Cmd -File 'git' -CmdArgs $GitArgs }
 
+function Sync-BoardSnapshot {
+    param([string]$RepoRoot, [string]$MainBranch)
+    # 快照刷新闭环（DX-13）：progress.json 是「git 标记 + 台账」的派生产物，只有 --write
+    # 才会重算。结卡（--close-cards）改的是 docs/board-ledger.json 的 baseline，从不碰
+    # 快照；而上面的步骤 1 只在「progress.json 已脏」时才校正 —— 应用（RoadmapSync）没写回
+    # 快照的会话因此必漂（踩过两次：DX-11 于 10-29、R13-01 于 10-30，判据都是
+    # derive --check 退出 1 并报「待同步」）。CI 回写兜不住：ci.yml 的 paths-ignore 含
+    # docs/**，结卡这类 docs-only 提交根本不触发流水线。故收尾必刷一次。
+    # 沿用本脚本的 fail-soft 约定：派生/提交/推送失败只告警，绝不阻断已经成功的合并。
+    $deriveScript = Join-Path $RepoRoot 'scripts\derive_board_status.py'
+    $pythonExe = (Get-Command python -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if (-not ((Test-Path -LiteralPath $deriveScript) -and $pythonExe)) {
+        Write-Host '· 快照：缺少派生器脚本或 python，跳过刷新' -ForegroundColor Yellow
+        return $false
+    }
+    $dwRes = Invoke-Cmd -File 'python' -CmdArgs @($deriveScript, '--write')
+    $dwRes.Output | ForEach-Object { Write-Host ("   {0}" -f $_) -ForegroundColor DarkGray }
+    if ($dwRes.Code -ne 0) {
+        Write-Host '· 警告：派生器未能刷新快照（见上），留待下次合并或 board.yml 回写' -ForegroundColor Yellow
+        return $false
+    }
+    # 无变化不落盘，绝不产生空提交
+    $snapDirty = @((Invoke-Git status --porcelain -- progress.json) | Where-Object { $_ -match 'progress\.json$' })
+    if ($snapDirty.Count -eq 0) {
+        Write-Host '· 快照：派生结果与现有快照一致，无需提交' -ForegroundColor DarkGray
+        return $true
+    }
+    Invoke-GitQuiet @('add', 'progress.json') | Out-Null
+    $snapBody = "对象：合并收尾按 git 事实重算派生状态，使 progress.json 与台账一致（DX-13）。`n`n" +
+                "自动来源：git-done.ps1 的 derive_board_status.py --write。"
+    $snapCommit = Invoke-GitQuiet @('commit', '-m', 'chore(roadmap): 同步进度快照', '-m', $snapBody)
+    if ($snapCommit.Code -ne 0) {
+        Write-Host '· 警告：快照提交失败（commit-msg 钩子或其它原因），留待下次合并' -ForegroundColor Yellow
+        Invoke-GitQuiet @('checkout', '--', 'progress.json') | Out-Null
+        return $false
+    }
+    for ($i = 1; $i -le 3; $i++) {
+        $snapPush = Invoke-GitQuiet @('push', 'origin', "HEAD:$MainBranch")
+        if ($snapPush.Code -eq 0) {
+            Write-Host ('✓ 快照：派生状态已同步并推上 {0}' -f $MainBranch) -ForegroundColor Green
+            return $true
+        }
+        if ($i -eq 3) {
+            Write-Host '· 警告：快照推送重试 3 次仍失败，本地回滚，留待下次合并' -ForegroundColor Yellow
+            Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
+            return $false
+        }
+        Write-Host ("   · 快照推送被拒（第 {0} 次）：拉取主线变基后重试" -f $i) -ForegroundColor DarkGray
+        Invoke-GitQuiet @('fetch', 'origin', $MainBranch) | Out-Null
+        $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
+        if ($rb.Code -ne 0) {
+            # 快照的唯一事实源就是派生结果，重叠提交丢弃即可，绝不手工解冲突
+            Invoke-GitQuiet @('rebase', '--abort') | Out-Null
+            Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
+            Write-Host '· 警告：快照与主线撞车且无法变基，回滚，留待下次合并' -ForegroundColor Yellow
+            return $false
+        }
+        Start-Sleep -Seconds 5
+    }
+    return $false
+}
+
 # 主 worktree（锚点区）永远是 `git worktree list --porcelain` 的第一块。
 function Get-AnchorWorktree {
     $blocks = ((& git worktree list --porcelain) -join "`n") -split "`n`n"
@@ -585,6 +647,11 @@ if ($Mode -eq 'remote') {
             }
         }
     }
+
+
+    # 快照刷新闭环（DX-13）：结卡改的是 baseline，快照是派生产物，必须单独重算一次。
+    # 放在结卡之后 —— 先改台账再派生，才能把刚结掉的卡写进快照。
+    Sync-BoardSnapshot -RepoRoot $repoRoot -MainBranch $MainBranch | Out-Null
 
     Write-Host "`n✓ 合并完成：$Branch → origin/$MainBranch" -ForegroundColor Green
     Write-Host "   查看历史：git log --oneline --graph -10" -ForegroundColor DarkGray

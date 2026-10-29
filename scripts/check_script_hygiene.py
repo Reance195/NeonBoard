@@ -8,7 +8,8 @@ verify.ps1 读不到沙箱日志，根因都是「规则在多处各写一遍」
 
 规则（只扫脚本与流水线，不扫 .githooks/ —— 钩子文案里是在*介绍*逃生口，不是在使用）：
   A. 应用数据目录字面量（com.lin）只允许出现在 scripts/nb-paths.ps1（PowerShell 侧）
-     与 scripts/claim-card.py（Python 侧同一口径的镜像）；其余脚本一律取函数/读环境变量。
+     与 scripts/nb_paths.py（Python 侧单一实现，claim-card.py / classify-cards.py 等
+     一律 import 它）；其余脚本一律取函数/读环境变量。
   B. `git commit --no-verify` 只允许出现在 .github/workflows/ci.yml 的快照回写步骤
      （AGENTS.md §11.2 第 7 条：全仓库唯一豁免，且只提交 progress.json）。
   C. 每个 .ps1 必须以 UTF-8 BOM 开头（AGENTS.md §4）：Windows PowerShell 5.1 会把
@@ -24,7 +25,7 @@ import sys
 from pathlib import Path
 
 DATA_DIR_TOKEN = "com.lin"
-DATA_DIR_ALLOW = {"scripts/nb-paths.ps1", "scripts/claim-card.py"}
+DATA_DIR_ALLOW = {"scripts/nb-paths.ps1", "scripts/nb_paths.py"}
 NO_VERIFY_RE = re.compile(r"git\s+commit\s+--no-verify")
 NO_VERIFY_ALLOW = {".github/workflows/ci.yml"}
 UTF8_BOM = b"\xef\xbb\xbf"

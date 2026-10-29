@@ -457,6 +457,9 @@ ApplicationWindow {
     function jumpToTask(taskId) {
         searchField.text = ""
         window.setStageFilter("")
+        // 项目范围也要清：目标卡若属于别的项目，留在项目视图里它就被过滤掉了，
+        // flashTask 找不到行，跳转会静默失败。
+        window.setProjectFilter("")
         var task = taskStore.taskById(taskId)
         if (!task || !task.id)
             return
@@ -477,6 +480,8 @@ ApplicationWindow {
 
     // 里程碑过滤：空串表示全部；阶段来自卡片首个标签（R0/R1/R2/R3…）
     property string stageFilter: ""
+    // 项目范围过滤：空串表示全局；非空只显示该项目的卡（R10-02）
+    property string projectFilter: ""
     // 阶段条数据由 C++ 侧 TaskModel::stageList() 给出：集合与顺序取自路线图 §9 行序，
     // §9 之外的阶段折进「其他」并给出可对账的计数。QML 只负责画，
     // 不再自己写死一份阶段清单 —— 否则 §9 加了行、界面还得跟着改（DX-04）。
@@ -487,6 +492,13 @@ ApplicationWindow {
     function setStageFilter(stage) {
         stageFilter = stage
         boardColumns.stage = stage
+    }
+
+    // 项目范围：空串 = 全局。与阶段过滤相互独立，叠加生效（先按项目收窄，再按里程碑筛）。
+    // 只改视图状态，不写库 —— 退出重开回到全局，符合「范围不是数据」这条约定。
+    function setProjectFilter(projectId) {
+        projectFilter = projectId
+        boardColumns.project = projectId
     }
 
     function refreshStageData() {
@@ -1269,6 +1281,16 @@ MouseArea {
                     Layout.rightMargin: 20
                     spacing: 12
 
+                    // 两级看板的第一级：项目范围（全局 / 单项目）。
+                    // 放在阶段条左侧，是因为「看谁的事」比「看到哪一步」更外层。
+                    ProjectSwitcher {
+                        id: projectSwitcher
+                        Layout.preferredWidth: 230
+                        Layout.preferredHeight: 40
+                        activeProject: window.projectFilter
+                        onProjectSelected: function(projectId) { window.setProjectFilter(projectId) }
+                    }
+
                     StageBar {
                         id: stageBar
                         Layout.fillWidth: true
@@ -1361,6 +1383,7 @@ MouseArea {
                                   : Theme.cyan
                             searchQuery: searchField.text
                             stageFilter: window.stageFilter
+                            projectFilter: window.projectFilter
                             dragSpace: root
                             dropTarget: window.dragOverColumnId === boardColumnId
                             onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }

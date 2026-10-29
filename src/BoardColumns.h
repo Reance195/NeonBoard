@@ -7,6 +7,7 @@
 #include <QVector>
 
 class Database;
+class ProjectStore;
 class TaskFilterModel;
 class TaskModel;
 class TaskTree;
@@ -23,6 +24,9 @@ class BoardColumns : public QAbstractListModel
     Q_OBJECT
     Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY searchChanged)
     Q_PROPERTY(QString stage READ stage WRITE setStage NOTIFY stageChanged)
+    // 项目范围（R10-02）：空串 = 全局汇总，非空 = 只看该项目。
+    // 与 stage 同为「视图状态」—— 只影响各列模型显示什么，不写 task 表。
+    Q_PROPERTY(QString project READ project WRITE setProject NOTIFY projectChanged)
     Q_PROPERTY(int count READ count NOTIFY columnsChanged)
     // 顶栏统计片用：按「状态」汇总（同状态的多个列相加）
     Q_PROPERTY(int todoCount READ todoCount NOTIFY countsChanged)
@@ -55,6 +59,11 @@ public:
     QString stage() const { return m_stage; }
     void setStage(const QString &stage);
 
+    QString project() const { return m_project; }
+    void setProject(const QString &project);
+    // 注入项目门面并立刻转给已有列模型；新列由 createColumnModel 自行接上。
+    void setProjectStore(ProjectStore *store);
+
     int count() const { return static_cast<int>(m_columns.size()); }
     int todoCount() const { return countForStatus(QStringLiteral("todo")); }
     int doingCount() const { return countForStatus(QStringLiteral("doing")); }
@@ -84,6 +93,7 @@ signals:
     void columnsChanged();
     void searchChanged();
     void stageChanged();
+    void projectChanged();
     void countsChanged();
     void lastErrorChanged();
 
@@ -97,6 +107,8 @@ private:
 
     TaskFilterModel *createColumnModel(const QString &columnId, const QString &status);
     void clearColumns();
+    // 按当前 m_project 查一次归属集合，喂给每一列（新列 / 归属变动 / 切范围都走这里）
+    void applyProjectScope();
     int countForStatus(const QString &status) const;
     void setLastError(const QString &error);
 
@@ -106,5 +118,7 @@ private:
     QVector<Column> m_columns;
     QString m_search;
     QString m_stage;
+    QString m_project;
+    ProjectStore *m_projects = nullptr;
     QString m_lastError;
 };

@@ -18,6 +18,11 @@ Rectangle {
     property string searchQuery: ""
     // 里程碑过滤（由上层注入，用于空态文案判断）
     property string stageFilter: ""
+    // 项目范围（由上层注入）：空串 = 全局。非空时列里只剩该项目的卡，
+    // 卡片也不再挂项目角标（整列同项目，标了是噪音）。
+    property string projectFilter: ""
+    // 是否在卡片上显示项目角标：全局视图下才需要
+    property bool showProjectBadge: projectFilter === ""
     // 拖拽坐标基准（与卡片保持同一坐标系）
     property Item dragSpace: null
     // 是否为当前拖拽悬停的列（边框呼吸）
@@ -378,6 +383,7 @@ Rectangle {
                     due: model.due
                     taskId: model.id
                     taskStatus: model.status
+                    showProjectBadge: column.showProjectBadge
                     dragSpace: column.dragSpace
                     onSelectionRequested: column.selectId(model.id)
                     onEditRequested: column.editRequested(model.id)

@@ -1,11 +1,13 @@
 #include "BoardColumns.h"
 
 #include "Database.h"
+#include "ProjectStore.h"
 #include "TaskFilterModel.h"
 #include "TaskModel.h"
 #include "TaskTree.h"
 
 #include <QDebug>
+#include <QSet>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -91,6 +93,51 @@ void BoardColumns::setStage(const QString &stage)
     emit stageChanged();
 }
 
+void BoardColumns::setProject(const QString &project)
+{
+    if (m_project == project)
+        return;
+    m_project = project;
+    applyProjectScope();
+    emit projectChanged();
+    // 列的卡片数变了（各列模型的 countChanged 会转发到 countsChanged），
+    // 顶栏统计片要跟着重算，否则切到项目视图后数字还是全局的。
+    emit countsChanged();
+}
+
+void BoardColumns::setProjectStore(ProjectStore *store)
+{
+    if (m_projects == store)
+        return;
+    if (m_projects)
+        m_projects->disconnect(this);
+    m_projects = store;
+    if (m_projects) {
+        // 归类脚本跑完、详情抽屉里改了归属 —— 范围名没变但集合变了，
+        // 不重算的话项目视图会一直显示旧的那批卡。
+        connect(m_projects, &ProjectStore::changed, this, [this]() {
+            applyProjectScope();
+            emit countsChanged();
+        });
+    }
+    applyProjectScope();
+}
+
+void BoardColumns::applyProjectScope()
+{
+    // 集合查在这里而不是过滤模型里：过滤模型只管行过滤，不碰数据库。
+    // 一次查询喂给所有列，别让每列各查一遍。
+    QSet<QString> ids;
+    if (m_projects && !m_project.isEmpty()) {
+        const QStringList list = m_projects->taskIdsOf(m_project);
+        ids = QSet<QString>(list.begin(), list.end());
+    }
+    for (Column &column : m_columns) {
+        if (column.model)
+            column.model->setProjectScope(m_project, ids);
+    }
+}
+
 TaskFilterModel *BoardColumns::createColumnModel(const QString &columnId, const QString &status)
 {
     auto *filter = new TaskFilterModel(this);
@@ -100,6 +147,7 @@ TaskFilterModel *BoardColumns::createColumnModel(const QString &columnId, const 
     filter->setTaskTree(m_tree);
     // 新建的列模型必须继承当前的搜索 / 阶段过滤，
     // 否则列管理新增一列后，它会把被过滤掉的任务也显示出来。
+    // 项目范围的集合由 reload() 末尾的 applyProjectScope() 统一喂（这里查库会每列重复查一次）。
     filter->setSearch(m_search);
     filter->setStage(m_stage);
     connect(filter, &TaskFilterModel::countChanged, this, &BoardColumns::countsChanged);
@@ -191,6 +239,10 @@ void BoardColumns::reload()
         m_columns.append(column);
     }
     endResetModel();
+
+    // 新列建出来时还没有范围集合（createColumnModel 只知道范围名，不查库），
+    // 在这里统一喂一次，否则重建列之后项目视图会短暂显示全部卡片。
+    applyProjectScope();
 
     emit columnsChanged();
     emit countsChanged();

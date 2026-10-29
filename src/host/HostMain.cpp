@@ -255,7 +255,9 @@ int main(int argc, char **argv)
     g_trayIcon.uID = 1;
     g_trayIcon.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     g_trayIcon.uCallbackMessage = kTrayMessage;
-    g_trayIcon.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+    // 托盘图标用内嵌在 exe 里的应用图标（resources/neonboard.rc，IDI_NEONBOARD=101），
+    // 不是系统通用图标；ID 必须与 .rc 里的定义保持同步。
+    g_trayIcon.hIcon = LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(101));
     wcscpy_s(g_trayIcon.szTip, L"NeonBoard");
     Shell_NotifyIconW(NIM_ADD, &g_trayIcon);
 

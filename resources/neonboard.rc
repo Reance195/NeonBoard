@@ -1,1 +1,4 @@
-IDI_ICON1 ICON "icons/neonboard.ico"
+// 应用图标（exe 文件图标 + 宿主托盘图标共用）。
+// ID 被 src/host/HostMain.cpp 的 MAKEINTRESOURCEW(101) 引用，两处必须同步。
+#define IDI_NEONBOARD 101
+IDI_NEONBOARD ICON "icons/neonboard.ico"

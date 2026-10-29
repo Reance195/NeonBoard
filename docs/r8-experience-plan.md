@@ -1,6 +1,7 @@
 # R8 记忆点收尾：主题包市场 / 卡片详情层 / 拖拽手感
 
-> 状态：**规划中（2026-10-29）**，维护者已授权登记 R8-01 ~ R8-06 六张卡片
+> 状态：**已完成（2026-10-29 结项，6/6）**。六张卡的落地提交与「与计划的偏差」
+> 见 [`iteration-roadmap.md`](iteration-roadmap.md) §9.4；本文保留立项时的判断与拆分口径。
 > 上游设计：[`iteration-roadmap.md`](iteration-roadmap.md) §5 P1 炫酷记忆点（第 4/5/6 条）
 > 已完成的相关前置：[§9 里程碑表 R2 行](iteration-roadmap.md)（Shader 场景化 R2-02、专注模式与统计 R2-01）
 > 卡片规范：[`task-card.md`](task-card.md)

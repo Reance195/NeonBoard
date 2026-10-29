@@ -12,6 +12,7 @@
         "DX-10": "done",
         "DX-11": "done",
         "DX-12": "todo",
+        "DX-13": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -58,6 +59,10 @@
         "R11-03": "done",
         "R12-01": "done",
         "R13-01": "done",
+        "R14-01": "todo",
+        "R14-02": "todo",
+        "R14-03": "todo",
+        "R14-04": "todo",
         "R2-01": "done",
         "R2-02": "done",
         "R3-01": "done",
@@ -106,12 +111,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "R14-01": "todo",
-        "R14-02": "todo",
-        "R14-03": "todo",
-        "R14-04": "todo",
-        "DX-13": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -365,6 +365,31 @@
             ],
             "stage": "DX",
             "title": "DX 开发链路三处重复成本：代理变量、执行策略、残留工作区提示"
+        },
+        "DX-13": {
+            "acceptance": [
+                "构造「应用未写回快照」场景（progress.json 干净、分支带 #<短号>=done）：git-done.ps1 走完收尾后，progress.json 被刷新并推上 main，新克隆/新 worktree 跑 python scripts/derive_board_status.py --check 退出 0",
+                "结卡路径必跑 --write：不再依赖「progress.json 已脏」这一前提（git-done.ps1 L351 的条件判断改为覆盖结卡场景）",
+                "无快照变化时不得产生空提交或噪声提交；派生器失败沿用 fail-soft：显著告警、不阻断已成功的合并（与 L560 附近 claims 清理同一套路）",
+                "scripts/verify.ps1 收尾步骤加入 derive --check，漂移时 verify 报红并给出 python scripts/derive_board_status.py --write 的修复提示",
+                "本卡落地时顺带填平 R13-01 的现存漂移，交付后 python scripts/derive_board_status.py --repo . --check 退出 0",
+                "python scripts/check_script_hygiene.py 通过；docs/pitfalls.md 新增条目写明判据（--check 退出 1 且报「待同步」= 结卡漏刷快照，先查 git-done 是否走过结卡路径）",
+                "pwsh -File scripts/verify.ps1 全过（编译 → ctest → selftest → smoke）",
+                "新增 .github/workflows/board.yml：独立轻量 job（只 checkout + python，不装 Qt、不编译），对 push 到 main 且改动 docs/board-ledger.json 的提交触发并自动 --write 回写；对 pull_request 只跑 --check 并抛错阻塞",
+                "board.yml 自身 paths-ignore 含 progress.json，CI 回写提交不得触发自激循环；ci.yml 移除「自动回写看板状态」步骤，progress.json 保持单写者"
+            ],
+            "depends": [],
+            "id": "1f8c0c3d-41b9-4011-99db-1149df73cbfc",
+            "note": "起因（2026-10-30，维护者本会话「你立卡就行」授权代登记）：连续两次结卡后 `progress.json` 快照滞后于台账 —— DX-11（2026-10-29）与 R13-01（2026-10-30 00:33 发现）都是 `derive_board_status.py --check` 退出 1、报「待同步：卡片 X 状态 todo → done」。同一病症两现，说明不是谁忘了跑命令，而是收尾脚本的路径本身有洞。\n\n根因在 scripts/git-done.ps1 的两条路径各缺一半：\n1) L351-371 的快照校正整段包在 `if ($snapshotLines.Count -gt 0)` 里 —— 只有应用（RoadmapSync）已经把 progress.json 写脏时才跑 `derive --write`；agent 在 worktree 里跑、应用没写回快照时（progress.json 干净），这一整段被直接跳过。\n2) L566-580 的结卡自动化只 `add docs/board-ledger.json` 后提交推送 —— `--close-cards` 把 baseline 补成 done，却从不刷新 progress.json。\n两者叠加：只要会话没让应用写回快照，结卡就必然留下漂移，唯一兜底是 CI 自动回写，而 CI 不可依赖（R13-01 这次就没兜住）。\n\n修复方向：把「刷新快照」从「脏了才修」改成收尾必做的一步 —— 结卡成功后再跑一次 `derive_board_status.py --write`，快照变脏就 `chore(roadmap):` 提交并推 main；沿用该脚本已有的 fail-soft 约定（派生失败只告警、不阻断已经成功的合并）。同时在 verify.ps1 的收尾步骤加入 `derive --check`，让漂移当场报红而不是等人下次撞见。\n\n方案（2026-10-30 维护者拍板 A+B）：A = git-done.ps1 结卡路径必刷快照（本地零延迟）；B = 新增独立轻量 workflow .github/workflows/board.yml 作为确定性兜底门 —— 实测 ci.yml 的「看板状态一致性校验」带 if: pull_request，而本仓库零 PR（gh pr list --state all 为空），该步骤从未运行（run 40922484744 实测 skipped）；且 workflow 的 paths-ignore 含 docs/**，结卡这类 docs-only 提交根本不触发 CI。故看板校验必须从 build job 拆出独立 job，并去掉 ci.yml 里重复的「自动回写看板状态」步骤，保持 progress.json 单写者。边界：只动收尾脚本、看板 workflow 与坑点文档，不改台账语义、不改 derive 的判定规则、不动 CI；不填平别人的在制品（锚点区 untracked 文件一律不碰）。\n\n状态：待办",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/verify.ps1",
+                "docs/pitfalls.md",
+                ".github/workflows/board.yml",
+                ".github/workflows/ci.yml"
+            ],
+            "stage": "DX",
+            "title": "收尾闭环：结卡后必须刷新看板快照（git-done 快照漂移）"
         },
         "M01": {
             "acceptance": [
@@ -1264,6 +1289,93 @@
             ],
             "stage": "R13",
             "title": "R13 首启就绪竞态：看板偶发全空 + 引导误弹"
+        },
+        "R14-01": {
+            "acceptance": [
+                "构造**已有 plugins.grants 的既有库副本**（不是全新库）跑 --plugin-report：新装官方插件的 declared[].authorized 为 true —— 全新库本来就会全授予，拿它验收等于没测（R9 四张卡就是这么漏过去的）",
+                "第三方插件（不在官方来源目录里）仍须显式授权：同一次报告中不得被这条策略放行",
+                "新增或扩展测试覆盖两例：grants 已存在时新官方插件自动授权、第三方不放行；ctest 全绿",
+                "本机的既有库副本实测：四个 agent-* 插件的 declared[].authorized 由 false 变 true，effective 里 claude / opencode / cursor-agent 的 source 由 builtin 变 plugin",
+                "scripts/verify.ps1 全过（build + ctest + selftest + smoke）"
+            ],
+            "depends": [
+                "R9-01"
+            ],
+            "id": "24766272-18b3-48a9-b923-46318d746544",
+            "note": "现象（2026-10-30 发现）：R9-01~05 交付的四个官方插件，在本机真实数据目录上一个都没生效。\n\n根因：PluginRuntime::ensureGrantsBootstrapped 只在 meta 里还没有 plugins.grants 时，对「当时已发现」的插件做一次性全授予（祖父条款）。本机这个库早就 bootstrap 过（只有 agent-bridge / plan-hook / today 三条），之后新增的插件一律 unauthorized；而 declaredAgentProfiles() 对未授权声明是**静默丢弃** —— 插件列表里看得见、授权弹窗也没弹，声明却根本没进合并。\n\n实测证据（真实库副本 + --plugin-report）：\n  com.lin.agent-claude   authorized=False\n  com.lin.agent-opencode authorized=False\n  com.lin.agent-cursor   authorized=False\n  com.lin.agent-codex    authorized=False\n  effective: 三条全部 source=builtin，codex 连列表都没进\n\nR9 验收全绿是因为沙箱是全新库 —— 首次 bootstrap 会把发现的插件全授予。这是「测了但不算数」：场景选错，绿灯掩盖了真实库不生效。\n\n修复方向（不要临场决定，先看证据再选）：\n1) 官方插件（随分发自带、来自官方来源目录）自动授予其声明的权限，用户自行安装的第三方插件仍走显式授权弹窗；\n2) 若判定「官方来源」不可靠，退而求其次：在插件面板/--plugin-report 里把「声明未授权」做成显眼的待办项，并提供一键授权入口。\n无论走哪条，都要保证第三方插件不被顺带放行 —— 那等于把权限模型废掉。\n\n边界：只改授权判定与提示，不改权限目录的条目本身，不改已有 grants 的存量数据。",
+            "scope": [
+                "src/PluginRuntime.cpp",
+                "src/PluginRuntime.h",
+                "src/PluginLoader.cpp",
+                "src/PluginLoader.h",
+                "tests/tst_pluginruntime.cpp",
+                "tests/CMakeLists.txt",
+                "docs/plugin-api.md",
+                "docs/agent-provider-api.md"
+            ],
+            "stage": "R14",
+            "title": "R14 官方插件在既有库上默认未授权，声明被静默丢弃"
+        },
+        "R14-02": {
+            "acceptance": [
+                "打包后 dist/NeonBoard/plugins 含 agent-claude / agent-opencode / agent-cursor / agent-codex 与 agent-bridge / plan-hook（与仓库 plugins/ 对齐）",
+                "用 dist 产物（不设 NEONBOARD_SOURCE_DIR 指向仓库根）启动，--plugin-report 能列出全部官方插件且 source=plugin",
+                "一条可执行检查（脚本或 CI 步骤）：打包插件清单与仓库 plugins/ 目录对齐，缺一个即失败",
+                "scripts/verify.ps1 全过"
+            ],
+            "depends": [],
+            "id": "540eb31e-3a7f-4ef5-a14d-1eafb2b500e0",
+            "note": "现象（2026-10-30 发现）：dist/NeonBoard/plugins 下只有 surfaces、today 两个示例插件；CMakeLists.txt 没有 install 插件的规则，installer 只拷 dist\\NeonBoard\\*。\n\n结果是安装版用户看不到任何官方插件（agent-bridge / plan-hook / 四个 agent-*）。开发机上之所以能看见，全靠 PluginLoader::sourceDirs() 里的 NEONBOARD_SOURCE_DIR + /plugins 这条扫描路径 —— 它只在有源码的机器上成立。\n\n与 R14-01 是同一件事的两半：一半是装了也不授权，另一半是压根没装。",
+            "scope": [
+                "CMakeLists.txt",
+                "installer/NeonBoard.iss",
+                "scripts/deploy.ps1",
+                "scripts/build.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "R14",
+            "title": "R14 官方插件不进打包产物，安装版用户一个都看不到"
+        },
+        "R14-03": {
+            "acceptance": [
+                "实测结论落 docs/agent-profile.md：用 TaskRunner 真跑一次 cursor-agent 的最小调用（非交互、短超时），记录 QProcess 是否 FailedToStart 与 errorString",
+                "起不来则修：实现 .cmd/.bat 的兜底（经 shell 转调，或指向真实入口 versions/<版本>/node.exe + index.js），并补回归用例（拉起成功、退出码可取）",
+                "起得来则改：把面板里「可用 ≠ 一定拉得起来」那句警告换成实测结论，别继续含糊其辞",
+                "ctest 全绿"
+            ],
+            "depends": [
+                "R9-04"
+            ],
+            "id": "a86c8fd5-baa3-459e-adb4-469ee2c9d5aa",
+            "note": "R9-04 交付时留下的已知空白：本机 PATH 上的 cursor-agent 是 .cmd 包装器，真身是 %LOCALAPPDATA%/cursor-agent/versions/2026.10.19-6bbf2c4/node.exe + index.js，外层 .cmd 只负责转调 powershell 脚本。\n\n执行器是 proc->setProgram(exe) 直接拉起、不经 shell；Windows 上 .cmd 不是 PE 可执行文件，能否被 QProcess 直接启动**没有在本机实测过**。当时面板写的是「若报启动失败按真实路径排查」，那是回避而不是结论。\n\nisAvailable=true 只代表 exe 解析得到，与「拉得起来」是两件事 —— R9-04 的 available 语义本身就承认这一点。本卡要把这个问号变成句号。\n\n边界：只处理 .cmd/.bat 这类包装器的拉起，不改其它 agent 的参数，不改 R9-05 定的 stdin 策略。",
+            "scope": [
+                "plugins/agent-cursor/",
+                "src/TaskRunner.cpp",
+                "src/TaskRunner.h",
+                "tests/tst_taskrunner.cpp",
+                "docs/agent-profile.md"
+            ],
+            "stage": "R14",
+            "title": "R14 cursor-agent 是 .cmd 包装器，执行器能否直接拉起未实测"
+        },
+        "R14-04": {
+            "acceptance": [
+                "核实本机 opencode 是否存在名为 plan 的 agent（配置文件与命令行两条路都查），结论与查证方式写进 docs/agent-profile.md",
+                "不存在则改：换用确实存在的只读开关，或明确「本机只读不可靠」并在插件面板与文档写清，不得继续声明一个可能不存在的 agent",
+                "存在则改：面板里那句「若本机没有名为 plan 的 agent，只读派活会退化成普通执行」的警告换成已核实的表述"
+            ],
+            "depends": [
+                "R9-03"
+            ],
+            "id": "d4fba642-e69b-411a-a244-6f2060c43378",
+            "note": "R9-03 交付时留下的已知空白：opencode 没有原生只读开关，readonlyArgs 用 --agent plan 指定一个只读 agent 配置来兜。但 ~/.config/opencode/ 下并没有 agent/ 目录，这个名为 plan 的 agent **是否真的存在没有核实过**。\n\n风险是静默的：agent 不存在时只读派活会退化成普通执行 —— 用户以为勾了只读，agent 照样能改文件。面板里已经把这行写成警告色，但警告代替不了核实。\n\n边界：只核这一条，不重跑 opencode 的其它参数实测。",
+            "scope": [
+                "plugins/agent-opencode/",
+                "docs/agent-profile.md",
+                "docs/agent-adapters.md"
+            ],
+            "stage": "R14",
+            "title": "R14 opencode 只读参数 --agent plan 是否真实存在未核实"
         },
         "R2-01": {
             "acceptance": [
@@ -2385,120 +2497,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "R14-01": {
-            "acceptance": [
-                "构造**已有 plugins.grants 的既有库副本**（不是全新库）跑 --plugin-report：新装官方插件的 declared[].authorized 为 true —— 全新库本来就会全授予，拿它验收等于没测（R9 四张卡就是这么漏过去的）",
-                "第三方插件（不在官方来源目录里）仍须显式授权：同一次报告中不得被这条策略放行",
-                "新增或扩展测试覆盖两例：grants 已存在时新官方插件自动授权、第三方不放行；ctest 全绿",
-                "本机的既有库副本实测：四个 agent-* 插件的 declared[].authorized 由 false 变 true，effective 里 claude / opencode / cursor-agent 的 source 由 builtin 变 plugin",
-                "scripts/verify.ps1 全过（build + ctest + selftest + smoke）"
-            ],
-            "depends": [
-                "R9-01"
-            ],
-            "id": "24766272-18b3-48a9-b923-46318d746544",
-            "note": "现象（2026-10-30 发现）：R9-01~05 交付的四个官方插件，在本机真实数据目录上一个都没生效。\n\n根因：PluginRuntime::ensureGrantsBootstrapped 只在 meta 里还没有 plugins.grants 时，对「当时已发现」的插件做一次性全授予（祖父条款）。本机这个库早就 bootstrap 过（只有 agent-bridge / plan-hook / today 三条），之后新增的插件一律 unauthorized；而 declaredAgentProfiles() 对未授权声明是**静默丢弃** —— 插件列表里看得见、授权弹窗也没弹，声明却根本没进合并。\n\n实测证据（真实库副本 + --plugin-report）：\n  com.lin.agent-claude   authorized=False\n  com.lin.agent-opencode authorized=False\n  com.lin.agent-cursor   authorized=False\n  com.lin.agent-codex    authorized=False\n  effective: 三条全部 source=builtin，codex 连列表都没进\n\nR9 验收全绿是因为沙箱是全新库 —— 首次 bootstrap 会把发现的插件全授予。这是「测了但不算数」：场景选错，绿灯掩盖了真实库不生效。\n\n修复方向（不要临场决定，先看证据再选）：\n1) 官方插件（随分发自带、来自官方来源目录）自动授予其声明的权限，用户自行安装的第三方插件仍走显式授权弹窗；\n2) 若判定「官方来源」不可靠，退而求其次：在插件面板/--plugin-report 里把「声明未授权」做成显眼的待办项，并提供一键授权入口。\n无论走哪条，都要保证第三方插件不被顺带放行 —— 那等于把权限模型废掉。\n\n边界：只改授权判定与提示，不改权限目录的条目本身，不改已有 grants 的存量数据。",
-            "scope": [
-                "src/PluginRuntime.cpp",
-                "src/PluginRuntime.h",
-                "src/PluginLoader.cpp",
-                "src/PluginLoader.h",
-                "tests/tst_pluginruntime.cpp",
-                "tests/CMakeLists.txt",
-                "docs/plugin-api.md",
-                "docs/agent-provider-api.md"
-            ],
-            "stage": "R14",
-            "title": "R14 官方插件在既有库上默认未授权，声明被静默丢弃"
-        },
-        "R14-02": {
-            "acceptance": [
-                "打包后 dist/NeonBoard/plugins 含 agent-claude / agent-opencode / agent-cursor / agent-codex 与 agent-bridge / plan-hook（与仓库 plugins/ 对齐）",
-                "用 dist 产物（不设 NEONBOARD_SOURCE_DIR 指向仓库根）启动，--plugin-report 能列出全部官方插件且 source=plugin",
-                "一条可执行检查（脚本或 CI 步骤）：打包插件清单与仓库 plugins/ 目录对齐，缺一个即失败",
-                "scripts/verify.ps1 全过"
-            ],
-            "depends": [],
-            "id": "540eb31e-3a7f-4ef5-a14d-1eafb2b500e0",
-            "note": "现象（2026-10-30 发现）：dist/NeonBoard/plugins 下只有 surfaces、today 两个示例插件；CMakeLists.txt 没有 install 插件的规则，installer 只拷 dist\\NeonBoard\\*。\n\n结果是安装版用户看不到任何官方插件（agent-bridge / plan-hook / 四个 agent-*）。开发机上之所以能看见，全靠 PluginLoader::sourceDirs() 里的 NEONBOARD_SOURCE_DIR + /plugins 这条扫描路径 —— 它只在有源码的机器上成立。\n\n与 R14-01 是同一件事的两半：一半是装了也不授权，另一半是压根没装。",
-            "scope": [
-                "CMakeLists.txt",
-                "installer/NeonBoard.iss",
-                "scripts/deploy.ps1",
-                "scripts/build.ps1",
-                "docs/pitfalls.md"
-            ],
-            "stage": "R14",
-            "title": "R14 官方插件不进打包产物，安装版用户一个都看不到"
-        },
-        "R14-03": {
-            "acceptance": [
-                "实测结论落 docs/agent-profile.md：用 TaskRunner 真跑一次 cursor-agent 的最小调用（非交互、短超时），记录 QProcess 是否 FailedToStart 与 errorString",
-                "起不来则修：实现 .cmd/.bat 的兜底（经 shell 转调，或指向真实入口 versions/<版本>/node.exe + index.js），并补回归用例（拉起成功、退出码可取）",
-                "起得来则改：把面板里「可用 ≠ 一定拉得起来」那句警告换成实测结论，别继续含糊其辞",
-                "ctest 全绿"
-            ],
-            "depends": [
-                "R9-04"
-            ],
-            "id": "a86c8fd5-baa3-459e-adb4-469ee2c9d5aa",
-            "note": "R9-04 交付时留下的已知空白：本机 PATH 上的 cursor-agent 是 .cmd 包装器，真身是 %LOCALAPPDATA%/cursor-agent/versions/2026.10.19-6bbf2c4/node.exe + index.js，外层 .cmd 只负责转调 powershell 脚本。\n\n执行器是 proc->setProgram(exe) 直接拉起、不经 shell；Windows 上 .cmd 不是 PE 可执行文件，能否被 QProcess 直接启动**没有在本机实测过**。当时面板写的是「若报启动失败按真实路径排查」，那是回避而不是结论。\n\nisAvailable=true 只代表 exe 解析得到，与「拉得起来」是两件事 —— R9-04 的 available 语义本身就承认这一点。本卡要把这个问号变成句号。\n\n边界：只处理 .cmd/.bat 这类包装器的拉起，不改其它 agent 的参数，不改 R9-05 定的 stdin 策略。",
-            "scope": [
-                "plugins/agent-cursor/",
-                "src/TaskRunner.cpp",
-                "src/TaskRunner.h",
-                "tests/tst_taskrunner.cpp",
-                "docs/agent-profile.md"
-            ],
-            "stage": "R14",
-            "title": "R14 cursor-agent 是 .cmd 包装器，执行器能否直接拉起未实测"
-        },
-        "R14-04": {
-            "acceptance": [
-                "核实本机 opencode 是否存在名为 plan 的 agent（配置文件与命令行两条路都查），结论与查证方式写进 docs/agent-profile.md",
-                "不存在则改：换用确实存在的只读开关，或明确「本机只读不可靠」并在插件面板与文档写清，不得继续声明一个可能不存在的 agent",
-                "存在则改：面板里那句「若本机没有名为 plan 的 agent，只读派活会退化成普通执行」的警告换成已核实的表述"
-            ],
-            "depends": [
-                "R9-03"
-            ],
-            "id": "d4fba642-e69b-411a-a244-6f2060c43378",
-            "note": "R9-03 交付时留下的已知空白：opencode 没有原生只读开关，readonlyArgs 用 --agent plan 指定一个只读 agent 配置来兜。但 ~/.config/opencode/ 下并没有 agent/ 目录，这个名为 plan 的 agent **是否真的存在没有核实过**。\n\n风险是静默的：agent 不存在时只读派活会退化成普通执行 —— 用户以为勾了只读，agent 照样能改文件。面板里已经把这行写成警告色，但警告代替不了核实。\n\n边界：只核这一条，不重跑 opencode 的其它参数实测。",
-            "scope": [
-                "plugins/agent-opencode/",
-                "docs/agent-profile.md",
-                "docs/agent-adapters.md"
-            ],
-            "stage": "R14",
-            "title": "R14 opencode 只读参数 --agent plan 是否真实存在未核实"
-        },
-        "DX-13": {
-            "id": "1f8c0c3d-41b9-4011-99db-1149df73cbfc",
-            "stage": "DX",
-            "title": "收尾闭环：结卡后必须刷新看板快照（git-done 快照漂移）",
-            "note": "起因（2026-10-30，维护者本会话「你立卡就行」授权代登记）：连续两次结卡后 `progress.json` 快照滞后于台账 —— DX-11（2026-10-29）与 R13-01（2026-10-30 00:33 发现）都是 `derive_board_status.py --check` 退出 1、报「待同步：卡片 X 状态 todo → done」。同一病症两现，说明不是谁忘了跑命令，而是收尾脚本的路径本身有洞。\n\n根因在 scripts/git-done.ps1 的两条路径各缺一半：\n1) L351-371 的快照校正整段包在 `if ($snapshotLines.Count -gt 0)` 里 —— 只有应用（RoadmapSync）已经把 progress.json 写脏时才跑 `derive --write`；agent 在 worktree 里跑、应用没写回快照时（progress.json 干净），这一整段被直接跳过。\n2) L566-580 的结卡自动化只 `add docs/board-ledger.json` 后提交推送 —— `--close-cards` 把 baseline 补成 done，却从不刷新 progress.json。\n两者叠加：只要会话没让应用写回快照，结卡就必然留下漂移，唯一兜底是 CI 自动回写，而 CI 不可依赖（R13-01 这次就没兜住）。\n\n修复方向：把「刷新快照」从「脏了才修」改成收尾必做的一步 —— 结卡成功后再跑一次 `derive_board_status.py --write`，快照变脏就 `chore(roadmap):` 提交并推 main；沿用该脚本已有的 fail-soft 约定（派生失败只告警、不阻断已经成功的合并）。同时在 verify.ps1 的收尾步骤加入 `derive --check`，让漂移当场报红而不是等人下次撞见。\n\n方案（2026-10-30 维护者拍板 A+B）：A = git-done.ps1 结卡路径必刷快照（本地零延迟）；B = 新增独立轻量 workflow .github/workflows/board.yml 作为确定性兜底门 —— 实测 ci.yml 的「看板状态一致性校验」带 if: pull_request，而本仓库零 PR（gh pr list --state all 为空），该步骤从未运行（run 40922484744 实测 skipped）；且 workflow 的 paths-ignore 含 docs/**，结卡这类 docs-only 提交根本不触发 CI。故看板校验必须从 build job 拆出独立 job，并去掉 ci.yml 里重复的「自动回写看板状态」步骤，保持 progress.json 单写者。边界：只动收尾脚本、看板 workflow 与坑点文档，不改台账语义、不改 derive 的判定规则、不动 CI；不填平别人的在制品（锚点区 untracked 文件一律不碰）。\n\n状态：待办",
-            "acceptance": [
-                "构造「应用未写回快照」场景（progress.json 干净、分支带 #<短号>=done）：git-done.ps1 走完收尾后，progress.json 被刷新并推上 main，新克隆/新 worktree 跑 python scripts/derive_board_status.py --check 退出 0",
-                "结卡路径必跑 --write：不再依赖「progress.json 已脏」这一前提（git-done.ps1 L351 的条件判断改为覆盖结卡场景）",
-                "无快照变化时不得产生空提交或噪声提交；派生器失败沿用 fail-soft：显著告警、不阻断已成功的合并（与 L560 附近 claims 清理同一套路）",
-                "scripts/verify.ps1 收尾步骤加入 derive --check，漂移时 verify 报红并给出 python scripts/derive_board_status.py --write 的修复提示",
-                "本卡落地时顺带填平 R13-01 的现存漂移，交付后 python scripts/derive_board_status.py --repo . --check 退出 0",
-                "python scripts/check_script_hygiene.py 通过；docs/pitfalls.md 新增条目写明判据（--check 退出 1 且报「待同步」= 结卡漏刷快照，先查 git-done 是否走过结卡路径）",
-                "pwsh -File scripts/verify.ps1 全过（编译 → ctest → selftest → smoke）",
-                "新增 .github/workflows/board.yml：独立轻量 job（只 checkout + python，不装 Qt、不编译），对 push 到 main 且改动 docs/board-ledger.json 的提交触发并自动 --write 回写；对 pull_request 只跑 --check 并抛错阻塞",
-                "board.yml 自身 paths-ignore 含 progress.json，CI 回写提交不得触发自激循环；ci.yml 移除「自动回写看板状态」步骤，progress.json 保持单写者"
-            ],
-            "scope": [
-                "scripts/git-done.ps1",
-                "scripts/verify.ps1",
-                "docs/pitfalls.md",
-                ".github/workflows/board.yml",
-                ".github/workflows/ci.yml"
-            ],
-            "depends": []
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-13": {
+            "agent": "agent-dx13",
+            "branch": "feature/dx13-snapshot-sync",
+            "claimedAt": 1793297448,
+            "head": "8da1254a7cfa34889217a2c192766466b5af82cb"
+        }
+    },
     "version": 1
 }

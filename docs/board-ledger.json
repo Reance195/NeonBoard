@@ -2058,7 +2058,11 @@
                 "qml/Main.qml",
                 "qml/theme/Motion.qml",
                 "tests/tst_dragfeel.cpp",
-                "tests/CMakeLists.txt"
+                "tests/CMakeLists.txt",
+                "src/DragFeel.h",
+                "src/DragFeel.cpp",
+                "src/main.cpp",
+                "CMakeLists.txt"
             ],
             "stage": "R8",
             "title": "R8 拖拽手感升级：涟漪 / 光轨 / 磁吸 / 列高亮"
@@ -2198,13 +2202,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "R8-05": {
-            "agent": "agent-r8drag",
-            "branch": "feature/r8-drag-feel",
-            "claimedAt": 1793247638,
-            "head": "1d565294df5c618882972ba9f594961a8e783dc8"
-        }
-    },
+    "claims": {},
     "version": 1
 }

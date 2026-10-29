@@ -2035,7 +2035,11 @@
                 "src/ThemeMarket.*",
                 "src/AppActions.*",
                 "tests/tst_thememarket.cpp",
-                "tests/CMakeLists.txt"
+                "tests/CMakeLists.txt",
+                "src/main.cpp",
+                "CMakeLists.txt",
+                "src/ThemePack.*",
+                "tests/tst_appactions.cpp"
             ],
             "stage": "R8",
             "title": "R8 主题包市场：浏览 / 安装 / 卸载"
@@ -2260,13 +2264,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "R8-02": {
-            "agent": "agent-r8market",
-            "branch": "feature/r8-theme-market",
-            "claimedAt": 1793256117,
-            "head": "2f1f3b54f45bff52996e3fa845ebc0b135dc33dc"
-        }
-    },
+    "claims": {},
     "version": 1
 }

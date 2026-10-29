@@ -921,7 +921,9 @@
                 "src/ProjectStore.cpp",
                 "src/TaskFilterModel.h",
                 "src/TaskFilterModel.cpp",
-                "CMakeLists.txt"
+                "CMakeLists.txt",
+                "tests/tst_projectscope.cpp",
+                "tests/CMakeLists.txt"
             ],
             "stage": "R10",
             "title": "R10 两级看板：全局 ⇄ 项目范围切换"

@@ -2309,6 +2309,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R10-05": {
+            "agent": "agent-cat",
+            "branch": "feature/r10-05-switcher-width",
+            "claimedAt": 1793279057,
+            "head": "3b11431a83a9611c31b3a8a20f879ce32dbe38e5"
+        }
+    },
     "version": 1
 }

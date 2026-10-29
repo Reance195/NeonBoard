@@ -106,7 +106,11 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "R14-01": "todo",
+        "R14-02": "todo",
+        "R14-03": "todo",
+        "R14-04": "todo"
     },
     "cards": {
         "DX-01": {
@@ -624,28 +628,28 @@
             "title": "文档同步：plugin-api v2 + plan-hook.md #M18"
         },
         "DX-12": {
-        "id": "9c79649b-7fa2-40cd-a95a-5696d0053682",
-        "stage": "DX",
-        "title": "DX 开发链路三处重复成本：代理变量、执行策略、残留工作区提示",
-        "note": "起因（2026-10-29/30，实施 R13-01 时亲历；维护者「立卡」授权代登记）：同一个会话里连续被三件与产品无关的事挡住，每件都花了时间定位，而且三者会在每个 agent 会话重复出现。\\n\\n1) verify.ps1 撞代理变量：本机同时存在 HTTP_PROXY 与 https_proxy（仅大小写不同），PowerShell 的 Env 驱动器枚举时抛「已添加项」，而 verify.ps1 内部用 Start-Process 拉起 exe（第 93 / 104 行），--selftest 与 --smoke 两个阶段因此直接失败、退出码 1。**构建与 ctest 明明全绿**，被误报成验收不过。\\n\\n2) 脚本执行策略：本机 Get-ExecutionPolicy -List 全部为 Undefined（即默认 Restricted）。以 `&` 方式直接调用 build.ps1 会被拒绝 —— 脚本根本没执行，表现为「无输出 + 退出码 1」，极易误判成脚本坏了或输出被吞；文档里写的 `pwsh -File scripts/build.ps1` 同样跑不起来。可靠写法是 Windows PowerShell 加 -ExecutionPolicy Bypass 再 -File 调用。该错误用法散落在 20+ 个文件（docs/git-workflow.md 一处就有 19 处）。\\n\\n3) agent-init.ps1 遇到已存在的 worktree 或同名分支时直接 throw（第 176 / 182 行），只说「如需重建请先 git worktree remove」，不告诉那个残留里有没有未提交改动、有没有未推送的提交 —— 而这正是 §7.10 明令「删不删由人决定」的东西，缺了信息就没法决定。\\n\\n边界：第 3 项**不自动删除**任何 worktree 或分支（§7.10：自动清理极易端掉正在跑的任务），只做诊断并给出可执行命令；第 2 项不追求改完 20 个文档，优先修「入口 + 最常被引用的几处」，其余随遇随改。",
-        "acceptance": [
-            "在有 HTTP_PROXY / https_proxy 重名的机器上直接跑 scripts/verify.ps1，退出码为 0，且 --selftest / --smoke 两个阶段都有执行记录（不再是「Start-Process 已添加项」）",
-            "提供一个在默认 Restricted 策略下也能一次跑通的调用方式：setup-git-hooks.ps1 检测到 Restricted 时给出 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned 的明确指引，或统一入口自带 Bypass；AGENTS.md 与 docs/git-workflow.md 的「构建 / 开区 / 验收」三处示例按该方式改写，照抄即可成功",
-            "agent-init.ps1 在 worktree 或分支已存在时，输出残留的诊断信息（对应分支名、是否有未提交改动、是否有未推送提交）与一条可直接复制的清理命令；不自动删除",
-            "python scripts/check_script_hygiene.py 通过；scripts/verify.ps1 全过、ctest 全绿",
-            "docs/pitfalls.md 记录三条现象的判据 —— 尤其是「无输出 + 退出码 1」要先怀疑执行策略，而不是脚本坏了"
-        ],
-        "scope": [
-            "scripts/verify.ps1",
-            "scripts/agent-init.ps1",
-            "scripts/setup-git-hooks.ps1",
-            "AGENTS.md",
-            "docs/git-workflow.md",
-            "docs/pitfalls.md",
-            "docs/iteration-roadmap.md"
-        ],
-        "depends": []
-    },
+            "id": "9c79649b-7fa2-40cd-a95a-5696d0053682",
+            "stage": "DX",
+            "title": "DX 开发链路三处重复成本：代理变量、执行策略、残留工作区提示",
+            "note": "起因（2026-10-29/30，实施 R13-01 时亲历；维护者「立卡」授权代登记）：同一个会话里连续被三件与产品无关的事挡住，每件都花了时间定位，而且三者会在每个 agent 会话重复出现。\\n\\n1) verify.ps1 撞代理变量：本机同时存在 HTTP_PROXY 与 https_proxy（仅大小写不同），PowerShell 的 Env 驱动器枚举时抛「已添加项」，而 verify.ps1 内部用 Start-Process 拉起 exe（第 93 / 104 行），--selftest 与 --smoke 两个阶段因此直接失败、退出码 1。**构建与 ctest 明明全绿**，被误报成验收不过。\\n\\n2) 脚本执行策略：本机 Get-ExecutionPolicy -List 全部为 Undefined（即默认 Restricted）。以 `&` 方式直接调用 build.ps1 会被拒绝 —— 脚本根本没执行，表现为「无输出 + 退出码 1」，极易误判成脚本坏了或输出被吞；文档里写的 `pwsh -File scripts/build.ps1` 同样跑不起来。可靠写法是 Windows PowerShell 加 -ExecutionPolicy Bypass 再 -File 调用。该错误用法散落在 20+ 个文件（docs/git-workflow.md 一处就有 19 处）。\\n\\n3) agent-init.ps1 遇到已存在的 worktree 或同名分支时直接 throw（第 176 / 182 行），只说「如需重建请先 git worktree remove」，不告诉那个残留里有没有未提交改动、有没有未推送的提交 —— 而这正是 §7.10 明令「删不删由人决定」的东西，缺了信息就没法决定。\\n\\n边界：第 3 项**不自动删除**任何 worktree 或分支（§7.10：自动清理极易端掉正在跑的任务），只做诊断并给出可执行命令；第 2 项不追求改完 20 个文档，优先修「入口 + 最常被引用的几处」，其余随遇随改。",
+            "acceptance": [
+                "在有 HTTP_PROXY / https_proxy 重名的机器上直接跑 scripts/verify.ps1，退出码为 0，且 --selftest / --smoke 两个阶段都有执行记录（不再是「Start-Process 已添加项」）",
+                "提供一个在默认 Restricted 策略下也能一次跑通的调用方式：setup-git-hooks.ps1 检测到 Restricted 时给出 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned 的明确指引，或统一入口自带 Bypass；AGENTS.md 与 docs/git-workflow.md 的「构建 / 开区 / 验收」三处示例按该方式改写，照抄即可成功",
+                "agent-init.ps1 在 worktree 或分支已存在时，输出残留的诊断信息（对应分支名、是否有未提交改动、是否有未推送提交）与一条可直接复制的清理命令；不自动删除",
+                "python scripts/check_script_hygiene.py 通过；scripts/verify.ps1 全过、ctest 全绿",
+                "docs/pitfalls.md 记录三条现象的判据 —— 尤其是「无输出 + 退出码 1」要先怀疑执行策略，而不是脚本坏了"
+            ],
+            "scope": [
+                "scripts/verify.ps1",
+                "scripts/agent-init.ps1",
+                "scripts/setup-git-hooks.ps1",
+                "AGENTS.md",
+                "docs/git-workflow.md",
+                "docs/pitfalls.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "depends": []
+        },
         "R0-01": {
             "acceptance": [
                 "build/Release/NeonBoard.exe --selftest 退出码 0",
@@ -2377,6 +2381,93 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "R14-01": {
+            "acceptance": [
+                "构造**已有 plugins.grants 的既有库副本**（不是全新库）跑 --plugin-report：新装官方插件的 declared[].authorized 为 true —— 全新库本来就会全授予，拿它验收等于没测（R9 四张卡就是这么漏过去的）",
+                "第三方插件（不在官方来源目录里）仍须显式授权：同一次报告中不得被这条策略放行",
+                "新增或扩展测试覆盖两例：grants 已存在时新官方插件自动授权、第三方不放行；ctest 全绿",
+                "本机的既有库副本实测：四个 agent-* 插件的 declared[].authorized 由 false 变 true，effective 里 claude / opencode / cursor-agent 的 source 由 builtin 变 plugin",
+                "scripts/verify.ps1 全过（build + ctest + selftest + smoke）"
+            ],
+            "depends": [
+                "R9-01"
+            ],
+            "id": "24766272-18b3-48a9-b923-46318d746544",
+            "note": "现象（2026-10-30 发现）：R9-01~05 交付的四个官方插件，在本机真实数据目录上一个都没生效。\n\n根因：PluginRuntime::ensureGrantsBootstrapped 只在 meta 里还没有 plugins.grants 时，对「当时已发现」的插件做一次性全授予（祖父条款）。本机这个库早就 bootstrap 过（只有 agent-bridge / plan-hook / today 三条），之后新增的插件一律 unauthorized；而 declaredAgentProfiles() 对未授权声明是**静默丢弃** —— 插件列表里看得见、授权弹窗也没弹，声明却根本没进合并。\n\n实测证据（真实库副本 + --plugin-report）：\n  com.lin.agent-claude   authorized=False\n  com.lin.agent-opencode authorized=False\n  com.lin.agent-cursor   authorized=False\n  com.lin.agent-codex    authorized=False\n  effective: 三条全部 source=builtin，codex 连列表都没进\n\nR9 验收全绿是因为沙箱是全新库 —— 首次 bootstrap 会把发现的插件全授予。这是「测了但不算数」：场景选错，绿灯掩盖了真实库不生效。\n\n修复方向（不要临场决定，先看证据再选）：\n1) 官方插件（随分发自带、来自官方来源目录）自动授予其声明的权限，用户自行安装的第三方插件仍走显式授权弹窗；\n2) 若判定「官方来源」不可靠，退而求其次：在插件面板/--plugin-report 里把「声明未授权」做成显眼的待办项，并提供一键授权入口。\n无论走哪条，都要保证第三方插件不被顺带放行 —— 那等于把权限模型废掉。\n\n边界：只改授权判定与提示，不改权限目录的条目本身，不改已有 grants 的存量数据。",
+            "scope": [
+                "src/PluginRuntime.cpp",
+                "src/PluginRuntime.h",
+                "src/PluginLoader.cpp",
+                "src/PluginLoader.h",
+                "tests/tst_pluginruntime.cpp",
+                "tests/CMakeLists.txt",
+                "docs/plugin-api.md",
+                "docs/agent-provider-api.md"
+            ],
+            "stage": "R14",
+            "title": "R14 官方插件在既有库上默认未授权，声明被静默丢弃"
+        },
+        "R14-02": {
+            "acceptance": [
+                "打包后 dist/NeonBoard/plugins 含 agent-claude / agent-opencode / agent-cursor / agent-codex 与 agent-bridge / plan-hook（与仓库 plugins/ 对齐）",
+                "用 dist 产物（不设 NEONBOARD_SOURCE_DIR 指向仓库根）启动，--plugin-report 能列出全部官方插件且 source=plugin",
+                "一条可执行检查（脚本或 CI 步骤）：打包插件清单与仓库 plugins/ 目录对齐，缺一个即失败",
+                "scripts/verify.ps1 全过"
+            ],
+            "depends": [],
+            "id": "540eb31e-3a7f-4ef5-a14d-1eafb2b500e0",
+            "note": "现象（2026-10-30 发现）：dist/NeonBoard/plugins 下只有 surfaces、today 两个示例插件；CMakeLists.txt 没有 install 插件的规则，installer 只拷 dist\\NeonBoard\\*。\n\n结果是安装版用户看不到任何官方插件（agent-bridge / plan-hook / 四个 agent-*）。开发机上之所以能看见，全靠 PluginLoader::sourceDirs() 里的 NEONBOARD_SOURCE_DIR + /plugins 这条扫描路径 —— 它只在有源码的机器上成立。\n\n与 R14-01 是同一件事的两半：一半是装了也不授权，另一半是压根没装。",
+            "scope": [
+                "CMakeLists.txt",
+                "installer/NeonBoard.iss",
+                "scripts/deploy.ps1",
+                "scripts/build.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "R14",
+            "title": "R14 官方插件不进打包产物，安装版用户一个都看不到"
+        },
+        "R14-03": {
+            "acceptance": [
+                "实测结论落 docs/agent-profile.md：用 TaskRunner 真跑一次 cursor-agent 的最小调用（非交互、短超时），记录 QProcess 是否 FailedToStart 与 errorString",
+                "起不来则修：实现 .cmd/.bat 的兜底（经 shell 转调，或指向真实入口 versions/<版本>/node.exe + index.js），并补回归用例（拉起成功、退出码可取）",
+                "起得来则改：把面板里「可用 ≠ 一定拉得起来」那句警告换成实测结论，别继续含糊其辞",
+                "ctest 全绿"
+            ],
+            "depends": [
+                "R9-04"
+            ],
+            "id": "a86c8fd5-baa3-459e-adb4-469ee2c9d5aa",
+            "note": "R9-04 交付时留下的已知空白：本机 PATH 上的 cursor-agent 是 .cmd 包装器，真身是 %LOCALAPPDATA%/cursor-agent/versions/2026.10.19-6bbf2c4/node.exe + index.js，外层 .cmd 只负责转调 powershell 脚本。\n\n执行器是 proc->setProgram(exe) 直接拉起、不经 shell；Windows 上 .cmd 不是 PE 可执行文件，能否被 QProcess 直接启动**没有在本机实测过**。当时面板写的是「若报启动失败按真实路径排查」，那是回避而不是结论。\n\nisAvailable=true 只代表 exe 解析得到，与「拉得起来」是两件事 —— R9-04 的 available 语义本身就承认这一点。本卡要把这个问号变成句号。\n\n边界：只处理 .cmd/.bat 这类包装器的拉起，不改其它 agent 的参数，不改 R9-05 定的 stdin 策略。",
+            "scope": [
+                "plugins/agent-cursor/",
+                "src/TaskRunner.cpp",
+                "src/TaskRunner.h",
+                "tests/tst_taskrunner.cpp",
+                "docs/agent-profile.md"
+            ],
+            "stage": "R14",
+            "title": "R14 cursor-agent 是 .cmd 包装器，执行器能否直接拉起未实测"
+        },
+        "R14-04": {
+            "acceptance": [
+                "核实本机 opencode 是否存在名为 plan 的 agent（配置文件与命令行两条路都查），结论与查证方式写进 docs/agent-profile.md",
+                "不存在则改：换用确实存在的只读开关，或明确「本机只读不可靠」并在插件面板与文档写清，不得继续声明一个可能不存在的 agent",
+                "存在则改：面板里那句「若本机没有名为 plan 的 agent，只读派活会退化成普通执行」的警告换成已核实的表述"
+            ],
+            "depends": [
+                "R9-03"
+            ],
+            "id": "d4fba642-e69b-411a-a244-6f2060c43378",
+            "note": "R9-03 交付时留下的已知空白：opencode 没有原生只读开关，readonlyArgs 用 --agent plan 指定一个只读 agent 配置来兜。但 ~/.config/opencode/ 下并没有 agent/ 目录，这个名为 plan 的 agent **是否真的存在没有核实过**。\n\n风险是静默的：agent 不存在时只读派活会退化成普通执行 —— 用户以为勾了只读，agent 照样能改文件。面板里已经把这行写成警告色，但警告代替不了核实。\n\n边界：只核这一条，不重跑 opencode 的其它参数实测。",
+            "scope": [
+                "plugins/agent-opencode/",
+                "docs/agent-profile.md",
+                "docs/agent-adapters.md"
+            ],
+            "stage": "R14",
+            "title": "R14 opencode 只读参数 --agent plan 是否真实存在未核实"
         }
     },
     "claims": {},

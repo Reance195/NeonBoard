@@ -2086,7 +2086,9 @@
                 "src/TaskTree.*",
                 "qml/components/CardDetailPanel.qml",
                 "tests/tst_taskevent.cpp",
-                "tests/CMakeLists.txt"
+                "tests/CMakeLists.txt",
+                "src/main.cpp",
+                "CMakeLists.txt"
             ],
             "stage": "R8",
             "title": "R8 详情进阶：子任务进度环 + 审计时间线"

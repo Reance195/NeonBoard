@@ -19,24 +19,6 @@
             "updatedAt": 1793202572
         },
         {
-            "code": "R8-02",
-            "completedAt": 0,
-            "createdAt": 1793213056,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "2d375be8-7374-4081-93ea-e1e9cdeeb2f1",
-            "note": "起因：只有本地加载，用户拿不到别人做的包。目标：市场索引可配置 + 本地缓存 + 断网降级；列表带预览图与来源标注（内置 / 用户安装）；安装沿用插件市场那套「临时目录 + 原子替换」，失败回滚；卸载回落到内置预设。非目标：签名与发布者信誉（路线图 §8 明确不做）、付费、用户上传。详见 docs/r8-experience-plan.md 第 5 节。",
-            "orderKey": 25600,
-            "priority": 2,
-            "stage": "R8",
-            "status": "todo",
-            "tags": [
-                "R8"
-            ],
-            "title": "R8 主题包市场：浏览 / 安装 / 卸载",
-            "updatedAt": 1793213056
-        },
-        {
             "code": "R0-11",
             "completedAt": 0,
             "createdAt": 1793252504,
@@ -1342,6 +1324,24 @@
             "updatedAt": 1793257033
         },
         {
+            "code": "R8-02",
+            "completedAt": 1793258248,
+            "createdAt": 1793213056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "2d375be8-7374-4081-93ea-e1e9cdeeb2f1",
+            "note": "起因：只有本地加载，用户拿不到别人做的包。目标：市场索引可配置 + 本地缓存 + 断网降级；列表带预览图与来源标注（内置 / 用户安装）；安装沿用插件市场那套「临时目录 + 原子替换」，失败回滚；卸载回落到内置预设。非目标：签名与发布者信誉（路线图 §8 明确不做）、付费、用户上传。详见 docs/r8-experience-plan.md 第 5 节。",
+            "orderKey": 25600,
+            "priority": 2,
+            "stage": "R8",
+            "status": "done",
+            "tags": [
+                "R8"
+            ],
+            "title": "R8 主题包市场：浏览 / 安装 / 卸载",
+            "updatedAt": 1793258248
+        },
+        {
             "code": "M16",
             "completedAt": 1792633483,
             "createdAt": 1792572839,
@@ -2509,6 +2509,6 @@
             "updatedAt": 1793251716
         }
     ],
-    "updated": "2026-10-29T06:57:13",
+    "updated": "2026-10-29T07:17:28",
     "version": 3
 }

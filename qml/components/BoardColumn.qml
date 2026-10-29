@@ -34,11 +34,19 @@ Rectangle {
     property string dropAnchorId: ""
     // 指示线画在锚定卡片的下方（true）还是上方（false）
     property bool dropAnchorBelow: false
+    // 落点已磁吸（鼠标贴上了插入线）：指示线加粗一档，给「吸住了、松手就落这儿」的反馈
+    property bool dropSnapped: false
     // 快速录入解析预览：实时显示识别出的到期时间、优先级与标签
     property string parseDue: ""
     property int parsePriority: -1
     property var parseTags: []
     property bool parseHasText: false
+
+    // 插位磁吸半径：鼠标离插入线小于这个距离就算「贴上」，拖影纵向吸过去。
+    // 6px 是试出来的：再小则要精确瞄准，再大则两行之间会来回跳。
+    property real snapDistance: 6
+    // 落位涟漪的落点（列内 y）；负数表示没给，退回落在本列底部
+    property real rippleY: -1
 
     property string highlightId: ""
 
@@ -193,6 +201,23 @@ Rectangle {
         ColorAnimation { duration: Motion.base }
     }
 
+    // 拖入氛围：整列底色浅浅浸一层目标色。
+    // 只靠描边呼吸不够 —— 三列并排时边框本来就带色，用户很难一眼看出鼠标停在哪列。
+    // 声明在这里（ColumnLayout 之前）是为了压在内容下面，不挡卡片与快速录入。
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: 1
+        radius: column.radius - 1
+        color: Qt.rgba(column.accent.r, column.accent.g, column.accent.b,
+                       0.045 + 0.055 * column.dropPulse)
+        opacity: column.dropTarget ? 1 : 0
+        visible: opacity > 0.01
+
+        Behavior on opacity {
+            NumberAnimation { duration: Motion.base; easing.type: Easing.OutCubic }
+        }
+    }
+
     onDropAnchorIdChanged: refreshDropLine()
     onDropAnchorBelowChanged: refreshDropLine()
 
@@ -223,8 +248,15 @@ Rectangle {
         easing.type: Easing.InOutSine
     }
 
-    // 落位涟漪
-    function ripple() {
+    // 落位涟漪：从「松手的那一点」扩散出去。
+    // 之前固定在列底部，跨列拖到底部才放得出一圈 —— 明明是插在第三行，
+    // 涟漪却从下面 200px 处冒出来，看着像没落准。
+    function ripple(atY) {
+        column.rippleY = (typeof atY === "number" && atY >= 0) ? atY : -1
+        rippleRing.y = column.rippleY >= 0
+                ? Math.max(4, Math.min(list.height - rippleRing.height - 4,
+                                       column.rippleY - rippleRing.height / 2))
+                : list.height - rippleRing.height
         rippleAnimation.restart()
     }
 
@@ -244,45 +276,18 @@ Rectangle {
         return out
     }
 
-    // 解析拖拽落点：yInColumn 为列内坐标，返回 { beforeId, anchorId, below }
-    // beforeId 为空串表示插到列尾；anchorId 为空串表示指示线画在列尾
+    // 解析拖拽落点：yInColumn 为列内坐标，返回 { beforeId, anchorId, below, lineY, viewY, onLine }
+    // beforeId 为空串表示插到列尾；anchorId 为空串表示没有卡可锚（空列）
+    //
+    // 几何本身在 src/DragFeel.cpp（纯函数、单测覆盖）：这里只做 QML 独有的两件事 ——
+    // 把视口 y 换算成内容 y，以及把线的位置换算回视口给绘制用。
     function resolveDrop(yInColumn) {
-        var fullIds = column.taskIds()
-        if (fullIds.length === 0)
-            return { beforeId: "", anchorId: "", below: false }
-
-        var del = column.visibleDelegates()
-        if (del.length === 0)
-            return { beforeId: "", anchorId: "", below: false }
-
         var pt = list.mapFromItem(column, 0, yInColumn)
         var contentY = pt.y + list.contentY
-
-        for (var i = 0; i < del.length; ++i) {
-            var d = del[i]
-            if (contentY >= d.y && contentY <= d.y + d.height) {
-                // 卡片上半区：插到这张卡之前，指示线画在它上方
-                if (contentY < d.y + d.height / 2)
-                    return { beforeId: d.id, anchorId: d.id, below: false }
-                // 卡片下半区：插到它后面那张之前
-                var nextFull = fullIds.indexOf(d.id) + 1
-                var nextId = (nextFull >= 0 && nextFull < fullIds.length) ? fullIds[nextFull] : ""
-                if (i + 1 < del.length)
-                    return { beforeId: nextId, anchorId: del[i + 1].id, below: false }
-                // 已是最后一张可见卡：插到它之后，指示线画在它下方
-                return { beforeId: nextId, anchorId: d.id, below: true }
-            }
-        }
-
-        // 落在卡片之间的空白：位于所有可见卡片之上 → 插到整列最前
-        var first = del[0]
-        if (contentY < first.y)
-            return { beforeId: fullIds[0], anchorId: first.id, below: false }
-        // 位于最后一张可见卡片之下：插到它之后，指示线画在它下方
-        var last = del[del.length - 1]
-        var lastFull = fullIds.indexOf(last.id)
-        var afterId = (lastFull >= 0 && lastFull + 1 < fullIds.length) ? fullIds[lastFull + 1] : ""
-        return { beforeId: afterId, anchorId: last.id, below: true }
+        var place = dragFeel.resolveDrop(column.visibleDelegates(), column.taskIds(), contentY,
+                                         list.spacing, column.snapDistance)
+        place.viewY = list.y + place.lineY - list.contentY
+        return place
     }
 
     // 在列表中找到锚定卡片的 delegate（遍历 contentItem 的子项，按 taskId 匹配）
@@ -429,13 +434,16 @@ Rectangle {
                 visible: false
                 x: list.x + 6
                 width: Math.max(0, list.width - 12)
-                height: 3
+                height: column.dropSnapped ? 4 : 2
                 radius: 2
                 color: column.accent
-                opacity: visible ? 1 : 0
+                opacity: visible ? (column.dropSnapped ? 1 : 0.72) : 0
 
                 Behavior on opacity {
                     NumberAnimation { duration: Motion.fast; easing.type: Easing.OutCubic }
+                }
+                Behavior on height {
+                    NumberAnimation { duration: Motion.instant; easing.type: Easing.OutCubic }
                 }
 
                 // 外扩辉光
@@ -454,6 +462,7 @@ Rectangle {
                 height: 24
                 radius: 12
                 x: (list.width - width) / 2
+                // y 由 ripple(atY) 按落点设置，不再绑定列底
                 y: list.height - height
                 color: "transparent"
                 border.width: 2

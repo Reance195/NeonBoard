@@ -2058,7 +2058,11 @@
                 "qml/Main.qml",
                 "qml/theme/Motion.qml",
                 "tests/tst_dragfeel.cpp",
-                "tests/CMakeLists.txt"
+                "tests/CMakeLists.txt",
+                "src/DragFeel.h",
+                "src/DragFeel.cpp",
+                "src/main.cpp",
+                "CMakeLists.txt"
             ],
             "stage": "R8",
             "title": "R8 拖拽手感升级：涟漪 / 光轨 / 磁吸 / 列高亮"

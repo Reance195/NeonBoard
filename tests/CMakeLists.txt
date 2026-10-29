@@ -369,6 +369,12 @@ neonboard_add_test(tst_taskstats
 )
 target_link_libraries(tst_taskstats PRIVATE Qt6::Sql)
 
+# R8-05：拖拽落点几何 —— 空列 / 上半区下半区 / 滚动时最后一张可见卡下面还有卡 /
+# 磁吸半径 / 落位动效预算。纯算术，不需要数据库与 QML 引擎。
+neonboard_add_test(tst_dragfeel
+    ${CMAKE_SOURCE_DIR}/src/DragFeel.cpp
+)
+
 # 项目全景：路线图 §9 / 台账 / docs/project-map.json 的解析 + 证据实证。
 # 这组断言是「地图跟着仓库走」的护栏：表格结构、脚本路径、派生规则任一被改坏，
 # 这里先红，避免面板展示一张与仓库脱节的地图。

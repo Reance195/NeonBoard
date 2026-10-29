@@ -22,6 +22,7 @@
 #include "SplashWindow.h"
 #include "WindowsIntegration.h"
 #include "BoardColumns.h"
+#include "DragFeel.h"
 #include "TaskFilterModel.h"
 #include "TaskModel.h"
 #include "TaskTree.h"
@@ -380,6 +381,11 @@ int main(int argc, char *argv[])
     // 看板列由数据库驱动（R4-03）：列清单 + 每列一个过滤模型，
     // 界面按这张表 Repeater 出列，不再写死三列。
     BoardColumns boardColumns(&database, &taskStore);
+    // 拖拽落点几何（R8-05）：纯函数门面，无状态。
+    // 必须声明在 QQmlApplicationEngine 之前 —— 反过来（挨着 setContextProperty 声明）
+    // 会在退出时先于引擎析构，QML 侧那条 Timer 绑定重新求值就拿到 null，
+    // 日志里冒出一行 "Cannot call method ... of null"。注册位置和寿命位置是两件事。
+    DragFeel dragFeel;
     boardColumns.setTaskTree(&taskTree);
     // 项目维度（R10-01 数据层 / R10-02 视图）：门面在列容器之前建，范围过滤才有东西可问。
     // 只读侧表，不碰 task 表 —— 切范围是视图状态，不写库。
@@ -1658,6 +1664,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("boardColumns"), &boardColumns);
     // 项目清单与卡片归属（R10-02）：切换器读 projects()，卡片角标读 taskProject()
     engine.rootContext()->setContextProperty(QStringLiteral("projectStore"), &projectStore);
+    engine.rootContext()->setContextProperty(QStringLiteral("dragFeel"), &dragFeel);
     engine.rootContext()->setContextProperty(QStringLiteral("cardDetail"), &cardDetail);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);

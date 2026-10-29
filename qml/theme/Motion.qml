@@ -33,6 +33,13 @@ QtObject {
     readonly property int toast: reduced ? 0 : 240        // 撤销提示
     readonly property int stagger: reduced ? 0 : 40       // 列表错峰
 
+    // ---- 拖拽（R8-05）----
+    // 松手收尾不在这里：它必须 ≤100ms 且有单测钉住，唯一口径是
+    // DragFeel::settleMs()（QML 侧走 dragFeel.settleDuration(Motion.reduced)）。
+    // 这里只放「拖起」与「吸附」两个过渡时长。
+    readonly property int dragLift: reduced ? 0 : 120     // 拎起放大
+    readonly property int dragSnap: reduced ? 0 : 90      // 磁吸吸附
+
     // ---- 缓动 ----
     readonly property int easeOut: Easing.OutCubic
     readonly property int easeInOut: Easing.InOutSine

@@ -2229,6 +2229,13 @@
             "title": "R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）"
         }
     },
-    "claims": {},
+    "claims": {
+        "R8-06": {
+            "agent": "agent-r8key",
+            "branch": "feature/r8-keymove",
+            "claimedAt": 1793250984,
+            "head": "396b1d0bbe4f7052fb794899229dadad16c6193c"
+        }
+    },
     "version": 1
 }

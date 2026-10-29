@@ -12,6 +12,8 @@ public:
     static QString dataDir();
     // 插件安装目录（唯一可写区）
     static QString pluginDir();
+    // 外部主题包目录（R8-01）：用户把 themepack.json 丢进来即可，只读扫描
+    static QString themeDir();
     // 日志文件路径
     static QString logFilePath();
     // 钩子事件队列数据库路径（与看板库物理隔离）

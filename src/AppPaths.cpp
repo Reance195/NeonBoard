@@ -67,6 +67,13 @@ QString AppPaths::pluginDir()
     return dataDir() + QStringLiteral("/plugins");
 }
 
+// 主题包目录（R8-01）：与 plugins 同级，用户可直接丢 themepack.json 进来。
+// 故意不复用 plugins/：主题是纯数据，不需要走插件那份「安装 / 权限 / 宿主」的流程。
+QString AppPaths::themeDir()
+{
+    return dataDir() + QStringLiteral("/themes");
+}
+
 QString AppPaths::logFilePath()
 {
     return dataDir() + QStringLiteral("/neonboard.log");

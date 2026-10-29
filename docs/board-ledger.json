@@ -2011,7 +2011,8 @@
                 "src/AppPaths.*",
                 "src/main.cpp",
                 "tests/tst_themepack.cpp",
-                "tests/CMakeLists.txt"
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt"
             ],
             "stage": "R8",
             "title": "R8 主题包格式与外部加载"

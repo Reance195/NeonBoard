@@ -2192,6 +2192,7 @@
                 "src/AgentProfile.h",
                 "src/AgentProfile.cpp",
                 "src/TaskRunner.cpp",
+                "src/TaskRunner.h",
                 "docs/agent-provider-api.md",
                 "docs/agent-profile.md"
             ],

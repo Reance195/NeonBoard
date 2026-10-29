@@ -10,6 +10,7 @@
         "DX-08": "done",
         "DX-09": "done",
         "DX-10": "done",
+        "DX-11": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -55,6 +56,7 @@
         "R11-02": "done",
         "R11-03": "done",
         "R12-01": "done",
+        "R13-01": "todo",
         "R2-01": "done",
         "R2-02": "done",
         "R3-01": "done",
@@ -103,9 +105,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-11": "todo",
-        "R13-01": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -317,6 +317,25 @@
             ],
             "stage": "DX",
             "title": "任务契约纳入审计：scope / acceptance 变更必须留痕"
+        },
+        "DX-11": {
+            "acceptance": [
+                "scripts/dev-run.ps1 带 -Wait -AppArgs --selftest 运行时，在只有 build\\NeonBoard.exe（无 dist）的情况下返回 0，不再报「dist\\NeonBoard 与 build\\Release 均不存在」",
+                "同一场景下不再出现「找不到 Qt6Sql.dll」系统错误框：脚本在启动前把解析到的 Qt bin 前置到 PATH（未注入时 exe 停在消息框，脚本无法返回）",
+                "Qt bin 解析顺序为 本工作区 build\\CMakeCache.txt → 锚点区 build\\CMakeCache.txt → NEONBOARD_QT_BIN → QT_ROOT_DIR\\bin → C:\\Qt\\<ver>\\msvc*_64\\bin（取最高版本），取第一个存在者；全部落空时报错文案给出 NEONBOARD_QT_BIN 的设置示例",
+                "dist\\NeonBoard\\NeonBoard.exe 存在时仍优先使用便携版，且不修改 PATH",
+                "python scripts/check_script_hygiene.py 通过；docs/pitfalls.md 新增条目写明现象（四个缺 DLL 弹窗）、根因（build/ 无 windeployqt）与两种解法（deploy.ps1 出包 / 开发版注入 Qt bin）",
+                "scripts/verify.ps1 全过（编译 → ctest → selftest → smoke）"
+            ],
+            "depends": [],
+            "id": "b86ad240-bc05-4f25-be16-c52571ad0dde",
+            "note": "起因（2026-10-29，维护者本会话「要DX-*」授权代登记）：装好 Qt 的开发机上双击 build\\NeonBoard.exe，Windows 加载器按依赖顺序连弹四个「找不到 Qt6Sql.dll / Qt6Widgets.dll / Qt6QuickControls2.dll / Qt6Quick.dll」，点四次确定才能退出 —— build/ 只是编译产物目录，CMake 没有 windeployqt 的 POST_BUILD，exe 旁边没有任何 Qt DLL；只有 dist/NeonBoard（deploy.ps1 出包）才自带运行时。\n\n同时暴露 scripts/dev-run.ps1 的回退失效：候选写死 dist\\NeonBoard\\NeonBoard.exe 与 build\\Release\\NeonBoard.exe，而 build.ps1 默认生成器已换成 Ninja（单配置），exe 落在 build\\NeonBoard.exe；dist 被删后脚本报「dist\\NeonBoard 与 build\\Release 均不存在」，把可用的构建产物判成不存在。即便补上路径，直接拉起构建产物仍会缺 DLL —— 必须把 Qt bin 前置到 PATH，否则仍是同一串系统错误框。\n\n修复：候选顺序补 build\\NeonBoard.exe；选中非 dist 产物时解析 Qt bin 并前置 PATH（顺序：本工作区 build\\CMakeCache.txt 的 CMAKE_PREFIX_PATH → 锚点区 build\\CMakeCache.txt → NEONBOARD_QT_BIN → QT_ROOT_DIR\\bin → C:\\Qt\\<ver>\\msvc*_64\\bin 取最高版本），全部落空时明确报错并给出设置示例；便携版存在时行为不变（自带运行时，不注入 PATH）。docs/pitfalls.md 补条目记录现象、根因与两种解法。\n\n边界：只动开发启动脚本与坑点文档，不碰出包链路（deploy.ps1 已正确处理两种布局）与 CI。\n\n状态：待办",
+            "scope": [
+                "scripts/dev-run.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "开发启动链路：dev-run 认 Ninja 布局并自带 Qt 运行时"
         },
         "M01": {
             "acceptance": [
@@ -1188,6 +1207,31 @@
             ],
             "stage": "R12",
             "title": "R12 宿主托盘图标：改用内嵌 neonboard.ico"
+        },
+        "R13-01": {
+            "acceptance": [
+                "scripts/verify.ps1 全过（build + ctest + selftest + smoke）",
+                "定位结论落 docs/pitfalls.md：写明「0 条的那一瞬间」到底发生在哪一层（QML 完成时 / 模型重建时 / 跨次日志混读），给出可复现的判定步骤；若证实是日志混读而非真 bug，同样要写清证据链并说明为何不必改代码",
+                "onboardVisible 改为随 taskStore.count 与 uiSettings.onboardingDone 变化可重算：count 由 0 变为非 0 且用户尚未确认引导时自动收起，不再依赖 Component.onCompleted 的单次判定",
+                "tests/tst_uisettings.cpp 覆盖三种组合（空板 + 未完成 → true、有卡 + 未完成 → false、空板 + 已完成 → false），与既有 3 例合并后全绿",
+                "连续 5 次「清空数据目录 → 首启」不出现「有卡却显示 0 条」或「有卡却弹引导」；同一次运行的 ONBOARD 诊断行与 TaskModel: loaded 行 count 一致",
+                "界面类证据附截图：139 条真实数据首启，三列卡片可见、无引导浮层"
+            ],
+            "depends": [],
+            "id": "3e762880-cd0b-447b-bf4d-ef15dc8495e4",
+            "note": "现象（2026-10-29 发现，R10-05 验收截图时偶发撞见）：全新数据目录首次启动，三列全空、顶部统计全 0，并自动弹出「先记一条任务」引导；同一数据库复跑一次即恢复，任务数回到 139。当时用主仓库 exe 在同一个真实仓库根下复跑是正常的，说明与 R10-05 的 QML 布局改动无因果关系，属启动期就绪判定范畴。\n\n判定链路上有两处薄弱点：\n1) qml/Main.qml 的 onboardVisible 只在 Component.onCompleted 里算一次 —— uiSettings.shouldOnboard(taskStore.count)，此后 count 怎么变都不重算，那一刻读到 0 就永久误弹；\n2) 空板判定与列模型各自读自己的快照（列模型还叠了项目范围过滤），任一处先于数据就绪都可能给出「全空」的错误结论。\n\n尚未定论的疑点（开工时优先证伪）：TaskModel::load() 在 src/main.cpp:277 是同步调用、早于 QML 引擎加载，按这条路径 onCompleted 时 count 不可能是 0。因此要么存在第二条加载/重建路径（路线图首次全量同步、RoadmapSync 或 LedgerImport 触发的 reload）在 QML 起来之后把模型清空再填回；要么日志里的「loaded 139 tasks」与那张截图并非同一次运行 —— neonboard.log 是追加写，跨次混读会得出自相矛盾的结论。先分清是「真竞态」还是「读日志的方式错了」，再决定改不改代码。\n\n目标：把「是否该弹引导」「是否该显示空态」从启动瞬间的一次快照，改成随 count 变化可重算的派生状态，并留下能区分「真空板」与「尚未就绪」的判据。\n\n边界：只修就绪判定与引导触发，不改引导文案与三步流程，不改数据加载 SQL，不碰 R10 的项目范围语义。",
+            "scope": [
+                "qml/Main.qml",
+                "src/UiSettings.cpp",
+                "src/UiSettings.h",
+                "src/TaskModel.cpp",
+                "src/TaskModel.h",
+                "tests/tst_uisettings.cpp",
+                "docs/pitfalls.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R13",
+            "title": "R13 首启就绪竞态：看板偶发全空 + 引导误弹"
         },
         "R2-01": {
             "acceptance": [
@@ -2309,59 +2353,8 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-11": {
-            "id": "b86ad240-bc05-4f25-be16-c52571ad0dde",
-            "stage": "DX",
-            "title": "开发启动链路：dev-run 认 Ninja 布局并自带 Qt 运行时",
-            "note": "起因（2026-10-29，维护者本会话「要DX-*」授权代登记）：装好 Qt 的开发机上双击 build\\NeonBoard.exe，Windows 加载器按依赖顺序连弹四个「找不到 Qt6Sql.dll / Qt6Widgets.dll / Qt6QuickControls2.dll / Qt6Quick.dll」，点四次确定才能退出 —— build/ 只是编译产物目录，CMake 没有 windeployqt 的 POST_BUILD，exe 旁边没有任何 Qt DLL；只有 dist/NeonBoard（deploy.ps1 出包）才自带运行时。\n\n同时暴露 scripts/dev-run.ps1 的回退失效：候选写死 dist\\NeonBoard\\NeonBoard.exe 与 build\\Release\\NeonBoard.exe，而 build.ps1 默认生成器已换成 Ninja（单配置），exe 落在 build\\NeonBoard.exe；dist 被删后脚本报「dist\\NeonBoard 与 build\\Release 均不存在」，把可用的构建产物判成不存在。即便补上路径，直接拉起构建产物仍会缺 DLL —— 必须把 Qt bin 前置到 PATH，否则仍是同一串系统错误框。\n\n修复：候选顺序补 build\\NeonBoard.exe；选中非 dist 产物时解析 Qt bin 并前置 PATH（顺序：本工作区 build\\CMakeCache.txt 的 CMAKE_PREFIX_PATH → 锚点区 build\\CMakeCache.txt → NEONBOARD_QT_BIN → QT_ROOT_DIR\\bin → C:\\Qt\\<ver>\\msvc*_64\\bin 取最高版本），全部落空时明确报错并给出设置示例；便携版存在时行为不变（自带运行时，不注入 PATH）。docs/pitfalls.md 补条目记录现象、根因与两种解法。\n\n边界：只动开发启动脚本与坑点文档，不碰出包链路（deploy.ps1 已正确处理两种布局）与 CI。\n\n状态：待办",
-            "acceptance": [
-                "scripts/dev-run.ps1 带 -Wait -AppArgs --selftest 运行时，在只有 build\\NeonBoard.exe（无 dist）的情况下返回 0，不再报「dist\\NeonBoard 与 build\\Release 均不存在」",
-                "同一场景下不再出现「找不到 Qt6Sql.dll」系统错误框：脚本在启动前把解析到的 Qt bin 前置到 PATH（未注入时 exe 停在消息框，脚本无法返回）",
-                "Qt bin 解析顺序为 本工作区 build\\CMakeCache.txt → 锚点区 build\\CMakeCache.txt → NEONBOARD_QT_BIN → QT_ROOT_DIR\\bin → C:\\Qt\\<ver>\\msvc*_64\\bin（取最高版本），取第一个存在者；全部落空时报错文案给出 NEONBOARD_QT_BIN 的设置示例",
-                "dist\\NeonBoard\\NeonBoard.exe 存在时仍优先使用便携版，且不修改 PATH",
-                "python scripts/check_script_hygiene.py 通过；docs/pitfalls.md 新增条目写明现象（四个缺 DLL 弹窗）、根因（build/ 无 windeployqt）与两种解法（deploy.ps1 出包 / 开发版注入 Qt bin）",
-                "scripts/verify.ps1 全过（编译 → ctest → selftest → smoke）"
-            ],
-            "scope": [
-                "scripts/dev-run.ps1",
-                "docs/pitfalls.md"
-            ],
-            "depends": []
-        },
-        "R13-01": {
-            "id": "3e762880-cd0b-447b-bf4d-ef15dc8495e4",
-            "stage": "R13",
-            "title": "R13 首启就绪竞态：看板偶发全空 + 引导误弹",
-            "note": "现象（2026-10-29 发现，R10-05 验收截图时偶发撞见）：全新数据目录首次启动，三列全空、顶部统计全 0，并自动弹出「先记一条任务」引导；同一数据库复跑一次即恢复，任务数回到 139。当时用主仓库 exe 在同一个真实仓库根下复跑是正常的，说明与 R10-05 的 QML 布局改动无因果关系，属启动期就绪判定范畴。\n\n判定链路上有两处薄弱点：\n1) qml/Main.qml 的 onboardVisible 只在 Component.onCompleted 里算一次 —— uiSettings.shouldOnboard(taskStore.count)，此后 count 怎么变都不重算，那一刻读到 0 就永久误弹；\n2) 空板判定与列模型各自读自己的快照（列模型还叠了项目范围过滤），任一处先于数据就绪都可能给出「全空」的错误结论。\n\n尚未定论的疑点（开工时优先证伪）：TaskModel::load() 在 src/main.cpp:277 是同步调用、早于 QML 引擎加载，按这条路径 onCompleted 时 count 不可能是 0。因此要么存在第二条加载/重建路径（路线图首次全量同步、RoadmapSync 或 LedgerImport 触发的 reload）在 QML 起来之后把模型清空再填回；要么日志里的「loaded 139 tasks」与那张截图并非同一次运行 —— neonboard.log 是追加写，跨次混读会得出自相矛盾的结论。先分清是「真竞态」还是「读日志的方式错了」，再决定改不改代码。\n\n目标：把「是否该弹引导」「是否该显示空态」从启动瞬间的一次快照，改成随 count 变化可重算的派生状态，并留下能区分「真空板」与「尚未就绪」的判据。\n\n边界：只修就绪判定与引导触发，不改引导文案与三步流程，不改数据加载 SQL，不碰 R10 的项目范围语义。",
-            "acceptance": [
-                "scripts/verify.ps1 全过（build + ctest + selftest + smoke）",
-                "定位结论落 docs/pitfalls.md：写明「0 条的那一瞬间」到底发生在哪一层（QML 完成时 / 模型重建时 / 跨次日志混读），给出可复现的判定步骤；若证实是日志混读而非真 bug，同样要写清证据链并说明为何不必改代码",
-                "onboardVisible 改为随 taskStore.count 与 uiSettings.onboardingDone 变化可重算：count 由 0 变为非 0 且用户尚未确认引导时自动收起，不再依赖 Component.onCompleted 的单次判定",
-                "tests/tst_uisettings.cpp 覆盖三种组合（空板 + 未完成 → true、有卡 + 未完成 → false、空板 + 已完成 → false），与既有 3 例合并后全绿",
-                "连续 5 次「清空数据目录 → 首启」不出现「有卡却显示 0 条」或「有卡却弹引导」；同一次运行的 ONBOARD 诊断行与 TaskModel: loaded 行 count 一致",
-                "界面类证据附截图：139 条真实数据首启，三列卡片可见、无引导浮层"
-            ],
-            "scope": [
-                "qml/Main.qml",
-                "src/UiSettings.cpp",
-                "src/UiSettings.h",
-                "src/TaskModel.cpp",
-                "src/TaskModel.h",
-                "tests/tst_uisettings.cpp",
-                "docs/pitfalls.md",
-                "docs/iteration-roadmap.md"
-            ],
-            "depends": []
         }
     },
-    "claims": {
-        "R10-05": {
-            "agent": "agent-cat",
-            "branch": "feature/r10-05-switcher-width",
-            "claimedAt": 1793279057,
-            "head": "3b11431a83a9611c31b3a8a20f879ce32dbe38e5"
-        }
-    },
+    "claims": {},
     "version": 1
 }

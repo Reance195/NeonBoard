@@ -168,7 +168,11 @@ void TestProjectMap::ledgerBaselineCountsAsDone()
     const QVariantMap r0 = milestoneOf(m_map->milestones(), QStringLiteral("R0"));
     QVERIFY(!r0.isEmpty());
     QVERIFY(r0.value(QStringLiteral("total")).toInt() > 0);
-    QCOMPARE(r0.value(QStringLiteral("done")).toInt(), r0.value(QStringLiteral("total")).toInt());
+    // R0 历史十卡（R0-01 ~ R0-10）全部只靠 baseline=done 计成完成；
+    // 不等于总数 —— R0 后来还会进新卡（如 R0-11 首启性能），它们未交付时是正常的进行中/待办，
+    // 断言写成 done == total 会把「R0 阶段永远封板」当成不变量，立一张新 R0 卡就红。
+    QVERIFY2(r0.value(QStringLiteral("done")).toInt() >= 10,
+             "R0 历史卡的 baseline=done 没被计入完成数");
 
     const QVariantMap card = m_map->card(QStringLiteral("R0-01"));
     QCOMPARE(card.value(QStringLiteral("status")).toString(), QStringLiteral("done"));

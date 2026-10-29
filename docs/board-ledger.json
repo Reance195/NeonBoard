@@ -849,7 +849,7 @@
         },
         "R0-11": {
             "acceptance": [
-                "--smoke 的 cpu（首帧 CPU 时间）中位数 ≤ 1000ms，且 BOOT 分段（engine→loaded）不回退；墙钟 startup 受 CI runner Defender 冷扫主导（2026-10-30 实测：便携包 11381ms / build-Release 6368ms，两者 cpu 均约 700ms），故墙钟仅作趋势告警、不作达标门（基线见 docs/perf-baseline.json）",
+                "--smoke 的 cpu（首帧 CPU 时间）中位数 ≤ 1000ms；墙钟 startup 受 CI runner Defender 冷扫主导（2026-10-30 实测：便携包 11381ms / build-Release 6368ms，两者 cpu 均约 700ms），故墙钟仅作趋势告警、不作达标门（基线见 docs/perf-baseline.json）",
                 "build/Release/NeonBoard.exe --selftest 退出码 0 且 ctest 全绿",
                 "pwsh -File scripts/verify.ps1 全过，--smoke 日志零 QML 告警"
             ],

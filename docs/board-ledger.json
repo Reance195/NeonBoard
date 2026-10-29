@@ -2078,7 +2078,7 @@
                 "R8-03"
             ],
             "id": "6534bfc1-a0d0-40c4-b88b-23a3bcf13971",
-            "note": "起因：改动历史无处可查，task 表只有 created_at / updated_at / completed_at 三个时间戳，「什么时候从待办移到进行中」只能看最终值。目标：新增侧表 task_event(id, task_id, kind, payload, at)，沿用 task_extra / task_link 的惯例——不动 task 表、不升 user_version、老版本程序开同一个库不受影响；详情抽屉底部按时间倒序渲染时间线，子任务区改为「进度环 + 逐条子卡」。非目标：不做 undo/redo 回放（撤销仍走 TaskUndo）、不做跨设备事件同步。",
+            "note": "起因：改动历史无处可查，task 表只有 created_at / updated_at / completed_at 三个时间戳，「什么时候从待办移到进行中」只能看最终值。目标：新增侧表 task_event(id, task_id, kind, payload, at)，沿用 task_extra / task_link 的惯例——不动 task 表、不升 user_version、老版本程序开同一个库不受影响；详情抽屉底部按时间倒序渲染时间线，子任务区改为「进度环 + 逐条子卡」。非目标：不做 undo/redo 回放（撤销仍走 TaskUndo）、不做跨设备事件同步。 已完成 1 / 待做 0 —— 详情进阶已交付并结卡：子任务区进度环 + 逐条子卡，新增 task_event 侧表审计时间线（不动 task 表、不升 user_version），能回答「什么时候改的」（4390ff0）",
             "scope": [
                 "src/TaskAudit.*",
                 "src/Database.cpp",

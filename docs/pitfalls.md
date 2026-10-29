@@ -230,6 +230,30 @@
 
 ---
 
+### 1.21 结卡后快照停在旧状态，`derive --check` 报「待同步」
+
+- **现象**：刚结完卡，`python scripts/derive_board_status.py --check` 退出 1，报
+  「待同步：卡片 X 状态 todo → done」；台账里 `baseline` 明明已是 done。
+- **判据**：只有这一个判据。不要凭「看板显示不对」猜，也别把派生器提示里的
+  `#RGB` / `#ERROR` 当问题 —— 那是提交信息里的十六进制串被误认成卡号。
+- **根因（两处叠加，2026-10-30 在 GitHub 上实测）**：
+  1. `scripts/git-done.ps1` 的快照校正整段包在「progress.json 已脏」的条件里 ——
+     应用（RoadmapSync）没写回快照的会话直接跳过；而结卡（`--close-cards`）只改
+     `docs/board-ledger.json` 的 baseline，从不刷新快照。
+  2. CI 兜不住：`ci.yml` 的 `paths-ignore` 含 `docs/**`，结卡这类 docs-only 提交
+     **完全不触发流水线**（`gh api repos/<owner>/<repo>/commits/<sha>/check-runs`
+     返回空即可证实）；而原「看板状态一致性校验」步骤带
+     `if: github.event_name == 'pull_request'`，本仓库零 PR
+     （`gh pr list --state all` 为空），实测该步骤结论恒为 skipped。
+- **处置**：本地跑 `python scripts/derive_board_status.py --write` 并提交；
+  DX-13 起 `git-done` 收尾自动刷一遍，`.github/workflows/board.yml` 作确定性兜底
+  （main push 回写、PR 只校验）。与 1.11 是同一文件的两面：那里是「两边同时写快照撞车」，
+  这里是「谁都不写」。
+- **排查命令**：`gh api repos/<owner>/<repo>/commits/<sha>/check-runs`（提交有没有触发 CI）、
+  `gh api repos/<owner>/<repo>/actions/runs/<run-id>/jobs`（看步骤结论是不是 skipped）。
+
+---
+
 ## 二、脚本与编码（PowerShell / Python）
 
 ### 2.1 `.ps1` 少了 UTF-8 BOM，整份脚本报「批处理式」语法错

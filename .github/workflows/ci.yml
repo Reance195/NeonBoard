@@ -211,17 +211,6 @@ jobs:
           $log = Get-NbLogFile
           pwsh -NoProfile -File scripts/check-perf.ps1 -LogPath $log
 
-      - name: 看板状态一致性校验
-        if: github.event_name == 'pull_request'
-        shell: pwsh
-        run: |
-          # progress.json 里的 status 是派生产物：由 git 提交信息里的 #短号=状态
-          # 与 docs/board-ledger.json 台账共同推导，CI 独占写回。
-          # 快照与推导结果不一致 → 阻塞合并，必须先跑：
-          #   python scripts/derive_board_status.py --write
-          python scripts/derive_board_status.py --check
-          if ($LASTEXITCODE -ne 0) { throw '看板状态与提交历史/台账不一致，请运行 python scripts/derive_board_status.py --write 后提交' }
-
       - name: 结卡自测（DX-07）
         shell: pwsh
         run: |
@@ -245,51 +234,12 @@ jobs:
             Write-Host "· baseline 检查未能完成（退出码 $LASTEXITCODE），按设计不阻断本 job" -ForegroundColor Yellow
           }
 
-      - name: 自动回写看板状态
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        shell: pwsh
-        run: |
-          # 主线合并后由 CI 统一回写快照状态，特性分支完全不碰 progress.json，
-          # 多代理并行也不会产生快照冲突。
-          git config user.name  'neonboard-ci'
-          git config user.email 'neonboard-ci@users.noreply.github.com'
-          # 快照回写提交是全仓库唯一的钩子豁免（AGENTS.md §11.2 第 7 条）。
-          # 起因：ad5134d 给 CI 装上 core.hooksPath 后，本 job 的检出停在 main，
-          # pre-commit 的「禁止在受保护分支直接提交」把这条回写提交拒了（10-26 之前
-          # 无钩子，回写一直正常）。豁免只给这一条命令，且它只提交 progress.json。
-          #
-          # 构建这几分钟里主线可能已被别的提交推进（fetch first）：循环内先变基
-          # 再派生，保证派生依据是最新主线的 git 标记。冲突处置：回写只动
-          # progress.json，它的唯一事实源就是「git 标记 + 台账」的派生结果（§11）。
-          # 主线若已含同派生结果（本地跑过 derive --write —— R6 收官踩过：CI 回写
-          # 提交 rebase 撞内容冲突、整轮红），我们的提交就是重叠提交，--skip 丢弃
-          # 即可；绝不手工解冲突硬拼两份快照（会造出谁都不是的第三份状态）。
-          for ($i = 1; $i -le 3; $i++) {
-            git fetch origin main --quiet
-            git rebase origin/main
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "· 回写与主线撞车（第 $i 次）：丢弃重叠的回写提交，以最新主线重新派生"
-              git rebase --skip
-              if ($LASTEXITCODE -ne 0) { git rebase --abort 2>$null; throw '看板回写 rebase --skip 仍失败' }
-            }
-            python scripts/derive_board_status.py --write
-            if ($LASTEXITCODE -ne 0) { throw '看板状态派生失败' }
-            git add progress.json
-            # 注意：PowerShell 里 if (命令) 判断的是输出而不是退出码，必须显式看 $LASTEXITCODE
-            git diff --cached --quiet
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host '看板状态无变化，无需回写'
-              exit 0
-            }
-            git commit --no-verify -m 'ci(board): 自动回写看板状态'
-            if ($LASTEXITCODE -ne 0) { throw "看板状态回写提交失败（退出码 $LASTEXITCODE）" }
-            git push origin HEAD:main
-            if ($LASTEXITCODE -eq 0) { break }
-            if ($i -eq 3) { throw '看板回写推送重试 3 次仍失败' }
-            Write-Host "推送被拒（第 $i 次），5 秒后重试"
-            Start-Sleep -Seconds 5
-          }
-
+      # 看板状态的校验与回写已迁出本 job（DX-13）：见 .github/workflows/board.yml。
+      # 原「看板状态一致性校验」带 if: github.event_name == 'pull_request'，
+      # 而本仓库走 git-done 直推 main、零 PR，该步骤从未运行（实测 skipped）；
+      # 原「自动回写看板状态」待在本 job 内，而本 workflow 的 paths-ignore 含 docs/**，
+      # 结卡这类 docs-only 提交根本不触发它 —— 漂移要等下一次代码推送才被顺带补平。
+      # 现在由独立轻量 job 承担：push 回写、PR 校验，progress.json 保持单写者。
       - name: 上传便携版产物
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4

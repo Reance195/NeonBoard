@@ -375,6 +375,21 @@ neonboard_add_test(tst_dragfeel
     ${CMAKE_SOURCE_DIR}/src/DragFeel.cpp
 )
 
+# R8-06：键盘跨列位移 —— 目标列越界不移动（也不压空撤销记录）/ 落位保持相对位置 /
+# 目标列更短落列尾 / 两步到末列 / Ctrl+Z 全还原 / 「取消」一个字节都不写。
+neonboard_add_test(tst_keymove
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskUndo.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskExtra.cpp
+    ${CMAKE_SOURCE_DIR}/src/KeyMove.cpp
+)
+target_link_libraries(tst_keymove PRIVATE Qt6::Sql Qt6::Gui)
+
 # 项目全景：路线图 §9 / 台账 / docs/project-map.json 的解析 + 证据实证。
 # 这组断言是「地图跟着仓库走」的护栏：表格结构、脚本路径、派生规则任一被改坏，
 # 这里先红，避免面板展示一张与仓库脱节的地图。

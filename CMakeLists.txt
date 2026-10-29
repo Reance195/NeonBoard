@@ -83,6 +83,7 @@ qt_add_executable(NeonBoard
     src/WorkflowRunner.h src/WorkflowRunner.cpp
     src/WorkflowPresets.h src/WorkflowPresets.cpp
     src/DragFeel.h src/DragFeel.cpp
+    src/KeyMove.h src/KeyMove.cpp
     resources/neonboard.rc
 )
 

@@ -57,6 +57,8 @@ Rectangle {
 
     signal selectionChanged(string taskId)
     signal columnMoveRequested(int targetIndex)
+    // 把选中的卡搬到相邻列（Ctrl+←/→）。delta 只取 ±1，边界由上层判。
+    signal cardMoveRequested(string taskId, int delta)
 
     function taskIds() {
         if (column.columnId.length > 0)
@@ -122,11 +124,19 @@ Rectangle {
             event.accepted = true
             break
         case Qt.Key_Left:
-            column.columnMoveRequested(column.columnIndex - 1)
+            // Ctrl+←/→ 搬卡，裸 ←/→ 换列 —— 两件事分开，才不会「只想看看隔壁有什么，
+            // 结果把卡搬走了」。和拖动同一套落位规则（DragFeel），键盘与鼠标行为一致。
+            if ((event.modifiers & Qt.ControlModifier) && column.selectedId.length > 0)
+                column.cardMoveRequested(column.selectedId, -1)
+            else
+                column.columnMoveRequested(column.columnIndex - 1)
             event.accepted = true
             break
         case Qt.Key_Right:
-            column.columnMoveRequested(column.columnIndex + 1)
+            if ((event.modifiers & Qt.ControlModifier) && column.selectedId.length > 0)
+                column.cardMoveRequested(column.selectedId, 1)
+            else
+                column.columnMoveRequested(column.columnIndex + 1)
             event.accepted = true
             break
         case Qt.Key_Return:
@@ -376,7 +386,8 @@ Rectangle {
 
                 Accessible.role: Accessible.List
                 Accessible.name: column.title + "列，共 " + (column.taskModel ? column.taskModel.count : 0) + " 个任务"
-                Accessible.description: "用上下方向键选择任务，回车编辑，空格完成，Delete 删除"
+                Accessible.description: "用上下方向键选择任务，回车编辑，空格完成，Delete 删除，"
+                                        + "Ctrl+左右方向键把任务移到相邻列，Esc 取消选择"
 
                 delegate: TaskCard {
                     width: list.width

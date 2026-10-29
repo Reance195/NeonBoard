@@ -410,6 +410,16 @@ neonboard_add_test(tst_themepack
     ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
 )
 
+# R8-02：主题包市场 —— 离线目录非空 / 拉不到索引退离线 / 装完标已安装 /
+# 文件名规整成 <id>.json / 坏包不落盘 / 中途中断不留半成品 / 卸载只删那一个。
+# 网络部分只打 127.0.0.1:1（必定连不上），不依赖外网。
+neonboard_add_test(tst_thememarket
+    ${CMAKE_SOURCE_DIR}/src/ThemeMarket.cpp
+    ${CMAKE_SOURCE_DIR}/src/ThemePack.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+)
+target_link_libraries(tst_thememarket PRIVATE Qt6::Network)
+
 # 项目全景：路线图 §9 / 台账 / docs/project-map.json 的解析 + 证据实证。
 # 这组断言是「地图跟着仓库走」的护栏：表格结构、脚本路径、派生规则任一被改坏，
 # 这里先红，避免面板展示一张与仓库脱节的地图。

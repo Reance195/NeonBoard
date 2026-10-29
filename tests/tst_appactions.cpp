@@ -43,6 +43,8 @@ void TestAppActions::fromArguments_data()
                               << QStringLiteral("plugins");
     QTest::newRow("外观面板") << QStringList{QStringLiteral("--appearance")}
                               << QStringLiteral("appearance");
+    QTest::newRow("主题市场") << QStringList{QStringLiteral("--theme-market")}
+                              << QStringLiteral("thememarket");
     QTest::newRow("项目全景") << QStringList{QStringLiteral("--map")}
                               << QStringLiteral("map");
     QTest::newRow("插件库") << QStringList{QStringLiteral("--library")}
@@ -131,6 +133,8 @@ void TestAppActions::targetForMapsToQmlMethods()
 
     QCOMPARE(AppActions::targetFor(QStringLiteral("plugins")).method,
              QStringLiteral("openPlugins"));
+    QCOMPARE(AppActions::targetFor(QStringLiteral("thememarket")).method,
+             QStringLiteral("openThemeMarket"));
     QCOMPARE(AppActions::targetFor(QStringLiteral("appearance")).method,
              QStringLiteral("openAppearance"));
     QCOMPARE(AppActions::targetFor(QStringLiteral("library")).method,

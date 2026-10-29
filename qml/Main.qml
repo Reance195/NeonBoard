@@ -181,9 +181,11 @@ ApplicationWindow {
         projectMapLoader.active = false
         window.previewOpen = false
         execQueueDialog.close()
-        // 详情抽屉（R8-03）：与其它浮层同一套互斥纪律
+        // 详情抽屉（R8-03）与主题市场（R8-02）：与其它浮层同一套互斥纪律
         if (cardDetailLoader.item)
             cardDetailLoader.item.close()
+        if (themeMarketLoader.item)
+            themeMarketLoader.item.close()
     }
 
     function openSettings() {
@@ -339,6 +341,19 @@ ApplicationWindow {
         themePicker.open = true
     }
 
+    // 打开主题市场（R8-02）：浏览 / 安装 / 卸载主题包
+    function openThemeMarket() {
+        show()
+        raise()
+        requestActivate()
+        closeAllPanels()
+        themeMarketLoader.active = true
+        if (themeMarketLoader.item) {
+            themeMarketLoader.item.hostWindow = window
+            themeMarketLoader.item.open()
+        }
+    }
+
     // 打开命令面板（供命令行 --palette 诊断用）
     function openPalette(query) {
         show()
@@ -379,6 +394,7 @@ ApplicationWindow {
         add("检查软件更新", "面板", "当前 " + updateManager.currentVersion + "，查看是否有新版本",
             function() { window.openSettings(); updateManager.checkForUpdates(false) })
         add("打开外观面板", "面板", "主题预设 / 画质 / 减弱动效", function() { window.openAppearance() })
+        add("打开主题市场", "面板", "浏览 / 安装 / 卸载主题包", function() { window.openThemeMarket() })
         add("重看新手引导", "帮助", "三步说明：录任务 / 拖列 / 装插件", function() { window.replayOnboarding() })
         add("切换专注模式", "视图", window.focusMode ? "结束本轮专注" : "开始 25 分钟专注", function() { window.toggleFocusMode() })
         add("专注 45 分钟", "视图", "压暗背景 + 倒计时环 + 托盘剩余时间", function() { window.startFocus(45) })
@@ -2768,6 +2784,12 @@ MouseArea {
         id: taskEditorLoader
         active: false
         sourceComponent: taskEditorComponent
+    }
+
+    Loader {
+        id: themeMarketLoader
+        active: false
+        sourceComponent: Component { ThemeMarketPanel {} }
     }
 
     Loader {

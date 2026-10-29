@@ -58,6 +58,8 @@ QString fromArguments(const QStringList &arguments)
         return QString::fromLatin1(kPlugins);
     if (hasFlag(arguments, "--appearance"))
         return QString::fromLatin1(kAppearance);
+    if (hasFlag(arguments, "--theme-market"))
+        return QString::fromLatin1(kThemeMarket);
     if (hasFlag(arguments, "--map"))
         return QString::fromLatin1(kMap);
     if (hasFlag(arguments, "--library"))
@@ -76,7 +78,8 @@ bool isKnown(const QString &action)
         return true;
     return action == QLatin1String(kShow) || action == QLatin1String(kNewTask)
         || action == QLatin1String(kSettings) || action == QLatin1String(kPlugins)
-        || action == QLatin1String(kAppearance) || action == QLatin1String(kLibrary)
+        || action == QLatin1String(kAppearance) || action == QLatin1String(kThemeMarket)
+        || action == QLatin1String(kLibrary)
         || action == QLatin1String(kMap)
         || action == QLatin1String(kNoop);
 }
@@ -93,6 +96,8 @@ Target targetFor(const QString &action)
         return {QStringLiteral("openPlugins"), QString(), false};
     if (action == QLatin1String(kAppearance))
         return {QStringLiteral("openAppearance"), QString(), false};
+    if (action == QLatin1String(kThemeMarket))
+        return {QStringLiteral("openThemeMarket"), QString(), false};
     if (action == QLatin1String(kMap))
         return {QStringLiteral("openProjectMap"), QString(), false};
     if (action == QLatin1String(kLibrary))

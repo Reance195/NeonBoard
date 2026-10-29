@@ -30,6 +30,7 @@
 #include "TaskStats.h"
 #include "TaskAudit.h"
 #include "TaskExtra.h"
+#include "ThemeMarket.h"
 #include "ThemePack.h"
 #include "TaskExec.h"
 #include "TaskRunner.h"
@@ -1162,6 +1163,9 @@ int main(int argc, char *argv[])
     // 外部主题包（R8-01）：启动即扫描 themes/ 目录。
     // 坏包只跳过并记一行日志，绝不拦住启动 —— 主题是锦上添花，不是启动前置条件。
     ThemePack themePacks;
+    // 主题包市场（R8-02）：目录内置在客户端，断网也能浏览；安装走原子替换。
+    // 依赖 themePacks 才能判断「这个包装了没」，所以必须排在它后面。
+    ThemeMarket themeMarket(&themePacks);
     WindowController windowController;
     Hotkey hotkey;
     TrayController tray(hosted);
@@ -1683,6 +1687,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("cardDetail"), &cardDetail);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("themePacks"), &themePacks);
+    engine.rootContext()->setContextProperty(QStringLiteral("themeMarket"), &themeMarket);
     engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);
 engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
     engine.rootContext()->setContextProperty(QStringLiteral("previewHub"), &previewHub);

@@ -65,6 +65,7 @@ qt_add_executable(NeonBoard
     src/TaskExtra.h src/TaskExtra.cpp
     src/TaskAudit.h src/TaskAudit.cpp
     src/ThemePack.h src/ThemePack.cpp
+    src/ThemeMarket.h src/ThemeMarket.cpp
     src/ProjectStore.h src/ProjectStore.cpp
     src/TaskExec.h src/TaskExec.cpp
     src/ReminderScheduler.h src/ReminderScheduler.cpp
@@ -152,6 +153,7 @@ set_source_files_properties(qml/components/WindowButtons.qml PROPERTIES QT_RESOU
 set_source_files_properties(qml/components/OnboardingOverlay.qml PROPERTIES QT_RESOURCE_ALIAS "OnboardingOverlay.qml")
 set_source_files_properties(qml/components/ProjectMapPanel.qml PROPERTIES QT_RESOURCE_ALIAS "ProjectMapPanel.qml")
 set_source_files_properties(qml/components/CardDetailPanel.qml PROPERTIES QT_RESOURCE_ALIAS "CardDetailPanel.qml")
+set_source_files_properties(qml/components/ThemeMarketPanel.qml PROPERTIES QT_RESOURCE_ALIAS "ThemeMarketPanel.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -187,6 +189,7 @@ qt_add_qml_module(NeonBoard
         qml/components/OnboardingOverlay.qml
         qml/components/ProjectMapPanel.qml
         qml/components/CardDetailPanel.qml
+        qml/components/ThemeMarketPanel.qml
 )
 
 qt_add_resources(NeonBoard "icons"

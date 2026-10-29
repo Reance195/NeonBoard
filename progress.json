@@ -19,24 +19,6 @@
             "updatedAt": 1793202572
         },
         {
-            "code": "R8-01",
-            "completedAt": 0,
-            "createdAt": 1793213056,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "adc2d2e2-fecd-480d-b45d-a71790893f21",
-            "note": "起因：qml/theme/Theme.qml 的 presets 是编译期常量，改配色必须改代码，6 套就是天花板。目标：定义 themepack.json（12 令牌 + key/name/desc）；启动时扫描 AppPaths::themeDir() 把合法包追加进可选列表，用户包 key 统一前缀 user:<id> 避免与内置撞名；坏包逐个跳过并记日志，至少一个坏包不能让应用起不来。非目标：不做市场与在线下载，不支持包带脚本 / 自定义字体 / 自定义布局（那等于把主题变成代码）。详见 docs/r8-experience-plan.md 第 5 节。",
-            "orderKey": 24576,
-            "priority": 2,
-            "stage": "R8",
-            "status": "todo",
-            "tags": [
-                "R8"
-            ],
-            "title": "R8 主题包格式与外部加载",
-            "updatedAt": 1793213056
-        },
-        {
             "code": "R8-02",
             "completedAt": 0,
             "createdAt": 1793213056,
@@ -1342,6 +1324,24 @@
             "updatedAt": 1792633483
         },
         {
+            "code": "R8-01",
+            "completedAt": 1793257033,
+            "createdAt": 1793213056,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "adc2d2e2-fecd-480d-b45d-a71790893f21",
+            "note": "起因：qml/theme/Theme.qml 的 presets 是编译期常量，改配色必须改代码，6 套就是天花板。目标：定义 themepack.json（12 令牌 + key/name/desc）；启动时扫描 AppPaths::themeDir() 把合法包追加进可选列表，用户包 key 统一前缀 user:<id> 避免与内置撞名；坏包逐个跳过并记日志，至少一个坏包不能让应用起不来。非目标：不做市场与在线下载，不支持包带脚本 / 自定义字体 / 自定义布局（那等于把主题变成代码）。详见 docs/r8-experience-plan.md 第 5 节。",
+            "orderKey": 24576,
+            "priority": 2,
+            "stage": "R8",
+            "status": "done",
+            "tags": [
+                "R8"
+            ],
+            "title": "R8 主题包格式与外部加载",
+            "updatedAt": 1793257033
+        },
+        {
             "code": "M16",
             "completedAt": 1792633483,
             "createdAt": 1792572839,
@@ -2509,6 +2509,6 @@
             "updatedAt": 1793251716
         }
     ],
-    "updated": "2026-10-29T14:22:15",
+    "updated": "2026-10-29T06:57:13",
     "version": 3
 }

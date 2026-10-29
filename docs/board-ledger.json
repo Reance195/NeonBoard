@@ -2259,6 +2259,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R8-01": {
+            "agent": "agent-r8theme",
+            "branch": "feature/r8-themepack",
+            "claimedAt": 1793254705,
+            "head": "22e2b03d248cb34e4ddc1c276aa322b4e154ba1e"
+        }
+    },
     "version": 1
 }

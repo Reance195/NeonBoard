@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(NeonBoard VERSION 0.1.3 LANGUAGES CXX)
+project(NeonBoard VERSION 0.1.3 LANGUAGES C CXX)
 
 # 版本号唯一来源就是上面这行 project(VERSION)。发版只需改这里：
 #   · 运行时版本（QCoreApplication::applicationVersion）→ 编译期常量 NEONBOARD_VERSION_STRING
@@ -87,6 +87,17 @@ qt_add_executable(NeonBoard
     src/WorkflowPresets.h src/WorkflowPresets.cpp
     src/DragFeel.h src/DragFeel.cpp
     src/KeyMove.h src/KeyMove.cpp
+    src/DeltaUpdate.h src/DeltaUpdate.cpp
+    src/BsdiffWrapper.h src/BsdiffWrapper.cpp
+    thirdparty/bsdiff/bsdiff.c
+    thirdparty/bsdiff/bspatch.c
+    thirdparty/bzip2/bzlib.c
+    thirdparty/bzip2/blocksort.c
+    thirdparty/bzip2/huffman.c
+    thirdparty/bzip2/crctable.c
+    thirdparty/bzip2/randtable.c
+    thirdparty/bzip2/compress.c
+    thirdparty/bzip2/decompress.c
     resources/neonboard.rc
 )
 
@@ -239,6 +250,30 @@ set_target_properties(NeonBoardHost PROPERTIES
     MACOSX_BUNDLE FALSE
 )
 target_include_directories(NeonBoardHost PRIVATE src)
+
+# 增量升级发布侧工具（R5-06）：neonboard-delta-tool build --from <旧> --to <新> --out <目录>
+# 由 scripts/build-delta.ps1 调用，生成 delta.json + files/ + patches/（bsdiff patch）。
+# 与主程序共用 DeltaUpdate / BsdiffWrapper 源码；main() 在 DeltaUpdate.cpp 里
+# 以 NEONBOARD_DELTA_TOOL_MAIN 宏隔离，不进主程序。
+add_executable(neonboard-delta-tool
+    src/DeltaUpdate.cpp
+    src/BsdiffWrapper.cpp
+    thirdparty/bsdiff/bsdiff.c
+    thirdparty/bsdiff/bspatch.c
+    thirdparty/bzip2/bzlib.c
+    thirdparty/bzip2/blocksort.c
+    thirdparty/bzip2/huffman.c
+    thirdparty/bzip2/crctable.c
+    thirdparty/bzip2/randtable.c
+    thirdparty/bzip2/compress.c
+    thirdparty/bzip2/decompress.c
+)
+target_compile_definitions(neonboard-delta-tool PRIVATE NEONBOARD_DELTA_TOOL_MAIN)
+target_link_libraries(neonboard-delta-tool PRIVATE Qt6::Core)
+target_include_directories(neonboard-delta-tool PRIVATE src ${CMAKE_SOURCE_DIR})
+if (MSVC)
+    target_compile_options(neonboard-delta-tool PRIVATE /utf-8)
+endif()
 
 # 自动化测试（R4-05）：include(CTest) 提供 BUILD_TESTING 开关与 test 目标，
 # 默认开启，因此 CI 与本地 `cmake --build` 都会编译测试目标 —— 编译失败即等于

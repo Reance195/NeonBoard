@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-11",
-            "completedAt": 0,
-            "createdAt": 1793281760,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "b86ad240-bc05-4f25-be16-c52571ad0dde",
-            "note": "起因（2026-10-29，维护者本会话「要DX-*」授权代登记）：装好 Qt 的开发机上双击 build\\NeonBoard.exe，Windows 加载器按依赖顺序连弹四个「找不到 Qt6Sql.dll / Qt6Widgets.dll / Qt6QuickControls2.dll / Qt6Quick.dll」，点四次确定才能退出 —— build/ 只是编译产物目录，CMake 没有 windeployqt 的 POST_BUILD，exe 旁边没有任何 Qt DLL；只有 dist/NeonBoard（deploy.ps1 出包）才自带运行时。\n\n同时暴露 scripts/dev-run.ps1 的回退失效：候选写死 dist\\NeonBoard\\NeonBoard.exe 与 build\\Release\\NeonBoard.exe，而 build.ps1 默认生成器已换成 Ninja（单配置），exe 落在 build\\NeonBoard.exe；dist 被删后脚本报「dist\\NeonBoard 与 build\\Release 均不存在」，把可用的构建产物判成不存在。即便补上路径，直接拉起构建产物仍会缺 DLL —— 必须把 Qt bin 前置到 PATH，否则仍是同一串系统错误框。\n\n修复：候选顺序补 build\\NeonBoard.exe；选中非 dist 产物时解析 Qt bin 并前置 PATH（顺序：本工作区 build\\CMakeCache.txt 的 CMAKE_PREFIX_PATH → 锚点区 build\\CMakeCache.txt → NEONBOARD_QT_BIN → QT_ROOT_DIR\\bin → C:\\Qt\\<ver>\\msvc*_64\\bin 取最高版本），全部落空时明确报错并给出设置示例；便携版存在时行为不变（自带运行时，不注入 PATH）。docs/pitfalls.md 补条目记录现象、根因与两种解法。\n\n边界：只动开发启动脚本与坑点文档，不碰出包链路（deploy.ps1 已正确处理两种布局）与 CI。\n\n状态：待办",
-            "orderKey": 1024,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "开发启动链路：dev-run 认 Ninja 布局并自带 Qt 运行时",
-            "updatedAt": 1793281760
-        },
-        {
             "code": "R13-01",
             "completedAt": 0,
             "createdAt": 1793282220,
@@ -181,6 +163,24 @@
             ],
             "title": "R5 发布 v0.1.1：版本号单源化 + 端到端升级验证",
             "updatedAt": 1793021221
+        },
+        {
+            "code": "DX-11",
+            "completedAt": 1793286993,
+            "createdAt": 1793281760,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "b86ad240-bc05-4f25-be16-c52571ad0dde",
+            "note": "起因（2026-10-29，维护者本会话「要DX-*」授权代登记）：装好 Qt 的开发机上双击 build\\NeonBoard.exe，Windows 加载器按依赖顺序连弹四个「找不到 Qt6Sql.dll / Qt6Widgets.dll / Qt6QuickControls2.dll / Qt6Quick.dll」，点四次确定才能退出 —— build/ 只是编译产物目录，CMake 没有 windeployqt 的 POST_BUILD，exe 旁边没有任何 Qt DLL；只有 dist/NeonBoard（deploy.ps1 出包）才自带运行时。\n\n同时暴露 scripts/dev-run.ps1 的回退失效：候选写死 dist\\NeonBoard\\NeonBoard.exe 与 build\\Release\\NeonBoard.exe，而 build.ps1 默认生成器已换成 Ninja（单配置），exe 落在 build\\NeonBoard.exe；dist 被删后脚本报「dist\\NeonBoard 与 build\\Release 均不存在」，把可用的构建产物判成不存在。即便补上路径，直接拉起构建产物仍会缺 DLL —— 必须把 Qt bin 前置到 PATH，否则仍是同一串系统错误框。\n\n修复：候选顺序补 build\\NeonBoard.exe；选中非 dist 产物时解析 Qt bin 并前置 PATH（顺序：本工作区 build\\CMakeCache.txt 的 CMAKE_PREFIX_PATH → 锚点区 build\\CMakeCache.txt → NEONBOARD_QT_BIN → QT_ROOT_DIR\\bin → C:\\Qt\\<ver>\\msvc*_64\\bin 取最高版本），全部落空时明确报错并给出设置示例；便携版存在时行为不变（自带运行时，不注入 PATH）。docs/pitfalls.md 补条目记录现象、根因与两种解法。\n\n边界：只动开发启动脚本与坑点文档，不碰出包链路（deploy.ps1 已正确处理两种布局）与 CI。\n\n状态：待办",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "开发启动链路：dev-run 认 Ninja 布局并自带 Qt 运行时",
+            "updatedAt": 1793286993
         },
         {
             "code": "R6-02",
@@ -2581,6 +2581,6 @@
             "updatedAt": 1793281760
         }
     ],
-    "updated": "2026-10-29T13:57:00",
+    "updated": "2026-10-29T23:16:33",
     "version": 3
 }

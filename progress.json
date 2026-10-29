@@ -91,24 +91,6 @@
             "updatedAt": 1793295841
         },
         {
-            "code": "R0-11",
-            "completedAt": 0,
-            "createdAt": 1793252504,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "159dabf6-8b1a-4954-8182-cce05155b10e",
-            "note": "起因：GitHub issue #4 —— CI `--smoke` 实测 startup=3772ms，目标冷启动 ≤2000ms。路线图 §3.1「剩余可做」四项：数据库建表/迁移线程化+延后首帧（数十 ms）、Shader 预热（.qsb 首次链接放 Splash 阶段，冷态 BOOT shown 比热态多 1–2 s，可能秒级）、回退字体加载阻塞首帧（数十 ms）、插件扫描后台化（实测仅 2–8 ms，优先级下调）。边界（issue #4 原文）：不改插件协议与数据库 schema。",
-            "orderKey": 31744,
-            "priority": 2,
-            "stage": "R0",
-            "status": "doing",
-            "tags": [
-                "R0"
-            ],
-            "title": "R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）",
-            "updatedAt": 1793254935
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -1685,6 +1667,24 @@
             "updatedAt": 1792719894
         },
         {
+            "code": "R0-11",
+            "completedAt": 1793299560,
+            "createdAt": 1793252504,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "159dabf6-8b1a-4954-8182-cce05155b10e",
+            "note": "起因：GitHub issue #4 —— CI `--smoke` 实测 startup=3772ms，目标冷启动 ≤2000ms。路线图 §3.1「剩余可做」四项：数据库建表/迁移线程化+延后首帧（数十 ms）、Shader 预热（.qsb 首次链接放 Splash 阶段，冷态 BOOT shown 比热态多 1–2 s，可能秒级）、回退字体加载阻塞首帧（数十 ms）、插件扫描后台化（实测仅 2–8 ms，优先级下调）。边界（issue #4 原文）：不改插件协议与数据库 schema。",
+            "orderKey": 31744,
+            "priority": 2,
+            "stage": "R0",
+            "status": "done",
+            "tags": [
+                "R0"
+            ],
+            "title": "R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）",
+            "updatedAt": 1793299560
+        },
+        {
             "completedAt": 1792719894,
             "createdAt": 1792719894,
             "deleted": false,
@@ -2689,6 +2689,6 @@
             "updatedAt": 1793281760
         }
     ],
-    "updated": "2026-10-29T18:44:30",
+    "updated": "2026-10-29T18:46:00",
     "version": 3
 }

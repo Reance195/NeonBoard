@@ -2188,6 +2188,7 @@
             "scope": [
                 "plugins/agent-codex/",
                 "tests/tst_agentprofile.cpp",
+                "tests/tst_taskrunner.cpp",
                 "src/AgentProfile.h",
                 "src/AgentProfile.cpp",
                 "src/TaskRunner.cpp",

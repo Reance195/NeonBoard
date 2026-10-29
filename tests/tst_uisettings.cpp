@@ -25,6 +25,7 @@ private slots:
 
     void onboardingOffByDefault();
     void shouldOnboardOnlyForEmptyBoard();
+    void shouldOnboardIsRecomputable();
     void finishingPersistsAcrossInstances();
     void settingSameValueDoesNotEmit();
     void qualityIsClamped();
@@ -72,6 +73,24 @@ void TestUiSettings::shouldOnboardOnlyForEmptyBoard()
     // 引导过以后，即使看板又清空了也不再弹
     settings.setOnboardingDone(true);
     QVERIFY(!settings.shouldOnboard(0));
+}
+
+void TestUiSettings::shouldOnboardIsRecomputable()
+{
+    // R13-01：QML 侧靠反复调用 shouldOnboard 来重算引导显隐（任务数一变就再问一次），
+    // 所以这里必须是无状态纯函数 —— 谁要是给它加缓存、或者把「第一次的答案」记住，
+    // 启动期 0 条 → 139 条的那次跳变就再也纠正不过来了，这条会先红。
+    UiSettings settings;
+
+    QVERIFY(settings.shouldOnboard(0));    // 空板，该弹
+    QVERIFY(!settings.shouldOnboard(42));  // 数据填回来了，不该弹
+    QVERIFY(settings.shouldOnboard(0));    // 又变回空板，仍然该弹 —— 没记住上一次
+    QVERIFY(!settings.shouldOnboard(1));
+
+    // 完成标记落下后，无论 count 怎么变都不再弹
+    settings.setOnboardingDone(true);
+    QVERIFY(!settings.shouldOnboard(0));
+    QVERIFY(!settings.shouldOnboard(1));
 }
 
 void TestUiSettings::finishingPersistsAcrossInstances()

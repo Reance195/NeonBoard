@@ -1,0 +1,25 @@
+{
+    "id": "com.lin.agent-opencode",
+    "name": "opencode",
+    "version": "1.0.0",
+    "apiVersion": 2,
+    "description": "声明 opencode 的出站执行 profile：卡片派活时以 opencode run --format json 拉起，只读走 --agent plan（opencode 没有原生只读开关，用只读 agent 配置兜）。",
+    "main": "main.qml",
+    "permissions": ["exec.agentProfiles"],
+    "contributes": {
+        "agentProfiles": [
+            {
+                "id": "opencode",
+                "displayName": "opencode",
+                "exe": "opencode",
+                "args": ["run", "--format", "json"],
+                "promptMode": "arg",
+                "readonlyArgs": ["--agent", "plan"],
+                "output": "json",
+                "env": { "NO_COLOR": "1" },
+                "defaultTimeoutMin": 30
+            }
+        ],
+        "commands": []
+    }
+}

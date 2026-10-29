@@ -302,7 +302,7 @@
             ],
             "depends": [],
             "id": "994f9282-52b4-40eb-995b-9d6a1c4a66f5",
-            "note": "起因（2026-10-29，维护者本会话授权「立」）：R10-02 立卡时漏写 src/main.cpp / src/BoardColumns.* / tests 三个实现必需路径，agent 两次靠 chore(board) 自行补 scope 才做完 —— 而 scripts/task_gate.py 的 ledger_shape() 只提取 id / title / stage / baseline，scope 与 acceptance 根本不进判定。也就是说：给自己扩大可改范围、或把验收条件改软，既不留痕也无需凭证，甚至能夹在 feat 提交里过去。这与条款 6「agent 不得自授权」直接冲突：卡片的可改范围是任务定义的一部分，不是备注。\n\n本次把 scope / acceptance 纳入任务定义视图，但保留「可纠正」：允许改，条件是单独一条 chore(board) 提交 + 「授权：」「批次：」两行 + 不与代码路径同提交。自动结卡通道（只改 baseline）不扩权，仍按「自动来源：」走。\n\n边界与已知局限：授权行是自述，闸门无法验真伪，它的价值是留痕与可复核（谁在哪个批次改了什么），真正的门仍是维护者复核；比较时忽略数组顺序与首尾空白，避免纯排版调整触发审计。存量 101 张卡已全部具备 scope/acceptance（DX-09 收口），本次不回溯改历史卡。\n\n状态：待办",
+            "note": "起因（2026-10-29，维护者本会话授权「立」）：R10-02 立卡时漏写 src/main.cpp / src/BoardColumns.* / tests 三个实现必需路径，agent 两次靠 chore(board) 自行补 scope 才做完 —— 而 scripts/task_gate.py 的 ledger_shape() 只提取 id / title / stage / baseline，scope 与 acceptance 根本不进判定。也就是说：给自己扩大可改范围、或把验收条件改软，既不留痕也无需凭证，甚至能夹在 feat 提交里过去。这与条款 6「agent 不得自授权」直接冲突：卡片的可改范围是任务定义的一部分，不是备注。\n\n本次把 scope / acceptance 纳入任务定义视图，但保留「可纠正」：允许改，条件是单独一条 chore(board) 提交 + 「授权：」「批次：」两行 + 不与代码路径同提交。自动结卡通道（只改 baseline）不扩权，仍按「自动来源：」走。\n\n边界与已知局限：授权行是自述，闸门无法验真伪，它的价值是留痕与可复核（谁在哪个批次改了什么），真正的门仍是维护者复核；比较时忽略数组顺序与首尾空白，避免纯排版调整触发审计。存量 101 张卡已全部具备 scope/acceptance（DX-09 收口），本次不回溯改历史卡。\n\n状态：待办 已完成 1 / 待做 0 —— 任务契约纳入审计：台账改动中 scope / acceptance 变更纳入 task_gate 内容校验留痕（57234cb #DX-10=done）",
             "scope": [
                 "scripts/task_gate.py",
                 "AGENTS.md",

@@ -22,6 +22,8 @@ inline constexpr auto kNewTask = "newtask";
 inline constexpr auto kSettings = "settings";
 inline constexpr auto kPlugins = "plugins";
 inline constexpr auto kAppearance = "appearance";
+// 主题包市场（R8-02）：--theme-market
+inline constexpr auto kThemeMarket = "thememarket";
 inline constexpr auto kLibrary = "library";
 // 项目全景（docs/project-map.json 驱动的只读地图）：排除故障时用命令行直接开
 inline constexpr auto kMap = "map";

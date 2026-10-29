@@ -2035,7 +2035,11 @@
                 "src/ThemeMarket.*",
                 "src/AppActions.*",
                 "tests/tst_thememarket.cpp",
-                "tests/CMakeLists.txt"
+                "tests/CMakeLists.txt",
+                "src/main.cpp",
+                "CMakeLists.txt",
+                "src/ThemePack.*",
+                "tests/tst_appactions.cpp"
             ],
             "stage": "R8",
             "title": "R8 主题包市场：浏览 / 安装 / 卸载"

@@ -120,6 +120,9 @@ QVariantMap TaskRunner::start(const QString &taskId)
     const QString cwd = exec.value(QStringLiteral("cwd")).toString();
     const bool stdinPrompt =
         profile.value(QStringLiteral("promptMode")).toString() == QStringLiteral("stdin");
+    // R9-05：stdin="null" 的 profile（codex）不读标准输入，必须把它接到 NUL，
+    // 否则子进程会停在「Reading additional input from stdin...」直到超时。
+    const bool stdinNull = profile.value(QStringLiteral("stdin")).toString() == QStringLiteral("null");
     const QStringList args =
         m_profiles->argv(agent, /*readonly=*/false, stdinPrompt ? QString() : prompt);
 
@@ -135,12 +138,12 @@ QVariantMap TaskRunner::start(const QString &taskId)
         maxAttempts = 1;
 
     return startRaw(taskId, args.value(0), args.mid(1), cwd, timeoutSec, stdinPrompt, prompt,
-                    maxAttempts);
+                    maxAttempts, stdinNull);
 }
 
 QVariantMap TaskRunner::startRaw(const QString &taskId, const QString &exe, const QStringList &args,
                                  const QString &cwd, int timeoutSec, bool promptToStdin,
-                                 const QString &prompt, int maxAttempts)
+                                 const QString &prompt, int maxAttempts, bool stdinNull)
 {
     if (exe.trimmed().isEmpty())
         return {{QStringLiteral("ok"), false},
@@ -160,11 +163,14 @@ QVariantMap TaskRunner::startRaw(const QString &taskId, const QString &exe, cons
     p->cwd = cwd;
     p->prompt = prompt;
     p->promptToStdin = promptToStdin;
+    // 两者都抢同一条标准输入：声明了 stdin=null 就是「不要喂 prompt」，以它为准。
+    p->stdinNull = stdinNull;
     p->timeoutSec = timeoutSec;
     p->maxAttempts = qBound(1, maxAttempts, 5);
     m_processes.append(p);
 
-    if (!setupProcess(*p, cwd, QStringList{exe} + args, promptToStdin, prompt, timeoutSec)) {
+    if (!setupProcess(*p, cwd, QStringList{exe} + args, promptToStdin, prompt, timeoutSec,
+                      stdinNull)) {
         // 启动失败（进程无法拉起）：补一条结束记录，别让 run 挂在 running 上
         const QString err = p->startError.isEmpty()
                                 ? QStringLiteral("进程启动失败")
@@ -186,7 +192,8 @@ QVariantMap TaskRunner::startRaw(const QString &taskId, const QString &exe, cons
 }
 
 bool TaskRunner::setupProcess(Process &p, const QString &cwd, const QStringList &args,
-                              bool promptToStdin, const QString &prompt, int timeoutSec)
+                              bool promptToStdin, const QString &prompt, int timeoutSec,
+                              bool stdinNull)
 {
     QProcess *proc = p.proc = new QProcess(this);
     proc->setProgram(args.value(0));
@@ -195,9 +202,15 @@ bool TaskRunner::setupProcess(Process &p, const QString &cwd, const QStringList 
         proc->setWorkingDirectory(cwd);
     proc->setProcessChannelMode(QProcess::SeparateChannels);
 
-    if (!promptToStdin && !prompt.trimmed().isEmpty()) {
-        // 目前 prompt 已在 argv 里（AgentProfile::argv 已追加）；此处仅兜底记录。
-        Q_UNUSED(promptToStdin);
+    // R9-05：标准输入的三条路必须显式表态，不能靠「什么都不做」。
+    //   1. stdin="null"  → 接 NUL：声明了不读 stdin 的 agent（codex）否则会卡在
+    //      「Reading additional input from stdin...」直到超时，症状像「模型慢」。
+    //   2. promptMode=stdin → 把 prompt 写进去再关写端。此前这里是个空分支，
+    //      注释写着「由 setupProcess 写标准输入」但从未实现，声明 stdin 的 profile
+    //      会拿到空 prompt（R6 遗留，R9-05 一并修掉）。
+    //   3. 其余 → 不碰，交给子进程继承（多数 CLI 会自行判定非 tty 并立即返回）。
+    if (stdinNull) {
+        proc->setStandardInputFile(QProcess::nullDevice());
     }
 
     // stdout / stderr 增量拉取，合并进日志缓冲并流式外发
@@ -247,6 +260,12 @@ bool TaskRunner::setupProcess(Process &p, const QString &cwd, const QStringList 
         return false;
     }
     attachJob(p);
+    // prompt 必须等进程真起来再写：QProcess 在 NotRunning 状态 write 会静默丢数据。
+    // 无论 prompt 是否为空都要关写端 —— 不关的话等 stdin EOF 的 CLI 会一直挂到超时。
+    if (promptToStdin && !stdinNull) {
+        proc->write(prompt.toUtf8());
+        proc->closeWriteChannel();
+    }
     p.heartbeat->start();
     p.deadline->start();
     return true;
@@ -397,7 +416,7 @@ bool TaskRunner::tryRetry(Process &p, const QVariantMap &detail)
     emit runFinished(oldRunId, finalDetail); // 上一轮的终态照发，UI 可见每轮结果
 
     if (!setupProcess(p, p.cwd, args, p.promptToStdin, p.promptToStdin ? retryPrompt : p.prompt,
-                      p.timeoutSec)) {
+                      p.timeoutSec, p.stdinNull)) {
         QVariantMap startDetail;
         startDetail.insert(QStringLiteral("exitCode"), -1);
         startDetail.insert(QStringLiteral("lastError"),

@@ -60,6 +60,10 @@ QVariantMap makeBuiltin(const QString &id, const QString &displayName, const QSt
         {QStringLiteral("output"), output},
         {QStringLiteral("env"), QVariantMap{{QStringLiteral("NO_COLOR"), QStringLiteral("1")}}},
         {QStringLiteral("defaultTimeoutMin"), 30},
+        // 字段集必须与 normalizeProfile 的输出**逐键相同**：sameProfile 序列化整个 map 比较，
+        // 少一个键就会让「与下层等价」永远判假，于是每条都留覆盖、插件改了也跟不上。
+        {QStringLiteral("enabled"), true},
+        {QStringLiteral("stdin"), QString()},
     };
 }
 
@@ -142,6 +146,25 @@ QVariantMap normalizeProfile(const QVariantMap &raw)
     if (displayName.isEmpty())
         displayName = id;
 
+    // R9-05：enabled=false 表示「声明了但默认不启用」。codex 卡在这上面 ——
+    // 它的 CLI 参数实测过，但整轮 exec 没跑通（docs/agent-profile.md §12.1 禁止内置未实测
+    // profile）。用字段表达「等实测通过再启用」，比在文档里写一句「先别用」可靠。
+    bool enabled = true;
+    const QVariant rawEnabled = raw.value(QStringLiteral("enabled"));
+    if (rawEnabled.isValid() && !rawEnabled.isNull())
+        enabled = rawEnabled.toBool();
+
+    // stdin 只有 "null" 一个合法值（把子进程标准输入接 NUL）。
+    // 拼错的值直接判整条非法，而不是静默忽略 —— 静默忽略等于声明没写，症状是
+    // 子进程卡在「Reading additional input from stdin...」直到超时，极难归因。
+    QString stdinMode;
+    const QString rawStdin = raw.value(QStringLiteral("stdin")).toString().trimmed().toLower();
+    if (!rawStdin.isEmpty()) {
+        if (rawStdin != QStringLiteral("null"))
+            return {};
+        stdinMode = QStringLiteral("null");
+    }
+
     return {
         {QStringLiteral("id"), id},
         {QStringLiteral("displayName"), displayName},
@@ -152,6 +175,8 @@ QVariantMap normalizeProfile(const QVariantMap &raw)
         {QStringLiteral("output"), output},
         {QStringLiteral("env"), env},
         {QStringLiteral("defaultTimeoutMin"), timeoutMin},
+        {QStringLiteral("enabled"), enabled},
+        {QStringLiteral("stdin"), stdinMode},
     };
 }
 
@@ -428,7 +453,10 @@ QVariantList AgentProfile::profiles() const
     // 这也是它不能进 normalizeProfile 白名单的原因 —— 那份输出是要写库的。
     for (qsizetype i = 0; i < out.size(); ++i) {
         QVariantMap row = out.at(i).toMap();
-        row.insert(QStringLiteral("available"), profileRunnable(row));
+        const bool enabled = row.value(QStringLiteral("enabled"), true).toBool();
+        row.insert(QStringLiteral("enabled"), enabled);
+        // available 与 isAvailable() 必须同源，否则设置页显示「可用」、派活却被拒。
+        row.insert(QStringLiteral("available"), enabled && profileRunnable(row));
         out[i] = row;
     }
     return out;
@@ -456,6 +484,11 @@ bool AgentProfile::isAvailable(const QString &id) const
 {
     const QVariantMap profile = profileOf(id);
     if (profile.isEmpty())
+        return false;
+    // 「可用」= 能直接派活：既没被声明成未启用，exe 也解析得到。
+    // 两者混在这里是故意的 —— 调用方问的是「这张卡能派给它吗」，
+    // 而不是「它的 exe 在不在」。要区分原因就读 profiles() 里的 enabled / available。
+    if (!profile.value(QStringLiteral("enabled"), true).toBool())
         return false;
     return profileRunnable(profile);
 }

@@ -91,6 +91,8 @@ private slots:
     void legacySnapshotMigrates();
     void availabilityProbe();
     void availabilityInModel();
+    void stdinField();
+    void disabledIsNotAvailable();
     void officialPluginManifests();
 
 private:
@@ -525,6 +527,50 @@ void TestAgentProfile::availabilityInModel()
     QVERIFY(!m_db->metaValue(kOverridesKey).contains(QStringLiteral("available")));
 }
 
+void TestAgentProfile::stdinField()
+{
+    // R9-05：stdin 只有 "null" 一个合法值。拼错必须整条判非法，不能静默忽略 ——
+    // 静默忽略等于没声明，症状是子进程卡在「Reading additional input from stdin...」
+    // 直到超时，看起来像模型慢，归因成本极高。
+    QVariantMap withNull = customProfile(QStringLiteral("null-stdin"));
+    withNull.insert(QStringLiteral("stdin"), QStringLiteral("null"));
+    QVERIFY(m_profile->saveProfile(withNull));
+    QCOMPARE(m_profile->profileOf(QStringLiteral("null-stdin"))
+                 .value(QStringLiteral("stdin"))
+                 .toString(),
+             QStringLiteral("null"));
+
+    QVariantMap typo = customProfile(QStringLiteral("typo-stdin"));
+    typo.insert(QStringLiteral("stdin"), QStringLiteral("nul")); // 少一个 l
+    QVERIFY(!m_profile->saveProfile(typo));
+    QVERIFY(m_profile->profileOf(QStringLiteral("typo-stdin")).isEmpty());
+
+    // 没声明的是空串而不是 "null"：执行器据此判断要不要接 NUL，两种值必须能区分
+    QCOMPARE(m_profile->profileOf(QStringLiteral("opencode")).value(QStringLiteral("stdin")).toString(),
+             QString());
+}
+
+void TestAgentProfile::disabledIsNotAvailable()
+{
+    // R9-05：enabled=false 表示「声明了但默认不启用」（codex 未跑通整轮就是这种）。
+    // 它必须同时挡住 isAvailable —— 否则「不可派活」只写在文档里，
+    // 而执行器照样会把它拉起来然后超时。
+    QVariantMap off = customProfile(QStringLiteral("off-agent"));
+    off.insert(QStringLiteral("exe"), QCoreApplication::applicationFilePath()); // exe 确实存在
+    off.insert(QStringLiteral("enabled"), false);
+    QVERIFY(m_profile->saveProfile(off));
+
+    QVERIFY(m_profile->isAvailable(QStringLiteral("off-agent")) == false);
+
+    // 设置页要能区分两种原因：未启用 vs exe 找不到。混成一个布尔就说不清该改哪。
+    const QVariantMap row = m_profile->profileOf(QStringLiteral("off-agent"));
+    QVERIFY(!row.value(QStringLiteral("enabled")).toBool());
+    QVERIFY(!row.value(QStringLiteral("available")).toBool());
+
+    // 默认是启用：没写 enabled 的 profile 不该被当成关掉
+    QVERIFY(m_profile->profileOf(QStringLiteral("opencode")).value(QStringLiteral("enabled")).toBool());
+}
+
 void TestAgentProfile::officialPluginManifests()
 {
     // 官方 agent 插件声明的 profile 会 upsert 覆盖同 id 的内置条目（L1 > L0）。
@@ -539,6 +585,7 @@ void TestAgentProfile::officialPluginManifests()
         QStringLiteral("agent-claude"),
         QStringLiteral("agent-opencode"),
         QStringLiteral("agent-cursor"),
+        QStringLiteral("agent-codex"),
     };
 
     for (const QString &dirName : manifests) {
@@ -570,7 +617,14 @@ void TestAgentProfile::officialPluginManifests()
             if (value.toMap().value(QStringLiteral("id")).toString() == id)
                 builtin = value.toMap();
         }
-        QVERIFY2(!builtin.isEmpty(), qPrintable(QStringLiteral("内置表里没有 %1").arg(id)));
+        // 不在内置表里 = 插件新增的 agent。内置表只收录实测过的参数（R9-05 的 codex
+        // 就是反例），所以这种声明必须显式 enabled=false，直到有人跑通整轮 exec。
+        // 否则「没验收过的参数」会直接出现在可选列表里，失败还被记成「超时」。
+        if (builtin.isEmpty()) {
+            QVERIFY2(!declared.value(QStringLiteral("enabled"), true).toBool(),
+                     qPrintable(id + QStringLiteral(" 不在内置表里，必须显式 enabled=false")));
+            continue;
+        }
 
         for (const QString &key : {QStringLiteral("displayName"), QStringLiteral("exe"),
                                    QStringLiteral("promptMode"), QStringLiteral("output")}) {
@@ -591,6 +645,22 @@ void TestAgentProfile::officialPluginManifests()
         QCOMPARE(merged.argv(id, true, prompt), m_profile->argv(id, true, prompt));
         QCOMPARE(merged.argv(id, false, prompt), m_profile->argv(id, false, prompt));
     }
+
+    // codex 是唯一「声明了但默认不启用」的，它必须同时声明 stdin="null"。
+    // 少了这条，一旦启用就会卡在「Reading additional input from stdin...」直到超时，
+    // 而运行记录只会写「超时」—— 没有任何线索指向 stdin。
+    QFile codexFile(root + QStringLiteral("/plugins/agent-codex/plugin.json"));
+    QVERIFY(codexFile.open(QIODevice::ReadOnly));
+    const QJsonObject codexProfile = QJsonDocument::fromJson(codexFile.readAll())
+                                         .object()
+                                         .value(QStringLiteral("contributes"))
+                                         .toObject()
+                                         .value(QStringLiteral("agentProfiles"))
+                                         .toArray()
+                                         .at(0)
+                                         .toObject();
+    QCOMPARE(codexProfile.value(QStringLiteral("stdin")).toString(), QStringLiteral("null"));
+    QVERIFY(!codexProfile.value(QStringLiteral("enabled")).toBool(true));
 }
 
 QTEST_GUILESS_MAIN(TestAgentProfile)

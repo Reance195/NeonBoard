@@ -15,12 +15,32 @@
   "readonlyArgs": ["--agent", "plan"],  // 只读模式追加的参数；空表示该 agent 无只读开关
   "output": "json",                     // stream-json | json | text
   "env": { "NO_COLOR": "1" },
-  "defaultTimeoutMin": 30               // 1–480
+  "defaultTimeoutMin": 30,               // 1–480
+  "stdin": "null",                       // 可选：把子进程标准输入接到 NUL（codex 必须）
+  "enabled": false                       // 可选：false = 声明了但默认不启用，不可派活
 }
 ```
 
 命令行**只按 argv 拼装**：`exe + args + readonlyArgs（只读时）+ prompt（promptMode=arg 时）`，
 不经过 shell；界面上的完整命令行只是同一份 argv 的展示串（含引号转义），执行侧不使用它。
+
+标准输入的三条路（R9-05）互斥，按此优先级：
+
+| 声明 | 执行器行为 |
+| --- | --- |
+| `stdin: "null"` | `setStandardInputFile(nullDevice())` —— 子进程读到 EOF，不会卡在等输入 |
+| `promptMode: "stdin"` | 进程起来后 `write(prompt)` + `closeWriteChannel()` |
+| 都没声明 | 不碰，交给子进程继承 |
+
+`stdin` 只认 `"null"` 一个值，写错（如 `"nul"`）会让**整条 profile 判非法**而不是静默忽略 ——
+忽略的症状是子进程卡在 `Reading additional input from stdin...` 直到超时，看起来像模型慢。
+
+`enabled: false` 是"声明了但默认不启用"：profile 仍出现在列表里（可编辑、可改成启用），
+但 `isAvailable()` 直接判否，派活时不会被选中。codex 就卡在这条上 —— 参数看过，
+整轮 `exec` 没跑通，按 §12.1 不得进入可选列表。
+
+`available`（每行的"能不能派活"）与 `enabled` 一起构成判断，两者都只进返回值**不落盘**：
+PATH 会变、盘会拔，写进 meta 就成了谎话。
 
 ## 存储与生效
 

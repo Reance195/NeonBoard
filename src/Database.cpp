@@ -332,6 +332,29 @@ bool Database::open(QString *error, const QString &pathOverride)
         return false;
     }
 
+    // 卡片事件侧表（R8-04）：详情抽屉的时间线从这里读。
+    // 和其他侧表同一条纪律：独立表、不往 task 表加列、不升 user_version ——
+    // 老库打开就自动建出空表，历史任务一条都不受影响，老版本程序也照开不误。
+    //
+    // 排序用自增 id 而不是 at：一秒内连点两下（完成又恢复）at 会撞在一起，
+    // 按时间排出来的顺序每次刷新都可能不一样。at 只用来显示。
+    // 不加外键级联：卡删了事件要留着 —— 审计的意义就在于「这张卡存在过」。
+    if (!exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS task_event ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  task_id TEXT NOT NULL,"
+            "  kind TEXT NOT NULL,"
+            "  detail TEXT NOT NULL DEFAULT '',"
+            "  at INTEGER NOT NULL DEFAULT 0"
+            ")"), error)) {
+        return false;
+    }
+    if (!exec(QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_task_event_task ON task_event(task_id, id DESC)"),
+            error)) {
+        return false;
+    }
+
     if (m_recovered) {
         setMetaValue(QStringLiteral("db.recovered_at"),
                      QString::number(QDateTime::currentSecsSinceEpoch()));

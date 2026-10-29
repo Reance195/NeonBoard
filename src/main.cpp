@@ -28,6 +28,7 @@
 #include "TaskModel.h"
 #include "TaskTree.h"
 #include "TaskStats.h"
+#include "TaskAudit.h"
 #include "TaskExtra.h"
 #include "TaskExec.h"
 #include "TaskRunner.h"
@@ -266,6 +267,10 @@ int main(int argc, char *argv[])
     // 卡片详情抽屉（R8-03）：补丁的脏检查与保存收口，避免「没改也写一次库」。
     // 依赖顺序：要拿 taskExtra 写提醒 / 重复（侧表），所以只能排在这里而不是 TaskUndo 之后
     CardDetail cardDetail(&taskStore, &taskExtra, &taskUndo);
+
+    // 卡片事件审计（R8-04）：侧表 task_event，不动 task 表结构、不升 user_version。
+    // 挂在 taskStore 的生命周期信号上，所以必须早于任何写入（包括自检与导入）。
+    TaskAudit taskAudit(&database, &taskStore);
 
     // 任务执行定义（目标 / 验收 / 边界 / 执行参数）：侧表 task_exec（M0）
     TaskExec taskExec(&database, &taskStore);
@@ -1648,6 +1653,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("taskTree"), &taskTree);
     engine.rootContext()->setContextProperty(QStringLiteral("taskStats"), &taskStats);
     engine.rootContext()->setContextProperty(QStringLiteral("taskExtra"), &taskExtra);
+    engine.rootContext()->setContextProperty(QStringLiteral("taskAudit"), &taskAudit);
     engine.rootContext()->setContextProperty(QStringLiteral("taskExec"), &taskExec);
     engine.rootContext()->setContextProperty(QStringLiteral("agentProfile"), &agentProfile);
     engine.rootContext()->setContextProperty(QStringLiteral("taskRuns"), &taskRuns);

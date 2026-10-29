@@ -16,6 +16,7 @@
 #include "BoardSync.h"
 #include "RoadmapSync.h"
 #include "ProjectMap.h"
+#include "ProjectStore.h"
 #include "DataPort.h"
 #include "SingleInstance.h"
 #include "SplashWindow.h"
@@ -380,6 +381,10 @@ int main(int argc, char *argv[])
     // 界面按这张表 Repeater 出列，不再写死三列。
     BoardColumns boardColumns(&database, &taskStore);
     boardColumns.setTaskTree(&taskTree);
+    // 项目维度（R10-01 数据层 / R10-02 视图）：门面在列容器之前建，范围过滤才有东西可问。
+    // 只读侧表，不碰 task 表 —— 切范围是视图状态，不写库。
+    ProjectStore projectStore(&database);
+    boardColumns.setProjectStore(&projectStore);
     boardColumns.reload();
     // 列是库里读出来的：启动时把实际列数与列 id 打进日志，
     // 「界面上一列都没有」这类问题（列表异常 / 迁移漏了）能直接从日志定位。
@@ -1651,6 +1656,8 @@ int main(int argc, char *argv[])
     projectMap.startWatching();
     engine.rootContext()->setContextProperty(QStringLiteral("reminderScheduler"), &reminderScheduler);
     engine.rootContext()->setContextProperty(QStringLiteral("boardColumns"), &boardColumns);
+    // 项目清单与卡片归属（R10-02）：切换器读 projects()，卡片角标读 taskProject()
+    engine.rootContext()->setContextProperty(QStringLiteral("projectStore"), &projectStore);
     engine.rootContext()->setContextProperty(QStringLiteral("cardDetail"), &cardDetail);
     engine.rootContext()->setContextProperty(QStringLiteral("uiSettings"), &uiSettings);
     engine.rootContext()->setContextProperty(QStringLiteral("roadmap"), &roadmap);

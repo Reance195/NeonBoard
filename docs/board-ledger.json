@@ -955,7 +955,9 @@
                 "src/ProjectStore.cpp",
                 "src/TaskFilterModel.h",
                 "src/TaskFilterModel.cpp",
-                "CMakeLists.txt"
+                "CMakeLists.txt",
+                "tests/tst_projectscope.cpp",
+                "tests/CMakeLists.txt"
             ],
             "stage": "R10",
             "title": "R10 两级看板：全局 ⇄ 项目范围切换"
@@ -2196,6 +2198,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R10-02": {
+            "agent": "agent-cat",
+            "branch": "feature/r10-02-project-scope",
+            "claimedAt": 1793247764,
+            "head": "c8e4e91a00d9cb35e5d07a9f785cb8a44ee4f25a"
+        }
+    },
     "version": 1
 }

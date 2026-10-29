@@ -1,7 +1,9 @@
 #pragma once
 
 #include <QObject>
+#include <QHash>
 #include <QString>
+#include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -48,6 +50,14 @@ public:
     // 未归属的卡片数（task 表里有、task_project 里没有）
     Q_INVOKABLE int unassignedCount() const;
 
+    // 某项目下的全部卡片 id（一次查询）。视图过滤用：TaskFilterModel 在范围切换时
+    // 取一次存成集合，之后逐行判定只查内存 —— 别在 filterAcceptsRow 里逐卡查库，
+    // 那是 O(卡片数 × 每次过滤)，滚动一下就是几百次 SQL。
+    QStringList taskIdsOf(const QString &projectId) const;
+    // 卡片角标用：{ id, name, color }；未归属返回空 map。
+    // 带内存缓存（随 changed() 失效），因为卡片 delegate 会在重绘时反复问同一个任务。
+    Q_INVOKABLE QVariantMap taskProject(const QString &taskId) const;
+
     // 任务被删时清掉归属行（由使用方订阅 TaskModel::taskRemoved 后调用）
     void forgetTask(const QString &taskId);
 
@@ -60,4 +70,6 @@ private:
 
     Database *m_database = nullptr;
     int m_revision = 0;
+    // mutable：查询是 const 的，但缓存要写。失效点在 bump()（任何归属变更都走它）。
+    mutable QHash<QString, QVariantMap> m_taskProjectCache;
 };

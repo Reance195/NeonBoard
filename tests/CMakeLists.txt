@@ -99,6 +99,21 @@ neonboard_add_test(tst_projectstore
 )
 target_link_libraries(tst_projectstore PRIVATE Qt6::Sql)
 
+# R10-02：两级看板（全局 ⇄ 项目范围）的视图语义。
+# 要真库 + 真列模型：验收问的是「切到项目后列里还剩哪些卡」，
+# 那是 BoardColumns → TaskFilterModel → task_project 这条链的结果。
+neonboard_add_test(tst_projectscope
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskInputParser.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
+    ${CMAKE_SOURCE_DIR}/src/ProjectStore.cpp
+    ${CMAKE_SOURCE_DIR}/src/BoardColumns.cpp
+)
+target_link_libraries(tst_projectscope PRIVATE Qt6::Sql)
+
 # R4-03 批次三：看板列清单（列由库驱动）+ 列内精确插位 + 状态/列一致性。
 # 覆盖「列顺序与角色 / 搜索落到每列 / 按列录入 / 列内插位 / 按状态移动同步列 /
 # reload 不重建模型 / 撤销连列一起还原」。
@@ -110,6 +125,7 @@ neonboard_add_test(tst_boardcolumns
     ${CMAKE_SOURCE_DIR}/src/TaskFilterModel.cpp
     ${CMAKE_SOURCE_DIR}/src/TaskTree.cpp
     ${CMAKE_SOURCE_DIR}/src/BoardColumns.cpp
+    ${CMAKE_SOURCE_DIR}/src/ProjectStore.cpp
     ${CMAKE_SOURCE_DIR}/src/TaskUndo.cpp
     ${CMAKE_SOURCE_DIR}/src/TaskExtra.cpp
 )

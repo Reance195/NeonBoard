@@ -11,6 +11,20 @@ Rectangle {
     property string due: ""
     property string taskId: ""
     property string taskStatus: "todo"
+    // 项目角标（R10-02）：只在全局视图显示。项目视图里整列都是同一个项目，
+    // 每张卡再挂一个相同的标只是噪音 —— 由列表把「当前是全局吗」传进来，
+    // 卡片自己不去读窗口状态。
+    property bool showProjectBadge: false
+    // 归属随 projectStore.revision 重算：归类脚本跑完、详情里改了项目，角标自己跟上。
+    readonly property var projectInfo: {
+        const rev = projectStore.revision
+        return taskId.length > 0 ? projectStore.taskProject(taskId) : ({})
+    }
+    readonly property string projectLabel: projectInfo.name ? String(projectInfo.name) : ""
+    readonly property color projectAccent: {
+        const custom = projectInfo.color ? String(projectInfo.color) : ""
+        return custom.length > 0 ? custom : Theme.violet
+    }
 
     // 主任务 / 子任务关联（数据来自 taskTree 门面：独立边表 task_link）
     readonly property string parentTitle: taskTree.parentTitle(taskId)
@@ -315,6 +329,39 @@ Rectangle {
 
             Row {
                 spacing: 6
+
+                // 项目角标排最左：先看「这是谁的事」，再看「这是谁的子任务 / 谁在跑」
+                Rectangle {
+                    visible: card.showProjectBadge && card.projectLabel.length > 0
+                    height: 18
+                    width: projectBadgeText.width + 18
+                    radius: 5
+                    color: Qt.rgba(card.projectAccent.r, card.projectAccent.g, card.projectAccent.b, 0.14)
+                    border.width: 1
+                    border.color: Qt.rgba(card.projectAccent.r, card.projectAccent.g, card.projectAccent.b, 0.32)
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 4
+
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 5
+                            height: 5
+                            radius: 2.5
+                            color: card.projectAccent
+                        }
+
+                        Text {
+                            id: projectBadgeText
+                            text: card.projectLabel
+                            color: card.projectAccent
+                            font.pixelSize: 10
+                            elide: Text.ElideRight
+                            width: Math.min(implicitWidth, 96)
+                        }
+                    }
+                }
 
                 Rectangle {
                     visible: card.hasParent

@@ -22,6 +22,9 @@ int ProjectStore::revision() const
 
 void ProjectStore::bump()
 {
+    // 任何归属/项目变更都从这里过，缓存失效只需挂一处 ——
+    // 散在各个写方法里迟早漏一个，然后卡片角标就长期显示旧项目。
+    m_taskProjectCache.clear();
     ++m_revision;
     emit changed();
 }
@@ -289,8 +292,59 @@ int ProjectStore::unassignedCount() const
     return 0;
 }
 
+QStringList ProjectStore::taskIdsOf(const QString &projectId) const
+{
+    QStringList ids;
+    if (!m_database || projectId.isEmpty())
+        return ids;
+
+    QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    QSqlQuery query(db);
+    // JOIN task：task_project 里可能有已删任务留下的孤儿行，让它们不出现在任何视图里
+    query.prepare(QStringLiteral(
+        "SELECT tp.task_id FROM task_project tp JOIN task t ON t.id = tp.task_id "
+        "WHERE tp.project_id = ?"));
+    query.addBindValue(projectId);
+    if (!query.exec()) {
+        qWarning() << "ProjectStore: 读取项目卡片失败" << query.lastError().text();
+        return ids;
+    }
+    while (query.next())
+        ids.append(query.value(0).toString());
+    return ids;
+}
+
+QVariantMap ProjectStore::taskProject(const QString &taskId) const
+{
+    if (!m_database || taskId.isEmpty())
+        return QVariantMap();
+
+    const auto cached = m_taskProjectCache.constFind(taskId);
+    if (cached != m_taskProjectCache.constEnd())
+        return cached.value();
+
+    QVariantMap info;
+    QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "SELECT p.id, p.name, p.color FROM task_project tp "
+        "JOIN project p ON p.id = tp.project_id WHERE tp.task_id = ? LIMIT 1"));
+    query.addBindValue(taskId);
+    if (query.exec() && query.next()) {
+        info = QVariantMap{
+            {QStringLiteral("id"), query.value(0).toString()},
+            {QStringLiteral("name"), query.value(1).toString()},
+            {QStringLiteral("color"), query.value(2).toString()},
+        };
+    }
+    // 未归属也缓存（空 map）：绝大多数卡在项目视图外，每次都查库没必要。
+    m_taskProjectCache.insert(taskId, info);
+    return info;
+}
+
 void ProjectStore::forgetTask(const QString &taskId)
 {
+    m_taskProjectCache.remove(taskId);
     if (!m_database || taskId.isEmpty())
         return;
 
@@ -299,8 +353,10 @@ void ProjectStore::forgetTask(const QString &taskId)
     query.prepare(QStringLiteral("DELETE FROM task_project WHERE task_id = ?"));
     query.addBindValue(taskId);
     if (!query.exec()) {
-        qWarning() << "ProjectStore: 清理任务归属失败" << query.lastError().text();
+        qWarning() << "ProjectStore: 清理归属失败" << query.lastError().text();
         return;
     }
-    bump();
+    // 只有真删掉行才递增：没有归属的卡被删时不该惊动整个视图。
+    if (query.numRowsAffected() > 0)
+        bump();
 }

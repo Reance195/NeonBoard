@@ -84,6 +84,23 @@ void TaskFilterModel::setStage(const QString &stage)
     emit countChanged();
 }
 
+QString TaskFilterModel::project() const
+{
+    return m_project;
+}
+
+void TaskFilterModel::setProjectScope(const QString &project, const QSet<QString> &taskIds)
+{
+    // 集合即使不变也要换 —— 归属变动时范围名可能没变，但内容变了。
+    if (m_project == project && m_projectTaskIds == taskIds)
+        return;
+    m_project = project;
+    m_projectTaskIds = taskIds;
+    invalidateFilter();
+    emit projectChanged();
+    emit countChanged();
+}
+
 void TaskFilterModel::setTaskTree(TaskTree *tree)
 {
     if (m_tree == tree)
@@ -143,6 +160,12 @@ bool TaskFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceP
         const QString tag = index.data(TaskModel::TagRole).toString().trimmed().toUpper();
         if (tag != m_stage)
             return false;
+    }
+    // 项目范围：未归属的卡不在任何集合里，项目视图下自然被挡掉 ——
+    // 这正是「未归属卡不被任何项目视图收走」的验收口径，别改成「没归属就全放行」。
+    if (!m_project.isEmpty()
+        && !m_projectTaskIds.contains(index.data(TaskModel::IdRole).toString())) {
+        return false;
     }
     if (m_search.isEmpty())
         return true;

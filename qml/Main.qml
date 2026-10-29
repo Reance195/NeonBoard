@@ -469,11 +469,16 @@ ApplicationWindow {
     }
 
     property bool dragActive: false
+    // 松手后的收尾：拖影还要淡出 settleMs 毫秒才彻底消失。
+    // 数据在 endTaskDrag 里已经写完了，这段时间纯粹是视觉收尾，绝不阻塞落库。
+    property bool dragSettling: false
     property string dragTaskId: ""
     property string dragTaskTitle: ""
     property string dragTaskStatus: ""
     property real dragX: 0
     property real dragY: 0
+    // 磁吸后的拖影纵向位置（root 坐标）；-1 表示没吸附，拖影跟手
+    property real dragSnapY: -1
     // 当前悬停的目标列 id，用于目标列呼吸高亮；空串表示不在任何列上。
     // 用列而不是状态：同状态的多个列必须各自高亮，串味会让用户以为拖到了隔壁。
     property string dragOverColumnId: ""
@@ -550,8 +555,12 @@ ApplicationWindow {
         dragTaskStatus = status
         dragX = x
         dragY = y
+        dragSnapY = -1
+        dragSettling = false
         dragOverColumnId = boardColumns.columnIdForStatus(status)
         dragActive = true
+        dragTrail.reset()
+        dragTrail.feed(x, y)
     }
 
     function clearDropMarks() {
@@ -560,16 +569,19 @@ ApplicationWindow {
             columns[i].dropBeforeId = ""
             columns[i].dropAnchorId = ""
             columns[i].dropAnchorBelow = false
+            columns[i].dropSnapped = false
         }
     }
 
     function updateTaskDrag(x, y) {
         dragX = x
         dragY = y
+        dragTrail.feed(x, y)
         var column = columnAt(x, y)
         if (!column) {
             clearDropMarks()
             dragOverColumnId = ""
+            dragSnapY = -1
             return
         }
         var origin = column.mapToItem(root, 0, 0)
@@ -579,8 +591,12 @@ ApplicationWindow {
             columns[i].dropBeforeId = (columns[i] === column) ? drop.beforeId : ""
             columns[i].dropAnchorId = (columns[i] === column) ? drop.anchorId : ""
             columns[i].dropAnchorBelow = (columns[i] === column) ? drop.below : false
+            columns[i].dropSnapped = (columns[i] === column) ? drop.onLine : false
         }
         dragOverColumnId = column.columnId
+        // 磁吸：贴上插入线时，拖影纵向吸到线上（横向仍然跟手）。
+        // 只吸纵向 —— 用户判断的是「插进哪一行」，横向吸附只会让人觉得鼠标漂了。
+        dragSnapY = drop.onLine ? (origin.y + drop.viewY) : -1
     }
 
     function endTaskDrag(x, y) {
@@ -598,14 +614,26 @@ ApplicationWindow {
                     ? taskUndo.moveTaskBeforeColumn(dragTaskId, column.columnId, drop.beforeId)
                     : taskUndo.moveTaskBefore(dragTaskId, column.status, drop.beforeId)
             if (moved)
-                column.ripple()
+                column.ripple(drop.viewY)
         }
         clearDropMarks()
+        dragTrail.reset()
         dragActive = false
+        dragSettling = true
+        dragSettleTimer.restart()
         dragOverColumnId = ""
+        dragSnapY = -1
         dragTaskId = ""
         dragTaskTitle = ""
         dragTaskStatus = ""
+    }
+
+    // 拖影收尾计时：reduced 时 0ms（下一拍就消失），常规 90ms。
+    // 时长由 C++ 单测钉住（tst_dragfeel：不许超过 100ms，否则拖完像卡了一下）。
+    Timer {
+        id: dragSettleTimer
+        interval: dragFeel.settleDuration(Motion.reduced)
+        onTriggered: window.dragSettling = false
     }
 
     // 所有可撤销操作统一走 taskUndo（删除 / 移动 / 完成 / 编辑）
@@ -3923,24 +3951,90 @@ MouseArea {
         sourceComponent: taskComposerComponent
     }
 
+    // 光轨：拖影后面拖一条渐隐的霓虹尾巴。
+    // 用单个 Canvas 而不是一串 Rectangle —— 连续拖 20 次也不会新增任何动画对象，
+    // 采样点存在 JS 数组里，超出上限就丢最旧的（这正是「无残留」那条验收的做法）。
+    Canvas {
+        id: dragTrail
+        z: 299
+        anchors.fill: parent
+        // 减弱动效 / 低画质档不画：这两档下任何拖尾都只是噪声
+        visible: (window.dragActive || window.dragSettling) && !Motion.reduced && Theme.quality > 0
+        opacity: window.dragActive ? 1 : 0
+
+        Behavior on opacity {
+            NumberAnimation { duration: dragFeel.settleDuration(Motion.reduced) }
+        }
+
+        property var points: []
+
+        function feed(x, y) {
+            var next = points.slice()
+            next.unshift({ x: x, y: y })
+            if (next.length > 10)
+                next.length = 10
+            points = next
+            requestPaint()
+        }
+
+        function reset() {
+            if (points.length === 0)
+                return
+            points = []
+            requestPaint()
+        }
+
+        onPaint: {
+            var pts = points
+            if (pts.length < 2)
+                return
+            var ctx = getContext("2d")
+            ctx.clearRect(0, 0, width, height)
+            ctx.lineCap = "round"
+            var n = pts.length
+            for (var i = 0; i < n - 1; ++i) {
+                var k = 1 - i / n
+                ctx.beginPath()
+                ctx.moveTo(pts[i].x, pts[i].y)
+                ctx.lineTo(pts[i + 1].x, pts[i + 1].y)
+                ctx.lineWidth = 9 * k
+                ctx.strokeStyle = Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20 * k)
+                ctx.stroke()
+            }
+        }
+    }
+
     Rectangle {
         id: dragGhost
-        visible: window.dragActive
+        visible: window.dragActive || window.dragSettling
         width: Math.min(320, dragGhostText.implicitWidth + 40)
         height: 54
         radius: 12
         color: Theme.ghost
         border.width: 1
-        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.75)
+        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b,
+                              window.dragSnapY >= 0 ? 1.0 : 0.75)
         z: 300
         x: window.dragX - width / 2
-        y: window.dragY - height / 2
+        // 磁吸：贴上插入线就纵向吸过去；没贴上时严格跟手（Behavior 关掉，否则会橡皮筋）
+        y: (window.dragSnapY >= 0 ? window.dragSnapY : window.dragY) - height / 2
+        opacity: window.dragActive ? 1 : 0
         // 拖起放大：从列表里被拎起来的一瞬间
         scale: 1.04
         transformOrigin: Item.Center
 
         Behavior on scale {
-            NumberAnimation { duration: Motion.fast; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: Motion.dragLift; easing.type: Easing.OutCubic }
+        }
+        Behavior on opacity {
+            NumberAnimation { duration: dragFeel.settleDuration(Motion.reduced) }
+        }
+        Behavior on y {
+            enabled: window.dragSnapY >= 0 || !window.dragActive
+            NumberAnimation { duration: Motion.dragSnap; easing.type: Easing.OutCubic }
+        }
+        Behavior on border.color {
+            ColorAnimation { duration: Motion.instant }
         }
 
         Rectangle {

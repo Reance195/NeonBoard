@@ -82,6 +82,7 @@ qt_add_executable(NeonBoard
     src/Scheduler.h src/Scheduler.cpp
     src/WorkflowRunner.h src/WorkflowRunner.cpp
     src/WorkflowPresets.h src/WorkflowPresets.cpp
+    src/DragFeel.h src/DragFeel.cpp
     resources/neonboard.rc
 )
 

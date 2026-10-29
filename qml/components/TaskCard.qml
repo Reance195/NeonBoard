@@ -643,6 +643,23 @@ Rectangle {
         }
     }
 
+    // 拖起后的「虚位」：原位留一个虚线框，告诉用户「卡是从这一格拿走的」。
+    // 卡片本体此时压到 0.35 透明度，不加这层框会以为卡片被删了。
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: 1
+        radius: card.radius - 1
+        color: "transparent"
+        border.width: 1
+        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.45)
+        visible: cardMouse.dragging
+        z: 20
+
+        // 虚线：靠四条短边拼出来，比 Qt.DashLine 的间距更松散，读起来像「空格子」
+        Rectangle { width: parent.width - 8; height: 1; x: 4; y: 0; color: parent.border.color }
+        Rectangle { width: parent.width - 8; height: 1; x: 4; y: parent.height - 1; color: parent.border.color }
+    }
+
     // 拖拽 / 双击编辑
     MouseArea {
         id: cardMouse

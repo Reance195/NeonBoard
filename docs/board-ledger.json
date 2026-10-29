@@ -50,9 +50,11 @@
         "R10-02": "done",
         "R10-03": "done",
         "R10-04": "done",
+        "R10-05": "todo",
         "R11-01": "done",
         "R11-02": "done",
         "R11-03": "done",
+        "R12-01": "todo",
         "R2-01": "done",
         "R2-02": "done",
         "R3-01": "done",
@@ -101,9 +103,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "R12-01": "todo",
-        "R10-05": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -1053,6 +1053,26 @@
             "stage": "R10",
             "title": "R10 存量数据分类补全：115 张卡归项目 + 补分类标签"
         },
+        "R10-05": {
+            "acceptance": [
+                "默认窗口（1180×760，dpr 1.5）下三个项目 chip 全部可见，无需拖动",
+                "项目数超出可视宽度时右缘出现渐隐提示，滚轮可横向滚动；滚到末尾渐隐自动消失",
+                "窗口缩到最小宽度时切换器与阶段条不互相压扁，chip 不换行、不变形",
+                "NeonBoard.exe --smoke 退出码 0，日志无 QML 告警",
+                "截图复核：顶部一行同时看到「全局 / NeonBoard / 抢号系统 / 启动窗改造」"
+            ],
+            "depends": [
+                "R10-02"
+            ],
+            "id": "b87bf534-860f-42b5-987d-b1c8cd3648bb",
+            "note": "起因（2026-10-29，截图目视确认时发现）：R10-02 把 ProjectSwitcher 的 Layout.preferredWidth 固定为 230，而默认窗口 1180×760 下「全局 125 / NeonBoard 112」就占满了这个宽度 —— 库里的「抢号系统 6」「启动窗改造 7」被裁在 Flickable 可视区外，既无渐隐也无滚动提示，界面看起来只有一个项目，两级看板的意义被削弱一半。gate 与数据层都正常（projects() 返回三条、chip 也渲染了），纯布局宽度问题。\n\n做法：切换器按内容自适应宽度（上限 460 px，避免项目多时把阶段条挤没），溢出时右缘渐隐提示 + 滚轮可横向滚动；Main.qml 去掉写死的 230，改为跟随 implicitWidth。\n\n边界：只动 QML 布局，不改 ProjectStore / 过滤逻辑；项目数再多也只是滚动，不再静默裁切。\n\n状态：待办",
+            "scope": [
+                "qml/components/ProjectSwitcher.qml",
+                "qml/Main.qml"
+            ],
+            "stage": "R10",
+            "title": "R10 项目切换器溢出：三个项目只显示两个"
+        },
         "R11-01": {
             "acceptance": [
                 "顶区（标题行 + 阶段条 + 统计横幅）垂直占用比改动前减少 >= 40 px（同一窗口尺寸下实测）",
@@ -1148,6 +1168,23 @@
             ],
             "stage": "R11",
             "title": "R11 状态与空态反馈 + 热力图 Canvas 化"
+        },
+        "R12-01": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（build + ctest + selftest + smoke）",
+                "NeonBoardHost.exe 的 RT_GROUP_ICON 资源计数 >= 1（图标资源已内嵌 exe）",
+                "rg 'IDI_APPLICATION' src/host/HostMain.cpp 无匹配，且 rg 'LoadIconW(GetModuleHandleW' src/host/HostMain.cpp 有匹配（托盘图标取自模块资源而非系统通用图标）",
+                "人工确认：沙箱启动宿主进程，托盘显示 NeonBoard 霓虹图标（不再是系统通用图标）"
+            ],
+            "depends": [],
+            "id": "33c99e8c-638d-484e-88c8-69761d8345fa",
+            "note": "起因：常驻宿主进程 NeonBoardHost.exe 的托盘图标用 LoadIconW(nullptr, IDI_APPLICATION)（系统通用图标），从未使用 neonboard 图标；neonboard.ico 早已经 resources/neonboard.rc 内嵌进 Host exe（R5-05 只修了快捷方式图标，托盘代码未跟着改）。目标：宿主托盘图标改用内嵌的应用图标。",
+            "scope": [
+                "src/host/HostMain.cpp",
+                "resources/neonboard.rc"
+            ],
+            "stage": "R12",
+            "title": "R12 宿主托盘图标：改用内嵌 neonboard.ico"
         },
         "R2-01": {
             "acceptance": [
@@ -2269,45 +2306,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "R12-01": {
-            "acceptance": [
-                "pwsh -File scripts/verify.ps1 全过（build + ctest + selftest + smoke）",
-                "NeonBoardHost.exe 的 RT_GROUP_ICON 资源计数 >= 1（图标资源已内嵌 exe）",
-                "rg 'IDI_APPLICATION' src/host/HostMain.cpp 无匹配，且 rg 'LoadIconW(GetModuleHandleW' src/host/HostMain.cpp 有匹配（托盘图标取自模块资源而非系统通用图标）",
-                "人工确认：沙箱启动宿主进程，托盘显示 NeonBoard 霓虹图标（不再是系统通用图标）"
-            ],
-            "depends": [],
-            "id": "33c99e8c-638d-484e-88c8-69761d8345fa",
-            "note": "起因：常驻宿主进程 NeonBoardHost.exe 的托盘图标用 LoadIconW(nullptr, IDI_APPLICATION)（系统通用图标），从未使用 neonboard 图标；neonboard.ico 早已经 resources/neonboard.rc 内嵌进 Host exe（R5-05 只修了快捷方式图标，托盘代码未跟着改）。目标：宿主托盘图标改用内嵌的应用图标。",
-            "scope": [
-                "src/host/HostMain.cpp",
-                "resources/neonboard.rc"
-            ],
-            "stage": "R12",
-            "title": "R12 宿主托盘图标：改用内嵌 neonboard.ico"
-        },
-        "R10-05": {
-            "acceptance": [
-                "默认窗口（1180×760，dpr 1.5）下三个项目 chip 全部可见，无需拖动",
-                "项目数超出可视宽度时右缘出现渐隐提示，滚轮可横向滚动；滚到末尾渐隐自动消失",
-                "窗口缩到最小宽度时切换器与阶段条不互相压扁，chip 不换行、不变形",
-                "NeonBoard.exe --smoke 退出码 0，日志无 QML 告警",
-                "截图复核：顶部一行同时看到「全局 / NeonBoard / 抢号系统 / 启动窗改造」"
-            ],
-            "depends": [
-                "R10-02"
-            ],
-            "id": "b87bf534-860f-42b5-987d-b1c8cd3648bb",
-            "note": "起因（2026-10-29，截图目视确认时发现）：R10-02 把 ProjectSwitcher 的 Layout.preferredWidth 固定为 230，而默认窗口 1180×760 下「全局 125 / NeonBoard 112」就占满了这个宽度 —— 库里的「抢号系统 6」「启动窗改造 7」被裁在 Flickable 可视区外，既无渐隐也无滚动提示，界面看起来只有一个项目，两级看板的意义被削弱一半。gate 与数据层都正常（projects() 返回三条、chip 也渲染了），纯布局宽度问题。\n\n做法：切换器按内容自适应宽度（上限 460 px，避免项目多时把阶段条挤没），溢出时右缘渐隐提示 + 滚轮可横向滚动；Main.qml 去掉写死的 230，改为跟随 implicitWidth。\n\n边界：只动 QML 布局，不改 ProjectStore / 过滤逻辑；项目数再多也只是滚动，不再静默裁切。\n\n状态：待办",
-            "scope": [
-                "qml/components/ProjectSwitcher.qml",
-                "qml/Main.qml"
-            ],
-            "stage": "R10",
-            "title": "R10 项目切换器溢出：三个项目只显示两个"
         }
     },
-    "claims": {},
+    "claims": {
+        "R0-11": {
+            "agent": "agent-boot",
+            "branch": "perf/r0-11-cold-start",
+            "claimedAt": 1793279366,
+            "head": "25c71a790c2983ea8c827b8faa62242d57c60a17"
+        }
+    },
     "version": 1
 }

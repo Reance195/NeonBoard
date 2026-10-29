@@ -1403,6 +1403,9 @@ MouseArea {
                     }
                 }
 
+                // 项目范围与搜索占一行：项目 chip 需要横向空间，若与阶段条同排，
+                // 阶段条会被压到 0 宽（R10-05 实测：三个项目 chip + 搜索框 + 阶段条
+                // 在 980 px 内容宽度里放不下，只剩「全部」一个胶囊）。
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.leftMargin: 20
@@ -1410,29 +1413,23 @@ MouseArea {
                     spacing: 12
 
                     // 两级看板的第一级：项目范围（全局 / 单项目）。
-                    // 放在阶段条左侧，是因为「看谁的事」比「看到哪一步」更外层。
+                    // 「看谁的事」比「看到哪一步」更外层，所以它排在上、阶段条排在下。
                     ProjectSwitcher {
                         id: projectSwitcher
-                        Layout.preferredWidth: 230
+                        // 宽度由内容决定（R10-05）：写死 230 会把第三个项目裁掉。
+                        // 上限由组件自己的 maxWidth 兜底，项目再多也是滚动而不是挤压别的控件。
+                        Layout.maximumWidth: projectSwitcher.maxWidth
                         Layout.preferredHeight: 40
                         activeProject: window.projectFilter
                         onProjectSelected: function(projectId) { window.setProjectFilter(projectId) }
                     }
 
-                    StageBar {
-                        id: stageBar
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 40
-                        stages: window.stageList
-                        activeStage: window.stageFilter
-                        syncText: window.roadmapSyncText
-                        syncOk: window.roadmapSyncOk
-                        onStageSelected: function(stage) { window.setStageFilter(stage) }
-                    }
+                    Item { Layout.fillWidth: true }
 
                     Rectangle {
                         Layout.preferredWidth: 300
-                        height: 28
+                        Layout.preferredHeight: 28
+                        Layout.alignment: Qt.AlignVCenter
                         radius: Theme.radiusControl
                         color: Theme.input
                         border.width: 1
@@ -1451,6 +1448,25 @@ MouseArea {
                             onTextChanged: boardColumns.search = text
                             Keys.onEscapePressed: text = ""
                         }
+                    }
+                }
+
+                // 阶段条独占一行：它天生就该横向滚动（13 个阶段），给它整行宽度，
+                // 而不是和项目/搜索抢那点剩余空间。
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 20
+                    Layout.rightMargin: 20
+
+                    StageBar {
+                        id: stageBar
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 40
+                        stages: window.stageList
+                        activeStage: window.stageFilter
+                        syncText: window.roadmapSyncText
+                        syncOk: window.roadmapSyncOk
+                        onStageSelected: function(stage) { window.setStageFilter(stage) }
                     }
                 }
 

@@ -45,6 +45,16 @@ Rectangle {
     }
 
     implicitHeight: 40
+
+    // 宽度跟着内容走（R10-05）。原先 Main.qml 把它写死 230，默认窗口下
+    // 「全局 125 / NeonBoard 112」就占满了，第三个项目被裁在可视区外 ——
+    // 界面看起来只有一个项目，两级看板的意义被削掉一半。
+    // 上限 460：项目再多也不能把阶段条挤没，超出的部分走滚动 + 渐隐提示。
+    readonly property real maxWidth: 460
+    readonly property real stripWidth: labelText.implicitWidth + 8
+                                        + projectRow.childrenRect.width + 18
+    implicitWidth: Math.min(stripWidth, maxWidth)
+
     radius: Theme.radiusPanel
     color: Theme.panel
     border.width: 1
@@ -57,6 +67,7 @@ Rectangle {
         spacing: 8
 
         Text {
+            id: labelText
             text: "项目"
             color: Theme.muted
             font.pixelSize: 10
@@ -183,6 +194,39 @@ Rectangle {
                     }
                 }
             }
+            // 溢出提示：右缘渐隐。项目多到放不下时，这一条是「还能往右看」的唯一信号 ——
+            // 没有它，被裁掉的项目跟「不存在」在视觉上没有区别。
+            Rectangle {
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: 20
+                visible: projectFlick.contentWidth > projectFlick.width + 1
+                         && projectFlick.contentX < projectFlick.contentWidth - projectFlick.width - 1
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop {
+                        position: 0.0
+                        color: Qt.rgba(Theme.panel.r, Theme.panel.g, Theme.panel.b, 0.0)
+                    }
+                    GradientStop { position: 1.0; color: Theme.panel }
+                }
+            }
+
+            // 纵向滚轮映射成横向翻页：横向 Flickable 默认不吃滚轮，
+            // 用户滚了半天没反应，只会得出「只有这些项目」的结论。
+            WheelHandler {
+                acceptedDevices: PointerDevice.Mouse
+                onWheel: function(event) {
+                    const delta = event.angleDelta.y !== 0 ? event.angleDelta.y
+                                                           : event.angleDelta.x
+                    if (delta === 0)
+                        return
+                    const maxX = Math.max(0, projectFlick.contentWidth - projectFlick.width)
+                    projectFlick.contentX = Math.max(0, Math.min(maxX, projectFlick.contentX - delta))
+                }
+            }
+
         }
     }
 }

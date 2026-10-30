@@ -1,10 +1,12 @@
 # R7 派发器进阶：队列编排 + 多 Agent 角色链
 
+> ⚠️ **已归档（2026-10-30）**：R7 已全量收官（6/6 done），本计划文档移入 `archive/` 仅作追溯留存，不再维护。
+
 > 状态：**规划中（2026-10-27）**
-> 上游设计：[`product-design.md`](product-design.md)（§5 队列与批量 / §7 Workflow / M4 角色链）、[`iteration-roadmap.md`](iteration-roadmap.md) §9.2
+> 上游设计：[`product-design.md`](../product-design.md)（§5 队列与批量 / §7 Workflow / M4 角色链）、[`iteration-roadmap.md`](../iteration-roadmap.md) §9.2
 > 前置里程碑：[`r6-dispatcher-plan.md`](r6-dispatcher-plan.md)（M1 单次执行）
-> 决策记录：复用 [`adr/0001-task-definition-source.md`](adr/0001-task-definition-source.md)（定义单源）/ [`adr/0002-run-state-and-executor-safety.md`](adr/0002-run-state-and-executor-safety.md)（运行态不进看板状态机）
-> 卡片规范：[`task-card.md`](task-card.md)
+> 决策记录：复用 [`adr/0001-task-definition-source.md`](../adr/0001-task-definition-source.md)（定义单源）/ [`adr/0002-run-state-and-executor-safety.md`](../adr/0002-run-state-and-executor-safety.md)（运行态不进看板状态机）
+> 卡片规范：[`task-card.md`](../task-card.md)
 
 ## 0. 一页速览
 

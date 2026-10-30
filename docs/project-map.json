@@ -9,7 +9,7 @@
       "desc": "主干需求声明：每个里程碑要做什么、出口标准、进度宣称。新里程碑只改这里，全景图自动多出一行。",
       "anchor": "docs/iteration-roadmap.md",
       "command": "code docs/iteration-roadmap.md",
-      "evidence": ["docs/iteration-roadmap.md", "docs/backlog.md", "docs/product-design.md"]
+      "evidence": ["docs/iteration-roadmap.md", "docs/archive/backlog.md", "docs/product-design.md"]
     },
     {
       "id": "ledger",
@@ -18,7 +18,7 @@
       "desc": "全部任务卡的唯一定义地：cards（卡定义）+ baseline（种子状态）+ claims（领用）。agent 不得直接写 cards。",
       "anchor": "docs/board-ledger.json",
       "command": "python scripts/task_gate.py ledger",
-      "evidence": ["docs/board-ledger.json", "docs/backlog.md"]
+      "evidence": ["docs/board-ledger.json", "docs/archive/backlog.md"]
     },
     {
       "id": "claim",

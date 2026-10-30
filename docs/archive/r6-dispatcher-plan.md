@@ -1,9 +1,12 @@
 # R6 任务派发器：拆分与验收
 
+> ⚠️ **已归档（2026-10-30）**：R6 已全量收官（9/9 done），本计划文档移入 `archive/` 仅作追溯留存，不再维护。
+> 现行设计决策见 [`../adr/0001-task-definition-source.md`](../adr/0001-task-definition-source.md) / [`../adr/0002-run-state-and-executor-safety.md`](../adr/0002-run-state-and-executor-safety.md)。
+
 > 状态：**规划完成，卡片待登记**（2026-10-27）
-> 上游设计：[`product-design.md`](product-design.md)（M1 单次执行）、[`agent-profile.md`](agent-profile.md)、[`agent-triage.md`](agent-triage.md)
-> 决策记录：[`adr/0001-task-definition-source.md`](adr/0001-task-definition-source.md)、[`adr/0002-run-state-and-executor-safety.md`](adr/0002-run-state-and-executor-safety.md)
-> 卡片规范：[`task-card.md`](task-card.md)
+> 上游设计：[`product-design.md`](../product-design.md)（M1 单次执行）、[`agent-profile.md`](../agent-profile.md)、[`agent-triage.md`](../agent-triage.md)
+> 决策记录：[`adr/0001-task-definition-source.md`](../adr/0001-task-definition-source.md)、[`adr/0002-run-state-and-executor-safety.md`](../adr/0002-run-state-and-executor-safety.md)
+> 卡片规范：[`task-card.md`](../task-card.md)
 
 ## 0. 一页速览
 

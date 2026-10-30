@@ -2,7 +2,7 @@
 
 - 状态：accepted
 - 日期：2026-10-27
-- 关联：`docs/product-design.md` §4 / §5 / §8、`src/TaskExec.*`、`src/Database.cpp`、[R6 派发器计划](../r6-dispatcher-plan.md)
+- 关联：`docs/product-design.md` §4 / §5 / §8、`src/TaskExec.*`、`src/Database.cpp`、[R6 派发器计划](../archive/r6-dispatcher-plan.md)
 
 ## 背景
 

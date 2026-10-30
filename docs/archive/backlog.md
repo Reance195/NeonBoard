@@ -1,5 +1,7 @@
 # 待办与优先级
 
+> ⚠️ **已归档（2026-10-30）**：本索引易漂移，已停止维护；权威来源始终是 [GitHub Issues](https://github.com/Reance195/NeonBoard/issues)。
+
 **唯一权威来源是 GitHub Issues**，本文件只做索引，避免 agent 在离线环境看不到。
 
 > **本索引的「本地状态」与 GitHub 可能不一致**：卡片在仓库里已 `#短号=done` 结项，

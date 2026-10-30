@@ -515,8 +515,7 @@
 - **解法**：带间隔的重试循环（3–5 次）；分支与本地合并提交不会因此丢。
   需要改走 SSH 时用**一次性环境变量**改写 URL，不动仓库或用户全局 git 配置：
   `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0='url.<ssh-url>.insteadOf' GIT_CONFIG_VALUE_0=<https-url>`。
-- **预防**：故障链条与两台加速器互踩的分析见 [`handoff-network-issue.md`](handoff-network-issue.md)；
-  凡「只对这台机器成立」的代理细节留本地，不进仓库。
+- **预防**：凡「只对这台机器成立」的代理细节留本地，不进仓库（完整排查链条原存交接文档，已随清理移除）。
 
 ### 5.2 领用与闸门需要联网
 
@@ -658,8 +657,6 @@
 | --- | --- |
 | [`git-workflow.md`](git-workflow.md) | 分支工作流、钩子拦截与排查（§四）、流程类 FAQ（§六） |
 | [`board-sync.md`](board-sync.md) | 看板状态派生与一致性，含常见问题（§六） |
-| [`handoff-network-issue.md`](handoff-network-issue.md) | 推送失败 / GitHub 连接问题的完整排查链条与结论 |
-| [`handoff-r6-05.md`](handoff-r6-05.md) | R6-05 执行器交付上下文，含「踩过的坑（别再踩）」一节 |
 | [`testing.md`](testing.md) | 测试与验收口径 |
 | [`auto-update.md`](auto-update.md) | 升级链路与 `update.json` 清单 |
 | [`adr/`](adr/README.md) | 架构决策记录（运行态与执行器安全边界见 ADR-0002） |

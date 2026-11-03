@@ -122,7 +122,21 @@ if ($bad) {
 }
 
 
-# ---------- 5. 看板状态一致性（DX-13） ----------
+# ---------- 5. 模块依赖方向与行数（MOD-05 守卫） ----------
+Step '模块依赖方向与行数（check_module_deps）'
+# 与 ci.yml 同一个脚本、同一把尺：只查本次改动的文件（棘轮），存量不阻塞。
+# 层序见 docs/module-split-plan.md §3.2；行数上限只许减不许增（main.cpp / Main.qml）。
+$depsScript = Join-Path $repoRoot 'scripts\check_module_deps.py'
+if ((Test-Path $depsScript) -and (Get-Command python -ErrorAction SilentlyContinue)) {
+    & python $depsScript --base origin/main
+    if ($LASTEXITCODE -ne 0) {
+        Fail "模块依赖方向或行数上限未通过（退出码 $LASTEXITCODE）：本次改动引入了反向依赖，或撑破了行数上限"
+    }
+} else {
+    Write-Host '· 跳过：未找到 scripts/check_module_deps.py 或 python' -ForegroundColor DarkGray
+}
+
+# ---------- 6. 看板状态一致性（DX-13） ----------
 Step '看板状态一致性（derive --check）'
 # progress.json 是「git 标记 + 台账」的派生产物（§11），漂移的判据只有一个：
 # derive --check 退出 1 并报「待同步：卡片 X 状态 a → b」。
@@ -146,5 +160,5 @@ if ((Test-Path $deriveScript) -and (Get-Command python -ErrorAction SilentlyCont
 }
 
 Write-Host ''
-Write-Host '✓ 验收通过：编译 / ctest / --selftest / --smoke / 看板一致性 全过' -ForegroundColor Green
+Write-Host '✓ 验收通过：编译 / ctest / --selftest / --smoke / 模块守卫 / 看板一致性 全过' -ForegroundColor Green
 exit 0

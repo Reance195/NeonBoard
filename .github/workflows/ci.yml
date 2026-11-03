@@ -61,6 +61,17 @@ jobs:
           $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
           python scripts/check_scope.py --base $base
 
+      - name: 模块依赖方向与行数守卫（棘轮：只查本次改动的文件）
+        # src/ 未分层时任何 #include 都能成立，编译器不反对；§3.2 的层序（core L0 → plugin L7）
+        # 与行数上限都只是文档约定，没有机器校验就会在重构期间悄悄长回反向边。
+        # 行数更是实证：qml/Main.qml 从 1180 涨回 4260（§2.4），拆过没人守就等于没拆。
+        # 棘轮口径：只查本次改动的文件，存量不阻塞 —— 全量一开就满屏红，只会被 --no-verify 绕过。
+        shell: pwsh
+        run: |
+          $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
+          python scripts/check_module_deps.py --base $base
+          if ($LASTEXITCODE -ne 0) { throw '模块依赖方向或行数上限未通过：本次改动引入了反向依赖或撑破了上限' }
+
       - name: 脚本卫生检查（路径单一口径 / 钩子豁免只有一处）
         shell: pwsh
         run: |

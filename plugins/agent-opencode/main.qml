@@ -100,9 +100,10 @@ Rectangle {
 
         Text {
             Layout.fillWidth: true
-            text: "opencode 没有原生只读开关，只读靠 --agent plan 指定一个只读 agent 配置。"
-                  + "若本机没有名为 plan 的 agent，只读派活会退化成普通执行 —— 用前先在 opencode 里确认它存在。"
-            color: Theme.warning
+            text: "已核实（opencode 1.19.0）：plan 是内置 primary agent，--agent plan 确实可用，"
+                  + "且编辑类工具对它为 deny（只允许写 plans/*.md），只读派活不会退化成普通执行。"
+                  + "注意 bash 未单独限制 —— 只读边界是「编辑工具被拒」，不是系统级沙箱。"
+            color: Theme.muted
             font.pixelSize: 9
             wrapMode: Text.WordWrap
         }

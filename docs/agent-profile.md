@@ -65,7 +65,7 @@ PATH 会变、盘会拔，写进 meta 就成了谎话。
 
 | id | 命令行 | 只读追加 | output | promptMode |
 | --- | --- | --- | --- | --- |
-| `opencode` | `opencode run --format json <prompt>` | `--agent plan` | `json` | `arg` |
+| `opencode` | `opencode run --format json <prompt>` | `--agent plan`（内置，1.19.0 实测） | `json` | `arg` |
 | `claude` | `claude -p --output-format stream-json <prompt>` | `--permission-mode plan` | `stream-json` | `arg` |
 | `cursor-agent` | `cursor-agent -p --output-format stream-json <prompt>` | `--plan` | `stream-json` | `arg` |
 
@@ -73,10 +73,35 @@ PATH 会变、盘会拔，写进 meta 就成了谎话。
 
 | agent | 非交互调用 | 输出格式 | 模型/agent 选择 | 只读模式 |
 | --- | --- | --- | --- | --- |
-| **opencode** | `opencode run "<prompt>"` | `--format default`（格式化）或 `--format json`（原始 JSON 事件） | `--model provider/model`、`--agent <name>` | 无内置只读开关；用 `--agent` 指向一个只读 agent 配置，或 `--pure` 禁用外部插件 |
+| **opencode** | `opencode run "<prompt>"` | `--format default`（格式化）或 `--format json`（原始 JSON 事件） | `--model provider/model`、`--agent <name>` | 无内置只读开关；**`--agent plan` 是内置 primary agent（1.19.0 实测存在）**，`edit` 权限为 deny（只允许写 `plans/*.md`）→ 编辑工具拒写；bash 未单独设规则，属工具级只读，不是沙箱 |
 | **claude** | `claude -p "<prompt>"` | `--output-format text \| json \| stream-json` | `--model` | `--permission-mode`（含 plan）、`--allowedTools` 白名单；`--dangerously-skip-permissions` 危险，默认禁用 |
 | **cursor-agent** | `cursor-agent -p "<prompt>"` | `--output-format text \| json \| stream-json` | `--model` | **`--plan`**（等价 `--mode=plan`），天然只读 |
 | **codex**（v0.163.0，参数面实测见下） | `codex exec "<prompt>"`（**必须重定向 stdin**，否则卡在读取 stdin） | `--json`（JSONL 事件流）/ `-o <file>`（末条回复）/ `--output-schema <file>` | `-m <model>`、`-c model_reasoning_effort="low"` | **`-s read-only`**（原生沙箱，实测确实拦住写文件）；`-C <dir>` 指定工作根、`--ephemeral` 不落会话文件 |
+
+### opencode `--agent plan` 核实记录（2026-11-04，opencode 1.19.0）
+
+R9-03 用 `--agent plan` 兜只读，但当时只看到 `~/.config/opencode/` 下没有 `agent/` 目录，
+**没有核过这个 agent 到底存不存在**。本卡补上，两条路都查：
+
+| 路径 | 命令 / 位置 | 结果 |
+| --- | --- | --- |
+| 命令行 | `opencode agent list` | 列出 7 个：`build` / `compaction` / **`plan`** / `summary` / `title`（primary）+ `explore` / `general`（subagent）——`plan (primary)` 在内 |
+| 配置文件 | `~/.config/opencode/opencode.jsonc` | **没有 `agent` 键，也没有 `agent/` 目录** → 上面 7 个全是**内置** agent，不是本机自定义 |
+
+`opencode run --help` 同时确认 `--agent <string>` 参数存在。
+
+`plan` 的有效权限（`opencode agent list` 输出的 override 表，非 `external_directory` 的 15 条）：
+
+- `edit` → **deny `*`**，只有两处 allow：`.opencode\plans\*.md` 与
+  `C:\Users\<user>\.local\share\opencode\plans\*.md`
+- `read` → allow（`*.env` / `*.env.*` 为 ask）
+- `task` → `general` 子 agent 被 deny
+- **`bash` 没有单独规则** → 落在 `*` 的 allow 上
+
+**结论**：「plan 存在」成立；「只读」是**工具级**成立 —— 编辑类工具被拒，agent 改不了工作区文件；
+但 bash 没被禁，所以它不是系统级沙箱。按 §只读三档，这属于第 2 档「工具白名单」，
+不是第 3 档「外部沙箱」。要绝对保证，仍得在只读挂载 / 临时快照里跑。
+`readonlyArgs` 维持 `["--agent", "plan"]` 不变。
 
 ### codex 实测记录（2026-10-28，codex-cli 0.163.0）
 

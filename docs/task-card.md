@@ -92,11 +92,29 @@ merge: 合入 fix/stagebar-chip-overflow
 
 理由：本项目不用 PR，合并提交就是唯一的「变更说明」存档。
 
+## 两类验收口径
+
+同一句「`verify.ps1` 全过」，在脚本卡和代码卡上的成本差一个数量级：冷启动 worktree 的全量
+编译要 20~30 分钟（DX-13 实测 512 个目标、卡在最后两个链接目标上），而脚本层的检查 2 秒就够，
+且与编译毫无关系。所以验收按卡片的改动面分两档：
+
+| 档 | 判定规则 | 验收命令 | 覆盖什么 |
+| --- | --- | --- | --- |
+| 代码类（默认） | `scope` 内有 `.cpp` / `.h` / `.hpp` / `.qml` / `CMakeLists.txt` | `pwsh -File scripts/verify.ps1` | 编译 → ctest → `--selftest` → `--smoke` → 模块守卫 → 看板一致性 |
+| 脚本 / 配置类 | `scope` 内**没有**上面任何一类 | `pwsh -File scripts/verify.ps1 -ScriptOnly` | 改动清单自查 → PS 语法解析 → `check_script_hygiene` → 工作流 YAML → `check_scope` |
+
+判定**看 scope，不看心情**：卡片声明里没有代码路径就走脚本层。实现里一旦冒出代码文件，
+`-ScriptOnly` 的第一项（口径自检）会直接拒绝并指回全量 —— 所以「按脚本卡申报、顺手改点代码」
+这条路是堵死的，不会变成绕过编译的后门。
+
+全量编译仍由 CI 兜底，本地这一档不降低任何门槛：脚本层不跑 ctest、不碰 exe、不看 `--smoke`。
+两种口径的退出码语义一致（0 通过 / 1 失败），`scripts/verify.ps1` 仍是唯一入口。
+
 ## 配套工具
 
 | 工具 | 作用 |
 | --- | --- |
-| `scripts/verify.ps1` | 本地与 CI 共用的唯一验收入口（编译 → ctest → selftest → smoke） |
+| `scripts/verify.ps1` | 本地与 CI 共用的唯一验收入口（全量：编译 → ctest → selftest → smoke；`-ScriptOnly`：语法 / 卫生 / YAML / 范围） |
 | `scripts/check_scope.py` | CI 里比对本次 diff 与卡的 `scope`，越界即失败 |
 | `scripts/agent-init.ps1 -Card <短号>` | 开工作区时把 `NB_CARD` / `NB_SCOPE` / `NB_ACCEPTANCE` / `NB_DEPENDS` 注入 `.agent-env.ps1` |
 

@@ -34,6 +34,19 @@
 - `src/**` 覆盖 `src` 下任意层级
 - `docs/plugin-api.md` 精确路径
 - `plugins/*/plugin.json` 单层通配
+- **`plugins/agent-cursor/` 等价于 `plugins/agent-cursor/**`**（目录式写法，尾斜杠表示整个目录）。
+  两种写法都对，机器会先把它规范成 `**` 再匹配；DX-17 之前只按字面 glob 编译，
+  目录式一条文件都盖不住，写了等于没写。
+
+体检现有 scope 有没有「写了但没生效」的：
+
+```powershell
+python scripts/check_scope.py --audit    # 目录式命中 0 直接退出 1；其它命中 0 只提示
+python scripts/check_scope.py --selftest # 规范化与匹配语义的离线断言
+```
+
+CI 里的这一步仍是**信号**（`continue-on-error`）：存量卡还有未补 scope 的，硬门禁会一片红；
+补齐之后再摘掉。
 
 ## scope / acceptance 是契约，不是备注
 

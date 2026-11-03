@@ -53,7 +53,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
 
 sys.path.insert(0, str(SCRIPT_DIR))
-from check_scope import glob_to_regex  # noqa: E402  唯一实现，不复制一份
+from check_scope import glob_to_regex, normalize_scope  # noqa: E402  唯一实现，不复制一份
 
 # 与 scripts/task_gate.py 的正则保持一致：前缀 ≤4 字母；无短横形态（M19）走第二分支。
 CARD_ID_RE = re.compile(r"(?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+)")
@@ -163,7 +163,9 @@ def validate(cards: dict, ledger: dict, repo: Path) -> tuple:
     baseline = ledger["baseline"]
     claims = ledger["claims"] or {}
     files = repo_files(repo)
-    open_scopes = {cid: [p for p in (c.get("scope") or []) if p]
+    # 目录式 scope（plugins/x/）先规范成 plugins/x/**，与 check_scope 同一口径；
+    # 否则「目录式」会被当精确路径，明明覆盖一片文件却报 scope.glob_empty（DX-17）。
+    open_scopes = {cid: [normalize_scope(p) for p in (c.get("scope") or []) if p]
                    for cid, c in existing_cards.items()
                    if baseline.get(cid, "done") != "done"}
 
@@ -212,12 +214,13 @@ def validate(cards: dict, ledger: dict, repo: Path) -> tuple:
         # --- scope
         scope = card.get("scope") or []
         clashes, covers = {}, {}
-        for pattern in scope:
+        for raw_pattern in scope:
+            pattern = normalize_scope(raw_pattern)
             is_glob = any(ch in GLOB_CHARS for ch in pattern)
             if is_glob:
                 rx = glob_to_regex(pattern)
                 if not any(rx.match(f) for f in files):
-                    block("scope.glob_empty", cid, "glob 匹配不到任何文件：%s" % pattern)
+                    block("scope.glob_empty", cid, "glob 匹配不到任何文件：%s" % raw_pattern)
             elif not (repo / pattern).exists():
                 # 新增文件是合法的 scope；笔误的特征是**父目录也不存在**。
                 if (repo / pattern).parent.exists():

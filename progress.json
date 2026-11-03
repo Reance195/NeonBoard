@@ -127,24 +127,6 @@
             "updatedAt": 1793726487
         },
         {
-            "code": "R14-05",
-            "completedAt": 0,
-            "createdAt": 1793726487,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R14-05",
-            "note": "起因：R14-03 修好「拉得起来」后留下的一层。cursor-agent 在 PATH 上只有 .cmd 包装器，Qt 6.8 给它套 cmd.exe /c \"\"prog\" args\"，参数因此被 cmd 二次解释。实测（build/probe，2026-11-04）：换行→prompt 在第一个换行处截断；%VAR%→展开成环境变量；& | < >→当命令分隔符；内嵌双引号→\\\"。\n\n不是边缘场景：WorkflowRunner::buildPrompt（src/WorkflowRunner.cpp:137）用 \\n 拼多行 prompt（任务/上一步交接物/本步任务/交付物/约束），arg 模式经 .cmd 时只有第一行送达，且无任何报错。\n\n三条出路（推荐序）：1) 真身直连：profile 声明解释器+脚本（node.exe + index.js），不经 shell，代价是版本目录随升级变，需解析与回退；2) 自拼命令行 + cmd 转义（^ 转义 & | < > ^、% 用 ^%、\" 用 \\\"），救得了单行救不了换行；3) 兜底：启动前检测「.cmd/.bat 且 prompt 含换行/NUL」→ 明确失败并指明 profile id，绝不静默截断。\n\n本次至少落地 3)；1) 若时间允许一并做，并把 available 判定从「包装器可拉起」升级为「prompt 可安全送达」。\n\n已排除：promptMode=stdin——cursor-agent --help 只有 [prompt...] 位置参数，无 --input-format/--stdin，index.js 内 stdin 仅 3 次且非输入通道。\n\n时序：与在办卡 R14-04 争 docs/agent-profile.md 与 docs/agent-adapters.md，建议 R14-04 先结。",
-            "orderKey": 11264,
-            "priority": 2,
-            "stage": "R14",
-            "status": "todo",
-            "tags": [
-                "R14"
-            ],
-            "title": "R14 .cmd 转调下 prompt 只送第一行：换行截断与 cmd 二次解释",
-            "updatedAt": 1793726487
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -999,6 +981,24 @@
             ],
             "title": "R7 执行队列与调度器：FIFO + 并发≤2 + 背压 + 暂停/调序/跳过",
             "updatedAt": 1793209658
+        },
+        {
+            "code": "R14-05",
+            "completedAt": 1793727726,
+            "createdAt": 1793726487,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R14-05",
+            "note": "起因：R14-03 修好「拉得起来」后留下的一层。cursor-agent 在 PATH 上只有 .cmd 包装器，Qt 6.8 给它套 cmd.exe /c \"\"prog\" args\"，参数因此被 cmd 二次解释。实测（build/probe，2026-11-04）：换行→prompt 在第一个换行处截断；%VAR%→展开成环境变量；& | < >→当命令分隔符；内嵌双引号→\\\"。\n\n不是边缘场景：WorkflowRunner::buildPrompt（src/WorkflowRunner.cpp:137）用 \\n 拼多行 prompt（任务/上一步交接物/本步任务/交付物/约束），arg 模式经 .cmd 时只有第一行送达，且无任何报错。\n\n三条出路（推荐序）：1) 真身直连：profile 声明解释器+脚本（node.exe + index.js），不经 shell，代价是版本目录随升级变，需解析与回退；2) 自拼命令行 + cmd 转义（^ 转义 & | < > ^、% 用 ^%、\" 用 \\\"），救得了单行救不了换行；3) 兜底：启动前检测「.cmd/.bat 且 prompt 含换行/NUL」→ 明确失败并指明 profile id，绝不静默截断。\n\n本次至少落地 3)；1) 若时间允许一并做，并把 available 判定从「包装器可拉起」升级为「prompt 可安全送达」。\n\n已排除：promptMode=stdin——cursor-agent --help 只有 [prompt...] 位置参数，无 --input-format/--stdin，index.js 内 stdin 仅 3 次且非输入通道。\n\n时序：与在办卡 R14-04 争 docs/agent-profile.md 与 docs/agent-adapters.md，建议 R14-04 先结。",
+            "orderKey": 11264,
+            "priority": 2,
+            "stage": "R14",
+            "status": "done",
+            "tags": [
+                "R14"
+            ],
+            "title": "R14 .cmd 转调下 prompt 只送第一行：换行截断与 cmd 二次解释",
+            "updatedAt": 1793727726
         },
         {
             "code": "M02",
@@ -2833,6 +2833,6 @@
             "updatedAt": 1793281760
         }
     ],
-    "updated": "2026-11-04T01:21:27",
+    "updated": "2026-11-04T01:42:06",
     "version": 3
 }

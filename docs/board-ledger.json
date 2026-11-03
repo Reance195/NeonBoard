@@ -2680,6 +2680,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-17": {
+            "agent": "agent-dx17",
+            "branch": "fix/scope-dir-style",
+            "claimedAt": 1793727769,
+            "head": "414e6c5eb6ae633151542a8ccd25cab205a4d3d5"
+        }
+    },
     "version": 1
 }

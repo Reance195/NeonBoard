@@ -5,6 +5,7 @@
     python scripts/check_scope.py --card R5-03 --base origin/main
     python scripts/check_scope.py --card R5-03 --base HEAD~1
     python scripts/check_scope.py --audit        # 体检：哪些 scope 一条文件都命中不了
+    python scripts/check_scope.py --audit --include-closed  # 连已结卡一起审
     python scripts/check_scope.py --selftest     # 无仓库依赖的断言
 
 规则：
@@ -13,6 +14,8 @@
   - **目录式写法（尾斜杠）等价于 `dir/**`**：`plugins/agent-cursor/` 覆盖该目录下全部文件。
     DX-17 之前这里只按 glob 编译，`^plugins/agent-cursor/$` 只能匹配字面量目录名，
     一条真实文件都盖不住 —— 写了等于没写。
+  - **`--audit` 默认只审在办卡**（DX-18）：已结卡的失效路径是历史记录，折叠成一行计数；
+    `--include-closed` 回看全部。判据本身不放松 —— 目录式命中 0 仍退 1。
   - scope 缺失或为空 → 只打印警告并放行（棘轮：字段补齐后才强制）。
   - 每次改动必须命中至少一个 glob；ALWAYS_ALLOWED 里的路径不受限。
   - 退出码：0 通过 / 1 越界（--audit 时为「目录式 scope 命中 0」）/ 2 参数或数据错误。
@@ -168,42 +171,94 @@ def load_ledger() -> dict:
     return json.loads(LEDGER.read_text(encoding="utf-8"))
 
 
-def audit() -> int:
+def audit_entries(
+    cards: dict,
+    baseline: dict,
+    files: list[str],
+    include_closed: bool = False,
+) -> dict:
+    """把每条 scope 分类成「目录式失效 / 其它失效 / 被折叠」，纯函数。
+
+    为什么要折叠已结卡（DX-18）：MOD-06 把 src/ 拆成 8 个模块子目录后，已结卡里写死的
+    精确路径（`src/Database.*`、`src/TaskRunner.cpp`）全部指向不存在的文件 —— 一次搬家就
+    造出 191 条「命中 0」。它们不是缺陷，是历史记录（改它们属 DX-10 任务定义变更），
+    但会把在办卡的真缺陷淹掉。默认只看在办卡，`--include-closed` 才回看全部。
+
+    返回字段：total / dir_total / dir_empty / other_empty / folded / folded_empty /
+    audited_cards。`folded` 是被折叠的 scope 条数，`folded_empty` 是其中命中 0 的条数。
+    """
+    total = dir_total = folded = folded_empty = 0
+    audited_cards = 0
+    dir_empty: list[tuple[str, str]] = []
+    other_empty: list[tuple[str, str]] = []
+    for cid, card in sorted(cards.items()):
+        scope = [s for s in (card.get("scope") or []) if s]
+        if not scope:
+            continue
+        closed = (baseline or {}).get(cid) == "done"
+        skip = closed and not include_closed
+        if not skip:
+            audited_cards += 1
+        for raw in scope:
+            total += 1
+            is_dir = raw.strip().replace("\\", "/").endswith("/")
+            if is_dir:
+                dir_total += 1
+            hit = any(glob_to_regex(normalize_scope(raw)).match(f) for f in files)
+            if skip:
+                folded += 1
+                if not hit:
+                    folded_empty += 1
+                continue
+            if not hit:
+                (dir_empty if is_dir else other_empty).append((cid, raw))
+    return {
+        "total": total,
+        "dir_total": dir_total,
+        "dir_empty": dir_empty,
+        "other_empty": other_empty,
+        "folded": folded,
+        "folded_empty": folded_empty,
+        "audited_cards": audited_cards,
+    }
+
+
+def audit(include_closed: bool = False) -> int:
     """体检：把「写了但一条文件都命中不了」的 scope 挖出来。
 
     这类条目人眼看不出来 —— 台账里 6 处尾斜杠活了很久，直到有人在那些卡上改文件
     被判越界才暴露。判据分两档：目录式命中 0 属缺陷（退出 1）；其它命中 0 多半是
     「卡要建的文件还没建」，只提示不拦。
+
+    DX-18：默认只看**在办卡**。已结卡的失效路径是一条历史记录（MOD-06 搬家后 191 条），
+    折叠掉但计数保留，加 `--include-closed` 回看全部。
     """
-    cards = (load_ledger().get("cards") or {})
+    ledger = load_ledger()
+    cards = ledger.get("cards") or {}
+    baseline = ledger.get("baseline") or {}
     files = repo_files()
-    total = 0
-    dir_total = 0
-    dir_empty: list[tuple[str, str]] = []
-    other_empty: list[tuple[str, str]] = []
-    for cid, card in sorted(cards.items()):
-        for raw in card.get("scope") or []:
-            if not raw:
-                continue
-            total += 1
-            hit = any(glob_to_regex(normalize_scope(raw)).match(f) for f in files)
-            if raw.strip().replace("\\", "/").endswith("/"):
-                dir_total += 1
-                if not hit:
-                    dir_empty.append((cid, raw))
-            elif not hit:
-                other_empty.append((cid, raw))
+    r = audit_entries(cards, baseline, files, include_closed)
 
-    print(f"审计：{len(cards)} 张卡 / {total} 条 scope / 仓库 {len(files)} 个文件")
-    print(f"  目录式（尾斜杠）{dir_total} 条 → 命中 0 的 {len(dir_empty)} 条")
-    if other_empty:
-        print(f"  其它 scope 命中 0 的 {len(other_empty)} 条（多为「卡要建的文件还没建」，仅提示）：")
-        for cid, raw in other_empty:
+    scan = "全部卡" if include_closed else "在办卡"
+    print(
+        f"审计：{len(cards)} 张卡 / {r['total']} 条 scope / 仓库 {len(files)} 个文件"
+        f"（本次扫描 {scan}：{r['audited_cards']} 张）"
+    )
+    print(f"  目录式（尾斜杠）{r['dir_total']} 条 → 命中 0 的 {len(r['dir_empty'])} 条")
+    if r["other_empty"]:
+        print(
+            f"  其它 scope 命中 0 的 {len(r['other_empty'])} 条"
+            "（多为「卡要建的文件还没建」，仅提示）："
+        )
+        for cid, raw in r["other_empty"]:
             print(f"    {cid:9s} {raw}")
+    if r["folded"]:
+        hint = "" if include_closed else "，已折叠（--include-closed 查看）"
+        print(f"  已结卡另 {r['folded']} 条 scope（其中命中 0 的 {r['folded_empty']} 条）{hint}")
 
-    if dir_empty:
+    if r["dir_empty"]:
         print("✗ 目录式 scope 一条文件都命中不了（写了等于没写）：", file=sys.stderr)
-        for cid, raw in dir_empty:
+        for cid, raw in r["dir_empty"]:
             print(f"    {cid:9s} {raw}", file=sys.stderr)
         return 1
     print("✓ 目录式 scope 全部命中至少一个文件")
@@ -242,6 +297,25 @@ def selftest() -> int:
     check("docs/ 覆盖子目录", matches(["docs/"], "docs/adr/0002-run-state-and-executor-safety.md"))
     check("空 scope 不命中", not matches([], "src/main.cpp"))
 
+    # --- DX-18：--audit 的折叠语义（纯函数，喂假数据，不读仓库） ---
+    fake_cards = {
+        "OPEN-1": {"scope": ["src/gone.cpp", "plugins/gone/"]},
+        "DONE-1": {"scope": ["src/moved/gone.cpp", "plugins/moved/"]},
+    }
+    fake_base = {"OPEN-1": "todo", "DONE-1": "done"}
+    files = ["src/task/TaskModel.cpp"]
+
+    only_open = audit_entries(fake_cards, fake_base, files)
+    check("已结卡的失效路径默认不进 other_empty", only_open["other_empty"] == [("OPEN-1", "src/gone.cpp")])
+    check("在办卡的目录式失效照样算缺陷", only_open["dir_empty"] == [("OPEN-1", "plugins/gone/")])
+    check("折叠条数只数已结卡", only_open["folded"] == 2 and only_open["folded_empty"] == 2)
+    check("扫描卡数只算在办", only_open["audited_cards"] == 1)
+
+    with_closed = audit_entries(fake_cards, fake_base, files, include_closed=True)
+    check("--include-closed 把已结卡的失效列回", len(with_closed["other_empty"]) == 2)
+    check("--include-closed 不再折叠", with_closed["folded"] == 0 and with_closed["audited_cards"] == 2)
+    check("--include-closed 的目录式失效也算缺陷", len(with_closed["dir_empty"]) == 2)
+
     if failures:
         print("✗ 自检失败：", file=sys.stderr)
         for name in failures:
@@ -265,13 +339,18 @@ def main() -> int:
     ap.add_argument("--card", default="", help="任务短号，如 R5-03；缺省从提交信息里推断")
     ap.add_argument("--base", default="origin/main", help="比较基线，默认 origin/main")
     ap.add_argument("--audit", action="store_true", help="体检台账：列出命中 0 个文件的 scope")
+    ap.add_argument(
+        "--include-closed",
+        action="store_true",
+        help="--audit 时连已结卡一起审（默认只审在办卡，已结卡的过期路径折叠成一行计数）",
+    )
     ap.add_argument("--selftest", action="store_true", help="跑内置断言（不读仓库）")
     args = ap.parse_args()
 
     if args.selftest:
         return selftest()
     if args.audit:
-        return audit()
+        return audit(include_closed=args.include_closed)
 
     raw = args.card.strip() or (detect_card_from_commits(args.base) or "")
     if not raw:

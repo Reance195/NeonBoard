@@ -41,9 +41,24 @@
 体检现有 scope 有没有「写了但没生效」的：
 
 ```powershell
-python scripts/check_scope.py --audit    # 目录式命中 0 直接退出 1；其它命中 0 只提示
-python scripts/check_scope.py --selftest # 规范化与匹配语义的离线断言
+python scripts/check_scope.py --audit                   # 默认只审在办卡
+python scripts/check_scope.py --audit --include-closed  # 连已结卡一起审
+python scripts/check_scope.py --selftest                # 规范化、匹配与折叠语义的离线断言
 ```
+
+`--audit` 的判据分两档：**目录式命中 0 直接退出 1**（写了等于没写，是缺陷）；其它命中 0
+只提示（多半是卡要建的文件还没建）。
+
+**默认只审在办卡**（DX-18）：已结卡写死的精确路径会在搬家/重构后集体失效（`MOD-06` 把
+`src/` 拆成 8 个模块子目录后一次造出 191 条），那是历史记录、不是缺陷 —— 改它们属任务定义
+变更（DX-10），且会把在办卡的真缺陷淹掉。这些条目折叠成一行计数：
+
+```
+已结卡另 771 条 scope（其中命中 0 的 190 条），已折叠（--include-closed 查看）
+```
+
+要做历史考古、或想确认某张已结卡的 scope 是否真的覆盖过文件时，加 `--include-closed`。
+折叠只影响「看什么」，不影响退出码：被审集合里只要有目录式命中 0，仍退 1。
 
 CI 里的这一步仍是**信号**（`continue-on-error`）：存量卡还有未补 scope 的，硬门禁会一片红；
 补齐之后再摘掉。

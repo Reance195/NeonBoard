@@ -3,6 +3,16 @@
 > **状态：草案，未立卡。** 本文只递交请求，不改 `docs/board-ledger.json` 的 `cards` / `baseline`。
 > 编号是建议（沿用 `docs/module-split-plan.md` v4 §7.4 的 `MOD-xx`），**实际编号以维护者立卡时为准**。
 > 依据：`docs/module-split-plan.md` v4（合入提交 `a568cf3`），基线 `origin/main`。
+>
+> **2026-11-04 已入账**：§1.3 / §1.4 / §1.5 的 `MOD-06` / `DX-17` / `R14-05` 已按维护者指令
+> 「R14-04 → R14-05 → DX-17 → MOD-06」立卡（`chore(board):` 提交），台账 `baseline` 均为 `todo`。
+> 下面的 JSON 片段已降级为 `text` 留档，**不再被 `board-apply.py` 解析** —— 否则再用本文件建卡
+> 会因「同号卡已存在」整批被拒。卡片定义以 `docs/board-ledger.json` 为准。
+> 因此本文件已不是可执行清单 —— 再跑 `board-apply.py` 会报「不是合法 JSON 片段」，属预期。
+>
+> **2026-11-04 刷新**：`MOD-02` / `MOD-05` / `R14-03` 均已结卡，§1.3 的验收数字（35 不是 34）、
+> 文件数（111 顶层 + host/ 1）与前置状态已按实际改正；新增 §1.4 `DX-17`、§1.5 `R14-05`
+> 两张请求（前者是在办卡正在踩的治理缺陷，后者是 `R14-03` 收尾时实测出的产品缺陷）。
 
 ---
 
@@ -89,10 +99,10 @@ neonboard_add_test(tst_taskinputparser ${NB_DIR_TASK}/TaskInputParser.cpp)
 
 | 段 | 内容 |
 | --- | --- |
-| **目标** | `src/` 平铺的 112 个文件按 8 个模块归入子目录，`main.cpp` 与 `host/` 留在顶层 |
-| **验收** | 见 `acceptance` |
-| **边界** | `src/**`、`CMakeLists.txt`、`tests/CMakeLists.txt`、`docs/project-map.json`、`docs/*.md` |
-| **输入** | `depends: ["MOD-05", "MOD-02"]`，外加 `R14-03` 必须已结（见 §2.5） |
+| **目标** | `src/` 顶层平铺的 111 个 `.h/.cpp` 按 8 个模块归入子目录，`main.cpp` 留在顶层，`host/` 不动 |
+| **验收** | 见 `acceptance`（2026-11-04 复核：测试总数 35，不是 34） |
+| **边界** | `src/**`、`CMakeLists.txt`、`tests/CMakeLists.txt`、`docs/**` |
+| **输入** | `depends: ["MOD-02", "MOD-05", "R14-03"]` —— **三张全部已结**（2026-11-04 核实），本卡即就绪 |
 | **产出** | 合并提交 body 四段 |
 
 **执行顺序**（写进 `note`，这是本卡最容易做错的地方）：
@@ -101,28 +111,166 @@ neonboard_add_test(tst_taskinputparser ${NB_DIR_TASK}/TaskInputParser.cpp)
 2. 再搬 `board` / `shell` / `plugin` / `agent` / `update` / `theme`；
 3. **`TaskRunner` 进 `src/agent/`，不是 `src/task/`**（§3.3 的归属修正）；
 4. **`DataPort` 进 `src/board/`**、**`HookEventQueue` 进 `src/plugin/`** —— 三个易错归属；
-5. 同批改 4 处：`CMakeLists.txt` 源列表、`tests/CMakeLists.txt`（MOD-02 后只改 8 行）、
-   `docs/project-map.json` 的两条链路证据、文档路径引用（`AGENTS.md` / `agent-adapters.md` /
-   `agent-provider-api.md` / `adr/0002`）。
+5. 同批改 5 处（2026-11-04 逐项复核过数量）：`CMakeLists.txt` 源列表（**64 行** `src/` 引用 +
+   主 target **需要新增** 8 条 include，它现在一条都没有）、`tests/CMakeLists.txt`（MOD-02 后
+   **只改 8 行**）、`docs/project-map.json` 的 chain 证据、文档路径引用（`AGENTS.md` + `docs/`
+   下 **12 个**非归档文档命中，`docs/archive/` 3 个历史归档不改）、卡片 scope 里的精确路径
+   （**在办卡 0 条**，已核，见下）。
 
-```json
+**两个易混点，别当成一回事**：
+
+- `docs/project-map.json` 的 **skeleton 是递归扫**（`QDirIterator::Subdirectories`），拆子目录**不受影响**；
+  **chain 是逐条校验证据存在性**，拆了就断链（`tst_projectmap` 会红）。
+- 卡片 `scope` 里 **glob（`src/**`）不受影响，精确路径（`src/X.cpp`）才受影响**。当前 6 张在办卡
+  的 scope 没有一条精确 `src/` 路径（已核），所以搬运不会让谁越界；但**改别卡的精确 scope 属任务
+  定义变更（DX-10）**，要 `chore(board):` + 授权/批次两行 + 不混代码。
+
+**时序风险（新）**：`docs/**` 与 6 张在办卡的 10 个精确路径重叠（`DX-12` 3、`DX-14` 2、
+`DX-15` 1、`DX-16` 1、`R14-02` 1、`R14-04` 2），且 `CMakeLists.txt` 与 **`R14-02`（打包产物）**
+争同一精确路径。`board-apply.py` 会报 `scope.clash` / `scope.cover` 两条提示。建议 **MOD-06 排在这些卡之后**，
+或协调为「路径引用段由 MOD-06 独占一个提交」，避免同一文件双改。
+
+```text
 "MOD-06": {
   "stage": "MOD",
-  "title": "MOD src/ 物理分层：8 个模块子目录 + 连带 4 处",
-  "note": "起因：110 个 .h/.cpp（55 个类）平铺在 src/ 顶层，唯一子目录是 host/，边界只存在于读者脑中。\n\n目标：按 docs/module-split-plan.md §3.1 的 8 模块划分建立子目录，全量加 include 路径，保持 #include \"Database.h\" 写法不变（搬运与改 include 分离）。\n\n执行顺序：先 core + task 两个底层模块验证，再搬其余六个。易错归属：TaskRunner → agent（不是 task）、DataPort → board、HookEventQueue → plugin。\n\n同批必改 4 处：CMakeLists.txt 源列表、tests/CMakeLists.txt 映射、docs/project-map.json 的 BoardSync 证据、文档路径引用。",
+  "title": "MOD src/ 物理分层：8 个模块子目录 + 连带 5 处引用",
+  "note": "起因：111 个 .h/.cpp 平铺在 src/ 顶层（另有 host/HostMain.cpp 一个子目录），边界只存在于读者脑中。\n\n目标：按 docs/module-split-plan.md §3.1 的 8 模块划分建立子目录，全量加 include 路径，保持 #include \"Database.h\" 写法不变（搬运与改 include 分离）。\n\n搬运前先扫 5 类硬编码引用（2026-11-04 复核）：tests/CMakeLists.txt（MOD-02 后只需改 8 行）、CMakeLists.txt 源列表（64 行 src/ 引用，且主 target 需从无到有新增 8 条 include）、docs/project-map.json 的 chain 证据（逐条校验存在性，拆目录即断链；skeleton 是递归扫，不受影响）、文档路径引用（AGENTS.md + docs 下 12 个非归档文档命中，docs/archive 3 个历史归档不改）、卡片 scope 的精确路径（在办卡 0 条，已核；glob 不受影响）。\n\n执行顺序：先 core + task 验证，再搬其余六个。易错归属：TaskRunner → agent（不是 task）、DataPort → board、HookEventQueue → plugin。\n\n时序：docs/** 与 6 张在办卡的 10 个精确路径重叠（DX-12/14/15/16、R14-02、R14-04），CMakeLists.txt 与 R14-02 争同一路径；建议排在这些卡之后，或把文档路径引用段独占一个提交。",
   "acceptance": [
-    "ctest --test-dir build -C Release 全绿（34/34）",
+    "ctest --test-dir build -C Release 全绿（35/35）",
     "build/Release/NeonBoard.exe --selftest 与 --smoke 退出码 0",
     "git diff --stat --find-renames origin/main...HEAD 中 rename 占比 > 85%（其余为主 target 的 include 新增与源列表映射改动）",
-    "tst_projectmap 绿（docs/project-map.json 的链路证据已同步）",
-    "ls src/*.cpp 只剩 main.cpp，8 个模块子目录均存在且非空",
-    "python scripts/check_module_deps.py（全量模式）退出 0",
+    "ctest -R projectmap 绿（docs/project-map.json 的 chain 证据已同步到新路径）",
+    "ls src/*.cpp 只剩 main.cpp；src 下 core/task/plugin/agent/board/shell/update/theme 八个子目录均存在且非空",
+    "python scripts/check_module_deps.py --base origin/main 退出 0",
     "python scripts/check_scope.py --base origin/main 退出 0"
   ],
   "scope": ["src/**", "CMakeLists.txt", "tests/CMakeLists.txt", "docs/**"],
   "depends": ["MOD-02", "MOD-05", "R14-03"]
 }
 ```
+
+### 1.4 【建议 `DX-17`】目录式 `scope` 静默失效：6 处尾斜杠一条文件都盖不住
+
+| 段 | 内容 |
+| --- | --- |
+| **目标** | 卡片 `scope` 写 `plugins/x/`（尾斜杠）时能覆盖该目录下全部文件；并让「写了但没生效」可被机器发现 |
+| **验收** | 见 `acceptance` |
+| **边界** | `scripts/check_scope.py`、`scripts/board-apply.py`、`docs/task-card.md`、`.github/workflows/ci.yml` |
+| **输入** | 无前置；与在办卡无路径冲突 |
+| **产出** | 合并提交 body 四段 |
+
+**为什么这不是笔误，是缺陷**：`check_scope.glob_to_regex("plugins/agent-opencode/")` 编译出
+`^plugins/agent\-opencode/$` —— 只能匹配「字面量等于目录名」的路径，真实文件一个都不命中。
+台账里 6 处同一写法：`R9-02` / `R9-03` / `R9-04` / `R9-05` / `R10-04`（`docs/`）/ **`R14-04`（在办）**。
+也就是说 `R14-04` 现在改 `plugins/agent-opencode/main.qml` 会被判越界，而它自己并不知道。
+
+`R14-03` 已把本卡的 `plugins/agent-cursor/` 手工改成 `plugins/agent-cursor/**`（`5974de0`），
+但那是逐卡打补丁，不解决写法本身。
+
+**修法**：在 `check_scope.py` 里对 scope **先规范化**（尾斜杠补 `**`），**不要改 `glob_to_regex`
+的语义** —— `board-apply.py` 复用它做建卡校验，改语义会波及那 16 项自测。同时把匹配逻辑抽成
+可测函数（`matches(scope, path)`），让脚本第一次有 `--selftest`。
+
+**顺带要的 `--audit`**：遍历台账所有卡片的每条 scope，统计命中文件数，把「命中 0」的列出来。
+这类「写了但没生效」人眼看不出来 —— 6 处尾斜杠活了这么久就是证据。CI 的 scope step 目前是
+`continue-on-error`，只在信号层红，更不该指望人盯。
+
+```text
+"DX-17": {
+  "stage": "DX",
+  "title": "DX 目录式 scope 静默失效：6 处尾斜杠写法一条文件都盖不住",
+  "note": "起因：卡片 scope 写 plugins/agent-opencode/（尾斜杠）时，check_scope.glob_to_regex 只按 glob 编译，得到 ^plugins/agent-opencode/$，只能匹配字面量为目录名的路径，一条真实文件都盖不住——等于这张卡没有 scope 保护。\n\n全仓 6 处：R9-02/03/04/05、R10-04（docs/）、R14-04（在办）。R14-03 已把本卡的 plugins/agent-cursor/ 手工改成 /**，但那是逐卡打补丁，不解决写法本身。\n\n修法：在 check_scope.py 里对 scope 先规范化（尾斜杠补 **），不改 glob_to_regex 的语义——board-apply.py 复用它做建卡校验，改语义会波及那 16 项自测。把匹配逻辑抽成可测函数 matches(scope, path)，让脚本第一次有 --selftest。\n\n顺带加 --audit：遍历台账所有卡片的每条 scope，统计命中文件数，列出命中 0 的条目。CI 的 scope step 是 continue-on-error，红灯只在信号层，不能指望人盯。",
+  "acceptance": [
+    "python scripts/check_scope.py --selftest 退出 0，含断言：目录式 plugins/agent-opencode/ 能匹配 plugins/agent-opencode/main.qml",
+    "python scripts/check_scope.py --audit 输出中「命中 0 文件」的 scope 条目为 0（修复前为 6）",
+    "python scripts/board-apply.py --selftest 退出 0（glob_to_regex 语义未变）",
+    "python scripts/check_script_hygiene.py 退出 0",
+    "docs/task-card.md 的 scope 段写明两种等价写法（plugins/x/ 与 plugins/x/**），并说明 CI 仍为信号"
+  ],
+  "scope": ["scripts/check_scope.py", "scripts/board-apply.py", "docs/task-card.md", ".github/workflows/ci.yml"],
+  "depends": []
+}
+```
+
+### 1.5 【建议 `R14-05`】`.cmd` 转调下 prompt 只送第一行，特殊字符被 cmd 二次解释
+
+| 段 | 内容 |
+| --- | --- |
+| **目标** | 程序是 `.cmd`/`.bat` 包装器时，prompt 不再静默失真：能安全送达就送达，不能就在启动前明确失败 |
+| **验收** | 见 `acceptance` |
+| **边界** | `src/TaskRunner.*`、`src/AgentProfile.*`、`tests/tst_taskrunner.cpp`、`plugins/agent-cursor/**`、`docs/agent-profile.md`、`docs/agent-adapters.md` |
+| **输入** | `depends: ["R14-03"]`（已结：`resolveProgram` 解决了「拉得起来」） |
+| **产出** | 合并提交 body 四段 |
+
+**这是 `R14-03` 收尾时量出来的第二层，不是猜的**。Qt 6.8 对 `.cmd` 会自动套
+`cmd.exe /c ""prog" args"`（实抓命令行），于是参数被 cmd **再解释一遍**：
+
+| prompt 内容 | 经 `.cmd` 的结果（`build/probe` 实测） |
+| --- | --- |
+| 含换行（`\n`） | **在第一个换行处截断**，后面的内容根本没到 CLI |
+| 含 `%PATH%` 这类 `%VAR%` | 被展开成环境变量值 |
+| 含 `&` `\|` `<` `>` | 被当成命令分隔符/重定向 |
+| 含内嵌双引号 | 变成 `\"` |
+
+**这不是边缘场景**：`WorkflowRunner::buildPrompt`（`src/WorkflowRunner.cpp:137`）用 `\n` 拼
+多行 prompt（任务 / 上一步交接物 / 本步任务 / 交付物 / 约束）。`promptMode=arg` 的 profile
+走 `.cmd` 时，agent 只收到第一行 —— 交接物整段丢失，且**没有任何报错**。
+
+**三条出路（按推荐序，写进 note）**：
+
+1. **真身直连**：profile 声明解释器 + 脚本（`node.exe` + `index.js`），执行器用它代替包装器，
+   不经 shell。`docs/agent-profile.md` 已写的「彻底解法」；代价是版本目录会随升级变，要有解析与回退。
+2. **自拼命令行**：`setCreateProcessArgumentsModifier` 自己拼 cmd 行并转义（`^` 转义 `& | < > ^`、
+   `%` 用 `^%`、`"` 用 `\"`）。能救单行，**救不了换行**（cmd 没有换行转义）。
+3. **兜底（本次至少要落地）**：启动前检测「程序是 `.cmd`/`.bat` 且 prompt 含换行或 NUL」→
+   直接失败，错误信息指明 profile id 与原因，**绝不静默截断**。
+
+**已排除的方案**：`promptMode=stdin`。`cursor-agent --help` 只有 `[prompt...]` 位置参数，
+无 `--input-format` / `--stdin`；包内 `index.js` 里 `stdin` 仅出现 3 次，不是输入通道。
+（`TaskRunner` 侧 stdin 通道本身是好的 —— R9-05 已修通，问题在 CLI 不读。）
+
+```text
+"R14-05": {
+  "stage": "R14",
+  "title": "R14 .cmd 转调下 prompt 只送第一行：换行截断与 cmd 二次解释",
+  "note": "起因：R14-03 修好「拉得起来」后留下的一层。cursor-agent 在 PATH 上只有 .cmd 包装器，Qt 6.8 给它套 cmd.exe /c \"\"prog\" args\"，参数因此被 cmd 二次解释。实测（build/probe，2026-11-04）：换行→prompt 在第一个换行处截断；%VAR%→展开成环境变量；& | < >→当命令分隔符；内嵌双引号→\\\"。\n\n不是边缘场景：WorkflowRunner::buildPrompt（src/WorkflowRunner.cpp:137）用 \\n 拼多行 prompt（任务/上一步交接物/本步任务/交付物/约束），arg 模式经 .cmd 时只有第一行送达，且无任何报错。\n\n三条出路（推荐序）：1) 真身直连：profile 声明解释器+脚本（node.exe + index.js），不经 shell，代价是版本目录随升级变，需解析与回退；2) 自拼命令行 + cmd 转义（^ 转义 & | < > ^、% 用 ^%、\" 用 \\\"），救得了单行救不了换行；3) 兜底：启动前检测「.cmd/.bat 且 prompt 含换行/NUL」→ 明确失败并指明 profile id，绝不静默截断。\n\n本次至少落地 3)；1) 若时间允许一并做，并把 available 判定从「包装器可拉起」升级为「prompt 可安全送达」。\n\n已排除：promptMode=stdin——cursor-agent --help 只有 [prompt...] 位置参数，无 --input-format/--stdin，index.js 内 stdin 仅 3 次且非输入通道。\n\n时序：与在办卡 R14-04 争 docs/agent-profile.md 与 docs/agent-adapters.md，建议 R14-04 先结。",
+  "acceptance": [
+    "ctest -R taskrunner 全绿，含新用例：.cmd + 含换行 prompt 在启动前失败，错误信息含换行与 profile id，且不残留 running 锁",
+    "ctest -R taskrunner 含新用例：.cmd 回显脚本收到含 %PATH% 与 a&b 的参数时，stdout 原样含这些字面量（不展开、不切分）",
+    "NB_REAL_AGENT_PROBE=1 ctest -R taskrunner -V 真跑 cursor-agent 单行 prompt，退出码 0",
+    "python scripts/check_module_deps.py --base origin/main 退出 0",
+    "docs/agent-profile.md 的「仍未解决」段改为结论，含三种程序写法的实测结果表"
+  ],
+  "scope": [
+    "src/TaskRunner.cpp",
+    "src/TaskRunner.h",
+    "src/AgentProfile.cpp",
+    "src/AgentProfile.h",
+    "tests/tst_taskrunner.cpp",
+    "plugins/agent-cursor/**",
+    "docs/agent-profile.md",
+    "docs/agent-adapters.md"
+  ],
+  "depends": ["R14-03"]
+}
+```
+
+### 1.6 建卡工具报出的 5 条路径冲突（排期先定序）
+
+`python scripts/board-apply.py docs/module-split-card-requests.md` 的结论是
+「可以建卡，就绪 3 张（`MOD-06`、`DX-17`、`R14-05`）」，同时给出 5 条提示。都不是阻塞项，
+但都要人工定序 —— 否则同一个文件被两条分支各改一遍，合并时必然手工解冲突。
+
+| # | 类型 | 本卡 | 与谁 | 建议顺序 |
+| --- | --- | --- | --- | --- |
+| 1 | `scope.clash` | `MOD-06`（`CMakeLists.txt`） | `R14-02` 打包产物 | `R14-02` 先结 |
+| 2 | `scope.cover` | `MOD-06`（`docs/**` 盖住 6 卡的 10 条精确路径） | `DX-12/14/15/16`、`R14-02`、`R14-04` | `MOD-06` 最后做 |
+| 3 | `scope.clash` | `DX-17`（`docs/task-card.md`） | `DX-15` 验收口径分层 | 任一先结，另一个 rebase |
+| 4 | `scope.clash` | `R14-05`（`docs/agent-profile.md`） | `R14-04` opencode 只读参数 | `R14-04` 先结 |
+| 5 | `scope.clash` | `R14-05`（`docs/agent-adapters.md`） | `R14-04` | 同上 |
+
+即：**`MOD-06` 是三张新卡里最该往后放的**（它要动的 `CMakeLists.txt` 与 `docs/**` 恰好是
+在办卡最密集的两处）；`DX-17` 纯脚本、无依赖，随时可插；`R14-05` 排在 `R14-04` 之后。
 
 ---
 
@@ -189,25 +337,34 @@ neonboard_add_test(tst_taskinputparser ${NB_DIR_TASK}/TaskInputParser.cpp)
 但看板/文档里 `MOD-01` 与 `M01` 只差两个字母，人工核对时极易看错。
 `ARCH`（4 字母，正好在前缀上限）或 `LAY` 都不冲突。
 
-### 2.5 `R14-03` 必须先结（方案 §6.1 方案 A）
+### 2.5 ~~`R14-03` 必须先结~~（已解除，2026-11-04）
 
 它的 `scope` 含 `src/TaskRunner.cpp` / `.h`，而该文件将被搬进 `src/agent/`；
-不结就搬，`check_scope.py` 会在搬运提交上判越界。方案 §6.1 推荐「先做完再 M2」，我认同——
-`R14-03` 是用户可感知的缺陷（cursor-agent 拉不起来），优先级本来就高于架构重构。
+不结就搬，`check_scope.py` 会在搬运提交上判越界。
+
+**结论**：`R14-03` 已于 2026-11-04 结卡（`a1e23a8`，实现 `57ac656`，本地 main `5456b8d`）。
+顺带把它失效的目录式 scope 改成 `plugins/agent-cursor/**`（`5974de0`）——同一类问题
+在台账里还有 6 处，已单独立 §1.4 的 `DX-17`。
 
 ---
 
 ## 3. 修订后的建议序列
 
 ```
-现在   → R14-03 结卡（缺陷优先，且是 MOD-06 的硬前置）
-       → MOD-02（路径解耦；合并 B1 第二提交）
-       → MOD-05（守卫，棘轮式）
-       → MOD-06（src/ 物理分层：先 core+task，再其余六个）
-       → MOD-03 / MOD-04（拆 main.cpp，与 task 分层无依赖，可穿插或延后）
+已完成 → R14-03 结卡（缺陷优先，且是 MOD-06 的硬前置）
+已完成 → MOD-02（路径解耦，199 处 → 8 个变量）
+已完成 → MOD-05（依赖与行数守卫，棘轮式）
+现在   → MOD-06（src/ 物理分层：先 core+task，再其余六个）
+可穿插 → DX-17（目录式 scope 生效 + --audit；纯脚本，不抢 src 路径）
+       → R14-05（.cmd 下 prompt 失真；与 MOD-06 争 src/TaskRunner.*，二者择一先做）
+       → MOD-03 / MOD-04（拆 main.cpp，与 task 分层无依赖）
        → MOD-07 / MOD-08（QML）
        → MOD-09（静态库，可无限延期）
 ```
+
+**注意 `MOD-06` 与 `R14-05` 争同一文件**：`R14-05` 要改 `src/TaskRunner.*`，`MOD-06` 要把它搬进
+`src/agent/`。建议 **`R14-05` 在前**（缺陷优先，且它改完 `MOD-06` 搬的是稳定版本），或 `MOD-06`
+先在 `src/` 原地完成、`R14-05` 按新路径改。两者同时开工必然撞车。
 
 与 v4 §6.3 的差异只有四处：`MOD-01` 取消/并入、`MOD-05` 依赖改为 `MOD-02`、
 `BLD-02` 验收线改 130、`MOD-06` 的 rename 断言放宽到 85%。前两处是方案自身不自洽，
@@ -219,4 +376,5 @@ neonboard_add_test(tst_taskinputparser ${NB_DIR_TASK}/TaskInputParser.cpp)
 
 - 不改 `docs/board-ledger.json`（不加卡、不改 `scope`/`acceptance`/`baseline`）；
 - 不认领任何编号，不建分支，不跑 `agent-init.ps1`；
-- 不构成对 §7.4 的替代，只是三张卡的建卡请求 + 五处质疑（§2.0 预研核查、§2.1～§2.4）。
+- 不构成对 §7.4 的替代，只是三张卡（`MOD-06` / `DX-17` / `R14-05`）的建卡请求
+  + 五处质疑（§2.0 预研核查、§2.1～§2.4）。

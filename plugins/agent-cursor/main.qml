@@ -117,9 +117,10 @@ Rectangle {
 
         Text {
             Layout.fillWidth: true
-            text: "「可用」只代表 exe 解析得到，不代表一定拉得起来。"
-                  + "执行器以 exe 直接拉起进程、不经过 shell，遇到 .cmd 包装器时若报"
-                  + "「进程启动失败」，请按上面的真实路径排查。"
+            text: "实测（R14-03）：裸命令名 cursor-agent 曾直接 FailedToStart「系统找不到指定的文件」"
+                  + "—— CreateProcess 只补 .exe，不认 PATH 上的 .cmd。执行器现在先解析成绝对路径"
+                  + "再拉起，本机 --version 实测退出码 0。边界：经 .cmd 转调的参数仍会被 cmd 二次解释，"
+                  + "prompt 里的 & | % 等字符会失真。"
             color: Theme.warning
             font.pixelSize: 9
             wrapMode: Text.WordWrap

@@ -10,6 +10,7 @@
 #include <QFile>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QStandardPaths>
 #include <QTimer>
 #include <utility>
 
@@ -25,6 +26,28 @@ constexpr int kGraceMs = 5000;      // terminate 后等待其自行退出的宽�
 QVariantMap profileEnv(const QVariantMap &profile)
 {
     return profile.value(QStringLiteral("env")).toMap();
+}
+
+// R14-03：裸命令名要先解析成绝对路径再交给 QProcess。
+//
+// Windows 的 CreateProcess 只给裸名补 `.exe`，不按 PATHEXT 找 `.cmd` / `.bat`；
+// 而 cursor-agent 这类 CLI 装出来正是 PATH 上的 .cmd 包装器（真身是
+// versions/<版本>/node.exe + index.js）。于是「面板显示可用、派活却
+// FailedToStart「系统找不到指定的文件」」—— 解析得到 ≠ 拉得起来，差别就在这一步。
+//
+// 解析口径必须与 AgentProfile::profileRunnable（每行的 available）同源：
+// 两处都走 QStandardPaths::findExecutable，面板说可用才是真的可拉起。
+// 带路径分隔符的（绝对路径 / 相对路径）原样返回 —— 那是 QProcess 与 cwd 的语义，
+// 抢过来解析反而会改变含义。
+QString resolveProgram(const QString &program)
+{
+    const QString trimmed = program.trimmed();
+    if (trimmed.isEmpty())
+        return program;
+    if (trimmed.contains(QLatin1Char('/')) || trimmed.contains(QLatin1Char('\\')))
+        return program;
+    const QString resolved = QStandardPaths::findExecutable(trimmed);
+    return resolved.isEmpty() ? program : resolved;
 }
 
 // 常见凭据形态：key=value 里的敏感键、Bearer / sk- 前缀令牌、独立的长十六进制串。
@@ -122,7 +145,8 @@ QVariantMap TaskRunner::start(const QString &taskId)
         profile.value(QStringLiteral("promptMode")).toString() == QStringLiteral("stdin");
     // R9-05：stdin="null" 的 profile（codex）不读标准输入，必须把它接到 NUL，
     // 否则子进程会停在「Reading additional input from stdin...」直到超时。
-    const bool stdinNull = profile.value(QStringLiteral("stdin")).toString() == QStringLiteral("null");
+    const bool stdinNull =
+        profile.value(QStringLiteral("stdin")).toString() == QStringLiteral("null");
     const QStringList args =
         m_profiles->argv(agent, /*readonly=*/false, stdinPrompt ? QString() : prompt);
 
@@ -196,7 +220,7 @@ bool TaskRunner::setupProcess(Process &p, const QString &cwd, const QStringList 
                               bool stdinNull)
 {
     QProcess *proc = p.proc = new QProcess(this);
-    proc->setProgram(args.value(0));
+    proc->setProgram(resolveProgram(args.value(0)));
     proc->setArguments(args.mid(1));
     if (!cwd.trimmed().isEmpty())
         proc->setWorkingDirectory(cwd);

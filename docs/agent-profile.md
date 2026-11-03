@@ -93,6 +93,38 @@ PATH 会变、盘会拔，写进 meta 就成了谎话。
   达不到 executor 的超时口径，**所以仍不内置**。要内置的前提是在目标机器上跑通一次以
   `turn.completed` 结束的 exec，并把实测到的耗时与失败判定补回本节。
 
+## .cmd 包装器实测记录（2026-11-04，R14-03）
+
+本机 PATH 上的 cursor-agent 只有 `%LOCALAPPDATA%\cursor-agent\cursor-agent.cmd`，
+真身是 `versions\2026.10.19-6bbf2c4\node.exe` + `index.js`，外层 .cmd 只负责转调
+`cursor-agent.ps1`。用执行器（TaskRunner）真跑 `--version`，三种 program 写法结果不同：
+
+| 传给 QProcess 的 program | 实测结果 |
+| --- | --- |
+| `cursor-agent`（profile 原样，裸命令名） | **FailedToStart**，errorString＝`Process failed to start: 系统找不到指定的文件。` |
+| `C:\…\cursor-agent.cmd`（绝对路径） | 拉起成功，`--version` 退出码 0，stdout `2026.10.19-6bbf2c4` |
+| `C:\…\versions\2026.10.19-6bbf2c4\node.exe`（真身） | 拉起成功，同上 |
+
+根因不在可用性判定：`QStandardPaths::findExecutable` 认 `PATHEXT`，所以面板一直显示「可用」；
+错在 `setProgram` 之后走的是 `CreateProcess`，裸名只补 `.exe`，`.cmd` 根本不在候选里。
+修法：`TaskRunner::setupProcess` 在 `setProgram` 前把裸命令名解析成绝对路径
+（`resolveProgram`），口径与 `available` 同源 —— 面板说可用，就必须真能拉起。
+
+Qt 6.8 对 `.cmd` / `.bat` 会自动套一层 `cmd.exe /c ""<prog>" <args>"`（实测抓到该命令行），
+所以绝对路径下 .cmd 本身能拉起、退出码照常回传；作业对象按 QProcess 的 pid 挂
+（.cmd 情形即 cmd.exe），子孙进程随作业一起回收。
+
+复跑方式（会真的拉起本机 CLI，默认跳过）：
+
+```powershell
+$env:NB_REAL_AGENT_PROBE = "1"; ctest -R taskrunner --output-on-failure -V
+```
+
+**仍未解决（另提卡，不在 R14-03 范围）**：经 cmd 转调时参数会被二次解释 —— `& | < >`
+被当命令分隔符、`%VAR%` 被展开、内嵌双引号变成 `\"`、换行会把 prompt 截断。
+cursor-agent 的 prompt 走 argv，含这些字符时会失真。彻底解法两条：指向真身
+`node.exe + index.js`（不经 shell），或把 prompt 改走 stdin（需先实测该 CLI 是否支持）。
+
 ## 只读模式怎么保证（triage 必须）
 
 三档，从强到弱：

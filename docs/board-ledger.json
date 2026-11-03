@@ -17,6 +17,7 @@
         "DX-15": "todo",
         "DX-16": "todo",
         "DX-17": "done",
+        "DX-18": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -476,6 +477,27 @@
             ],
             "stage": "DX",
             "title": "DX 目录式 scope 静默失效：6 处尾斜杠写法一条文件都盖不住"
+        },
+        "DX-18": {
+            "acceptance": [
+                "python scripts/check_scope.py --audit 默认输出中不再列出已结卡的命中 0 条目，且末尾含折叠计数与 --include-closed 提示",
+                "python scripts/check_scope.py --audit --include-closed 列出的命中 0 条目数与改动前一致（当前基线 191 条，随卡增减）",
+                "python scripts/check_scope.py --selftest 退出 0，新增两组断言：已结卡的失效路径默认被折叠；加 --include-closed 后能列回",
+                "目录式 scope 命中 0 仍退 1：--audit 对在办卡的判定没有放松",
+                "python scripts/check_script_hygiene.py 退出 0；docs/task-card.md 的 --audit 段写明默认折叠语义与 --include-closed 用途"
+            ],
+            "depends": [
+                "DX-17"
+            ],
+            "id": "DX-18",
+            "note": "起因：MOD-06 把 110 个文件搬进 8 个模块子目录后，已结卡里写死的精确路径（src/Database.*、src/TaskRunner.cpp 等）全部指向不存在的文件。2026-11-04 在 main 5a0fee6 实测 check_scope.py --audit：120 张卡 / 793 条 scope / 仓库 342 个文件，目录式 5 条全命中，其它命中 0 的 191 条——而输出把这 191 条解释成「多为卡要建的文件还没建」，实际全是搬家残留，工具在自我误述。\n\n已核在办卡零失效（DX-12/14/15/16、R14-02 共 5 张，scope 无一指向不存在的文件），所以 191 条是纯噪声，一条实情都没有；它把 DX-17 刚做出来的审计能力吃掉了——真缺陷会淹在 191 行里。\n\n不改台账的理由：已结卡的过期路径属历史记录，改它是任务定义变更（DX-10），且分散在 100+ 张卡上，等于一次全量改写；--audit 本来就是给在办卡用的监视器。\n\n修法：--audit 默认跳过 baseline=done 的卡，末尾补一行「已结卡另 N 条命中 0，已折叠（--include-closed 查看）」；加 --include-closed 恢复全量；退出码语义不变（只有目录式命中 0 退 1）；--selftest 补两条断言（默认折叠、加开关能列回）。",
+            "scope": [
+                "scripts/check_scope.py",
+                "docs/task-card.md",
+                "docs/module-split-card-requests.md"
+            ],
+            "stage": "DX",
+            "title": "DX --audit 被历史卡过期 scope 淹没：191 条噪声盖住在办卡"
         },
         "M01": {
             "acceptance": [

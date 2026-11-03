@@ -127,6 +127,24 @@
             "updatedAt": 1793299949
         },
         {
+            "code": "MOD-05",
+            "completedAt": 0,
+            "createdAt": 1793722228,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-05",
+            "note": "起因：src/ 目前零分层，任何 #include 都能成立，编译器不会反对；Main.qml 从 1180 涨回 4260 就是「只有一次性拆分、没有持续约束」的实证。\n\n目标：新增 scripts/check_module_deps.py，检测反向依赖（如 task → agent）与文件行数上限，接入 ci.yml 与 verify.ps1。必须棘轮式：只检查本次改动涉及的文件，存量不阻塞——否则首次接入即红，会被 --no-verify 绕过，比没有守卫更糟。\n\n边界：只加脚本与 CI 接线，不改任何 C++ 代码、不搬文件。",
+            "orderKey": 9216,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD 守卫：模块依赖方向与行数上限接入 CI",
+            "updatedAt": 1793722228
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -2761,6 +2779,6 @@
             "updatedAt": 1793281760
         }
     ],
-    "updated": "2026-11-03T23:55:14",
+    "updated": "2026-11-04T00:10:28",
     "version": 3
 }

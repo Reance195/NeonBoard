@@ -55,24 +55,6 @@
             "updatedAt": 1793299949
         },
         {
-            "code": "DX-15",
-            "completedAt": 0,
-            "createdAt": 1793299949,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "195c8f3c-67f2-466c-a999-fe5e76bbd807",
-            "note": "起因（2026-10-30，DX-13 实施实测）：卡片改动只含 `scripts/git-done.ps1`、`scripts/verify.ps1`、\n`docs/pitfalls.md`、`.github/workflows/*.yml`，**零 C++ / QML 改动**，但验收项仍写\n「ctest 34/34 + verify.ps1 全过」，于是新开的 worktree 付了一次全量编译（512 目标、\n20~30 分钟）。而脚本层就能完成的验证 —— PowerShell 语法解析、`check_script_hygiene`、\nYAML 解析、`check_scope` —— 与编译完全无关，这几项当时已全绿。\n\n成本是不对称的：脚本类改动付 15~30 分钟编译费，买到的是与改动无关的确认；\n真正的回归保护由 CI 的全量构建提供，本地再跑一遍是重复。\n\n边界：不降低代码类卡片的验收强度（编译 + ctest + verify 照旧）；全量编译仍由 CI 兜底；\n不改 ctest 用例，不改 CI 门槛。",
-            "orderKey": 7168,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "验收口径分层：纯脚本/配置类卡片免全量编译",
-            "updatedAt": 1793299949
-        },
-        {
             "code": "DX-16",
             "completedAt": 0,
             "createdAt": 1793299949,
@@ -656,6 +638,24 @@
             ],
             "title": "颜色令牌化：零硬编码",
             "updatedAt": 1792568900
+        },
+        {
+            "code": "DX-15",
+            "completedAt": 1793730834,
+            "createdAt": 1793299949,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "195c8f3c-67f2-466c-a999-fe5e76bbd807",
+            "note": "起因（2026-10-30，DX-13 实施实测）：卡片改动只含 `scripts/git-done.ps1`、`scripts/verify.ps1`、\n`docs/pitfalls.md`、`.github/workflows/*.yml`，**零 C++ / QML 改动**，但验收项仍写\n「ctest 34/34 + verify.ps1 全过」，于是新开的 worktree 付了一次全量编译（512 目标、\n20~30 分钟）。而脚本层就能完成的验证 —— PowerShell 语法解析、`check_script_hygiene`、\nYAML 解析、`check_scope` —— 与编译完全无关，这几项当时已全绿。\n\n成本是不对称的：脚本类改动付 15~30 分钟编译费，买到的是与改动无关的确认；\n真正的回归保护由 CI 的全量构建提供，本地再跑一遍是重复。\n\n边界：不降低代码类卡片的验收强度（编译 + ctest + verify 照旧）；全量编译仍由 CI 兜底；\n不改 ctest 用例，不改 CI 门槛。",
+            "orderKey": 7168,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "验收口径分层：纯脚本/配置类卡片免全量编译",
+            "updatedAt": 1793730834
         },
         {
             "code": "R0-09",
@@ -2851,6 +2851,6 @@
             "updatedAt": 1793730285
         }
     ],
-    "updated": "2026-11-04T02:24:45",
+    "updated": "2026-11-04T02:33:54",
     "version": 3
 }

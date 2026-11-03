@@ -8,7 +8,9 @@
 #      后续可按同样方式建独立的 sqlite 临时库测试。
 #   3. 每个测试都是独立可执行文件，CTest 单独计时，失败定位到具体用例。
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Test Sql)
+# Gui：R14-01 的 tst_pluginruntime 要整体编入 PluginLoader.cpp，它用 QDesktopServices
+# 打开插件目录。测试本身是 QTEST_GUILESS_MAIN，不创建 QGuiApplication，只是链接期需要。
+find_package(Qt6 6.8 REQUIRED COMPONENTS Test Sql Gui)
 
 function(neonboard_add_test target)
     qt_add_executable(${target} ${target}.cpp ${ARGN})
@@ -38,6 +40,18 @@ neonboard_add_test(tst_taskinputparser
 neonboard_add_test(tst_pluginpackage
     ${CMAKE_SOURCE_DIR}/src/PluginPackage.cpp
 )
+
+# R14-01：官方来源插件的授权补齐策略。
+# 只测 PluginLoader 的静态策略函数（来源判定 + 补齐计算），因此仍要整体编入
+# PluginLoader.cpp —— 它带 Q_OBJECT，且构造需要 Database，故一并带上依赖。
+# 关键用例是「grants 已存在」的场景：全新库走首次 bootstrap 会全授予，
+# 拿它验收等于没测（R9 四张卡就是这么漏过去的）。
+neonboard_add_test(tst_pluginruntime
+    ${CMAKE_SOURCE_DIR}/src/Database.cpp
+    ${CMAKE_SOURCE_DIR}/src/AppPaths.cpp
+    ${CMAKE_SOURCE_DIR}/src/PluginLoader.cpp
+)
+target_link_libraries(tst_pluginruntime PRIVATE Qt6::Sql Qt6::Gui)
 
 # R4-02：动作层（命令行 → 动作 → QML 调用，以及二次启动的 IPC 帧）
 neonboard_add_test(tst_appactions

@@ -57,12 +57,64 @@ PluginLoader::PluginLoader(Database *database, QObject *parent)
 
 QStringList PluginLoader::sourceDirs() const
 {
-    return {
+    QStringList dirs{
         m_pluginDir,
         QCoreApplication::applicationDirPath() + QStringLiteral("/plugins"),
-        QStringLiteral(NEONBOARD_SOURCE_DIR) + QStringLiteral("/plugins"),
-        QStringLiteral(NEONBOARD_SOURCE_DIR) + QStringLiteral("/plugins-samples"),
     };
+    // 源码树的两个目录是「有源码才有」的可选形态：安装版并没有这份路径，
+    // 以前靠把开发机路径编进 exe、再在运行时试探目录是否存在来兜底。
+    // 改成编译期条件后，「没有源码目录」变成合法状态，也让只链 PluginLoader.cpp
+    // 的单元测试不必伪造这个宏（R14-01）。
+#ifdef NEONBOARD_SOURCE_DIR
+    dirs.append(QStringLiteral(NEONBOARD_SOURCE_DIR) + QStringLiteral("/plugins"));
+    dirs.append(QStringLiteral(NEONBOARD_SOURCE_DIR) + QStringLiteral("/plugins-samples"));
+#endif
+    return dirs;
+}
+
+bool PluginLoader::isOfficialPluginSource(const QString &source)
+{
+    // 与 sourceDirs() 的四个返回值一一对应：只有 appdir / official 随分发走。
+    return source == QLatin1String("appdir") || source == QLatin1String("official");
+}
+
+QHash<QString, QStringList> PluginLoader::officialAutoGrants(
+    const QVariantList &plugins, const QHash<QString, QStringList> &grants,
+    const QHash<QString, QStringList> &revoked)
+{
+    QHash<QString, QStringList> patched;
+
+    for (const QVariant &value : plugins) {
+        const QVariantMap plugin = value.toMap();
+        if (plugin.value(QStringLiteral("status")).toString() != QLatin1String("ok"))
+            continue;
+        if (!isOfficialPluginSource(plugin.value(QStringLiteral("source")).toString()))
+            continue;
+
+        const QString id = plugin.value(QStringLiteral("id")).toString();
+        if (id.isEmpty())
+            continue;
+
+        QStringList granted = grants.value(id);
+        const QStringList revokedForPlugin = revoked.value(id);
+        bool changed = false;
+        for (const QVariant &permissionValue : plugin.value(QStringLiteral("permissions")).toList()) {
+            const QString permission = permissionValue.toString();
+            if (permission.isEmpty())
+                continue;
+            if (granted.contains(permission))
+                continue;
+            // 用户显式撤销过的权限不自动补回，否则「撤销」在下次启动就失效。
+            if (revokedForPlugin.contains(permission))
+                continue;
+            granted.append(permission);
+            changed = true;
+        }
+        if (changed)
+            patched.insert(id, granted);
+    }
+
+    return patched;
 }
 
 QStringList PluginLoader::disabledPlugins() const

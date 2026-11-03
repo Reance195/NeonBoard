@@ -136,5 +136,10 @@ private:
     QList<QPair<QString, QString>> m_pendingCommands;
     QSet<QString> m_promptedPermissions;
     mutable QHash<QString, QStringList> m_grants;
+    // R14-01：用户显式撤销过的权限（pluginId → 权限）。官方来源插件的授权会自动补齐，
+    // 若不留这份记录，「撤销」会在下次启动被补回来，等于撤销无效。
+    mutable QHash<QString, QStringList> m_revoked;
     mutable bool m_grantsReady = false;
+    // 「声明了 agent profile 但未授权」的插件只提示一次，避免每次刷新都刷屏。
+    mutable QSet<QString> m_warnedUnauthorizedDeclarations;
 };

@@ -29,6 +29,9 @@
 
 namespace {
 constexpr const char *kGrantsMetaKey = "plugins.grants";
+// R14-01：显式撤销记录，与 grants 同构（pluginId → 权限数组）。
+// 官方来源插件的授权会自动补齐，没有这份记录就无法区分「从没授权过」和「用户主动关掉」。
+constexpr const char *kRevokedMetaKey = "plugins.grants.revoked";
 constexpr int kWatchDebounceMs = 400;
 
 QHash<QString, QStringList> parseGrants(const QString &payload)
@@ -648,9 +651,20 @@ QVariantList PluginRuntime::declaredAgentProfiles() const
     QVariantList result;
     for (const QVariant &value : agentProfileDeclarations()) {
         const QVariantMap row = value.toMap();
-        // 未授权声明静默忽略：权限是「能不能决定拉起哪个进程」，不是提示项。
-        if (!row.value(QStringLiteral("authorized")).toBool())
+        // 未授权声明不参与合并：权限是「能不能决定拉起哪个进程」，不是提示项。
+        // 但也**不能完全静默** —— R14-01 就是「插件看得见、声明却没进来、面板还不说」，
+        // 排查时只能靠猜。这里按插件去重提示一次，把因果留在日志里。
+        if (!row.value(QStringLiteral("authorized")).toBool()) {
+            const QString pluginId = row.value(QStringLiteral("pluginId")).toString();
+            if (!pluginId.isEmpty() && !m_warnedUnauthorizedDeclarations.contains(pluginId)) {
+                m_warnedUnauthorizedDeclarations.insert(pluginId);
+                qWarning().noquote()
+                    << QStringLiteral("PluginRuntime: 插件 %1 声明了 agent profile，但权限未授予，"
+                                      "该声明被跳过（到插件面板授权后重启生效）")
+                           .arg(pluginId);
+            }
             continue;
+        }
         for (const QVariant &profile : row.value(QStringLiteral("profiles")).toList())
             result.append(profile);
     }
@@ -809,34 +823,55 @@ void PluginRuntime::ensureGrantsBootstrapped() const
         return;
     m_grantsReady = true;
 
+    m_revoked = parseGrants(m_database->metaValue(QString::fromLatin1(kRevokedMetaKey)));
+
     const QString payload = m_database->metaValue(QString::fromLatin1(kGrantsMetaKey));
+    bool changed = false;
     if (!payload.isEmpty()) {
         m_grants = parseGrants(payload);
-        return;
+    } else {
+        // 首次启用授权模型：把当前已发现插件声明的权限全部预授予（祖父条款，老插件零改动）
+        if (m_loader) {
+            for (const QVariant &value : m_loader->plugins()) {
+                const QVariantMap plugin = value.toMap();
+                if (plugin.value(QStringLiteral("status")).toString() != QStringLiteral("ok"))
+                    continue;
+                const QString id = plugin.value(QStringLiteral("id")).toString();
+                if (id.isEmpty())
+                    continue;
+                QStringList permissions;
+                for (const QVariant &permission :
+                     plugin.value(QStringLiteral("permissions")).toList()) {
+                    const QString name = permission.toString();
+                    if (!name.isEmpty() && !permissions.contains(name))
+                        permissions.append(name);
+                }
+                if (!permissions.isEmpty())
+                    m_grants.insert(id, permissions);
+            }
+        }
+        changed = true;
+        qInfo() << "PluginRuntime: permission grants bootstrapped for" << m_grants.size()
+                << "plugin(s)";
     }
 
-    // 首次启用授权模型：把当前已发现插件声明的权限全部预授予（祖父条款，老插件零改动）
+    // R14-01：祖父条款只在「首次」成立，之后新增的官方插件拿不到任何授权 —— 而声明
+    // 未授权会被静默丢弃，表现为「插件列表里看得见、装完就是不生效」。
+    // 官方来源（随分发包走的 appdir / official）由分发方审核，这里补齐其声明权限；
+    // 用户自装的第三方（appdata）与示例（sample）仍走显式授权，不会被顺带放行。
     if (m_loader) {
-        for (const QVariant &value : m_loader->plugins()) {
-            const QVariantMap plugin = value.toMap();
-            if (plugin.value(QStringLiteral("status")).toString() != QStringLiteral("ok"))
-                continue;
-            const QString id = plugin.value(QStringLiteral("id")).toString();
-            if (id.isEmpty())
-                continue;
-            QStringList permissions;
-            for (const QVariant &permission : plugin.value(QStringLiteral("permissions")).toList()) {
-                const QString name = permission.toString();
-                if (!name.isEmpty() && !permissions.contains(name))
-                    permissions.append(name);
-            }
-            if (!permissions.isEmpty())
-                m_grants.insert(id, permissions);
+        const QHash<QString, QStringList> patched = PluginLoader::officialAutoGrants(
+            m_loader->plugins(), m_grants, m_revoked);
+        for (auto it = patched.constBegin(); it != patched.constEnd(); ++it) {
+            m_grants.insert(it.key(), it.value());
+            changed = true;
+            qInfo() << "PluginRuntime: auto-granted declared permissions for official plugin"
+                    << it.key() << it.value();
         }
     }
-    persistGrants();
-    qInfo() << "PluginRuntime: permission grants bootstrapped for" << m_grants.size()
-            << "plugin(s)";
+
+    if (changed)
+        persistGrants();
 }
 
 void PluginRuntime::persistGrants() const
@@ -844,6 +879,7 @@ void PluginRuntime::persistGrants() const
     if (!m_database)
         return;
     m_database->setMetaValue(QString::fromLatin1(kGrantsMetaKey), grantsToJson(m_grants));
+    m_database->setMetaValue(QString::fromLatin1(kRevokedMetaKey), grantsToJson(m_revoked));
 }
 
 QStringList PluginRuntime::grantedPermissions(const QString &pluginId) const
@@ -905,6 +941,15 @@ bool PluginRuntime::setPermissionGranted(const QString &pluginId, const QString 
 
     QStringList current = grantedPermissions(pluginId);
     if (granted) {
+        // 重新授权要把撤销记录摘掉，否则下次启动的官方补齐仍会跳过它。
+        if (m_revoked.contains(pluginId)) {
+            QStringList revoked = m_revoked.value(pluginId);
+            revoked.removeAll(permission);
+            if (revoked.isEmpty())
+                m_revoked.remove(pluginId);
+            else
+                m_revoked.insert(pluginId, revoked);
+        }
         if (current.contains(permission))
             return true;
         current.append(permission);
@@ -912,6 +957,9 @@ bool PluginRuntime::setPermissionGranted(const QString &pluginId, const QString 
         if (!current.contains(permission))
             return true;
         current.removeAll(permission);
+        // 记下「用户主动关掉」，让官方来源的自动补齐不再把它加回来。
+        if (!m_revoked.value(pluginId).contains(permission))
+            m_revoked.insert(pluginId, m_revoked.value(pluginId) << permission);
     }
 
     m_grants.insert(pluginId, current);

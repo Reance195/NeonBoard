@@ -120,6 +120,32 @@ manifest 里的 `permissions` 只是**声明**，真正调用 API 还要求**已
 
 未授权时不会抛异常：读操作返回空字符串 / 空数组 / `false`，写操作返回 `false`，`notify` 不执行，并在日志里写一条 `PluginContext: permission not granted ...`；权限根本没声明时日志写 `permission not declared ...`。
 
+#### 官方来源插件的自动授权（R14-01）
+
+祖父条款只在**首次**启用授权模型时成立。既有库早就 bootstrap 过，之后随新版本一起
+装进来的官方插件拿不到任何授权 —— 而 `declaredAgentProfiles()` 对未授权声明是静默丢弃，
+表现为「插件列表里看得见、授权弹窗也没弹、`contributes.agentProfiles` 却根本没生效」。
+（R14-01 就是这个缺陷：四个官方 agent 插件在真实库上 `authorized=false`。）
+
+现在的规则：
+
+| 插件来源（`source`） | 目录 | 声明权限的处理 |
+| --- | --- | --- |
+| `appdir` | 程序安装目录 `/plugins` | **自动授予**（随分发走，分发方已审核） |
+| `official` | 源码树 `plugins/` | **自动授予** |
+| `appdata` | 用户数据目录 `/plugins` | 需**显式授权**（第三方，走弹窗） |
+| `sample` | 源码树 `plugins-samples/` | 需**显式授权**（示例是模板，不承诺装好即用） |
+
+自动授予**只补缺失项**：已在 `plugins.grants` 里的权限不动，因此可反复执行（幂等）。
+
+用户显式撤销过的权限记在 meta 表 `plugins.grants.revoked`（结构同 `plugins.grants`），
+自动授予会跳过它 —— 否则「撤销」会在下次启动被补回来，等于撤销无效。
+用户重新点「允许」时该条记录会被摘除。
+
+> 验收这类改动**必须用「已有 `plugins.grants` 的库副本」**，不能用全新库：
+> 全新库走首次 bootstrap 会把当时发现的插件全部授予，绿灯掩盖真实库不生效。
+> R9 的四张卡就是这么漏过去的。
+
 ## pluginHost API
 
 ### 属性

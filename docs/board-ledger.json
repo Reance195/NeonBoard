@@ -825,7 +825,8 @@
                 "src/**",
                 "CMakeLists.txt",
                 "tests/CMakeLists.txt",
-                "docs/**"
+                "docs/**",
+                "AGENTS.md"
             ],
             "stage": "MOD",
             "title": "MOD src/ 物理分层：8 个模块子目录 + 连带 5 处引用"

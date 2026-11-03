@@ -392,6 +392,13 @@ git stash pop
 pwsh -File scripts/build.ps1 -SelfTest
 ```
 
+> **执行策略**：示例统一用 `pwsh -File ...`（PowerShell 7，默认 RemoteSigned）。只有
+> Windows PowerShell 5.1（默认 Restricted）时，`& .\scripts\xxx.ps1` 与 dot-source 会被
+> **静默拒绝**：**无输出 + 退出码 1**。改用
+> `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\xxx.ps1`，或一次性
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`。别把它当脚本故障去改脚本 ——
+> 判据见 `docs/pitfalls.md` §2.11。
+
 ---
 
 ## 六、FAQ

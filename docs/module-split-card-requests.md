@@ -46,23 +46,13 @@ neonboard_add_test(tst_taskinputparser ${NB_DIR_TASK}/TaskInputParser.cpp)
 同一提交里把 `neonboard_add_test()` 内的 `target_include_directories(... ${CMAKE_SOURCE_DIR}/src)`
 收成 `NB_INCLUDE_DIRS` 列表 —— 否则 M2 后要在这里补 8 条 include。
 
-```json
-"MOD-02": {
-  "stage": "MOD",
-  "title": "MOD 路径解耦：测试源引用集中化，为 src/ 分层降险",
-  "note": "起因：tests/CMakeLists.txt 有 199 处硬编码 ${CMAKE_SOURCE_DIR}/src/XXX.cpp（37 个 target、去重 37 个文件；方案 §4.2 记的 196/36 是 10-30 的数字，R14-01 新增 tst_pluginruntime 后 +3 处 / +1 文件），docs/project-map.json 的链路证据与 131 条卡片精确 scope 同样绑死路径。一旦 src/ 分层，34 个测试链接失败、在办卡判越界、tst_projectmap 红。\n\n目标：把路径收敛为 8 个模块目录变量 + 一个 NB_INCLUDE_DIRS，使物理分层退化为「改 8 行 + git mv」。本卡不搬任何文件、不改任何 C++ 代码。\n\n边界：只动 tests/CMakeLists.txt；合并 B1 时增改 CMakeLists.txt。不动 src/**、不动台账。注意本卡只收口测试侧——主 target NeonBoard 目前没有 target_include_directories(src)，M2 要新增 8 条，那是 MOD-06 的事。",
-  "acceptance": [
-    "cmake --build build --config Release 成功（三个 target 全出）",
-    "ctest --test-dir build -C Release 全绿（34/34）",
-    "grep -c 'CMAKE_SOURCE_DIR}/src/' tests/CMakeLists.txt 的输出 <= 9（8 个模块目录变量 + 1 个 NB_INCLUDE_DIRS；调用点不再出现字面路径）",
-    "python scripts/check_scope.py --base origin/main 退出 0（对 R14-03 仍能正确判定）",
-    "python scripts/task_gate.py selftest 退出 0",
-    "python scripts/check_script_hygiene.py 退出 0"
-  ],
-  "scope": ["tests/CMakeLists.txt", "CMakeLists.txt"],
-  "depends": []
-}
-```
+> **已入账，不再作为待建请求**（2026-11-03）：`MOD-02` 于 `0441fe9` 立卡，
+> `8879f7c` 依维护者授权 A 把 `tests/tst_projectmap.cpp` 加入 scope，
+> `6b13080` 完成实现，`6cb8299` 自动结卡（`baseline = done`）。
+> 卡片定义以 `docs/board-ledger.json` 为准；本节的 JSON 片段已移除，
+> 否则再用本文件建卡会因「同号卡已存在」整批被拒。
+> **验收项 2 的「34/34」是过期数字** —— 实际测试总数为 35（R14-01 新增 `tst_pluginruntime`），
+> 该卡验收时 ctest 报 `100% tests passed out of 35`；卡面未改，留待维护者更正。
 
 **为什么把 B1（静态库）并进来**：方案 §5 已建议合并（两次改同一个文件）。建议**同卡两个提交**：
 `refactor(test): 路径收敛` → `build(test): 公共源码收敛静态库`。第二个提交失败只回退它，

@@ -35,6 +35,7 @@
         "M17": "done",
         "M18": "done",
         "MOD-02": "done",
+        "MOD-05": "todo",
         "R0-01": "done",
         "R0-02": "done",
         "R0-03": "done",
@@ -757,6 +758,28 @@
             ],
             "stage": "MOD",
             "title": "MOD 路径解耦：测试源引用集中化，为 src/ 分层降险"
+        },
+        "MOD-05": {
+            "acceptance": [
+                "python scripts/check_module_deps.py --base origin/main 在未引入违规的改动上退出 0（存量不红）",
+                "在 src/TaskModel.cpp 里临时加一条反向依赖 #include \"TrayController.h\"，脚本退出非 0 并打印违反的模块对",
+                "行数上限先设「不得增加」（main.cpp 1910 / Main.qml 4260），存量不红、新增超限即红",
+                "ci.yml 与 scripts/verify.ps1 均调用该脚本，CI 新增 step 在 PR/推送页可见",
+                "python scripts/task_gate.py selftest 与 check_script_hygiene.py 均退出 0"
+            ],
+            "depends": [
+                "MOD-02"
+            ],
+            "id": "MOD-05",
+            "note": "起因：src/ 目前零分层，任何 #include 都能成立，编译器不会反对；Main.qml 从 1180 涨回 4260 就是「只有一次性拆分、没有持续约束」的实证。\n\n目标：新增 scripts/check_module_deps.py，检测反向依赖（如 task → agent）与文件行数上限，接入 ci.yml 与 verify.ps1。必须棘轮式：只检查本次改动涉及的文件，存量不阻塞——否则首次接入即红，会被 --no-verify 绕过，比没有守卫更糟。\n\n边界：只加脚本与 CI 接线，不改任何 C++ 代码、不搬文件。",
+            "scope": [
+                "scripts/**",
+                ".github/**",
+                "AGENTS.md",
+                "docs/testing.md"
+            ],
+            "stage": "MOD",
+            "title": "MOD 守卫：模块依赖方向与行数上限接入 CI"
         },
         "R0-01": {
             "acceptance": [

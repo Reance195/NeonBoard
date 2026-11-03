@@ -2705,6 +2705,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-18": {
+            "agent": "dx18",
+            "branch": "chore/dx18-card",
+            "claimedAt": 1793730110,
+            "head": "5840f75f6cb8adc60785974a0d52e5c9a1db9d2f"
+        }
+    },
     "version": 1
 }

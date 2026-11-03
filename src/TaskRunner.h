@@ -55,7 +55,7 @@ public:
                                      const QStringList &args, const QString &cwd = QString(),
                                      int timeoutSec = 600, bool promptToStdin = false,
                                      const QString &prompt = QString(), int maxAttempts = 1,
-                                     bool stdinNull = false);
+                                     bool stdinNull = false, const QString &profileId = QString());
 
     // 手动终止运行中的 run（SIGTERM 宽限后 kill）→ cancelled。
     Q_INVOKABLE bool stop(const QString &runId);

@@ -8,6 +8,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QStandardPaths>
@@ -48,6 +49,31 @@ QString resolveProgram(const QString &program)
         return program;
     const QString resolved = QStandardPaths::findExecutable(trimmed);
     return resolved.isEmpty() ? program : resolved;
+}
+
+// R14-05：Qt 6.8 对 .cmd / .bat 会自动套一层 cmd.exe /c ""<prog>" <args>"
+// （实抓过命令行），参数因此被 cmd 再解释一遍。有两类内容过不去：
+//   1. 换行 / 回车 —— 被当成命令分隔符，prompt 从第一行就断掉，后面的内容根本没到 CLI；
+//   2. %VAR% —— 在引号里也照展开，行内没有可靠转义（引号内的 ^ 是字面量）。
+// 这类内容送不到就不能装作送到了：宁可启动前失败，也不要静默截断。
+// 注意判据是「解析后的真实程序」，因为 profile 里通常只写裸命令名（cursor-agent）。
+bool isCmdWrapper(const QString &program)
+{
+    const QString resolved = resolveProgram(program);
+    return resolved.endsWith(QStringLiteral(".cmd"), Qt::CaseInsensitive)
+           || resolved.endsWith(QStringLiteral(".bat"), Qt::CaseInsensitive);
+}
+
+QString lossyPayloadReason(const QString &program, const QString &prompt)
+{
+    if (prompt.isEmpty() || !isCmdWrapper(program))
+        return {};
+    if (prompt.contains(QLatin1Char('\n')) || prompt.contains(QLatin1Char('\r')))
+        return QStringLiteral("换行");
+    static const QRegularExpression percentPair(QStringLiteral("%[^%]+%"));
+    if (percentPair.match(prompt).hasMatch())
+        return QStringLiteral("%VAR%（会被展开成环境变量）");
+    return {};
 }
 
 // 常见凭据形态：key=value 里的敏感键、Bearer / sk- 前缀令牌、独立的长十六进制串。
@@ -162,16 +188,34 @@ QVariantMap TaskRunner::start(const QString &taskId)
         maxAttempts = 1;
 
     return startRaw(taskId, args.value(0), args.mid(1), cwd, timeoutSec, stdinPrompt, prompt,
-                    maxAttempts, stdinNull);
+                    maxAttempts, stdinNull, agent);
 }
 
 QVariantMap TaskRunner::startRaw(const QString &taskId, const QString &exe, const QStringList &args,
                                  const QString &cwd, int timeoutSec, bool promptToStdin,
-                                 const QString &prompt, int maxAttempts, bool stdinNull)
+                                 const QString &prompt, int maxAttempts, bool stdinNull,
+                                 const QString &profileId)
 {
     if (exe.trimmed().isEmpty())
         return {{QStringLiteral("ok"), false},
                 {QStringLiteral("message"), QStringLiteral("缺少可执行文件")}};
+
+    // R14-05：经 cmd 转调送不到的内容，启动前就拒绝（在 acquire 之前，别留下 running 锁）。
+    if (!promptToStdin) {
+        const QString reason = lossyPayloadReason(exe, prompt);
+        if (!reason.isEmpty()) {
+            const QString who = profileId.trimmed().isEmpty()
+                                    ? QFileInfo(resolveProgram(exe)).fileName()
+                                    : profileId;
+            return {
+                {QStringLiteral("ok"), false},
+                {QStringLiteral("message"),
+                 QStringLiteral("「%1」是 .cmd/.bat 包装器，prompt 里的%2经 cmd.exe 转调会失真，"
+                                "本次拒绝启动（而不是只送前半段）。请把该 profile 的 exe 指向真身"
+                                "可执行文件（如 node.exe + index.js），或改用 promptMode=stdin。")
+                     .arg(who, reason)}};
+        }
+    }
 
     const QVariantMap acquired = m_runs->acquire(taskId);
     if (!acquired.value(QStringLiteral("ok")).toBool())

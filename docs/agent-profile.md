@@ -145,10 +145,24 @@ Qt 6.8 对 `.cmd` / `.bat` 会自动套一层 `cmd.exe /c ""<prog>" <args>"`（�
 $env:NB_REAL_AGENT_PROBE = "1"; ctest -R taskrunner --output-on-failure -V
 ```
 
-**仍未解决（另提卡，不在 R14-03 范围）**：经 cmd 转调时参数会被二次解释 —— `& | < >`
-被当命令分隔符、`%VAR%` 被展开、内嵌双引号变成 `\"`、换行会把 prompt 截断。
-cursor-agent 的 prompt 走 argv，含这些字符时会失真。彻底解法两条：指向真身
-`node.exe + index.js`（不经 shell），或把 prompt 改走 stdin（需先实测该 CLI 是否支持）。
+**R14-05 补上的边界（2026-11-04）**：这层转调不是透明的，实测确认过不去的有两类：
+
+- **换行 / 回车**：被 cmd 当命令分隔符，prompt 从第一行就断掉。而 `WorkflowRunner::buildStepPrompt`
+  （`src/WorkflowRunner.cpp`）拼的正是多行 prompt（任务 / 上一步交接物 / 本步任务 / 交付物 / 约束）——
+  也就是说 .cmd 型 agent 走 arg 模式时，交接物整段丢失且**不报错**；
+- **`%VAR%`**：在双引号里也照展开成环境变量，命令行没有可靠转义（引号内的 `^` 是字面量）。
+
+`&` `|` `<` `>` 由 Qt 加引号后不构成命令分隔，本次没有观察到失真；内嵌双引号被转义成 `\"`，
+按 `CommandLineToArgvW` 解析的 CLI 仍能拿回原字符。这两项不进拒绝名单 —— 误伤的代价更高。
+
+于是 `startRaw` 在 `acquire` 之前加了一道判据（`isCmdWrapper` + `lossyPayloadReason`）：
+解析后是 `.cmd` / `.bat`、prompt 走 argv、且命中上述两类 → **直接拒绝启动**，错误信息点名
+profile 与原因，并给出两条出路（exe 指向真身 `node.exe` + `index.js`，或改用 `promptMode=stdin`）。
+宁可失败，也不把半句话交出去。
+
+**为什么不用 stdin 兜底**：`cursor-agent --help` 只有 `[prompt...]` 位置参数，没有
+`--input-format` / `--stdin`；包内 `index.js` 里 `stdin` 仅出现 3 次，不是输入通道。
+执行器侧的 stdin 通道本身是好的（R9-05 修通），限制在 CLI 这一端。
 
 ## 只读模式怎么保证（triage 必须）
 

@@ -37,24 +37,6 @@
             "updatedAt": 1793295841
         },
         {
-            "code": "R14-04",
-            "completedAt": 0,
-            "createdAt": 1793295841,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "d4fba642-e69b-411a-a244-6f2060c43378",
-            "note": "R9-03 交付时留下的已知空白：opencode 没有原生只读开关，readonlyArgs 用 --agent plan 指定一个只读 agent 配置来兜。但 ~/.config/opencode/ 下并没有 agent/ 目录，这个名为 plan 的 agent **是否真的存在没有核实过**。\n\n风险是静默的：agent 不存在时只读派活会退化成普通执行 —— 用户以为勾了只读，agent 照样能改文件。面板里已经把这行写成警告色，但警告代替不了核实。\n\n边界：只核这一条，不重跑 opencode 的其它参数实测。",
-            "orderKey": 5120,
-            "priority": 2,
-            "stage": "R14",
-            "status": "todo",
-            "tags": [
-                "R14"
-            ],
-            "title": "R14 opencode 只读参数 --agent plan 是否真实存在未核实",
-            "updatedAt": 1793295841
-        },
-        {
             "code": "DX-14",
             "completedAt": 0,
             "createdAt": 1793299949,
@@ -565,6 +547,24 @@
             ],
             "title": "启动性能剖析：定位真实瓶颈",
             "updatedAt": 1792568900
+        },
+        {
+            "code": "R14-04",
+            "completedAt": 1793726371,
+            "createdAt": 1793295841,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "d4fba642-e69b-411a-a244-6f2060c43378",
+            "note": "R9-03 交付时留下的已知空白：opencode 没有原生只读开关，readonlyArgs 用 --agent plan 指定一个只读 agent 配置来兜。但 ~/.config/opencode/ 下并没有 agent/ 目录，这个名为 plan 的 agent **是否真的存在没有核实过**。\n\n风险是静默的：agent 不存在时只读派活会退化成普通执行 —— 用户以为勾了只读，agent 照样能改文件。面板里已经把这行写成警告色，但警告代替不了核实。\n\n边界：只核这一条，不重跑 opencode 的其它参数实测。",
+            "orderKey": 5120,
+            "priority": 2,
+            "stage": "R14",
+            "status": "done",
+            "tags": [
+                "R14"
+            ],
+            "title": "R14 opencode 只读参数 --agent plan 是否真实存在未核实",
+            "updatedAt": 1793726371
         },
         {
             "code": "R6-05",
@@ -2779,6 +2779,6 @@
             "updatedAt": 1793281760
         }
     ],
-    "updated": "2026-11-04T00:51:06",
+    "updated": "2026-11-04T01:19:31",
     "version": 3
 }

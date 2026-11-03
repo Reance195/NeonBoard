@@ -34,6 +34,7 @@
         "M16": "done",
         "M17": "done",
         "M18": "done",
+        "MOD-02": "todo",
         "R0-01": "done",
         "R0-02": "done",
         "R0-03": "done",
@@ -736,6 +737,25 @@
             ],
             "stage": "R3",
             "title": "文档同步：plugin-api v2 + plan-hook.md #M18"
+        },
+        "MOD-02": {
+            "acceptance": [
+                "cmake --build build --config Release 成功（三个 target 全出）",
+                "ctest --test-dir build -C Release 全绿（34/34）",
+                "grep -c 'CMAKE_SOURCE_DIR}/src/' tests/CMakeLists.txt 的输出 <= 9（8 个模块目录变量 + 1 个 NB_INCLUDE_DIRS；调用点不再出现字面路径）",
+                "python scripts/check_scope.py --base origin/main 退出 0（对 R14-03 仍能正确判定）",
+                "python scripts/task_gate.py selftest 退出 0",
+                "python scripts/check_script_hygiene.py 退出 0"
+            ],
+            "depends": [],
+            "id": "MOD-02",
+            "note": "起因：tests/CMakeLists.txt 有 199 处硬编码 ${CMAKE_SOURCE_DIR}/src/XXX.cpp（37 个 target、去重 37 个文件；方案 §4.2 记的 196/36 是 10-30 的数字，R14-01 新增 tst_pluginruntime 后 +3 处 / +1 文件），docs/project-map.json 的链路证据与 131 条卡片精确 scope 同样绑死路径。一旦 src/ 分层，34 个测试链接失败、在办卡判越界、tst_projectmap 红。\n\n目标：把路径收敛为 8 个模块目录变量 + 一个 NB_INCLUDE_DIRS，使物理分层退化为「改 8 行 + git mv」。本卡不搬任何文件、不改任何 C++ 代码。\n\n边界：只动 tests/CMakeLists.txt；合并 B1 时增改 CMakeLists.txt。不动 src/**、不动台账。注意本卡只收口测试侧——主 target NeonBoard 目前没有 target_include_directories(src)，M2 要新增 8 条，那是 MOD-06 的事。",
+            "scope": [
+                "tests/CMakeLists.txt",
+                "CMakeLists.txt"
+            ],
+            "stage": "MOD",
+            "title": "MOD 路径解耦：测试源引用集中化，为 src/ 分层降险"
         },
         "R0-01": {
             "acceptance": [

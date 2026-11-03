@@ -19,24 +19,6 @@
             "updatedAt": 1793295841
         },
         {
-            "code": "R14-01",
-            "completedAt": 0,
-            "createdAt": 1793295841,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "24766272-18b3-48a9-b923-46318d746544",
-            "note": "现象（2026-10-30 发现）：R9-01~05 交付的四个官方插件，在本机真实数据目录上一个都没生效。\n\n根因：PluginRuntime::ensureGrantsBootstrapped 只在 meta 里还没有 plugins.grants 时，对「当时已发现」的插件做一次性全授予（祖父条款）。本机这个库早就 bootstrap 过（只有 agent-bridge / plan-hook / today 三条），之后新增的插件一律 unauthorized；而 declaredAgentProfiles() 对未授权声明是**静默丢弃** —— 插件列表里看得见、授权弹窗也没弹，声明却根本没进合并。\n\n实测证据（真实库副本 + --plugin-report）：\n  com.lin.agent-claude   authorized=False\n  com.lin.agent-opencode authorized=False\n  com.lin.agent-cursor   authorized=False\n  com.lin.agent-codex    authorized=False\n  effective: 三条全部 source=builtin，codex 连列表都没进\n\nR9 验收全绿是因为沙箱是全新库 —— 首次 bootstrap 会把发现的插件全授予。这是「测了但不算数」：场景选错，绿灯掩盖了真实库不生效。\n\n修复方向（不要临场决定，先看证据再选）：\n1) 官方插件（随分发自带、来自官方来源目录）自动授予其声明的权限，用户自行安装的第三方插件仍走显式授权弹窗；\n2) 若判定「官方来源」不可靠，退而求其次：在插件面板/--plugin-report 里把「声明未授权」做成显眼的待办项，并提供一键授权入口。\n无论走哪条，都要保证第三方插件不被顺带放行 —— 那等于把权限模型废掉。\n\n边界：只改授权判定与提示，不改权限目录的条目本身，不改已有 grants 的存量数据。",
-            "orderKey": 2048,
-            "priority": 2,
-            "stage": "R14",
-            "status": "todo",
-            "tags": [
-                "R14"
-            ],
-            "title": "R14 官方插件在既有库上默认未授权，声明被静默丢弃",
-            "updatedAt": 1793295841
-        },
-        {
             "code": "R14-02",
             "completedAt": 0,
             "createdAt": 1793295841,
@@ -307,6 +289,24 @@
             ],
             "title": "R6 运行记录侧表与任务锁",
             "updatedAt": 1793098683
+        },
+        {
+            "code": "R14-01",
+            "completedAt": 1793714160,
+            "createdAt": 1793295841,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "24766272-18b3-48a9-b923-46318d746544",
+            "note": "现象（2026-10-30 发现）：R9-01~05 交付的四个官方插件，在本机真实数据目录上一个都没生效。\n\n根因：PluginRuntime::ensureGrantsBootstrapped 只在 meta 里还没有 plugins.grants 时，对「当时已发现」的插件做一次性全授予（祖父条款）。本机这个库早就 bootstrap 过（只有 agent-bridge / plan-hook / today 三条），之后新增的插件一律 unauthorized；而 declaredAgentProfiles() 对未授权声明是**静默丢弃** —— 插件列表里看得见、授权弹窗也没弹，声明却根本没进合并。\n\n实测证据（真实库副本 + --plugin-report）：\n  com.lin.agent-claude   authorized=False\n  com.lin.agent-opencode authorized=False\n  com.lin.agent-cursor   authorized=False\n  com.lin.agent-codex    authorized=False\n  effective: 三条全部 source=builtin，codex 连列表都没进\n\nR9 验收全绿是因为沙箱是全新库 —— 首次 bootstrap 会把发现的插件全授予。这是「测了但不算数」：场景选错，绿灯掩盖了真实库不生效。\n\n修复方向（不要临场决定，先看证据再选）：\n1) 官方插件（随分发自带、来自官方来源目录）自动授予其声明的权限，用户自行安装的第三方插件仍走显式授权弹窗；\n2) 若判定「官方来源」不可靠，退而求其次：在插件面板/--plugin-report 里把「声明未授权」做成显眼的待办项，并提供一键授权入口。\n无论走哪条，都要保证第三方插件不被顺带放行 —— 那等于把权限模型废掉。\n\n边界：只改授权判定与提示，不改权限目录的条目本身，不改已有 grants 的存量数据。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "R14",
+            "status": "done",
+            "tags": [
+                "R14"
+            ],
+            "title": "R14 官方插件在既有库上默认未授权，声明被静默丢弃",
+            "updatedAt": 1793714160
         },
         {
             "code": "R13-01",
@@ -2743,6 +2743,6 @@
             "updatedAt": 1793281760
         }
     ],
-    "updated": "2026-10-29T18:52:29",
+    "updated": "2026-11-03T13:56:00",
     "version": 3
 }

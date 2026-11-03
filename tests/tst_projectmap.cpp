@@ -77,9 +77,17 @@ void TestProjectMap::roadmapTableDrivesMilestones()
         const QString stage = m.value(QStringLiteral("stage")).toString();
         const QString topic = m.value(QStringLiteral("topic")).toString();
         QVERIFY2(!topic.isEmpty(), qPrintable(stage + " 没有主题"));
-        // 主题必须来自表格第二列；退化成阶段号说明没解析到表
-        QVERIFY2(topic != stage, qPrintable(stage + " 的主题退化成了阶段号"));
-        QVERIFY(m.value(QStringLiteral("inRoadmap")).toBool());
+
+        if (m.value(QStringLiteral("inRoadmap")).toBool()) {
+            // 主题必须来自表格第二列；退化成阶段号说明没解析到表
+            QVERIFY2(topic != stage, qPrintable(stage + " 的主题退化成了阶段号"));
+        } else {
+            // 台账里有卡、路线图 §9 还没写的阶段：ProjectMap 的 extras 分支会把它排到
+            // 末尾并标黄（「需求层漏登记」），此时 topic 取阶段号本身 —— 这是设计行为，
+            // 不是解析失败。断言改为盯住「必须报 warn」，否则新阶段一立卡就把整条链判红。
+            QVERIFY2(m.value(QStringLiteral("driftLevel")).toString() == QStringLiteral("warn"),
+                     qPrintable(stage + " 是台账独有的阶段，应标记为 warn 漂移"));
+        }
     }
 }
 

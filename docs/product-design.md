@@ -51,7 +51,7 @@
   "title": "修复统计芯片删除后不刷新",
   "goal": "删除任务后统计数字立即更新",
   "acceptance": ["pwsh -File scripts/verify.ps1"],
-  "scope": ["src/TaskModel.cpp", "tests/tst_taskcolumns.cpp"],
+  "scope": ["src/task/TaskModel.cpp", "tests/tst_taskcolumns.cpp"],
   "forbidden": ["不许改数据库 schema", "不许新增依赖"],
   "inputs": ["branch: feature/stats-chip"],
   "deliverable": "commit",

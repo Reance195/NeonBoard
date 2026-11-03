@@ -141,7 +141,7 @@ install-agent-adapters.ps1 -Uninstall                    # 只摘本脚本加的
 以上全是**站外**适配器。真正的「一 agent 一个 NeonBoard 插件」还需要宿主侧新增
 `contributes.agentProfiles` 扩展点，让插件声明出站 profile（`exe` / `args` / `readonlyArgs` /
 `output` / `promptMode`），`AgentProfile` 按「插件声明 > 用户 meta > 内置」三层合并，
-替换现在硬编码在 `src/AgentProfile.cpp:194` 的三条。
+替换现在硬编码在 `src/agent/AgentProfile.cpp:194` 的三条。
 
 各 agent 的 profile 数据已按现有格式备好，在 `scripts/agent-adapters/<agent>/agent.json`。
 这部分要动 `src/` 与 `plugins/`，按仓库宪章需先立卡。

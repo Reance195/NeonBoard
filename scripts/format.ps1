@@ -35,7 +35,16 @@ if ($All) {
         elseif (git rev-parse --verify HEAD~1 2>$null) { $Base = 'HEAD~1' }
         else { Write-Host '没有可比较的基线，跳过'; exit 0 }
     }
-    $changed = git diff --name-only "$Base" HEAD 2>$null
+    # 与 check-format.ps1 同一口径：纯改名（R100）不算改动，否则搬目录后会去重排
+    # 一批内容一字未变的历史文件，凭空造出一个万行格式提交。
+    $statusLines = git diff --name-status -M "$Base" HEAD 2>$null
+    $changed = @()
+    foreach ($line in $statusLines) {
+        $parts = $line -split "`t"
+        if ($parts.Count -lt 2) { continue }
+        if ($parts[0] -eq 'R100') { continue }
+        $changed += $parts[-1]
+    }
     $files = @()
     foreach ($f in $changed) {
         if ($exts -contains [IO.Path]::GetExtension($f)) {

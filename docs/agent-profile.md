@@ -148,7 +148,7 @@ $env:NB_REAL_AGENT_PROBE = "1"; ctest -R taskrunner --output-on-failure -V
 **R14-05 补上的边界（2026-11-04）**：这层转调不是透明的，实测确认过不去的有两类：
 
 - **换行 / 回车**：被 cmd 当命令分隔符，prompt 从第一行就断掉。而 `WorkflowRunner::buildStepPrompt`
-  （`src/WorkflowRunner.cpp`）拼的正是多行 prompt（任务 / 上一步交接物 / 本步任务 / 交付物 / 约束）——
+  （`src/agent/WorkflowRunner.cpp`）拼的正是多行 prompt（任务 / 上一步交接物 / 本步任务 / 交付物 / 约束）——
   也就是说 .cmd 型 agent 走 arg 模式时，交接物整段丢失且**不报错**；
 - **`%VAR%`**：在双引号里也照展开成环境变量，命令行没有可靠转义（引号内的 `^` 是字面量）。
 

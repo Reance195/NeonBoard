@@ -11,7 +11,7 @@
 出站（看板派活给 agent）的执行器 R6 已全绿，但 agent 的**定义**是硬编码的：
 
 ```cpp
-// src/AgentProfile.cpp:194
+// src/agent/AgentProfile.cpp:194
 QVariantList AgentProfile::builtinProfiles()   // opencode / claude / cursor-agent 三条写死
 ```
 

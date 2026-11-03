@@ -32,63 +32,63 @@ endif()
 
 qt_add_executable(NeonBoard
     src/main.cpp
-    src/Database.h src/Database.cpp
-    src/Metrics.h src/Metrics.cpp
-    src/WindowController.h src/WindowController.cpp
-    src/Hotkey.h src/Hotkey.cpp
-    src/TrayController.h src/TrayController.cpp
-    src/PluginLoader.h src/PluginLoader.cpp
-    src/PluginHost.h src/PluginHost.cpp
-    src/TaskModel.h src/TaskModel.cpp
-    src/TaskUndo.h src/TaskUndo.cpp
-    src/CardDetail.h src/CardDetail.cpp
-    src/TaskInputParser.h
-    src/TaskInputParser.cpp
-    src/DataPort.h
-    src/DataPort.cpp
-    src/TaskFilterModel.h src/TaskFilterModel.cpp
-    src/BoardColumns.h src/BoardColumns.cpp
-    src/SingleInstance.h src/SingleInstance.cpp
-    src/AppActions.h src/AppActions.cpp
-    src/SplashWindow.h src/SplashWindow.cpp
-    src/UiSettings.h src/UiSettings.cpp
-    src/AppPaths.h src/AppPaths.cpp
-    src/RoadmapSync.h src/RoadmapSync.cpp
-    src/PluginContext.h src/PluginContext.cpp
-    src/PluginEventBus.h src/PluginEventBus.cpp
-    src/PluginRuntime.h src/PluginRuntime.cpp
-    src/HookEventQueue.h src/HookEventQueue.cpp
-    src/PluginMarket.h src/PluginMarket.cpp
-    src/PluginPackage.h src/PluginPackage.cpp
-    src/PluginLibrary.h src/PluginLibrary.cpp
-    src/TaskTree.h src/TaskTree.cpp
-    src/TaskExtra.h src/TaskExtra.cpp
-    src/TaskAudit.h src/TaskAudit.cpp
-    src/ThemePack.h src/ThemePack.cpp
-    src/ThemeMarket.h src/ThemeMarket.cpp
-    src/ProjectStore.h src/ProjectStore.cpp
-    src/TaskExec.h src/TaskExec.cpp
-    src/ReminderScheduler.h src/ReminderScheduler.cpp
-    src/PreviewHub.h src/PreviewHub.cpp
-    src/TaskStats.h src/TaskStats.cpp
-    src/BoardSync.h src/BoardSync.cpp
-    src/WindowsIntegration.h src/WindowsIntegration.cpp
-    src/UpdateManager.h src/UpdateManager.cpp
-    src/TaskRunStore.h src/TaskRunStore.cpp
-    src/AgentProfile.h src/AgentProfile.cpp
-    src/TaskRunner.h src/TaskRunner.cpp
-    src/ProjectMap.h src/ProjectMap.cpp
-    src/AcceptanceRunner.h src/AcceptanceRunner.cpp
-    src/ScopeMatcher.h src/ScopeMatcher.cpp
-    src/TriageRunner.h src/TriageRunner.cpp
-    src/LedgerImport.h src/LedgerImport.cpp
-    src/Scheduler.h src/Scheduler.cpp
-    src/WorkflowRunner.h src/WorkflowRunner.cpp
-    src/WorkflowPresets.h src/WorkflowPresets.cpp
-    src/DragFeel.h src/DragFeel.cpp
-    src/KeyMove.h src/KeyMove.cpp
-    src/DeltaUpdate.h src/DeltaUpdate.cpp
-    src/BsdiffWrapper.h src/BsdiffWrapper.cpp
+    src/core/Database.h src/core/Database.cpp
+    src/core/Metrics.h src/core/Metrics.cpp
+    src/shell/WindowController.h src/shell/WindowController.cpp
+    src/shell/Hotkey.h src/shell/Hotkey.cpp
+    src/shell/TrayController.h src/shell/TrayController.cpp
+    src/plugin/PluginLoader.h src/plugin/PluginLoader.cpp
+    src/plugin/PluginHost.h src/plugin/PluginHost.cpp
+    src/task/TaskModel.h src/task/TaskModel.cpp
+    src/task/TaskUndo.h src/task/TaskUndo.cpp
+    src/board/CardDetail.h src/board/CardDetail.cpp
+    src/task/TaskInputParser.h
+    src/task/TaskInputParser.cpp
+    src/board/DataPort.h
+    src/board/DataPort.cpp
+    src/task/TaskFilterModel.h src/task/TaskFilterModel.cpp
+    src/board/BoardColumns.h src/board/BoardColumns.cpp
+    src/core/SingleInstance.h src/core/SingleInstance.cpp
+    src/core/AppActions.h src/core/AppActions.cpp
+    src/shell/SplashWindow.h src/shell/SplashWindow.cpp
+    src/core/UiSettings.h src/core/UiSettings.cpp
+    src/core/AppPaths.h src/core/AppPaths.cpp
+    src/board/RoadmapSync.h src/board/RoadmapSync.cpp
+    src/plugin/PluginContext.h src/plugin/PluginContext.cpp
+    src/plugin/PluginEventBus.h src/plugin/PluginEventBus.cpp
+    src/plugin/PluginRuntime.h src/plugin/PluginRuntime.cpp
+    src/plugin/HookEventQueue.h src/plugin/HookEventQueue.cpp
+    src/plugin/PluginMarket.h src/plugin/PluginMarket.cpp
+    src/plugin/PluginPackage.h src/plugin/PluginPackage.cpp
+    src/plugin/PluginLibrary.h src/plugin/PluginLibrary.cpp
+    src/task/TaskTree.h src/task/TaskTree.cpp
+    src/task/TaskExtra.h src/task/TaskExtra.cpp
+    src/task/TaskAudit.h src/task/TaskAudit.cpp
+    src/theme/ThemePack.h src/theme/ThemePack.cpp
+    src/theme/ThemeMarket.h src/theme/ThemeMarket.cpp
+    src/board/ProjectStore.h src/board/ProjectStore.cpp
+    src/task/TaskExec.h src/task/TaskExec.cpp
+    src/shell/ReminderScheduler.h src/shell/ReminderScheduler.cpp
+    src/board/PreviewHub.h src/board/PreviewHub.cpp
+    src/task/TaskStats.h src/task/TaskStats.cpp
+    src/board/BoardSync.h src/board/BoardSync.cpp
+    src/shell/WindowsIntegration.h src/shell/WindowsIntegration.cpp
+    src/update/UpdateManager.h src/update/UpdateManager.cpp
+    src/task/TaskRunStore.h src/task/TaskRunStore.cpp
+    src/agent/AgentProfile.h src/agent/AgentProfile.cpp
+    src/agent/TaskRunner.h src/agent/TaskRunner.cpp
+    src/board/ProjectMap.h src/board/ProjectMap.cpp
+    src/agent/AcceptanceRunner.h src/agent/AcceptanceRunner.cpp
+    src/core/ScopeMatcher.h src/core/ScopeMatcher.cpp
+    src/agent/TriageRunner.h src/agent/TriageRunner.cpp
+    src/agent/LedgerImport.h src/agent/LedgerImport.cpp
+    src/agent/Scheduler.h src/agent/Scheduler.cpp
+    src/agent/WorkflowRunner.h src/agent/WorkflowRunner.cpp
+    src/agent/WorkflowPresets.h src/agent/WorkflowPresets.cpp
+    src/shell/DragFeel.h src/shell/DragFeel.cpp
+    src/shell/KeyMove.h src/shell/KeyMove.cpp
+    src/update/DeltaUpdate.h src/update/DeltaUpdate.cpp
+    src/update/BsdiffWrapper.h src/update/BsdiffWrapper.cpp
     thirdparty/bsdiff/bsdiff.c
     thirdparty/bsdiff/bspatch.c
     thirdparty/bzip2/bzlib.c
@@ -100,6 +100,12 @@ qt_add_executable(NeonBoard
     thirdparty/bzip2/decompress.c
     resources/neonboard.rc
 )
+
+# MOD-06：8 个模块子目录。源码里的 #include "Database.h" 一律不改写法，
+# 靠这一组 include 目录解析 —— 搬运与改 include 分离，rename 占比才上得去。
+target_include_directories(NeonBoard PRIVATE
+    src
+    src/core src/task src/theme src/update src/agent src/board src/shell src/plugin)
 
 target_link_libraries(NeonBoard PRIVATE
     Qt6::Core
@@ -224,9 +230,9 @@ set_target_properties(NeonBoard PROPERTIES
 
 qt_add_executable(NeonBoardHost
     src/host/HostMain.cpp
-    src/AppPaths.h src/AppPaths.cpp
-    src/SingleInstance.h src/SingleInstance.cpp
-    src/AppActions.h src/AppActions.cpp
+    src/core/AppPaths.h src/core/AppPaths.cpp
+    src/core/SingleInstance.h src/core/SingleInstance.cpp
+    src/core/AppActions.h src/core/AppActions.cpp
     resources/neonboard.rc    # 安装包的快捷方式指向 Host，缺它 exe 里没有图标资源
 )
 
@@ -249,15 +255,15 @@ set_target_properties(NeonBoardHost PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE FALSE
 )
-target_include_directories(NeonBoardHost PRIVATE src)
+target_include_directories(NeonBoardHost PRIVATE src src/core)
 
 # 增量升级发布侧工具（R5-06）：neonboard-delta-tool build --from <旧> --to <新> --out <目录>
 # 由 scripts/build-delta.ps1 调用，生成 delta.json + files/ + patches/（bsdiff patch）。
 # 与主程序共用 DeltaUpdate / BsdiffWrapper 源码；main() 在 DeltaUpdate.cpp 里
 # 以 NEONBOARD_DELTA_TOOL_MAIN 宏隔离，不进主程序。
 add_executable(neonboard-delta-tool
-    src/DeltaUpdate.cpp
-    src/BsdiffWrapper.cpp
+    src/update/DeltaUpdate.cpp
+    src/update/BsdiffWrapper.cpp
     thirdparty/bsdiff/bsdiff.c
     thirdparty/bsdiff/bspatch.c
     thirdparty/bzip2/bzlib.c
@@ -270,7 +276,7 @@ add_executable(neonboard-delta-tool
 )
 target_compile_definitions(neonboard-delta-tool PRIVATE NEONBOARD_DELTA_TOOL_MAIN)
 target_link_libraries(neonboard-delta-tool PRIVATE Qt6::Core)
-target_include_directories(neonboard-delta-tool PRIVATE src ${CMAKE_SOURCE_DIR})
+target_include_directories(neonboard-delta-tool PRIVATE src src/update ${CMAKE_SOURCE_DIR})
 if (MSVC)
     target_compile_options(neonboard-delta-tool PRIVATE /utf-8)
 endif()

@@ -756,9 +756,9 @@ R6 起看板承担「任务派发器」职责：卡片定义 → 拉起本机 ag
 | --- | --- | --- | --- |
 | 执行定义 | `board.db` 的 `task_exec` | goal / acceptance / scope / agent / cwd / workflow / timeout / maxAttempts | 往 `task` 表加列、升 `user_version` |
 | 运行态 | `board.db` 的 `task_run` | 每次执行的 run（状态 / 心跳 / 退出码 / 日志 / 越界） | 改看板列、改卡片状态 |
-| 执行器 | `src/TaskRunner.*` | 受控启动子进程、流式日志、超时与终止 | 自动 push、自动改列 |
-| 验收 | `src/AcceptanceRunner.*` / `src/ScopeMatcher.*` | 跑 acceptance、比对 scope | 经过 shell 执行命令 |
-| agent 适配 | `src/AgentProfile.*` | 拼命令行与只读参数 | 内置未实测的 profile |
+| 执行器 | `src/agent/TaskRunner.*` | 受控启动子进程、流式日志、超时与终止 | 自动 push、自动改列 |
+| 验收 | `src/agent/AcceptanceRunner.*` / `src/core/ScopeMatcher.*` | 跑 acceptance、比对 scope | 经过 shell 执行命令 |
+| agent 适配 | `src/agent/AgentProfile.*` | 拼命令行与只读参数 | 内置未实测的 profile |
 
 ### 12.2 硬性约束
 

@@ -17,11 +17,11 @@
 {
   "understanding": "一句话复述需求（用于人确认理解是否一致）",
   "affected": {
-    "files": ["src/TaskModel.cpp"],
+    "files": ["src/task/TaskModel.cpp"],
     "modules": ["模型层", "统计芯片"],
     "risk": "低 | 中 | 高 —— 附一句理由"
   },
-  "scope_draft": ["src/TaskModel.cpp", "tests/tst_taskcolumns.cpp"],
+  "scope_draft": ["src/task/TaskModel.cpp", "tests/tst_taskcolumns.cpp"],
   "acceptance_draft": ["pwsh -File scripts/verify.ps1"],
   "questions": ["统计芯片只算当前列还是全部列？"],
   "split": [{ "title": "补回归测试", "independent": true }],
@@ -99,7 +99,7 @@
 
 ## 实现现状（R6-07 落地，2026-10-28）
 
-`src/TriageRunner.*` 已实现上表全部校验，落点如下：
+`src/agent/TriageRunner.*` 已实现上表全部校验，落点如下：
 
 | 约束 | 实现 |
 | --- | --- |

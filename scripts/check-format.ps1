@@ -42,8 +42,18 @@ if ($All) {
         else { Write-Host '没有可比较的基线，跳过'; exit 0 }
     }
     Write-Host "比较基线: $Base"
-    $changed = git diff --name-only --diff-filter=ACMR "$Base...HEAD" 2>$null
-    if (-not $changed) { $changed = git diff --name-only "$Base" HEAD 2>$null }
+    # 纯改名（R100）不算「改动」：内容一字未变，格式不该因此被重排。
+    # MOD-06 搬 110 个文件时，89 个历史文件因此被判「不符合格式」——那是重命名的噪声，
+    # 不是这次提交引入的漂移。用 --name-status -M 把 R100 摘掉，其余照旧。
+    $statusLines = git diff --name-status --diff-filter=ACMR -M "$Base...HEAD" 2>$null
+    if (-not $statusLines) { $statusLines = git diff --name-status -M "$Base" HEAD 2>$null }
+    $changed = @()
+    foreach ($line in $statusLines) {
+        $parts = $line -split "`t"
+        if ($parts.Count -lt 2) { continue }
+        if ($parts[0] -eq 'R100') { continue }
+        $changed += $parts[-1]
+    }
     $files = @()
     foreach ($f in $changed) {
         if ($exts -contains [IO.Path]::GetExtension($f)) {

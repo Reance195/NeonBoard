@@ -105,8 +105,8 @@ R2 只做完了记忆点的一半：Shader 场景化、专注模式、统计可�
   - `ctest --test-dir build -C Release -R tst_themepack --output-on-failure`
   - 坏 JSON / 缺令牌 / 非法色值的三种包均被跳过，其余包正常加载，应用可启动
   - `build/Release/NeonBoard.exe --selftest` 退出码 0；`--smoke` 日志无 QML 告警
-- **scope**：`qml/theme/Theme.qml`、`qml/components/AppearancePanel.qml`、`src/ThemePack.*`、
-  `src/AppPaths.*`、`src/main.cpp`、`tests/tst_themepack.cpp`、`tests/CMakeLists.txt`
+- **scope**：`qml/theme/Theme.qml`、`qml/components/AppearancePanel.qml`、`src/theme/ThemePack.*`、
+  `src/core/AppPaths.*`、`src/main.cpp`、`tests/tst_themepack.cpp`、`tests/CMakeLists.txt`
 - **非目标**：不做市场、不做在线下载、不允许包携带脚本或自定义字体。
 
 ### R8-02 主题包市场（浏览 / 安装 / 卸载）
@@ -120,8 +120,8 @@ R2 只做完了记忆点的一半：Shader 场景化、专注模式、统计可�
   - 断网时列表不空白：显示已安装包 + 明确的「离线」标注
   - 安装失败（写入中途杀进程）后重启，主题列表回到安装前状态
   - `--selftest` 退出码 0
-- **scope**：`qml/components/ThemeMarketPanel.qml`、`qml/Main.qml`、`src/ThemeMarket.*`、
-  `src/AppActions.*`、`tests/tst_thememarket.cpp`、`tests/CMakeLists.txt`
+- **scope**：`qml/components/ThemeMarketPanel.qml`、`qml/Main.qml`、`src/theme/ThemeMarket.*`、
+  `src/core/AppActions.*`、`tests/tst_thememarket.cpp`、`tests/CMakeLists.txt`
 - **非目标**：不做签名与发布者信誉（§8 已列为明确不做）、不做付费、不做用户上传。
 
 ### R8-03 卡片详情抽屉（Markdown 笔记 + 就地编辑）
@@ -136,7 +136,7 @@ R2 只做完了记忆点的一半：Shader 场景化、专注模式、统计可�
   - 备注写入后重开应用仍渲染正确
   - `--smoke` 日志无 QML 告警
 - **scope**：`qml/components/CardDetailPanel.qml`、`qml/Main.qml`、`qml/components/TaskCard.qml`、
-  `src/TaskModel.*`、`tests/tst_carddetail.cpp`、`tests/CMakeLists.txt`
+  `src/task/TaskModel.*`、`tests/tst_carddetail.cpp`、`tests/CMakeLists.txt`
 - **非目标**：附件不在本卡（见第 10 节待拍板 A）；不改 `task` 表结构。
 
 ### R8-04 详情进阶：子任务进度环 + 审计时间线
@@ -151,7 +151,7 @@ R2 只做完了记忆点的一半：Shader 场景化、专注模式、统计可�
   - 用不带 `task_event` 的老库文件启动，程序自动建表且历史任务不受影响
   - 详情抽屉时间线条数与 `sqlite` 里的事件数一致
   - `--selftest` 退出码 0
-- **scope**：`src/TaskAudit.*`、`src/Database.cpp`、`src/TaskModel.*`、`src/TaskTree.*`、
+- **scope**：`src/task/TaskAudit.*`、`src/core/Database.cpp`、`src/task/TaskModel.*`、`src/task/TaskTree.*`、
   `qml/components/CardDetailPanel.qml`、`tests/tst_taskevent.cpp`、`tests/CMakeLists.txt`
 - **非目标**：不做 undo/redo 回放（撤销仍走 `TaskUndo`）、不做跨设备事件同步。
 
@@ -180,7 +180,7 @@ R2 只做完了记忆点的一半：Shader 场景化、专注模式、统计可�
   - 拖拽中按 Esc，卡回到原列原位（`TaskUndo` 之外不产生多余记录）
   - `--selftest` 退出码 0
 - **scope**：`qml/components/BoardColumn.qml`、`qml/components/TaskCard.qml`、`qml/Main.qml`、
-  `src/AppActions.*`、`tests/tst_keymove.cpp`、`tests/CMakeLists.txt`
+  `src/core/AppActions.*`、`tests/tst_keymove.cpp`、`tests/CMakeLists.txt`
 - **非目标**：不做自定义快捷键绑定（那是插件能力，R3 已落地）。
 
 ## 6. 台账登记片段（维护者授权，已执行）

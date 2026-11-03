@@ -212,6 +212,16 @@ def main() -> int:
         sys.stderr.write("✗ 读取失败：%s\n" % exc)
         return 4
 
+    # 清单是「请求」，台账是「事实」：已经入账的卡不该再算「计划中（未入账）」。
+    # 否则一张卡从立卡到结卡的全过程里，面板会一直把它同时显示在两处
+    # （实测：MOD-02 已 done，KPI 仍报「计划中 3」）。
+    already = sorted(set(cards) & set(ledger["cards"]))
+    for cid in already:
+        cards.pop(cid)
+    if already:
+        sys.stderr.write("· 清单中 %d 张已入账，从「计划中」剔除：%s\n"
+                         % (len(already), "、".join(already)))
+
     blockers, warnings, infos = A.validate(cards, ledger, Path(args.repo).resolve()) if cards \
         else ([], [], [])
 

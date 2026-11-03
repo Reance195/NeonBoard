@@ -61,9 +61,9 @@
       "title": "看板 ↔ 仓库同步",
       "tag": "BoardSync",
       "desc": "看板改动与仓库快照零差异：启动拉取 / 增量轮询 / 防抖写回 / 提交钩子，diff 必须为 0。",
-      "anchor": "src/BoardSync.cpp",
+      "anchor": "src/board/BoardSync.cpp",
       "command": "ctest --test-dir build -C Release -R tst_boardcolumns --output-on-failure",
-      "evidence": ["src/BoardSync.cpp", "src/BoardSync.h", "docs/board-sync.md"]
+      "evidence": ["src/board/BoardSync.cpp", "src/board/BoardSync.h", "docs/board-sync.md"]
     },
     {
       "id": "patrol",

@@ -20,17 +20,17 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Test Sql Gui)
 #
 # 归属依据 docs/module-split-plan.md §3.1 / §4.2，含 MOD-01 修正的三个例外：
 # TaskRunner→agent、DataPort→board、HookEventQueue→plugin（本文件只引用 TaskRunner）。
-set(NB_DIR_CORE   "${CMAKE_SOURCE_DIR}/src")
-set(NB_DIR_TASK   "${CMAKE_SOURCE_DIR}/src")
-set(NB_DIR_PLUGIN "${CMAKE_SOURCE_DIR}/src")
-set(NB_DIR_AGENT  "${CMAKE_SOURCE_DIR}/src")
-set(NB_DIR_BOARD  "${CMAKE_SOURCE_DIR}/src")
-set(NB_DIR_SHELL  "${CMAKE_SOURCE_DIR}/src")
-set(NB_DIR_UPDATE "${CMAKE_SOURCE_DIR}/src")
-set(NB_DIR_THEME  "${CMAKE_SOURCE_DIR}/src")
+set(NB_DIR_CORE "${CMAKE_SOURCE_DIR}/src/core")
+set(NB_DIR_TASK "${CMAKE_SOURCE_DIR}/src/task")
+set(NB_DIR_PLUGIN "${CMAKE_SOURCE_DIR}/src/plugin")
+set(NB_DIR_AGENT "${CMAKE_SOURCE_DIR}/src/agent")
+set(NB_DIR_BOARD "${CMAKE_SOURCE_DIR}/src/board")
+set(NB_DIR_SHELL "${CMAKE_SOURCE_DIR}/src/shell")
+set(NB_DIR_UPDATE "${CMAKE_SOURCE_DIR}/src/update")
+set(NB_DIR_THEME "${CMAKE_SOURCE_DIR}/src/theme")
 
-# 分层后每个模块独占一个目录，头文件跨模块 include，故 include 路径要覆盖全部 8 个。
-# 现在 8 个变量同值，去重后仍是 1 条，不会给编译命令行塞 8 个重复 -I。
+# 每个模块独占一个目录，头文件跨模块 include，故 include 路径要覆盖全部 8 个。
+# MOD-06 之后 8 个变量各指一个子目录，去重后是 8 条 include。
 set(NB_INCLUDE_DIRS
     ${NB_DIR_CORE} ${NB_DIR_TASK} ${NB_DIR_PLUGIN} ${NB_DIR_AGENT}
     ${NB_DIR_BOARD} ${NB_DIR_SHELL} ${NB_DIR_UPDATE} ${NB_DIR_THEME})

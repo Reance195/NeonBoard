@@ -8,7 +8,7 @@
 ### 1. 应用标识（AppUserModelID）
 
 进程启动时调用 `SetCurrentProcessExplicitAppUserModelID("com.lin.neonboard")`
-（`src/WindowsIntegration.cpp` → `applyAppUserModelId()`，在 `main()` 建窗口前执行）。
+（`src/shell/WindowsIntegration.cpp` → `applyAppUserModelId()`，在 `main()` 建窗口前执行）。
 
 **为什么必须有**：不设的话任务栏会把程序归到一个由 exe 路径推导的临时标识，
 换目录安装就变成两个"不同应用"；系统通知也会归到"未知应用"、无法在操作中心里
@@ -77,7 +77,7 @@ NeonBoard.exe --unregister-file-assoc    # 注销（只删自己写的键）
 ### 4. 跳转列表（任务栏右键任务项）
 
 `ICustomDestinationList` + `IShellLinkW` 写入四个任务项，参数直接复用冷启动开关，
-因此"点击任务项"与"命令行带参数启动"是同一条代码路径（见 `src/AppActions.h`）。
+因此"点击任务项"与"命令行带参数启动"是同一条代码路径（见 `src/core/AppActions.h`）。
 
 | 任务项 | 参数 |
 | --- | --- |

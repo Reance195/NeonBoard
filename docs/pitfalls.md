@@ -207,7 +207,7 @@
 
 ### 1.19 `scope` / `acceptance` 不进审计，等于留了一条自我扩权的后门
 
-- **现象**：R10-02 立卡时漏写 `src/main.cpp`、`src/BoardColumns.*`、`tests/` 三个实现必需路径，
+- **现象**：R10-02 立卡时漏写 `src/main.cpp`、`src/board/BoardColumns.*`、`tests/` 三个实现必需路径，
   实现到一半才发现 —— 于是 agent 自己写了两条 `chore(board)` 把 `scope` 补上，继续做完。
   整个过程没有任何「谁授权」的记录，事后翻 git 也看不出这两次扩权是维护者同意的还是 agent 顺手加的。
 - **根因**：`task_gate.py` 的 `ledger_shape()` 只提取 `id` / `title` / `stage` / `baseline` 做判定，
@@ -549,7 +549,7 @@
 - **现象**：空数据目录首启的日志里有两行 `TaskModel: loaded`：`loaded 0 tasks` → 426 ms 后
   `loaded 139 tasks`。任何「只看一眼 count 就下结论」的判定都可能读到中间那个 0。
 - **根因**：第一次来自 `src/main.cpp` 的初始加载；第二次是 `RoadmapSync::importFrom()` 末尾
-  的 `m_tasks->load()`（`src/RoadmapSync.cpp:323`）—— 路线图快照导进库之后要整体重建一次模型。
+  的 `m_tasks->load()`（`src/board/RoadmapSync.cpp:323`）—— 路线图快照导进库之后要整体重建一次模型。
   两次都走 `beginResetModel()` / `endResetModel()`，是完整的 reset，不是增量。
 - **实测时序**：`loaded 0`（.656）→ 导入 139 项（.085 `应用 139、跳过 0`）→ `BOOT engine`（2.188）
   → `BOOT loaded`（3.375）→ `ONBOARD skip tasks 139`。QML 加载比导入晚 1.3 秒，所以正常的
@@ -613,7 +613,7 @@
   2026-10-28 用 codex-cli 0.163.0 做了实测，参数面与只读沙箱已摸清并记进
   [`agent-profile.md`](agent-profile.md)（含 `exec` 必须重定向 stdin、`--json` 事件流形态、
   `-s read-only` 确实拦住写文件）；但**两次 `exec` 都在超时窗口内没跑完一个回合**（退出码 124）。
-- **卡在哪**：「起得来、只读、能出结果」三条只验到前两条。内置要改 `src/AgentProfile.cpp`，
+- **卡在哪**：「起得来、只读、能出结果」三条只验到前两条。内置要改 `src/agent/AgentProfile.cpp`，
   属代码改动 → **需要一张新卡片**（§条款 6），不能顺手写进生产 profile。
 - **需要谁拍板**：是开一张卡专做 codex 内置（含超时上限与一次真实回合验证），
   还是继续让「用户在 设置 → 任务执行 手工新增 profile」这条通道兜着。
@@ -642,7 +642,7 @@
   卡 scope 内能做的已做完：`Metrics` 增 `startupCpuMs`、splash 五处 330ms→160ms 总预算
   （`NEONBOARD_SPLASH_BUDGET` 可覆盖，预算用尽仍保证进度条重绘）。
 - **真正解法在哪**：`scripts/deploy.ps1` 只随包 Basic 样式 + CMake 改 DELAYLOAD 链接，预计能砍掉
-  大头冷加载。但这是**部署行为改动**，不在 R0-11 声明的 scope（`src/Metrics.*` / `src/main.cpp`）内，
+  大头冷加载。但这是**部署行为改动**，不在 R0-11 声明的 scope（`src/core/Metrics.*` / `src/main.cpp`）内，
   不能顺手做。
 - **需要谁拍板**：扩 R0-11 的 scope（`scope`/`acceptance` 改动按 1.19 要单独 `chore(board)` + 授权行），
   还是另立一张卡。拍板前该卡保持未结，由认领会话继续持有。

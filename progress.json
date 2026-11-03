@@ -91,24 +91,6 @@
             "updatedAt": 1793299949
         },
         {
-            "code": "DX-17",
-            "completedAt": 0,
-            "createdAt": 1793726487,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-17",
-            "note": "起因：卡片 scope 写 plugins/agent-opencode/（尾斜杠）时，check_scope.glob_to_regex 只按 glob 编译，得到 ^plugins/agent-opencode/$，只能匹配字面量为目录名的路径，一条真实文件都盖不住——等于这张卡没有 scope 保护。\n\n全仓 6 处：R9-02/03/04/05、R10-04（docs/）、R14-04（在办）。R14-03 已把本卡的 plugins/agent-cursor/ 手工改成 /**，但那是逐卡打补丁，不解决写法本身。\n\n修法：在 check_scope.py 里对 scope 先规范化（尾斜杠补 **），不改 glob_to_regex 的语义——board-apply.py 复用它做建卡校验，改语义会波及那 16 项自测。把匹配逻辑抽成可测函数 matches(scope, path)，让脚本第一次有 --selftest。\n\n顺带加 --audit：遍历台账所有卡片的每条 scope，统计命中文件数，列出命中 0 的条目。CI 的 scope step 是 continue-on-error，红灯只在信号层，不能指望人盯。",
-            "orderKey": 9216,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 目录式 scope 静默失效：6 处尾斜杠写法一条文件都盖不住",
-            "updatedAt": 1793726487
-        },
-        {
             "code": "MOD-06",
             "completedAt": 0,
             "createdAt": 1793726487,
@@ -820,6 +802,24 @@
             ],
             "title": "R3 插件平台 2.0",
             "updatedAt": 1792725723
+        },
+        {
+            "code": "DX-17",
+            "completedAt": 1793727950,
+            "createdAt": 1793726487,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-17",
+            "note": "起因：卡片 scope 写 plugins/agent-opencode/（尾斜杠）时，check_scope.glob_to_regex 只按 glob 编译，得到 ^plugins/agent-opencode/$，只能匹配字面量为目录名的路径，一条真实文件都盖不住——等于这张卡没有 scope 保护。\n\n全仓 6 处：R9-02/03/04/05、R10-04（docs/）、R14-04（在办）。R14-03 已把本卡的 plugins/agent-cursor/ 手工改成 /**，但那是逐卡打补丁，不解决写法本身。\n\n修法：在 check_scope.py 里对 scope 先规范化（尾斜杠补 **），不改 glob_to_regex 的语义——board-apply.py 复用它做建卡校验，改语义会波及那 16 项自测。把匹配逻辑抽成可测函数 matches(scope, path)，让脚本第一次有 --selftest。\n\n顺带加 --audit：遍历台账所有卡片的每条 scope，统计命中文件数，列出命中 0 的条目。CI 的 scope step 是 continue-on-error，红灯只在信号层，不能指望人盯。",
+            "orderKey": 9216,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 目录式 scope 静默失效：6 处尾斜杠写法一条文件都盖不住",
+            "updatedAt": 1793727950
         },
         {
             "code": "MOD-02",
@@ -2833,6 +2833,6 @@
             "updatedAt": 1793281760
         }
     ],
-    "updated": "2026-11-04T01:42:06",
+    "updated": "2026-11-04T01:45:50",
     "version": 3
 }

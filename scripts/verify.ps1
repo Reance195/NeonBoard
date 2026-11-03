@@ -1,7 +1,14 @@
 ﻿# verify.ps1 —— 唯一验收入口：本地和 CI 用同一把尺子
 #
-# 五步：编译 → 单元测试(ctest) → 数据库自检(--selftest) → 冒烟启动(--smoke) → 看板一致性(derive --check)
-# 任务卡的 acceptance 就写「pwsh -File scripts/verify.ps1 全过」。
+# 两种口径（DX-15）：
+#   全量（默认）：编译 → 单元测试(ctest) → 数据库自检(--selftest) → 冒烟启动(--smoke)
+#                 → 模块守卫 → 看板一致性(derive --check)
+#   脚本层(-ScriptOnly)：PowerShell 语法解析 → 脚本卫生(check_script_hygiene)
+#                 → 工作流 YAML 解析 → 范围检查(check_scope)
+#                 「scope 内没有 .cpp/.h/.qml/CMakeLists.txt」的卡片走这一档：
+#                 这些检查与编译无关，却要在冷启动 worktree 里付 20~30 分钟编译费才拿得到
+#                 （DX-13 实施实测）。全量编译仍由 CI 兜底，门槛不降。
+#                 两种口径的退出码语义一致：0 通过 / 1 失败。
 #
 # 两处自兜底（本脚本的定位是「拿到就能跑」，不该要求调用方先记住别的）：
 #   - PATH 上没有 ctest 时点源 dev-env.ps1 装配工具链；
@@ -10,10 +17,12 @@
 # 用法：
 #   pwsh -File scripts/verify.ps1                    # 完整验收
 #   pwsh -File scripts/verify.ps1 -SkipBuild         # 已构建过，只跑测试
+#   pwsh -File scripts/verify.ps1 -ScriptOnly        # 纯脚本/配置类卡片的脚本层验收
 #   pwsh -File scripts/verify.ps1 -Config Release -BuildDir build
 
 param(
     [switch]$SkipBuild,
+    [switch]$ScriptOnly,
     [string]$QtRoot = '',
     [string]$BuildDir = 'build',
     [string]$Config = 'Release'
@@ -33,6 +42,97 @@ function Step([string]$name) {
 function Fail([string]$msg) {
     Write-Host "✗ $msg" -ForegroundColor Red
     exit 1
+}
+
+# ---------- 脚本层验收（-ScriptOnly） ----------
+# 与编译无关的四项：语法解析 / 脚本卫生 / 工作流 YAML / 范围。
+# 判定规则见 docs/task-card.md「两类验收口径」：scope 内没有 .cpp/.h/.qml/CMakeLists.txt
+# 即脚本类。为防止「脚本卡偷偷改了代码」，第一项先自查改动清单 —— 有代码就拒绝并指回全量。
+if ($ScriptOnly) {
+    $scriptBase = 'origin/main'
+    $hasBase = [bool](git rev-parse --verify -q origin/main 2>$null)
+    if (-not $hasBase) { $scriptBase = 'HEAD~1' }
+
+    Step '口径自检（改动里有没有代码路径）'
+    $codeExt = @('.cpp', '.h', '.hpp', '.cc', '.cxx', '.qml', '.qrc', '.ui', '.js')
+    $changed = @()
+    if ($hasBase) {
+        $changed = @(git diff --name-only --diff-filter=ACMR "$scriptBase...HEAD" 2>$null)
+    }
+    $codeHits = @()
+    foreach ($f in $changed) {
+        if (-not $f) { continue }
+        if (($codeExt -contains [IO.Path]::GetExtension($f)) -or
+            ((Split-Path -Leaf $f) -eq 'CMakeLists.txt')) {
+            $codeHits += $f
+        }
+    }
+    if ($codeHits.Count -gt 0) {
+        Write-Host ("  含代码路径 {0} 个：" -f $codeHits.Count) -ForegroundColor DarkGray
+        $codeHits | Select-Object -First 8 | ForEach-Object { Write-Host "    $_" }
+        Fail '本次改动涉及代码，-ScriptOnly 不适用；请跑 pwsh -File scripts/verify.ps1（全量）'
+    }
+    Write-Host ("  ✓ 改动 {0} 个文件，无代码路径" -f $changed.Count) -ForegroundColor DarkGray
+
+    Step 'PowerShell 语法解析（scripts/*.ps1）'
+    $psFiles = @(Get-ChildItem (Join-Path $repoRoot 'scripts') -Filter '*.ps1' -File)
+    $syntaxBad = 0
+    foreach ($f in $psFiles) {
+        $tokens = $null
+        $parseErrors = $null
+        [void][System.Management.Automation.Language.Parser]::ParseFile(
+            $f.FullName, [ref]$tokens, [ref]$parseErrors)
+        if ($parseErrors -and $parseErrors.Count -gt 0) {
+            $syntaxBad++
+            Write-Host ("  ✗ {0}：{1} 处语法错误" -f $f.Name, $parseErrors.Count) -ForegroundColor Red
+            $parseErrors | Select-Object -First 3 | ForEach-Object {
+                Write-Host ("      L{0} {1}" -f $_.Extent.StartLineNumber, $_.Message) -ForegroundColor Red
+            }
+        }
+    }
+    if ($syntaxBad -gt 0) { Fail "$syntaxBad 个脚本存在语法错误" }
+    Write-Host ("  ✓ {0} 个脚本语法正确" -f $psFiles.Count) -ForegroundColor DarkGray
+
+    Step '脚本卫生（check_script_hygiene）'
+    & python (Join-Path $repoRoot 'scripts\check_script_hygiene.py')
+    if ($LASTEXITCODE -ne 0) { Fail '脚本卫生检查未通过' }
+
+    Step '工作流 YAML 解析（.github/workflows/*.yml）'
+    # 提示语只用 ASCII：这段程序的输出要被 capture 回来再打印，PowerShell 用控制台代码页
+    # 解码子进程输出，中文会变乱码（「3 涓?workflow」）。少一类 bug 比多一行中文划算。
+    $yamlProg = @'
+import glob
+import sys
+paths = sorted(glob.glob(".github/workflows/*.yml"))
+try:
+    import yaml
+except Exception:
+    print("SKIP PyYAML not installed (pip install pyyaml to enable)")
+    sys.exit(0)
+bad = []
+for p in paths:
+    try:
+        with open(p, encoding="utf-8") as fh:
+            yaml.safe_load(fh)
+    except Exception as exc:
+        bad.append((p, exc))
+for p, exc in bad:
+    print("X %s: %s" % (p, exc))
+print("OK %d workflow file(s)" % len(paths))
+sys.exit(1 if bad else 0)
+'@
+    $yamlOut = $yamlProg | & python - 2>&1
+    $yamlCode = $LASTEXITCODE
+    $yamlOut | ForEach-Object { Write-Host "  $_" }
+    if ($yamlCode -ne 0) { Fail '工作流 YAML 解析失败' }
+
+    Step '范围检查（check_scope）'
+    & python (Join-Path $repoRoot 'scripts\check_scope.py') --base $scriptBase
+    if ($LASTEXITCODE -ne 0) { Fail '改动越出卡片 scope（或范围检查无法完成）' }
+
+    Write-Host ''
+    Write-Host '✓ 脚本层验收通过：语法 / 卫生 / YAML / 范围 全过（未触发编译）' -ForegroundColor Green
+    exit 0
 }
 
 # ---------- 1. 构建 ----------

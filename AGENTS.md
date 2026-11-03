@@ -482,6 +482,15 @@ pwsh -File scripts/dev-run.ps1 -Wait      # 前台运行（配合 --smoke 等参
 
 ### 7.7 验证口径
 
+- **两档验收，按卡的 `scope` 判定**（DX-15）：`scope` 内有 `.cpp` / `.h` / `.hpp` / `.qml` /
+  `CMakeLists.txt` → 代码类，跑 `pwsh -File scripts/verify.ps1`（编译 → ctest → `--selftest`
+  → `--smoke` → 模块守卫 → 看板一致性）；都没有 → 脚本/配置类，跑
+  `pwsh -File scripts/verify.ps1 -ScriptOnly`（改动清单自查 → PS 语法解析 →
+  `check_script_hygiene` → 工作流 YAML → `check_scope`，约 2 秒，不触发编译）。
+  细节见 `docs/task-card.md`「两类验收口径」。故意不按卡申报代码的，`-ScriptOnly`
+  的第一项会拒绝：它先扫改动清单，见代码就要求回全量。
+- **全量编译交 CI**：本地省掉的那次编译由 `ci.yml` 的构建 + ctest 兜底，门槛不降；
+  发布前仍走 `scripts/release.ps1` 的 Release 构建 + `--selftest`（§7.8）。
 - 数据层统一用 `NeonBoard.exe --selftest` 自检（utilityMode 跳过单实例限制）。
 - 构建：`cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64`，然后 `cmake --build build --config Release`。
 - 涉及界面的改动在沙箱目录里验收，不要污染真实数据。

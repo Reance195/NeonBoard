@@ -7,6 +7,7 @@
 //   4. 非零退出码 → blocked + lastError；完整日志落盘且有 logPath
 //   5. 手动 stop → cancelled
 //   6. 心跳持续刷新，未触发孤儿回收；启动失败不残留 running 锁
+//   7. R14-03：PATH 上的 .cmd / .bat 包装器（cursor-agent 的装法）能拉起、退出码可取
 //
 // 用命令行（cmd.exe，Windows 通用）做可执行载体：`cmd /c exit N` 和
 // `cmd /c echo hi` 不依赖任何第三方工具，保证离线可跑。
@@ -22,6 +23,7 @@
 #include <QFile>
 #include <QSignalSpy>
 #include <QSqlDatabase>
+#include <QStandardPaths>
 #include <QStringList>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -48,6 +50,9 @@ private slots:
     void nonzeroExitsBlocked();
     void manualStopCancels();
     void redactsCredentialsInLog();
+    void cmdWrapperOnPathLaunches();
+    void batWrapperAbsolutePathLaunches();
+    void realAgentProbeIfEnabled();
 
 private:
     QTemporaryDir m_dir;
@@ -265,6 +270,106 @@ void TestTaskRunner::redactsCredentialsInLog()
     QVERIFY2(!content.contains(QStringLiteral("0123456789abcdef0123456789abcdef")),
              "十六进制串泄漏");
     QVERIFY2(content.contains(QStringLiteral("[已脱敏]")), "未写入脱敏占位符");
+}
+
+// R14-03：PATH 上的 .cmd 包装器必须能拉起。
+//
+// cursor-agent 装出来就是这种东西：PATH 上只有 cursor-agent.cmd，真身是
+// versions/<版本>/node.exe + index.js。QProcess 拿裸命令名时不会按 PATHEXT 找
+// .cmd（CreateProcess 只补 .exe），于是面板显示「可用」、派活却 FailedToStart
+// 「系统找不到指定的文件」。执行器必须先把裸名解析成绝对路径。
+void TestTaskRunner::cmdWrapperOnPathLaunches()
+{
+#ifdef Q_OS_WIN
+    const QString dir = m_dir.path();
+    const QString stem = QStringLiteral("nb-wrap-on-path");
+    QFile script(dir + QLatin1Char('/') + stem + QStringLiteral(".cmd"));
+    QVERIFY(script.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    script.write("@echo off\r\n"
+                 "echo WRAPPER-ON-PATH\r\n"
+                 "exit /b 3\r\n");
+    script.close();
+
+    const QByteArray oldPath = qgetenv("PATH");
+    qputenv("PATH", QDir::toNativeSeparators(dir).toLocal8Bit() + ';' + oldPath);
+
+    QSignalSpy finished(m_runner, &TaskRunner::runFinished);
+    const QVariantMap r = m_runner->startRaw(QStringLiteral("task-wrap-path"), stem, {}, dir, 60);
+    qputenv("PATH", oldPath); // 立刻还原，别污染同进程里的其它用例
+
+    QVERIFY2(r.value(QStringLiteral("ok")).toBool(),
+             qPrintable(r.value(QStringLiteral("message")).toString()));
+    QVERIFY2(finished.wait(15000), ".cmd 包装器 15s 未结束");
+
+    const QVariantMap detail = finished.at(0).at(1).toMap();
+    QCOMPARE(detail.value(QStringLiteral("exitCode")).toInt(), 3);
+
+    QFile log(detail.value(QStringLiteral("logPath")).toString());
+    QVERIFY(log.open(QIODevice::ReadOnly));
+    QVERIFY2(QString::fromUtf8(log.readAll()).contains(QStringLiteral("WRAPPER-ON-PATH")),
+             "脚本没被执行（只起了个空壳）");
+#else
+    QSKIP("Windows 专有：.cmd 包装器");
+#endif
+}
+
+// 绝对路径的 .bat 同样要能拉起，且带空格的参数按 argv 原样送达。
+void TestTaskRunner::batWrapperAbsolutePathLaunches()
+{
+#ifdef Q_OS_WIN
+    const QString path = m_dir.filePath(QStringLiteral("nb-wrap-abs.bat"));
+    QFile script(path);
+    QVERIFY(script.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    script.write("@echo off\r\n"
+                 "echo ARG[%~1]\r\n"
+                 "exit /b 4\r\n");
+    script.close();
+
+    QSignalSpy finished(m_runner, &TaskRunner::runFinished);
+    const QVariantMap r = m_runner->startRaw(QStringLiteral("task-wrap-abs"), path,
+                                             {QStringLiteral("hello world")}, m_dir.path(), 60);
+    QVERIFY2(r.value(QStringLiteral("ok")).toBool(),
+             qPrintable(r.value(QStringLiteral("message")).toString()));
+    QVERIFY2(finished.wait(15000), ".bat 包装器 15s 未结束");
+
+    const QVariantMap detail = finished.at(0).at(1).toMap();
+    QCOMPARE(detail.value(QStringLiteral("exitCode")).toInt(), 4);
+
+    QFile log(detail.value(QStringLiteral("logPath")).toString());
+    QVERIFY(log.open(QIODevice::ReadOnly));
+    QVERIFY2(QString::fromUtf8(log.readAll()).contains(QStringLiteral("ARG[hello world]")),
+             "参数没有原样到达脚本");
+#else
+    QSKIP("Windows 专有：.bat 包装器");
+#endif
+}
+
+// 本机装了真 agent 时，可用 NB_REAL_AGENT_PROBE=1 打一次真调用（R14-03 的实测口径：
+// 非交互、短超时）。默认跳过 —— 会拉起真实 CLI，且未登录时会以非零码退出。
+// 断言只覆盖「起得来、退出码取得到」，不替 agent 的成功与否背书。
+void TestTaskRunner::realAgentProbeIfEnabled()
+{
+    if (qEnvironmentVariableIsEmpty("NB_REAL_AGENT_PROBE"))
+        QSKIP("默认跳过：设 NB_REAL_AGENT_PROBE=1 才真拉起本机 agent");
+    const QString exe = QStandardPaths::findExecutable(QStringLiteral("cursor-agent"));
+    if (exe.isEmpty())
+        QSKIP("本机没有 cursor-agent");
+
+    qInfo() << "[R14-03] 解析到" << exe;
+    QSignalSpy finished(m_runner, &TaskRunner::runFinished);
+    const QVariantMap r =
+        m_runner->startRaw(QStringLiteral("task-real-cursor"), QStringLiteral("cursor-agent"),
+                           {QStringLiteral("--version")}, m_dir.path(), 30);
+    QVERIFY2(r.value(QStringLiteral("ok")).toBool(),
+             qPrintable(r.value(QStringLiteral("message")).toString()));
+    QVERIFY2(finished.wait(30000), "cursor-agent --version 30s 未结束");
+
+    const QVariantMap detail = finished.at(0).at(1).toMap();
+    QFile log(detail.value(QStringLiteral("logPath")).toString());
+    QVERIFY(log.open(QIODevice::ReadOnly));
+    qInfo() << "[R14-03] exitCode=" << detail.value(QStringLiteral("exitCode")).toInt()
+            << "log=" << QString::fromUtf8(log.readAll()).trimmed();
+    QCOMPARE(detail.value(QStringLiteral("exitCode")).toInt(), 0);
 }
 
 QTEST_GUILESS_MAIN(TestTaskRunner)

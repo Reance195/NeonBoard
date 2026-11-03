@@ -1454,7 +1454,7 @@
             "id": "a86c8fd5-baa3-459e-adb4-469ee2c9d5aa",
             "note": "R9-04 交付时留下的已知空白：本机 PATH 上的 cursor-agent 是 .cmd 包装器，真身是 %LOCALAPPDATA%/cursor-agent/versions/2026.10.19-6bbf2c4/node.exe + index.js，外层 .cmd 只负责转调 powershell 脚本。\n\n执行器是 proc->setProgram(exe) 直接拉起、不经 shell；Windows 上 .cmd 不是 PE 可执行文件，能否被 QProcess 直接启动**没有在本机实测过**。当时面板写的是「若报启动失败按真实路径排查」，那是回避而不是结论。\n\nisAvailable=true 只代表 exe 解析得到，与「拉得起来」是两件事 —— R9-04 的 available 语义本身就承认这一点。本卡要把这个问号变成句号。\n\n边界：只处理 .cmd/.bat 这类包装器的拉起，不改其它 agent 的参数，不改 R9-05 定的 stdin 策略。",
             "scope": [
-                "plugins/agent-cursor/",
+                "plugins/agent-cursor/**",
                 "src/TaskRunner.cpp",
                 "src/TaskRunner.h",
                 "tests/tst_taskrunner.cpp",
@@ -2604,6 +2604,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R14-03": {
+            "agent": "agent-r14-03",
+            "branch": "fix/taskrunner-cmd-wrapper",
+            "claimedAt": 1793722818,
+            "head": "d74f388b9ea856fa5ed13065da7d45bf985c2965"
+        }
+    },
     "version": 1
 }

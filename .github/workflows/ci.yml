@@ -3,8 +3,8 @@ name: CI
 on:
   push:
     branches: [ main ]
-    # CI 自动回写的快照提交不再触发流水线，避免自激循环；
-    # update.json 由发布流水线回写，同样不该触发一次完整构建
+    # progress.json 是 git-done 合并收尾写的派生快照，改它没必要重跑一次 8 分钟构建
+    # （一致性由 board.yml 的轻量 job 单独校验）；update.json 由发布流水线回写，同理。
     paths-ignore:
       - 'progress.json'
       - 'update.json'
@@ -234,12 +234,13 @@ jobs:
             Write-Host "· baseline 检查未能完成（退出码 $LASTEXITCODE），按设计不阻断本 job" -ForegroundColor Yellow
           }
 
-      # 看板状态的校验与回写已迁出本 job（DX-13）：见 .github/workflows/board.yml。
+      # 看板状态的校验已迁出本 job（DX-13）：见 .github/workflows/board.yml。
       # 原「看板状态一致性校验」带 if: github.event_name == 'pull_request'，
       # 而本仓库走 git-done 直推 main、零 PR，该步骤从未运行（实测 skipped）；
       # 原「自动回写看板状态」待在本 job 内，而本 workflow 的 paths-ignore 含 docs/**，
       # 结卡这类 docs-only 提交根本不触发它 —— 漂移要等下一次代码推送才被顺带补平。
-      # 现在由独立轻量 job 承担：push 回写、PR 校验，progress.json 保持单写者。
+      # R14-01 起 board.yml 只校验、不回写：写权归 git-done，双写者会让每次合并的
+      # 收尾补推必然 non-fast-forward（详见 board.yml 头部记录的时间线）。
       - name: 上传便携版产物
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4

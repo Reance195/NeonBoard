@@ -54,7 +54,8 @@ python scripts/check_scope.py --selftest                # 规范化、匹配与�
 变更（DX-10），且会把在办卡的真缺陷淹掉。这些条目折叠成一行计数：
 
 ```
-已结卡另 771 条 scope（其中命中 0 的 190 条），已折叠（--include-closed 查看）
+# 2026-11-04 的实测输出，条数随卡增减，别当固定值
+已结卡另 774 条 scope（其中命中 0 的 190 条），已折叠（--include-closed 查看）
 ```
 
 要做历史考古、或想确认某张已结卡的 scope 是否真的覆盖过文件时，加 `--include-closed`。

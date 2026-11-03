@@ -1549,6 +1549,7 @@
                 "src/TaskRunner.h",
                 "src/AgentProfile.cpp",
                 "src/AgentProfile.h",
+                "src/WorkflowRunner.cpp",
                 "tests/tst_taskrunner.cpp",
                 "plugins/agent-cursor/**",
                 "docs/agent-profile.md",

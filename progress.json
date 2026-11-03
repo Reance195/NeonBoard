@@ -91,24 +91,6 @@
             "updatedAt": 1793299949
         },
         {
-            "code": "MOD-06",
-            "completedAt": 0,
-            "createdAt": 1793726487,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-06",
-            "note": "起因：111 个 .h/.cpp 平铺在 src/ 顶层（另有 host/HostMain.cpp 一个子目录），边界只存在于读者脑中。\n\n目标：按 docs/module-split-plan.md §3.1 的 8 模块划分建立子目录，全量加 include 路径，保持 #include \"Database.h\" 写法不变（搬运与改 include 分离）。\n\n搬运前先扫 5 类硬编码引用（2026-11-04 复核）：tests/CMakeLists.txt（MOD-02 后只需改 8 行）、CMakeLists.txt 源列表（64 行 src/ 引用，且主 target 需从无到有新增 8 条 include）、docs/project-map.json 的 chain 证据（逐条校验存在性，拆目录即断链；skeleton 是递归扫，不受影响）、文档路径引用（AGENTS.md + docs 下 12 个非归档文档命中，docs/archive 3 个历史归档不改）、卡片 scope 的精确路径（在办卡 0 条，已核；glob 不受影响）。\n\n执行顺序：先 core + task 验证，再搬其余六个。易错归属：TaskRunner → agent（不是 task）、DataPort → board、HookEventQueue → plugin。\n\n时序：docs/** 与 6 张在办卡的 10 个精确路径重叠（DX-12/14/15/16、R14-02、R14-04），CMakeLists.txt 与 R14-02 争同一路径；建议排在这些卡之后，或把文档路径引用段独占一个提交。",
-            "orderKey": 10240,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD src/ 物理分层：8 个模块子目录 + 连带 5 处引用",
-            "updatedAt": 1793726487
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -910,6 +892,24 @@
             ],
             "title": "PluginContext：每插件 API 门面 + 权限校验",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "MOD-06",
+            "completedAt": 1793729394,
+            "createdAt": 1793726487,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-06",
+            "note": "起因：111 个 .h/.cpp 平铺在 src/ 顶层（另有 host/HostMain.cpp 一个子目录），边界只存在于读者脑中。\n\n目标：按 docs/module-split-plan.md §3.1 的 8 模块划分建立子目录，全量加 include 路径，保持 #include \"Database.h\" 写法不变（搬运与改 include 分离）。\n\n搬运前先扫 5 类硬编码引用（2026-11-04 复核）：tests/CMakeLists.txt（MOD-02 后只需改 8 行）、CMakeLists.txt 源列表（64 行 src/ 引用，且主 target 需从无到有新增 8 条 include）、docs/project-map.json 的 chain 证据（逐条校验存在性，拆目录即断链；skeleton 是递归扫，不受影响）、文档路径引用（AGENTS.md + docs 下 12 个非归档文档命中，docs/archive 3 个历史归档不改）、卡片 scope 的精确路径（在办卡 0 条，已核；glob 不受影响）。\n\n执行顺序：先 core + task 验证，再搬其余六个。易错归属：TaskRunner → agent（不是 task）、DataPort → board、HookEventQueue → plugin。\n\n时序：docs/** 与 6 张在办卡的 10 个精确路径重叠（DX-12/14/15/16、R14-02、R14-04），CMakeLists.txt 与 R14-02 争同一路径；建议排在这些卡之后，或把文档路径引用段独占一个提交。",
+            "orderKey": 10240,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD src/ 物理分层：8 个模块子目录 + 连带 5 处引用",
+            "updatedAt": 1793729394
         },
         {
             "code": "R3-02",
@@ -2833,6 +2833,6 @@
             "updatedAt": 1793281760
         }
     ],
-    "updated": "2026-11-04T01:45:50",
+    "updated": "2026-11-04T02:09:54",
     "version": 3
 }

@@ -749,10 +749,11 @@
             ],
             "depends": [],
             "id": "MOD-02",
-            "note": "起因：tests/CMakeLists.txt 有 199 处硬编码 ${CMAKE_SOURCE_DIR}/src/XXX.cpp（37 个 target、去重 37 个文件；方案 §4.2 记的 196/36 是 10-30 的数字，R14-01 新增 tst_pluginruntime 后 +3 处 / +1 文件），docs/project-map.json 的链路证据与 131 条卡片精确 scope 同样绑死路径。一旦 src/ 分层，34 个测试链接失败、在办卡判越界、tst_projectmap 红。\n\n目标：把路径收敛为 8 个模块目录变量 + 一个 NB_INCLUDE_DIRS，使物理分层退化为「改 8 行 + git mv」。本卡不搬任何文件、不改任何 C++ 代码。\n\n边界：只动 tests/CMakeLists.txt；合并 B1 时增改 CMakeLists.txt。不动 src/**、不动台账。注意本卡只收口测试侧——主 target NeonBoard 目前没有 target_include_directories(src)，M2 要新增 8 条，那是 MOD-06 的事。",
+            "note": "起因：tests/CMakeLists.txt 有 199 处硬编码 ${CMAKE_SOURCE_DIR}/src/XXX.cpp（37 个 target、去重 37 个文件；方案 §4.2 记的 196/36 是 10-30 的数字，R14-01 新增 tst_pluginruntime 后 +3 处 / +1 文件），docs/project-map.json 的链路证据与 131 条卡片精确 scope 同样绑死路径。一旦 src/ 分层，34 个测试链接失败、在办卡判越界、tst_projectmap 红。\n\n目标：把路径收敛为 8 个模块目录变量 + 一个 NB_INCLUDE_DIRS，使物理分层退化为「改 8 行 + git mv」。本卡不搬任何文件、不改任何 C++ 代码。\n\n边界：只动 tests/CMakeLists.txt；合并 B1 时增改 CMakeLists.txt。不动 src/**、不动台账。注意本卡只收口测试侧——主 target NeonBoard 目前没有 target_include_directories(src)，M2 要新增 8 条，那是 MOD-06 的事。\n\nscope 扩充（2026-11-03，维护者授权 A）：加入 tests/tst_projectmap.cpp。起因：MOD-02 立卡后台账出现 stage=MOD，而 docs/iteration-roadmap.md §9 无 MOD 行，tst_projectmap 的 roadmapTableDrivesMilestones 无条件断言 inRoadmap==true，导致主线 CI 转红。该断言与 ProjectMap 的 extras/warn 设计相矛盾，属测试缺陷，故在卡内一并修正。",
             "scope": [
                 "tests/CMakeLists.txt",
-                "CMakeLists.txt"
+                "CMakeLists.txt",
+                "tests/tst_projectmap.cpp"
             ],
             "stage": "MOD",
             "title": "MOD 路径解耦：测试源引用集中化，为 src/ 分层降险"
@@ -2580,6 +2581,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "MOD-02": {
+            "agent": "agent-mod",
+            "branch": "refactor/mod02-test-path-decouple",
+            "claimedAt": 1793719458,
+            "head": "3f4d1f0419df8725a0e50fc0eea855107580c356"
+        }
+    },
     "version": 1
 }

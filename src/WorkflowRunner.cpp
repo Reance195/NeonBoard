@@ -6,8 +6,8 @@
 #include "Database.h"
 #include "ScopeMatcher.h"
 #include "TaskExec.h"
-#include "TaskRunner.h"
 #include "TaskRunStore.h"
+#include "TaskRunner.h"
 #include "WorkflowPresets.h"
 
 #include <QDateTime>
@@ -50,14 +50,14 @@ QString roleDeliverable(const QString &role)
 WorkflowRunner::WorkflowRunner(Database *database, TaskExec *exec, TaskRunStore *runs,
                                TaskRunner *runner, AgentProfile *profiles, ScopeMatcher *scope,
                                AcceptanceRunner *acceptance, QObject *parent)
-    : QObject(parent)
-    , m_database(database)
-    , m_exec(exec)
-    , m_runs(runs)
-    , m_runner(runner)
-    , m_profiles(profiles)
-    , m_scope(scope)
-    , m_acceptance(acceptance)
+    : QObject(parent),
+      m_database(database),
+      m_exec(exec),
+      m_runs(runs),
+      m_runner(runner),
+      m_profiles(profiles),
+      m_scope(scope),
+      m_acceptance(acceptance)
 {
     // 一步跑完 → 验收 → 决定是否继续下一步。
     // 只认自己链上那一步的 runId（TaskRunner 是全局单例，别的 run 也会发这里）。
@@ -68,8 +68,7 @@ WorkflowRunner::WorkflowRunner(Database *database, TaskExec *exec, TaskRunStore 
                         return;
                     if (m_chain.steps.at(m_activeIndex).runId != runId)
                         return;
-                    const int exitCode =
-                        detail.value(QStringLiteral("exitCode"), -1).toInt();
+                    const int exitCode = detail.value(QStringLiteral("exitCode"), -1).toInt();
                     finishStep(m_activeIndex, exitCode, detail);
                 });
     }
@@ -99,24 +98,24 @@ void WorkflowRunner::bump()
 QString WorkflowRunner::handoffDir(const QString &taskId) const
 {
     // 与 runs/ 同待遇：落数据目录，绝不进仓库
-    return QDir(AppPaths::dataDir())
-        .filePath(QStringLiteral(".neonboard/handoff/") + taskId);
+    return QDir(AppPaths::dataDir()).filePath(QStringLiteral(".neonboard/handoff/") + taskId);
 }
 
-QString WorkflowRunner::handoffPath(const QString &root, const QString &taskId,
-                                    const QString &role)
+QString WorkflowRunner::handoffPath(const QString &root, const QString &taskId, const QString &role)
 {
     return QDir(root).filePath(role + QStringLiteral(".md"));
 }
 
 QString WorkflowRunner::buildStepPrompt(const QString &taskId, const QString &workflow,
                                         const QVariantMap &step, int stepIndex, int stepCount,
-                                        const QString &stepGoal,
-                                        const QString &previousHandoff)
+                                        const QString &stepGoal, const QString &previousHandoff)
 {
     const QString role = step.value(QStringLiteral("role")).toString();
     QStringList parts;
-    parts << QStringLiteral("【角色链 · 第 %1/%2 步：%3】").arg(stepIndex + 1).arg(stepCount).arg(role);
+    parts << QStringLiteral("【角色链 · 第 %1/%2 步：%3】")
+                 .arg(stepIndex + 1)
+                 .arg(stepCount)
+                 .arg(role);
     parts << QStringLiteral("任务：%1（%2）").arg(taskId, workflow);
 
     if (!previousHandoff.trimmed().isEmpty()) {
@@ -145,8 +144,8 @@ QString WorkflowRunner::summarizeHandoff(const QByteArray &log, int maxChars)
     const int limit = qMax(200, maxChars);
     if (text.size() > limit) {
         // 结论通常在末尾：留尾部并显式标注前面被截断
-        text = QStringLiteral("（前文省略 %1 字符）\n").arg(text.size() - limit)
-               + text.right(limit);
+        text =
+            QStringLiteral("（前文省略 %1 字符）\n").arg(text.size() - limit) + text.right(limit);
     }
     return text;
 }
@@ -207,8 +206,9 @@ QVariantMap WorkflowRunner::start(const QString &taskId)
         return {{QStringLiteral("ok"), false},
                 {QStringLiteral("message"), QStringLiteral("执行器未装配完整")}};
     if (running())
-        return {{QStringLiteral("ok"), false},
-                {QStringLiteral("message"), QStringLiteral("已有一条角色链在跑，先等它结束或取消")}};
+        return {
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("message"), QStringLiteral("已有一条角色链在跑，先等它结束或取消")}};
     if (taskId.trimmed().isEmpty())
         return {{QStringLiteral("ok"), false},
                 {QStringLiteral("message"), QStringLiteral("任务 id 为空")}};
@@ -245,8 +245,7 @@ QVariantMap WorkflowRunner::start(const QString &taskId)
     const QVariantMap normalized = TaskExec::normalizeSteps(rawSteps);
     if (!normalized.value(QStringLiteral("ok")).toBool()) {
         return {{QStringLiteral("ok"), false},
-                {QStringLiteral("message"),
-                 normalized.value(QStringLiteral("error")).toString()}};
+                {QStringLiteral("message"), normalized.value(QStringLiteral("error")).toString()}};
     }
 
     Chain chain;
@@ -290,8 +289,8 @@ QVariantMap WorkflowRunner::start(const QString &taskId)
     m_chain = chain;
     m_activeIndex = -1;
     emit changed();
-    qInfo().noquote() << "Workflow: start" << taskId << m_chain.workflow
-                      << m_chain.steps.size() << "step(s)";
+    qInfo().noquote() << "Workflow: start" << taskId << m_chain.workflow << m_chain.steps.size()
+                      << "step(s)";
     startStep(0);
     return {{QStringLiteral("ok"), true}, {QStringLiteral("chainId"), m_chain.chainId}};
 }
@@ -342,9 +341,8 @@ void WorkflowRunner::startStep(int index)
         m_activeIndex = -1;
         QVariantMap result;
         result.insert(QStringLiteral("ok"), !m_chain.cancelled);
-        result.insert(QStringLiteral("message"), m_chain.cancelled
-                                                    ? QStringLiteral("已取消")
-                                                    : QStringLiteral("角色链完成"));
+        result.insert(QStringLiteral("message"),
+                      m_chain.cancelled ? QStringLiteral("已取消") : QStringLiteral("角色链完成"));
         emit chainFinished(m_chain.chainId, result);
         bump();
         return;
@@ -365,7 +363,8 @@ void WorkflowRunner::startStep(int index)
     }
 
     const QString stepGoal = step.prompt.isEmpty() ? chain.goal : step.prompt;
-    const QString prompt = buildStepPrompt(chain.taskId, chain.workflow, QVariantMap{
+    const QString prompt = buildStepPrompt(chain.taskId, chain.workflow,
+                                           QVariantMap{
                                                {QStringLiteral("role"), step.role},
                                            },
                                            index, chain.steps.size(), stepGoal, previous);
@@ -374,7 +373,8 @@ void WorkflowRunner::startStep(int index)
     if (profile.isEmpty()) {
         step.status = QStringLiteral("blocked");
         markFailed(chain, QStringLiteral("第 %1 步（%2）：未知 agent %3")
-                              .arg(index + 1).arg(step.role, step.agent));
+                              .arg(index + 1)
+                              .arg(step.role, step.agent));
         return;
     }
     const bool stdinPrompt =
@@ -383,25 +383,24 @@ void WorkflowRunner::startStep(int index)
         m_profiles->argv(step.agent, /*readonly=*/false, stdinPrompt ? QString() : prompt);
     if (argv.isEmpty()) {
         step.status = QStringLiteral("blocked");
-        markFailed(chain, QStringLiteral("第 %1 步（%2）：无法拼出命令行")
-                              .arg(index + 1).arg(step.role));
+        markFailed(chain,
+                   QStringLiteral("第 %1 步（%2）：无法拼出命令行").arg(index + 1).arg(step.role));
         return;
     }
 
     // 本步跑前的 git 基线（越界检查用；scope 为空时不比对，但基线照记）
     if (m_scope && !chain.cwd.isEmpty())
-        step.baseline = m_scope->captureBaseline(chain.cwd)
-                            .value(QStringLiteral("lines")).toList();
+        step.baseline = m_scope->captureBaseline(chain.cwd).value(QStringLiteral("lines")).toList();
 
     const int timeoutSec = kDefaultStepTimeoutSec;
     const QVariantMap started = m_runner->startRaw(
         chain.taskId, argv.value(0), argv.mid(1), chain.cwd, timeoutSec, stdinPrompt, prompt,
-        /*maxAttempts=*/1);
+        /*maxAttempts=*/1, /*stdinNull=*/false, step.agent);
     if (!started.value(QStringLiteral("ok")).toBool()) {
         step.status = QStringLiteral("blocked");
         markFailed(chain, QStringLiteral("第 %1 步（%2）启动失败：%3")
-                              .arg(index + 1).arg(step.role,
-                                                  started.value(QStringLiteral("message")).toString()));
+                              .arg(index + 1)
+                              .arg(step.role, started.value(QStringLiteral("message")).toString()));
         return;
     }
 
@@ -470,8 +469,8 @@ void WorkflowRunner::finishStep(int index, int exitCode, const QVariantMap &deta
         verdict.insert(QStringLiteral("status"),
                        exitCode == 0 ? QStringLiteral("passed") : QStringLiteral("blocked"));
     }
-    const bool passed = verdict.value(QStringLiteral("status")).toString()
-                        == QStringLiteral("passed");
+    const bool passed =
+        verdict.value(QStringLiteral("status")).toString() == QStringLiteral("passed");
     step.status = passed ? QStringLiteral("passed") : QStringLiteral("blocked");
 
     // 3) 成本：把这一步的时长记到 run 与链上（R7-06 的 cost_ms 口径）。
@@ -497,10 +496,11 @@ void WorkflowRunner::finishStep(int index, int exitCode, const QVariantMap &deta
     // 4) fail-fast：这一步不过就地收口，后面步骤一个都不启动
     if (!passed) {
         const QString reason = verdict.value(QStringLiteral("lastError")).toString();
-        markFailed(chain, QStringLiteral("第 %1 步（%2）未通过：%3")
-                              .arg(index + 1)
-                              .arg(step.role, reason.isEmpty() ? QStringLiteral("退出码 %1").arg(exitCode)
-                                                               : reason));
+        markFailed(chain,
+                   QStringLiteral("第 %1 步（%2）未通过：%3")
+                       .arg(index + 1)
+                       .arg(step.role,
+                            reason.isEmpty() ? QStringLiteral("退出码 %1").arg(exitCode) : reason));
         return;
     }
 

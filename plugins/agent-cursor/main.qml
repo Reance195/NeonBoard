@@ -110,6 +110,8 @@ Rectangle {
             text: "装法提醒：本机 PATH 上的 cursor-agent 是个 .cmd 包装器，"
                   + "真身是 %LOCALAPPDATA%/cursor-agent/versions/<版本>/node.exe 加 index.js，"
                   + "外层 .cmd 只负责转调 powershell 脚本。"
+                  + "执行器会先把裸命令名解析到 .cmd 再拉起；但 prompt 含换行或 %VAR% 时会直接拒绝启动"
+                  + "（经 cmd 转调送不到，只会送前半段），此时请把 exe 指向真身 node.exe 并把 index.js 放进 args。"
             color: Theme.muted
             font.pixelSize: 9
             wrapMode: Text.WordWrap

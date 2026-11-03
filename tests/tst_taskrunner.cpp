@@ -8,6 +8,7 @@
 //   5. 手动 stop → cancelled
 //   6. 心跳持续刷新，未触发孤儿回收；启动失败不残留 running 锁
 //   7. R14-03：PATH 上的 .cmd / .bat 包装器（cursor-agent 的装法）能拉起、退出码可取
+//   8. R14-05：经 .cmd 转调送不到的内容（换行、%VAR%）启动前拒绝，不静默截断；.exe 不受限
 //
 // 用命令行（cmd.exe，Windows 通用）做可执行载体：`cmd /c exit N` 和
 // `cmd /c echo hi` 不依赖任何第三方工具，保证离线可跑。
@@ -52,6 +53,8 @@ private slots:
     void redactsCredentialsInLog();
     void cmdWrapperOnPathLaunches();
     void batWrapperAbsolutePathLaunches();
+    void cmdWrapperRejectsMultilinePrompt();
+    void cmdWrapperRejectsPercentExpansion();
     void realAgentProbeIfEnabled();
 
 private:
@@ -341,6 +344,71 @@ void TestTaskRunner::batWrapperAbsolutePathLaunches()
              "参数没有原样到达脚本");
 #else
     QSKIP("Windows 专有：.bat 包装器");
+#endif
+}
+
+// 换行的 prompt 经 .cmd 会被 cmd.exe 当命令分隔符，只送第一行 —— 必须启动前拒绝，
+// 不能把半句话交给 agent 再当成「跑完了」。同一条 prompt 交给真正的 .exe 则不受限。
+void TestTaskRunner::cmdWrapperRejectsMultilinePrompt()
+{
+#ifdef Q_OS_WIN
+    const QString path = m_dir.filePath(QStringLiteral("nb-wrap-multiline.cmd"));
+    QFile script(path);
+    QVERIFY(script.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    script.write("@echo off\r\nexit /b 0\r\n");
+    script.close();
+
+    const QString prompt = QStringLiteral("第一行\n第二行");
+    const QVariantMap r = m_runner->startRaw(QStringLiteral("task-wrap-multiline"), path, {},
+                                             m_dir.path(), 60, /*promptToStdin=*/false, prompt, 1,
+                                             false, QStringLiteral("cursor-agent"));
+    QVERIFY2(!r.value(QStringLiteral("ok")).toBool(), "含换行的 prompt 必须拒绝启动");
+    const QString message = r.value(QStringLiteral("message")).toString();
+    QVERIFY2(message.contains(QStringLiteral("换行")), qPrintable(message));
+    QVERIFY2(message.contains(QStringLiteral("cursor-agent")), qPrintable(message));
+    QVERIFY2(m_runner->activeRuns().isEmpty(), "拒绝启动却留下了 running 锁");
+
+    // 对照：同样的 prompt 交给 .exe（cmd.exe）不受这条限制，说明判据看的是包装器而不是内容本身
+    QSignalSpy finished(m_runner, &TaskRunner::runFinished);
+    const QVariantMap ok = m_runner->startRaw(QStringLiteral("task-wrap-control"), kCmd,
+                                              {QStringLiteral("/c"), QStringLiteral("exit 0")},
+                                              m_dir.path(), 60, /*promptToStdin=*/false, prompt);
+    QVERIFY2(ok.value(QStringLiteral("ok")).toBool(),
+             qPrintable(ok.value(QStringLiteral("message")).toString()));
+    QVERIFY2(finished.wait(15000), ".exe 对照用例 15s 未结束");
+#else
+    QSKIP("Windows 专有：.cmd 包装器");
+#endif
+}
+
+// %VAR% 在 cmd 的引号里也照展开，行内没有可靠转义 —— 同样只能拒绝，不能送个被替换过的 prompt。
+void TestTaskRunner::cmdWrapperRejectsPercentExpansion()
+{
+#ifdef Q_OS_WIN
+    const QString path = m_dir.filePath(QStringLiteral("nb-wrap-percent.cmd"));
+    QFile script(path);
+    QVERIFY(script.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    script.write("@echo off\r\nexit /b 0\r\n");
+    script.close();
+
+    const QVariantMap r = m_runner->startRaw(
+        QStringLiteral("task-wrap-percent"), path, {}, m_dir.path(), 60, /*promptToStdin=*/false,
+        QStringLiteral("进度 100%PATH% 已提交"), 1, false, QStringLiteral("cursor-agent"));
+    QVERIFY2(!r.value(QStringLiteral("ok")).toBool(), "含 %VAR% 的 prompt 必须拒绝启动");
+    const QString message = r.value(QStringLiteral("message")).toString();
+    QVERIFY2(message.contains(QStringLiteral("%VAR%")), qPrintable(message));
+    QVERIFY2(m_runner->activeRuns().isEmpty(), "拒绝启动却留下了 running 锁");
+
+    // 单独一个 % 不构成变量引用，不该被误伤
+    QSignalSpy finished(m_runner, &TaskRunner::runFinished);
+    const QVariantMap single = m_runner->startRaw(
+        QStringLiteral("task-wrap-percent-single"), path, {}, m_dir.path(), 60, false,
+        QStringLiteral("完成度 100%"), 1, false, QStringLiteral("cursor-agent"));
+    QVERIFY2(single.value(QStringLiteral("ok")).toBool(),
+             qPrintable(single.value(QStringLiteral("message")).toString()));
+    QVERIFY2(finished.wait(15000), "单个百分号的用例 15s 未结束");
+#else
+    QSKIP("Windows 专有：.cmd 包装器");
 #endif
 }
 

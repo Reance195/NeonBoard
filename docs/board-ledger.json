@@ -1534,7 +1534,7 @@
         "R14-05": {
             "acceptance": [
                 "ctest -R taskrunner 全绿，含新用例：.cmd + 含换行 prompt 在启动前失败，错误信息含换行与 profile id，且不残留 running 锁",
-                "ctest -R taskrunner 含新用例：.cmd 回显脚本收到含 %PATH% 与 a&b 的参数时，stdout 原样含这些字面量（不展开、不切分）",
+                "ctest -R taskrunner 含新用例：.cmd 下含 %VAR% 的 prompt 启动前拒绝（不静默展开成环境变量），单个 % 不误伤",
                 "NB_REAL_AGENT_PROBE=1 ctest -R taskrunner -V 真跑 cursor-agent 单行 prompt，退出码 0",
                 "python scripts/check_module_deps.py --base origin/main 退出 0",
                 "docs/agent-profile.md 的「仍未解决」段改为结论，含三种程序写法的实测结果表"
@@ -1549,6 +1549,7 @@
                 "src/TaskRunner.h",
                 "src/AgentProfile.cpp",
                 "src/AgentProfile.h",
+                "src/WorkflowRunner.cpp",
                 "tests/tst_taskrunner.cpp",
                 "plugins/agent-cursor/**",
                 "docs/agent-profile.md",
@@ -2679,6 +2680,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R14-05": {
+            "agent": "agent-r14-05",
+            "branch": "fix/cmd-prompt-fidelity",
+            "claimedAt": 1793726527,
+            "head": "a03cc05d04acaf71f463549a617a7c50ab1f9942"
+        }
+    },
     "version": 1
 }

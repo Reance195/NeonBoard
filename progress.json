@@ -91,6 +91,60 @@
             "updatedAt": 1793299949
         },
         {
+            "code": "DX-17",
+            "completedAt": 0,
+            "createdAt": 1793726487,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-17",
+            "note": "起因：卡片 scope 写 plugins/agent-opencode/（尾斜杠）时，check_scope.glob_to_regex 只按 glob 编译，得到 ^plugins/agent-opencode/$，只能匹配字面量为目录名的路径，一条真实文件都盖不住——等于这张卡没有 scope 保护。\n\n全仓 6 处：R9-02/03/04/05、R10-04（docs/）、R14-04（在办）。R14-03 已把本卡的 plugins/agent-cursor/ 手工改成 /**，但那是逐卡打补丁，不解决写法本身。\n\n修法：在 check_scope.py 里对 scope 先规范化（尾斜杠补 **），不改 glob_to_regex 的语义——board-apply.py 复用它做建卡校验，改语义会波及那 16 项自测。把匹配逻辑抽成可测函数 matches(scope, path)，让脚本第一次有 --selftest。\n\n顺带加 --audit：遍历台账所有卡片的每条 scope，统计命中文件数，列出命中 0 的条目。CI 的 scope step 是 continue-on-error，红灯只在信号层，不能指望人盯。",
+            "orderKey": 9216,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 目录式 scope 静默失效：6 处尾斜杠写法一条文件都盖不住",
+            "updatedAt": 1793726487
+        },
+        {
+            "code": "MOD-06",
+            "completedAt": 0,
+            "createdAt": 1793726487,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-06",
+            "note": "起因：111 个 .h/.cpp 平铺在 src/ 顶层（另有 host/HostMain.cpp 一个子目录），边界只存在于读者脑中。\n\n目标：按 docs/module-split-plan.md §3.1 的 8 模块划分建立子目录，全量加 include 路径，保持 #include \"Database.h\" 写法不变（搬运与改 include 分离）。\n\n搬运前先扫 5 类硬编码引用（2026-11-04 复核）：tests/CMakeLists.txt（MOD-02 后只需改 8 行）、CMakeLists.txt 源列表（64 行 src/ 引用，且主 target 需从无到有新增 8 条 include）、docs/project-map.json 的 chain 证据（逐条校验存在性，拆目录即断链；skeleton 是递归扫，不受影响）、文档路径引用（AGENTS.md + docs 下 12 个非归档文档命中，docs/archive 3 个历史归档不改）、卡片 scope 的精确路径（在办卡 0 条，已核；glob 不受影响）。\n\n执行顺序：先 core + task 验证，再搬其余六个。易错归属：TaskRunner → agent（不是 task）、DataPort → board、HookEventQueue → plugin。\n\n时序：docs/** 与 6 张在办卡的 10 个精确路径重叠（DX-12/14/15/16、R14-02、R14-04），CMakeLists.txt 与 R14-02 争同一路径；建议排在这些卡之后，或把文档路径引用段独占一个提交。",
+            "orderKey": 10240,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD src/ 物理分层：8 个模块子目录 + 连带 5 处引用",
+            "updatedAt": 1793726487
+        },
+        {
+            "code": "R14-05",
+            "completedAt": 0,
+            "createdAt": 1793726487,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R14-05",
+            "note": "起因：R14-03 修好「拉得起来」后留下的一层。cursor-agent 在 PATH 上只有 .cmd 包装器，Qt 6.8 给它套 cmd.exe /c \"\"prog\" args\"，参数因此被 cmd 二次解释。实测（build/probe，2026-11-04）：换行→prompt 在第一个换行处截断；%VAR%→展开成环境变量；& | < >→当命令分隔符；内嵌双引号→\\\"。\n\n不是边缘场景：WorkflowRunner::buildPrompt（src/WorkflowRunner.cpp:137）用 \\n 拼多行 prompt（任务/上一步交接物/本步任务/交付物/约束），arg 模式经 .cmd 时只有第一行送达，且无任何报错。\n\n三条出路（推荐序）：1) 真身直连：profile 声明解释器+脚本（node.exe + index.js），不经 shell，代价是版本目录随升级变，需解析与回退；2) 自拼命令行 + cmd 转义（^ 转义 & | < > ^、% 用 ^%、\" 用 \\\"），救得了单行救不了换行；3) 兜底：启动前检测「.cmd/.bat 且 prompt 含换行/NUL」→ 明确失败并指明 profile id，绝不静默截断。\n\n本次至少落地 3)；1) 若时间允许一并做，并把 available 判定从「包装器可拉起」升级为「prompt 可安全送达」。\n\n已排除：promptMode=stdin——cursor-agent --help 只有 [prompt...] 位置参数，无 --input-format/--stdin，index.js 内 stdin 仅 3 次且非输入通道。\n\n时序：与在办卡 R14-04 争 docs/agent-profile.md 与 docs/agent-adapters.md，建议 R14-04 先结。",
+            "orderKey": 11264,
+            "priority": 2,
+            "stage": "R14",
+            "status": "todo",
+            "tags": [
+                "R14"
+            ],
+            "title": "R14 .cmd 转调下 prompt 只送第一行：换行截断与 cmd 二次解释",
+            "updatedAt": 1793726487
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -2779,6 +2833,6 @@
             "updatedAt": 1793281760
         }
     ],
-    "updated": "2026-11-04T01:19:31",
+    "updated": "2026-11-04T01:21:27",
     "version": 3
 }

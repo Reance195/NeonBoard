@@ -70,7 +70,20 @@ QVariantList AgentProfile::builtinProfiles()   // opencode / claude / cursor-age
 | `defaultTimeoutMin` | 否 | 1–480，缺省 30 |
 
 新增权限 `exec.agentProfiles`（**中风险**：声明者决定拉起哪个进程、传什么参数）。
-没有该权限时宿主静默忽略这段声明，并在 `--plugin-report` 里标为"声明未授权"。
+没有该权限时宿主**不合并**这段声明，并在 `--plugin-report` 的
+`agentProfiles.declared[].authorized` 标为 `false`。
+
+> **授权从哪来**（R14-01）：随分发包走的插件（来源 `appdir` / `official`）会被
+> **自动授予**其声明权限；用户自装（`appdata`）与示例（`sample`）仍需显式授权。
+> 详见 `docs/plugin-api.md`「官方来源插件的自动授权」。
+>
+> 这条规则是补一个真实缺陷：祖父条款只在**首次**启用授权模型时成立，
+> 既有库早就 bootstrap 过，于是升级后新增的官方插件一个都拿不到授权。
+> 当时的表现为「插件列表里看得见、授权弹窗没弹、agent 却只走内置三条」——
+> `--plugin-report` 里 `source=builtin` 是唯一线索。
+>
+> 另外「未授权声明被跳过」现在会写一条 `qWarning`（按插件去重），
+> 不再完全静默：日志里能直接看到是哪个插件、为什么没生效。
 
 ## 三、三层合并
 

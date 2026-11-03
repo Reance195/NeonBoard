@@ -1,20 +1,25 @@
-# Board —— 看板状态一致性（派生校验 / 回写）
+# Board —— 看板状态一致性（只校验，不回写）
 #
 # DX-13：这道门原先挂在 ci.yml 的 build job 里，实际从未生效 ——
 #   1) 「看板状态一致性校验」步骤带 if: github.event_name == 'pull_request'，
-#      而本仓库走 git-done 直推 main，零 PR（gh pr list --state all 为空）；
+#      而本仓库走 git-done 直推 main、零 PR（gh pr list --state all 为空）；
 #      实测 run 40922484744 该步骤结论为 skipped。
 #   2) ci.yml 的 paths-ignore 含 docs/**，结卡这类只改 docs/board-ledger.json
-#      的提交根本不触发流水线（gh api .../commits/<sha>/check-runs 为空），
-#      而「自动回写看板状态」又待在同一个 build job 里，于是漂移只能等下一次
-#      代码提交才被顺手补平（R13-01：00:12 结卡 → 01:33 才由 CI 回写）。
+#      的提交根本不触发流水线（gh api .../commits/<sha>/check-runs 为空）。
+# 当时拆成本文件这个独立轻量 job（不装 Qt、不编译，几十秒出结果），并让它在
+# main push 时**回写** progress.json，理由是「CI 独占写回，特性分支不碰」。
 #
-# 故拆成独立轻量 job：不装 Qt、不编译，几十秒内出结果。
-#   - main push：按 git 事实重算并回写 progress.json（CI 独占写回，特性分支不碰）
-#   - pull_request：只校验，不一致就阻塞合并
+# 但 CI 与 git-done 的收尾在抢写同一个文件，实测每次合并必撞（R14-01，2026-11-03）：
+#   21:55:42 合并提交 4d125d1 推上 main
+#   21:56:00 本 workflow 回写 progress.json，推 c7d0d43
+#   → git-done 本地基于 4d125d1 做的结卡 / 台账清理 / 快照提交全部 non-fast-forward
+#   → 三件收尾全部回滚，只能人工补（d064c12）。
+# 两个写者写同一个派生文件，谁先推谁赢，另一个必然白干；而且脚本是 fail-soft 的，
+# 这类失败不会报错，只会在输出里留几行「补推失败」。
 #
-# 自激防护：本 workflow 的 paths-ignore 含 progress.json，回写提交不再触发自己。
-# 单写者：ci.yml 里那个重复的「自动回写看板状态」步骤已移除，progress.json 只有这里写。
+# 现在把写权收归一处：**git-done 独占**（合并收尾的 derive --write / --close-cards）。
+# CI 只校验：不一致就报红，由人按提示在本地补跑收尾，不再自作主张改主干。
+# 本文件因此不含任何 git push / git commit，permissions 降为 contents: read。
 
 name: Board
 
@@ -22,17 +27,24 @@ on:
   push:
     branches: [ main ]
     paths-ignore:
-      - 'progress.json'
+      # 发布流水线回写的清单与看板状态无关，不必触发校验。
+      # progress.json 刻意**不**忽略：快照变更恰恰最需要被校验 ——
+      # 原先忽略它是为了躲开自己回写造成的自激，不回写了就没有这个顾虑。
+      #
+      # 预期行为：合并提交那一刻 progress.json 还没被 git-done 收尾刷新，这次 run
+      # 会红一次；紧随其后的收尾提交（改 ledger / progress.json）再触发一次并通过。
+      # **红灯停在这儿不消失，就是收尾失败了** —— R14-01 那次正是三件收尾全部回滚，
+      # 靠人肉补的 d064c12。这个红灯是信号，不是噪声，别顺手屏蔽。
       - 'update.json'
   pull_request:
     branches: [ main ]
     paths-ignore:
-      - 'progress.json'
       - 'update.json'
   workflow_dispatch:
 
+# 只读：本 workflow 不再需要推送权限。留着 write 等于给「以后又加回写」留口子。
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: board-${{ github.ref }}
@@ -40,7 +52,7 @@ concurrency:
 
 jobs:
   board:
-    name: 看板状态一致性（派生）
+    name: 看板状态一致性（派生校验）
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -53,47 +65,13 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: 校验（PR：不一致即阻塞）
-        if: github.event_name == 'pull_request'
+      # main push 与 PR 同一把尺子：以前 main 走「回写自愈」、PR 走「校验阻塞」，
+      # 两条路给不同结论，正是双写者模式的产物。
+      - name: 校验
         run: |
           python scripts/derive_board_status.py --check
           code=$?
           if [ "$code" -ne 0 ]; then
-            echo "::error::看板状态与提交历史/台账不一致，请先跑 python scripts/derive_board_status.py --write 后提交"
+            echo "::error::看板状态与提交历史/台账不一致。写权归 git-done，CI 不再回写：请重跑一次合并收尾，或在锚点区手工跑 derive_board_status.py --close-cards / --write 后推 main。"
             exit "$code"
           fi
-
-      - name: 回写（main push：CI 独占写回）
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          git config user.name  'neonboard-ci'
-          git config user.email 'neonboard-ci@users.noreply.github.com'
-          # 构建/排队这几分钟里主线可能已被别的提交推进：循环内先变基再派生，
-          # 保证派生依据是最新主线的 git 标记。快照的唯一事实源就是派生结果，
-          # 主线若已含同派生结果（本地跑过 derive --write），我们的提交是重叠提交，
-          # --skip 丢弃即可；绝不手工解冲突硬拼两份快照。
-          for i in 1 2 3; do
-            git fetch origin main --quiet
-            git rebase origin/main || git rebase --skip || { git rebase --abort; echo "::error::看板回写变基失败"; exit 1; }
-            python scripts/derive_board_status.py --write || { echo "::error::看板状态派生失败"; exit 1; }
-            if git diff --quiet -- progress.json; then
-              echo "· 快照与派生结果一致，无需回写"
-              break
-            fi
-            git add progress.json
-            # 这里不需要 --no-verify：本 workflow 不安装仓库钩子（ci.yml 才有
-            # 「安装仓库钩子（core.hooksPath）」那一步），提交本就不经过钩子。
-            # 全仓库唯一的 --no-verify 豁免原先正是给 ci.yml 的这一步用的，
-            # 随回写迁到本文件后即不再需要（AGENTS.md §11.2 第 7 条）。
-            git commit -m 'ci(board): 自动回写看板状态' || { echo "::error::看板回写提交失败"; exit 1; }
-            if git push origin HEAD:main; then
-              echo "✓ 看板快照已回写并推上 main"
-              break
-            fi
-            if [ "$i" -eq 3 ]; then
-              echo "::error::看板回写推送重试 3 次仍失败"
-              exit 1
-            fi
-            echo "   · 推送被拒（第 $i 次），5 秒后重试"
-            sleep 5
-          done

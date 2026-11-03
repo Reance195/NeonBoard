@@ -1475,7 +1475,7 @@
             "id": "d4fba642-e69b-411a-a244-6f2060c43378",
             "note": "R9-03 交付时留下的已知空白：opencode 没有原生只读开关，readonlyArgs 用 --agent plan 指定一个只读 agent 配置来兜。但 ~/.config/opencode/ 下并没有 agent/ 目录，这个名为 plan 的 agent **是否真的存在没有核实过**。\n\n风险是静默的：agent 不存在时只读派活会退化成普通执行 —— 用户以为勾了只读，agent 照样能改文件。面板里已经把这行写成警告色，但警告代替不了核实。\n\n边界：只核这一条，不重跑 opencode 的其它参数实测。",
             "scope": [
-                "plugins/agent-opencode/",
+                "plugins/agent-opencode/**",
                 "docs/agent-profile.md",
                 "docs/agent-adapters.md"
             ],
@@ -2604,6 +2604,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R14-04": {
+            "agent": "agent-r14-04",
+            "branch": "fix/opencode-plan-readonly-verify",
+            "claimedAt": 1793726166,
+            "head": "064257b862c3510f626213564ca9574cb33522db"
+        }
+    },
     "version": 1
 }

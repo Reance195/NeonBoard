@@ -2604,13 +2604,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "R14-03": {
-            "agent": "agent-r14-03",
-            "branch": "fix/taskrunner-cmd-wrapper",
-            "claimedAt": 1793722818,
-            "head": "d74f388b9ea856fa5ed13065da7d45bf985c2965"
-        }
-    },
+    "claims": {},
     "version": 1
 }

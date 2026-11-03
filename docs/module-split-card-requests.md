@@ -72,22 +72,18 @@ neonboard_add_test(tst_taskinputparser ${NB_DIR_TASK}/TaskInputParser.cpp)
 文件，存量不阻塞。`src/` 分层前模块归属靠映射表（文件 → 模块），分层后靠目录推导；
 两种形态都要能吃，否则守卫会在 M2 之前满屏红，然后被 `--no-verify` 绕过。
 
-```json
-"MOD-05": {
-  "stage": "MOD",
-  "title": "MOD 守卫：模块依赖方向与行数上限接入 CI",
-  "note": "起因：src/ 目前零分层，任何 #include 都能成立，编译器不会反对；Main.qml 从 1180 涨回 4260 就是「只有一次性拆分、没有持续约束」的实证。\n\n目标：新增 scripts/check_module_deps.py，检测反向依赖（如 task → agent）与文件行数上限，接入 ci.yml 与 verify.ps1。必须棘轮式：只检查本次改动涉及的文件，存量不阻塞——否则首次接入即红，会被 --no-verify 绕过，比没有守卫更糟。\n\n边界：只加脚本与 CI 接线，不改任何 C++ 代码、不搬文件。",
-  "acceptance": [
-    "python scripts/check_module_deps.py --base origin/main 在未引入违规的改动上退出 0（存量不红）",
-    "在 src/TaskModel.cpp 里临时加一条反向依赖 #include \"TrayController.h\"，脚本退出非 0 并打印违反的模块对",
-    "行数上限先设「不得增加」（main.cpp 1910 / Main.qml 4260），存量不红、新增超限即红",
-    "ci.yml 与 scripts/verify.ps1 均调用该脚本，CI 新增 step 在 PR/推送页可见",
-    "python scripts/task_gate.py selftest 与 check_script_hygiene.py 均退出 0"
-  ],
-  "scope": ["scripts/**", ".github/**", "AGENTS.md", "docs/testing.md"],
-  "depends": ["MOD-02"]
-}
-```
+> **已入账，不再作为待建请求**（2026-11-04）：`MOD-05` 于 `242e230` 立卡，
+> `d67b0c8` 新增 `scripts/check_module_deps.py`，`1e9bd5e` 接入 `ci.yml` 与 `verify.ps1`，
+> `4e2dcc7` 自动结卡（`baseline = done`）。卡片定义以 `docs/board-ledger.json` 为准；
+> 本节的 JSON 片段已移除，否则再用本文件建卡会因「同号卡已存在」整批被拒。
+>
+> 实施时对验收的两处**补充**（不是改验收，是把实测写下来）：
+> - 方向判据落成「层号更小才允许」，而不是「只允许实测那 11 条边」——后者会把
+>   `shell → core` 这类合法方向也判红。`--base HEAD~200` 回归 183 文件 / 86 条边，0 误报。
+> - 验收项 3 的 1910 / 4260 与实测一致，无需修正。
+>
+> 未做：`AGENTS.md`（与 DX-12/14/15/16 争同一路径，说明改写在脚本 docstring）、
+> `docs/testing.md`（scope 允许但验收不要求，不新建）。
 
 ### 1.3 【建议 `MOD-06`】`src/` 物理分层
 

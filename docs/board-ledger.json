@@ -2604,6 +2604,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R14-04": {
+            "agent": "agent-r14-04",
+            "branch": "fix/opencode-plan-readonly-verify",
+            "claimedAt": 1793726166,
+            "head": "064257b862c3510f626213564ca9574cb33522db"
+        }
+    },
     "version": 1
 }

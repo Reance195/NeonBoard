@@ -252,6 +252,20 @@
 - **排查命令**：`gh api repos/<owner>/<repo>/commits/<sha>/check-runs`（提交有没有触发 CI）、
   `gh api repos/<owner>/<repo>/actions/runs/<run-id>/jobs`（看步骤结论是不是 skipped）。
 
+### 1.22 残留工作区只抛一句「请先 remove」，人没法决定删不删
+
+- **现象**：`agent-init.ps1` 撞到已存在的 `.worktrees/<agent>`，只抛
+  「工作区已存在…（如需重建请先 git worktree remove）」；分支重名时更糟，`git worktree add -b`
+  直接失败、没告诉你那个分支上有多少东西。
+- **判据**：§7.10 明令「删不删由人决定」，而做决定要三个数：**有没有未提交改动**、
+  **有没有未推送提交**、**相对 origin/main 领先几个**。缺这三个数就是在逼人闭眼删。
+- **处置**：DX-12 起两个函数给齐材料 —— `Show-StaleWorktree`（分支 / HEAD / 未提交文件清单 /
+  未推送提交 / 可直接复制的 `git worktree remove --force` 与 `git branch -D`）与
+  `Show-StaleBranch`（领先 origin/main 的提交数、未推送提交、`git branch -D`）。退出码 4，
+  **不自动删除任何东西**。
+- **预防**：写「拒绝并让人处理」的分支时，把「人需要知道什么才能决定」列出来 —— 只报错的
+  门等于把人挡在门外还不给钥匙。
+
 ---
 
 ## 二、脚本与编码（PowerShell / Python）
@@ -324,6 +338,40 @@
 - **解法 / 预防**：写提交信息、JSON、台账这类**给程序读**的文件，不用 PowerShell 的 Out-File，
   用 Python `io.open(..., newline='\n')`（LF、无 BOM），或直接在 Git Bash 里写。
   判别口诀：给人看的脚本怕被当 GBK，要 BOM；给解析器吃的数据怕前缀被污染，不要 BOM。
+
+### 2.10 环境块里有「只差大小写」的变量，`Start-Process` 直接抛「已添加项」
+
+- **现象**：`Start-Process` / `[Diagnostics.Process]::Start(...UseShellExecute=$false)` 报
+  `ArgumentException：已添加项。字典中的关键字:“HTTP_PROXY”所添加的关键字:“http_proxy”`；
+  整个阶段失败、退出码 1，而构建与 ctest 全绿 —— 看起来像验收脚本坏了。
+- **判据**：同一台机器上 `Get-ChildItem Env:` 也抛同样的异常（PS 5.1），
+  而 `Get-Help` 之类正常。这一条就能确认是环境块的问题，不是脚本。
+- **根因**：机器上同时存在 `HTTP_PROXY` 与 `http_proxy`（还有 `HTTPS_PROXY`/`https_proxy`），
+  来自不同层级的注入（用户注册表一份、工具/终端再注入一份）。.NET 建环境字典时按**大小写
+  不敏感**加键，于是第二个被当成重复键。PowerShell 7 自己处理了，5.1 没有。
+- **解法**：别用会重建环境块的 API。要退出码与输出 → 用调用运算符
+  `$out = & $exe --args 2>&1; $code = $LASTEXITCODE`（子进程直接继承父环境块）；
+  要超时与强杀 → `Process.Start` 配 `UseShellExecute=$true`（走 ShellExecuteEx，不重建环境）。
+  两代 PowerShell 实测均可（DX-12，`scripts/verify.ps1` 的 `--selftest` / `--smoke` 已照此改）。
+- **预防**：凡是「拉子进程」的脚本，先问一句「这个 API 会不会重建环境块」；
+  报错里出现「已添加项 / 已添加了具有相同键的项」先怀疑环境变量，不是数据结构写错了。
+
+### 2.11 无输出 + 退出码 1：先怀疑执行策略，不是脚本坏了
+
+- **现象**：`& .\scripts\build.ps1`（或 dot-source `. .\scripts\dev-env.ps1`）什么都没打印，
+  退出码 1。文档里的示例照抄也一样。
+- **判据**：`Get-ExecutionPolicy` 返回 `Restricted`（Windows PowerShell 5.1 的默认；
+  `Get-ExecutionPolicy -List` 全 `Undefined` 时按 Restricted 处理）就是它。
+  **没有任何输出**是关键特征 —— 脚本被策略挡住时一行都不会执行。
+- **解法（任选其一，都不改机器语义）**：
+  ```powershell
+  pwsh -File scripts/<脚本>.ps1                                            # PowerShell 7，默认 RemoteSigned
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/<脚本>.ps1   # Windows PowerShell 5.1
+  ```
+  想一劳永逸：`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`（只影响当前用户，不需管理员）。
+- **预防**：仓库里的示例统一写 `pwsh -File ...`；`scripts/setup-git-hooks.ps1`
+  检测到 Restricted/AllSigned 会打印上面这段指引（DX-12）。别为了「能跑」去把脚本改成
+  `.bat` 或让人关掉 UAC —— 那是拿系统安全换个人省事。
 
 ---
 

@@ -122,4 +122,25 @@ if ($env:OS -ne 'Windows_NT') {
 }
 
 Write-Host ("  钩子清单：{0}" -f ($hooks.Name -join ' / ')) -ForegroundColor DarkGray
+
+# ---------- 执行策略：脚本「根本没执行」时，症状是「无输出 + 退出码 1」----------
+# Windows PowerShell 5.1 的默认策略是 Restricted（Get-ExecutionPolicy -List 全为 Undefined
+# 时按 Restricted 处理），此时 `& .\scripts\build.ps1` 被直接拒绝 —— 没有任何输出，退出码 1。
+# 极易被误判成「脚本坏了」或「输出被吞」（DX-12 实测）。同一条命令换个宿主成败相反：
+# pwsh -File 走 PowerShell 7（默认 RemoteSigned）能跑。这不是脚本的问题，别去改脚本。
+#
+# 判据看**用户级作用域**，不看 Get-ExecutionPolicy 的返回值：后者是「本进程生效值」，
+# 而人能跑起本脚本往往正是因为命令行加了 -ExecutionPolicy Bypass —— 那时生效值是 Bypass，
+# 提示就永远不触发。用户级作用域才是「以后直接 & 调用会不会被拒」的真实依据。
+# 只提示不改机器策略：策略是用户级决定，脚本无权替人做主。
+$userPolicy = ''
+try { $userPolicy = (Get-ExecutionPolicy -Scope CurrentUser).ToString() } catch { $userPolicy = '' }
+if ($userPolicy -in @('Undefined', 'Restricted', 'AllSigned')) {
+    Write-Host ("[执行策略] 当前用户级策略为 {0}（Undefined 按 Restricted 处理）：直接 & 调用 .ps1 会被拒绝，症状是「无输出 + 退出码 1」" -f $userPolicy) -ForegroundColor Yellow
+    Write-Host '  两种一次就能跑通的写法（任选其一）：' -ForegroundColor Yellow
+    Write-Host '    pwsh -File scripts/<脚本>.ps1                                            # PowerShell 7，默认 RemoteSigned' -ForegroundColor Yellow
+    Write-Host '    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/<脚本>.ps1   # Windows PowerShell 5.1' -ForegroundColor Yellow
+    Write-Host '  想一劳永逸（只影响当前用户，不需要管理员）：Set-ExecutionPolicy -Scope CurrentUser RemoteSigned' -ForegroundColor Yellow
+}
+
 exit 0

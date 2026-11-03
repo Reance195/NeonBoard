@@ -44,6 +44,32 @@ function Fail([string]$msg) {
     exit 1
 }
 
+# 拉起 NeonBoard.exe 并等它真的退出，返回退出码。
+# 两个坑叠在一起，决定了这个函数只能这么写：
+#   1) 不能用 Start-Process —— 它重建子进程环境块，机器上同时存在 HTTP_PROXY 与 http_proxy
+#      （仅大小写不同）时，.NET 环境字典按大小写不敏感加键，抛「已添加项…」，Windows
+#      PowerShell 5.1 下必现（DX-12 实测：旧代码正是死在这里）。
+#   2) 也不能用调用运算符 `& $exe` —— 本程序是 GUI 子系统（WIN32_EXECUTABLE），PowerShell
+#      对 GUI 程序不等待、不设 $LASTEXITCODE，读到的是上一条命令的残留值。实测过：selftest
+#      崩了也会显示「退出码 0」，是最坏的那种假通过。
+# UseShellExecute=$true 走 ShellExecuteEx：不重建环境块，且返回的 Process 自带句柄，
+# 因此能 WaitForExit + 强杀 + 拿 ExitCode。5.1 / 7 两代实测均可用。
+function Invoke-Exe {
+    param([string]$FilePath, [string]$Arguments, [int]$TimeoutSec, [string]$What)
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $FilePath
+    $psi.Arguments = $Arguments
+    $psi.UseShellExecute = $true
+    $psi.WindowStyle = 'Hidden'
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    if (-not $proc.WaitForExit($TimeoutSec * 1000)) {
+        try { $proc.Kill() } catch { }
+        Fail ("{0} 超时（{1} 秒未退出）" -f $What, $TimeoutSec)
+    }
+    return $proc.ExitCode
+}
+
 # ---------- 脚本层验收（-ScriptOnly） ----------
 # 与编译无关的四项：语法解析 / 脚本卫生 / 工作流 YAML / 范围。
 # 判定规则见 docs/task-card.md「两类验收口径」：scope 内没有 .cpp/.h/.qml/CMakeLists.txt
@@ -188,26 +214,21 @@ if ($LASTEXITCODE -ne 0) { Fail '单元测试未通过' }
 
 # ---------- 3. 数据库自检 ----------
 Step '数据库自检（--selftest）'
-$out = Join-Path $env:TEMP 'neonboard-selftest.out'
-$err = Join-Path $env:TEMP 'neonboard-selftest.err'
-$proc = Start-Process -FilePath $exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow `
-    -RedirectStandardOutput $out -RedirectStandardError $err
-Get-Content $out -ErrorAction SilentlyContinue
-Get-Content $err -ErrorAction SilentlyContinue
-if ($proc.ExitCode -ne 0) { Fail "--selftest 失败（退出码 $($proc.ExitCode)）" }
+# 走 Invoke-Exe（定义见文件头）：Start-Process 在环境块有大小写重名变量时会抛「已添加项」，
+# 而调用运算符对 GUI 子系统的程序不等待、不设 $LASTEXITCODE —— 后者更危险，会把崩溃显示成
+# 「退出码 0」。这里要的是真退出码，两种宿主下都成立。
+$selfCode = Invoke-Exe -FilePath $exe -Arguments '--selftest' -TimeoutSec 180 -What '--selftest'
+if ($selfCode -ne 0) { Fail "--selftest 失败（退出码 $selfCode）" }
+Write-Host '  ✓ --selftest 已执行并正常退出（退出码 0）' -ForegroundColor DarkGray
 
 # ---------- 4. 冒烟启动 ----------
 Step '冒烟启动（--smoke，45 秒上限）'
 # 日志由 AppPaths::logPath() 落在数据目录里，口径统一走 nb-paths.ps1
 $log = Get-NbLogFile
 if (Test-Path $log) { Remove-Item $log -Force }
-$proc = Start-Process -FilePath $exe -ArgumentList '--smoke' -PassThru
-$deadline = (Get-Date).AddSeconds(45)
-while (-not $proc.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
-if (-not $proc.HasExited) {
-    Stop-Process -Id $proc.Id -Force
-    Fail '冒烟启动超时（45 秒未退出）'
-}
+# 同样走 Invoke-Exe：45 秒兜底 + 超时强杀（GUI 程序卡在缺 DLL 的对话框上时，这是唯一出路）
+$smokeCode = Invoke-Exe -FilePath $exe -Arguments '--smoke' -TimeoutSec 45 -What '冒烟启动'
+Write-Host ("  ✓ --smoke 已执行并自行退出（退出码 {0}）" -f $smokeCode) -ForegroundColor DarkGray
 if (-not (Test-Path $log)) { Fail '未生成运行日志' }
 
 $patterns = 'is not a type|is not a member|TypeError|ReferenceError|' +

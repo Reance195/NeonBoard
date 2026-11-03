@@ -36,6 +36,14 @@ NeonBoard 是赛博霓虹风格的三列个人任务看板。
   pwsh -File scripts/build.ps1 -SelfTest
   ```
 
+  > **执行策略（DX-12）**：仓库里所有示例都写 `pwsh -File ...`（PowerShell 7，Windows 默认策略
+  > RemoteSigned，本地脚本直接可跑）。若机器上只有 Windows PowerShell 5.1（默认 **Restricted**），
+  > `& .\scripts\xxx.ps1` 与 dot-source 会被**静默拒绝** —— 表现为**没有任何输出 + 退出码 1**，
+  > 很容易误判成「脚本坏了」。这时改用
+  > `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\xxx.ps1`，
+  > 或一次性 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`（只影响当前用户，不需要管理员）。
+  > 判据与更多现象见 `docs/pitfalls.md` §2.11。
+
   等价手敲命令：
 
   ```powershell

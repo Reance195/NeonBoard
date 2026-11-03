@@ -86,6 +86,78 @@ if (Test-Path -LiteralPath $setupScript) {
     }
 }
 
+# ---------- 残留诊断：删不删由人决定，但得先给得起决定的材料（DX-12）----------
+# 原先这里只 throw 一句「如需重建请先 git worktree remove」。人拿到这句话没法判断那个残留里
+# 有没有未提交改动、有没有还没推的提交 —— 而 §7.10 明令「删不删由人决定」，缺信息就等于
+# 逼人闭眼删。函数只做诊断与命令提示，**绝不自动删除**。
+function Get-CommitCount {
+    param([string]$Path, [string[]]$RevArgs)
+
+    # 注意传数组：把 'HEAD --not --remotes=origin' 整串当一个参数递过去，git 会当成
+    # 一个不存在的版本号直接失败，计数恒为 0 —— 这里必须逐个参数展开（DX-12 实测踩过）。
+    $raw = & git -C $Path rev-list --count @RevArgs 2>$null | Select-Object -First 1
+    $count = 0
+    if ($raw) { try { $count = [int]([string]$raw).Trim() } catch { $count = 0 } }
+    return $count
+}
+
+function Show-StaleWorktree {
+    param([string]$Path)
+
+    Write-Host ("✗ 工作区已存在：{0}" -f $Path) -ForegroundColor Red
+    $headBranch = ([string](& git -C $Path rev-parse --abbrev-ref HEAD 2>$null)).Trim()
+    $headCommit = ([string](& git -C $Path rev-parse --short HEAD 2>$null)).Trim()
+    Write-Host ("  分支 {0}   HEAD {1}" -f $headBranch, $headCommit) -ForegroundColor DarkGray
+
+    $dirty = @(& git -C $Path status --porcelain 2>$null)
+    if ($dirty.Count -gt 0) {
+        Write-Host ("  未提交改动：{0} 个文件" -f $dirty.Count) -ForegroundColor Yellow
+        $dirty | Select-Object -First 5 | ForEach-Object { Write-Host ("    " + $_) -ForegroundColor Yellow }
+        if ($dirty.Count -gt 5) { Write-Host ("    …还有 {0} 个" -f ($dirty.Count - 5)) -ForegroundColor Yellow }
+    } else {
+        Write-Host '  未提交改动：无' -ForegroundColor DarkGray
+    }
+
+    $unpushed = Get-CommitCount -Path $Path -RevArgs @('HEAD', '--not', '--remotes=origin')
+    if ($unpushed -gt 0) {
+        Write-Host ("  未推送提交：{0} 个（origin 上没有任何引用能到达）" -f $unpushed) -ForegroundColor Yellow
+        $hashes = @(& git -C $Path log --format=%h --max-count=5 HEAD --not --remotes=origin 2>$null)
+        Write-Host ("    " + ($hashes -join ' ')) -ForegroundColor Yellow
+        Write-Host ('    看内容： git -C "' + $Path + '" log --oneline -5') -ForegroundColor DarkGray
+    } else {
+        Write-Host '  未推送提交：无' -ForegroundColor DarkGray
+    }
+
+    Write-Host '  确认没有会话在跑之后，清理命令：' -ForegroundColor Yellow
+    Write-Host ('    git worktree remove --force "' + $Path + '"') -ForegroundColor Yellow
+    if ($headBranch -and $headBranch -ne 'HEAD') {
+        Write-Host ("    git branch -D {0}" -f $headBranch) -ForegroundColor Yellow
+    }
+    Write-Host '  或者换个 -Agent 名重开（.worktrees/<agent> 之间是隔离的）。' -ForegroundColor Yellow
+}
+
+function Show-StaleBranch {
+    param([string]$Name)
+
+    Write-Host ("✗ 分支已存在：{0}（worktree add -b 会因重名失败）" -f $Name) -ForegroundColor Red
+    $headCommit = ([string](& git -C $repoRoot rev-parse --short $Name 2>$null)).Trim()
+    Write-Host ("  HEAD {0}" -f $headCommit) -ForegroundColor DarkGray
+    $ahead = Get-CommitCount -Path $repoRoot -RevArgs @("origin/main..$Name")
+    Write-Host ("  相对 origin/main：{0} 个提交未合入" -f $ahead) -ForegroundColor DarkGray
+    $unpushed = Get-CommitCount -Path $repoRoot -RevArgs @($Name, '--not', '--remotes=origin')
+    if ($unpushed -gt 0) {
+        Write-Host ("  未推送提交：{0} 个" -f $unpushed) -ForegroundColor Yellow
+        $hashes = @(& git -C $repoRoot log --format=%h --max-count=5 $Name --not --remotes=origin 2>$null)
+        Write-Host ("    " + ($hashes -join ' ')) -ForegroundColor Yellow
+        Write-Host ('    看内容： git -C "' + $repoRoot + '" log --oneline -5 ' + $Name) -ForegroundColor DarkGray
+    } else {
+        Write-Host '  未推送提交：无（远端已有，删了也能找回）' -ForegroundColor DarkGray
+    }
+    Write-Host '  确认没有会话在跑之后，清理命令：' -ForegroundColor Yellow
+    Write-Host ("    git branch -D {0}" -f $Name) -ForegroundColor Yellow
+    Write-Host '  或者直接复用：换 -Branch 名，或用已有分支开区（不带 -b）。' -ForegroundColor Yellow
+}
+
 # ---------- 检出形态识别 ----------
 # 主工作树的 git-dir 就是 common dir；linked worktree 的 git-dir 落在
 # <common>/worktrees/<name> 下。两者不等 ⇒ 当前检出已经是一个独立 worktree。
@@ -173,7 +245,14 @@ if ($InPlace) {
     $worktree = Join-Path (Join-Path $repoRoot '.worktrees') $Agent
 
     if (Test-Path -LiteralPath $worktree) {
-        throw "工作区已存在：$worktree（如需重建请先 git worktree remove）"
+        Show-StaleWorktree -Path $worktree
+        exit 4
+    }
+
+    & git -C $repoRoot show-ref --verify --quiet "refs/heads/$Branch"
+    if ($LASTEXITCODE -eq 0) {
+        Show-StaleBranch -Name $Branch
+        exit 4
     }
 
     Write-Host ("· 创建工作区 {0}" -f $worktree) -ForegroundColor Cyan

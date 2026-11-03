@@ -826,7 +826,9 @@
                 "CMakeLists.txt",
                 "tests/CMakeLists.txt",
                 "docs/**",
-                "AGENTS.md"
+                "AGENTS.md",
+                "scripts/check-format.ps1",
+                "scripts/format.ps1"
             ],
             "stage": "MOD",
             "title": "MOD src/ 物理分层：8 个模块子目录 + 连带 5 处引用"

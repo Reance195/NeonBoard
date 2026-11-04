@@ -55,24 +55,6 @@
             "updatedAt": 1793813175
         },
         {
-            "code": "R16-01",
-            "completedAt": 0,
-            "createdAt": 1793814339,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R16-01",
-            "note": "起因（2026-11-05 插件巡检）：PluginRuntime::connectTaskEvents 已在总线广播 task.created/updated/moved/completed/removed，后台插件经子上下文能收；但面板侧全局 pluginHost 是 PluginHost 代理，只转发 commandInvoked、没有 eventReceived —— today 示例只能手动刷新（只在 Component.onCompleted 算一次），agent-bridge 面板状态也不更新。宿主代理转发活跃 context 的 eventReceived 后，面板类插件才有实时数据源；today 示例作为端到端验收载体（manifest 补 events 权限并升 apiVersion 2）。",
-            "orderKey": 6144,
-            "priority": 2,
-            "stage": "R16",
-            "status": "todo",
-            "tags": [
-                "R16"
-            ],
-            "title": "面板事件转发：PluginHost 代理补 eventReceived，示例接上自动刷新",
-            "updatedAt": 1793814339
-        },
-        {
             "code": "R16-02",
             "completedAt": 0,
             "createdAt": 1793814339,
@@ -961,6 +943,24 @@
             ],
             "title": "文档与闸门随实现同步：回写迁至 board.yml 后的过期条文",
             "updatedAt": 1793755345
+        },
+        {
+            "code": "R16-01",
+            "completedAt": 1793815781,
+            "createdAt": 1793814339,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R16-01",
+            "note": "起因（2026-11-05 插件巡检）：PluginRuntime::connectTaskEvents 已在总线广播 task.created/updated/moved/completed/removed，后台插件经子上下文能收；但面板侧全局 pluginHost 是 PluginHost 代理，只转发 commandInvoked、没有 eventReceived —— today 示例只能手动刷新（只在 Component.onCompleted 算一次），agent-bridge 面板状态也不更新。宿主代理转发活跃 context 的 eventReceived 后，面板类插件才有实时数据源；today 示例作为端到端验收载体（manifest 补 events 权限并升 apiVersion 2）。",
+            "orderKey": 6144,
+            "priority": 2,
+            "stage": "R16",
+            "status": "done",
+            "tags": [
+                "R16"
+            ],
+            "title": "面板事件转发：PluginHost 代理补 eventReceived，示例接上自动刷新",
+            "updatedAt": 1793815781
         },
         {
             "code": "R6-06",
@@ -3373,6 +3373,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T01:45:39",
+    "updated": "2026-11-05T02:09:41",
     "version": 3
 }

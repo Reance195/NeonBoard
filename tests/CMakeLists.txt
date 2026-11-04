@@ -88,6 +88,8 @@ neonboard_add_test(tst_pluginruntime
     ${NB_DIR_PLUGIN}/PluginHost.cpp
     ${NB_DIR_PLUGIN}/PluginRuntime.cpp
     ${NB_DIR_SHELL}/TrayController.cpp
+    # R17-01：TrayController 的菜单皮取自 MenuSkin 的令牌，链接闭包要跟上
+    ${NB_DIR_THEME}/MenuSkin.cpp
 )
 target_link_libraries(tst_pluginruntime PRIVATE Qt6::Sql Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Widgets)
 # R16-01：QML 用例按编译期烘焙的绝对路径加载真实示例文件（与 CWD 无关）
@@ -437,6 +439,13 @@ neonboard_add_test(tst_taskstats
     ${NB_DIR_TASK}/TaskStats.cpp
 )
 target_link_libraries(tst_taskstats PRIVATE Qt6::Sql)
+
+# R17-01：菜单皮肤令牌 —— 六套预设的调色板 / 未知预设确定回退 / QSS 关键记号 /
+# rgba 与 GDI+ 的 argb 两套出口一致。宿主自绘弹窗与主程序 QMenu 共用这一份令牌，
+# 分叉了会出现「同一个托盘两种皮肤」，肉眼很难稳定复现，所以钉成断言。
+neonboard_add_test(tst_menuskint
+    ${NB_DIR_THEME}/MenuSkin.cpp
+)
 
 # R8-05：拖拽落点几何 —— 空列 / 上半区下半区 / 滚动时最后一张可见卡下面还有卡 /
 # 磁吸半径 / 落位动效预算。纯算术，不需要数据库与 QML 引擎。

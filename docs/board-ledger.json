@@ -99,7 +99,7 @@
         "R16-03": "done",
         "R16-04": "todo",
         "R16-05": "todo",
-        "R17-01": "todo",
+        "R17-01": "done",
         "R2-01": "done",
         "R2-02": "done",
         "R3-01": "done",
@@ -2187,7 +2187,7 @@
             ],
             "depends": [],
             "id": "R17-01",
-            "note": "起因（2026-11-05 维护者反馈）：NeonBoardHost.exe 的托盘右键菜单是纯 Win32 系统菜单（CreatePopupMenu + TrackPopupMenu），Windows 白底方框，和 NeonBoard 的赛博霓虹风完全脱节；主程序在非 hosted 模式下的托盘 QMenu 在 Windows 上同样走系统菜单，两处外观都不受主题系统管辖。目标：宿主改成自绘分层窗口霓虹弹窗（圆角 + 辉光 + 半透明底 + 悬停高亮），主程序 QMenu 套同一套皮肤令牌（QSS + 非原生绘制 + 圆角），两处菜单视觉一致；菜单条目本身保持现状不变（宿主仍是 打开 / 开机自启 / 退出）。",
+            "note": "2026-11-05 已交付。宿主：新增 src/host/TrayMenu.* 自绘 Win32 分层窗口霓虹弹窗（GDI+ 32bpp ARGB + UpdateLayeredWindow，圆角面板 + 10 层递减辉光 + 悬停霓虹条 + 霓虹对勾 + 贴边翻转 + 淡入），HostMain.cpp 去掉 CreatePopupMenu/TrackPopupMenu，宿主仍只链 QtCore+Network（不引 QtGui）。主程序：新增 src/theme/MenuSkin.* 共享令牌（六套预设调色板 + 度量 + QSS 生成，只依赖 QtCore），托盘 QMenu 套同一套皮肤（WA_TranslucentBackground 圆角 + 自绘霓虹对勾），主色随看板主题预设走（弹菜单前重读 appearance/themePreset）。两处共用一份令牌，同色系。新增 --menu-preview 出图命令（宿主与主程序各一张 PNG）。验收逐条：verify.ps1 全过 —— ctest 36/36（含新增 tst_menuskint 4 例）、--selftest 与 --smoke 退出码 0、模块守卫通过（src/main.cpp 1902 行 ≤ 上限 1910）；NeonBoardHost.exe --menu-preview build/menu-host.png 退出码 0、PNG 7511 字节（>5 KB），肉眼可见圆角面板、外辉光、悬停霓虹条、霓虹对勾、细分隔线；NeonBoard.exe --menu-preview build/menu-qt.png 退出码 0、PNG 17102 字节（>5 KB），与宿主菜单同一套霓虹配色；rg CreatePopupMenu|TrackPopupMenu src/host/HostMain.cpp 无匹配。已完成 1/1，无待做项。附带：src/main.cpp 的工具命令链改成表驱动，新增 CLI 命令不再顶破行数棘轮（1910 → 1902 行）。",
             "scope": [
                 "src/host/**",
                 "src/shell/TrayController.*",

@@ -59,6 +59,25 @@ constexpr int kCacheTtlSeconds = 6 * 60 * 60;
 // 也不该让用户在飞机上被弹窗骚扰。
 constexpr qint64 kStartupCheckIntervalSeconds = 20 * 60 * 60;
 
+// 从增量包里的 BUILD-INFO.txt 取目标版本的 commit（行形如「commit    : <sha>」）。
+// 增量包没带这份文件时返回 unknown —— 回执照样能判版本，缺的只是溯源。
+QString buildInfoCommit(const QString &dir)
+{
+    QFile file(QDir(dir).absoluteFilePath(QStringLiteral("BUILD-INFO.txt")));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return QStringLiteral("unknown");
+    while (!file.atEnd()) {
+        const QString line = QString::fromUtf8(file.readLine()).trimmed();
+        if (!line.startsWith(QLatin1String("commit")))
+            continue;
+        const int colon = line.indexOf(QLatin1Char(':'));
+        if (colon > 0)
+            return line.mid(colon + 1).trimmed();
+        break;
+    }
+    return QStringLiteral("unknown");
+}
+
 QString trimVersionPrefix(QString value)
 {
     value = value.trimmed();
@@ -1062,7 +1081,26 @@ bool UpdateManager::downloadAndApplyDelta(QString *error)
         return false;
     }
 
-    // 5) 自更新脚本：进程退出后把暂存二进制拷入安装目录并重启
+    // 5) 弃用文件清理 + 安装回执：与安装包 ssPostInstall 同语义
+    //    包间 diff 给不出「两个包里都没有」的文件删除动作，这批残留只能靠显式清单清；
+    //    回执同理 —— 没有它，增量用户升级后拿不到任何物证，R5-12 的警示条也亮不起来。
+    //    两步都是尽力而为：失败只告警，绝不把已经成功的增量升级判成失败。
+    const QStringList obsoletePaths = DeltaUpdate::loadObsoleteList(
+        QDir(extractDir).absoluteFilePath(QStringLiteral("obsolete-files.txt")));
+    const DeltaUpdate::ObsoleteCleanup cleanup =
+        DeltaUpdate::cleanupObsoleteFiles(installDir, obsoletePaths);
+    if (cleanup.deleted > 0)
+        qInfo().noquote() << "UPDATE obsolete cleanup deleted" << cleanup.deleted
+                          << "of" << obsoletePaths.size();
+    if (!cleanup.skipped.isEmpty())
+        qWarning().noquote() << "UPDATE obsolete cleanup skipped (文件被占用?)"
+                             << cleanup.skipped;
+    QString receiptError;
+    if (!DeltaUpdate::writeInstallReceipt(installDir, m_latest.version,
+                                          buildInfoCommit(extractDir), cleanup, &receiptError))
+        qWarning().noquote() << "UPDATE install receipt failed:" << receiptError;
+
+    // 6) 自更新脚本：进程退出后把暂存二进制拷入安装目录并重启
     if (!launchDeltaSelfUpdater(stagedDir, installDir, &stepError)) {
         if (error)
             *error = stepError;

@@ -1,0 +1,44 @@
+# Obsolete files: paths that upgrades must remove from the install directory
+# even though no newer package contains them any more.
+#
+# Single source of truth. Two readers:
+#   - installer/neonboard.iss  -> [Code] CleanObsoleteFiles (full-installer path)
+#   - delta path               -> scripts/build-delta.ps1 packs this file into
+#     delta.zip, client DeltaUpdate::cleanupObsoleteFiles applies it
+#
+# Why a list at all: a delta manifest is the diff between two packages, so files
+# missing from BOTH can never produce a "Deleted" entry. Only an explicit list
+# cleans them (docs/pitfalls.md).
+#
+# One path per line, relative to {app}, forward slashes. Directories and files
+# need no marker - each consumer checks the actual type. Absent = already clean.
+# Keep this file pure ASCII: the installer reads it with the ANSI code page and
+# the client reads it as UTF-8; only ASCII is guaranteed identical for both.
+#
+# Do NOT switch to wildcards such as Qt6QuickControls2*Style*.dll - that also
+# matches Qt6QuickControls2BasicStyleImpl.dll, which is still in use, and the
+# Basic style then fails to load.
+
+# An early version shipped a "hello" sample plugin; the plugin is long gone.
+plugins/hello
+
+# Styles other than Basic stopped being packaged in 0.1.4 (8e52812: windeployqt
+# now keeps only Basic). 1126 files across these six directories.
+qml/QtQuick/Controls/FluentWinUI3
+qml/QtQuick/Controls/Material
+qml/QtQuick/Controls/Fusion
+qml/QtQuick/Controls/Universal
+qml/QtQuick/Controls/Imagine
+qml/QtQuick/Controls/Windows
+
+# Same change, style DLLs at the root of the install directory.
+Qt6QuickControls2FluentWinUI3StyleImpl.dll
+Qt6QuickControls2Fusion.dll
+Qt6QuickControls2FusionStyleImpl.dll
+Qt6QuickControls2Imagine.dll
+Qt6QuickControls2ImagineStyleImpl.dll
+Qt6QuickControls2Material.dll
+Qt6QuickControls2MaterialStyleImpl.dll
+Qt6QuickControls2Universal.dll
+Qt6QuickControls2UniversalStyleImpl.dll
+Qt6QuickControls2WindowsStyleImpl.dll

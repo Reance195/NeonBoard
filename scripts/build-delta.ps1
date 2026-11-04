@@ -91,6 +91,17 @@ if (-not (Test-Path -LiteralPath (Join-Path $staging 'delta.json'))) {
     throw "工具未产出 delta.json：$staging"
 }
 
+# ---- 弃用文件清单随包带走 ----
+# 增量清单算的是「两个包之间的差」，两个包里都没有的文件永远给不出删除动作，
+# 所以清理要靠这份显式清单：安装器侧读它，增量侧把它打进 delta.zip 交给客户端读。
+# 清单缺席必须响亮失败 —— 静默少打一个文件，这批残留就一直背着。
+$obsoleteList = Join-Path $PSScriptRoot '..\installer\obsolete-files.txt'
+if (-not (Test-Path -LiteralPath $obsoleteList)) {
+    throw "缺少弃用文件清单：$obsoleteList"
+}
+Copy-Item -LiteralPath $obsoleteList -Destination $staging -Force
+Write-Host ("· 弃用清单已打入增量包: {0}" -f (Split-Path -Leaf $obsoleteList)) -ForegroundColor Gray
+
 # ---- 打包 delta.zip（staging 内容平铺进 zip 根，客户端解压后直接是 delta.json）----
 $zipPath = Join-Path $OutDir 'delta.zip'
 Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue

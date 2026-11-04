@@ -136,6 +136,19 @@ portable-sha256: <64 位十六进制>
 {"version": "0.1.5", "writtenAt": "2026-11-04 22:45:59", "commit": "unknown", "source": "inno"}
 ```
 
+增量路径（DX-38）由客户端在文件级 diff 应用成功之后、拉起自更新脚本之前写同一份文件，
+`source` 标 `delta`，并多带一个 `cleanup` 对象（`{deleted: N, skipped: [...]}`，见下文弃用清单）：
+
+```json
+{"version": "0.1.6", "writtenAt": "…", "commit": "abc1234", "source": "delta",
+ "cleanup": {"deleted": 2, "skipped": []}}
+```
+
+`commit` 取自增量包里的 `BUILD-INFO.txt`，缺则 `unknown`。写在自更新脚本**之前**是有意的：
+判据是「回执版本 vs 运行版本」，暂存二进制的拷入若在进程退出后失败，运行版本仍是旧号，
+两者一比就亮 —— 不需要脚本再回头补一个回执。回执写失败只 `qWarning`，
+**绝不把已经成功的增量升级判成失败**（清理同理）。
+
 `commit` 试图取自同目录 `BUILD-INFO.txt`（发布闸门第 5 条产出），**但今天野外装出来的回执里
 它恒为 `unknown`**：CI 的「写溯源信息」把 `BUILD-INFO.txt` 写在 `dist\`，而 iss 的 `[Files]`
 只打包 `dist\NeonBoard\*`，且那一步排在「编译安装包」**之后** —— `{app}` 里根本没有这个文件。
@@ -162,7 +175,7 @@ portable-sha256: <64 位十六进制>
 点击即重新检查更新），为假时 `visible=false` 不占位。日志文件没人翻 —— 判据再准，
 用户看不到就等于没有；界面这一层才是「上次没装完」真正被消费的入口。
 
-### 覆盖安装不清理旧文件，得靠 `[InstallDelete]`（R5-11）
+### 弃用文件清单：两条升级路径读同一份 `installer/obsolete-files.txt`（R5-11 / DX-38）
 
 Inno 的 `[Files]` 是「新包里有什么就写什么」，**不会删掉新包里没有的旧文件**。
 0.1.4 起（`8e52812`：windeployqt 只留 Basic 样式）不再打包 Qt 自带的其它控件样式，
@@ -173,13 +186,29 @@ Universal / Imagine / Windows 六套共 1126 个 qml 与 style plugin dll，加 
 `Qt6QuickControls2*Style*.dll`）。
 
 功能上无害（应用只用 Basic 样式，这些插件不会被加载），但白占空间、也让「安装树等于发布物」
-这个前提不成立。`installer/neonboard.iss` 的 `[InstallDelete]` 因此逐条列出这 6 个目录与
-10 个 dll（清单以那份增量清单的 Deleted 条目为事实源，脚本核对过 1136/1136 覆盖、
-对真实 0.1.4 树 0 误伤）。
+这个前提不成立。清单以那份增量清单的 Deleted 条目为事实源，脚本核对过 1136/1136 覆盖、
+对真实 0.1.4 树 0 误伤，收敛成 6 条目录 + 10 条文件。
+
+**这份清单只有一个文件源 `installer/obsolete-files.txt`，两个消费者**（DX-38 之前是 iss 里
+`[InstallDelete]` 写一遍、增量侧根本不读，同一件事两处各写必然漂）：
+
+| 消费者 | 位置 | 怎么读 |
+| --- | --- | --- |
+| 完整安装包 | `installer/neonboard.iss` → `[Code] CleanObsoleteFiles`（`ssPostInstall`） | `[Files]` 把清单带进 `{tmp}`，逐行 `DelTree` / `DeleteFile`；ISPP **没有**编译期读文本文件的函数（实测 `LoadStringsFromFile` 等四个候选全是 `Undeclared identifier`），所以只能在运行期读 |
+| 增量包 | `src/update/DeltaUpdate.cpp` → `loadObsoleteList` + `cleanupObsoleteFiles`，由 `UpdateManager::downloadAndApplyDelta` 调用 | `scripts/build-delta.ps1` 把清单打进 `delta.zip`，客户端解压后读同一份语义 |
+
+两侧语义必须一致，`obsolete-files.txt` 的头注就是这条约束的落点：
+
+- 一行一个相对 `{app}` 的路径，目录/文件不加标记，各自判实际类型；
+- **只允许安装目录内的相对路径**：绝对路径、盘符、含 `..` 的一律丢弃（一份被改坏的清单
+  不能变成任意删除）；
+- 条目**缺席即已清理**（静默跳过，不报错）—— 装过完整包的机器上这批文件早就不在了；
+- **删不动只记跳过**（文件被占用时），清理失败不把一次成功的升级/安装判成失败；
+- 文件保持纯 ASCII：安装器按 ANSI 代码页读，客户端按 UTF-8 读，只有 ASCII 两边解读相同。
 
 > **不要用 `Qt6QuickControls2*Style*.dll` 这类通配**：0.1.4 仍在用的
 > `Qt6QuickControls2BasicStyleImpl.dll` 会被一并删掉，样式直接加载失败。
-> 以后再瘦身 windeployqt 产物，同样要在 `[InstallDelete]` 里补显式条目。
+> 以后再瘦身 windeployqt 产物，往这份清单补显式条目即可，两条路径自动同时生效。
 
 ### 增量更新（R5-06）
 
@@ -192,24 +221,34 @@ Universal / Imagine / Windows 六套共 1126 个 qml 与 style plugin dll，加 
 delta.json              变更清单（fromVersion / toVersion / changes[]）
 files/<相对路径>         新增 / 修改的资源文件（QML、图片、配置等，全量内容）
 patches/<相对路径>.patch 修改的二进制文件（exe/dll）的 bsdiff patch
+obsolete-files.txt       弃用文件清单（DX-38，与安装包读同一份，见上一节）
 ```
 
 客户端流程（`UpdateManager::downloadAndApplyDelta`）：
 
 1. 下载 `delta.zip`，校验 SHA-256（校验值来自清单）；
-2. 解压后**预校验**：安装目录里 Modified/Deleted 的旧文件 SHA-256 必须与清单一致
-   （不一致 = 用户实际版本与 `fromVersion` 不符，直接放弃增量）；
+2. 解压后**预校验**：安装目录里 Modified 的旧文件 SHA-256 必须与清单一致
+   （不一致 = 用户实际版本与 `fromVersion` 不符，直接放弃增量）；**Deleted 的旧文件缺席
+   不报错**，视为已清理（见 `docs/pitfalls.md` §3.17）；
 3. 备份将被修改/删除的文件 → 应用变更：资源直接覆盖安装目录，二进制用 bsdiff
    合并到**暂存目录**（正在运行的 exe/dll 不能被替换）→ 逐文件校验；
+   备份只覆盖清单里的 Modified/Deleted 条目，弃用清单的清理**不进备份环**
+   （否则 1136 个文件会先把备份目录撑爆）；
 4. 任一步失败：恢复备份、删除新增文件，回退全量；
-5. 成功：生成自更新脚本（与便携版同构：杀宿主 → 等主进程退出 → robocopy 暂存
+5. 按 `obsolete-files.txt` 清理弃用文件，写 `install-receipt.json`（`source=delta`，
+   含清理计数）—— 两步尽力而为，失败只告警；
+6. 成功：生成自更新脚本（与便携版同构：杀宿主 → 等主进程退出 → robocopy 暂存
    二进制进安装目录 → 重新拉起），应用退出后完成替换。
 
 发布侧：`scripts/build-delta.ps1` 调 `neonboard-delta-tool`（与主程序共用
 `DeltaUpdate` / `BsdiffWrapper` 源码）对比新旧版本目录生成上述布局，再打 zip、
 算 SHA-256，产出 `delta-manifest-entry.json`（可直接并入 `update.json` 的
 `artifacts`）。`release.ps1` 支持 `-DeltaFromDir <旧版目录> -DeltaFromVersion <旧版本>`
-在出包时顺带生成。
+在出包时顺带生成。清单文件缺失时脚本**直接 throw** —— 静默少打一个文件，这批残留就一直背着。
+
+`neonboard-delta-tool` 另有 `cleanup` 模式（`--install <假安装树> --list <清单> [--receipt]`），
+走的是客户端同一份 `cleanupObsoleteFiles` / `writeInstallReceipt`，发布前可以对着一个假安装树
+把「清单是否真删干净、被占用条目是否只跳过」跑一遍。
 
 ## 4. 发布
 

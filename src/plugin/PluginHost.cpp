@@ -205,6 +205,12 @@ bool PluginHost::removeMetaValue(const QString &key)
     return context ? context->removeMetaValue(key) : false;
 }
 
+QStringList PluginHost::metaKeys(const QString &prefix) const
+{
+    PluginContext *context = active();
+    return context ? context->metaKeys(prefix) : QStringList();
+}
+
 bool PluginHost::subscribe(const QStringList &events)
 {
     PluginContext *context = active();

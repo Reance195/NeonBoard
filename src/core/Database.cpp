@@ -996,3 +996,31 @@ bool Database::removeMetaValue(const QString &key)
     }
     return true;
 }
+
+QStringList Database::metaKeys(const QString &prefix) const
+{
+    QStringList keys;
+    if (!m_db.isOpen())
+        return keys;
+
+    QSqlQuery query(m_db);
+    if (prefix.isEmpty()) {
+        query.prepare(QStringLiteral("SELECT key FROM meta ORDER BY key"));
+    } else {
+        // LIKE 的通配符（% _）与转义符（\）本身也可能出现在键里，先转义再拼前缀
+        QString pattern = prefix;
+        pattern.replace(QStringLiteral("\\"), QStringLiteral("\\\\"));
+        pattern.replace(QStringLiteral("%"), QStringLiteral("\\%"));
+        pattern.replace(QStringLiteral("_"), QStringLiteral("\\_"));
+        query.prepare(QStringLiteral(
+            "SELECT key FROM meta WHERE key LIKE ? ESCAPE '\\' ORDER BY key"));
+        query.addBindValue(pattern + QStringLiteral("%"));
+    }
+    if (!query.exec()) {
+        qWarning() << "Database: meta keys query failed:" << query.lastError().text();
+        return keys;
+    }
+    while (query.next())
+        keys.append(query.value(0).toString());
+    return keys;
+}

@@ -58,6 +58,10 @@ public:
     QString metaValue(const QString &key, const QString &defaultValue = QString()) const;
     bool setMetaValue(const QString &key, const QString &value);
     bool removeMetaValue(const QString &key);
+    /** R16-03：按前缀枚举 meta 键（升序）。前缀为空返回全部键。
+     *  插件清扫自己的命名空间（如 agentbridge.* 残留映射）需要它 ——
+     *  此前只有单键 get/set/remove，插件想清扫无从下手。 */
+    QStringList metaKeys(const QString &prefix = QString()) const;
 
 signals:
     void taskCountChanged();

@@ -70,6 +70,7 @@ public:
                                   const QString &defaultValue = QString()) const;
     Q_INVOKABLE bool setMetaValue(const QString &key, const QString &value);
     Q_INVOKABLE bool removeMetaValue(const QString &key);
+    Q_INVOKABLE QStringList metaKeys(const QString &prefix = QString()) const;
 
     Q_INVOKABLE bool subscribe(const QStringList &events);
     Q_INVOKABLE QStringList subscriptions() const;

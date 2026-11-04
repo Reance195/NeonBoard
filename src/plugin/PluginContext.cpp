@@ -178,6 +178,13 @@ bool PluginContext::removeMetaValue(const QString &key)
     return m_database->removeMetaValue(key);
 }
 
+QStringList PluginContext::metaKeys(const QString &prefix) const
+{
+    if (!require(QStringLiteral("meta")))
+        return {};
+    return m_database->metaKeys(prefix);
+}
+
 bool PluginContext::subscribe(const QStringList &events)
 {
     if (!require(QStringLiteral("events")))

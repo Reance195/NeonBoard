@@ -199,6 +199,10 @@ QtObject {
                 actions += applyItem(agent, sessionId, envelope.items[i]);
         }
 
+        // R16-03：顺带清扫失效映射。映射键只增不减是历史债 ——
+        // 卡片删除后 agentbridge.<agent>.<sessionId>.<todoId> 永久残留，meta 表无界增长。
+        sweepStaleMappings();
+
         handledCount += 1;
         lastActionCount = actions;
         lastSummary = agent + " · " + sessionId.substring(0, Math.min(8, sessionId.length))
@@ -207,6 +211,33 @@ QtObject {
         pluginHost.setMetaValue("agentbridge.handled", String(handledCount));
         pluginHost.log("agent-bridge: " + lastSummary);
         return actions;
+    }
+
+    // 清扫本插件命名空间下「指向已不存在任务」的映射键（R16-03）。
+    // 映射键有 ≥2 个点号（agentbridge.<agent>.<sessionId>.<todoId>），
+    // 状态键 agentbridge.status / agentbridge.handled 只有 1 个点，双判据排除误伤。
+    // 存活任务先取一次快照建索引 —— 别在循环里逐键 tasks()，那会回到 R16-02 之前的写法。
+    function sweepStaleMappings() {
+        var alive = {};
+        var list = pluginHost.tasks();
+        for (var t = 0; t < list.length; t++)
+            alive[String(list[t].id)] = true;
+
+        var removed = 0;
+        var keys = pluginHost.metaKeys(metaPrefix);
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            if (key.split(".").length < 3)
+                continue;
+            var taskId = pluginHost.metaValue(key, "");
+            if (taskId.length > 0 && !alive[taskId]) {
+                pluginHost.removeMetaValue(key);
+                removed += 1;
+            }
+        }
+        if (removed > 0)
+            pluginHost.log("agent-bridge: 清扫失效映射 " + removed + " 条");
+        return removed;
     }
 
     function onAgentTask(payload) {

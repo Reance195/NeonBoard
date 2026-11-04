@@ -126,6 +126,8 @@ private slots:
     void v1DatabaseMigratesWithoutDataLoss();
     void v2ReopenIsIdempotent();
     void newerSchemaIsRejected();
+    // R16-03：metaKeys 按前缀枚举 —— 插件清扫自己命名空间的依赖面
+    void metaKeysEnumeratesByPrefix();
 };
 
 void TestDatabaseMigration::freshDatabaseIsCreatedAtV2()
@@ -262,6 +264,44 @@ void TestDatabaseMigration::newerSchemaIsRejected()
     Database db;
     QVERIFY(!db.open(&error, path));
     QVERIFY2(error.contains(QStringLiteral("高于")), qPrintable(error));
+}
+
+void TestDatabaseMigration::metaKeysEnumeratesByPrefix()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    Database db;
+    QString error;
+    QVERIFY2(db.open(&error, dir.filePath(QStringLiteral("metakeys.db"))), qPrintable(error));
+
+    db.setMetaValue(QStringLiteral("agentbridge.opencode.s1.t1"), QStringLiteral("uuid-1"));
+    db.setMetaValue(QStringLiteral("agentbridge.opencode.s1.t2"), QStringLiteral("uuid-2"));
+    db.setMetaValue(QStringLiteral("agentbridge.status"), QStringLiteral("ok"));
+    db.setMetaValue(QStringLiteral("plan.rules"), QStringLiteral("{}"));
+
+    // 前缀枚举：只含匹配键，升序，不误伤他键
+    const QStringList keys = db.metaKeys(QStringLiteral("agentbridge."));
+    QCOMPARE(keys.size(), 3);
+    QCOMPARE(keys.at(0), QStringLiteral("agentbridge.opencode.s1.t1"));
+    QCOMPARE(keys.at(1), QStringLiteral("agentbridge.opencode.s1.t2"));
+    QCOMPARE(keys.at(2), QStringLiteral("agentbridge.status"));
+
+    // 无匹配返回空；空前缀返回全部键（meta 权限本就覆盖整表读写，无新增暴露面）
+    QVERIFY(db.metaKeys(QStringLiteral("nomatch.")).isEmpty());
+    QCOMPARE(db.metaKeys().size(), 4);
+
+    // LIKE 通配符按字面量匹配：键里的 % _ 不当通配符使。
+    // 判别式：若 _ 被当通配符，"weird_%" 会命中 "weird%key_x"（应为 0）。
+    db.setMetaValue(QStringLiteral("weird%key_x"), QStringLiteral("v"));
+    QCOMPARE(db.metaKeys(QStringLiteral("weird%key_")).size(), 1);
+    QCOMPARE(db.metaKeys(QStringLiteral("weird_")).size(), 0);
+
+    // schema 不动：user_version 仍是当前版本
+    QCOMPARE(db.metaKeys(QStringLiteral("agentbridge.")).size(), 3);
+    RawDb raw(dir.filePath(QStringLiteral("metakeys.db")));
+    QVERIFY2(raw.ok(), qPrintable(raw.error()));
+    QCOMPARE(raw.scalar(QStringLiteral("PRAGMA user_version")).toInt(), Database::kSchemaVersion);
 }
 
 QTEST_GUILESS_MAIN(TestDatabaseMigration)

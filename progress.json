@@ -109,6 +109,24 @@
             "updatedAt": 1793821909
         },
         {
+            "code": "DX-43",
+            "completedAt": 0,
+            "createdAt": 1793822375,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-43",
+            "note": "起因：每立一张卡，维护者须手工走完「临时分支 → 临时检出（agent 工作区禁改 cards）→ 手编 ledger JSON → 手写 chore(board) 授权/批次 → git-done 合并推送 → 清理」全套仪式（DX-40 即此流程），agent 侧还要等卡、领卡、再开区；需求队列 docs/card-requests/ 已有雏形但无人消费，请求积压。目标：scripts/card-approve.ps1 一键完成「受理队列请求/显式参数 → 查重 → 临时 worktree 立卡（授权/批次注入提交体）→ git-done 合并推送 → 回收 →（可选 -Claim）接 agent-init 领用开区」，维护者只需在会话中批准；宪章仅要求授权行不可省（位置不是凭证），仪式全部可自动化。看板 UI 需求面板/批准按钮为第二阶段，另立卡走全量验收。",
+            "orderKey": 18432,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用",
+            "updatedAt": 1793822375
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3517,6 +3535,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T03:59:01",
+    "updated": "2026-11-05T03:59:35",
     "version": 3
 }

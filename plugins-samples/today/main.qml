@@ -1,5 +1,8 @@
 import QtQuick
+import NeonBoard
 
+// R16-05：颜色一律 Theme.xxx 令牌 —— 示例是教学材料，不能教硬编码反模式。
+// 令牌随主题切换自动渐变，与宿主看板视觉一致。
 Rectangle {
     id: root
     color: "transparent"
@@ -57,12 +60,12 @@ Rectangle {
     component StatCard: Rectangle {
         property string label: ""
         property int value: 0
-        property color accent: "#22D3EE"
+        property color accent: Theme.cyan
 
         width: 160
         height: 72
         radius: 10
-        color: "#0A1524"
+        color: Theme.card
         border.width: 1
         border.color: Qt.rgba(accent.r, accent.g, accent.b, 0.35)
 
@@ -81,7 +84,7 @@ Rectangle {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: label
-                color: "#7C8BA1"
+                color: Theme.muted
                 font.pixelSize: 10
             }
         }
@@ -99,7 +102,7 @@ Rectangle {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "今日概览"
-                color: "#E6F1FF"
+                color: Theme.text
                 font.pixelSize: 18
                 font.bold: true
             }
@@ -107,7 +110,7 @@ Rectangle {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "TODAY / OVERVIEW"
-                color: "#22D3EE"
+                color: Theme.cyan
                 font.pixelSize: 9
                 font.letterSpacing: 2
             }
@@ -123,28 +126,28 @@ Rectangle {
                 width: (parent.width - parent.columnSpacing) / 2
                 label: "待办"
                 value: root.todoCount
-                accent: "#22D3EE"
+                accent: Theme.cyan
             }
 
             StatCard {
                 width: (parent.width - parent.columnSpacing) / 2
                 label: "进行中"
                 value: root.doingCount
-                accent: "#A78BFA"
+                accent: Theme.violet
             }
 
             StatCard {
                 width: (parent.width - parent.columnSpacing) / 2
                 label: "今日完成"
                 value: root.doneTodayCount
-                accent: "#F472B6"
+                accent: Theme.magenta
             }
 
             StatCard {
                 width: (parent.width - parent.columnSpacing) / 2
                 label: "逾期"
                 value: root.overdueCount
-                accent: root.overdueCount > 0 ? "#F472B6" : "#4B6478"
+                accent: root.overdueCount > 0 ? Theme.magenta : Theme.muted
             }
         }
 
@@ -152,14 +155,14 @@ Rectangle {
             width: parent.width
             height: 34
             radius: 8
-            color: refreshArea.pressed ? "#12303A" : "#0B1B26"
+            color: refreshArea.pressed ? Theme.cardHover : Theme.card
             border.width: 1
-            border.color: refreshArea.containsMouse ? "#22D3EE" : "#1E4A57"
+            border.color: refreshArea.containsMouse ? Theme.cyan : Theme.border
 
             Text {
                 anchors.centerIn: parent
                 text: "刷新概览"
-                color: "#E6F1FF"
+                color: Theme.text
                 font.pixelSize: 12
             }
 
@@ -175,8 +178,8 @@ Rectangle {
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: "数据来自本地 SQLite"
-            color: "#5B6B80"
+            text: "数据来自本地 SQLite · 看板变动自动刷新（R16-01）"
+            color: Theme.muted
             font.pixelSize: 9
         }
     }

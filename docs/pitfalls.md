@@ -601,17 +601,28 @@
   而开发机跑 `scripts/dev-run.ps1` 一切正常 —— 因为开发时读的是**仓库目录**，不是打包产物。
 - **判据**：`ls dist/NeonBoard/plugins` 只有 `surfaces` / `today` 两个示例，没有
   `agent-bridge` / `agent-claude` / `agent-codex` / `agent-cursor` / `agent-opencode` / `plan-hook`。
-  更硬的判据是用产物本身跑 `NeonBoard.exe --plugin-report`，看 `agentProfiles.effective[].source`
-  是否出现 `plugin`（全 `builtin` 就是没读到插件目录）。
+  更硬的判据是用产物本身跑 `NeonBoard.exe --plugin-report`，看 `declared[]` / `effective[]`
+  的 `source` 是不是 `appdir`（安装目录 = 唯一随分发的那份；`official` 是源码树的 `plugins/`，
+  `sample` 是示例，`appdata` 是用户自己装的）。
+  > 这段原写作「source 是否出现 `plugin`」—— 没有这个取值，照它验永远对不上。
+  > 已在 DX-19 更正为四值口径，别再改回去。
 - **根因**：`scripts/deploy.ps1` 里只写了 `Copy-Item plugins-samples\*`，官方插件那一行从来没写。
   构建不会因此变红 —— 它只是少拷了一个目录。
 - **后果比「少几个插件」严重**：`agent-bridge` 缺席意味着「agent 投 `agent-task-event` → 自动建卡 /
   流转 / 对账」整条链路在安装版上**从未工作过**；而开发机因为读仓库目录，永远测不出来。
-- **解法 / 预防**：`deploy.ps1` 同时拷 `plugins\*` 与 `plugins-samples\*`，并在拷贝后**紧跟一道对齐
-  自检**：以仓库 `plugins/` 的实际目录为准（不写死清单），逐个检查 `dist/plugins/<名字>` 存在且
-  有 `plugin.json`，缺一个就 `throw`。
+- **解法 / 预防**：`deploy.ps1` 同时拷 `plugins\*` 与 `plugins-samples\*`，打包后立刻跑
+  `scripts/check_dist.py` —— 一份**显式清单**，缺一即 `throw`。清单分两类来源：
+  - 插件两批**以磁盘为准**（`plugins/` 与 `plugins-samples/` 下每个目录都要在产物里且有
+    `plugin.json`），所以以后新增插件不用改清单，也就不会「忘了同步清单」；
+  - Qt 运行时以**最小集**为准（exe、Qt6Core/Gui/Qml/Quick/QuickControls2/Network/Sql、
+    `platforms/qwindows.dll`、`sqldrivers/qsqlite.dll`、`qml/QtQuick`），因为 windeployqt
+    的产物集合随版本变，写死全量会天天误报。
+  `deploy` / CI / release 三处共用这一份判据；它也能对任意已存在的 dist 目录单独复跑
+  （`--dir`），不必重跑构建 —— 产物验收的前提就是检查器能脱离构建过程独立执行。
 - **判断这类问题的通用办法**：**验收必须用产物本身，不能只跑源码树** —— 凡是「拷文件」的环节
   （插件、资源、翻译、运行时 DLL），源码树里一切正常而产物里缺东西，是同一个失效模式。
+  边界要说清：`shaders/` 与 `qml/` 已由 `qt_add_shaders` / `qt_add_qml_module` 内嵌进
+  `qrc`，不需要随包拷；真正需要额外拷贝的只有两批插件。
 
 ---
 

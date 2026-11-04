@@ -112,25 +112,16 @@ New-Item -ItemType Directory -Path $plugins -Force | Out-Null
 Copy-Item -Path (Join-Path $root 'plugins\*') -Destination $plugins -Recurse -Force
 Copy-Item -Path (Join-Path $root 'plugins-samples\*') -Destination $plugins -Recurse -Force
 
-# 对齐自检：仓库 plugins/ 下每个插件目录都必须在 dist 里、且有 plugin.json。
-# 以磁盘为准、不写死清单 —— 以后新增插件不用改这里，也不会出现「忘了同步清单」。
-$expectedPlugins = @(Get-ChildItem -LiteralPath (Join-Path $root 'plugins') -Directory |
-    Select-Object -ExpandProperty Name)
-$missingPlugins = @()
-foreach ($name in $expectedPlugins) {
-    $target = Join-Path $plugins $name
-    if (-not (Test-Path -LiteralPath $target)) {
-        $missingPlugins += "$name（目录缺失）"
-        continue
-    }
-    if (-not (Test-Path -LiteralPath (Join-Path $target 'plugin.json'))) {
-        $missingPlugins += "$name（缺 plugin.json）"
-    }
+# 对齐自检（DX-29）：清单在 scripts/check_dist.py 里，一份实现三处复用
+# （deploy 打包后 / CI 上传 artifact 前 / release 压缩前），判据不会各写一套。
+# 它不只查插件：exe、Qt 关键 DLL、platforms、sqldrivers、qml 模块根、0 字节文件
+# 都在同一张清单里 —— 那几类缺失的故障是「装完直接打不开」，比少几个插件更严重。
+# 这里不复制清单逻辑，也不容忍失败：产物不完整就不该进 dist。
+$checkDist = Join-Path $root 'scripts\check_dist.py'
+& python $checkDist --dir $dist
+if ($LASTEXITCODE -ne 0) {
+    throw ("打包产物未通过清单校验（退出码 $LASTEXITCODE）。" +
+        "缺项见上方输出，判定口径见 docs/pitfalls.md「凡拷文件环节都必须用产物验收」。")
 }
-if ($missingPlugins.Count -gt 0) {
-    throw ("打包产物缺官方插件：" + ($missingPlugins -join '、') +
-        "。仓库 plugins/ 与 dist/plugins 必须对齐（见 docs/pitfalls.md §3.14）。")
-}
-Write-Host ("Official plugins bundled ({0}): {1}" -f $expectedPlugins.Count, ($expectedPlugins -join ' / '))
 
 Write-Host "Portable build ready: $dist"

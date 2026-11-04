@@ -585,6 +585,70 @@
             "stage": "DX",
             "title": "src/ 目录硬编码路径引用无守卫，拆目录必断链"
         },
+        "DX-23": {
+            "acceptance": [
+                "新增 -Audit 开关：逐个 worktree 输出三项判据 —— 未推送提交数（rev-list --count HEAD --not --remotes=origin）、未提交改动数（status --porcelain 含 untracked）、是否 detached（symbolic-ref 读不到分支名）",
+                "三项全 0 且不是当前目录时标「可删」，并打印可直接复制的回收命令（git worktree remove <路径>）",
+                "任一非 0 标「保留」并说明是哪一项拦住的，不打印回收命令",
+                "从 .git/agent-workspace.json 读该 worktree 的占用登记，输出 agent / since 时间戳；无登记则标「无登记」，让归属有客观依据而不是靠回忆",
+                "发现登记存在但目录已删（僵尸登记）时单独列出，并打印清理命令（agent-workspace.ps1 -Action Release -Agent <名> -Scope worktree:<名>）",
+                "不改变默认行为：不带 -Audit 时仍是原来的「超时未活动」报告，agent-status.ps1 的调用不受影响",
+                "-Audit 模式恒退 0（它只做报告，清理由人决定），与默认模式的「有超时即退 1」区分开"
+            ],
+            "depends": [],
+            "id": "DX-23",
+            "note": "现有脚本只回答「这个 worktree 多久没动了」，回答不了「能不能删」。而真正要删之前必须确认三件事：有没有未推送的提交、有没有没提交的改动、是不是停在 detached HEAD 上。这三点都是可判定的，却每次靠人手工敲三条 git 命令（2026-11-04 清历史 worktree 时逐个敲过一遍）。\\n\\n归属问题同样可判定：.git/agent-workspace.json 里每条登记都带 since 时间戳，谁在什么时候开的区一目了然。同类僵尸登记（目录已删、登记还在）也能靠「登记有、目录无」直接发现 —— 这正是 DX-05 之后仍未自动清理的那类残留。\\n\\n边界：-Audit 只报告不删除。删除是不可逆操作，判定可以自动化，决定权不自动化。",
+            "scope": [
+                "scripts/check-worktree-activity.ps1"
+            ],
+            "stage": "DX",
+            "title": "worktree 巡检只看最后提交时间，判断不了「这个能不能删」"
+        },
+        "DX-24": {
+            "acceptance": [
+                "未显式传 -QtRoot 时，从 build/CMakeCache.txt 的 Qt6_DIR（形如 <Qt>/lib/cmake/Qt6）反推 Qt 根目录，补进 PATH",
+                "反推结果必须通过校验（存在 bin/windeployqt.exe 或 lib/cmake/Qt6/Qt6Config.cmake）才采用，否则退回「不补 PATH」并保持现有行为",
+                "CMakeCache.txt 缺失（没编译过）时不报错、不阻塞，静默跳过",
+                "显式 -QtRoot 仍然最优先，行为与现在完全一致（不改变既有调用方语义）",
+                "QtRoot 探测结果打印到日志（DarkGray 一行），失败时说明「未探测到 Qt，若 selftest 报 0xC0000135 请传 -QtRoot」",
+                "实测：在 .worktrees/<agent> 下不带 -QtRoot 跑全量 verify.ps1，--selftest 不再报 0xC0000135"
+            ],
+            "depends": [],
+            "id": "DX-24",
+            "note": "build.ps1 自己会解析 Qt 路径（-QtRoot → NEONBOARD_QT_ROOT → QT_ROOT → dev-env.ps1 → C://Qt 下最新版本），所以编译那步从来不缺 Qt。缺的只有 verify.ps1 主进程：它只把自己收到的 -QtRoot 加进 PATH，收不到就没加，于是随后直接跑的 NeonBoard.exe 找不到 Qt6Core.dll，报 0xC0000135（0xC0000135 = STATUS_DLL_NOT_FOUND）。\\n\\n症状是「编译通过、自检崩溃」，看起来像代码坏了。worktree 里必现，因为新工作区没有继承任何 Qt 环境变量，而锚点区往往手工设过。\\n\\n信息本来就在手边：CMakeCache.txt 里的 Qt6_DIR 就是 configure 时用的那个 Qt，反推三级即根目录。同 DX-20/21 一类 —— 可以推断的事不该要求人再传一遍。",
+            "scope": [
+                "scripts/verify.ps1"
+            ],
+            "stage": "DX",
+            "title": "verify.ps1 只认显式 -QtRoot，worktree 里必现 0xC0000135"
+        },
+        "DX-25": {
+            "acceptance": [
+                "新增 scripts/check_board_diff.py --base <ref>：比较 base 版与当前 HEAD 版 docs/board-ledger.json，按差异类型分三档处置",
+                "改动了既有卡（stage/title/scope/depends/acceptance/note 任一字段变化）或删卡 → 输出变化摘要并退 2，提示「卡片契约变化是 tst_projectmap 的输入，必须跑全量 verify.ps1」",
+                "新增卡且 stage 是既有取值 → 判为正常立卡，走派生一致性（不逼人全量）；新增卡带陌生 stage → 退 2（roadmap 里未必有对应行，正是 stage 顺序断言会红的情形）",
+                "cards 无变化、只有 baseline / claims 变化 → 子进程调 derive_board_status.py --check，不一致退 1 并原样转发其诊断输出",
+                "台账根本没改（或 base 里没有该文件）→ 退 0 静默",
+                "--selftest 覆盖五类：卡片新增 / 卡片字段改动 / 仅 baseline 改动 / 仅 claims 改动 / 未改动，全部用临时文件构造，不依赖仓库状态",
+                "verify.ps1 -ScriptOnly 接入：退 1 时 Fail（派生不一致），退 2 时 Fail 并点明「需全量」；退 0 放过，日志一行说明走了哪一档",
+                "实测：改一张卡的 stage 后跑 -ScriptOnly 被拦下并指出卡号；改 baseline 但不同步快照被 derive 拦下；只改脚本时该步不产生额外输出"
+            ],
+            "depends": [
+                "DX-24"
+            ],
+            "id": "DX-25",
+            "note": "docs/board-ledger.json 看起来像文档，实际是 tst_projectmap 的测试输入（它读 stage 排序、把 baseline 当 done 判据、校验 cards 与 roadmap 行对应）。改了它而只跑 -ScriptOnly，本地全绿、CI 红 —— 主线被弄红过一次就是这条路径。\\n\\n但反过来「改台账就全量」也太重：全量要编译 3.3 分钟。实测增量构建 196 秒、冷启动 3.8 分钟，把它塞进 -ScriptOnly 会让「两秒验收」失去意义。\\n\\n所以按「改了什么」分流：只动 baseline / claims 的（结卡、领用登记，最高频）派生一致性由 derive_board_status.py --check 覆盖，秒级；动了 cards 结构的（立卡、改 scope、改 stage，低频但影响 tst_projectmap）才要求全量。判定是机械的（比 JSON），不需要人记。\\n\\n边界：本脚本不做 tst_projectmap 的等价校验，只决定「这一档够不够」。真校验仍在编译产物里。\\n\\n实施调整（2026-11-04）：原 acceptance 写的是「cards 有任何变化就退 2」，实测发现它会让**任何含立卡的分支永久失去 -ScriptOnly** —— 立卡是每张卡的必经步骤，必然改 cards，于是脚本卡的轻档形同虚设（DX-15 白做）。改为只对「改既有卡 / 删卡 / 陌生 stage」要求全量：这三类才是会让 roadmap 行与 stage 顺序对不上的操作。立卡照常走派生一致性，新增卡是否已在快照里由 derive --check 把关。",
+            "scope": [
+                "scripts/check_board_diff.py",
+                "scripts/verify.ps1",
+                "AGENTS.md",
+                "docs/task-card.md",
+                "docs/pitfalls.md",
+                "docs/git-workflow.md"
+            ],
+            "stage": "DX",
+            "title": "改台账后本地无任何提示，派生漂移只能等 CI 报红"
+        },
         "M01": {
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_pluginpackage --output-on-failure",
@@ -2791,6 +2855,25 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-23": {
+            "agent": "agent-dxp1",
+            "branch": "chore/dx-p1-programs",
+            "claimedAt": 1793764165,
+            "head": "a498b6ccd88cf55a5afcae51e9a9aa755f637fd7"
+        },
+        "DX-24": {
+            "agent": "agent-dxp1",
+            "branch": "chore/dx-p1-programs",
+            "claimedAt": 1793764171,
+            "head": "a498b6ccd88cf55a5afcae51e9a9aa755f637fd7"
+        },
+        "DX-25": {
+            "agent": "agent-dxp1",
+            "branch": "chore/dx-p1-programs",
+            "claimedAt": 1793764175,
+            "head": "a498b6ccd88cf55a5afcae51e9a9aa755f637fd7"
+        }
+    },
     "version": 1
 }

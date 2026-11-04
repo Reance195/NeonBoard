@@ -1,6 +1,42 @@
 {
     "items": [
         {
+            "code": "DX-32",
+            "completedAt": 0,
+            "createdAt": 1793781945,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-32",
+            "note": "board-apply.py 的 v1 是刻意只读的：当时判断「写台账是维护者授权动作，程序替人写字据之前要先让人看它 20 次输出对不对」。这个目的已经达到 —— 卡面 20 项校验在 DX-29 / R10 系列立卡中反复跑过，误报与漏报都收敛了。\n\n但只读留下一个真实摩擦：立卡仍在手贴 JSON + 手加 baseline。贴错要到下次派生才暴露，且「先开区后立卡」的顺序倒置正是从这里长出来的 —— 立卡需要一次提交，提交不能在主干，于是只能先开个区，而在那个区里再领卡就会缺 chore(claim) 凭据（dxp2 被 check_claim_refs.py 拦下的现场）。\n\n把落盘交给程序后，立卡与实现天然分成两条分支：立卡分支只改台账、合并即弃；实现分支从主干开、领用凭据完整。顺序不再靠人记。\n\n边界：程序不判断「这张卡该不该立」，只保证「立了之后台账仍然是纯增量、提交仍然带授权留痕」。授权来源与批次仍由人给，脚本只负责把它写进提交体，不替人承担判断。\n\n立卡的验收档位不重：check_board_diff.py 对「新增卡 + 已有 stage」判 derive 档（只需派生成快照），只有首次出现的 stage 才要全量 —— 因为那才会让 tst_projectmap 的 stageOrderFollowsRoadmaps 找不到对应行。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡只能手贴 JSON：程序会算「该不该立」，却不肯写下去",
+            "updatedAt": 1793781945
+        },
+        {
+            "code": "DX-33",
+            "completedAt": 0,
+            "createdAt": 1793781945,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-33",
+            "note": "DX-07 起「合入即结」：git-done 调 derive_board_status.py --close-cards，从 git 事实取最后一次 #<短号>=done 把 baseline 补成 done。这条链路的问题是它只处理「已经写了标记」的卡 —— 没写标记的卡一张都不结，而且收尾只在有结卡时才打印一行，没有就什么都不说。\n\n实测代价：干完活、合并、收尾全绿，卡还挂在 todo，下次有人接着领一遍重做（pitfalls 1.14 就是这个）。而 agent 侧看到「✓ 合并完成」会以为流程走完了。\n\n程序能判的部分是「领了没结」这个差集 —— 它不需要理解验收内容，只需要比对两份名单。程序判不了的是「acceptance 到底满不满足」，所以这里只做对账与出声，拍板仍通过提交标记或 -Close 显式声明，且两者都必须留痕。\n\n不做「按 acceptance 自动判定完成」：验收项是自然语言 + 命令混合，机器判定会退化成关键词匹配，比不判更危险。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "领了卡没写 =done，收尾一声不响就放行",
+            "updatedAt": 1793781945
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3085,6 +3121,6 @@
             "updatedAt": 1793767358
         }
     ],
-    "updated": "2026-11-04T13:05:34",
+    "updated": "2026-11-04T16:45:45",
     "version": 3
 }

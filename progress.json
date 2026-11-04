@@ -55,42 +55,6 @@
             "updatedAt": 1793813175
         },
         {
-            "code": "R16-02",
-            "completedAt": 0,
-            "createdAt": 1793814339,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R16-02",
-            "note": "起因：applyItem 对同一张卡最多 4 次独立写库（title/note/tags 各一次 updateTask + 一次 moveTaskToEnd），10 条批次最坏 40 次写，每次都触发模型信号与快照防抖链。合并字段类变更为一次 updateTask、状态变更单独一次 moveTaskToEnd，幂等语义不变（重复投递同 item 仍收敛）。顺手把 statusOf 未知上游状态从「回退 todo」改为「不动状态」，防止上游协议将来新增状态值把已完成卡打回待办。",
-            "orderKey": 7168,
-            "priority": 2,
-            "stage": "R16",
-            "status": "todo",
-            "tags": [
-                "R16"
-            ],
-            "title": "agent-bridge 对账降本：单卡字段合并一次写库 + 未知状态防御",
-            "updatedAt": 1793814339
-        },
-        {
-            "code": "R16-03",
-            "completedAt": 0,
-            "createdAt": 1793814339,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R16-03",
-            "note": "起因：agentbridge.<agent>.<sessionId>.<todoId> 映射只增不减，卡片删除后残留永久留在 meta 表；Database 只有 metaValue/set/remove（无枚举），插件想清扫无从下手。宿主加 metaKeys(prefix)（PluginContext / PluginHost 同步暴露，权限仍归 meta），agent-bridge 批次末尾顺带清扫「指向已不存在任务」的映射。schema 不动、user_version 不升。与 R16-02 同改 background.qml，串行避免行段冲突。",
-            "orderKey": 8192,
-            "priority": 2,
-            "stage": "R16",
-            "status": "todo",
-            "tags": [
-                "R16"
-            ],
-            "title": "meta 前缀枚举 API + agent-bridge 映射清扫",
-            "updatedAt": 1793814339
-        },
-        {
             "code": "R16-04",
             "completedAt": 0,
             "createdAt": 1793814339,
@@ -1090,6 +1054,24 @@
             "updatedAt": 1793730834
         },
         {
+            "code": "R16-02",
+            "completedAt": 1793817555,
+            "createdAt": 1793814339,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R16-02",
+            "note": "起因：applyItem 对同一张卡最多 4 次独立写库（title/note/tags 各一次 updateTask + 一次 moveTaskToEnd），10 条批次最坏 40 次写，每次都触发模型信号与快照防抖链。合并字段类变更为一次 updateTask、状态变更单独一次 moveTaskToEnd，幂等语义不变（重复投递同 item 仍收敛）。顺手把 statusOf 未知上游状态从「回退 todo」改为「不动状态」，防止上游协议将来新增状态值把已完成卡打回待办。",
+            "orderKey": 7168,
+            "priority": 2,
+            "stage": "R16",
+            "status": "done",
+            "tags": [
+                "R16"
+            ],
+            "title": "agent-bridge 对账降本：单卡字段合并一次写库 + 未知状态防御",
+            "updatedAt": 1793817555
+        },
+        {
             "code": "R0-09",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -1125,6 +1107,24 @@
             ],
             "title": "R6 Triage：只读分析生成执行草案",
             "updatedAt": 1793134268
+        },
+        {
+            "code": "R16-03",
+            "completedAt": 1793817555,
+            "createdAt": 1793814339,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R16-03",
+            "note": "起因：agentbridge.<agent>.<sessionId>.<todoId> 映射只增不减，卡片删除后残留永久留在 meta 表；Database 只有 metaValue/set/remove（无枚举），插件想清扫无从下手。宿主加 metaKeys(prefix)（PluginContext / PluginHost 同步暴露，权限仍归 meta），agent-bridge 批次末尾顺带清扫「指向已不存在任务」的映射。schema 不动、user_version 不升。与 R16-02 同改 background.qml，串行避免行段冲突。",
+            "orderKey": 8192,
+            "priority": 2,
+            "stage": "R16",
+            "status": "done",
+            "tags": [
+                "R16"
+            ],
+            "title": "meta 前缀枚举 API + agent-bridge 映射清扫",
+            "updatedAt": 1793817555
         },
         {
             "code": "R0-10",
@@ -3427,6 +3427,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T02:19:42",
+    "updated": "2026-11-05T02:39:15",
     "version": 3
 }

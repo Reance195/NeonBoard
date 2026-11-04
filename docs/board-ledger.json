@@ -3235,13 +3235,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "R5-10": {
-            "agent": "agent-r5fix",
-            "branch": "fix/installer-receipt-ansistring",
-            "claimedAt": 1793813121,
-            "head": "8eeacba156d9592abe2479235a7bec405eab3dff"
-        }
-    },
+    "claims": {},
     "version": 1
 }

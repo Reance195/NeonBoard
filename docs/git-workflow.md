@@ -106,6 +106,26 @@ git branch -d feature/task-tag-filter        # 删除已合并分支
 git log --oneline --graph -10
 ```
 
+#### 撞了冲突怎么办
+
+`docs/board-ledger.json` 的冲突几乎必然是「两边各加了几张卡 / 各结了几张卡」—— 语义上
+不冲突，但 git 按行合并会把 JSON 切成带冲突标记的两半，手工解极容易整段删掉某一方的卡。
+两阶段脚本把它拆开：
+
+```powershell
+pwsh -File scripts/merge-resolve.ps1 -Merge     # 合并停下时：台账走三路语义合并，其余列出
+git commit --no-edit                            # 提交信息的含义机器写不出来，自己写
+pwsh -File scripts/merge-resolve.ps1 -Recover   # 合并落地后：清 claims → 刷派生 → 校验 → 归位
+```
+
+- `-Merge` 只处理**有自动合并规则**的冲突（目前是台账 JSON）。其它文件逐个列成「需手工」，
+  按 §7.5 的纪律自己解 —— 脚本不会替你 `checkout --ours/--theirs`。
+- 台账的三路合并是**取并集**，不是二选一：`cards` 按 id、`baseline` / `claims` 按短号。
+  凡「保留 ours 而丢弃 theirs」的项都会逐条打出来 —— 自动合并可以替你做决定，但不能
+  悄悄替你做决定。合并结果先过结构校验（`baseline` 不许引用不存在的卡）才写回。
+- `-Recover` **不结卡**：写 `baseline` 意味着判定「这张卡做完了」，那是人的判断。
+  它只指出 `--check` 说还差哪几个短号，并给出补法。
+
 ### 4.（可选）推送
 
 当前仓库为纯本地仓库，尚未配置远程。将来接入远程后：

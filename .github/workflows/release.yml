@@ -150,24 +150,114 @@ jobs:
           "PORTABLE_ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "版本 $version / 便携包 $((Get-Item $zip).Length / 1MB) MB"
 
+      - name: 查询并下载上一版本便携包
+        id: prev-release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 增量包要拿「上一版的文件集合」做对比，而 fresh runner 的 dist/ 里只有本次产物 ——
+          # 上一版本的 portable.zip 只存在于 Release 资产上，必须回头下载，不能在工作区里找。
+          # step output 只认 $env:GITHUB_OUTPUT：`Write-Output "value=x"` 不会填进
+          # steps.<id>.outputs.<name>，下一步永远取到空串，整条增量链路静默跳过。
+          $prevVersion = ''
+          $prevZip = ''
+          $headers = @{
+            'Authorization' = "Bearer $env:GITHUB_TOKEN"
+            'Accept'        = 'application/vnd.github+json'
+          }
+          try {
+            $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases" `
+              -Headers $headers -ErrorAction Stop
+            $prev = $releases |
+              Where-Object { -not $_.draft -and -not $_.prerelease -and $_.tag_name -ne $env:RELEASE_TAG } |
+              Sort-Object { [DateTime]$_.published_at } -Descending |
+              Select-Object -First 1
+            $asset = $null
+            if ($prev) {
+              $asset = $prev.assets | Where-Object { $_.name -like 'NeonBoard-*-portable.zip' } |
+                Select-Object -First 1
+            }
+            if (-not $asset) {
+              Write-Host "ℹ 没有可对比的上一版本便携包（首次发布，或旧 release 没带 portable 资产）" -ForegroundColor Gray
+            } else {
+              $prevVersion = $prev.tag_name.TrimStart('v')
+              $prevZip = Join-Path $PWD "dist\$($asset.name)"
+              $dl = $headers.Clone()
+              $dl['Accept'] = 'application/octet-stream'
+              Invoke-WebRequest -Uri $asset.url -Headers $dl -OutFile $prevZip -ErrorAction Stop
+              Write-Host "✓ 上一版本 $prevVersion 的便携包已下载：$((Get-Item $prevZip).Length / 1MB) MB" -ForegroundColor Green
+            }
+          } catch {
+            # 增量是带宽优化，不是发布前提：查不到就只出全量包，别让一次 API 抖动红掉整条发布
+            Write-Host "⚠ 查询/下载上一版本失败：$($_.Exception.Message)，本次跳过增量包" -ForegroundColor Yellow
+            $prevVersion = ''
+            $prevZip = ''
+          }
+          "prev-version=$prevVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "prev-zip=$prevZip" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: 生成增量升级包（R5-07）
+        if: steps.prev-release.outputs.prev-version != ''
+        shell: pwsh
+        run: |
+          # neonboard-delta-tool 链了 Qt6::Core，PATH 里没有 Qt bin 会以 0xC0000135 直接死掉
+          # （看着像「脚本写坏了」），与上面「数据层自检」同一口径补齐。
+          $env:PATH = "$env:QT_ROOT_DIR\bin;$env:PATH"
+          $prevVersion = '${{ steps.prev-release.outputs.prev-version }}'
+          $prevZip = '${{ steps.prev-release.outputs.prev-zip }}'
+          $prevDir = Join-Path $PWD 'dist\NeonBoard-prev'
+          $deltaDir = Join-Path $PWD 'dist\delta'
+
+          Expand-Archive -LiteralPath $prevZip -DestinationPath $prevDir -Force
+
+          # diff + bsdiff + 打包 + 清单条目，只有 scripts/build-delta.ps1 一份实现，
+          # 这里只负责把新旧目录和版本号喂给它
+          pwsh -NoProfile -File scripts\build-delta.ps1 `
+            -FromDir $prevDir `
+            -ToDir (Join-Path $PWD 'dist\NeonBoard') `
+            -FromVersion $prevVersion `
+            -ToVersion $env:RELEASE_VERSION `
+            -OutDir $deltaDir
+          if ($LASTEXITCODE -ne 0) { throw "增量包生成失败（退出码 $LASTEXITCODE）" }
+
+          # 落到 dist/delta.zip：清单里的 url 与 Release 资产名都取这个文件名
+          Move-Item -LiteralPath (Join-Path $deltaDir 'delta.zip') -Destination (Join-Path $PWD 'dist\delta.zip') -Force
+          Remove-Item -LiteralPath $prevDir -Recurse -Force
+          "DELTA_ZIP=$(Join-Path $PWD 'dist\delta.zip')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DELTA_FROM_VERSION=$prevVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host ("✓ 增量包 {0:N1} KB（$prevVersion → $env:RELEASE_VERSION）" -f `
+            ((Get-Item 'dist\delta.zip').Length / 1KB)) -ForegroundColor Green
+
       - name: 生成更新清单
         shell: pwsh
         run: |
           $setup = Get-ChildItem -Path 'dist' -Filter 'NeonBoard-Setup-*.exe' | Select-Object -First 1
           if (-not $setup) { throw '找不到安装包（NeonBoard-Setup-*.exe）' }
           $base = "https://github.com/Reance195/NeonBoard/releases/download/$env:RELEASE_TAG"
-          pwsh -NoProfile -File scripts\build-update-manifest.ps1 `
-            -Version $env:RELEASE_VERSION `
-            -Setup $setup.FullName `
-            -Portable $env:PORTABLE_ZIP `
-            -DownloadBase $base `
-            -HtmlUrl 'https://github.com/Reance195/NeonBoard/releases/latest' `
-            -Notes "完整变更记录：https://github.com/Reance195/NeonBoard/commits/$env:RELEASE_TAG" `
-            -OutFile 'update.json'
-          if (-not (Test-Path -LiteralPath 'update.json')) { throw '更新清单未生成' }
-          Get-Content 'update.json'
 
-          # Release 正文必须带上两行校验值：客户端回退到 GitHub Releases API 时
+          # 清单 schema 只有 scripts/build-update-manifest.ps1 一份实现：客户端按
+          # artifacts[].{kind,url,sha256,size,fromVersion} 解析，还会防「单元素数组塌成对象」。
+          # 在这里手搓一份等于开第二条漂移路径，且脚本的 -DeltaZip 参数会退化成死代码。
+          $manifestArgs = @{
+            Version      = $env:RELEASE_VERSION
+            Setup        = $setup.FullName
+            Portable     = $env:PORTABLE_ZIP
+            DownloadBase = $base
+            HtmlUrl      = 'https://github.com/Reance195/NeonBoard/releases/latest'
+            Notes        = "完整变更记录：https://github.com/Reance195/NeonBoard/commits/$env:RELEASE_TAG"
+            OutFile      = 'update.json'
+          }
+          if ($env:DELTA_ZIP -and (Test-Path -LiteralPath $env:DELTA_ZIP)) {
+            $manifestArgs['DeltaZip'] = $env:DELTA_ZIP
+            $manifestArgs['DeltaFromVersion'] = $env:DELTA_FROM_VERSION
+          }
+          & scripts\build-update-manifest.ps1 @manifestArgs
+
+          if (-not (Test-Path -LiteralPath 'update.json')) { throw '更新清单未生成' }
+          Get-Content 'update.json' | Write-Host
+
+          # Release 正文必须带上每个产物一行的校验值：客户端回退到 GitHub Releases API 时
           # 只拿得到 tag 与正文，拿不到 update.json，SHA-256 只能从正文里抠。
           # 不带的话，回退路径下完包会因为「清单未提供校验值」而中止 —— 安全策略
           # 不放行无校验的安装，这条回退路就形同废掉。
@@ -209,16 +299,31 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # 增量包单独一步：首次发布没有 delta.zip，把它塞进上面那个 if-no-files-found: error
+      # 的列表里，会让第一次出包直接红掉
+      - name: 上传增量包产物
+        if: env.DELTA_ZIP != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeonBoard-delta-${{ github.sha }}
+          path: dist/delta.zip
+          if-no-files-found: error
+          retention-days: 30
+
       - name: 发布 GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           # 正文自带校验值（见上一步），这也是 API 回退路径唯一的校验值来源
           body_path: dist/RELEASE-NOTES.md
+          # 客户端拿清单里的 delta.url 拼出 releases/download/<tag>/delta.zip，
+          # 所以这个资产必须真的挂上去 —— 没挂上就是 404，增量白做。
+          # glob 不匹配时 softprops 只告警不失败（fail_on_unmatched_files 默认 false）。
           files: |
             dist/NeonBoard-Setup-*.exe
             dist/NeonBoard-*-portable.zip
             dist/BUILD-INFO.txt
+            dist/delta*.zip
             update.json
 
       - name: 回写更新清单到仓库

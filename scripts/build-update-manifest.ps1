@@ -4,7 +4,7 @@
     生成 NeonBoard 的软件更新清单 update.json。
 
 .DESCRIPTION
-    计算安装包 / 便携压缩包的 SHA-256 与体积，写出客户端可读的更新清单。
+    计算安装包 / 便携压缩包 / 增量包的 SHA-256 与体积，写出客户端可读的更新清单。
 
     清单被消费的方式有两路，脚本两者都照顾到：
       1. 直接拉 update.json（推荐，可托管在 Gitee raw 保证国内可达）；
@@ -14,6 +14,11 @@
 
     -DownloadBase 留空时，url 只写文件名 —— 客户端会按清单所在目录解析，
     适合把 update.json 与产物放在同一处（自建源 / 本地测试）。
+
+    支持三类产物：
+      · setup     → Inno Setup 安装包
+      · portable  → 便携版 zip 压缩包
+      · delta     → 增量包（需同时提供 DeltaZip 和 DeltaFromVersion）
 
 .EXAMPLE
     pwsh -File scripts/build-update-manifest.ps1 -Version 0.2.0 `
@@ -30,6 +35,10 @@ param(
     [string]$Setup,
     # 便携版压缩包；不存在则清单里不含 portable 条目
     [string]$Portable,
+    # 增量包文件路径；如果提供，会作为 delta 条目加入清单
+    [string]$DeltaZip = '',
+    # 增量包的 fromVersion；与 DeltaZip 一起使用，指定哪些客户端可以走增量
+    [string]$DeltaFromVersion = '',
     # 下载基址（如 https://host/releases/download/v0.2.0）；留空则只写文件名
     [string]$DownloadBase,
     [string]$OutFile = 'update.json',
@@ -66,8 +75,14 @@ function Get-ArtifactEntry {
     }
 }
 
-if ([string]::IsNullOrWhiteSpace($Setup) -and [string]::IsNullOrWhiteSpace($Portable)) {
-    throw 'Setup 与 Portable 至少要给一个，否则清单没有任何可下载产物。'
+if ([string]::IsNullOrWhiteSpace($Setup) -and [string]::IsNullOrWhiteSpace($Portable) `
+    -and [string]::IsNullOrWhiteSpace($DeltaZip)) {
+    throw 'Setup / Portable / DeltaZip 至少要给一个，否则清单没有任何可下载产物。'
+}
+
+# ---- 增量包参数校验（可选但一旦提供则需成对出现）----
+if ((-not [string]::IsNullOrWhiteSpace($DeltaZip)) -ne (-not [string]::IsNullOrWhiteSpace($DeltaFromVersion))) {
+    throw 'DeltaZip 与 DeltaFromVersion 必须同时提供或同时为空。'
 }
 
 # 更新说明：优先用 -NotesFile（CI 里常见），其次 -Notes
@@ -84,12 +99,36 @@ if ($setupEntry) { $artifacts += $setupEntry }
 $portableEntry = Get-ArtifactEntry -Path $Portable -Kind 'portable'
 if ($portableEntry) { $artifacts += $portableEntry }
 
+# ---- 增量包条目（可选）----
+if (-not [string]::IsNullOrWhiteSpace($DeltaZip)) {
+    if (-not (Test-Path -LiteralPath $DeltaZip)) {
+        Write-Warning "产物不存在，已跳过 delta：$DeltaZip"
+    } else {
+        $item = Get-Item -LiteralPath $DeltaZip
+        $hash = (Get-FileHash -LiteralPath $DeltaZip -Algorithm SHA256).Hash.ToLowerInvariant()
+        $name = $item.Name
+        $url = if ($DownloadBase) { "$($DownloadBase.TrimEnd('/'))/$name" } else { $name }
+
+        # 增量条目排在最前：客户端先试增量、失败才回退全量，读起来也和下载顺序一致
+        $artifacts = @([ordered]@{
+            kind        = 'delta'
+            url         = $url
+            sha256      = $hash
+            size        = $item.Length
+            fromVersion = $DeltaFromVersion
+        }) + $artifacts
+
+        Write-Host "`n· 增量包已加入清单：" -ForegroundColor Cyan
+        Write-Host ("  delta.zip : {0:N1} KB, fromVersion: {1}" -f ($item.Length / 1KB), $DeltaFromVersion) -ForegroundColor Gray
+    }
+}
+
 if ($artifacts.Count -eq 0) { throw '没有任何产物被写入清单（路径都不存在）。' }
 
 # 注意：校验值只写进 artifacts 字段，不再往 notes 里拼。
 # 客户端读 update.json 时直接用 artifacts[].sha256；只有「回退到 GitHub Releases API」
 # 那条路才需要从说明文本里抓 setup-sha256 / portable-sha256，
-# 而那条路拿到的是 Release 正文，不是这份清单 —— 所以两行校验值由 release.yml
+# 而那条路拿到的是 Release 正文，不是这份清单 —— 所以每个产物一行的校验值由 release.yml
 # 写进 Release 正文。之前把它们拼进 notes，等于写错了地方：
 # 清单路径用不上，Settings 面板还会把这两行当作「更新日志」显示给用户。
 

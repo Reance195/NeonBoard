@@ -43,6 +43,9 @@
         "DX-41": "todo",
         "DX-42": "todo",
         "DX-43": "todo",
+        "DX-45": "todo",
+        "DX-46": "todo",
+        "DX-47": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1042,6 +1045,47 @@
             ],
             "stage": "DX",
             "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用"
+        },
+        "DX-45": {
+            "acceptance": [
+                "scripts/nbflow.py cmd_approve 里不再有独立的 git push -u origin <branch> 步骤；收尾统一交给 scripts/git-done.ps1 -Branch <boardBranch>（remote 模式：合入 origin/main + 快进推 + 删分支）",
+                "python scripts/nbflow.py --selftest 全绿；一次真实沙箱立卡（新批次）跑到 state=created，git log origin/main 能看到 chore(board) 立卡提交合入"
+            ],
+            "depends": [],
+            "id": "DX-45",
+            "note": "触发证据：本会话 nbflow approve --cards DX-41 时：board-apply.py 落 commit 91a2a15 成功，紧接 git -C <worktree> push -u origin chore/board-a-6-replay 被 pre-push 规则 1 拒（分支尚未合并进 main，禁止推送），nbflow 退出码 2 停在 created。绕开方式：手工 git-done.ps1 -Branch <boardBranch>，杂务 diff 自动豁免 claim 闸门。修向：approve 收尾直接调 git-done，别再自己 push。\n\n## 目标\nnbflow approve 收尾推分支撞 pre-push 规则 1，立卡提交只能手工 git-done 绕开\n\n## 验收\nscripts/nbflow.py cmd_approve 里不再有独立的 git push -u origin <branch> 步骤；收尾统一交给 scripts/git-done.ps1 -Branch <boardBranch>（remote 模式：合入 origin/main + 快进推 + 删分支）; python scripts/nbflow.py --selftest 全绿；一次真实沙箱立卡（新批次）跑到 state=created，git log origin/main 能看到 chore(board) 立卡提交合入\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/nbflow.py"
+            ],
+            "stage": "DX",
+            "title": "nbflow approve 收尾推分支撞 pre-push 规则 1，立卡提交只能手工 git-done 绕开"
+        },
+        "DX-46": {
+            "acceptance": [
+                "python scripts/board-apply.py <manifest> --commit --authorize --batch 不设 PYTHONIOENCODING 直接在 GBK 控制台跑，中文与 ✓/✗ 正常打印、退出码正确；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿；nbflow approve 调用 board-apply 时不再需要外部设 env 兜住"
+            ],
+            "depends": [],
+            "id": "DX-46",
+            "note": "触发证据：本会话 nbflow approve 时：board-apply.py 已经把 ledger 与 baseline 写完并落 commit（91a2a15），最后一步 print('✓ 已写入 %s...') 在 Windows 默认 GBK 控制台抛 UnicodeEncodeError: 'gbk' codec can't encode character '\\u2713'，进程退出码非 0，nbflow 判为失败。同批派生器 derive_board_status.py main() 开头已经 sys.stdout/stderr.reconfigure(encoding='utf-8', errors='replace')，board-apply.py 漏了。当前绕开：调用方加 PYTHONIOENCODING=utf-8 前缀。\n\n## 目标\nboard-apply.py 未 reconfigure UTF-8，GBK 控制台打 ✓ 抛 UnicodeEncodeError 让 nbflow 误判失败\n\n## 验收\npython scripts/board-apply.py <manifest> --commit --authorize --batch 不设 PYTHONIOENCODING 直接在 GBK 控制台跑，中文与 ✓/✗ 正常打印、退出码正确；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿；nbflow approve 调用 board-apply 时不再需要外部设 env 兜住\n\n## 边界\nscripts/board-apply.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/board-apply.py"
+            ],
+            "stage": "DX",
+            "title": "board-apply.py 未 reconfigure UTF-8，GBK 控制台打 ✓ 抛 UnicodeEncodeError 让 nbflow 误判失败"
+        },
+        "DX-47": {
+            "acceptance": [
+                "scripts/nbflow.py REQUEST_DIR 与 handoff_path 都不再指向工作树；handoff 落 <worktree>/.sandbox/artifacts/handoff.json，请求单落 .git/neonboard-flow/requests/*.md（approve 时把当批请求单一次性合入 chore(board) 提交的分支也算通过，二选一由实施者决定）",
+                "python scripts/nbflow.py --selftest 补一条「产物路径不越出 .git / .sandbox」用例并全绿；完整跑一次 authorize→request→approve→dispatch→close，锚点 git status --porcelain 只剩 progress.json，agent worktree 只剩沙箱目录内的产物"
+            ],
+            "depends": [],
+            "id": "DX-47",
+            "note": "触发证据：本会话合并 DX-41 前：锚点工作树出现未跟踪 docs/card-requests/20261105-board-tip-only-check.md（另一会话留下），git-done 报「当前工作区有未提交改动（progress.json 之外）」退出码 1。我把文件 park 到 .git/neonboard-flow/parked/ 才跑通，合完再放回原位。同类：agent-dx41 worktree 根留下未跟踪 handoff.json，git-done 报「跳过清理 ... 1 项未提交改动」，branch 删不掉。AGENTS.md §7.6 明确「会话产物只往 NB_SESSION_ARTIFACT_DIR 写」，§11.2 第 6 条只放行 progress.json。修向：请求单改落 .git/neonboard-flow/requests/*.md，或在 approve 里把当批请求单合入 chore(board) 提交；handoff.json 改落 <worktree>/.sandbox/artifacts/handoff.json。\n\n## 目标\nnbflow 请求单与 handoff.json 落工作树，挡住 git-done §11.2 未提交只允许是快照的 pre-check\n\n## 验收\nscripts/nbflow.py REQUEST_DIR 与 handoff_path 都不再指向工作树；handoff 落 <worktree>/.sandbox/artifacts/handoff.json，请求单落 .git/neonboard-flow/requests/*.md（approve 时把当批请求单一次性合入 chore(board) 提交的分支也算通过，二选一由实施者决定）; python scripts/nbflow.py --selftest 补一条「产物路径不越出 .git / .sandbox」用例并全绿；完整跑一次 authorize→request→approve→dispatch→close，锚点 git status --porcelain 只剩 progress.json，agent worktree 只剩沙箱目录内的产物\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/nbflow.py"
+            ],
+            "stage": "DX",
+            "title": "nbflow 请求单与 handoff.json 落工作树，挡住 git-done §11.2 未提交只允许是快照的 pre-check"
         },
         "M01": {
             "acceptance": [

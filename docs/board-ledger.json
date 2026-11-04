@@ -39,6 +39,7 @@
         "DX-37": "todo",
         "DX-38": "todo",
         "DX-39": "todo",
+        "DX-40": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -972,6 +973,22 @@
             ],
             "stage": "DX",
             "title": "DX 启动闪屏动画与进度条同卡：渲染绑在主线程，遇同步阻塞整幅画面冻住"
+        },
+        "DX-40": {
+            "acceptance": [
+                "python scripts/task_gate.py selftest 全过，新增用例覆盖：chore(claim)/(roadmap) 只动非代码路径放行、卷入代码路径时 commit-msg 与 push 两侧都按普通代码提交校验",
+                "脏树领用被拒：在含未提交改动的检出里跑 agent-init.ps1 -InPlace -Card <短号> 退出码 3 且列出脏文件；干净检出正常领用；幂等门（已领跳过）不受影响",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过（含 check_script_hygiene 的 BOM 检查）"
+            ],
+            "depends": [],
+            "id": "DX-40",
+            "note": "起因（R16-05 实测披露）：agent-init -InPlace 领用提交（chore(claim)）用裸 git commit，把当时工作区未提交的实现改动一并卷进流程提交（032efd8 卷走 7 个文件）；而 task_gate.py 的 cmd_message / cmd_push 对 PROCESS_SCOPES（claim / roadmap）无条件放行，不校验是否触及代码路径——代码搭流程提交便车，双闸门均不可见。修复两层：①agent-init 领用前要求工作树干净（fail-closed，exit 3，列脏文件；.agent-env.ps1 / .sandbox 均在 gitignore 不受影响）；②闸门豁免收口为「只豁免非代码路径」，流程提交触及代码即按普通代码提交校验短号与占位。幂等门（已领跳过）不受影响。另记独立问题：git-done 从 worktree 运行时锚点快进落到调用方检出，不在本卡范围。",
+            "scope": [
+                "scripts/agent-init.ps1",
+                "scripts/task_gate.py"
+            ],
+            "stage": "DX",
+            "title": "流程提交豁免收口：agent-init 拒绝脏树领用，闸门对卷入代码的流程提交失效"
         },
         "M01": {
             "acceptance": [

@@ -406,12 +406,28 @@ if ($Card) {
     # 幂等门：本分支历史里已有该短号的领用提交 → 不重复领用。
     # DX-40：主题串含中文，git 的 UTF-8 输出会被 PS 按控制台代码页（GBK）解码成乱码
     #（DX-33 同源问题），精确匹配必失 —— 改用 ASCII 稳定片段（短号）做正则匹配。
+    # DX-35：历史命中后还要看**服务端事实**——新分支从 main 切出来会继承全部历史，
+    # 卡合并后占位被 git-done 释放，历史里的领用提交却还在，按旧逻辑判「已在本分支
+    # 领用」直接跳过，同一张卡再也领不回来（R5-10 现场），只能直调 claim-card.py
+    # 绕过唯一入口。占位已释放（ls-remote --exit-code 退 2）→ 放行重新登记并重推占位；
+    # 占位仍在 → 跳过；网络不可用（其它退出码）→ 保守当仍被占用（fail-closed，
+    # 离线时 claim-card 的占位推送本来也走不通）。
     $claimPattern = 'chore\(claim\):.*#' + [regex]::Escape($code) + '\b'
     $alreadyClaimed = @(& git -C $worktree log --format=%s 2>$null) |
         Where-Object { $_ -match $claimPattern }
     if ($alreadyClaimed) {
-        Write-Host ("· #{0} 已在本分支领用，跳过重复登记（一分支多卡允许，只补缺的卡）" -f $code) -ForegroundColor DarkGray
-        $Card = ''
+        & git ls-remote --exit-code origin ("refs/claims/{0}" -f $code) *> $null
+        $refState = $LASTEXITCODE
+        if ($refState -eq 2) {
+            Write-Host ("· #{0} 的服务端占位已释放（旧领用随合并/放弃失效），放行重新登记（DX-35）" -f $code) -ForegroundColor DarkGray
+        } else {
+            if ($refState -ne 0) {
+                Write-Host ("· 无法确认 #{0} 的占位状态（ls-remote 退出码 {1}），保守跳过" -f $code, $refState) -ForegroundColor Yellow
+            } else {
+                Write-Host ("· #{0} 已在本分支领用且占位仍在，跳过重复登记（一分支多卡允许，只补缺的卡）" -f $code) -ForegroundColor DarkGray
+            }
+            $Card = ''
+        }
     }
 }
 

@@ -2989,13 +2989,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-31": {
-            "agent": "agent-dx31",
-            "branch": "chore/dx-marker-noise",
-            "claimedAt": 1793768589,
-            "head": "9773e5690c3d3db4173d89cf202f12cc5d95c91f"
-        }
-    },
+    "claims": {},
     "version": 1
 }

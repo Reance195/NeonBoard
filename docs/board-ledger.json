@@ -22,6 +22,9 @@
         "DX-20": "done",
         "DX-21": "done",
         "DX-22": "done",
+        "DX-23": "done",
+        "DX-24": "done",
+        "DX-25": "done",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -2855,25 +2858,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-23": {
-            "agent": "agent-dxp1",
-            "branch": "chore/dx-p1-programs",
-            "claimedAt": 1793764165,
-            "head": "a498b6ccd88cf55a5afcae51e9a9aa755f637fd7"
-        },
-        "DX-24": {
-            "agent": "agent-dxp1",
-            "branch": "chore/dx-p1-programs",
-            "claimedAt": 1793764171,
-            "head": "a498b6ccd88cf55a5afcae51e9a9aa755f637fd7"
-        },
-        "DX-25": {
-            "agent": "agent-dxp1",
-            "branch": "chore/dx-p1-programs",
-            "claimedAt": 1793764175,
-            "head": "a498b6ccd88cf55a5afcae51e9a9aa755f637fd7"
-        }
-    },
+    "claims": {},
     "version": 1
 }

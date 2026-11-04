@@ -784,7 +784,10 @@ if ($Mode -eq 'remote') {
         # plan-hook 才会把看板上的对应任务从 doing 挪到 done。
         # 以前只写「结卡 <短号>」（不带 #），钩子判不到标记，六张已交付的卡在看板上
         # 一直挂僵尸 doing（R9-04 / DX-26 / R15-02 / R16-02 / R16-03 / R16-05）。
-        $ccMarkers = ($closedCodes | ForEach-Object { "#{$_}=done" }) -join ' '
+        # 注意 PS 插值写法：`"#{$_}=done"` 会把 `{` / `}` 当字面量留进字符串（本会话实测踩过：
+        # 提交主题变成 chore(board): 结卡 #{DX-42}=done，post-commit 的 grep
+        # `#[A-Za-z][A-Za-z0-9]*` 判不到 `{`，标记照旧不投）。`"#$_=done"` 才展开成 #DX-42=done。
+        $ccMarkers = ($closedCodes | ForEach-Object { "#$_=done" }) -join ' '
         $ccSubject = 'chore(board): 结卡 {0}' -f $ccMarkers
         $ccBody = "对象：按 git 标记 #<短号>=done 自动结卡（DX-07），把 baseline 补成 done。`n`n" +
                   "自动来源：git-done.ps1 合并收尾的 derive_board_status.py --close-cards。"

@@ -625,7 +625,8 @@
         "DX-25": {
             "acceptance": [
                 "新增 scripts/check_board_diff.py --base <ref>：比较 base 版与当前 HEAD 版 docs/board-ledger.json，按差异类型分三档处置",
-                "cards 结构有变化（卡片增删、或 stage/title/scope/depends/acceptance/note 任一字段变化）→ 输出变化摘要并退 2，提示「卡片结构是 tst_projectmap 的输入，必须跑全量 verify.ps1」",
+                "改动了既有卡（stage/title/scope/depends/acceptance/note 任一字段变化）或删卡 → 输出变化摘要并退 2，提示「卡片契约变化是 tst_projectmap 的输入，必须跑全量 verify.ps1」",
+                "新增卡且 stage 是既有取值 → 判为正常立卡，走派生一致性（不逼人全量）；新增卡带陌生 stage → 退 2（roadmap 里未必有对应行，正是 stage 顺序断言会红的情形）",
                 "cards 无变化、只有 baseline / claims 变化 → 子进程调 derive_board_status.py --check，不一致退 1 并原样转发其诊断输出",
                 "台账根本没改（或 base 里没有该文件）→ 退 0 静默",
                 "--selftest 覆盖五类：卡片新增 / 卡片字段改动 / 仅 baseline 改动 / 仅 claims 改动 / 未改动，全部用临时文件构造，不依赖仓库状态",
@@ -636,7 +637,7 @@
                 "DX-24"
             ],
             "id": "DX-25",
-            "note": "docs/board-ledger.json 看起来像文档，实际是 tst_projectmap 的测试输入（它读 stage 排序、把 baseline 当 done 判据、校验 cards 与 roadmap 行对应）。改了它而只跑 -ScriptOnly，本地全绿、CI 红 —— 主线被弄红过一次就是这条路径。\\n\\n但反过来「改台账就全量」也太重：全量要编译 3.3 分钟。实测增量构建 196 秒、冷启动 3.8 分钟，把它塞进 -ScriptOnly 会让「两秒验收」失去意义。\\n\\n所以按「改了什么」分流：只动 baseline / claims 的（结卡、领用登记，最高频）派生一致性由 derive_board_status.py --check 覆盖，秒级；动了 cards 结构的（立卡、改 scope、改 stage，低频但影响 tst_projectmap）才要求全量。判定是机械的（比 JSON），不需要人记。\\n\\n边界：本脚本不做 tst_projectmap 的等价校验，只决定「这一档够不够」。真校验仍在编译产物里。",
+            "note": "docs/board-ledger.json 看起来像文档，实际是 tst_projectmap 的测试输入（它读 stage 排序、把 baseline 当 done 判据、校验 cards 与 roadmap 行对应）。改了它而只跑 -ScriptOnly，本地全绿、CI 红 —— 主线被弄红过一次就是这条路径。\\n\\n但反过来「改台账就全量」也太重：全量要编译 3.3 分钟。实测增量构建 196 秒、冷启动 3.8 分钟，把它塞进 -ScriptOnly 会让「两秒验收」失去意义。\\n\\n所以按「改了什么」分流：只动 baseline / claims 的（结卡、领用登记，最高频）派生一致性由 derive_board_status.py --check 覆盖，秒级；动了 cards 结构的（立卡、改 scope、改 stage，低频但影响 tst_projectmap）才要求全量。判定是机械的（比 JSON），不需要人记。\\n\\n边界：本脚本不做 tst_projectmap 的等价校验，只决定「这一档够不够」。真校验仍在编译产物里。\\n\\n实施调整（2026-11-04）：原 acceptance 写的是「cards 有任何变化就退 2」，实测发现它会让**任何含立卡的分支永久失去 -ScriptOnly** —— 立卡是每张卡的必经步骤，必然改 cards，于是脚本卡的轻档形同虚设（DX-15 白做）。改为只对「改既有卡 / 删卡 / 陌生 stage」要求全量：这三类才是会让 roadmap 行与 stage 顺序对不上的操作。立卡照常走派生一致性，新增卡是否已在快照里由 derive --check 把关。",
             "scope": [
                 "scripts/check_board_diff.py",
                 "scripts/verify.ps1",

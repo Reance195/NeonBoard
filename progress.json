@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R5-10",
-            "completedAt": 0,
-            "createdAt": 1793809026,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R5-10",
-            "note": "R5-09 的修复已合入 main（97ccc91），但没出包就等于用户拿不到：已发布的 0.1.3 与 0.1.4 都不含任何一处修复。本卡把版本号推到 0.1.5 并走 tag → release.yml 出包，让安装器侧的宿主兜底、安装回执、系统代理，以及 R5-11 的残留清理第一次真正到用户手上。生效边界要写清楚：0.1.4 → 0.1.5 靠安装器侧兜底（0.1.4 客户端不杀宿主、命令行还带着 /CLOSEAPPLICATIONS，但 Setup-0.1.5.exe 的 PrepareToInstall 会先把宿主杀掉）；客户端侧那一刀要 0.1.5 → 0.1.6 起才完整生效。授权：维护者会话授权（2026-11-04，AskUserQuestion 选「三张卡：再加界面显性化」并授权 agent 推 tag）。",
-            "orderKey": 4096,
-            "priority": 2,
-            "stage": "R5",
-            "status": "todo",
-            "tags": [
-                "R5"
-            ],
-            "title": "R5 发布 v0.1.5：版本号递增、tag 触发发布，让宿主占用修复与残留清理到用户手上",
-            "updatedAt": 1793809026
-        },
-        {
             "code": "DX-35",
             "completedAt": 0,
             "createdAt": 1793813175,
@@ -797,6 +779,24 @@
             ],
             "title": "R1 导入导出 + 自动备份",
             "updatedAt": 1792646616
+        },
+        {
+            "code": "R5-10",
+            "completedAt": 1793822341,
+            "createdAt": 1793809026,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R5-10",
+            "note": "R5-09 的修复已合入 main（97ccc91），但没出包就等于用户拿不到：已发布的 0.1.3 与 0.1.4 都不含任何一处修复。本卡把版本号推到 0.1.5 并走 tag → release.yml 出包，让安装器侧的宿主兜底、安装回执、系统代理，以及 R5-11 的残留清理第一次真正到用户手上。生效边界要写清楚：0.1.4 → 0.1.5 靠安装器侧兜底（0.1.4 客户端不杀宿主、命令行还带着 /CLOSEAPPLICATIONS，但 Setup-0.1.5.exe 的 PrepareToInstall 会先把宿主杀掉）；客户端侧那一刀要 0.1.5 → 0.1.6 起才完整生效。授权：维护者会话授权（2026-11-04，AskUserQuestion 选「三张卡：再加界面显性化」并授权 agent 推 tag）。",
+            "orderKey": 4096,
+            "priority": 2,
+            "stage": "R5",
+            "status": "done",
+            "tags": [
+                "R5"
+            ],
+            "title": "R5 发布 v0.1.5：版本号递增、tag 触发发布，让宿主占用修复与残留清理到用户手上",
+            "updatedAt": 1793822341
         },
         {
             "code": "R14-03",
@@ -3517,6 +3517,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T03:53:33",
+    "updated": "2026-11-05T03:59:01",
     "version": 3
 }

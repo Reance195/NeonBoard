@@ -517,9 +517,10 @@ pwsh -File scripts/dev-run.ps1 -Wait      # 前台运行（配合 --smoke 等参
   细节见 `docs/task-card.md`「两类验收口径」。故意不按卡申报代码的，`-ScriptOnly`
   的第一项会拒绝：它先扫改动清单，见代码就要求回全量。
 - **改台账按「改了什么」分流**（DX-25）：`docs/board-ledger.json` 是 `tst_projectmap` 的
-  测试输入，不是普通文档。只动 `baseline` / `claims` 时 `-ScriptOnly` 会跑
-  `derive_board_status.py --check`；动了 `cards` 结构（立卡、改 `scope` / `stage`）则直接
-  拒绝并要求全量。判定由 `scripts/check_board_diff.py` 完成，不用记规则。
+  测试输入，不是普通文档。只动 `baseline` / `claims` 或单纯立卡时，`-ScriptOnly` 会跑
+  `derive_board_status.py --check`（立卡不拦 —— 否则脚本卡的轻档永远用不上）；改了既有卡的
+  契约、删卡、或新卡带陌生 `stage` 则直接拒绝并要求全量。判定由
+  `scripts/check_board_diff.py` 完成，不用记规则。
 - **Qt 路径不用手传**（DX-24）：没给 `-QtRoot` 时 `verify.ps1` 从 `build/CMakeCache.txt`
   的 `Qt6_DIR` 反推并补 PATH。以前在 `.worktrees/<agent>` 里必现 `0xC0000135`
   （缺 Qt6Core.dll，看着像代码坏了），现在编译通过就能直接跑自检。

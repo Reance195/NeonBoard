@@ -114,7 +114,13 @@ merge: 合入 fix/stagebar-chip-overflow
 | 本次改动 | `-ScriptOnly` 的处置 |
 | --- | --- |
 | 只动 `baseline` / `claims`（结卡、领用登记，最高频） | 自动跑 `derive_board_status.py --check`，且要求通过 |
-| 动了 `cards` 结构（立卡、改 `scope` / `stage` / `depends`） | 直接拒绝并指回全量 |
+| 立卡（新增卡，`stage` 是既有取值） | 同样走派生一致性 —— 不拦，但新卡必须已在快照里 |
+| 改了既有卡（`scope` / `stage` / `depends` 等任一字段）、删卡、或新卡带陌生 `stage` | 直接拒绝并指回全量 |
+
+立卡不拦是有意的：立卡是每张卡的必经步骤、必然改 `cards`，若一律要求全量，脚本卡的轻档就
+永远用不上。真正会让 `tst_projectmap` 与 roadmap 对不上的是**改既有卡的契约**与**陌生 stage**，
+判据就盯这两样。立卡后若快照落后，`derive --check` 会指名要跑 `--write`（收尾时 `git-done`
+也会自动做）。
 
 判定由 `scripts/check_board_diff.py --base <ref>` 机械完成，不需要人记规则。
 

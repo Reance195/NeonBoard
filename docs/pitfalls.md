@@ -407,8 +407,8 @@
   - 8 核会被并行 worktree 分摊：同时编两个就都变慢，**串行开区不比并行差多少**；
   - **零 C++ 改动不必全量**：脚本 / 文档类改动跑 `pwsh -File scripts/verify.ps1 -ScriptOnly`
     （约 2 秒，DX-15），代码类才需要 `verify.ps1` 全量；**但改台账要看改了什么**
-    —— 动 `cards` 结构（立卡 / 改 scope / 改 stage）仍是全量的活，只动 `baseline` / `claims`
-    才留在轻档（DX-25 的分流规则，`-ScriptOnly` 会自动判并拦）；
+    —— 改既有卡的契约、删卡、或新卡带陌生 stage 仍是全量的活，只动 `baseline` / `claims`
+    和单纯立卡才留在轻档（DX-25 的分流规则，`-ScriptOnly` 会自动判并拦）；
   - 构建被中断后重跑**只补剩余目标**（Ninja 有 `.ninja_log`），不需要 `-Clean`；
   - `build.ps1` 结尾现在会打「配置 / 编译 / 合计」三段耗时与 sccache 命中率 ——
     怀疑变慢时先看这三个数字，别靠体感。
@@ -432,6 +432,20 @@
 - **附带结论**：`git-done` 的「锚点归位」路径（DX-20 的 `$atAnchor` 分支）只能在锚点区跑，
   天然要等新代码进了 `main` 才有机会验证 —— 验收顺序应是「先在 worktree 验能验的，
   合入后再补验锚点路径」，别指望一次收尾验完全部。
+
+### 2.14 冷启动构建偶发 moc / qmlcachegen 启动失败（0xC0000142、「拒绝访问」）
+
+- **现象**：新 worktree 首次全量构建，autogen 阶段报 `AutoMoc subprocess error` +
+  `Process failed with return value 3221225794`（= `0xC0000142` = `STATUS_DLL_INIT_FAILED`），
+  或 qmlcachegen 报 `Error compiling qml file: 拒绝访问。`。重跑同一条命令即通过。
+- **不是代码问题**：失败点在 `moc.exe` / `qmlcachegen.exe` 的**进程启动**，还没碰到源码。
+  8 核机器并行几百个目标、几十个 moc 同时拉起时，桌面堆 / 句柄瞬时不够。
+- **处理**：直接重跑 `build.ps1` / `verify.ps1`，Ninja 有 `.ninja_log` 会从断点续；
+  **不要加 `-Clean`** —— 那会把已完成的几百个目标全废掉。
+- **判据**：`0xC0000142`（DLL 初始化失败）与 `0xC0000135`（找不到 DLL）都是**加载期**错误，
+  与编译错误（`C` 开头的四位诊断码）不是一类；先看是不是这两串，再决定怀不怀疑代码。
+  `0xC0000135` 在 worktree 里是常态缺 Qt DLL，DX-24 之后 `verify.ps1` 会自己从
+  `CMakeCache.txt` 反推 QtRoot 补 PATH；`0xC0000142` 则是偶发，重跑即可。
 
 ---
 

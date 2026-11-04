@@ -101,11 +101,22 @@ merge: 合入 fix/stagebar-chip-overflow
 | 档 | 判定规则 | 验收命令 | 覆盖什么 |
 | --- | --- | --- | --- |
 | 代码类（默认） | `scope` 内有 `.cpp` / `.h` / `.hpp` / `.qml` / `CMakeLists.txt` | `pwsh -File scripts/verify.ps1` | 编译 → ctest → `--selftest` → `--smoke` → 模块守卫 → 看板一致性 |
-| 脚本 / 配置类 | `scope` 内**没有**上面任何一类 | `pwsh -File scripts/verify.ps1 -ScriptOnly` | 改动清单自查 → PS 语法解析 → `check_script_hygiene` → 工作流 YAML → `check_scope` |
+| 脚本 / 配置类 | `scope` 内**没有**上面任何一类 | `pwsh -File scripts/verify.ps1 -ScriptOnly` | 改动清单自查 → PS 语法解析 → `check_script_hygiene` → 工作流 YAML → `check_scope` → `check_path_refs` → 台账分档 |
 
 判定**看 scope，不看心情**：卡片声明里没有代码路径就走脚本层。实现里一旦冒出代码文件，
 `-ScriptOnly` 的第一项（口径自检）会直接拒绝并指回全量 —— 所以「按脚本卡申报、顺手改点代码」
 这条路是堵死的，不会变成绕过编译的后门。
+
+**改台账另按「改了什么」分流**（DX-25）：`docs/board-ledger.json` 看着像文档，实际是
+`tst_projectmap` 的测试输入（它读 `stage` 排序、把 `baseline` 当 done 判据、校验 `cards`
+与 roadmap 行对应），所以不能一律当脚本文档放过：
+
+| 本次改动 | `-ScriptOnly` 的处置 |
+| --- | --- |
+| 只动 `baseline` / `claims`（结卡、领用登记，最高频） | 自动跑 `derive_board_status.py --check`，且要求通过 |
+| 动了 `cards` 结构（立卡、改 `scope` / `stage` / `depends`） | 直接拒绝并指回全量 |
+
+判定由 `scripts/check_board_diff.py --base <ref>` 机械完成，不需要人记规则。
 
 全量编译仍由 CI 兜底，本地这一档不降低任何门槛：脚本层不跑 ctest、不碰 exe、不看 `--smoke`。
 两种口径的退出码语义一致（0 通过 / 1 失败），`scripts/verify.ps1` 仍是唯一入口。
@@ -114,7 +125,9 @@ merge: 合入 fix/stagebar-chip-overflow
 
 | 工具 | 作用 |
 | --- | --- |
-| `scripts/verify.ps1` | 本地与 CI 共用的唯一验收入口（全量：编译 → ctest → selftest → smoke；`-ScriptOnly`：语法 / 卫生 / YAML / 范围） |
+| `scripts/verify.ps1` | 本地与 CI 共用的唯一验收入口（全量：编译 → ctest → selftest → smoke；`-ScriptOnly`：语法 / 卫生 / YAML / 范围 / 路径引用 / 台账分档） |
+| `scripts/check_board_diff.py` | 改台账时判档：`cards` 结构变了要求全量，只动 `baseline` / `claims` 则跑派生一致性 |
+| `scripts/check_path_refs.py` | 扫全仓对 `src/` 文件的硬编码引用，指向不存在的路径即失败（棘轮：只报本次新增） |
 | `scripts/check_scope.py` | CI 里比对本次 diff 与卡的 `scope`，越界即失败 |
 | `scripts/agent-init.ps1 -Card <短号>` | 开工作区时把 `NB_CARD` / `NB_SCOPE` / `NB_ACCEPTANCE` / `NB_DEPENDS` 注入 `.agent-env.ps1` |
 

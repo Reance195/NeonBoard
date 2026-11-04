@@ -336,6 +336,10 @@ AI 代理在本仓库干活时：
 - 自检即体检：`-Action Check` 一次性核对「锚点区有没有他人 in-place 环境 / 同一分支是否被两个
   检出占用 / 每个 `.worktrees/<名>` 是否各有独立 `.sandbox` / 登记与目录是否对得上」，
   有硬冲突退出码 3；登记缺项、僵尸占用只告警（回收由人拍板，§7.10）。
+- 能不能删也要判（DX-23）：`check-worktree-activity.ps1 -Audit` 逐区给三项判据
+  —— 未推送提交 / 未提交改动 / 是否 detached，全 0 才标「可删」并附回收命令，
+  同时打印占用登记的 `agent` 与 `since`（归属有客观依据）、列出「登记还在目录已删」的
+  僵尸占用。只报告不删除，恒退 0。
 
 ```powershell
 pwsh -File scripts/agent-workspace.ps1 -Action Check      # 隔离自检（先跑这个）
@@ -508,9 +512,17 @@ pwsh -File scripts/dev-run.ps1 -Wait      # 前台运行（配合 --smoke 等参
   `CMakeLists.txt` → 代码类，跑 `pwsh -File scripts/verify.ps1`（编译 → ctest → `--selftest`
   → `--smoke` → 模块守卫 → 看板一致性）；都没有 → 脚本/配置类，跑
   `pwsh -File scripts/verify.ps1 -ScriptOnly`（改动清单自查 → PS 语法解析 →
-  `check_script_hygiene` → 工作流 YAML → `check_scope`，约 2 秒，不触发编译）。
+  `check_script_hygiene` → 工作流 YAML → `check_scope` → `check_path_refs` → 台账分档，
+  约 2 秒，不触发编译）。
   细节见 `docs/task-card.md`「两类验收口径」。故意不按卡申报代码的，`-ScriptOnly`
   的第一项会拒绝：它先扫改动清单，见代码就要求回全量。
+- **改台账按「改了什么」分流**（DX-25）：`docs/board-ledger.json` 是 `tst_projectmap` 的
+  测试输入，不是普通文档。只动 `baseline` / `claims` 时 `-ScriptOnly` 会跑
+  `derive_board_status.py --check`；动了 `cards` 结构（立卡、改 `scope` / `stage`）则直接
+  拒绝并要求全量。判定由 `scripts/check_board_diff.py` 完成，不用记规则。
+- **Qt 路径不用手传**（DX-24）：没给 `-QtRoot` 时 `verify.ps1` 从 `build/CMakeCache.txt`
+  的 `Qt6_DIR` 反推并补 PATH。以前在 `.worktrees/<agent>` 里必现 `0xC0000135`
+  （缺 Qt6Core.dll，看着像代码坏了），现在编译通过就能直接跑自检。
 - **全量编译交 CI**：本地省掉的那次编译由 `ci.yml` 的构建 + ctest 兜底，门槛不降；
   发布前仍走 `scripts/release.ps1` 的 Release 构建 + `--selftest`（§7.8）。
 - 数据层统一用 `NeonBoard.exe --selftest` 自检（utilityMode 跳过单实例限制）。

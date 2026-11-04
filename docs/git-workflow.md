@@ -473,7 +473,9 @@ pwsh -File scripts/build.ps1 -SelfTest  # 装好后再构建
 | Ninja | 解压 `ninja-win.zip` 到 `%LOCALAPPDATA%\Programs\DevTools\ninja` | 同上 |
 | MSVC | VS BuildTools 勾选「使用 C++ 的桌面开发」 | vswhere 结果、`C:\BuildTools`、`%LOCALAPPDATA%\Programs\VSBuildTools` |
 
-Qt 装在别处时用 `-QtRoot` 指定，或设置 `NEONBOARD_QT_ROOT` / `QT_ROOT`。
+Qt 装在别处时用 `-QtRoot` 指定，或设置 `NEONBOARD_QT_ROOT` / `QT_ROOT`。`verify.ps1`
+不给 `-QtRoot` 时会自己从 `build/CMakeCache.txt` 的 `Qt6_DIR` 反推（DX-24），不必为了
+「跑自检」再手工传一次。
 
 > 坑：PS 5.1 的 `Expand-Archive` 解 CMake 官方 zip 会得到坏包（cmake 无法运行），
 > 改用 `tar -xf` 解压。

@@ -406,7 +406,9 @@
   - 无改动时 `ninja: no work to do`，秒退；
   - 8 核会被并行 worktree 分摊：同时编两个就都变慢，**串行开区不比并行差多少**；
   - **零 C++ 改动不必全量**：脚本 / 文档类改动跑 `pwsh -File scripts/verify.ps1 -ScriptOnly`
-    （约 2 秒，DX-15），代码类才需要 `verify.ps1` 全量；
+    （约 2 秒，DX-15），代码类才需要 `verify.ps1` 全量；**但改台账要看改了什么**
+    —— 动 `cards` 结构（立卡 / 改 scope / 改 stage）仍是全量的活，只动 `baseline` / `claims`
+    才留在轻档（DX-25 的分流规则，`-ScriptOnly` 会自动判并拦）；
   - 构建被中断后重跑**只补剩余目标**（Ninja 有 `.ninja_log`），不需要 `-Clean`；
   - `build.ps1` 结尾现在会打「配置 / 编译 / 合计」三段耗时与 sccache 命中率 ——
     怀疑变慢时先看这三个数字，别靠体感。

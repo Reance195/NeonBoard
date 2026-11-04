@@ -91,24 +91,6 @@
             "updatedAt": 1793819851
         },
         {
-            "code": "DX-41",
-            "completedAt": 0,
-            "createdAt": 1793821909,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-41",
-            "note": "触发证据：现场：progress.json 与 ledger baseline 都已把这 6 张卡判为 done；board.db 里它们仍停在 doing、completed_at=0。根因：git-done 收尾的自动结卡提交形如 chore(board): 结卡 R16-05（标题短号不带 #），post-commit 用 grep -Eq '#[A-Za-z][A-Za-z0-9]*' 判标记，判不到就不投 hook.commit；plan-hook 因此收不到 done 信号。RoadmapSync file→board 兜底通道又被 fileUpdated<boardUpdated 的冲突判据保留看板版本（board.db 里这些卡的 updated_at 都晚于 progress.json 里的 updatedAt），僵尸回不来。\n\n## 目标\n自动结卡提交缺 # 标记：plan-hook 收不到 done、看板留僵尸 doing\n\n## 验收\npython scripts/derive_board_status.py --selftest 通过（含新用例：--close-cards 生成的提交标题带 #<code>=done、body 保留「自动来源：」行；replay 通道按 ledger baseline=done 生成对应 hook 事件文件）;pwsh -File scripts/verify.ps1 -ScriptOnly 全过（含 check_script_hygiene 的 BOM/YAML/hard-coded-path 检查）;在一次性沙箱检出里跑 --close-cards 后，git log 最新一条 chore(board) 提交标题形如 chore(board): 结卡 #<code>=done，且 .githooks/post-commit 触发后 hooks.db 里能看到对应 hook.commit 事件;跑 --replay-closed 后，看板 board.db 里 R9-04/DX-26/R15-02/R16-02/R16-03/R16-05 六张僵尸从 doing 列消失、completed_at 非零（由维护者本机主实例消费 hooks.db 事件后一次性核对，不在本卡 CI 断言内）\n\n## 边界\nscripts/derive_board_status.py;scripts/git-done.ps1\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 17408,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "自动结卡提交缺 # 标记：plan-hook 收不到 done、看板留僵尸 doing",
-            "updatedAt": 1793821909
-        },
-        {
             "code": "DX-43",
             "completedAt": 0,
             "createdAt": 1793822375,
@@ -1872,6 +1854,24 @@
             "updatedAt": 1793822013
         },
         {
+            "code": "DX-41",
+            "completedAt": 1793825134,
+            "createdAt": 1793821909,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-41",
+            "note": "触发证据：现场：progress.json 与 ledger baseline 都已把这 6 张卡判为 done；board.db 里它们仍停在 doing、completed_at=0。根因：git-done 收尾的自动结卡提交形如 chore(board): 结卡 R16-05（标题短号不带 #），post-commit 用 grep -Eq '#[A-Za-z][A-Za-z0-9]*' 判标记，判不到就不投 hook.commit；plan-hook 因此收不到 done 信号。RoadmapSync file→board 兜底通道又被 fileUpdated<boardUpdated 的冲突判据保留看板版本（board.db 里这些卡的 updated_at 都晚于 progress.json 里的 updatedAt），僵尸回不来。\n\n## 目标\n自动结卡提交缺 # 标记：plan-hook 收不到 done、看板留僵尸 doing\n\n## 验收\npython scripts/derive_board_status.py --selftest 通过（含新用例：--close-cards 生成的提交标题带 #<code>=done、body 保留「自动来源：」行；replay 通道按 ledger baseline=done 生成对应 hook 事件文件）;pwsh -File scripts/verify.ps1 -ScriptOnly 全过（含 check_script_hygiene 的 BOM/YAML/hard-coded-path 检查）;在一次性沙箱检出里跑 --close-cards 后，git log 最新一条 chore(board) 提交标题形如 chore(board): 结卡 #<code>=done，且 .githooks/post-commit 触发后 hooks.db 里能看到对应 hook.commit 事件;跑 --replay-closed 后，看板 board.db 里 R9-04/DX-26/R15-02/R16-02/R16-03/R16-05 六张僵尸从 doing 列消失、completed_at 非零（由维护者本机主实例消费 hooks.db 事件后一次性核对，不在本卡 CI 断言内）\n\n## 边界\nscripts/derive_board_status.py;scripts/git-done.ps1\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 17408,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "自动结卡提交缺 # 标记：plan-hook 收不到 done、看板留僵尸 doing",
+            "updatedAt": 1793825134
+        },
+        {
             "code": "M08",
             "completedAt": 1792588621,
             "createdAt": 1792572839,
@@ -3607,6 +3607,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T04:11:27",
+    "updated": "2026-11-05T04:45:34",
     "version": 3
 }

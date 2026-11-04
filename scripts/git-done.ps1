@@ -165,25 +165,42 @@ function Get-AnchorRootClaim {
 # 合并成功即释放；不释放的话登记会一直显示「被别人占用」，后来者开同名目录会被误拦。
 # 只释放「自己」那份 —— agent 身份取自当前检出（NEONBOARD_AGENT_ID / .agent-env.ps1），
 # 与登记者不一致时 agent-workspace.ps1 会自己拒绝，绝不踢掉别人的占用。
-function Release-WorkspaceClaim {
-    param([string]$Root)
-    $agent = $env:NEONBOARD_AGENT_ID
-    if (-not $agent) {
-        $envFile = Join-Path $Root '.agent-env.ps1'
-        if (Test-Path -LiteralPath $envFile) {
-            try {
-                $txt = [System.IO.File]::ReadAllText($envFile, [System.Text.Encoding]::UTF8)
-                $m = [regex]::Match($txt, '(?m)^\s*\$env:NEONBOARD_AGENT_ID\s*=\s*''([^'']*)''')
-                if ($m.Success) { $agent = $m.Groups[1].Value.Trim() }
-            } catch { $agent = '' }
-        }
+#
+# **调用时机**：身份必须在回收 worktree **之前**抓下来（见调用点）。`.agent-env.ps1` 是
+# 「谁在用这份检出」的唯一物证，目录一删就没了；事后只能读到空，于是每次都走
+# 「读不到 agent 身份，跳过释放」，登记文件里堆满已删工作区的僵尸条目。
+function Get-WorktreeAgent {
+    param([string]$Path)
+
+    # 目标检出自己的 .agent-env.ps1 最准：调用方的环境变量可能属于另一个会话。
+    $envFile = Join-Path $Path '.agent-env.ps1'
+    if (Test-Path -LiteralPath $envFile) {
+        try {
+            $txt = [System.IO.File]::ReadAllText($envFile, [System.Text.Encoding]::UTF8)
+            $m = [regex]::Match($txt, '(?m)^\s*\$env:NEONBOARD_AGENT_ID\s*=\s*''([^'']*)''')
+            if ($m.Success -and $m.Groups[1].Value.Trim()) { return $m.Groups[1].Value.Trim() }
+        } catch { }
     }
+    if ($env:NEONBOARD_AGENT_ID) { return $env:NEONBOARD_AGENT_ID }
+    # 兜底：.worktrees/<agent> 的 leaf 就是 agent 名（agent-init 的命名约定）。
+    # 只有确实位于 .worktrees 下才敢这么推 —— 其它路径的 leaf 是仓库名。
+    if ((Split-Path -Leaf (Split-Path -Parent $Path)) -eq '.worktrees') { return (Split-Path -Leaf $Path) }
+    return ''
+}
+
+function Release-WorkspaceClaim {
+    param([string]$Root, [string]$Agent = '', [string]$Scope = '')
+    $agent = $Agent
+    if (-not $agent) { $agent = Get-WorktreeAgent -Path $Root }
     if (-not $agent) {
         Write-Host '· 工作区占用：读不到 agent 身份，跳过释放（可手工 agent-workspace.ps1 -Action Release）' -ForegroundColor DarkGray
         return
     }
-    $leaf = Split-Path -Leaf $Root
-    $scope = if ((Split-Path -Leaf (Split-Path -Parent $Root)) -eq '.worktrees') { "worktree:$leaf" } else { 'root' }
+    if (-not $Scope) {
+        $leaf = Split-Path -Leaf $Root
+        $Scope = if ((Split-Path -Leaf (Split-Path -Parent $Root)) -eq '.worktrees') { "worktree:$leaf" } else { 'root' }
+    }
+    $scope = $Scope
     $wsScript = Join-Path $Root 'scripts\agent-workspace.ps1'
     if (-not (Test-Path -LiteralPath $wsScript)) { return }
     $pwshExe = 'powershell'
@@ -563,6 +580,8 @@ if ($Mode -eq 'remote') {
         }
     }
 
+    $recycleAgent = ''
+    $recycleScope = ''
     if ($RemoveWorktree -and $wtPath) {
         $abs = if ([System.IO.Path]::IsPathRooted($wtPath)) { $wtPath } else { Join-Path $repoRoot $wtPath }
         $abs = [System.IO.Path]::GetFullPath($abs)
@@ -570,6 +589,13 @@ if ($Mode -eq 'remote') {
         if ($abs -eq $currentRoot) {
             Write-Host "· 目标 worktree 就是当前目录，跳过回收（请在其它目录执行 git worktree remove）" -ForegroundColor Yellow
         } elseif (Test-Path -LiteralPath $abs) {
+            # 身份与 scope 必须在回收**之前**抓：.agent-env.ps1 随目录一起消失，事后再读只能
+            # 得到空，于是每次都「跳过释放」，agent-workspace.json 里堆已删工作区的僵尸条目
+            # （2026-11-04 实测 dx12 / dx14 / dx16 / r1402 / initfix 五条全在）。
+            $recycleAgent = Get-WorktreeAgent -Path $abs
+            if ($recycleAgent -and ((Split-Path -Leaf (Split-Path -Parent $abs)) -eq '.worktrees')) {
+                $recycleScope = "worktree:$recycleAgent"
+            }
             Write-Host ("· 回收 worktree {0}" -f $abs) -ForegroundColor DarkGray
             if ((Invoke-GitQuiet @('worktree', 'remove', $abs)).Code -ne 0) {
                 Invoke-GitQuiet @('worktree', 'remove', '--force', $abs) | Out-Null
@@ -586,8 +612,9 @@ if ($Mode -eq 'remote') {
         }
     }
 
-    # 开发区占用收尾释放（DX-05）：合并已经成功，这里失败只当卫生问题告警，不回头改结果
-    Release-WorkspaceClaim -Root $repoRoot
+    # 开发区占用收尾释放（DX-05）：合并已经成功，这里失败只当卫生问题告警，不回头改结果。
+    # 传入回收前抓到的身份 / scope；没走回收路径时留空，函数自己按 Root 解析（原地模式）。
+    Release-WorkspaceClaim -Root $repoRoot -Agent $recycleAgent -Scope $recycleScope
 
     # 解除临时分支占用后一并删除，工作区停在分离 HEAD 上，不留悬挂分支
     Invoke-GitQuiet @('switch', '--detach') | Out-Null

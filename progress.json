@@ -11,12 +11,12 @@
             "orderKey": 1024,
             "priority": 2,
             "stage": "DX",
-            "status": "todo",
+            "status": "doing",
             "tags": [
                 "DX"
             ],
             "title": "立卡只能手贴 JSON：程序会算「该不该立」，却不肯写下去",
-            "updatedAt": 1793781945
+            "updatedAt": 1793782683
         },
         {
             "code": "DX-33",
@@ -29,12 +29,12 @@
             "orderKey": 2048,
             "priority": 2,
             "stage": "DX",
-            "status": "todo",
+            "status": "doing",
             "tags": [
                 "DX"
             ],
             "title": "领了卡没写 =done，收尾一声不响就放行",
-            "updatedAt": 1793781945
+            "updatedAt": 1793782683
         },
         {
             "code": "R0-01",
@@ -3121,6 +3121,6 @@
             "updatedAt": 1793767358
         }
     ],
-    "updated": "2026-11-04T16:45:45",
+    "updated": "2026-11-04T16:58:03",
     "version": 3
 }

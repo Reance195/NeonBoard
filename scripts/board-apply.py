@@ -1,17 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""board-apply.py —— 建卡请求的应用器（v1 只读 dry-run，绝不写文件）。
+"""board-apply.py —— 建卡请求的预演器与落盘器（默认 dry-run）。
 
 为什么要有这个文件
 ------------------
-建卡目前只有一条路：人手工把 JSON 贴进 docs/board-ledger.json 的 cards，再手加
+建卡原先只有一条路：人手工把 JSON 贴进 docs/board-ledger.json 的 cards，再手加
 baseline。这条路的问题是「贴」这个动作没法预制、没法复查，贴错一个字段要到
 下次派生才暴露（结卡快照漂移已经出过两次）。
 
 本文件把「贴」之前的判断全部机器化：读一份建卡请求清单（.md 里的 ```json 片段，
-或纯 .json），对照台账与实际文件系统，输出「如果批准，会多出哪几行」。**v1 只输出，
-不落盘**，--apply 会被显式拒绝并给出退出码 5 —— 因为「写台账」是维护者授权动作，
-程序替人写字据之前，必须先有一段时间让人看它 20 次输出对不对。
+或纯 .json），对照台账与实际文件系统，输出「如果批准，会多出哪几行」。
+
+默认仍然只读。加 --apply 才落盘，且必须同时给出 --authorize 与 --batch ——
+「写台账」是维护者授权动作，程序只负责把授权来源写进提交体，不替人承担判断。
+v1 当初连 --apply 一起拒绝，理由是「先让人看它 20 次输出对不对」；这个目的已经达到，
+留下来的只有「立卡还得手贴 JSON」这个真实摩擦 —— 而它还带来一个副作用：立卡需要
+一次提交、提交不能在主干，于是只能先开个区，在那个区里再领卡就会缺 chore(claim)
+凭据（DX-32 的起因）。落盘交给程序后，立卡与实现天然分成两条分支。
+
+立卡属于**一次提交**，所以 --apply 自己就带提交（--commit）：写台账 → 生成带
+「授权：」「批次：」两行的提交信息 → 过 task_gate.py message → 提交。
 
 校验的不是格式，是「这张卡能不能立」
 ------------------------------------
@@ -36,15 +44,25 @@ baseline。这条路的问题是「贴」这个动作没法预制、没法复查
     python scripts/board-apply.py req.json --json
     python scripts/board-apply.py --selftest
 
-退出码：0 通过 / 2 有阻断问题 / 3 无需变更 / 4 读取失败 / 5 拒绝 --apply
+    # 落盘（必须给出授权来源与批次，且不在主干上）
+    python scripts/board-apply.py req.json --apply --authorize "维护者 2026-11-04 会话" --batch "DX-32、DX-33"
+    python scripts/board-apply.py req.json --commit --authorize "..." --batch "..."
+
+退出码：0 通过 / 2 有阻断问题 / 3 无需变更 / 4 读取失败
+        6 在主干或分离 HEAD 上请求落盘 / 7 缺少授权或批次 / 8 提交信息未过闸门
+        9 git 写操作失败
 """
 
 import argparse
+import contextlib
 import difflib
+import hashlib
 import io
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -351,10 +369,204 @@ def ready_state(cid: str, card: dict, ledger: dict) -> str:
     return "就绪" if not waiting else "被 %s 阻塞" % "、".join(waiting)
 
 
+# ---------------------------------------------------------------- 落盘（DX-32）
+
+MAIN_BRANCHES = ("main", "master", "develop")
+
+
+def branch_block_reason(branch: str) -> str:
+    """主干 / 分离 HEAD 上不受理落盘。返回空串表示放行。
+
+    抽成纯函数是为了能断言：它决定「--apply 会不会在主干上留下一笔」，
+    而这个判定没法靠跑一遍真实提交来验证（那会在测试里污染仓库）。
+    """
+    name = (branch or "").strip()
+    if not name or name == "HEAD":
+        return "当前处于分离 HEAD，立卡需要一个具名分支"
+    if name in MAIN_BRANCHES:
+        return "当前在 %s 上，主干不受理立卡提交（pre-commit 规则 1）" % name
+    return ""
+
+
+def current_branch(repo: Path) -> str:
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True, check=False,
+    )
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout.decode("utf-8", "replace").strip()
+
+
+def build_commit_message(cards: dict, authorize: str, batch: str) -> str:
+    """生成 chore(board) 提交体。
+
+    格式跟着 task_gate.py 的要求走：类型必须是 chore(board)，body 必须同时有
+    「授权：」与「批次：」两行。这里不复制校验逻辑，只按格式拼——
+    真判定留给 task_gate.py message，落盘时现场跑一遍。
+
+    body 里刻意只写纯卡号（不带 # 前缀）：带上 # 就会被派生器当成状态标记扫一遍，
+    而立卡这件事本身不表达任何卡的完成状态。
+    """
+    codes = sorted(cards)
+    lines = [
+        "chore(board): 立卡 %s" % "、".join(codes),
+        "",
+        "授权：%s" % (authorize or "").strip(),
+        "批次：%s" % (batch or "").strip(),
+        "",
+    ]
+    for cid in codes:
+        lines.append("%s：%s" % (cid, cards[cid].get("title", "")))
+    return "\n".join(lines) + "\n"
+
+
+def write_atomic(path: Path, text: str) -> None:
+    """同目录临时文件 + os.replace：要么整份新台账，要么一份都没写。
+
+    直接 open(path, "w") 截断再写，中途失败就留下半份 JSON —— 而这份 JSON 是
+    tst_projectmap 的输入，半份等于把看板和测试一起弄坏。
+    """
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        with io.open(str(tmp), "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(str(tmp), str(path))
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+
+def _run(repo: Path, *args: str) -> tuple:
+    proc = subprocess.run(["git", "-C", str(repo)] + list(args),
+                          capture_output=True, check=False)
+    return (proc.returncode,
+            proc.stdout.decode("utf-8", "replace"),
+            proc.stderr.decode("utf-8", "replace"))
+
+
+def apply_plan(repo: Path, ledger_path: Path, ledger: dict, plan: dict, after: str,
+               cards: dict, authorize: str, batch: str, commit: bool) -> int:
+    """写台账（可选提交）。返回退出码。"""
+    try:
+        ledger_rel = ledger_path.relative_to(repo).as_posix()
+    except ValueError:
+        ledger_rel = ledger_path.name
+
+    branch = current_branch(repo)
+    reason = branch_block_reason(branch)
+    if reason:
+        sys.stderr.write("✗ --apply 被拒绝：%s\n" % reason)
+        sys.stderr.write("  先开一条立卡分支，落盘后合并，再开实现区领卡：\n")
+        sys.stderr.write("    git switch -c chore/cards-%s\n"
+                         % "-".join(c.lower() for c in sorted(cards)))
+        return 6
+
+    if not (authorize or "").strip() or not (batch or "").strip():
+        sys.stderr.write("✗ --apply 需要同时给出授权来源与批次（--authorize / --batch）。\n")
+        sys.stderr.write("  这两行是 task_gate.py 认的留痕凭据：程序不替你写判断，只替你写字。\n")
+        return 7
+
+    # 落盘前再复核一次纯增量。main() 里已经算过，但那时算的是「计划」；
+    # 这里算的是「马上要写下去的东西」，中途任何改动都不该被放行。
+    violations = additive_violations(ledger, plan)
+    if violations:
+        sys.stderr.write("✗ 落盘前复核失败，台账未改动：%s\n" % "；".join(violations[:3]))
+        return 2
+
+    # 回滚要用「写之前那份字节」而不是 serialize(ledger)：原文件若有不规范格式，
+    # 回滚会把格式也一起改掉，等于用一次失败顺手重排了 130 张卡。
+    try:
+        before_text = io.open(str(ledger_path), encoding="utf-8").read()
+    except OSError as exc:
+        sys.stderr.write("✗ 读不到原台账：%s\n" % exc)
+        return 4
+
+    try:
+        write_atomic(ledger_path, after)
+    except OSError as exc:
+        sys.stderr.write("✗ 写入失败：%s（台账未被替换）\n" % exc)
+        return 9
+    print("✓ 已写入 %s：新增 %d 张卡，baseline +%d 行 todo"
+          % (ledger_rel, len(cards), len(cards)))
+
+    if not commit:
+        print("")
+        print("下一步（提交体需含「授权：」「批次：」两行）：")
+        print("  " + build_commit_message(cards, authorize, batch).splitlines()[0])
+        print("  git add %s && git commit" % ledger_rel)
+        return 0
+
+    message = build_commit_message(cards, authorize, batch)
+    msg_path = ledger_path.with_name(ledger_path.name + ".commit-msg")
+
+    def rollback() -> None:
+        write_atomic(ledger_path, before_text)
+        _run(repo, "restore", "--staged", "--", ledger_rel)
+
+    try:
+        with io.open(str(msg_path), "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(message)
+
+        gate = Path(repo) / "scripts" / "task_gate.py"
+        if gate.exists():
+            proc = subprocess.run(
+                [sys.executable, str(gate), "message", "--file", str(msg_path)],
+                cwd=str(repo), capture_output=True, check=False,
+            )
+            if proc.returncode != 0:
+                rollback()
+                sys.stderr.write("✗ 提交信息未过 task_gate.py message，已回滚台账：\n")
+                sys.stderr.write(proc.stdout.decode("utf-8", "replace"))
+                sys.stderr.write(proc.stderr.decode("utf-8", "replace"))
+                return 8
+
+        code, out, err = _run(repo, "add", "--", ledger_rel)
+        if code != 0:
+            rollback()
+            sys.stderr.write("✗ git add 失败：%s\n" % err.strip())
+            return 9
+        # 用 pathspec 提交：只提交台账这一个路径，暂存区里别的东西不会被夹带
+        code, out, err = _run(repo, "commit", "-F", str(msg_path), "--", ledger_rel)
+        if code != 0:
+            rollback()
+            sys.stderr.write("✗ git commit 失败，台账已回滚到写之前：\n%s\n"
+                             % (err.strip() or out.strip()))
+            return 9
+        head = _run(repo, "rev-parse", "--short", "HEAD")[1].strip()
+        subject = message.splitlines()[0]
+        print("✓ 已提交 %s  %s" % (head, subject))
+    finally:
+        if msg_path.exists():
+            try:
+                msg_path.unlink()
+            except OSError:
+                pass
+
+    print("")
+    print("下一步：合并立卡分支后，从主干开实现区逐张领用")
+    for cid in sorted(cards):
+        print("  pwsh -File scripts/agent-init.ps1 -Agent <名> -Branch <分支> -Card %s" % cid)
+    return 0
+
+
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with io.open(str(path), "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 # ---------------------------------------------------------------- 输出
 
 def render(path: Path, cards: dict, ledger: dict, blockers, warnings, infos,
-           diff_lines, show_diff: bool) -> None:
+           diff_lines, show_diff: bool, dry_run: bool = True) -> None:
     def out(text=""):
         print(text)
 
@@ -400,7 +612,8 @@ def render(path: Path, cards: dict, ledger: dict, blockers, warnings, infos,
         ready = [c for c in cards if ready_state(c, cards[c], ledger) == "就绪"]
         out("结论：可以建卡。就绪 %d 张（%s），其余需等依赖结卡。"
             % (len(ready), "、".join(ready) or "-"))
-        out("本脚本不写文件：请维护者按上面的 diff 手工落库，或另行授权后执行。")
+        if dry_run:
+            out("本脚本未写文件。确认无误后加 --apply（需 --authorize / --batch）落盘。")
 
 
 # ---------------------------------------------------------------- 自检
@@ -498,6 +711,101 @@ def selftest() -> int:
         parsed = parse_manifest_text(md, [])
         check("parse_fence", list(parsed) == ["R2-09"], str(parsed))
 
+        # ---- 落盘通道（DX-32）
+        for main_name in ("main", "master", "develop", "", "HEAD"):
+            check("branch_block.%s" % (main_name or "empty"),
+                  bool(branch_block_reason(main_name)), "主干/分离 HEAD 应被拒")
+        check("branch_allow", branch_block_reason("chore/cards-dx-32") == "",
+              "普通分支应放行")
+
+        msg = build_commit_message({"R2-01": good}, "维护者 2026-11-04 会话", "R2-01")
+        check("msg.subject", msg.splitlines()[0] == "chore(board): 立卡 R2-01", msg)
+        check("msg.authorize", "\n授权：维护者 2026-11-04 会话\n" in msg, msg)
+        check("msg.batch", "\n批次：R2-01\n" in msg, msg)
+        check("msg.no_marker", "=done" not in msg and "#R2-01" not in msg,
+              "提交体不应带看起来像状态标记的 # 前缀")
+
+        atomic_target = repo / "docs" / "atomic.txt"
+        write_atomic(atomic_target, "hello\n")
+        check("atomic.write", atomic_target.read_text(encoding="utf-8") == "hello\n")
+        check("atomic.no_tmp", not (repo / "docs" / "atomic.txt.tmp").exists(),
+              "临时文件未清理")
+
+        # 真 git 夹具：主干拒绝 / 缺授权拒绝 / 提交成功
+        git_exe = shutil.which("git")
+        if git_exe:
+            g = repo / "g"
+            (g / "docs").mkdir(parents=True)
+            lpath = g / "docs" / "board-ledger.json"
+            # 底座里先放一张既有卡：非纯增量的判据是「旧数据有没有被原样保留」，
+            # 底座为空的话怎么改都算追加，测不出那条路。
+            # 路径用拼接而不是字面量：夹具里的 src/ 是临时目录里造的，写成字面量会被
+            # check_path_refs.py 当成「指向不存在的源文件」报出来（DX-22 同一手法）。
+            SRC = "src" + "/"
+            existing = {"id": "R2-30", "stage": "R2", "title": "既有",
+                        "scope": [SRC + "B.cpp"], "acceptance": ["退出码 0"],
+                        "note": "n", "depends": []}
+            base_ledger = {"version": 1, "cards": {"R2-30": existing},
+                           "baseline": {"R2-30": "done"}, "claims": {}}
+            lpath.write_text(serialize(base_ledger), encoding="utf-8")
+
+            def _g(*a):
+                return subprocess.run([git_exe] + list(a), cwd=str(g),
+                                      capture_output=True, check=False)
+
+            _g("init", "-q")
+            _g("symbolic-ref", "HEAD", "refs/heads/main")
+            _g("config", "user.email", "t@example.com")
+            _g("config", "user.name", "t")
+            _g("add", "-A")
+            _g("commit", "-q", "-m", "init")
+
+            one = {"id": "R2-20", "stage": "R2", "title": "新卡",
+                   "scope": [SRC + "A.cpp"], "acceptance": ["退出码 0"],
+                   "note": "n", "depends": []}
+            plan_g = build_plan(base_ledger, {"R2-20": one})
+            after_g = serialize(plan_g)
+
+            def quiet_apply(code_base, plan_obj, text, auth, batch, do_commit):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                    return apply_plan(g, lpath, code_base, plan_obj, text,
+                                      {"R2-20": one}, auth, batch, do_commit)
+
+            code = quiet_apply(base_ledger, plan_g, after_g, "来源", "批次", False)
+            check("apply.main_blocked", code == 6, "退出码 %s" % code)
+            check("apply.untouched_when_blocked",
+                  json.loads(lpath.read_text(encoding="utf-8")) == base_ledger,
+                  "被拒时台账不应改动")
+
+            _g("checkout", "-q", "-b", "chore/cards-test")
+            code = quiet_apply(base_ledger, plan_g, after_g, "", "", False)
+            check("apply.need_auth", code == 7, "退出码 %s" % code)
+            check("apply.untouched_when_no_auth",
+                  json.loads(lpath.read_text(encoding="utf-8")) == base_ledger,
+                  "缺授权时台账不应改动")
+
+            # 非纯增量计划：改了既有卡就是篡改，必须拒绝且一个字节都不动
+            tampered = json.loads(after_g)
+            tampered["cards"]["R2-30"]["title"] = "被改过的"
+            before_sha = _sha256(lpath)
+            code = quiet_apply(base_ledger, tampered, serialize(tampered),
+                               "来源", "批次", False)
+            check("apply.not_additive", code == 2, "退出码 %s" % code)
+            check("apply.sha_unchanged", _sha256(lpath) == before_sha, "台账被写过")
+
+            code = quiet_apply(base_ledger, plan_g, after_g, "维护者会话", "R2-20", True)
+            check("apply.commit", code == 0, "退出码 %s" % code)
+            subject = _g("log", "-1", "--format=%s").stdout.decode("utf-8").strip()
+            check("apply.commit_subject", subject == "chore(board): 立卡 R2-20", subject)
+            check("apply.commit_landed",
+                  "R2-20" in json.loads(lpath.read_text(encoding="utf-8"))["cards"])
+            check("apply.no_msg_left",
+                  not (g / "docs" / "board-ledger.json.commit-msg").exists(),
+                  "临时提交信息未清理")
+        else:
+            print("  · 跳过 git 夹具断言（PATH 上没有 git）")
+
     if failures:
         print("✗ selftest 失败 %d 项：" % len(failures))
         for item in failures:
@@ -510,25 +818,29 @@ def selftest() -> int:
 # ---------------------------------------------------------------- 主流程
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="建卡请求 dry-run 应用器（只读）")
+    parser = argparse.ArgumentParser(description="建卡请求预演器（默认只读；--apply 落盘）")
     parser.add_argument("manifest", nargs="?", help="建卡请求清单（.md 或 .json）")
     parser.add_argument("--ledger", default=str(REPO_ROOT / "docs" / "board-ledger.json"))
     parser.add_argument("--repo", default=str(REPO_ROOT))
     parser.add_argument("--diff", action="store_true", help="打印待写入的 unified diff")
     parser.add_argument("--json", action="store_true", help="机器可读输出")
     parser.add_argument("--selftest", action="store_true")
-    parser.add_argument("--apply", action="store_true", help="（v1 不支持）写入台账")
+    parser.add_argument("--apply", action="store_true",
+                        help="写入台账（需 --authorize / --batch，且不在主干上）")
+    parser.add_argument("--commit", action="store_true", help="写入后直接提交（隐含 --apply）")
+    parser.add_argument("-Authorize", "--authorize", default="", dest="authorize",
+                        help="授权来源，写进提交体的「授权：」一行")
+    parser.add_argument("-Batch", "--batch", default="", dest="batch",
+                        help="本批卡号，写进提交体的「批次：」一行")
     args = parser.parse_args()
-
-    if args.apply:
-        sys.stderr.write(
-            "✗ --apply 在 v1 中被拒绝：写台账是维护者授权动作。\n"
-            "  本脚本只负责「如果批准会写成什么」。落库请手工按 --diff 应用，\n"
-            "  或先立卡把 apply 通道并入 task_gate.py 的授权模型后再启用。\n")
-        return 5
 
     if args.selftest:
         return selftest()
+
+    if args.commit:
+        args.apply = True
+    if args.apply and args.json:
+        parser.error("--json 与 --apply 不能同时用（落盘时没有「机器可读的计划」可读）")
 
     if not args.manifest:
         parser.error("需要一份清单（或 --selftest）")
@@ -581,7 +893,15 @@ def main() -> int:
             print("  · %s" % note)
         print("")
     render(Path(args.manifest), cards, ledger, blockers, warnings, infos,
-           diff_lines, args.diff)
+           diff_lines, args.diff, dry_run=not args.apply)
+
+    if args.apply:
+        if blockers:
+            sys.stderr.write("✗ 有 %d 条阻断问题，未落盘。\n" % len(blockers))
+            return 2
+        print("")
+        return apply_plan(repo, ledger_path, ledger, plan, after, cards,
+                          args.authorize, args.batch, args.commit)
     return 2 if blockers else 0
 
 

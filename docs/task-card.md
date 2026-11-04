@@ -127,6 +127,42 @@ merge: 合入 fix/stagebar-chip-overflow
 全量编译仍由 CI 兜底，本地这一档不降低任何门槛：脚本层不跑 ctest、不碰 exe、不看 `--smoke`。
 两种口径的退出码语义一致（0 通过 / 1 失败），`scripts/verify.ps1` 仍是唯一入口。
 
+## 立卡流程
+
+立卡是**一次提交**，所以它自己占一条分支，不和实现混在一起：
+
+```text
+立 card 分支（只改台账） → 合并回主干 → 从主干开实现区领卡 → 干活 → git-done 结单
+```
+
+第二条之前的每一步都有工具，别手贴 JSON：
+
+```powershell
+# 1) 预演：只输出「如果批准会多出哪几行」，不写文件
+python scripts/board-apply.py docs/batches/dx-32.md --diff
+
+# 2) 落盘 + 提交（自动带「授权：」「批次：」两行，过 task_gate.py message 才提交）
+python scripts/board-apply.py docs/batches/dx-32.md --commit `
+  --authorize "维护者 2026-11-04 会话" --batch "DX-32、DX-33"
+
+# 3) 合并立卡分支，再开实现区
+pwsh -File scripts/git-done.ps1
+pwsh -File scripts/agent-init.ps1 -Agent <名> -Branch <分支> -Card DX-32
+```
+
+几个边界：
+
+- `--apply` 在 `main` / `master` / `develop` 或分离 HEAD 上直接退 6 —— 主干不受理立卡提交。
+- 缺 `--authorize` / `--batch` 退 7。程序不替你写判断，只替你把授权写进提交体。
+- 落盘前复核一次纯增量（既有 `cards` / `baseline` / `claims` 逐条相等），写入走临时文件 +
+  `os.replace`：失败不留半张卡。
+- 校验是 20 项，不是格式检查：卡号正则、重复、`scope` 精确路径与父目录都不存在、
+  与在办卡争同一路径、依赖成环、`acceptance` 里没有任何可执行记号……逐条见脚本头部说明。
+
+**立卡 → 实现分开两条分支**不是形式主义。合并成一条会丢掉 `chore(claim): 领取 #<短号>`
+那条领用提交：开区时卡还不存在，`-Card` 只能填 `none`，`refs/claims/<短号>` 也就没挂，
+收尾时 `check_claim_refs.py` 会拦（dxp2 的现场）。
+
 ## 配套工具
 
 | 工具 | 作用 |
@@ -136,6 +172,7 @@ merge: 合入 fix/stagebar-chip-overflow
 | `scripts/check_path_refs.py` | 扫全仓对 `src/` 文件的硬编码引用，指向不存在的路径即失败（棘轮：只报本次新增） |
 | `scripts/check_scope.py` | CI 里比对本次 diff 与卡的 `scope`，越界即失败 |
 | `scripts/agent-init.ps1 -Card <短号>` | 开工作区时把 `NB_CARD` / `NB_SCOPE` / `NB_ACCEPTANCE` / `NB_DEPENDS` 注入 `.agent-env.ps1` |
+| `scripts/board-apply.py` | 立卡：预演（默认只读）→ `--apply` 落盘 → `--commit` 提交；20 项校验拦住「不该立」的卡 |
 
 ## agent 侧约定
 

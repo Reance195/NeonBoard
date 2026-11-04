@@ -46,6 +46,9 @@ import time
 SNAPSHOT_VERSION = 3
 ORDER_STEP = 1024
 MARKER = re.compile(r"#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)(?:=(todo|doing|done))?")
+# 领用提交的主题（agent-init.ps1 生成）。结单对账靠它区分「这条分支领了哪些卡」。
+CLAIM_SUBJECT = re.compile(
+    r"^chore\(claim\):\s*领取\s*#((?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+))\s*实施任务$")
 # 路线图短号格式：R0-01 / R1-03 / M01 这类。写错这类短号属于真错误，必须拦下；
 # 其余短号（例如 plan-hook 用的 #T12）不属于看板台账范畴，只提示不拦截。
 ROADMAP_CODE = re.compile(r"^(?:[A-Za-z]{1,4}\d*-\d+|M\d+)$")
@@ -94,6 +97,33 @@ def git_log(root):
             continue
         commits.append((parts[0], parts[1], parts[2] if len(parts) > 2 else ""))
     return commits
+
+
+def emit_claimed(root, base, head):
+    """输出 base..head 范围内领用过的短号，一行一个（供 git-done 结单对账）。
+
+    为什么单独开一个出口，而不是让 git-done 自己跑 `git log --format=%s` 再匹配：
+    PowerShell 捕获子进程输出时按控制台代码页解码，中文「领取」会变成乱码，
+    换行还会丢（两条提交粘成一行），正则永不命中 —— 实测踩过。这里显式 utf-8 解码，
+    输出的又是纯 ASCII 短号，跨代码页安全。
+
+    返回 None 表示 git 失败（调用方据此跳过对账，而不是当成「没领过卡」）。
+    """
+    out = subprocess.run(
+        ["git", "-C", root, "log", "--format=%s", "%s..%s" % (base, head)],
+        capture_output=True, check=False,
+    )
+    if out.returncode != 0:
+        sys.stderr.write("[派生器] 取领用登记失败：%s\n" % out.stderr.decode("utf-8", "replace"))
+        return None
+    seen = []
+    for line in out.stdout.decode("utf-8", "replace").splitlines():
+        m = CLAIM_SUBJECT.match(line.strip())
+        if m:
+            code = m.group(1).upper()
+            if code not in seen:
+                seen.append(code)
+    return seen
 
 
 def scan_markers(subject, body, known_codes):
@@ -233,25 +263,34 @@ def sort_key(item):
     return (STATUS_RANK.get(status, 3), status, int(item.get("orderKey", 0) or 0), item.get("id", ""))
 
 
-def close_cards(cards, baseline, derived):
-    """结卡判定（DX-07）—— 纯函数，不碰磁盘，便于自测与复用。
+def close_cards(cards, baseline, derived, forced=None):
+    """结卡判定（DX-07 / DX-33）—— 纯函数，不碰磁盘，便于自测与复用。
 
     返回 (new_baseline, changed_codes)：
       - git 里最后一次标记是 done 的卡 → baseline 补成 done（结卡）；
+      - forced 里的卡 → 按人工确认直接结（DX-33：没写标记但确实做完的卡）；
       - 缺 baseline 条目、git 里也没有 done 标记的卡 → 补 todo（消缺项，领用门按 todo 处理）；
       - 其余一律不动（不把 done 改回 todo —— 结过的卡由人用 #<短号>=todo 显式重开）。
     只改 baseline，不碰 cards 的 id/title/stage。
+
+    forced 的语义边界：它只影响「这张卡的 baseline 该不该变 done」，不影响任何其它判定。
+    卡号是否存在由调用方先校验 —— 这里是纯函数，遇到不认识的号会把它当成普通新增条目，
+    那会让台账长出没有定义的 baseline 行，所以入口必须挡住。
     """
+    forced = set(forced or ())
     out = dict(baseline)
     changed = []
     for code in sorted(cards):
         mark = (derived.get(code) or "").lower()
         current = (out.get(code) or "").lower()
-        want = ""
-        if mark == "done":
+        if code in forced:
+            want = "done"
+        elif mark == "done":
             want = "done"
         elif code not in out:
             want = "todo"
+        else:
+            want = ""
         if want and want != current:
             out[code] = want
             changed.append(code)
@@ -302,6 +341,22 @@ def selftest():
     cases.append(("subject 里形似短号的 #T12 仍提示", "T12" in w2))
     cases.append(("subject 里写错的 #R99-99 仍进 unknown", "R99-99" in u2))
 
+    # ⑧ 人工确认结卡（DX-33）：没写标记但确实做完的卡，靠显式声明结，不是靠放宽推导
+    base8 = {"A-1": "todo", "B-2": "todo"}
+    doing8 = {"A-1": "doing", "B-2": "doing"}
+    out8, changed8 = close_cards({"A-1": {}, "B-2": {}}, base8, doing8, {"A-1"})
+    cases.append(("--close-explicit 指定的卡 → baseline 补 done",
+                  out8.get("A-1") == "done" and "A-1" in changed8))
+    cases.append(("--close-explicit 不波及未指定的卡",
+                  out8.get("B-2") == "todo" and "B-2" not in changed8))
+    cases.append(("--close-explicit 不改变「无标记不结」的默认口径",
+                  close_cards({"B-2": {}}, {"B-2": "todo"}, doing8)[0].get("B-2") == "todo"))
+
+    # ⑨ 人工确认对已结卡幂等
+    out9, changed9 = close_cards({"A-1": {}}, {"A-1": "done"}, {}, {"A-1"})
+    cases.append(("已 done 的卡再被人工确认 → 无变化",
+                  out9.get("A-1") == "done" and changed9 == []))
+
     failed = [name for name, ok in cases if not ok]
     for name, ok in cases:
         print("  %s %s" % ("✓" if ok else "✗", name))
@@ -340,6 +395,23 @@ def main():
              "写回台账的 baseline 字段，输出实际结掉的短号，一行一个",
     )
     parser.add_argument(
+        "--close-explicit", default="",
+        help="配合 --close-cards：额外把这些短号按人工确认直接结掉（逗号分隔）。"
+             "走同一条只改 baseline 的通道，不给它扩权到改 cards",
+    )
+    mode.add_argument(
+        "--emit-claimed", action="store_true",
+        help="只输出 --base..--head 范围内领用过的短号（一行一个），供 git-done 结单对账",
+    )
+    parser.add_argument(
+        "--base", default="origin/main",
+        help="--emit-claimed 的范围起点（默认 origin/main）",
+    )
+    parser.add_argument(
+        "--head", default="HEAD",
+        help="--emit-claimed 的范围终点（默认 HEAD）",
+    )
+    parser.add_argument(
         "--main-ref", default=None,
         help="claims 失效判定用的主干引用（默认依次尝试 origin/main、main）",
     )
@@ -353,10 +425,19 @@ def main():
     if args.selftest:
         return selftest()
 
-    if not any((args.check, args.write, args.baseline_check, args.close_cards)):
-        parser.error("必须指定 --check / --write / --baseline-check / --close-cards 之一")
+    if not any((args.check, args.write, args.baseline_check, args.close_cards, args.emit_claimed)):
+        parser.error("必须指定 --check / --write / --baseline-check / --close-cards / --emit-claimed 之一")
 
     root = os.path.abspath(args.repo)
+
+    if args.emit_claimed:
+        # 不需要快照也不需要台账：纯 git 查询，先于文件检查返回。
+        codes = emit_claimed(root, args.base, args.head)
+        if codes is None:
+            return 2
+        for code in codes:
+            print(code)
+        return 0
     snapshot_path = os.path.join(root, args.snapshot)
     ledger_path = os.path.join(root, args.ledger)
 
@@ -392,15 +473,34 @@ def main():
         # 只动 baseline，不碰 cards（id/title/stage）——与 agent 的合法写范围一致；
         # 缺 baseline 条目的卡按 git 标记补 done 或 todo，消除「有卡无条目」的缺项。
         # 输出被改动的短号（一行一个），调用方据此决定是否产生提交；无输出 = 无变化。
+        #
+        # --close-explicit（DX-33）：人工确认结卡。derive_board_status 的本职是
+        # 「从 git 事实推导」，人工确认不属于事实，所以它必须显式传参、且只走同一条
+        # 只改 baseline 的通道 —— 不给它新增 / 删除卡的能力，也不改判定规则。
+        forced = set()
+        if args.close_explicit:
+            for raw in args.close_explicit.split(","):
+                code = raw.strip().upper()
+                if not code:
+                    continue
+                if code not in cards:
+                    sys.stderr.write(
+                        "[结卡] --close-explicit 指定的 %s 不在台账卡片里（先核对卡号）\n" % code)
+                    return 2
+                forced.add(code)
+
         changed = []
-        baseline_out = dict(baseline)
+        baseline_out = close_cards(cards, baseline, derived, forced)[0]
         for code in sorted(cards):
-            mark = (derived.get(code) or "").lower()
-            current = (baseline_out.get(code) or "").lower()
-            want = "done" if mark == "done" else ("todo" if code not in baseline_out else current)
-            if want and want != current:
-                baseline_out[code] = want
+            before = (baseline.get(code) or "").lower()
+            after = (baseline_out.get(code) or "").lower()
+            if after != before:
                 changed.append(code)
+        for code in sorted(forced):
+            if code in changed:
+                sys.stderr.write("[结卡] %s：按 --close-explicit 人工确认结卡（无 git 标记）\n" % code)
+            else:
+                sys.stderr.write("[结卡] %s：已由 git 标记结过，--close-explicit 未产生额外改动\n" % code)
         if changed:
             ledger["baseline"] = dict(sorted(baseline_out.items()))
             tmp = ledger_path + ".tmp"

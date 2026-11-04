@@ -55,6 +55,96 @@
             "updatedAt": 1793813175
         },
         {
+            "code": "R16-01",
+            "completedAt": 0,
+            "createdAt": 1793814339,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R16-01",
+            "note": "起因（2026-11-05 插件巡检）：PluginRuntime::connectTaskEvents 已在总线广播 task.created/updated/moved/completed/removed，后台插件经子上下文能收；但面板侧全局 pluginHost 是 PluginHost 代理，只转发 commandInvoked、没有 eventReceived —— today 示例只能手动刷新（只在 Component.onCompleted 算一次），agent-bridge 面板状态也不更新。宿主代理转发活跃 context 的 eventReceived 后，面板类插件才有实时数据源；today 示例作为端到端验收载体（manifest 补 events 权限并升 apiVersion 2）。",
+            "orderKey": 6144,
+            "priority": 2,
+            "stage": "R16",
+            "status": "todo",
+            "tags": [
+                "R16"
+            ],
+            "title": "面板事件转发：PluginHost 代理补 eventReceived，示例接上自动刷新",
+            "updatedAt": 1793814339
+        },
+        {
+            "code": "R16-02",
+            "completedAt": 0,
+            "createdAt": 1793814339,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R16-02",
+            "note": "起因：applyItem 对同一张卡最多 4 次独立写库（title/note/tags 各一次 updateTask + 一次 moveTaskToEnd），10 条批次最坏 40 次写，每次都触发模型信号与快照防抖链。合并字段类变更为一次 updateTask、状态变更单独一次 moveTaskToEnd，幂等语义不变（重复投递同 item 仍收敛）。顺手把 statusOf 未知上游状态从「回退 todo」改为「不动状态」，防止上游协议将来新增状态值把已完成卡打回待办。",
+            "orderKey": 7168,
+            "priority": 2,
+            "stage": "R16",
+            "status": "todo",
+            "tags": [
+                "R16"
+            ],
+            "title": "agent-bridge 对账降本：单卡字段合并一次写库 + 未知状态防御",
+            "updatedAt": 1793814339
+        },
+        {
+            "code": "R16-03",
+            "completedAt": 0,
+            "createdAt": 1793814339,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R16-03",
+            "note": "起因：agentbridge.<agent>.<sessionId>.<todoId> 映射只增不减，卡片删除后残留永久留在 meta 表；Database 只有 metaValue/set/remove（无枚举），插件想清扫无从下手。宿主加 metaKeys(prefix)（PluginContext / PluginHost 同步暴露，权限仍归 meta），agent-bridge 批次末尾顺带清扫「指向已不存在任务」的映射。schema 不动、user_version 不升。与 R16-02 同改 background.qml，串行避免行段冲突。",
+            "orderKey": 8192,
+            "priority": 2,
+            "stage": "R16",
+            "status": "todo",
+            "tags": [
+                "R16"
+            ],
+            "title": "meta 前缀枚举 API + agent-bridge 映射清扫",
+            "updatedAt": 1793814339
+        },
+        {
+            "code": "R16-04",
+            "completedAt": 0,
+            "createdAt": 1793814339,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R16-04",
+            "note": "起因：agent-claude/codex/cursor/opencode 四份 main.qml 约 90% 同构（KeyValue 组件、授权徽章、布局），exeLine/readonlyLine 与 plugin.json 的 args 是两份数据，靠测试防漂移（main.qml 注释自认「测试会校验这两处与内置 profile 三者一致」）。宿主为「声明 agentProfiles 且无 main.qml」的插件渲染通用名片页，数据单源于 manifest；codex 面板上的本机实测长说明（stdin 接 NUL、Store 版路径等）移 docs/agent-profile.md，名片页只留 manifest 能表达的事实。",
+            "orderKey": 9216,
+            "priority": 2,
+            "stage": "R16",
+            "status": "todo",
+            "tags": [
+                "R16"
+            ],
+            "title": "通用 agent profile 名片页：宿主按 manifest 渲染，删四份 main.qml",
+            "updatedAt": 1793814339
+        },
+        {
+            "code": "R16-05",
+            "completedAt": 0,
+            "createdAt": 1793814339,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R16-05",
+            "note": "起因：today / surfaces 示例全部硬编码颜色（#0A1524、#22D3EE 等），与仓库「组件只用 Theme.xxx 令牌」的约定相悖——示例是教学材料，教的是反模式。顺手：plan-hook 面板执行记录只存内存（records 数组），面板关了就丢，落到 storage 保留最近 20 条。today/main.qml 与 R16-01 同文件，串行。",
+            "orderKey": 10240,
+            "priority": 2,
+            "stage": "R16",
+            "status": "todo",
+            "tags": [
+                "R16"
+            ],
+            "title": "示例插件 Theme 令牌化 + plan-hook 执行记录落 storage",
+            "updatedAt": 1793814339
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3283,6 +3373,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T01:26:15",
+    "updated": "2026-11-05T01:45:39",
     "version": 3
 }

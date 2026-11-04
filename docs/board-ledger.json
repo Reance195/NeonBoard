@@ -41,6 +41,7 @@
         "DX-39": "todo",
         "DX-40": "done",
         "DX-41": "todo",
+        "DX-43": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1007,6 +1008,23 @@
             ],
             "stage": "DX",
             "title": "自动结卡提交缺 # 标记：plan-hook 收不到 done、看板留僵尸 doing"
+        },
+        "DX-43": {
+            "acceptance": [
+                "-WhatIf 干跑：打印将追加的卡片 JSON 与 chore(board) 提交全文（授权/批次行可注入），不产生任何分支/提交/台账改动，退出码 0；短号格式非法、台账已有同号、缺授权语境 → 非 0 退出并点名原因",
+                "-SelfTest 内置用例全过：卡片 JSON 只追加不改动既有卡、键序与缩进对齐台账现状（sort_keys + indent 4 + ensure_ascii=False）、提交信息拼装含授权/批次两行、防重校验",
+                "-Request 模式解析 docs/card-requests/*.md frontmatter：仅受理 state=requested，取 suggestedId 作卡号，title/stage/scope/acceptance/depends 映射进台账；state 非 requested / 卡号已占用 → 拒绝并写明原因",
+                "-Claim 路径干跑输出 agent-init 参数行正确（真实领用留给下次开区验证）",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过（含 check_script_hygiene 的 BOM 与硬编码路径检查）"
+            ],
+            "depends": [],
+            "id": "DX-43",
+            "note": "起因：每立一张卡，维护者须手工走完「临时分支 → 临时检出（agent 工作区禁改 cards）→ 手编 ledger JSON → 手写 chore(board) 授权/批次 → git-done 合并推送 → 清理」全套仪式（DX-40 即此流程），agent 侧还要等卡、领卡、再开区；需求队列 docs/card-requests/ 已有雏形但无人消费，请求积压。目标：scripts/card-approve.ps1 一键完成「受理队列请求/显式参数 → 查重 → 临时 worktree 立卡（授权/批次注入提交体）→ git-done 合并推送 → 回收 →（可选 -Claim）接 agent-init 领用开区」，维护者只需在会话中批准；宪章仅要求授权行不可省（位置不是凭证），仪式全部可自动化。看板 UI 需求面板/批准按钮为第二阶段，另立卡走全量验收。",
+            "scope": [
+                "scripts/card-approve.ps1"
+            ],
+            "stage": "DX",
+            "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用"
         },
         "M01": {
             "acceptance": [

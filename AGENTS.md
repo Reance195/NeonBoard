@@ -401,6 +401,11 @@ cd .worktrees/agent-c
 - **本地孤儿 ref 清理**：任何「本地有 `refs/claims/<短号>` 但 `git ls-remote origin` 无对应 ref」的状态视为异常孤儿，应 `git update-ref -d` 删除本地项，并不得在本地保留为占位依据。
 - **台账过期登记一并清理（已实现）**：`git-done.ps1` 删掉认领分支后调用 `scripts/release-claims.py` 全量扫描台账 `claims`，只删「认领分支本地与远端都不存在」的条目（活动卡一律保留），作为独立的 `chore(board): 清理过期领用登记 <短号>` 提交快进补推；提交或补推失败只回滚该提交、不阻断已完成的合并。此前依赖 `claim-card.py`「下次任何人领卡时顺带清理」——顺带不保证发生，R6 收官后 `--check` 一直挂着「分支已不存在」噪声即为此。
 
+- **收尾的自动提交必须在分离 HEAD 上做（时序约束，DX-26）**：`git-done.ps1` 合并后的
+  「清理过期领用登记 / 结卡 / 刷快照」三步都是 commit，而 `pre-commit` 规则 1 禁止在 `main`
+  直接提交 —— 锚点区收尾时恰好停在 `main` 上。所以三步之前**先无条件 `switch --detach`**，
+  「切回 `main` + `merge --ff-only`」的归位排在**所有 commit 之后**。把归位提前会让三步全被
+  自家钩子拒掉，且失败回滚若只 `checkout --`（不撤暂存区）会留 staged 脏文件（pitfalls 2.15）。
 - **`-InPlace` 的合法前提是「当前检出本身已是隔离 worktree」**（DX-05 硬门）：锚点区
   （`git-dir` 等于 `common-dir`）传 `-InPlace`，`agent-init.ps1` 直接拒绝并 `exit 3` ——
   在锚点区原地开区等于让两个会话共享 HEAD 与 `.sandbox`（2026-10-28 凌晨的现场：

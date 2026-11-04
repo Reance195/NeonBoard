@@ -109,24 +109,6 @@
             "updatedAt": 1793822375
         },
         {
-            "code": "DX-45",
-            "completedAt": 0,
-            "createdAt": 1793823087,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-45",
-            "note": "触发证据：本会话 nbflow approve --cards DX-41 时：board-apply.py 落 commit 91a2a15 成功，紧接 git -C <worktree> push -u origin chore/board-a-6-replay 被 pre-push 规则 1 拒（分支尚未合并进 main，禁止推送），nbflow 退出码 2 停在 created。绕开方式：手工 git-done.ps1 -Branch <boardBranch>，杂务 diff 自动豁免 claim 闸门。修向：approve 收尾直接调 git-done，别再自己 push。\n\n## 目标\nnbflow approve 收尾推分支撞 pre-push 规则 1，立卡提交只能手工 git-done 绕开\n\n## 验收\nscripts/nbflow.py cmd_approve 里不再有独立的 git push -u origin <branch> 步骤；收尾统一交给 scripts/git-done.ps1 -Branch <boardBranch>（remote 模式：合入 origin/main + 快进推 + 删分支）; python scripts/nbflow.py --selftest 全绿；一次真实沙箱立卡（新批次）跑到 state=created，git log origin/main 能看到 chore(board) 立卡提交合入\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 19456,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow approve 收尾推分支撞 pre-push 规则 1，立卡提交只能手工 git-done 绕开",
-            "updatedAt": 1793823087
-        },
-        {
             "code": "DX-46",
             "completedAt": 0,
             "createdAt": 1793823087,
@@ -269,6 +251,24 @@
             ],
             "title": "发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头",
             "updatedAt": 1793825191
+        },
+        {
+            "code": "DX-45",
+            "completedAt": 0,
+            "createdAt": 1793823087,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-45",
+            "note": "触发证据：本会话 nbflow approve --cards DX-41 时：board-apply.py 落 commit 91a2a15 成功，紧接 git -C <worktree> push -u origin chore/board-a-6-replay 被 pre-push 规则 1 拒（分支尚未合并进 main，禁止推送），nbflow 退出码 2 停在 created。绕开方式：手工 git-done.ps1 -Branch <boardBranch>，杂务 diff 自动豁免 claim 闸门。修向：approve 收尾直接调 git-done，别再自己 push。\n\n## 目标\nnbflow approve 收尾推分支撞 pre-push 规则 1，立卡提交只能手工 git-done 绕开\n\n## 验收\nscripts/nbflow.py cmd_approve 里不再有独立的 git push -u origin <branch> 步骤；收尾统一交给 scripts/git-done.ps1 -Branch <boardBranch>（remote 模式：合入 origin/main + 快进推 + 删分支）; python scripts/nbflow.py --selftest 全绿；一次真实沙箱立卡（新批次）跑到 state=created，git log origin/main 能看到 chore(board) 立卡提交合入\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 19456,
+            "priority": 2,
+            "stage": "DX",
+            "status": "doing",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 收尾推分支撞 pre-push 规则 1，立卡提交只能手工 git-done 绕开",
+            "updatedAt": 1793825802
         },
         {
             "code": "R0-01",
@@ -3715,6 +3715,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T04:46:31",
+    "updated": "2026-11-05T04:56:42",
     "version": 3
 }

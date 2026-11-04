@@ -764,6 +764,25 @@
             "stage": "DX",
             "title": "新 worktree 首次全量验收必卡 180 秒：Qt 探测跑在 configure 之前"
         },
+        "DX-31": {
+            "acceptance": [
+                "状态标记的解析口径不变：`#<短号>=<状态>` 在 subject 与 body 里都继续生效（历史上 15 个提交把标记写在 body，只扫 subject 会让 DX-20/21/22/23/24/25、R7-04 的派生状态丢失）",
+                "未登记短号的 `unknown`（形如路线图短号，写错必须拦）判定完全不变：subject 与 body 都收集",
+                "只收紧 `warnings`：仅来自 subject，且必须「形似看板短号」（字母段 + 数字，尾部为数字）；body 里的 #IFDEF / #RRGGBB / #R7-0X 这类散文不再报",
+                "把标记分类抽成纯函数，--selftest 追加断言覆盖：body 里的宏 / 颜色 / 占位符不报、subject 里的 #T12 仍报、subject 与 body 里写错的 #R99-99 仍进 unknown、body 里的已知卡 #A-1=done 仍派生",
+                "实测：`python scripts/derive_board_status.py --check` 不再出现那 8 条提示，且仍输出「校验通过：133 张卡片状态与 git 历史 / 台账一致」",
+                "实测：`--selftest` 与 `--baseline-check` 通过，git-done 收尾的结卡 / 快照两步不受影响"
+            ],
+            "depends": [],
+            "id": "DX-31",
+            "note": "每次 git-done 收尾都刷 8 行「提交信息里的 #ERROR / #IFDEF / #IFNDEF / #INCLUDE / #R / #R7-0X / #RGB / #RRGGBB 不在看板台账中」。全部来自同一个提交（182bf2b 主题包格式）的正文：C++ 预处理宏示例、#RRGGBB 颜色写法、#R7-0X 占位符。这些是正常技术散文，不是有人写错了卡号。\\n\\nMARKER 正则 `#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)` 匹配任意字母开头的词，正文里的宏自然一并命中。原实现把 subject + body 拼起来一起扫，于是散文里的每个 #xxx 都进了 warnings。\\n\\n一度想改成「只扫 subject」，实测否定：全历史里 15 个提交把状态标记写在 body，其中 7 张卡（DX-20/21/22/23/24/25、R7-04）的 derived 状态只有 body 里那一处。只扫 subject 会直接改掉派生语义。所以改成按「诊断信号」分层：状态标记照旧两处都认，unknown 照旧两处都收（写错短号必须拦），只有纯提示性质的 warnings 收紧到「subject + 形似短号」。",
+            "scope": [
+                "scripts/derive_board_status.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "派生器把提交正文里的 C++ 宏 / 颜色值当卡号，每次收尾刷 8 条噪声"
+        },
         "M01": {
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_pluginpackage --output-on-failure",

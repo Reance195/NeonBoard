@@ -71,6 +71,8 @@ plugins/<plugin-id>/
 | `version` | 是 | 插件版本；缺省 `0.0.0` |
 | `apiVersion` | 否 | `1` 或 `2`；缺省 `1` |
 | `description` | 否 | 描述 |
+| `category` | 否 | 类别标签（如「任务自动化」「Agent 接入」「示例」），发布市场时透传进索引，插件库面板显示为类别徽章 |
+| `dependencies` | 否 | 依赖说明字符串数组，逐条列出运行前提（如对应 CLI 需在 PATH、需开启某功能）；发布市场时透传进索引，插件库面板逐条显示 |
 | `main` | 是 | 相对插件目录的 QML 入口，必须存在 |
 | `background` | 否 | 后台常驻入口（apiVersion 2），必须存在 |
 | `settings` | 否 | 设置页入口（apiVersion 2），必须存在；也可写在 `contributes.settings` |
@@ -571,14 +573,16 @@ pluginMarket.refresh()            // 拉取索引（失败降级到缓存）
 
 ```json
 {
-  "version": 1,
-  "updatedAt": "2026-10-21",
+  "version": 2,
+  "updatedAt": "2026-11-05",
   "plugins": [
     {
       "id": "com.example.timer",
       "name": "计时器",
       "version": "1.0.0",
+      "category": "任务自动化",
       "description": "一个示例插件",
+      "dependencies": ["无外部依赖"],
       "author": "someone",
       "homepage": "https://example.com",
       "download": "https://example.com/timer.neon",
@@ -589,7 +593,7 @@ pluginMarket.refresh()            // 拉取索引（失败降级到缓存）
 }
 ```
 
-`sha256` 给了就强制校验；`download` 写完整 URL 即可，也可以只写文件名（如 `timer.neon`），客户端会按**索引所在目录**解析成完整地址。索引顶层预留了 `signature` 字段（minisign 格式），本轮**不校验**，以后接上不改协议。
+`sha256` 给了就强制校验；`download` 写完整 URL 即可，也可以只写文件名（如 `timer.neon`），客户端会按**索引所在目录**解析成完整地址。`category` 与 `dependencies` 由插件 manifest 同名字段透传而来（R15-01），客户端解析后在插件库面板显示为类别徽章与依赖说明；缺失时字段为空、面板不显示。索引顶层预留了 `signature` 字段（minisign 格式），本轮**不校验**，以后接上不改协议。
 
 ### 四道校验
 
@@ -627,7 +631,7 @@ pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
     -OutputDir D:\market -DownloadBase https://gitee.com/<owner>/<repo>/raw/main
 ```
 
-脚本读 `plugin.json` → 把插件文件打成单文件 `.neon` → 算 SHA-256 与体积 → 更新 `market.json`（保留其他条目，`signature` 字段位留空）。`-RemoveStale` 可清理索引里已不存在的旧包。
+脚本读 `plugin.json` → 把插件文件打成单文件 `.neon` → 算 SHA-256 与体积 → 更新 `market.json`（保留其他条目，`signature` 字段位留空）；manifest 里的 `category` / `dependencies` 随条目一并透传。`-RemoveStale` 可清理索引里已不存在的旧包。
 
 ### 边界
 

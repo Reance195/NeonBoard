@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "apiVersion": 1,
   "description": "待办、进行中、今日完成与逾期统计",
+  "category": "示例",
+  "dependencies": [
+      "无外部依赖（仅 tasks.read 权限，apiVersion 1 宿主即可运行）"
+  ],
   "main": "main.qml",
   "permissions": ["tasks.read"]
 }

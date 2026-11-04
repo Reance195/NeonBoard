@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "apiVersion": 2,
   "description": "演示设置页、侧栏/底部/卡片槽位与命令注册",
+  "category": "示例",
+  "dependencies": [
+      "无外部依赖（不申请任何权限，纯演示插件 API 各表面）"
+  ],
   "main": "main.qml",
   "settings": "settings.qml",
   "permissions": [],

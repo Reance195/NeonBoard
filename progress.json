@@ -127,6 +127,24 @@
             "updatedAt": 1793814339
         },
         {
+            "code": "R17-01",
+            "completedAt": 0,
+            "createdAt": 1793815957,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R17-01",
+            "note": "起因（2026-11-05 维护者反馈）：NeonBoardHost.exe 的托盘右键菜单是纯 Win32 系统菜单（CreatePopupMenu + TrackPopupMenu），Windows 白底方框，和 NeonBoard 的赛博霓虹风完全脱节；主程序在非 hosted 模式下的托盘 QMenu 在 Windows 上同样走系统菜单，两处外观都不受主题系统管辖。目标：宿主改成自绘分层窗口霓虹弹窗（圆角 + 辉光 + 半透明底 + 悬停高亮），主程序 QMenu 套同一套皮肤令牌（QSS + 非原生绘制 + 圆角），两处菜单视觉一致；菜单条目本身保持现状不变（宿主仍是 打开 / 开机自启 / 退出）。",
+            "orderKey": 11264,
+            "priority": 2,
+            "stage": "R17",
+            "status": "todo",
+            "tags": [
+                "R17"
+            ],
+            "title": "托盘右键菜单霓虹化：宿主自绘弹窗 + 主程序 QMenu 统一皮肤",
+            "updatedAt": 1793815957
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3373,6 +3391,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T02:09:41",
+    "updated": "2026-11-05T02:12:37",
     "version": 3
 }

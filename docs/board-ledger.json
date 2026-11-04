@@ -34,6 +34,8 @@
         "DX-32": "done",
         "DX-33": "done",
         "DX-35": "todo",
+        "DX-36": "todo",
+        "DX-37": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -860,6 +862,47 @@
             ],
             "stage": "DX",
             "title": "DX 领用幂等门只看分支历史：占位被合并释放后，同一张卡再也领不回来"
+        },
+        "DX-36": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿（只动脚本、流水线与文档，不涉代码路径）",
+                "verify.ps1 新增 ISCC 编译闸门：用临时假 payload 真编译一次 installer/neonboard.iss，退出码非 0 即拦；探测不到 ISCC 时明确告警，不得静默跳过",
+                "闸门要能拦住本卡记录的两类错误 —— 负测两次：把回执代码改回 AnsiString 版 LoadStringFromFile / SaveStringToFile，以及在 Pascal 注释里写 Inno 常量，两次都必须被拦下",
+                "release.yml 让 BUILD-INFO.txt 真的进安装树（拷进 dist\\NeonBoard\\，或把「写溯源信息」移到「编译安装包」之前），使安装回执的 commit 字段在真实安装树上不再恒为 unknown",
+                "docs/pitfalls.md 记两条：Unicode Inno 的 AnsiString 与 String 不匹配、Pascal 注释里出现花括号会提前闭合注释"
+            ],
+            "depends": [],
+            "id": "DX-36",
+            "note": "发布流水线不该当编译器用。v0.1.5 两次发布失败都是 iss 的编译期错误：run 41870082136 报 iss:117 Column 71 Type mismatch（Unicode Inno 6 的文件读写API 参数是 AnsiString），run 41877631595 报 iss:126 Column 26 Syntax error（Pascal 注释到第一个右花括号即结束，注释文本里写 Inno 常量让后半句被当代码）。iss 的 [Code] 段只有 ISCC 会编译，而 verify.ps1 从不跑 ISCC、tst_updatemanager 只 grep 文本，所以本地全绿、构建 job 全绿，直到打 tag 出包才炸，各耗 11~19 分钟与一封失败邮件。本机已装 Inno Setup 6.7.3，同样的错误 2 秒就能复现。",
+            "scope": [
+                "scripts/verify.ps1",
+                ".github/workflows/release.yml",
+                "docs/pitfalls.md",
+                "docs/git-workflow.md"
+            ],
+            "stage": "DX",
+            "title": "DX 安装器脚本没有编译闸门：iss 的 [Code] 段只有 ISCC 会编译，两次发布都栽在编译期错误"
+        },
+        "DX-37": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
+                "release.yml（必要时含 ci.yml）加缓存：Qt 安装目录与编译缓存（sccache 或构建目录），命中与未命中都要在日志里看得见",
+                "sccache 在 runner 上真的生效：不能只靠 CMakeLists 的 find_program 静默降级，未启用时明确打印「sccache: 未启用」",
+                "改动前后各跑一次发布，比较「构建 Release」步骤墙钟与命中率，把数字写回本卡 note（口径与 DX-16 一致），不接受「感觉快了」",
+                "docs/pitfalls.md 记一条：find_program 式可选加速器在 CI 上静默失效，配置存在不等于生效"
+            ],
+            "depends": [
+                "DX-36"
+            ],
+            "id": "DX-37",
+            "note": "实测 run 41877631595：构建 Release 8m36s，占全流程 11m19s 的约 76%；装 Qt 1m14s、CMake configure 40s、其余步骤合计约 10s。对照 v0.1.4 成功那轮（run 41831538511）总时长 17m52s，多出的 6~7 分钟花在增量包生成、下载上一版、清单与上传。代价不只是慢：iss 每轮错误的排查被放大到 11~19 分钟（见 DX-36），再叠加 runner 排队 —— 本轮 17:26:55Z 起 queued 约 11 分钟才开始跑，runner=- 且同时有 5 个 run 排队，而 GitHub 状态页全绿，人只能干等。",
+            "scope": [
+                ".github/workflows/release.yml",
+                ".github/workflows/ci.yml",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "DX 发布构建零缓存：冷编译占掉四分之三墙钟，放大每次出包失败的排查代价"
         },
         "M01": {
             "acceptance": [

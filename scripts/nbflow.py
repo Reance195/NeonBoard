@@ -178,14 +178,18 @@ def run(argv: list[str], cwd: Path | None = None, capture: bool = False,
     return proc.returncode, text
 
 
-def ps_script(name: str, params: list[str]) -> list[str]:
-    """定位 pwsh；没有则按 DX-12 回退 Windows PowerShell 5.1 + Bypass。"""
+def ps_script(name: str, params: list[str], root: Path = REPO) -> list[str]:
+    """定位 pwsh；没有则按 DX-12 回退 Windows PowerShell 5.1 + Bypass。
+
+    root：脚本所在检出。git-done 一类按「自身路径」定位仓库的脚本，必须用
+    目标检出自己的那份跑，否则它会把调用者检出当成操作对象（DX-45）。
+    """
     exe = shutil.which("pwsh")
     if exe:
         base = [exe, "-NoProfile", "-File"]
     else:
         base = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
-    return base + [str(REPO / "scripts" / name)] + params
+    return base + [str(root / "scripts" / name)] + params
 
 
 def py_script(name: str, params: list[str]) -> list[str]:
@@ -498,17 +502,22 @@ def cmd_approve(ctx: Ctx, state: dict, args) -> int:
                 _ticket, tcode = raise_conflict_ticket(ctx, state, branch=branch, info=probe,
                                                        agent=getattr(args, "conflict_agent", CONFLICT_AGENT))
                 return 5 if tcode == 0 else tcode
-        # ③ 合回主线：先推立卡分支，再由 git-done 在调用者检出里做 --no-ff 合并 + 快进推送
-        code, _ = run(["git", "-C", str(wt), "push", "-u", "origin", branch], dry=ctx.dry_run)
-        if code != 0:
-            err("✗ 推送立卡分支失败；分支仍在 %s，可手工合并" % wt)
-            return 2
+        # ③ 合回主线：git-done 在立卡工作区自己的检出里跑（DX-45）。
+        #    旧实现先 git push -u origin <立卡分支>——被 pre-push 规则 1 拒
+        #    （分支尚未合并进 main，禁止推送），立卡分支永远推不上去，
+        #    approve 只能手工 git-done 兜底。git-done 本就从不推工作分支：
+        #    它从分支所在检出跑（root=wt，repo 定位到 wt），remote 模式
+        #    基于 origin/main 建临时合并分支 --no-ff 合并 + 快进推 origin/main + 删分支。
         if not ctx.dry_run:
-            run(["git", "-C", str(REPO), "worktree", "remove", str(wt)], check=True)
-        code, _ = run(ps_script("git-done.ps1", ["-Branch", branch]), dry=ctx.dry_run)
-        if code != 0:
-            err("✗ 合回主线失败（可能与其他会话撞车，重新同步后重跑 close/approve）")
-            return 2
+            code, _ = run(ps_script("git-done.ps1", ["-Branch", branch], root=wt), cwd=wt,
+                          dry=ctx.dry_run)
+            if code != 0:
+                err("✗ 合回主线失败（可能与其他会话撞车，重新同步后重跑 close/approve）；分支仍在 %s" % wt)
+                return 2
+            code, _ = run(["git", "-C", str(REPO), "worktree", "remove", str(wt)], check=False)
+            if code != 0:
+                # 主线已合入，工作区回收失败（目录被占用等）只提示，不算失败
+                out("  · 立卡工作区回收失败，不影响已合入的主线：%s" % wt)
         out("%s 立卡完成并合回主线：%s"
             % ("[演练] 未落盘 ·" if ctx.dry_run else "✓", ", ".join(cards)))
         return 0

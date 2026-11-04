@@ -3720,6 +3720,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-45": {
+            "agent": "agent-dx45",
+            "branch": "fix/nbflow-approve-gitdone",
+            "claimedAt": 1793825464,
+            "head": "b467a690af11e581590a1e83afc749faf603f44b"
+        }
+    },
     "version": 1
 }

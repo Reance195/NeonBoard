@@ -33,6 +33,7 @@
         "DX-31": "done",
         "DX-32": "done",
         "DX-33": "done",
+        "DX-34": "todo",
         "DX-35": "todo",
         "DX-36": "todo",
         "DX-37": "todo",
@@ -845,6 +846,24 @@
             ],
             "stage": "DX",
             "title": "领了卡没写 =done，收尾一声不响就放行"
+        },
+        "DX-34": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿（只动脚本，不涉代码路径）",
+                "git-done 在 linked worktree 里收尾时，回执必须落在锚点区的 .sandbox/receipts/，不得再在 worktree 内部创建该目录；收尾后到锚点区能看到那个 json",
+                "定位不到锚点区时只跳过回执并告警，绝不中断脚本：草案用的是裸 return，而这一段在脚本主体里（所有 function 都在 544 行的主流程之前结束），return 会 exit 整个脚本，把后面的「✓ 合并完成」横幅与 exit 0 一起吞掉 —— 改法要走这段已有的 catch 通道",
+                "回执目录确认被 .gitignore 覆盖（.gitignore:59 的 .sandbox/），不让锚点区变脏、反过来长期卡住锚点快进同步",
+                "docs/pitfalls.md 记一条：$repoRoot 在 linked worktree 检出时指向该 worktree，凡「要活过 worktree 回收」的产物都不能按 $repoRoot 落盘"
+            ],
+            "depends": [],
+            "id": "DX-34",
+            "note": "现状证据：本会话两次收尾（fix-iss-comment-brace-ca06757.json、chore-dx38-delta-cleanup-card-512d419.json）都写进了 .worktrees\\agent-r5fix\\.sandbox\\receipts\\，而该目录按 §7.2 用完即回收 —— 回执存在的意义是回答「那次收尾到底结了什么、漏了什么、清掉了什么」，回收即失效。改动由维护者本人在锚点区手改（2026-11-05 01:10:24 落盘；5 份会话记录对 scripts/git-done.ps1 的 Edit/Write 均为 0 次，故非 agent 所为），因锚点是 agent 禁区且 pre-commit 禁止在 main 提交，一直停在未提交态、无人能认领。现按他授权接手入分支并补卡号 —— 他改的时候 DX-34 还没立卡，这也正是「改了没立卡 → 没分支 → 没人能领」这个死角的具体样本。",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "DX 收尾回执落在 worktree 内：工作区一回收，那次收尾的物证就跟着丢了"
         },
         "DX-35": {
             "acceptance": [
@@ -3442,6 +3461,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-34": {
+            "agent": "agent-r5fix",
+            "branch": "chore/receipt-anchor-path",
+            "claimedAt": 1793818360,
+            "head": "202d83d660f280bcc95687b81d81f8c62a8e6fb4"
+        }
+    },
     "version": 1
 }

@@ -886,13 +886,18 @@ if ($Mode -eq 'remote') {
         }
     }
 
-    # ---- 结构化回执（DX-33）----
+    # ---- 结构化回执（DX-34）----
     # agent 读的是屏幕输出，但收尾之后工作区多半立刻被回收，屏幕一滚就没了。
-    # 回执落在锚点区的 .sandbox/receipts/（.sandbox/ 已在 .gitignore），按「分支 + 短 sha」
-    # 命名，事后能回答「那次收尾到底结了什么、漏了什么、清掉了什么」。
+    # 回执必须落在锚点区的 .sandbox/receipts/（已加到 .gitignore），不能在 worktree 内部，
+    # 否则回收 worktree 时会连带丢失。按「分支 + 短 sha」命名，事后能回答「那次收尾到底结了什么、漏了什么、清掉了什么」。
     # fail-soft：写不出来只提示，绝不阻断已经成功的合并。
     try {
-        $receiptRoot = Join-Path (Join-Path $repoRoot '.sandbox') 'receipts'
+        # DX-34：强制使用锚点区路径，不在 worktree 内部创建 .sandbox
+        $anchorRoot = Get-AnchorWorktree
+        if (-not $anchorRoot) {
+            throw '无法定位锚点区（git worktree list 没有返回主检出）'
+        }
+        $receiptRoot = Join-Path (Join-Path $anchorRoot '.sandbox') 'receipts'
         New-Item -ItemType Directory -Path $receiptRoot -Force | Out-Null
         $headSha = (Invoke-Git rev-parse --short HEAD).Trim()
         $closeMode = 'marker'

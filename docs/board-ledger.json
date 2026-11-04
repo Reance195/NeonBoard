@@ -639,7 +639,11 @@
             "note": "docs/board-ledger.json 看起来像文档，实际是 tst_projectmap 的测试输入（它读 stage 排序、把 baseline 当 done 判据、校验 cards 与 roadmap 行对应）。改了它而只跑 -ScriptOnly，本地全绿、CI 红 —— 主线被弄红过一次就是这条路径。\\n\\n但反过来「改台账就全量」也太重：全量要编译 3.3 分钟。实测增量构建 196 秒、冷启动 3.8 分钟，把它塞进 -ScriptOnly 会让「两秒验收」失去意义。\\n\\n所以按「改了什么」分流：只动 baseline / claims 的（结卡、领用登记，最高频）派生一致性由 derive_board_status.py --check 覆盖，秒级；动了 cards 结构的（立卡、改 scope、改 stage，低频但影响 tst_projectmap）才要求全量。判定是机械的（比 JSON），不需要人记。\\n\\n边界：本脚本不做 tst_projectmap 的等价校验，只决定「这一档够不够」。真校验仍在编译产物里。",
             "scope": [
                 "scripts/check_board_diff.py",
-                "scripts/verify.ps1"
+                "scripts/verify.ps1",
+                "AGENTS.md",
+                "docs/task-card.md",
+                "docs/pitfalls.md",
+                "docs/git-workflow.md"
             ],
             "stage": "DX",
             "title": "改台账后本地无任何提示，派生漂移只能等 CI 报红"

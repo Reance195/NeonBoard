@@ -3239,8 +3239,8 @@
         "R5-10": {
             "agent": "agent-r5fix",
             "branch": "fix/installer-receipt-ansistring",
-            "claimedAt": 1793812364,
-            "head": "1eea311965d4a83db9a7f01d03d01c0ea2a0ace2"
+            "claimedAt": 1793813121,
+            "head": "8eeacba156d9592abe2479235a7bec405eab3dff"
         }
     },
     "version": 1

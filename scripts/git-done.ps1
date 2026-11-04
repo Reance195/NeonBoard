@@ -22,6 +22,7 @@
       pwsh -File scripts/git-done.ps1 -KeepBranch
       pwsh -File scripts/git-done.ps1 -SkipClaimCheck      # 已废弃：不再能放行代码改动
       pwsh -File scripts/git-done.ps1 -SkipAnchorSync      # 合并后不快进锚点区
+      pwsh -File scripts/git-done.ps1 -Close DX-32,DX-33   # 人工确认结卡（卡必须是本分支领用的）
 #>
 [CmdletBinding()]
 param(
@@ -33,6 +34,9 @@ param(
     [switch]$SkipAnchorSync,
     [switch]$RemoveWorktree,
     [switch]$KeepWorktree,
+    # 结单对账（DX-33）：本分支领了卡、但提交信息里没写 #<短号>=done 时，收尾会点名。
+    # -Close 是「我知道，按完成处理」的显式确认；只接受本分支领用过的卡。
+    [string]$Close = '',
     [string]$MainBranch = 'main',
     [string]$Worktree = ''
 )
@@ -494,6 +498,41 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "`n→ 合并分支 '$Branch'（模式：$Mode）" -ForegroundColor Cyan
 
+# ---- 收尾对账的准备（DX-33）----
+# 必须在合并**之前**抓：合并一推送，这条分支的所有提交都成了 origin/main 的祖先，
+# 再想区分「本次领的卡」和「历史上领过的卡」就只能靠猜。这份名单用来回答一个问题 ——
+# 这条分支领了卡、收尾却没把它结掉，是漏了还是确实没做完。
+$claimedCodes = @()
+$logRes = Invoke-GitQuiet @('log', '--format=%s', "origin/$MainBranch..$Branch")
+if ($logRes.Code -eq 0) {
+    foreach ($logLine in $logRes.Output) {
+        $cm = [regex]::Match([string]$logLine, '^chore\(claim\):\s*领取\s*#([A-Za-z]{1,4}\d*-\d+|M\d+)\s*实施任务$')
+        if ($cm.Success) { $claimedCodes += $cm.Groups[1].Value.ToUpperInvariant() }
+    }
+}
+$claimedCodes = @($claimedCodes | Select-Object -Unique | Sort-Object)
+
+# -Close：只受理本分支领用过的卡。凭空结卡两头都有害 —— 已交付的卡会被重新领用重做，
+# 没做完的卡会显示完成，而 baseline=done 正是「拒绝重新领用」的唯一门（条款 6）。
+$closeList = @()
+if ($Close) {
+    $closeList = @($Close -split '[,\s]+' | Where-Object { $_ } |
+        ForEach-Object { ($_.TrimStart('#')).ToUpperInvariant() } | Select-Object -Unique)
+}
+if ($closeList.Count -gt 0) {
+    $outside = @($closeList | Where-Object { $claimedCodes -notcontains $_ })
+    if ($outside.Count -gt 0) {
+        Write-Host ("`n✗ -Close 指定的卡不属于本次分支领用：{0}" -f ($outside -join '、')) -ForegroundColor Red
+        if ($claimedCodes.Count -gt 0) {
+            Write-Host ("  本次分支领用：{0}" -f ($claimedCodes -join '、')) -ForegroundColor DarkGray
+        } else {
+            Write-Host '  本次分支没有领用任何卡。' -ForegroundColor DarkGray
+        }
+        Write-Host '  结卡只对「领了、做完了、但没写 =done 标记」这一种情形开口子。' -ForegroundColor Yellow
+        exit 8
+    }
+}
+
 if ($Mode -eq 'remote') {
     # ---- 3. remote 模式：临时分支 + 快进推送，不碰主 worktree ----
     # 收尾要能回到「进来时在哪」（DX-20）：本模式中途会 checkout 临时分支，原逻辑最后一律
@@ -721,14 +760,25 @@ if ($Mode -eq 'remote') {
     # 最后一次 #<短号>=done，把 baseline 补成 done（顺带补掉缺 baseline 条目的卡）。
     # 与上面的 claims 清理同一套路 —— 分离 HEAD 上就地提交、快进补推；
     # 失败只回滚该提交，绝不阻断已经成功的合并。
-    $ccRes = Invoke-Cmd -File 'python' -CmdArgs @((Join-Path $repoRoot 'scripts\derive_board_status.py'), '--close-cards')
+    $ccArgs = @((Join-Path $repoRoot 'scripts\derive_board_status.py'), '--close-cards')
+    if ($closeList.Count -gt 0) {
+        $ccArgs += @('--close-explicit', ($closeList -join ','))
+    }
+    $ccRes = Invoke-Cmd -File 'python' -CmdArgs $ccArgs
     $closedCodes = @($ccRes.Output | Where-Object { $_ -and $_ -match '^\S+$' })
+    $explicitClosed = @($closedCodes | Where-Object { $closeList -contains $_ })
     if ($ccRes.Code -ne 0) {
         Write-Host ("· 结卡：派生器失败（退出码 {0}），baseline 留待下次合并再结" -f $ccRes.Code) -ForegroundColor Yellow
     } elseif ($closedCodes.Count -gt 0) {
         Invoke-GitQuiet @('add', 'docs/board-ledger.json') | Out-Null
         $ccBody = "对象：按 git 标记 #<短号>=done 自动结卡（DX-07），把 baseline 补成 done。`n`n" +
                   "自动来源：git-done.ps1 合并收尾的 derive_board_status.py --close-cards。"
+        if ($explicitClosed.Count -gt 0) {
+            # 人工确认与 git 推导走同一条只改 baseline 的通道，但必须分得开：
+            # 事后查「这张卡凭什么结的」，一处看标记，一处看这行。
+            $ccBody += "`n`n人工确认：" + ($explicitClosed -join '、') +
+                       "（-Close 显式声明，提交信息里没有 #<短号>=done 标记）"
+        }
         $ccCommit = Invoke-GitQuiet @('commit', '-m', ('chore(board): 结卡 {0}' -f ($closedCodes -join '、')), '-m', $ccBody)
         if ($ccCommit.Code -ne 0) {
             Write-Host '· 结卡：提交失败，baseline 留待下次合并再结' -ForegroundColor Yellow
@@ -742,6 +792,42 @@ if ($Mode -eq 'remote') {
                 Write-Host '· 结卡：补推失败（离线 / 主线被推进），本地回滚，留待下次合并再结' -ForegroundColor Yellow
                 Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
             }
+        }
+    }
+
+    # ---- 结单对账（DX-33）----
+    # --close-cards 只处理「已经写了 =done 标记」的卡；没写的卡一张都不结，而原先收尾
+    # 在这种情况下连一行提示都没有 —— 干完活、合并、全绿，卡还挂在 todo，下次有人接着领
+    # 一遍重做。程序判不了 acceptance 满不满足，但「领了没结」是两份名单的差集，能判。
+    $missedCodes = @($claimedCodes | Where-Object { $closedCodes -notcontains $_ })
+    if ($claimedCodes.Count -gt 0) {
+        Write-Host ''
+        if ($missedCodes.Count -eq 0) {
+            Write-Host ("✓ 结单对账：本次领用的 {0} 张已全部结掉（{1}）" -f `
+                $claimedCodes.Count, ($claimedCodes -join '、')) -ForegroundColor Green
+        } else {
+            Write-Host ("· 结单对账：本次领用 {0} 张、结掉 {1} 张，还有 {2} 张没结" -f `
+                $claimedCodes.Count, $closedCodes.Count, $missedCodes.Count) -ForegroundColor Yellow
+            $ledgerPath = Join-Path $repoRoot 'docs\board-ledger.json'
+            $ledgerObj = $null
+            if (Test-Path -LiteralPath $ledgerPath) {
+                # 必须显式 utf8：5.1 会把无 BOM 的 UTF-8 当 GBK 读，中文尾字节能吞掉 JSON 引号
+                try { $ledgerObj = (Get-Content -LiteralPath $ledgerPath -Raw -Encoding utf8 | ConvertFrom-Json) } catch { $ledgerObj = $null }
+            }
+            foreach ($code in $missedCodes) {
+                $card = $null
+                if ($ledgerObj) { $card = $ledgerObj.cards.$code }
+                if ($card) {
+                    Write-Host ("    {0}  {1}" -f $code, $card.title) -ForegroundColor Yellow
+                    foreach ($item in @($card.acceptance)) {
+                        if ($item) { Write-Host ("        · {0}" -f $item) -ForegroundColor DarkGray }
+                    }
+                } else {
+                    Write-Host ("    {0}  （台账里查不到这张卡）" -f $code) -ForegroundColor Yellow
+                }
+            }
+            Write-Host '    做完了只是没写标记：重跑收尾并加 -Close <短号,...>；' -ForegroundColor Yellow
+            Write-Host '    确实没做完：让卡留在 todo，下次接着领。' -ForegroundColor Yellow
         }
     }
 
@@ -792,6 +878,36 @@ if ($Mode -eq 'remote') {
         }
     }
 
+    # ---- 结构化回执（DX-33）----
+    # agent 读的是屏幕输出，但收尾之后工作区多半立刻被回收，屏幕一滚就没了。
+    # 回执落在锚点区的 .sandbox/receipts/（.sandbox/ 已在 .gitignore），按「分支 + 短 sha」
+    # 命名，事后能回答「那次收尾到底结了什么、漏了什么、清掉了什么」。
+    # fail-soft：写不出来只提示，绝不阻断已经成功的合并。
+    try {
+        $receiptRoot = Join-Path (Join-Path $repoRoot '.sandbox') 'receipts'
+        New-Item -ItemType Directory -Path $receiptRoot -Force | Out-Null
+        $headSha = (Invoke-Git rev-parse --short HEAD).Trim()
+        $closeMode = 'marker'
+        if ($closeList.Count -gt 0) { $closeMode = 'explicit' }
+        $receipt = [ordered]@{
+            finishedAt     = (Get-Date).ToString('s')
+            branch         = $Branch
+            mergedInto     = "origin/$MainBranch"
+            head           = $headSha
+            claimed        = @($claimedCodes)
+            closed         = @($closedCodes)
+            closedExplicit = @($explicitClosed)
+            missed         = @($missedCodes)
+            closeMode      = $closeMode
+        }
+        $receiptFile = Join-Path $receiptRoot ('{0}-{1}.json' -f ($Branch -replace '[^A-Za-z0-9]+', '-'), $headSha)
+        [System.IO.File]::WriteAllText($receiptFile, ($receipt | ConvertTo-Json -Depth 4),
+            (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host ("· 回执：{0}" -f $receiptFile) -ForegroundColor DarkGray
+    } catch {
+        Write-Host ("· 回执写入跳过：{0}" -f $_.Exception.Message) -ForegroundColor DarkGray
+    }
+
     Write-Host "`n✓ 合并完成：$Branch → origin/$MainBranch" -ForegroundColor Green
     Write-Host "   查看历史：git log --oneline --graph -10" -ForegroundColor DarkGray
     exit 0
@@ -823,6 +939,16 @@ if (-not $KeepBranch) {
 
 # 开发区占用收尾释放（DX-05）：与 remote 模式同一口径
 Release-WorkspaceClaim -Root $repoRoot
+
+if ($claimedCodes.Count -gt 0) {
+    # local 模式是遗留通道：它不推送、也不结卡（结卡依赖「已推到 origin/main」这个前提
+    # 来判定 claims 失效）。领过卡却得不到对账的话，-Close 在这个模式下会变成静默失效 ——
+    # 所以要明说，别让人以为「没报错就是结过了」。
+    Write-Host ''
+    Write-Host ("· local 模式不做结卡与对账：本次领用的 {0} 张请用 remote 模式收尾，或手动执行：" -f `
+        ($claimedCodes -join '、')) -ForegroundColor Yellow
+    Write-Host '  python scripts/derive_board_status.py --close-cards' -ForegroundColor Yellow
+}
 
 Write-Host "`n✓ 合并完成：$Branch → $MainBranch" -ForegroundColor Green
 Write-Host "   查看历史：git log --oneline --graph -10" -ForegroundColor DarkGray

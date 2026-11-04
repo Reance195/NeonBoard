@@ -10,8 +10,9 @@
 #                 （DX-13 实施实测）。全量编译仍由 CI 兜底，门槛不降。
 #                 两种口径的退出码语义一致：0 通过 / 1 失败。
 #
-# 两处自兜底（本脚本的定位是「拿到就能跑」，不该要求调用方先记住别的）：
+# 三处自兜底（本脚本的定位是「拿到就能跑」，不该要求调用方先记住别的）：
 #   - PATH 上没有 ctest 时点源 dev-env.ps1 装配工具链；
+#   - 未传 -QtRoot 时从 build/CMakeCache.txt 的 Qt6_DIR 反推，补进 PATH（DX-24）；
 #   - 未设 NEONBOARD_DATA_DIR 时自开 <BuildDir>\verify-sandbox，不拿真实看板做试验。
 #
 # 用法：
@@ -167,6 +168,34 @@ sys.exit(1 if bad else 0)
     exit 0
 }
 
+# ---------- Qt 路径兜底 ----------
+# build.ps1 自己会解析 Qt（-QtRoot → NEONBOARD_QT_ROOT → QT_ROOT → dev-env.ps1 → C:\Qt），
+# 所以编译那步从来不缺 Qt。缺的只有本进程：它只把自己收到的 -QtRoot 塞进 PATH，收不到
+# 就没塞，随后直接跑的 NeonBoard.exe 找不到 Qt6Core.dll → 0xC0000135（STATUS_DLL_NOT_FOUND）。
+# 症状是「编译通过、自检崩溃」，在 .worktrees/<agent> 里必现 —— 新工作区不继承任何
+# Qt 环境变量，而锚点区往往手工设过。信息就在手边：CMakeCache.txt 的 Qt6_DIR 正是
+# configure 时用的那个 Qt，反推掉 \lib\cmake\Qt6 即根目录。
+if (-not $QtRoot -and -not $ScriptOnly) {
+    $cacheFile = Join-Path (Join-Path $repoRoot $BuildDir) 'CMakeCache.txt'
+    if (Test-Path -LiteralPath $cacheFile) {
+        $qt6Dir = ''
+        foreach ($line in [IO.File]::ReadAllLines($cacheFile)) {
+            if ($line -match '^Qt6_DIR:PATH=(.+)$') { $qt6Dir = $Matches[1].Trim(); break }
+        }
+        if ($qt6Dir -match '^(.+)[\\/]lib[\\/]cmake[\\/]Qt6[\\/]?$') {
+            $candidate = $Matches[1]
+            $okWindeploy = Test-Path -LiteralPath (Join-Path $candidate 'bin\windeployqt.exe')
+            $okConfig = Test-Path -LiteralPath (Join-Path $candidate 'lib\cmake\Qt6\Qt6Config.cmake')
+            if ($okWindeploy -or $okConfig) { $QtRoot = $candidate }
+        }
+    }
+    if ($QtRoot) {
+        Write-Host "Qt（从 CMakeCache 探测）: $QtRoot" -ForegroundColor DarkGray
+    } else {
+        Write-Host '  · 未探测到 Qt：若 --selftest 报 0xC0000135，请用 -QtRoot 指定' -ForegroundColor DarkGray
+    }
+}
+
 # ---------- 1. 构建 ----------
 if (-not $SkipBuild) {
     Step '编译'
@@ -187,7 +216,7 @@ $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $exe) { Fail "找不到 NeonBoard.exe（找过：$($candidates -join ' , ')）" }
 Write-Host "产物: $exe" -ForegroundColor DarkGray
 
-# Qt DLL 不在系统 PATH 时补上
+# Qt DLL 不在系统 PATH 时补上（$QtRoot 可能来自 -QtRoot，也可能来自上面的 CMakeCache 探测）
 if ($QtRoot) { $env:PATH = (Join-Path $QtRoot 'bin') + ';' + $env:PATH }
 
 # ---------- 工具链兜底 ----------

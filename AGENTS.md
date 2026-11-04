@@ -44,7 +44,14 @@ NeonBoard 是赛博霓虹风格的三列个人任务看板。
   > 或一次性 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`（只影响当前用户，不需要管理员）。
   > 判据与更多现象见 `docs/pitfalls.md` §2.11。
 
-  等价手敲命令：
+  > **构建耗时与编译缓存（DX-16）**：`build.ps1` 结尾会打印「配置 / 编译 / 合计」三段耗时与
+  > sccache 命中率 —— 怀疑变慢时先看这三个数字，别靠体感。新 worktree 首次全量构建约
+  > **20~30 分钟**（零缓存），这不是卡死；纯脚本 / 文档改动**不必全量**，跑
+  > `pwsh -File scripts/verify.ps1 -ScriptOnly` 约 2 秒。sccache 由 `CMakeLists.txt` 的
+  > `find_program` 自动挂 launcher，但 winget 装的它会落在 PATH 之外（改了用户级 PATH，已跑的
+  > 进程读不到），`build.ps1` 已自行探测并补齐；判据见 `docs/pitfalls.md` §2.12。
+
+  等价手敲命令（对应 `-Generator VS`；默认走 Ninja，由脚本补 `-G Ninja` 并装配 MSVC 环境）：
 
   ```powershell
   cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `

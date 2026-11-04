@@ -47,7 +47,10 @@ param(
     [string]$Target = '',
 
     [ValidateSet('Ninja', 'VS')]
-    [string]$Generator = 'Ninja'
+    [string]$Generator = 'Ninja',
+
+    # 关掉编译缓存，用于对比「开 / 不开 sccache」的耗时（DX-16）
+    [switch]$NoCache
 )
 
 Set-StrictMode -Version Latest
@@ -242,6 +245,44 @@ function Resolve-Ninja {
     return $null
 }
 
+# sccache 探测（DX-16）：CMakeLists 只做 `find_program(sccache)`，即**只看 PATH**。而 winget
+# 安装改的是用户级 PATH —— 已经跑起来的宿主进程（终端 / IDE / 本脚本的父进程）不会重新读，
+# 于是「装了却永远不生效」，实测就在这台机器上空转了几轮。这里主动补一遍 PATH，装完即用。
+#
+# 另一个坑：winget 会在 WinGet\Links 下放一个 **0 字节**的 App Execution Alias，它 Test-Path
+# 为真、`& sccache --version` 却报「不是有效的应用程序」。必须按大小过滤 + 实跑验证，
+# 否则会把坏的当好的返回，症状是「找到了但构建报 sccache 无法启动」。
+function Resolve-Sccache {
+    $candidates = @()
+    $cmd = Get-Command sccache -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source) { $candidates += $cmd.Source }
+    foreach ($dir in @(
+            (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'),
+            (Join-Path $env:USERPROFILE '.cargo\bin'),
+            'C:\ProgramData\chocolatey\bin')) {
+        if (-not $dir -or -not (Test-Path -LiteralPath $dir)) { continue }
+        $found = @(Get-ChildItem -LiteralPath $dir -Filter 'sccache.exe' -File -Recurse -Depth 3 -ErrorAction SilentlyContinue)
+        foreach ($f in $found) { $candidates += $f.FullName }
+    }
+    foreach ($candidate in $candidates) {
+        if (-not $candidate -or -not (Test-Path -LiteralPath $candidate)) { continue }
+        $item = Get-Item -LiteralPath $candidate -ErrorAction SilentlyContinue
+        if (-not $item -or $item.Length -eq 0) { continue }
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $version = & $candidate --version 2>$null
+            if ($LASTEXITCODE -eq 0 -and $version) {
+                return [pscustomobject]@{ Path = $candidate; Version = ($version | Select-Object -First 1) }
+            }
+        } catch {
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+    }
+    return $null
+}
+
 # Ninja + MSVC 需要 cl.exe 及 INCLUDE/LIB/PATH 等环境；与 VS 生成器不同，Ninja 不会自带工具集，
 # 必须在 MSVC 开发者环境里运行。仅在确实缺失时才装配（已在开发者环境则跳过）。
 #
@@ -345,6 +386,25 @@ if ($Generator -eq 'VS') {
 $vsGenerator = 'Visual Studio 17 2022'
 $wantGenerator = if ($useNinja) { 'Ninja' } else { $vsGenerator }
 
+# ---- 编译缓存（DX-16）：必须在**配置之前**把 sccache 补进 PATH，否则 CMake 的
+# find_program 已经跑完、CMAKE_*_COMPILER_LAUNCHER 已经定死，再补也没用 ----
+$sccache = $null
+if ($NoCache) {
+    Write-Host '· -NoCache：跳过 sccache（用于对比开启前后的耗时）' -ForegroundColor DarkGray
+} else {
+    $foundSccache = Resolve-Sccache
+    if ($foundSccache) {
+        $sccache = $foundSccache
+        $sccacheDir = Split-Path -Parent $sccache.Path
+        if ($env:PATH -notlike "*$sccacheDir*") { $env:PATH = $sccacheDir + ';' + $env:PATH }
+        Write-Step ("编译缓存：sccache " + $sccache.Version)
+        Write-Detail "路径   : $($sccache.Path)"
+    } else {
+        Write-Host '· 未找到 sccache，编译缓存未启用（安装：winget install --id Mozilla.sccache -e）' -ForegroundColor Yellow
+        Write-Host '  首次构建约 20~30 分钟，装完能显著缩短重复编译；判据与说明见 docs/pitfalls.md §2.12' -ForegroundColor Yellow
+    }
+}
+
 $needsConfigure = -not (Test-Path -LiteralPath $cacheFile)
 if (-not $needsConfigure) {
     # 切换生成器不能复用旧缓存：检测到缓存里的生成器与本次选择不一致时，强制重新配置
@@ -356,6 +416,7 @@ if (-not $needsConfigure) {
         $needsConfigure = $true
     }
 }
+$swConfigure = [System.Diagnostics.Stopwatch]::StartNew()
 if ($needsConfigure) {
     Write-Step "配置 CMake（$wantGenerator）"
     if ($useNinja) {
@@ -378,6 +439,7 @@ if ($needsConfigure) {
 } else {
     Write-Step "复用已有 CMake 缓存（加 -Reconfigure 可强制重配）"
 }
+$swConfigure.Stop()
 
 Write-Step "构建 $Config"
 $buildArgs = @('--build', $buildPath)
@@ -393,7 +455,9 @@ if ($Jobs -gt 0) {
 if ($Target) {
     $buildArgs += @('--target', $Target)
 }
+$swBuild = [System.Diagnostics.Stopwatch]::StartNew()
 Invoke-Native -Exe $cmake -Label '构建' -Arguments $buildArgs
+$swBuild.Stop()
 
 # exe 路径：Ninja 单配置直接落在 build/ 根；VS 多配置在 build/<Config>/ 下
 $exeName = if ($Target) { "$Target.exe" } else { 'NeonBoard.exe' }
@@ -435,6 +499,23 @@ if ($SelfTest) {
         [Environment]::SetEnvironmentVariable('NEONBOARD_ROADMAP_AUTOWRITE', $savedAutowrite)
     }
     Write-Step "自检通过"
+}
+
+# ---- 反馈回路：耗时与缓存命中（DX-16）。没有这行数字，「构建慢」永远只能靠体感 ----
+Write-Step '反馈回路'
+Write-Detail ("配置   : {0,7:N1} 秒{1}" -f $swConfigure.Elapsed.TotalSeconds, $(if ($needsConfigure) { '' } else { '（复用缓存，未重跑 CMake）' }))
+Write-Detail ("编译   : {0,7:N1} 秒" -f $swBuild.Elapsed.TotalSeconds)
+Write-Detail ("合计   : {0,7:N1} 秒" -f ($swConfigure.Elapsed.TotalSeconds + $swBuild.Elapsed.TotalSeconds))
+if ($sccache) {
+    # 只挑四行关键指标：全量输出 20 多行，多数与「这次构建快不快」无关。
+    # 用「名称 + 两个以上空格」精确匹配，否则 'Compile requests' 也会命中 'Compile requests executed'。
+    $stats = & $sccache.Path --show-stats 2>$null
+    foreach ($key in @('Compile requests', 'Cache hits', 'Cache misses', 'Cache hits rate')) {
+        $line = $stats | Where-Object { $_ -match ('^\s*' + [regex]::Escape($key) + '\s{2,}') } | Select-Object -First 1
+        if ($line) { Write-Detail ($line.Trim() -replace '\s{2,}', '  ') }
+    }
+} else {
+    Write-Detail '编译缓存：未启用（-NoCache 或未安装 sccache）'
 }
 
 Write-Host ''

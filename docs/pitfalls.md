@@ -290,6 +290,26 @@
 - **预防**：闸门按 ref 类型分流时，把「这个 ref 是什么」写进注释并为其一种形态单独造一个反例；
   只测「正常分支」的闸门，会在第一次非常规但合法的发布动作上咬人。
 
+### 1.24 卡片 `scope` 越界不会被任何一道门拦住
+
+- **现象**：R16-05 的分支声明 scope 是 `plugins-samples/today/`、`plugins-samples/surfaces/`、
+  `plugins/plan-hook/` 三个目录，实际还改了 `tests/tst_pluginruntime.cpp`。`git-done` 一路绿，
+  合入主线、结卡、释放占位，全程没有任何一道门提到越界。而手工跑
+  `python scripts/check_scope.py --card R16-05` 会明确报「✗ 改动越出卡片 R16-05 的 scope」。
+- **根因**：`check_scope.py` 只挂在 `.github/workflows/ci.yml`（任务卡范围检查那一步），
+  且带着 `continue-on-error: true` —— 棘轮期只作信号不阻断；`git-done.ps1` 合并前跑的是
+  **领用闸门**（短号有没有持证），不是范围闸门。两者覆盖面不同，却容易被当成同一道门。
+- **判据**：`grep -n check_scope scripts/git-done.ps1 .githooks/*` 为空 = 本地与推送期都不查；
+  CI 那一步的 `continue-on-error` 存在 = 主线上的红线也只是一行日志。
+- **这意味着什么**：条款 6 里「`scope` 决定 agent 被允许改哪些路径」目前只是**评审可见的声明**，
+  不是硬门。R16-05 那次是正当改动（测试夹具跟着实现走），所以无人受伤；
+  但同一道缺席的门，也放行过一次真正的误改（R10-02 立卡漏写三个必需路径，
+  agent 两次自补 `scope` 做完，见 1.19）。
+- **收紧的前提**：直接去掉 `continue-on-error` 或把 `check_scope` 接进 `git-done`，
+  会立刻把所有历史存量卡（未补 scope 或补得不全）挡在合并门外 —— 这是「先清存量再收门」的
+  老次序，需要人拍板节奏，不由 agent 自行决定。存量清零前，改卡片 scope 仍要走
+  `chore(board)` + 授权/批次两行（1.19），因为**门越松，声明就越要留痕**。
+
 ---
 
 ## 二、脚本与编码（PowerShell / Python）

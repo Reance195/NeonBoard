@@ -2713,13 +2713,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-16": {
-            "agent": "dx16",
-            "branch": "feature/build-cache-meter",
-            "claimedAt": 1793755568,
-            "head": "4310f1a1a28db372660bc8680b778935894643a7"
-        }
-    },
+    "claims": {},
     "version": 1
 }

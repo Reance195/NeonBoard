@@ -3556,6 +3556,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-41": {
+            "agent": "agent-dx41",
+            "branch": "fix/auto-close-hook-marker",
+            "claimedAt": 1793821955,
+            "head": "599def9a8c27902b7380f17909b90c93eb3087d1"
+        }
+    },
     "version": 1
 }

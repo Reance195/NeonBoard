@@ -469,6 +469,26 @@
   要问一句「这一步此时跑在哪个分支上」—— 把「提交」和「切分支」调换顺序，语义就变了。
   另外，「失败要回滚」不能只还一半：index 与工作区是两个地方。
 
+### 2.16 `--smoke` 在仓库里跑一次，就把 `progress.json` 写脏一次
+
+- **现象**：手工在仓库目录跑 `build\Release\NeonBoard.exe --smoke`（排查启动问题、复现
+  用户场景），跑完 `git status` 多出 `M progress.json`。派生产物混进实现提交是常事 ——
+  提交前没看清就被顺手 `git add .` 带走了。
+- **判据**（可靠、可复现）：往 `progress.json` 的某个 item 标题里注入一个 `PROBE` 标记，
+  跑 `--smoke`，然后看标记还在不在 —— 消失 = 快照被应用导出覆写；还在 = 没有写。
+  只比对哈希不够：内容恰好相同（导出结果与文件一致）时哈希也不变，会让人误判成「没写」。
+- **根因**：`RoadmapSync::resolvePath()` 从 `applicationDirPath()` 向上找「同时含 `.git`
+  与 `progress.json`」的目录，在仓库里跑必然命中；`autoExportEnabled()` 原本只看
+  `NEONBOARD_ROADMAP_AUTOWRITE` 与 `QSettings`，默认开着。`--smoke` 是一次性启动探测，
+  没有用户在等结果，写下的任何东西都是垃圾。
+- **修复（DX-28）**：`autoExportEnabled()` 在命令行含 `--smoke` 时恒返回 false
+  （判据放在这里而不是 `main.cpp`：开关只在这一个函数里判定，且 `main.cpp` 行数已顶格）。
+  `verify.ps1` 的冒烟步骤另加一道「跑前跑后 `progress.json` 哈希一致」的守卫 —— 这条路径
+  没有单测覆盖（要真启动 GUI 才跑到），别处再长出写路径只有它能抓到。
+- **一般化**：**诊断模式不该有持久副作用**。凡是 `--selftest` / `--smoke` / `--export-*`
+  这类「为了一次性观测而启动」的模式，都要问一句「它会不会写用户的真实数据」。
+  与 `--selftest` 用独立快照文件（`neonboard-selftest-snapshot.json`）是同一个道理。
+
 ---
 
 ## 三、构建与 Qt / QML

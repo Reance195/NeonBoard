@@ -403,10 +403,13 @@ if ($Card) {
         throw "领用失败：-Card 需为路线图短号（如 R3-01 / M19），收到：$Card"
     }
 
-    # 幂等门：本分支历史里已有该短号的领用提交 → 不重复领用
-    $claimSubject = "chore(claim): 领取 #{0} 实施任务" -f $code
-    $branchSubjects = @(& git -C $worktree log --format=%s 2>$null)
-    if ($branchSubjects -contains $claimSubject) {
+    # 幂等门：本分支历史里已有该短号的领用提交 → 不重复领用。
+    # DX-40：主题串含中文，git 的 UTF-8 输出会被 PS 按控制台代码页（GBK）解码成乱码
+    #（DX-33 同源问题），精确匹配必失 —— 改用 ASCII 稳定片段（短号）做正则匹配。
+    $claimPattern = 'chore\(claim\):.*#' + [regex]::Escape($code) + '\b'
+    $alreadyClaimed = @(& git -C $worktree log --format=%s 2>$null) |
+        Where-Object { $_ -match $claimPattern }
+    if ($alreadyClaimed) {
         Write-Host ("· #{0} 已在本分支领用，跳过重复登记（一分支多卡允许，只补缺的卡）" -f $code) -ForegroundColor DarkGray
         $Card = ''
     }
@@ -414,6 +417,18 @@ if ($Card) {
 
 if ($Card) {
     $code = $Card.TrimStart('#').ToUpperInvariant()
+
+    # DX-40：领用提交（chore(claim)）走流程豁免，闸门不校验其内容 ——
+    # 脏树里的未提交改动会被下面的裸 git commit 卷进领用提交，代码就这么
+    # 失去短号凭证（R16-05 的 032efd8 实测卷走 7 个文件）。领用前必须干净
+    #（fail-closed）：.agent-env.ps1 / .sandbox 均在 .gitignore，不会误伤自身产物。
+    $dirty = @(& git -C $worktree status --porcelain 2>$null | Where-Object { $_.Trim().Length -gt 0 })
+    if ($dirty.Count -gt 0) {
+        Write-Host '[任务闸门] 领用前工作区必须干净：领用提交走流程豁免，卷入的改动会失去短号凭证（DX-40）。' -ForegroundColor Red
+        $dirty | Select-Object -First 10 | ForEach-Object { Write-Host ("  " + $_) -ForegroundColor Yellow }
+        Write-Host '  先提交 / stash，或把工具产物目录补进 .gitignore 后重跑。' -ForegroundColor Yellow
+        exit 3
+    }
 
     # 子卡领用需要读本地看板的父子边；数据目录口径统一走 nb-paths.ps1
     . (Join-Path $repoRoot 'scripts\nb-paths.ps1')

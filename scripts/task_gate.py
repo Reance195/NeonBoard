@@ -109,6 +109,17 @@ def code_files(paths):
     return [p for p in paths if not is_exempt(p)]
 
 
+def process_commit_exempt(kind, scope, paths):
+    """流程提交（chore(claim) / chore(roadmap)）默认豁免短号校验 —— 豁免面只覆盖
+    非代码路径（DX-40）。
+
+    agent-init 的领用提交走流程豁免：若不收口，脏树里的实现改动会被裸 git commit
+    卷进领用提交，代码就这么失去短号凭证，commit-msg 与 pre-push 双闸门均不可见
+    （R16-05 的 032efd8 实测卷走 7 个文件）。收口规则：流程提交触及代码路径时
+    不再豁免，按普通代码提交校验。"""
+    return kind == "chore" and scope in PROCESS_SCOPES and not code_files(paths)
+
+
 def read_ledger(src):
     """src 可以是 git 修订表达式（HEAD / :index）或磁盘路径。"""
     if os.path.sep in src or src.startswith("."):
@@ -173,12 +184,14 @@ def cmd_message(args):
     kind, scope = commit_type(message)
     if kind == "merge":
         return 0
-    if kind == "chore" and scope in PROCESS_SCOPES:
-        return 0
 
     staged = git("diff", "--cached", "--name-only", "--diff-filter=ACMR")
     staged = [normalize(x.strip()) for x in staged.stdout.splitlines() if x.strip()]
     touches_code = bool(code_files(staged))
+
+    # DX-40：流程豁免只覆盖非代码路径 —— 卷入代码的流程提交按普通代码提交校验
+    if process_commit_exempt(kind, scope, staged):
+        return 0
 
     # 代登记审计（DX-06 + DX-07）：只要这次提交改了台账**任务定义**，就必须留下凭证。
     #
@@ -434,12 +447,15 @@ def cmd_push(args):
     for sha in [line.strip() for line in commits.stdout.splitlines() if line.strip()]:
         subject = git("log", "-1", "--format=%s", sha).stdout.strip()
         kind, scope = commit_type(subject)
-        if kind == "merge" or (kind == "chore" and scope in PROCESS_SCOPES):
+        if kind == "merge":
             continue
         files = git(
             "diff-tree", "--no-commit-id", "--name-only", "-r", "--root", sha
         ).stdout
         paths = [normalize(p.strip()) for p in files.splitlines() if p.strip()]
+        # DX-40：流程豁免只覆盖非代码路径 —— 卷入代码的流程提交按普通代码提交校验
+        if process_commit_exempt(kind, scope, paths):
+            continue
         if not code_files(paths):
             continue
         codes = extract_cards(subject)
@@ -643,6 +659,21 @@ def cmd_selftest(args):
         "chore(board): 结卡\n\n自动来源：derive --close-cards",
         ["src/Database.cpp"], base, baseline_changed,
     )
+
+    # ---- DX-40：流程豁免收口（process_commit_exempt 直测，4 例）----
+    dx40 = [
+        ("流程豁免：chore(claim) 只动台账 → 放行",
+         process_commit_exempt("chore", "claim", ["docs/board-ledger.json"]) is True),
+        ("流程豁免：chore(roadmap) 只动快照 → 放行",
+         process_commit_exempt("chore", "roadmap", ["progress.json"]) is True),
+        ("豁免收口：chore(claim) 卷入代码 → 不豁免",
+         process_commit_exempt("chore", "claim",
+                               ["docs/board-ledger.json", "src/main.cpp"]) is False),
+        ("豁免收口：非流程类型不受豁免影响",
+         process_commit_exempt("feat", "x", ["docs/a.md"]) is False),
+    ]
+    for name, ok in dx40:
+        cases.append((name, True, [] if ok else ["process_commit_exempt 断言失败"]))
 
     failures = []
     for name, expect_ok, problems in cases:

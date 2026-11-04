@@ -418,6 +418,17 @@ if ($Card) {
 if ($Card) {
     $code = $Card.TrimStart('#').ToUpperInvariant()
 
+    # DX-42：detached 检出禁止领用 —— 领用登记会记下 branch="HEAD"：
+    # release-claims 的「分支不存在」判据被恒存在的 refs/remotes/origin/HEAD 符号引用
+    # 永久骗过（登记成僵尸，DX-40 实测中招）；且游离提交变基会断开 refs/claims 祖先，
+    # CI 领用闸门跟着红。fail-closed，切到具名分支后再领。
+    $currentBranch = (& git -C $worktree branch --show-current 2>$null | Select-Object -First 1)
+    if (-not $currentBranch -or $currentBranch.Trim().Length -eq 0) {
+        Write-Host '[任务闸门] 检出处于 detached HEAD，禁止领用：会记下 branch="HEAD" 的僵尸登记，游离提交还会断开 claim 祖先（DX-42）。' -ForegroundColor Red
+        Write-Host '  先 git switch -c <分支名>（或切到具名分支）再重跑。' -ForegroundColor Yellow
+        exit 3
+    }
+
     # DX-40：领用提交（chore(claim)）走流程豁免，闸门不校验其内容 ——
     # 脏树里的未提交改动会被下面的裸 git commit 卷进领用提交，代码就这么
     # 失去短号凭证（R16-05 的 032efd8 实测卷走 7 个文件）。领用前必须干净

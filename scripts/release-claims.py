@@ -33,8 +33,13 @@ LEDGER = REPO_ROOT / "docs" / "board-ledger.json"
 
 
 def branch_exists(name: str) -> bool:
-    """分支是否还在（本地 heads 或远端跟踪任一存在）。空名视为不存在。"""
-    if not name:
+    """分支是否还在（本地 heads 或远端跟踪任一存在）。空名与 "HEAD" 视为不存在。
+
+    DX-42："HEAD" 不是合法命名分支（git check-ref-format --branch HEAD 拒绝），
+    但 detached 领用会把它记进 claims；而 refs/remotes/origin/HEAD 是恒存在的
+    符号引用，show-ref --verify 对它永远成功 —— 判据被永久骗过，登记成僵尸
+    （DX-40 的登记实测中招，只能手工释放）。"""
+    if not name or not name.strip() or name == "HEAD":
         return False
     for ref in ("refs/heads/" + name, "refs/remotes/origin/" + name):
         probe = subprocess.run(
@@ -45,9 +50,33 @@ def branch_exists(name: str) -> bool:
     return False
 
 
+def selftest() -> int:
+    """DX-42：branch_exists 判据的可执行自测（只读，不写台账）。"""
+    failures = []
+    if branch_exists("HEAD"):
+        failures.append("branch_exists('HEAD') 应为 False：origin/HEAD 是符号引用，不是分支")
+    if branch_exists(""):
+        failures.append("branch_exists('') 应为 False")
+    if branch_exists("   "):
+        failures.append("branch_exists('   ') 应为 False")
+    if not branch_exists("main"):
+        failures.append("branch_exists('main') 应为 True（本仓库 main 恒在）")
+    if branch_exists("no-such-branch-dx42"):
+        failures.append("branch_exists('no-such-branch-dx42') 应为 False")
+    if failures:
+        for line in failures:
+            sys.stderr.write("  - %s\n" % line)
+        sys.stderr.write("[任务闸门] release-claims 自测失败\n")
+        return 1
+    print("[任务闸门] release-claims 自测通过（5 例）")
+    return 0
+
+
 def main() -> int:
     if len(sys.argv) > 1:
-        sys.stderr.write("release-claims.py 不带参数：全量扫描并清理过期登记\n")
+        if sys.argv[1] == "selftest":
+            return selftest()
+        sys.stderr.write("release-claims.py 不带参数：全量扫描并清理过期登记；selftest 跑内置自测\n")
         return 2
     if not LEDGER.exists():
         sys.stderr.write("找不到台账：%s\n" % LEDGER)

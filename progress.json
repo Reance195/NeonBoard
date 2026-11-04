@@ -11,12 +11,12 @@
             "orderKey": 1024,
             "priority": 2,
             "stage": "DX",
-            "status": "doing",
+            "status": "todo",
             "tags": [
                 "DX"
             ],
             "title": "git-done 收尾的自动提交全部失败：DX-20 把归位提前到提交之前，撞上 main 保护",
-            "updatedAt": 1793765639
+            "updatedAt": 1793765733
         },
         {
             "code": "R0-01",
@@ -2995,6 +2995,6 @@
             "updatedAt": 1793763063
         }
     ],
-    "updated": "2026-11-04T12:13:59",
+    "updated": "2026-11-04T12:15:33",
     "version": 3
 }

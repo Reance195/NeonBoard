@@ -1994,6 +1994,7 @@
                 "src/plugin/PluginHost.cpp",
                 "src/plugin/PluginRuntime.h",
                 "src/plugin/PluginRuntime.cpp",
+                "tests/CMakeLists.txt",
                 "tests/tst_pluginruntime.cpp",
                 "plugins-samples/today/plugin.json",
                 "plugins-samples/today/main.qml"

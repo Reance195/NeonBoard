@@ -289,6 +289,15 @@ neonboard_add_test(tst_scopematcher
     ${NB_DIR_CORE}/ScopeMatcher.cpp
 )
 
+# DX-39：启动闪屏的画面与状态机 —— 阶段推进 / 进度条缓动 / 标签切换 /
+# 画面冒烟（圆角外透明、中央不透明）。
+# 状态机已从窗口里拆出（渲染搬到专属线程），所以这些都能不起窗口就验；
+# 画面那一项要真画一次（字体与渐变都要 QGuiApplication），故链接 Qt6::Gui。
+neonboard_add_test(tst_splashscene
+    ${NB_DIR_SHELL}/SplashScene.cpp
+)
+target_link_libraries(tst_splashscene PRIVATE Qt6::Gui)
+
 # R6-06：执行结果回写 —— 摘要（状态/耗时/退出码/末尾日志）/ 重试 attempt 递增 /
 # latestRun 活跃优先 / 取消不改看板列。要真库（task_run + task），sqlite 临时库跑。
 neonboard_add_test(tst_runsummary

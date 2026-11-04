@@ -2142,7 +2142,7 @@
             ],
             "depends": [],
             "id": "R16-04",
-            "note": "起因：agent-claude/codex/cursor/opencode 四份 main.qml 约 90% 同构（KeyValue 组件、授权徽章、布局），exeLine/readonlyLine 与 plugin.json 的 args 是两份数据，靠测试防漂移（main.qml 注释自认「测试会校验这两处与内置 profile 三者一致」）。宿主为「声明 agentProfiles 且无 main.qml」的插件渲染通用名片页，数据单源于 manifest；codex 面板上的本机实测长说明（stdin 接 NUL、Store 版路径等）移 docs/agent-profile.md，名片页只留 manifest 能表达的事实。",
+            "note": "起因：agent-claude/codex/cursor/opencode 四份 main.qml 约 90% 同构（KeyValue 组件、授权徽章、布局），exeLine/readonlyLine 与 plugin.json 的 args 是两份数据，main.qml 注释自称「测试会校验三者一致」——实现时核实该三方一致性测试并不存在，真正的守护是 officialPluginManifests 的 manifest↔内置表逐字段比对。交付（73967ef）：PluginPanel 内联 ProfileCard（Badge/KeyValue 提升根级——内联组件不能嵌套），命令行/输出/超时/启用/授权徽章与描述文案全部取自 manifest；触发规则「无面板页且声明 agentProfiles」；PluginLoader 面板入口改「有则校验、无则可缺」，description 进插件 map（category 同款模式）；四个 manifest 去 main 键升 1.1.0；tst_agentprofile 钉死四插件不得声明 main（防第二个渲染源）；codex Store 版路径迁 docs/agent-profile.md（stdin NUL / .cmd 包装器本就在文档）。已完成 5 / 待做 0 —— 验收①以 QML 编译期校验（qmlcachegen）+ plugin-report 八插件全 ok + 四 agent mainUrl 为空覆盖，像素级目检留维护者（dev-run 开四个 agent 面板即可）；验收②四份 main.qml 已删 + 契约用例钉死触发规则；验收③codex enabled=false 徽章由 manifest 驱动；验收④tst_agentprofile 21/21 过（新增断言后仍绿）；验收⑤verify 全过。",
             "scope": [
                 "src/plugin/PluginRuntime.h",
                 "src/plugin/PluginRuntime.cpp",
@@ -3461,6 +3461,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R16-04": {
+            "agent": "agent-r16",
+            "branch": "feature/agentprofile-card",
+            "claimedAt": 1793818459,
+            "head": "87d191e3e81a0efd7978ed779031d5282323ab12"
+        }
+    },
     "version": 1
 }

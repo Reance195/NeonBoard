@@ -604,6 +604,12 @@ void TestAgentProfile::officialPluginManifests()
         QVERIFY2(permissions.contains(QStringLiteral("exec.agentProfiles")),
                  qPrintable(dirName + QStringLiteral(" 缺 exec.agentProfiles 权限声明")));
 
+        // R16-04：这四个插件不声明 main —— 面板由宿主名片页按 manifest 渲染。
+        // 若有人补回 main.qml，声明数据就有了第二个渲染源，名片页会被静默绕开，
+        // exeLine 与 manifest 的双源漂移风险也就回来了。
+        QVERIFY2(!manifest.contains(QStringLiteral("main")),
+                 qPrintable(dirName + QStringLiteral(" 不应声明 main（面板由宿主名片页渲染）")));
+
         const QJsonObject contributes = manifest.value(QStringLiteral("contributes")).toObject();
         const QJsonArray declaredList = contributes.value(QStringLiteral("agentProfiles")).toArray();
         QCOMPARE(int(declaredList.size()), 1);

@@ -114,6 +114,9 @@ R9-03 用 `--agent plan` 兜只读，但当时只看到 `~/.config/opencode/` �
 - **两个必须写进拼装逻辑的坑**：
   1. stdin 不重定向会卡在 `Reading additional input from stdin...`，脚本调用一律把 stdin 接到 NUL；
   2. `--json` 输出的是事件流而不是最终回复，末条回复要另用 `-o <file>` 收。
+- **本机装法**（R16-04 起从 agent-codex 名片页迁来）：本机 codex 是 Microsoft Store 版，
+  CLI 不在 PATH，藏在 `%ProgramFiles%/WindowsApps/OpenAI.Codex_<版本>/app/resources/codex.exe`；
+  manifest 声明的裸命令 `codex` 要用就先加 PATH，或在设置页把 exe 改成绝对路径（版本号随升级变化）。
 - **结论**：参数面够用（`codex exec -s read-only -C <cwd> --json -o <out>`），但一回合耗时不可控，
   达不到 executor 的超时口径，**所以仍不内置**。要内置的前提是在目标机器上跑通一次以
   `turn.completed` 结束的 exec，并把实测到的耗时与失败判定补回本节。

@@ -1,7 +1,7 @@
 {
     "id": "com.lin.agent-opencode",
     "name": "opencode",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "apiVersion": 2,
     "description": "声明 opencode 的出站执行 profile：卡片派活时以 opencode run --format json 拉起，只读走 --agent plan（opencode 没有原生只读开关，用只读 agent 配置兜）。",
     "category": "Agent 接入",
@@ -10,7 +10,6 @@
         "需在看板设置中开启「任务执行」（总开关默认关闭）",
         "宿主需支持 apiVersion 2"
     ],
-    "main": "main.qml",
     "permissions": ["exec.agentProfiles"],
     "contributes": {
         "agentProfiles": [

@@ -983,7 +983,7 @@
             ],
             "depends": [],
             "id": "DX-40",
-            "note": "起因（R16-05 实测披露）：agent-init -InPlace 领用提交（chore(claim)）用裸 git commit，把当时工作区未提交的实现改动一并卷进流程提交（032efd8 卷走 7 个文件）；而 task_gate.py 的 cmd_message / cmd_push 对 PROCESS_SCOPES（claim / roadmap）无条件放行，不校验是否触及代码路径——代码搭流程提交便车，双闸门均不可见。修复两层：①agent-init 领用前要求工作树干净（fail-closed，exit 3，列脏文件；.agent-env.ps1 / .sandbox 均在 gitignore 不受影响）；②闸门豁免收口为「只豁免非代码路径」，流程提交触及代码即按普通代码提交校验短号与占位。幂等门（已领跳过）不受影响。另记独立问题：git-done 从 worktree 运行时锚点快进落到调用方检出，不在本卡范围。",
+            "note": "起因（R16-05 实测披露）：agent-init -InPlace 领用提交（chore(claim)）用裸 git commit，把当时工作区未提交的实现改动一并卷进流程提交（032efd8 卷走 7 个文件）；task_gate.py 的 cmd_message / cmd_push 对 PROCESS_SCOPES（claim/roadmap）无条件放行，不校验是否触及代码路径——代码搭流程提交便车，双闸门均不可见。交付（a0677ed）：①task_gate 新增 process_commit_exempt，流程豁免收口为「只覆盖非代码路径」，卷入代码即按普通代码提交校验（cmd_message / cmd_push 两侧）；②agent-init 领用前要求工作树干净（porcelain 非空 exit 3 并列脏文件）；③顺手修幂等门跨代码页失配（DX-33 同源：中文主题被 GBK 解码成乱码后精确匹配恒 False，补领会重复投领用提交）——改用 ASCII 稳定片段（短号）正则匹配。已完成 3 / 待做 0 —— 验收①selftest 19 例（新增 4 例覆盖放行/收口两侧）；验收②行为实测：脏树 + 未领卡 exit 3 并列脏文件，脏树 + 已领卡幂等跳过 exit 0；验收③-ScriptOnly 全过（BOM 完好）。过程记录：本 worktree 被 agent-init 以 detached HEAD 重建，实现提交一度游离，已建分支收回；变基会重写领用提交哈希、断开 refs/claims 祖先（CI 领用闸门会红），改用 merge origin/main 保留祖先；快照滞后按官方派生器 --write 前移、由 git-done step1 代提交。",
             "scope": [
                 "scripts/agent-init.ps1",
                 "scripts/task_gate.py"
@@ -3521,6 +3521,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-40": {
+            "agent": "agent-dx40",
+            "branch": "HEAD",
+            "claimedAt": 1793821021,
+            "head": "80ff69017ba0f8647a47979be6b7c749c854c4f6"
+        }
+    },
     "version": 1
 }

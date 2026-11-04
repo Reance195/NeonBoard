@@ -3034,6 +3034,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-32": {
+            "agent": "dx32-33",
+            "branch": "chore/dx-closing-reconcile",
+            "claimedAt": 1793782073,
+            "head": "29d41a2d5cb89339ea095a952ba5435b97387c90"
+        }
+    },
     "version": 1
 }

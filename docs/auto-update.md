@@ -143,6 +143,25 @@ portable-sha256: <64 位十六进制>
 这正是混装树的机器判据：文件替换被打断时，回执要么没写、要么停在目标版本，
 而运行中的 exe 还是旧版 —— 两者一比就露出来，不用等用户发现界面行为怪异。
 
+### 覆盖安装不清理旧文件，得靠 `[InstallDelete]`（R5-11）
+
+Inno 的 `[Files]` 是「新包里有什么就写什么」，**不会删掉新包里没有的旧文件**。
+0.1.4 起（`8e52812`：windeployqt 只留 Basic 样式）不再打包 Qt 自带的其它控件样式，
+于是每个从 0.1.3 覆盖升上来的用户都会永久背着 1136 个死文件 —— 2026-11-04 真机取证：
+装完后按已发布 `delta-0.1.3-0.1.4` 清单逐文件复核，Modified 2/2、Added 15/15 全对，
+Deleted 的 1136 条一个都没少（`qml/QtQuick/Controls/` 下 FluentWinUI3 / Material / Fusion /
+Universal / Imagine / Windows 六套共 1126 个 qml 与 style plugin dll，加 root 级 10 个
+`Qt6QuickControls2*Style*.dll`）。
+
+功能上无害（应用只用 Basic 样式，这些插件不会被加载），但白占空间、也让「安装树等于发布物」
+这个前提不成立。`installer/neonboard.iss` 的 `[InstallDelete]` 因此逐条列出这 6 个目录与
+10 个 dll（清单以那份增量清单的 Deleted 条目为事实源，脚本核对过 1136/1136 覆盖、
+对真实 0.1.4 树 0 误伤）。
+
+> **不要用 `Qt6QuickControls2*Style*.dll` 这类通配**：0.1.4 仍在用的
+> `Qt6QuickControls2BasicStyleImpl.dll` 会被一并删掉，样式直接加载失败。
+> 以后再瘦身 windeployqt 产物，同样要在 `[InstallDelete]` 里补显式条目。
+
 ### 增量更新（R5-06）
 
 便携全量包 69–71 MB（v0.1.3 实测 70.6 MB），增量包通常只有几 MB。清单里给了 `delta` 条目且当前版本恰好等于

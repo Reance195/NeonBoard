@@ -378,6 +378,43 @@
   检测到 Restricted/AllSigned 会打印上面这段指引（DX-12）。别为了「能跑」去把脚本改成
   `.bat` 或让人关掉 UAC —— 那是拿系统安全换个人省事。
 
+### 2.12 装了 sccache 也不生效：winget 改的 PATH，当前进程读不到
+
+- **现象**：`winget install Mozilla.sccache` 报「已成功安装」，`CMakeLists.txt` 里也有
+  `find_program(sccache)` 自动挂 launcher 的逻辑，可每次配置的输出里都**没有**
+  `NeonBoard: 启用 sccache 编译缓存` 这行。缓存从未生效，每个新 worktree 都老老实实付一次
+  冷编译。
+- **判据（三条，任一条成立就说明没挂上）**：
+  1. `Get-Command sccache` 解析不到 —— winget 改的是**用户级** PATH，已经跑起来的终端 / IDE /
+     宿主进程不会重新读（重启宿主才恢复）；
+  2. `$env:LOCALAPPDATA\Microsoft\WinGet\Links\sccache.exe` 存在但**是 0 字节** —— 那是
+     App Execution Alias，`Test-Path` 为真、`& sccache --version` 却报「不是有效的应用程序」；
+  3. `cmake -S . -B <dir>` 的输出里 grep 不到 `sccache` —— 配置阶段就没挂 launcher。
+- **解法**：让脚本自己找，别指望 PATH。`scripts/build.ps1` 的 `Resolve-Sccache`（DX-16）依次
+  探 PATH → `WinGet\Packages` → `~\.cargo\bin` → chocolatey，**按大小过滤 0 字节别名 + 实跑
+  `--version` 验证**，命中就把所在目录补进 `$env:PATH`。
+  **补 PATH 必须放在 CMake 配置之前** —— 配置跑完 `CMAKE_C/CXX_COMPILER_LAUNCHER` 已经定死，
+  之后再补只会得到「日志说有缓存、实际没走缓存」的假象。
+- **冷启动成本清单**（2026-11-04 实测：8 核 / MSVC 19.44 / Ninja / 519 个目标）：
+  - 新 worktree **首次全量构建 801.8 秒 ≈ 13.4 分钟**（其中配置 16.1 秒，编译 785.7 秒）；
+    这是「缓存为空」的数字，sccache 首次必然全 miss（398 次编译请求 / 0 命中）；
+  - **换一个 build 目录重编（= 新 worktree 冷启动）229.8 秒 ≈ 3.8 分钟，命中率 90.7%**
+    （398 次请求里 361 次命中）—— 相比首次的 13.4 分钟快 **3.5 倍**。这才是 sccache 的主要价值：
+    源码没变，换个目录不必重新付出全部编译成本；
+  - **改一个 core 源文件后重编 + 链接只要 2.9 秒**，同一份源码被多个目标编译时会重复命中
+    （实测 4 次 hit）—— 缓存的价值不在首次，在第二次以后；
+  - 无改动时 `ninja: no work to do`，秒退；
+  - 8 核会被并行 worktree 分摊：同时编两个就都变慢，**串行开区不比并行差多少**；
+  - **零 C++ 改动不必全量**：脚本 / 文档类改动跑 `pwsh -File scripts/verify.ps1 -ScriptOnly`
+    （约 2 秒，DX-15），代码类才需要 `verify.ps1` 全量；
+  - 构建被中断后重跑**只补剩余目标**（Ninja 有 `.ninja_log`），不需要 `-Clean`；
+  - `build.ps1` 结尾现在会打「配置 / 编译 / 合计」三段耗时与 sccache 命中率 ——
+    怀疑变慢时先看这三个数字，别靠体感。
+- **一个已知副作用**：挂了 sccache 之后，MSVC 的 `/showIncludes` 输出会被透传到控制台
+  （中文机器上是成片的 `注意: 包含文件: ...`，一次全量构建能刷出 **10 MB 以上**日志）。
+  它**不影响**依赖解析 —— 实测构建完 `ninja -n` 仍报 `no work to do`，增量正常。
+  要干净的日志就重定向到文件（`> build.log 2>&1`）再 tail，别在 CI 里直接刷屏。
+
 ---
 
 ## 三、构建与 Qt / QML

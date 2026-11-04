@@ -17,6 +17,8 @@ on:
   workflow_dispatch:
 
 permissions:
+  # 遗留：回写取消后本 workflow 已不需要写权限（board.yml 已降为 contents: read）。
+  # 收紧权限属于实际行为变更，DX-14 的边界明确不改，故只在此留痕 —— 下次碰这文件时顺手降。
   contents: write
 
 concurrency:
@@ -75,9 +77,10 @@ jobs:
       - name: 脚本卫生检查（路径单一口径 / 钩子豁免只有一处）
         shell: pwsh
         run: |
-          # 把宪章里两条「唯一」落到机器校验：应用数据目录的字面量只许出现在
-          # scripts/nb-paths.ps1（PS 侧）与 scripts/claim-card.py（Python 侧镜像），
-          # git commit --no-verify 只许出现在快照回写那一步（AGENTS.md §7.6、§11.2 第 7 条）。
+          # 把宪章里几条「唯一」落到机器校验：应用数据目录的字面量只许出现在
+          # scripts/nb-paths.ps1（PS 侧）与 scripts/nb_paths.py（Python 侧唯一实现）；
+          # git commit --no-verify 的豁免面当前为空，.github/workflows/ 下一处都不许有
+          # （AGENTS.md §7.6、§11.2 第 7 条）。
           # 散文条款靠人记一定会漂 —— 本次 CI 常红就是这么来的。
           python scripts/check_script_hygiene.py
           if ($LASTEXITCODE -ne 0) { throw '脚本卫生检查未通过' }

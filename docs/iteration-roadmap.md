@@ -301,8 +301,9 @@ feat(board): 支持列内精确插位 #R1-04=done
 **L3 —— 一致性闸门：漂移无法进主干**
 
 - **PR / 分支推送**：CI 跑 `derive_board_status.py --check`，快照与派生结果不一致 → **直接拦住合并**。
-- **合并到 `main`**：CI 跑 `--write` 并自动提交回写（`ci(board): 自动回写看板状态`）；
-  快照提交只改 `progress.json`，流水线用 `paths-ignore` 排除，不会自激循环。
+- **合并到 `main`**：写权归 `git-done` 收尾的 `Sync-BoardSnapshot`（`derive --write` 后按需提交快照，
+  fail-soft，失败只告警）；CI 只校验 —— `.github/workflows/board.yml` 不一致就报红，不自愈、
+  也没有推送权限（R14-01：双写者时期每次合并都撞车，写权因此收归一处）。
 - **特性分支完全不碰 `progress.json`** → 多代理并行零冲突（此前每次交付都要手工改快照，是冲突与漂移的共同源头）。
 
 **净效果**：状态变更只有两条有据可查的路径 —— 提交信息里的 `#短号=状态`（代码事实），或台账里的显式声明；

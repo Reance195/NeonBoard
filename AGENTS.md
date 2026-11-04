@@ -307,7 +307,7 @@ AI 代理在本仓库干活时：
 > `git merge --ff-only origin/main`，让维护者回到根目录就能看到最新代码。该动作只允许
 > **快进**：锚点检出非 `main`、有本地提交、有 `progress.json` 之外的未提交改动时一律跳过；
 > `progress.json` 是应用自动写回的快照，允许临时 `git stash` 后还原；**还原撞车时主线版本优先**
-> —— CI 每次回写都会动这份文件，本地快照必然冲突，此时工作区一律回退到主线版本（绝不留冲突标记，
+> —— 每次合并收尾都会动这份文件，本地快照必然冲突，此时工作区一律回退到主线版本（绝不留冲突标记，
 > 应用下次写回会把 `<<<<<<<` 打进快照），本地快照仍完整留在 stash 里并打印其提交号供取回。
 > **但若 `agent-workspace.json` 里 `root` 已被别的会话登记占用，只快进、不动 `progress.json`、不 stash**
 > ——快照交给占用者处理，避免把别人的登记踢出去（`03b4424`，坑见 `docs/pitfalls.md` 1.16）。
@@ -477,16 +477,18 @@ pwsh -File scripts/dev-run.ps1 -Wait      # 前台运行（配合 --smoke 等参
 > `dev-run.ps1` 已把它固定到沙箱内，并默认关闭自动写回。
 
 **脚本读应用落盘位置只有一个入口**：PowerShell 侧点源 `scripts/nb-paths.ps1`
-（`Get-NbDataDir` / `Get-NbLogFile` / `Get-NbBoardDb`），Python 侧 `scripts/claim-card.py` 读同一组环境变量。
+（`Get-NbDataDir` / `Get-NbLogFile` / `Get-NbBoardDb`），Python 侧唯一实现是 `scripts/nb_paths.py`
+（`claim-card.py` / `release-claims.py` 等一律 `import` 它，不各自拼一遍路径）。
 **不要再在任何脚本里拼一次 `%APPDATA%\com.lin\NeonBoard`** —— 写死之后沙箱运行读不到本次日志（验收假失败），
 没设沙箱时又会去动真实实例正占用的文件（`verify.ps1` 的 `Remove-Item` 就被打断过）。
 配套两条：
 
 - `scripts/verify.ps1` 未设 `NEONBOARD_DATA_DIR` 时自开 `<BuildDir>\verify-sandbox`（设了则尊重），
   并把缺 ctest 的情况自行点源 `dev-env.ps1` —— 「唯一验收入口」不该要求调用方先记住别的；
-- `scripts/check_script_hygiene.py` 在 CI 拦三件事：上述字面量只许出现在那两个文件，
-  `git commit --no-verify` 只许出现在快照回写那一步（§11.2 第 7 条），每个 `.ps1` 必须带
-  UTF-8 BOM（§4，编辑工具会静默剥掉，本会话连续丢过两次）。散文条款靠人记一定会漂。
+- `scripts/check_script_hygiene.py` 在 CI 拦四件事：上述字面量只许出现在那两个文件、
+  `git commit --no-verify` 的豁免面**当前为空**（§11.2 第 7 条）、`.github/workflows/*.yml`
+  里一个都不许出现它、每个 `.ps1` 必须带 UTF-8 BOM（§4，编辑工具会静默剥掉，本会话连续丢过
+  两次）。散文条款靠人记一定会漂，所以每条都得有机器判据。
 
 ### 7.7 验证口径
 
@@ -701,7 +703,9 @@ WorkBuddy 客户端自带一套并行隔离：为某个任务开启 Worktree 开
 
 ## 十一、进度快照与结卡闭环约定
 
-`progress.json` 是路线图快照（**v3 格式**：每张卡带 `code` 字段）。**写者唯一 = 看板应用**（`src/RoadmapSync` 自动写回），
+`progress.json` 是路线图快照（**v3 格式**：每张卡带 `code` 字段）。写入只有两条受控路径，
+**都在本地**：看板应用（`src/RoadmapSync` 自动写回，人在看板上的操作）与 `git-done` 收尾的
+`derive --write`（按 git 事实重算）。**CI 不在其中** —— `.github/workflows/board.yml` 只校验。
 agent **禁止手改**快照文件 —— 手改已造成过 v2 覆盖 v3 的事故。
 
 ### 11.1 职责分层
@@ -716,36 +720,44 @@ agent **禁止手改**快照文件 —— 手改已造成过 v2 覆盖 v3 的事
 | 闸门 | `.githooks/pre-push` 规则 4 | 推 main 时校验快照：version ≥ 3、卡片数不减少、`code` 不丢 | 绕过（`--no-verify`） |
 
 > **为什么代提交前要校正**：应用写回的是它内存里的状态，可能落后于本分支的 `#code=done` 标记
-> （已踩过：R4-02 已 done，快照却被写回 `doing`，一路推到 main 后靠 CI 的 `derive --write` 才纠正）。
+> （已踩过：R4-02 已 done，快照却被写回 `doing`，一路推到 main 后靠 CI 的 `derive --write` 才纠正。
+> R14-01 之后 CI 不再纠正了，这条落差只能由上面 step1 的校正兜住 —— 这也是它为什么必须在提交前跑）。
 > 派生器只改状态的 `status` 字段、保留应用生成的其它卡片，无实质变化不落盘；
-> 它失败时不阻断合并（落 main 后 CI 还会再纠正），但必须打警告，不许静默推过期快照。
+> 它失败时不阻断合并，但必须打警告、不许静默推过期快照 —— **别指望 CI 事后补，它只校验**。
 
 ### 11.2 硬性约束
 
-1. **写者唯一**：快照只由看板应用写回。agent 改卡片状态/备注 → 走事件 → 插件改库 → 应用写回文件；
-   **不要**用脚本直接改 `progress.json`。
+1. **写入路径只有两条，都在本地**：看板应用写回（人在看板上的操作）、`git-done` 收尾校正
+   （按 git 事实重算）。agent 改卡片状态/备注 → 走事件 → 插件改库 → 应用写回文件；
+   **不要**用脚本直接改 `progress.json`。CI 不是写者（`board.yml` 只校验，见第 8 条）。
 2. **结卡必须走闭环**：更新需求卡的 `status` / `note`（含「已完成 X / 待做 Y」）时，投 `agent-task-event v1` 事件，
    由 `plugins/agent-bridge` 消费后写库，应用自动落快照。
 3. **事件名必须隔离**：agent 事件用 `agent.task`；`hook.commit` 只归 plan-hook（`#短号` 规则）。
 4. **note 语义是全量**：`item.note` 为空表示「不更新备注」，非空表示**全量覆盖**（不是追加）。
 5. **快照格式不得降级**：`version` 保持 3、每张卡保留 `code`；移除的卡写 `"deleted": true` 而不是删条目。
 6. **未提交只允许是快照**：`git-done.ps1` 只代提交 `progress.json`；存在其它未提交改动时**拒绝合并**（退出码 1）。
-7. **CI 回写提交是唯一豁免，且只有一处**：`ad5134d` 把 `setup-git-hooks.ps1` 装进 CI 之后，
-   构建 job 的检出停在 `main` 且钩子生效，「自动回写看板状态」那条提交被自家 `pre-commit`
-   拒掉（10-26 之前 CI 没有钩子，回写一直是好的；`065a5e6` 起 main 常红）。
-   因此全仓库只允许 `.github/workflows/ci.yml`「自动回写看板状态」这一步用
-   `git commit --no-verify`，且它只提交 `progress.json`；**这条命令必须检查 `$LASTEXITCODE`**
-   （`shell: pwsh` 下原生命令失败不会中断，吞掉退出码的下一个症状是 `git rebase` 报
-   "index contains uncommitted changes"）。除此之外的任何地方出现 `--no-verify` 都算违规绕过。
-   > 教训：**给 CI 装闸门，必须同时声明 CI 的豁免面。** 钩子与流水线各自都正确，相撞处正是
-   > 「CI 既是闸门的执行环境、又是闸门的受管对象」这种双重身份；装完钩子不跑一次 main 验证，
-   > 闸门就会先在自家流水线上咬人。
-8. **CI 回写撞车以主线为基底重新派生**：回写提交只动 `progress.json`，而它的唯一事实源是
-   「git 标记 + 台账」的派生结果。本地若已推过同派生结果（跑过 `derive --write`），CI 的重复
-   回写在 rebase 时必然内容撞车 —— 正确处置是 `rebase --skip` 丢弃重叠提交，在最新主线基底上
-   重新派生（派生一致则无变化早退）；**绝不手工解冲突硬拼两份快照**（会造出谁都不是的第三份
-   状态）。ci.yml「自动回写看板状态」已按「先变基 → 再派生 → 提交 → 推送」的循环实现
-   （R6 收官踩过：旧写法先派生后变基，撞车直接 abort，整轮红）。
+7. **`--no-verify` 当前零豁免**：`ad5134d` 把 `setup-git-hooks.ps1` 装进 CI 之后，构建 job 的
+   检出停在 `main` 且钩子生效，「自动回写看板状态」那条提交被自家 `pre-commit` 拒掉（10-26
+   之前 CI 没有钩子，回写一直是好的；`065a5e6` 起 main 常红）。当时给这一步开了全仓库唯一的
+   `git commit --no-verify` 豁免。
+   **R14-01（11-03）之后连回写本身都取消了** —— 写权整体收归 `git-done`，`board.yml` 只校验、
+   不回写，「唯一豁免」的豁免对象消失，豁免面随之清空：`.github/workflows/` 下一个
+   `--no-verify` 都不许有（`check_script_hygiene.py` 规则 D），脚本里出现同样算越权（规则 B）。
+   > 教训一（仍然成立）：**给 CI 装闸门，必须同时声明 CI 的豁免面。** 钩子与流水线各自都正确，
+   > 相撞处正是「CI 既是闸门的执行环境、又是闸门的受管对象」这种双重身份；装完钩子不跑一次
+   > main 验证，闸门就会先在自家流水线上咬人。
+   > 教训二：**豁免要跟着实现一起回收。** 实现没了、白名单还指着它，等于给下一个想加回去的人
+   > 留了一道没人解释的绿灯 —— 这比一开始就不开豁免更危险。
+8. **快照只有一条写入链，CI 不参与写**：`progress.json` 的唯一事实源是「git 标记 + 台账」的
+   派生结果，唯一写者是 `git-done` 收尾的 `Sync-BoardSnapshot`（`derive --write`）—— 它是
+   **fail-soft** 的：派生 / 提交 / 推送失败只告警，绝不阻断已经成功的合并。`board.yml` 只是
+   校验器：`--check` 不一致就报红，不自愈、也没有推送权限。
+   **红灯停在合并提交那一刻是预期信号，不是噪声**：那次 run 跑的时点，收尾还没刷快照；紧随
+   其后的收尾提交会再触发一次并转绿。**停在那儿不消失，就是收尾失败了**（R14-01 那次三件收尾
+   全部回滚，靠人肉补 `d064c12`）。
+   历史包袱（写权为什么要收成一处）：双写者时期两边写同一个派生文件必然撞车 —— 谁先推谁赢、
+   另一个白干，而脚本是 fail-soft 的，失败只留几行「补推失败」；撞车后 `rebase` 还会因为两份
+   内容重叠而 abort。结论：**同一份派生文件永远只能有一个写者**，校验可以有很多个。
 
 ### 11.3 验证口径
 
@@ -755,8 +767,9 @@ agent **禁止手改**快照文件 —— 手改已造成过 v2 覆盖 v3 的事
 - 提交：仅快照未提交时跑 `git-done.ps1` → 自动生成 `chore(roadmap): 同步进度快照` 提交并合并；
   混入其它文件 → 退出码 1 且不产生新提交。
 - 闸门：向 main 推送 v2 快照 / 卡片数减少 / 丢 `code` → `pre-push` 拒绝并打印原因。
-- CI 回写：`--check` 一致时「自动回写看板状态」应早退且不产生提交；有变化时必须留下一条 `ci(board):`
-  提交并快进推上 main，提交或推送非零退出**必须让 job 立即红**（不允许拖到下一步 `rebase` 才炸）。
+- CI 只校验：`board.yml` 的 `--check` 一致时绿；不一致必须红且**不产生任何提交**（它
+  `permissions: contents: read`，本来也没有写权限）。合并提交那一刻红一次、紧随的收尾提交
+  转绿，是预期节奏；红着不消失就是收尾失败了，别去屏蔽它。
 - **验证事件消费必须用常驻实例**：`--smoke` 的 4 秒窗口不够（`HookEventQueue` 一投出即 `markDelivered`，
   插件后台未 ready 时事件会被丢弃）。
 

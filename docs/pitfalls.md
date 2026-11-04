@@ -42,7 +42,7 @@
 ### 1.3 stash pop 撞车，把冲突标记留在快照里
 
 - **现象**：锚点 `progress.json` 里出现 `<<<<<<<`，下次应用写回会把标记打进快照文件，脏检查从此一直误判。
-- **根因**：CI 每次回写都会动 `progress.json`，本地快照与主线快照必然冲突；失败的 `pop` 会把文件挂成 `UU` 并留下标记。
+- **根因**：每次合并收尾都会动 `progress.json`（`git-done` 的 `Sync-BoardSnapshot`），本地快照与主线快照必然冲突；失败的 `pop` 会把文件挂成 `UU` 并留下标记。
 - **解法**：撞车时**主线版本优先**（`git checkout HEAD -- progress.json`），本地快照留在 stash 里并打印其提交号供取回（`9da6f06`）。
 - **预防**：`progress.json` 是快照不是数据源，冲突时永远向主线让步；要保的是本地内容**可找回**，不是本地内容**覆盖上去**。
 
@@ -102,20 +102,25 @@
 - **占用类**：只有 `progress.json` 脏却不进 stash、日志写「root 被占用」，是别的会话按 §7.1 登记了 root（见 1.16）；
   这类是**设计让路**，不是故障，快照交给占用者处理。
 
-### 1.11 CI「自动回写看板状态」撞本地快照，整轮红
+### 1.11 CI「自动回写看板状态」撞本地快照，整轮红 —— **已失效（R14-01 之后不会发生）**
 
-- **现象**：推送合并后 CI 其它步骤全绿，唯独「自动回写看板状态」失败，日志是
+> **这条现在不会再发生**：回写职责已整体取消 —— `.github/workflows/board.yml` 只校验，
+> `permissions: contents: read`，写权唯一归 `git-done`。**没有第二个写者，就没有「两份快照撞车」。**
+> 保留本节是因为它还解释了一件事：为什么写权最后必须收成一处。看到「回写步骤红」先确认
+> 自己读的是不是 11-03 之前的构建日志。
+
+- **现象**（历史）：推送合并后 CI 其它步骤全绿，唯独「自动回写看板状态」失败，日志是
   `error: could not apply <sha>... ci(board): 自动回写看板状态` → `rebase 到 origin/main 失败`。
   红的那轮其实什么都没坏——快照内容在 main 上是对的。
-- **根因**：旧写法「先本地派生提交，再 rebase 推送」。本地若已跑过 `derive --write` 推过快照提交
+- **根因**（历史）：旧写法「先本地派生提交，再 rebase 推送」。本地若已跑过 `derive --write` 推过快照提交
   （收官时想让 `--check` 立刻干净，很自然会这么做），CI 生成的就是**内容重叠的重复提交**，
   rebase 必撞内容冲突；旧逻辑直接 abort。另一形态：给 CI 装钩子后回写提交被自家 `pre-commit` 拒
-  （§11.2 第 7 条，已修，豁免只留这一处）。
-- **解法**：回写循环改为「fetch → rebase（撞车 `--skip` 丢弃重叠提交）→ 以最新主线重新派生 → 提交 → 推送」：
-  派生一致则无变化早退，绝不手工解冲突硬拼两份快照（`c8419b8`，合入后首跑即绿）。条款见 §11.2 第 8 条。
-- **预防**：`progress.json` 有唯一写者链（应用写回 → 派生校正 → CI 独占回写），本地手工 `derive --write`
-  是插队行为——允许做（git-done 代提交本身就带校正），但要预期 CI 会把自己的重复提交跳掉；
-  看到「回写步骤红 + could not apply」先按本节判重叠提交，别去解冲突。
+  （§11.2 第 7 条）。
+- **当时的解法**：回写循环改为「fetch → rebase（撞车 `--skip` 丢弃重叠提交）→ 以最新主线重新派生 →
+  提交 → 推送」（`c8419b8`）。治标；真正的解法是 R14-01 把写权收归一处。
+- **现在的预防**：`progress.json` 唯一写者 = `git-done` 的 `Sync-BoardSnapshot`。本地手工
+  `derive --write` 仍允许（它只是提前算出同一个结果），但**别因此以为 CI 会替你补** —— 它只会报红。
+  锚点区看到快照落后时：`python scripts/derive_board_status.py --write` 后提交推送。
 
 ### 1.12 用 `fix` 类型提交纯脚本修复，被任务闸门拒绝
 
@@ -495,7 +500,7 @@
 - **根因**：脚本按 `%APPDATA%\com.lin\NeonBoard` 拼日志路径，而 worktree 里的 exe 被 `AppPaths` 护栏强制写到本工作区 `.sandbox`；
   更糟的是没设沙箱变量时，脚本会去动**真实实例正在占用**的文件（`Remove-Item` 直接被打断过）。
 - **解法**：读应用落盘位置收口到唯一入口——PowerShell 点源 `scripts/nb-paths.ps1`（`Get-NbLogFile` / `Get-NbBoardDb`），
-  Python 侧走 `scripts/claim-card.py` 读同一组环境变量；`verify.ps1` 未设 `NEONBOARD_DATA_DIR` 时自开
+  Python 侧唯一实现是 `scripts/nb_paths.py`（`claim-card.py` 等 import 它）；`verify.ps1` 未设 `NEONBOARD_DATA_DIR` 时自开
   `<BuildDir>\verify-sandbox`，路径口径随之正确（§7.6）。
 - **预防**：**不要在第三个文件里再拼一次路径**——`scripts/check_script_hygiene.py` 会在 CI 拦下那个字面量。
   手工跑 exe 而不带沙箱变量时，日志仍在 `%APPDATA%`，这不算脚本坏，是环境变量没设。

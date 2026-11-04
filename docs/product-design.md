@@ -258,7 +258,7 @@ MVP 只要三个就能开工：**`goal` + `cwd` + `acceptance`**。
 | 密钥泄露 | 日志脱敏（匹配 token 模式）；prompt 不回显环境变量 |
 | 无限循环 | `maxAttempts` 上限 + 单次 `timeoutMin` + 人可随时终止 |
 | 副作用 | triage 只读；执行前展示「将执行的命令 + 目录」供确认 |
-| 自动推送 | 默认 `deliverable: commit`，**执行完不自动 push**；推送由人决定（避免与 CI 回写抢主线） |
+| 自动推送 | 默认 `deliverable: commit`，**执行完不自动 push**；推送由人决定（避免与合并收尾抢主线） |
 
 ## 9. 与现有实现的映射
 

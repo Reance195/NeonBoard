@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | `docs/board-ledger.json` | 卡片台账：短号 ↔ 卡片 id / 标题 / 阶段 / 初始状态 | 人（新增卡片、修正初始状态） |
 | `git` 提交信息 `#短号=状态` | 状态变更的「代码事实」 | 人（写提交信息时顺带写上） |
-| `progress.json` | **派生产物**：每张卡片的 `code` 与 `status` | 只有派生器（CI 独占） |
+| `progress.json` | **派生产物**：每张卡片的 `code` 与 `status` | 派生器（`git-done` 收尾 `--write`）与看板应用；**CI 不可写** |
 
 派生规则：
 
@@ -36,12 +36,16 @@ status(code) = git 历史里最后一次出现的 `#code=状态` 标记
 git commit -m "feat(board): 支持列内精确插位 #R1-04=done"
 ```
 
-短号从 `docs/board-ledger.json` 里查。合并到 `main` 后，CI 会：
+短号从 `docs/board-ledger.json` 里查。合并到 `main` 后，**由 `git-done` 收尾独占写**：
 
 1. 跑 `python scripts/derive_board_status.py --write`，把 `R1-04` 的状态推导成 `done` 并写回 `progress.json`；
-2. 提交这次回写（提交信息 `ci(board): 自动回写看板状态`），触发本地应用导入后卡片自动变成「已办结」。
+2. 派生结果有变化才提交（提交信息 `chore(roadmap): 同步进度快照`），推送后触发本地应用导入，
+   卡片自动变成「已办结」。
 
-**特性分支不要手工改 `progress.json`**——CI 独占写它，多代理并行时也零冲突。
+这一步是 **fail-soft** 的：派生 / 提交 / 推送失败只告警，绝不阻断已经成功的合并。CI 不参与写
+（`board.yml` 只有 `contents: read`），它只校验 —— **别指望「CI 会替你补」**，它只会报红。
+
+**特性分支不要手工改 `progress.json`** —— 写者只有 `git-done` 一处，多代理并行时才零冲突。
 
 ### 新增一张需求卡
 
@@ -60,14 +64,16 @@ python scripts/derive_board_status.py --write   # 把派生结果写回快照
 同样走提交信息：`git commit -m "revert(board): 撤回列内插位 #R1-04=todo"`。
 历史里最后一次标记说了算，台账里的 `baseline` 只对「从未被标记过」的卡片生效。
 
-## 四、CI 上的两道闸门
+## 四、谁写、谁校验
 
-| 场景 | 步骤 | 行为 |
+| 环节 | 谁 | 做什么 |
 | --- | --- | --- |
-| PR / 分支推送 | 看板状态一致性校验 | `derive_board_status.py --check`，不一致 → **阻塞合并** |
-| 合并到 `main` | 自动回写看板状态 | `--write` 后自动提交快照；无变化则不产生提交 |
+| 合并收尾 | `scripts/git-done.ps1` 的 `Sync-BoardSnapshot` | **唯一写者**：`derive --write` 后按需提交快照并推送；fail-soft，失败只告警 |
+| main push / PR | `.github/workflows/board.yml` | **只校验**：`derive --check` 不一致就报红，不自愈、无推送权限（`contents: read`） |
 
-快照回写提交只改 `progress.json`，流水线用 `paths-ignore` 排除该文件，因此不会自激循环。
+`board.yml` 的 `paths-ignore` 只排除 `update.json`；`progress.json` 刻意**不**排除 ——
+快照变更恰恰最需要被校验。合并提交那一刻红一次、紧随的收尾提交转绿，是预期节奏；
+**红着不消失就是收尾失败了**，按提示在本地补跑 `derive_board_status.py --write` 后推送。
 
 ## 五、两种 `#短号` 语法不要混淆
 
@@ -83,5 +89,5 @@ python scripts/derive_board_status.py --write   # 把派生结果写回快照
 
 - **CI 报「快照状态落后于派生结果」**：本地跑 `python scripts/derive_board_status.py --write` 后提交 `progress.json` 即可。
 - **CI 报「台账未登记的路线图短号」**：短号拼错了，或者该卡还没登记进 `docs/board-ledger.json`。
-- **应用没反映出新状态**：应用按 `progress.json` 导入，先 `git pull` 拿回 CI 回写的快照，再启动应用（或等 15 秒轮询）。
+- **应用没反映出新状态**：应用按 `progress.json` 导入，先 `git pull` 拿回最新快照（合并收尾写的），再启动应用（或等 15 秒轮询）。
 - **想看某张卡的状态是从哪来的**：`python scripts/derive_board_status.py --write` 的输出会逐条打印「卡片 X 状态 A → B」。

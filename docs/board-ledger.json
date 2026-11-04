@@ -2878,6 +2878,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-26": {
+            "agent": "agent-dx26",
+            "branch": "chore/dx-gitdone-autocommit",
+            "claimedAt": 1793765537,
+            "head": "54c87c61afcad8948c2e4e82bc2867217ee56cd5"
+        }
+    },
     "version": 1
 }

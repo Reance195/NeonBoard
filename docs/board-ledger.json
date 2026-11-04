@@ -1988,7 +1988,7 @@
             ],
             "depends": [],
             "id": "R16-01",
-            "note": "起因（2026-11-05 插件巡检）：PluginRuntime::connectTaskEvents 已在总线广播 task.created/updated/moved/completed/removed，后台插件经子上下文能收；但面板侧全局 pluginHost 是 PluginHost 代理，只转发 commandInvoked、没有 eventReceived —— today 示例只能手动刷新（只在 Component.onCompleted 算一次），agent-bridge 面板状态也不更新。宿主代理转发活跃 context 的 eventReceived 后，面板类插件才有实时数据源；today 示例作为端到端验收载体（manifest 补 events 权限并升 apiVersion 2）。",
+            "note": "起因（2026-11-05 插件巡检）：PluginRuntime::connectTaskEvents 已在总线广播 task.created/updated/moved/completed/removed，后台插件经子上下文能收；但面板侧全局 pluginHost 是 PluginHost 代理，只转发 commandInvoked、没有 eventReceived —— today 示例只能手动刷新，agent-bridge 面板状态也不更新。交付（962da57）：setActiveContext 发 activeContextChanged，PluginHost 代理接活跃（或绑定）context 的 eventReceived 并随切换换线；today 示例升 apiVersion 2 + events 权限自动刷新（未授权退化为手动按钮）；tst_pluginruntime 三个新用例全绿。已完成 3 / 待做 0 —— 验收①三个用例全过（含换线后旧 context 不穿透）；验收②以无头 QML 用例等价覆盖：真实 today main.qml + 真实 Database/TaskModel/总线/代理链路，断言 addTask 后 todoCount 自动 0→1；像素级 UI 目检未做（本机无 GUI 自动化工具），维护者可用 dev-run.ps1 沙箱开 today 面板目检；验收③verify 全过（两次）。遗留：docs/plugin-api.md 需补一句「面板代理同样可订阅 + 仅面板打开期间送达」，不在本卡 scope，留给维护者或并入后续卡。",
             "scope": [
                 "src/plugin/PluginHost.h",
                 "src/plugin/PluginHost.cpp",

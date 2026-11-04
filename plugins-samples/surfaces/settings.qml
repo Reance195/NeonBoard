@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import NeonBoard
 
 ColumnLayout {
     id: root
@@ -16,7 +17,7 @@ ColumnLayout {
         Text {
             Layout.fillWidth: true
             text: "强调显示"
-            color: "#E8F6FF"
+            color: Theme.text
             font.pixelSize: 11
         }
 
@@ -24,14 +25,14 @@ ColumnLayout {
             width: 72
             height: 26
             radius: 13
-            color: root.highlight ? Qt.rgba(0.13, 0.83, 0.93, 0.22) : "#12202F"
+            color: root.highlight ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22) : Theme.input
             border.width: 1
-            border.color: root.highlight ? "#22D3EE" : "#1E3245"
+            border.color: root.highlight ? Theme.cyan : Theme.border
 
             Text {
                 anchors.centerIn: parent
                 text: root.highlight ? "已开启" : "已关闭"
-                color: root.highlight ? "#22D3EE" : "#8FA8BF"
+                color: root.highlight ? Theme.cyan : Theme.muted
                 font.pixelSize: 10
             }
 
@@ -45,14 +46,14 @@ ColumnLayout {
     Text {
         Layout.fillWidth: true
         text: "插件标识：" + (root.host && root.host.pluginId ? root.host.pluginId : "(未注入)")
-        color: "#8FA8BF"
+        color: Theme.muted
         font.pixelSize: 10
     }
 
     Text {
         Layout.fillWidth: true
         text: "设置页由宿主设置面板聚合展示，根节点声明 host 属性即可拿到本插件的门面。"
-        color: "#8FA8BF"
+        color: Theme.muted
         font.pixelSize: 10
         wrapMode: Text.WordWrap
     }

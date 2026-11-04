@@ -1,13 +1,14 @@
 import QtQuick
 import QtQuick.Layouts
+import NeonBoard
 
 Rectangle {
     id: root
     implicitHeight: 40
     radius: 10
-    color: "#0A1524"
+    color: Theme.card
     border.width: 1
-    border.color: Qt.rgba(0.75, 0.35, 0.95, 0.28)
+    border.color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.28)
 
     property var host
 
@@ -19,21 +20,21 @@ Rectangle {
 
         Text {
             text: "◆"
-            color: "#C084FC"
+            color: Theme.violet
             font.pixelSize: 11
         }
 
         Text {
             Layout.fillWidth: true
             text: "底部面板槽位：插件可以在这里放状态条、播放控制或快捷入口。"
-            color: "#8FA8BF"
+            color: Theme.muted
             font.pixelSize: 10
             elide: Text.ElideRight
         }
 
         Text {
             text: "SURFACES"
-            color: "#C084FC"
+            color: Theme.violet
             font.pixelSize: 9
             font.letterSpacing: 1
         }

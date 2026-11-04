@@ -112,6 +112,7 @@
         "R5-06": "done",
         "R5-07": "done",
         "R5-08": "todo",
+        "R5-09": "todo",
         "R6-01": "done",
         "R6-02": "done",
         "R6-03": "done",
@@ -137,8 +138,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "R5-09": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -2477,19 +2477,6 @@
             "title": "R5 发布 v0.1.4：版本号递增，让增量包第一次真正到用户手上"
         },
         "R5-09": {
-            "id": "R5-09",
-            "title": "R5 修复全量更新的宿主占用缺陷：更新前退宿主、安装回执、代理支持",
-            "stage": "R5",
-            "depends": [
-                "R5-08"
-            ],
-            "scope": [
-                "src/update/UpdateManager.cpp",
-                "src/host/HostMain.cpp",
-                "installer/neonboard.iss",
-                "tests/tst_updatemanager.cpp",
-                "docs/auto-update.md"
-            ],
             "acceptance": [
                 "pwsh -File scripts/verify.ps1 全过（含新增单测）",
                 "installer/neonboard.iss 为 CloseApplications=no，且 [Code] PrepareToInstall 里 taskkill /F NeonBoardHost.exe 与 NeonBoard.exe 并等待两进程退出后才继续",
@@ -2498,7 +2485,20 @@
                 "UpdateManager 启用系统代理（QNetworkProxyFactory::setUseSystemConfiguration(true)），代理环境下 --check-update 不再出现 QIODevice::read device not open",
                 "docs/auto-update.md 增「更新前退宿主 / 安装回执 / 系统代理」三节，并记 2026-11-04 真机实测现象与根因"
             ],
-            "note": "2026-11-04 真机实测（维护者授权装真实 0.1.3 再升级）暴露：点「立即更新」后界面进程下载完自退，宿主 NeonBoardHost.exe 存活，且其 checkIdle 看门狗（HostMain.cpp:100-103）会把界面复活；Inno CloseApplications（Restart Manager）关不净 → 静默模式整单悄悄失败、交互模式逐文件 DeleteFile code 5；留下 NeonBoard.exe=0.1.4、NeonBoardHost.exe=0.1.3、Qt DLL 未换的混合树。增量路径无此病：其自更新脚本本就 taskkill 宿主（UpdateManager.cpp:1049），全量路径漏了同一语义。同场另测：客户端网络栈零代理支持，代理环境直连 GitHub 被 RST（日志 QIODevice::read … device not open）。"
+            "depends": [
+                "R5-08"
+            ],
+            "id": "R5-09",
+            "note": "2026-11-04 真机实测（维护者授权装真实 0.1.3 再升级）暴露：点「立即更新」后界面进程下载完自退，宿主 NeonBoardHost.exe 存活，且其 checkIdle 看门狗（HostMain.cpp:100-103）会把界面复活；Inno CloseApplications（Restart Manager）关不净 → 静默模式整单悄悄失败、交互模式逐文件 DeleteFile code 5；留下 NeonBoard.exe=0.1.4、NeonBoardHost.exe=0.1.3、Qt DLL 未换的混合树。增量路径无此病：其自更新脚本本就 taskkill 宿主（UpdateManager.cpp:1049），全量路径漏了同一语义。同场另测：客户端网络栈零代理支持，代理环境直连 GitHub 被 RST（日志 QIODevice::read … device not open）。",
+            "scope": [
+                "src/update/UpdateManager.cpp",
+                "src/host/HostMain.cpp",
+                "installer/neonboard.iss",
+                "tests/tst_updatemanager.cpp",
+                "docs/auto-update.md"
+            ],
+            "stage": "R5",
+            "title": "R5 修复全量更新的宿主占用缺陷：更新前退宿主、安装回执、代理支持"
         },
         "R6-01": {
             "acceptance": [
@@ -3106,6 +3106,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R5-09": {
+            "agent": "agent-r5fix",
+            "branch": "fix/fullupdate-host-lock",
+            "claimedAt": 1793805196,
+            "head": "b2b6a21df788e265f2bc0b302214c7f2fad7f1bf"
+        }
+    },
     "version": 1
 }

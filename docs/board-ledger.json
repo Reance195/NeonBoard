@@ -2169,7 +2169,7 @@
                 "R16-01"
             ],
             "id": "R16-05",
-            "note": "起因：today / surfaces 示例全部硬编码颜色（#0A1524、#22D3EE 等），与仓库「组件只用 Theme.xxx 令牌」的约定相悖——示例是教学材料，教的是反模式。顺手：plan-hook 面板执行记录只存内存（records 数组），面板关了就丢，落到 storage 保留最近 20 条。today/main.qml 与 R16-01 同文件，串行。",
+            "note": "起因：today / surfaces 示例全量硬编码颜色（#0A1524 等），与「组件只用 Theme.xxx 令牌」的约定相悖——示例是教学材料，教的是反模式；plan-hook 执行记录只存内存，面板关了就丢。交付（72c6369）：六个示例 QML 颜色全部换成 Theme.xxx 令牌（import NeonBoard，随主题自动渐变）；plan-hook 执行记录落 storage（最近 20 条，坏 JSON 回落空数组），manifest 补 storage 权限升 1.1.0；tst_pluginruntime 的 today 用例在临时目录伪造最小 NeonBoard 模块以解析 import。已完成 3 / 待做 0 —— 验收①grep 六位十六进制 0 命中；验收②记录落 storage（重启可见由 storage 持久化保证，UI 目检留维护者）；验收③verify 全过。异常披露：本次 agent-init -InPlace 领用把当时工作区里未提交的示例改动一并卷进了 chore(claim) 领取提交（032efd8），chore(claim) 属流程豁免、commit-msg 与 pre-push 闸门均不校验其内容——实现主体仍在 72c6369（feat，带短号），但审计线上出现「代码搭流程提交便车」。建议后续立 DX 卡：agent-init 领用提交前发现脏树即拒绝，或流程豁免在触及代码路径时失效。",
             "scope": [
                 "plugins-samples/today/",
                 "plugins-samples/surfaces/",

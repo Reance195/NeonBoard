@@ -133,10 +133,21 @@ portable-sha256: <64 位十六进制>
 安装器在 `CurStepChanged(ssPostInstall)` 写 `{app}\install-receipt.json`：
 
 ```json
-{"version": "0.1.5", "writtenAt": "2026-11-04 22:45:59", "commit": "8e52812…", "source": "inno"}
+{"version": "0.1.5", "writtenAt": "2026-11-04 22:45:59", "commit": "unknown", "source": "inno"}
 ```
 
-`commit` 取自同目录 `BUILD-INFO.txt`（发布闸门第 5 条产出），因此回执既能判版本、也能溯源到具体构建。
+`commit` 试图取自同目录 `BUILD-INFO.txt`（发布闸门第 5 条产出），**但今天野外装出来的回执里
+它恒为 `unknown`**：CI 的「写溯源信息」把 `BUILD-INFO.txt` 写在 `dist\`，而 iss 的 `[Files]`
+只打包 `dist\NeonBoard\*`，且那一步排在「编译安装包」**之后** —— `{app}` 里根本没有这个文件。
+判「上次没装完」只靠 `version`，不受影响；要让 `commit` 真有值，得把 BUILD-INFO.txt 纳入安装树
+并前移到编译安装包之前（待立卡）。
+
+回执代码只用 `LoadStringsFromFile` / `SaveStringsToFile`（`TArrayOfString`），不用
+`LoadStringFromFile` / `SaveStringToFile`：Inno Setup 6 只有 Unicode 版，后两者的字符串参数是
+**AnsiString**，拿 `String` 变量去传会在 ISCC **编译期**报 `Type mismatch`。而 iss 的 `[Code]`
+段只有 ISCC 会编译 —— `verify.ps1` 不跑它、`tst_updatemanager` 只 grep 文本，所以这类错误
+本地全绿、直到推 tag 才炸（v0.1.5 第一次发布就是这样废掉的，run 41870082136）。
+**改 iss 的 `[Code]` 段必须真编译一次**，别把发布流水线当编译器。
 
 `UpdateManager` 构造时读回执（`receiptVersionMismatch`）：
 

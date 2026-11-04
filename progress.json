@@ -55,24 +55,6 @@
             "updatedAt": 1793817872
         },
         {
-            "code": "DX-39",
-            "completedAt": 0,
-            "createdAt": 1793819851,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-39",
-            "note": "起因（2026-11-05，维护者本会话报障）：「启动动画在进度条卡顿时会一起卡顿」。实测根因是**同一个原因，不是两个 bug**：SplashWindow 是主线程上的 QWidget，动画由 16ms QTimer 驱动；启动路径上有三段主线程同步阻塞，期间事件循环不转 → 定时器不触发 → 整幅画面（含进度条）冻成静止图。\n\n【实测证据（2026-11-05，本机 build/NeonBoard.exe 正常启动）】boot 时钟分段：BOOT app 25 → SPLASH geometry 34 → BOOT db 254 → TaskModel loaded(295 张卡) 354 → BOOT engine 448（模型层 194ms）→ BOOT loaded 1035（engine.load() 535ms）→ BOOT attached 1871（attach 836ms）。截帧探针按 ~50ms 采样闪屏窗口画面做 SHA256 比对：闪屏存活约 1.9s，其中 **686ms + 543ms 两段逐像素完全静止**（连续 ≥120ms 哈希不变），总计约 1229ms —— 启动画面约 64% 的时间是冻住的；动画真正在动的只有 pump() 预算那 160ms（NEONBOARD_SPLASH_BUDGET 默认值）。冷启动时 engine.load() 可达数秒，冻结只会更长。\n\n【做法】闪屏渲染移入专属线程（QWindow 自绘），主线程只推阶段值 —— 进度条该停就停（真实工作本来就没进展），动画不再跟着停。视觉保持不变：700×430 无边框半透明置顶、居中、标题 / 进度条 / 百分比 / 阶段标签 / LOGO 全保留，关闭前淡出。\n\n【边界】不动启动路径的同步结构本身（那属于 R0 启动瘦身，另一条线）；不动 QML 主界面；只改闪屏的渲染归属与线程边界。",
-            "orderKey": 15360,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 启动闪屏动画与进度条同卡：渲染绑在主线程，遇同步阻塞整幅画面冻住",
-            "updatedAt": 1793819851
-        },
-        {
             "code": "DX-43",
             "completedAt": 0,
             "createdAt": 1793822375,
@@ -1849,6 +1831,24 @@
             ],
             "title": "R7 夜间批量模式",
             "updatedAt": 1793213056
+        },
+        {
+            "code": "DX-39",
+            "completedAt": 1793826572,
+            "createdAt": 1793819851,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-39",
+            "note": "起因（2026-11-05，维护者本会话报障）：「启动动画在进度条卡顿时会一起卡顿」。实测根因是**同一个原因，不是两个 bug**：SplashWindow 是主线程上的 QWidget，动画由 16ms QTimer 驱动；启动路径上有三段主线程同步阻塞，期间事件循环不转 → 定时器不触发 → 整幅画面（含进度条）冻成静止图。\n\n【实测证据（2026-11-05，本机 build/NeonBoard.exe 正常启动）】boot 时钟分段：BOOT app 25 → SPLASH geometry 34 → BOOT db 254 → TaskModel loaded(295 张卡) 354 → BOOT engine 448（模型层 194ms）→ BOOT loaded 1035（engine.load() 535ms）→ BOOT attached 1871（attach 836ms）。截帧探针按 ~50ms 采样闪屏窗口画面做 SHA256 比对：闪屏存活约 1.9s，其中 **686ms + 543ms 两段逐像素完全静止**（连续 ≥120ms 哈希不变），总计约 1229ms —— 启动画面约 64% 的时间是冻住的；动画真正在动的只有 pump() 预算那 160ms（NEONBOARD_SPLASH_BUDGET 默认值）。冷启动时 engine.load() 可达数秒，冻结只会更长。\n\n【做法】闪屏渲染移入专属线程（QWindow 自绘），主线程只推阶段值 —— 进度条该停就停（真实工作本来就没进展），动画不再跟着停。视觉保持不变：700×430 无边框半透明置顶、居中、标题 / 进度条 / 百分比 / 阶段标签 / LOGO 全保留，关闭前淡出。\n\n【边界】不动启动路径的同步结构本身（那属于 R0 启动瘦身，另一条线）；不动 QML 主界面；只改闪屏的渲染归属与线程边界。",
+            "orderKey": 15360,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 启动闪屏动画与进度条同卡：渲染绑在主线程，遇同步阻塞整幅画面冻住",
+            "updatedAt": 1793826572
         },
         {
             "code": "M06",
@@ -3715,6 +3715,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T04:59:12",
+    "updated": "2026-11-05T05:09:32",
     "version": 3
 }

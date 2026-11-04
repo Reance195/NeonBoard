@@ -678,6 +678,17 @@ if ($Mode -eq 'remote') {
     # 上的分离 HEAD」：下一步多半就被回收，硬切回合并前的分支反而把工作区内容退回去。
     if ($atAnchor) {
         $homeBranch = if ($pristineBranch) { $pristineBranch } else { $MainBranch }
+        # 两个坑（2026-11-04 实测，都会让归位切到一个不存在的引用）：
+        #   1) 进入时所在的分支可能刚被本脚本删掉 —— 在锚点区直接对 main 开分支时，
+        #      $Branch 与 $pristineBranch 是同一个名字，收尾先删分支再归位必然失败；
+        #   2) 上一次归位失败会把锚点留在 merge/<...> 临时分支上，它不是归宿。
+        # 两种都回主分支。
+        if ($homeBranch -eq $tmp -or $homeBranch -like 'merge/*') {
+            $homeBranch = $MainBranch
+        } elseif ((Invoke-GitQuiet @('rev-parse', '--verify', '--quiet', "refs/heads/$homeBranch")).Code -ne 0) {
+            Write-Host ("· 归位目标 {0} 已不存在（本次收尾刚删除），改回 {1}" -f $homeBranch, $MainBranch) -ForegroundColor DarkGray
+            $homeBranch = $MainBranch
+        }
         $sw = Invoke-GitQuiet @('switch', $homeBranch)
         if ($sw.Code -eq 0) {
             if ($homeBranch -eq $MainBranch) {

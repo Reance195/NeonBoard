@@ -3720,13 +3720,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-35": {
-            "agent": "agent-dx35",
-            "branch": "fix/claim-idempotence-server-fact",
-            "claimedAt": 1793825319,
-            "head": "f8ab67eef50345c636e431d6e3d15349e6975fd6"
-        }
-    },
+    "claims": {},
     "version": 1
 }

@@ -99,6 +99,11 @@ git switch -c feature/<简述>
 命名格式：`<前缀>/<简短的英文小写短横线描述>`，例如 `feature/task-tag-filter`。
 一次改动只对应一个分支，分支存活期间不要混入无关改动。
 
+> **允许表的唯一事实源是 `.githooks/pre-commit` 的 `allowed_prefixes`**：
+> `scripts/agent-init.ps1` 直接读它，在入口就拦掉不合规的分支名（退出码 2，不创建任何目录）。
+> 以前要等「领用空提交」被 commit-msg 拒，那时 worktree / `.sandbox` / 占用登记都已建好，
+> 只能手工 `git worktree remove --force` + `git branch -D` 重来。改前缀规则只改钩子那一处。
+
 ### 条款 3 —— 提交信息必须规范
 
 格式：`<type>(<scope>): <中文简述>`

@@ -34,6 +34,9 @@
         # 确实不需要领用任何卡片时显式写 -Card none —— 强制表态，避免漏填导致双领。
         # 硬门：领用时会向服务端推 refs/claims/<code> 占位（非强推），
         # 同名 ref 已存在即被拒绝；领子卡前先 ls-remote 父卡占位。需联网。
+
+    出口码：2 = 分支名不合规（入口即拦，未创建任何目录）；3 = 锚点 / 占用冲突；
+            4 = 残留工作区或分支已存在（只诊断，不自动删）。
 #>
 [CmdletBinding()]
 param(
@@ -158,6 +161,42 @@ function Show-StaleBranch {
     Write-Host '  或者直接复用：换 -Branch 名，或用已有分支开区（不带 -b）。' -ForegroundColor Yellow
 }
 
+# ---------- 分支名前缀：入口即校验（DX-12 补）----------
+# 原先这里什么都不查：分支名要到「领用空提交」才被 commit-msg 钩子拒，而那时 worktree、
+# .sandbox、.agent-env.ps1、占用登记全都建好了 —— 只能手工 `git worktree remove --force`
+# 再加 `git branch -D` 重来（实测踩过：feat/ 不是合法前缀，正确的是 feature/）。
+# 允许表**只认 .githooks/pre-commit 的 allowed_prefixes**：另写一份必然漂移，症状是
+# 脚本放行、提交才被拒，比不校验更迷惑人。钩子缺失时放行（上面装钩子那步已报过警告）。
+function Get-AllowedBranchPrefixes {
+    $hook = Join-Path $repoRoot '.githooks\pre-commit'
+    if (-not (Test-Path -LiteralPath $hook)) { return @() }
+    try { $hookText = [System.IO.File]::ReadAllText($hook) } catch { return @() }
+    $m = [regex]::Match($hookText, '(?m)^\s*allowed_prefixes\s*=\s*"([^"]*)"')
+    if (-not $m.Success) { return @() }
+    return @($m.Groups[1].Value -split '\s+' | Where-Object { $_ })
+}
+
+function Assert-BranchName {
+    param([string]$Name)
+
+    $allowed = Get-AllowedBranchPrefixes
+    if ($allowed.Count -eq 0) { return }
+    $slash = $Name.IndexOf('/')
+    $prefix = if ($slash -gt 0) { $Name.Substring(0, $slash) } else { '' }
+    if ($prefix -and ($allowed -contains $prefix)) { return }
+
+    Write-Host ("✗ 分支名 {0} 不符合规范（pre-commit 会拒，这里提前拦）" -f $Name) -ForegroundColor Red
+    if ($prefix) {
+        Write-Host ("  前缀 '{0}' 不在允许列表内。" -f $prefix) -ForegroundColor Yellow
+    } else {
+        Write-Host '  分支名缺少类型前缀，必须形如 type/简述。' -ForegroundColor Yellow
+    }
+    Write-Host ("  允许：{0}" -f (($allowed | ForEach-Object { "$_/" }) -join ' ')) -ForegroundColor Yellow
+    Write-Host '  示例： -Branch feature/task-board-filter' -ForegroundColor Yellow
+    Write-Host '  提示：允许表来自 .githooks/pre-commit，改前缀规则只需改那一处。' -ForegroundColor DarkGray
+    exit 2
+}
+
 # ---------- 检出形态识别 ----------
 # 主工作树的 git-dir 就是 common dir；linked worktree 的 git-dir 落在
 # <common>/worktrees/<name> 下。两者不等 ⇒ 当前检出已经是一个独立 worktree。
@@ -193,6 +232,10 @@ if ($isAnchor -and $ForceAnchor) {
 }
 
 if (-not $Branch) { $Branch = "feature/$Agent" }
+
+# 原地模式不校验：那时保留的是当前检出的分支（可能由 WorkBuddy 生成），-Branch 只是提示，
+# 真正提交用的分支已经在原处，拦它没有任何收益。
+if (-not $InPlace) { Assert-BranchName -Name $Branch }
 
 # -Card none：显式声明「本次不领用任何卡片」。
 # 之所以强制表态，是因为漏填时脚本无法区分「忘了」和「不需要」，
@@ -449,21 +492,32 @@ foreach ($line in $porcelain) {
 # HEAD 上有提交、但没有任何 origin 引用能到达它 = 这份成果只在这台机器上。
 # 认领分支不推 origin，claim ref 指向的提交在远端不可达，CI 领用闸门也校验不了。
 # 判定用本地已有的 origin/* 引用，不额外联网（开区前面已经 fetch 过一次）。
+# **本次工作区要排除**：它刚刚建好，领用提交按设计还没推（git-done 合并时才推）。
+# 不排除的话每个带 -Card 的开区都会自报「本地独有 2 个提交」，看着像有东西要丢（DX-12）。
+$selfPath = ($worktree -replace '\\', '/').TrimEnd('/')
+$selfUnpushed = 0
 $orphans = @()
 foreach ($path in $nested) {
     $cntRaw = & git -C $path rev-list --count HEAD --not --remotes=origin 2>$null | Select-Object -First 1
     if (-not $cntRaw) { continue }
     $cnt = 0
     if (-not [int]::TryParse(($cntRaw -replace '\s', ''), [ref]$cnt)) { continue }
-    if ($cnt -gt 0) {
-        $refName = (& git -C $path symbolic-ref --quiet --short HEAD 2>$null | Select-Object -First 1)
-        if (-not $refName) { $refName = '(detached)' }
-        $orphans += [pscustomobject]@{ Path = $path; Branch = ($refName | Out-String).Trim(); Count = $cnt }
+    if ($cnt -le 0) { continue }
+    if ($selfPath -and ((($path -replace '\\', '/').TrimEnd('/')) -ieq $selfPath)) {
+        $selfUnpushed = $cnt
+        continue
     }
+    $refName = (& git -C $path symbolic-ref --quiet --short HEAD 2>$null | Select-Object -First 1)
+    if (-not $refName) { $refName = '(detached)' }
+    $orphans += [pscustomobject]@{ Path = $path; Branch = ($refName | Out-String).Trim(); Count = $cnt }
+}
+if ($selfUnpushed -gt 0) {
+    Write-Host ''
+    Write-Host ("· 本次工作区 {0} 有 {1} 个提交未推 origin：属正常，git-done 合并时统一推送" -f (Split-Path -Leaf $worktree), $selfUnpushed) -ForegroundColor DarkGray
 }
 if ($orphans.Count -gt 0) {
     Write-Host ''
-    Write-Host ("⚠ 未推送成果：{0} 个工作区的提交不在任何 origin 引用可达范围内" -f $orphans.Count) -ForegroundColor Yellow
+    Write-Host ("⚠ 未推送成果：{0} 个其它工作区的提交不在任何 origin 引用可达范围内" -f $orphans.Count) -ForegroundColor Yellow
     foreach ($o in $orphans) {
         $leaf = Split-Path -Leaf $o.Path
         Write-Host ("    {0,-16} {1,-28} 本地独有 {2} 个提交" -f $leaf, $o.Branch, $o.Count) -ForegroundColor Yellow

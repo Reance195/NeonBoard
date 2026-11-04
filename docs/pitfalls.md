@@ -521,6 +521,24 @@
 - **解法 / 预防**：补丁式保存的脏检查：到期按天（`toJulianDay`）、提醒按分钟比；逐字段生成 patch、
   空集直接返回不写库（`CardDetail`，`34d0b9b`）。比对粒度跟着**存储精度**走，不跟显示格式走。
 
+### 3.14 打包只拷了示例插件，官方插件一个都没进包
+
+- **现象**：安装版 / 便携版打开插件面板是空的，`plugins/` 下的 6 个官方插件一个都没有；
+  而开发机跑 `scripts/dev-run.ps1` 一切正常 —— 因为开发时读的是**仓库目录**，不是打包产物。
+- **判据**：`ls dist/NeonBoard/plugins` 只有 `surfaces` / `today` 两个示例，没有
+  `agent-bridge` / `agent-claude` / `agent-codex` / `agent-cursor` / `agent-opencode` / `plan-hook`。
+  更硬的判据是用产物本身跑 `NeonBoard.exe --plugin-report`，看 `agentProfiles.effective[].source`
+  是否出现 `plugin`（全 `builtin` 就是没读到插件目录）。
+- **根因**：`scripts/deploy.ps1` 里只写了 `Copy-Item plugins-samples\*`，官方插件那一行从来没写。
+  构建不会因此变红 —— 它只是少拷了一个目录。
+- **后果比「少几个插件」严重**：`agent-bridge` 缺席意味着「agent 投 `agent-task-event` → 自动建卡 /
+  流转 / 对账」整条链路在安装版上**从未工作过**；而开发机因为读仓库目录，永远测不出来。
+- **解法 / 预防**：`deploy.ps1` 同时拷 `plugins\*` 与 `plugins-samples\*`，并在拷贝后**紧跟一道对齐
+  自检**：以仓库 `plugins/` 的实际目录为准（不写死清单），逐个检查 `dist/plugins/<名字>` 存在且
+  有 `plugin.json`，缺一个就 `throw`。
+- **判断这类问题的通用办法**：**验收必须用产物本身，不能只跑源码树** —— 凡是「拷文件」的环节
+  （插件、资源、翻译、运行时 DLL），源码树里一切正常而产物里缺东西，是同一个失效模式。
+
 ---
 
 ## 四、界面验收与自动化

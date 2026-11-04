@@ -2496,7 +2496,8 @@
                 "installer/neonboard.iss",
                 "tests/tst_updatemanager.cpp",
                 "docs/auto-update.md",
-                "src/update/UpdateManager.h"
+                "src/update/UpdateManager.h",
+                "src/main.cpp"
             ],
             "stage": "R5",
             "title": "R5 修复全量更新的宿主占用缺陷：更新前退宿主、安装回执、代理支持"

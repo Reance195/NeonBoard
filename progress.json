@@ -165,6 +165,24 @@
             "updatedAt": 1793765822
         },
         {
+            "code": "DX-27",
+            "completedAt": 1793767593,
+            "createdAt": 1793767358,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-27",
+            "note": "AGENTS.md 与 docs/git-workflow.md 里「合并撞冲突后」写的是一串手工步骤：临时分支 merge/ 不在允许前缀内要先切 chore/、冲突里 --ours 才是 origin/main、中断后要补结卡 / 删 refs/claims、派生补推、锚点快进、--check 到 0。这些步骤全部是可判定的机械动作，却每次靠人回忆顺序 —— 2026-11-04 那次合并冲突就是手工补齐的，中间漏了派生补推。\\n\\n其中最容易出错、也最适合机器做的是台账冲突本身：docs/board-ledger.json 的冲突几乎必然是「两边各加了几张卡 / 各结了几张卡」，三路语义合并是确定性的，而手工解 JSON 冲突极易把某一方的卡整段删掉（cards 是对象，冲突标记会切成两半，肉眼很难看出少没少）。\\n\\n边界：-Recover 不写 cards / baseline —— 结卡属于任务定义变更，需要人判断「哪张卡真的做完了」。脚本只负责指出「--check 说还差哪几个短号」并给出命令，判定权不自动化（与 DX-23 同一原则：能判定的自动化，拍板的留给人）。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "合并撞冲突后的善后五步全靠人记，而台账冲突本可语义合并",
+            "updatedAt": 1793767593
+        },
+        {
             "code": "R5-03",
             "completedAt": 1793021221,
             "createdAt": 1793016029,
@@ -327,6 +345,24 @@
             ],
             "title": "verify.ps1 只认显式 -QtRoot，worktree 里必现 0xC0000135",
             "updatedAt": 1793765308
+        },
+        {
+            "code": "DX-29",
+            "completedAt": 1793767593,
+            "createdAt": 1793767358,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-29",
+            "note": "R14-02 的教训是「deploy.ps1 只拷 plugins-samples，6 个官方插件从未进过安装包」，当时的修法是补一条 Copy-Item 加一段内联比对。但那段比对只盯着插件：exe 缺失、platforms/qwindows.dll 缺失、sqldrivers/qsqlite.dll 缺失、Qt6Qml.dll 是 0 字节 —— 这几种「装完直接打不开」的故障，构建脚本统统不检查，只在 release.yml 里有半段内联检测（且只覆盖 0 字节）。\\n\\n三个检查器（deploy 内联、release.yml 内联、CI 的「便携版可独立运行」）各写一套判据，必然漂 —— 记忆里那条「凡拷文件环节必须用产物验收」正是因为这类漂移才反复被踩。合并成一个可独立复跑的脚本后：本地能在打包后立刻跑，CI 能在上传 artifact 前跑，release 能在压缩包生成前跑，判据只有一份。\\n\\n边界说清楚：清单不是「所有该存在的文件」，而是「缺了必然起不来」的最小集。windeployqt 的具体产物集合随 Qt 版本变化，写死全量清单会天天误报。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "deploy.ps1 的自检只覆盖官方插件，其余「该随包走」的东西全靠运气",
+            "updatedAt": 1793767593
         },
         {
             "code": "R0-04",
@@ -2993,8 +3029,26 @@
             ],
             "title": "src/ 目录硬编码路径引用无守卫，拆目录必断链",
             "updatedAt": 1793763063
+        },
+        {
+            "code": "DX-28",
+            "completedAt": 1793767358,
+            "createdAt": 1793767358,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-28",
+            "note": "verify.ps1 早就把 NEONBOARD_ROADMAP 指向沙箱、AUTOWRITE=0，所以**经 verify 跑**是干净的 —— 脏只发生在手工直跑 exe 的场合（排查启动问题、CI 的冒烟步骤、或有人想复现用户场景）。此时 RoadmapSync::resolvePath() 从 applicationDirPath 向上找「同时含 .git 与 progress.json」的目录，在仓库里必然命中，于是自动导出把仓库快照改脏；提交时如果没看清 git status，派生产物就会被夹进实现提交（这条本会话被提醒过一次）。\\n\\n修法选「根因」而不是「事后还原」：还原只是把脏东西擦掉，写入仍然发生、仍然可能被别的进程读到半成品。一次性探测模式本就不该有持久副作用，这跟 --selftest 用独立快照文件是同一个道理。\\n\\nverify 侧的哈希守卫是防回归：这条路径没有单测覆盖（要真启动 GUI 才跑到），一旦有人在别处加回写逻辑，只有启动期校验能发现。",
+            "orderKey": 97280,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "--smoke 会把仓库 progress.json 写脏，一次性探测不该有副作用",
+            "updatedAt": 1793767358
         }
     ],
-    "updated": "2026-11-04T12:17:02",
+    "updated": "2026-11-04T12:46:33",
     "version": 3
 }

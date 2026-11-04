@@ -31,6 +31,8 @@
         "DX-29": "done",
         "DX-30": "done",
         "DX-31": "done",
+        "DX-32": "todo",
+        "DX-33": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -783,6 +785,48 @@
             ],
             "stage": "DX",
             "title": "派生器把提交正文里的 C++ 宏 / 颜色值当卡号，每次收尾刷 8 条噪声"
+        },
+        "DX-32": {
+            "acceptance": [
+                "默认仍是 dry-run；--apply 通过全部阻断校验后才写 docs/board-ledger.json，序列化与 claim-card.py / release-claims.py 逐字节同构（indent=4 / sort_keys / 尾换行）",
+                "--apply 在 main / master / develop 上以退出码 6 拒绝并提示先开 chore/cards-* 分支 —— 立卡是提交动作，主干不受理",
+                "--apply 缺 -Authorize / -Batch 任一即退 7；生成的提交信息自动含「授权：」「批次：」两行，python scripts/task_gate.py message 对其放行",
+                "落盘前重算一次纯增量（既有 cards / baseline / claims 逐条相等），任一不成立退 2 且不写文件；写入走临时文件 + os.replace 原子替换",
+                "有阻断问题时 --apply 退 2，且 docs/board-ledger.json 的 sha256 前后相等 —— 失败不留半张卡",
+                "退出码 0 时打印新增卡号与就绪状态，格式可直接作为 agent-init.ps1 -Card 的入参",
+                "python scripts/board-apply.py --selftest 追加断言：主干拒绝 / 缺授权拒绝 / 纯增量失败不落盘 / 原子写 / 就绪判定，全部通过",
+                "docs/task-card.md 立卡章节从「手工贴 JSON」改为「写清单 → 预演 → --apply 落盘」，并写明验收档位：新增卡且 stage 已存在时 check_board_diff.py 判 derive 档（秒级），只有首次出现的 stage 才要求全量"
+            ],
+            "depends": [],
+            "id": "DX-32",
+            "note": "board-apply.py 的 v1 是刻意只读的：当时判断「写台账是维护者授权动作，程序替人写字据之前要先让人看它 20 次输出对不对」。这个目的已经达到 —— 卡面 20 项校验在 DX-29 / R10 系列立卡中反复跑过，误报与漏报都收敛了。\n\n但只读留下一个真实摩擦：立卡仍在手贴 JSON + 手加 baseline。贴错要到下次派生才暴露，且「先开区后立卡」的顺序倒置正是从这里长出来的 —— 立卡需要一次提交，提交不能在主干，于是只能先开个区，而在那个区里再领卡就会缺 chore(claim) 凭据（dxp2 被 check_claim_refs.py 拦下的现场）。\n\n把落盘交给程序后，立卡与实现天然分成两条分支：立卡分支只改台账、合并即弃；实现分支从主干开、领用凭据完整。顺序不再靠人记。\n\n边界：程序不判断「这张卡该不该立」，只保证「立了之后台账仍然是纯增量、提交仍然带授权留痕」。授权来源与批次仍由人给，脚本只负责把它写进提交体，不替人承担判断。\n\n立卡的验收档位不重：check_board_diff.py 对「新增卡 + 已有 stage」判 derive 档（只需派生成快照），只有首次出现的 stage 才要全量 —— 因为那才会让 tst_projectmap 的 stageOrderFollowsRoadmaps 找不到对应行。",
+            "scope": [
+                "scripts/board-apply.py",
+                "docs/task-card.md"
+            ],
+            "stage": "DX",
+            "title": "立卡只能手贴 JSON：程序会算「该不该立」，却不肯写下去"
+        },
+        "DX-33": {
+            "acceptance": [
+                "git-done 收尾把「本次分支领用的卡」与「--close-cards 实际结掉的卡」做差集，非空时逐张打印卡号、title 与 acceptance 全文，不再静默跳过",
+                "差集非空不阻断已完成的合并（与结卡失败同样的降级策略），但末尾汇总必须给出明确的下一步命令，而不是只报「结卡 0 张」",
+                "新增 -Close <短号,...>：仅在卡属本次分支领用时受理，否则退 8；结卡提交体追加「人工确认：」一行写明卡号与理由",
+                "-Close 与 git 标记推导走同一条结卡通道（只改 baseline），仍受 task_gate.py 的自动来源规则约束，不给它扩权到新增 / 删除卡",
+                "收尾产出结构化回执 <worktree>/.sandbox/receipt.json：合并 sha、结掉的卡、-Close 的卡、未结的卡、清理掉的分支 / worktree / claim ref",
+                "对账逻辑抽成可单独调用的函数或子命令，--selftest 覆盖三态：全结清 / 领了没结 / 没有领用，并覆盖 -Close 的越权拒绝",
+                "实测：造一条领了卡但提交信息无 #短号=done 的分支跑收尾，屏幕与回执都列出该卡；加 -Close 后 baseline 变 done 且回执标注人工确认"
+            ],
+            "depends": [],
+            "id": "DX-33",
+            "note": "DX-07 起「合入即结」：git-done 调 derive_board_status.py --close-cards，从 git 事实取最后一次 #<短号>=done 把 baseline 补成 done。这条链路的问题是它只处理「已经写了标记」的卡 —— 没写标记的卡一张都不结，而且收尾只在有结卡时才打印一行，没有就什么都不说。\n\n实测代价：干完活、合并、收尾全绿，卡还挂在 todo，下次有人接着领一遍重做（pitfalls 1.14 就是这个）。而 agent 侧看到「✓ 合并完成」会以为流程走完了。\n\n程序能判的部分是「领了没结」这个差集 —— 它不需要理解验收内容，只需要比对两份名单。程序判不了的是「acceptance 到底满不满足」，所以这里只做对账与出声，拍板仍通过提交标记或 -Close 显式声明，且两者都必须留痕。\n\n不做「按 acceptance 自动判定完成」：验收项是自然语言 + 命令混合，机器判定会退化成关键词匹配，比不判更危险。",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/derive_board_status.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "领了卡没写 =done，收尾一声不响就放行"
         },
         "M01": {
             "acceptance": [

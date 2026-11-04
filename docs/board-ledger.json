@@ -90,6 +90,11 @@
         "R14-05": "done",
         "R15-01": "done",
         "R15-02": "done",
+        "R16-01": "todo",
+        "R16-02": "todo",
+        "R16-03": "todo",
+        "R16-04": "todo",
+        "R16-05": "todo",
         "R2-01": "done",
         "R2-02": "done",
         "R3-01": "done",
@@ -1974,6 +1979,115 @@
             ],
             "stage": "R15",
             "title": "插件库展示类别徽章与依赖说明"
+        },
+        "R16-01": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R tst_pluginruntime --output-on-failure 新增用例通过：面板代理 subscribe 后，总线 publish task.* 事件能从代理 eventReceived 收到，未订阅域不投递",
+                "沙箱启动（pwsh -File scripts/dev-run.ps1）：today 示例订阅 task.created/updated/moved/removed 后，看板增删改任务无需手动刷新，统计自动更新",
+                "pwsh -File scripts/verify.ps1 全过"
+            ],
+            "depends": [],
+            "id": "R16-01",
+            "note": "起因（2026-11-05 插件巡检）：PluginRuntime::connectTaskEvents 已在总线广播 task.created/updated/moved/completed/removed，后台插件经子上下文能收；但面板侧全局 pluginHost 是 PluginHost 代理，只转发 commandInvoked、没有 eventReceived —— today 示例只能手动刷新（只在 Component.onCompleted 算一次），agent-bridge 面板状态也不更新。宿主代理转发活跃 context 的 eventReceived 后，面板类插件才有实时数据源；today 示例作为端到端验收载体（manifest 补 events 权限并升 apiVersion 2）。",
+            "scope": [
+                "src/plugin/PluginHost.h",
+                "src/plugin/PluginHost.cpp",
+                "src/plugin/PluginRuntime.h",
+                "src/plugin/PluginRuntime.cpp",
+                "tests/tst_pluginruntime.cpp",
+                "plugins-samples/today/plugin.json",
+                "plugins-samples/today/main.qml"
+            ],
+            "stage": "R16",
+            "title": "面板事件转发：PluginHost 代理补 eventReceived，示例接上自动刷新"
+        },
+        "R16-02": {
+            "acceptance": [
+                "单条事件同时携带 title/note/tags/status 变化时，对同一张卡只产生一次 updateTask 写库与至多一次 moveTaskToEnd（以 pluginHost.log 日志计数断言）",
+                "上游 status 为未知值（如 blocked）时卡片状态不变（不回退 todo），docs/agent-task-event.md 同步记录该防御语义",
+                "updateTask / moveTaskToEnd 失败时 pluginHost.log 有可检索的失败日志",
+                "pwsh -File scripts/verify.ps1 全过"
+            ],
+            "depends": [],
+            "id": "R16-02",
+            "note": "起因：applyItem 对同一张卡最多 4 次独立写库（title/note/tags 各一次 updateTask + 一次 moveTaskToEnd），10 条批次最坏 40 次写，每次都触发模型信号与快照防抖链。合并字段类变更为一次 updateTask、状态变更单独一次 moveTaskToEnd，幂等语义不变（重复投递同 item 仍收敛）。顺手把 statusOf 未知上游状态从「回退 todo」改为「不动状态」，防止上游协议将来新增状态值把已完成卡打回待办。",
+            "scope": [
+                "plugins/agent-bridge/",
+                "docs/agent-task-event.md"
+            ],
+            "stage": "R16",
+            "title": "agent-bridge 对账降本：单卡字段合并一次写库 + 未知状态防御"
+        },
+        "R16-03": {
+            "acceptance": [
+                "metaKeys(prefix) 用例通过：按前缀枚举键、不误伤他键、无匹配时返回空（测试落在 tests/tst_databasemigration.cpp）",
+                "agent-bridge 清扫用例：删除卡片后重投批次，指向已删任务的映射键被清除，meta 表无孤儿 agentbridge.* 残留",
+                "PRAGMA user_version 不变（tst_databasemigration 全过）",
+                "pwsh -File scripts/verify.ps1 全过"
+            ],
+            "depends": [
+                "R16-02"
+            ],
+            "id": "R16-03",
+            "note": "起因：agentbridge.<agent>.<sessionId>.<todoId> 映射只增不减，卡片删除后残留永久留在 meta 表；Database 只有 metaValue/set/remove（无枚举），插件想清扫无从下手。宿主加 metaKeys(prefix)（PluginContext / PluginHost 同步暴露，权限仍归 meta），agent-bridge 批次末尾顺带清扫「指向已不存在任务」的映射。schema 不动、user_version 不升。与 R16-02 同改 background.qml，串行避免行段冲突。",
+            "scope": [
+                "src/core/Database.h",
+                "src/core/Database.cpp",
+                "src/plugin/PluginContext.h",
+                "src/plugin/PluginContext.cpp",
+                "src/plugin/PluginHost.h",
+                "src/plugin/PluginHost.cpp",
+                "plugins/agent-bridge/",
+                "tests/tst_databasemigration.cpp"
+            ],
+            "stage": "R16",
+            "title": "meta 前缀枚举 API + agent-bridge 映射清扫"
+        },
+        "R16-04": {
+            "acceptance": [
+                "沙箱启动：四个 agent 插件的面板内容由宿主通用名片页渲染，执行/只读命令与超时和 plugin.json 的 agentProfiles 一致，无 QML 报错",
+                "plugins/agent-*/main.qml 四份文件删除；触发规则明确：声明 agentProfiles 且无 main.qml 的插件由宿主渲染通用名片页",
+                "codex 的「默认未启用」与启用前置说明在名片页如实显示（manifest 数据驱动，enabled=false 可见）",
+                "ctest --test-dir build -C Release -R tst_agentprofile --output-on-failure 过：三方一致性用例随数据双源移除，其余用例仍绿",
+                "pwsh -File scripts/verify.ps1 全过"
+            ],
+            "depends": [],
+            "id": "R16-04",
+            "note": "起因：agent-claude/codex/cursor/opencode 四份 main.qml 约 90% 同构（KeyValue 组件、授权徽章、布局），exeLine/readonlyLine 与 plugin.json 的 args 是两份数据，靠测试防漂移（main.qml 注释自认「测试会校验这两处与内置 profile 三者一致」）。宿主为「声明 agentProfiles 且无 main.qml」的插件渲染通用名片页，数据单源于 manifest；codex 面板上的本机实测长说明（stdin 接 NUL、Store 版路径等）移 docs/agent-profile.md，名片页只留 manifest 能表达的事实。",
+            "scope": [
+                "src/plugin/PluginRuntime.h",
+                "src/plugin/PluginRuntime.cpp",
+                "src/plugin/PluginLoader.h",
+                "src/plugin/PluginLoader.cpp",
+                "qml/components/",
+                "plugins/agent-claude/",
+                "plugins/agent-codex/",
+                "plugins/agent-cursor/",
+                "plugins/agent-opencode/",
+                "tests/tst_agentprofile.cpp",
+                "docs/agent-profile.md"
+            ],
+            "stage": "R16",
+            "title": "通用 agent profile 名片页：宿主按 manifest 渲染，删四份 main.qml"
+        },
+        "R16-05": {
+            "acceptance": [
+                "grep -rnE '#[0-9A-Fa-f]{6}' plugins-samples/ 无命中（颜色一律 Theme.xxx 令牌或 Qt.rgba(Theme.x…) 派生）",
+                "plan-hook 面板执行记录写入 storage（pluginHost storage 三件套），面板关闭重开后最近 20 条仍在",
+                "pwsh -File scripts/verify.ps1 全过"
+            ],
+            "depends": [
+                "R16-01"
+            ],
+            "id": "R16-05",
+            "note": "起因：today / surfaces 示例全部硬编码颜色（#0A1524、#22D3EE 等），与仓库「组件只用 Theme.xxx 令牌」的约定相悖——示例是教学材料，教的是反模式。顺手：plan-hook 面板执行记录只存内存（records 数组），面板关了就丢，落到 storage 保留最近 20 条。today/main.qml 与 R16-01 同文件，串行。",
+            "scope": [
+                "plugins-samples/today/",
+                "plugins-samples/surfaces/",
+                "plugins/plan-hook/"
+            ],
+            "stage": "R16",
+            "title": "示例插件 Theme 令牌化 + plan-hook 执行记录落 storage"
         },
         "R2-01": {
             "acceptance": [

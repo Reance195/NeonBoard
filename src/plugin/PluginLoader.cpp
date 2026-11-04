@@ -74,7 +74,9 @@ QStringList PluginLoader::sourceDirs() const
 
 bool PluginLoader::isOfficialPluginSource(const QString &source)
 {
-    // 与 sourceDirs() 的四个返回值一一对应：只有 appdir / official 随分发走。
+    // 与 sourceDirs() 的四个返回值一一对应。appdata 是用户数据目录（用户装的市场插件）、
+    // sample 是示例插件，这两类都不算「官方来源」；官方来源是 appdir（安装目录，随分发走）
+    // 与 official（源码树 plugins/，仅开发机存在，用来让开发态与安装态判据一致）。
     return source == QLatin1String("appdir") || source == QLatin1String("official");
 }
 

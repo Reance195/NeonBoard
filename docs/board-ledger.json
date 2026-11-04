@@ -3374,6 +3374,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R17-01": {
+            "agent": "agent-tray",
+            "branch": "feature/tray-neon-menu",
+            "claimedAt": 1793815987,
+            "head": "451e43c1b1ab61a47c91764dc4231c60889f0c7a"
+        }
+    },
     "version": 1
 }

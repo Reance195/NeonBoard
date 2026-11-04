@@ -549,6 +549,11 @@ QVariantList PluginMarket::parseIndex(const QString &json)
         entry.insert(QStringLiteral("name"), item.value(QStringLiteral("name")).toString(id));
         entry.insert(QStringLiteral("version"),
                      item.value(QStringLiteral("version")).toString(QStringLiteral("0.0.0")));
+        entry.insert(QStringLiteral("category"), item.value(QStringLiteral("category")).toString());
+        QVariantList dependencies;
+        for (const QJsonValue &dep : item.value(QStringLiteral("dependencies")).toArray())
+            dependencies.append(dep.toString());
+        entry.insert(QStringLiteral("dependencies"), dependencies);
         entry.insert(QStringLiteral("description"), item.value(QStringLiteral("description")).toString());
         entry.insert(QStringLiteral("author"), item.value(QStringLiteral("author")).toString());
         entry.insert(QStringLiteral("homepage"), item.value(QStringLiteral("homepage")).toString());

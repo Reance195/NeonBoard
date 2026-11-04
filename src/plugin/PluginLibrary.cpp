@@ -333,6 +333,8 @@ void PluginLibrary::rebuild()
         entry.insert(QStringLiteral("id"), id);
         entry.insert(QStringLiteral("name"), candidate.value(QStringLiteral("name")));
         entry.insert(QStringLiteral("version"), candidate.value(QStringLiteral("version")));
+        entry.insert(QStringLiteral("category"), candidate.value(QStringLiteral("category")));
+        entry.insert(QStringLiteral("dependencies"), candidate.value(QStringLiteral("dependencies")));
         entry.insert(QStringLiteral("description"), QString());
         entry.insert(QStringLiteral("status"), candidate.value(QStringLiteral("status")));
         entry.insert(QStringLiteral("error"), candidate.value(QStringLiteral("error")));
@@ -373,6 +375,12 @@ void PluginLibrary::rebuild()
             merged.insert(QStringLiteral("marketSource"), item.value(QStringLiteral("marketSource")));
             if (merged.value(QStringLiteral("description")).toString().isEmpty())
                 merged.insert(QStringLiteral("description"), item.value(QStringLiteral("description")));
+            // 类别 / 依赖：本地 manifest 声明优先，缺省回退市场索引
+            if (merged.value(QStringLiteral("category")).toString().isEmpty())
+                merged.insert(QStringLiteral("category"), item.value(QStringLiteral("category")));
+            if (merged.value(QStringLiteral("dependencies")).toList().isEmpty())
+                merged.insert(QStringLiteral("dependencies"),
+                              item.value(QStringLiteral("dependencies")));
             entries[at] = merged;
             continue;
         }
@@ -380,6 +388,8 @@ void PluginLibrary::rebuild()
         entry.insert(QStringLiteral("id"), id);
         entry.insert(QStringLiteral("name"), item.value(QStringLiteral("name")));
         entry.insert(QStringLiteral("version"), item.value(QStringLiteral("version")));
+        entry.insert(QStringLiteral("category"), item.value(QStringLiteral("category")));
+        entry.insert(QStringLiteral("dependencies"), item.value(QStringLiteral("dependencies")));
         entry.insert(QStringLiteral("description"), item.value(QStringLiteral("description")));
         entry.insert(QStringLiteral("status"), QStringLiteral("ok"));
         entry.insert(QStringLiteral("error"), QString());

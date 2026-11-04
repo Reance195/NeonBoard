@@ -210,6 +210,14 @@ void PluginLoader::scan()
             plugin[QStringLiteral("main")] = main;
             plugin[QStringLiteral("background")] = background;
 
+            // R15-02：manifest 的类别与依赖说明原样搬运，插件库面板据此展示；
+            // 缺省为空，面板不显示徽章。
+            plugin[QStringLiteral("category")] = object.value(QStringLiteral("category")).toString();
+            QVariantList manifestDependencies;
+            for (const QJsonValue &value : object.value(QStringLiteral("dependencies")).toArray())
+                manifestDependencies.append(value.toString());
+            plugin[QStringLiteral("dependencies")] = manifestDependencies;
+
             QVariantList permissions;
             const QJsonArray permissionArray = object.value(QStringLiteral("permissions")).toArray();
             for (const QJsonValue &value : permissionArray)

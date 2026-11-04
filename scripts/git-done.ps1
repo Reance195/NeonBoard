@@ -502,12 +502,20 @@ Write-Host "`n→ 合并分支 '$Branch'（模式：$Mode）" -ForegroundColor C
 # 必须在合并**之前**抓：合并一推送，这条分支的所有提交都成了 origin/main 的祖先，
 # 再想区分「本次领的卡」和「历史上领过的卡」就只能靠猜。这份名单用来回答一个问题 ——
 # 这条分支领了卡、收尾却没把它结掉，是漏了还是确实没做完。
+#
+# 解析交给 derive_board_status.py --emit-claimed，不在 PS 里做正则：直接抓
+# `git log --format=%s` 再匹配中文「领取」，会因外层按控制台代码页解码子进程输出
+# 变成乱码（换行还会丢，两条提交粘成一行），正则永不命中 —— 实测踩过。
+# 那边显式 encoding="utf-8"，输出的又是纯 ASCII 短号，跨代码页安全。
 $claimedCodes = @()
-$logRes = Invoke-GitQuiet @('log', '--format=%s', "origin/$MainBranch..$Branch")
-if ($logRes.Code -eq 0) {
-    foreach ($logLine in $logRes.Output) {
-        $cm = [regex]::Match([string]$logLine, '^chore\(claim\):\s*领取\s*#([A-Za-z]{1,4}\d*-\d+|M\d+)\s*实施任务$')
-        if ($cm.Success) { $claimedCodes += $cm.Groups[1].Value.ToUpperInvariant() }
+$claimListScript = Join-Path $repoRoot 'scripts\derive_board_status.py'
+if (Test-Path -LiteralPath $claimListScript) {
+    $claimListRes = Invoke-Cmd -File 'python' -CmdArgs @(
+        $claimListScript, '--emit-claimed', '--base', "origin/$MainBranch", '--head', $Branch)
+    if ($claimListRes.Code -eq 0) {
+        $claimedCodes = @($claimListRes.Output | Where-Object { $_ -and ($_ -match '^[A-Za-z0-9-]+$') })
+    } else {
+        Write-Host '· 结单对账：读不到本次分支的领用登记，收尾将不做对账' -ForegroundColor DarkGray
     }
 }
 $claimedCodes = @($claimedCodes | Select-Object -Unique | Sort-Object)

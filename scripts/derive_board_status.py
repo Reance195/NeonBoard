@@ -46,6 +46,9 @@ import time
 SNAPSHOT_VERSION = 3
 ORDER_STEP = 1024
 MARKER = re.compile(r"#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)(?:=(todo|doing|done))?")
+# 领用提交的主题（agent-init.ps1 生成）。结单对账靠它区分「这条分支领了哪些卡」。
+CLAIM_SUBJECT = re.compile(
+    r"^chore\(claim\):\s*领取\s*#((?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+))\s*实施任务$")
 # 路线图短号格式：R0-01 / R1-03 / M01 这类。写错这类短号属于真错误，必须拦下；
 # 其余短号（例如 plan-hook 用的 #T12）不属于看板台账范畴，只提示不拦截。
 ROADMAP_CODE = re.compile(r"^(?:[A-Za-z]{1,4}\d*-\d+|M\d+)$")
@@ -94,6 +97,33 @@ def git_log(root):
             continue
         commits.append((parts[0], parts[1], parts[2] if len(parts) > 2 else ""))
     return commits
+
+
+def emit_claimed(root, base, head):
+    """输出 base..head 范围内领用过的短号，一行一个（供 git-done 结单对账）。
+
+    为什么单独开一个出口，而不是让 git-done 自己跑 `git log --format=%s` 再匹配：
+    PowerShell 捕获子进程输出时按控制台代码页解码，中文「领取」会变成乱码，
+    换行还会丢（两条提交粘成一行），正则永不命中 —— 实测踩过。这里显式 utf-8 解码，
+    输出的又是纯 ASCII 短号，跨代码页安全。
+
+    返回 None 表示 git 失败（调用方据此跳过对账，而不是当成「没领过卡」）。
+    """
+    out = subprocess.run(
+        ["git", "-C", root, "log", "--format=%s", "%s..%s" % (base, head)],
+        capture_output=True, check=False,
+    )
+    if out.returncode != 0:
+        sys.stderr.write("[派生器] 取领用登记失败：%s\n" % out.stderr.decode("utf-8", "replace"))
+        return None
+    seen = []
+    for line in out.stdout.decode("utf-8", "replace").splitlines():
+        m = CLAIM_SUBJECT.match(line.strip())
+        if m:
+            code = m.group(1).upper()
+            if code not in seen:
+                seen.append(code)
+    return seen
 
 
 def scan_markers(subject, body, known_codes):
@@ -369,6 +399,18 @@ def main():
         help="配合 --close-cards：额外把这些短号按人工确认直接结掉（逗号分隔）。"
              "走同一条只改 baseline 的通道，不给它扩权到改 cards",
     )
+    mode.add_argument(
+        "--emit-claimed", action="store_true",
+        help="只输出 --base..--head 范围内领用过的短号（一行一个），供 git-done 结单对账",
+    )
+    parser.add_argument(
+        "--base", default="origin/main",
+        help="--emit-claimed 的范围起点（默认 origin/main）",
+    )
+    parser.add_argument(
+        "--head", default="HEAD",
+        help="--emit-claimed 的范围终点（默认 HEAD）",
+    )
     parser.add_argument(
         "--main-ref", default=None,
         help="claims 失效判定用的主干引用（默认依次尝试 origin/main、main）",
@@ -383,10 +425,19 @@ def main():
     if args.selftest:
         return selftest()
 
-    if not any((args.check, args.write, args.baseline_check, args.close_cards)):
-        parser.error("必须指定 --check / --write / --baseline-check / --close-cards 之一")
+    if not any((args.check, args.write, args.baseline_check, args.close_cards, args.emit_claimed)):
+        parser.error("必须指定 --check / --write / --baseline-check / --close-cards / --emit-claimed 之一")
 
     root = os.path.abspath(args.repo)
+
+    if args.emit_claimed:
+        # 不需要快照也不需要台账：纯 git 查询，先于文件检查返回。
+        codes = emit_claimed(root, args.base, args.head)
+        if codes is None:
+            return 2
+        for code in codes:
+            print(code)
+        return 0
     snapshot_path = os.path.join(root, args.snapshot)
     ledger_path = os.path.join(root, args.ledger)
 

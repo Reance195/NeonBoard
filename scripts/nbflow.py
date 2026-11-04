@@ -93,7 +93,22 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-REQUEST_DIR = REPO / "docs" / "card-requests"
+
+
+def _git_common_dir() -> Path:
+    """请求单与派生状态的落盘基点：跨 worktree 共享、天然在 git 元数据目录里（DX-47）。"""
+    try:
+        proc = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--git-common-dir"],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if proc.returncode == 0 and proc.stdout.strip():
+            p = Path(proc.stdout.strip().splitlines()[0])
+            return p if p.is_absolute() else (REPO / p).resolve()
+    except OSError:
+        pass
+    return (REPO / ".git").resolve()
+
+
+REQUEST_DIR = _git_common_dir() / "neonboard-flow" / "requests"
 STATE_VERSION = 1
 
 # 与 scripts/board-apply.py:77 / task_gate.py 保持同一口径
@@ -125,6 +140,14 @@ TRANSITIONS = {
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def rel_or_abs(p: Path) -> str:
+    """state.json 里的路径尽量相对 REPO；linked worktree 下请求单落在 common dir，不在工作树里。"""
+    try:
+        return str(p.relative_to(REPO))
+    except ValueError:
+        return str(p)
 
 
 def out(text: str = "") -> None:
@@ -397,7 +420,7 @@ def cmd_request(ctx: Ctx, state: dict, args) -> int:
         REQUEST_DIR.mkdir(parents=True, exist_ok=True)
         p.write_text(render_request(req), encoding="utf-8")
         out("  · 请求单：%s" % p)
-    state["sessions"][card] = {"state": "requested", "request": str(p.relative_to(REPO)),
+    state["sessions"][card] = {"state": "requested", "request": rel_or_abs(p),
                                "history": [{"at": now(), "from": "-", "to": "requested"}]}
     save_state(ctx, state)
     return 0
@@ -530,11 +553,11 @@ def _read_card(card: str) -> dict:
 
 
 def handoff_path(worktree: str) -> Path:
-    return Path(worktree) / "handoff.json"
+    return Path(worktree) / ".sandbox" / "artifacts" / "handoff.json"
 
 
 def report_path(worktree: str) -> Path:
-    return Path(worktree) / "run-report.json"
+    return Path(worktree) / ".sandbox" / "artifacts" / "run-report.json"
 
 
 def cmd_dispatch(ctx: Ctx, state: dict, args) -> int:
@@ -576,6 +599,7 @@ def cmd_dispatch(ctx: Ctx, state: dict, args) -> int:
     if ctx.dry_run:
         out("  · [dry-run] 将写派发包 %s\n%s" % (hp, json.dumps(handoff, ensure_ascii=False, indent=2)))
     else:
+        hp.parent.mkdir(parents=True, exist_ok=True)
         hp.write_text(json.dumps(handoff, ensure_ascii=False, indent=2), encoding="utf-8")
         out("  · 派发包：%s" % hp)
     transition(ctx, state, card, "dispatched", branch=args.branch, agent=args.agent,
@@ -680,6 +704,7 @@ def cmd_report(ctx: Ctx, state: dict, args) -> int:
     if ctx.dry_run:
         out("  · [dry-run] 将写执行回执 %s\n%s" % (rp, json.dumps(rep, ensure_ascii=False, indent=2)))
     else:
+        rp.parent.mkdir(parents=True, exist_ok=True)
         rp.write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
         out("  · 执行回执：%s" % rp)
     transition(ctx, state, card, "reported", report=str(rp),
@@ -1007,10 +1032,7 @@ def raise_conflict_ticket(ctx: Ctx, state: dict, *, branch: str, info: dict,
         REQUEST_DIR.mkdir(parents=True, exist_ok=True)
         p.write_text(render_request(req), encoding="utf-8")
     out("  · 冲突工单请求单：%s（%s）" % (p, card))
-    try:
-        rel = str(p.relative_to(REPO))
-    except ValueError:
-        rel = str(p)
+    rel = rel_or_abs(p)
     state["sessions"][card] = {"state": "requested", "request": rel,
                                "conflictOf": source_card or branch,
                                "requestText": render_request(req),
@@ -1165,6 +1187,10 @@ def selftest() -> int:
     check("abandon 释放服务端 ref", "refs/claims/FLOW-01" in "refs/claims/%s" % "FLOW-01")
     check("handoff 与 report 文件名固定",
           handoff_path("W").name == "handoff.json" and report_path("W").name == "run-report.json")
+    check("产物路径不越出 .git / .sandbox（DX-47）",
+          REQUEST_DIR == _git_common_dir() / "neonboard-flow" / "requests"
+          and handoff_path("W").as_posix().endswith("/.sandbox/artifacts/handoff.json")
+          and report_path("W").as_posix().endswith("/.sandbox/artifacts/run-report.json"))
 
     # 临时目录里验证状态文件读写与幂等
     with tempfile.TemporaryDirectory() as td:

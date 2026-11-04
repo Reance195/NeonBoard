@@ -3059,6 +3059,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R5-07": {
+            "agent": "delta-ci",
+            "branch": "chore/r5-07-ci-delta",
+            "claimedAt": 1793790062,
+            "head": "872244e8fadae096c0d2340e09dc8a2c50464785"
+        }
+    },
     "version": 1
 }

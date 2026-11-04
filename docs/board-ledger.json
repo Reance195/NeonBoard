@@ -18,6 +18,7 @@
         "DX-16": "done",
         "DX-17": "done",
         "DX-18": "done",
+        "DX-19": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -506,6 +507,22 @@
             ],
             "stage": "DX",
             "title": "DX --audit 被历史卡过期 scope 淹没：191 条噪声盖住在办卡"
+        },
+        "DX-19": {
+            "acceptance": [
+                "src/plugin/PluginLoader.cpp 的 isOfficialPluginSource 注释与 sourceDirs() 的四个返回一一对应：appdata=用户数据目录、appdir=安装目录（随分发）、official=源码树 plugins/、sample=源码树 plugins-samples",
+                "注释不再出现「只有 appdir / official 随分发走」这类与实现相反的表述（official 来自 NEONBOARD_SOURCE_DIR，只存在于开发机）",
+                "grep -n '随分发走' src/plugin/PluginLoader.cpp 只剩正确表述；sourceDirs() 的 #ifdef 分支与判据逻辑均未改动",
+                "scripts/verify.ps1 全过（ctest 35/35）"
+            ],
+            "depends": [],
+            "id": "DX-19",
+            "note": "发现于 R14-02 验收订正：卡片原写 --plugin-report 的 source=plugin，而 PluginLoader::sourceDirs() 与 sources[] 只产出 appdata / appdir / official / sample 四个值。逐个比对四个来源时发现 isOfficialPluginSource() 的注释「只有 appdir / official 随分发走」与实现相反 —— official 对应 sourceDirs() 里 #ifdef NEONBOARD_SOURCE_DIR 分支的源码树 plugins/，只存在于开发机，恰恰不随分发；随分发走的只有 appdir（applicationDirPath()/plugins，即安装目录）。\n\n危害不是行为错误（判据本身对：安装态只会命中 appdir，开发态命中 official，两者都该算官方），而是注释会把人引向错误结论 —— 照它推会以为 official 是分发产物，进而误判插件来源的可信边界。这类「注释与实现相反」比缺失注释更害人，与 DX-14「文档随实现同步」同源。\n\n修法：按 sourceDirs() 的四个来源重写注释，写清各自位置与是否随分发；不动判据本身。",
+            "scope": [
+                "src/plugin/PluginLoader.cpp"
+            ],
+            "stage": "DX",
+            "title": "DX 官方来源判据的注释与 sourceDirs 实现相反"
         },
         "M01": {
             "acceptance": [
@@ -1506,13 +1523,13 @@
         "R14-02": {
             "acceptance": [
                 "打包后 dist/NeonBoard/plugins 含 agent-claude / agent-opencode / agent-cursor / agent-codex 与 agent-bridge / plan-hook（与仓库 plugins/ 对齐）",
-                "用 dist 产物（不设 NEONBOARD_SOURCE_DIR 指向仓库根）启动，--plugin-report 能列出全部官方插件且 source=plugin",
+                "用 dist 产物（不设 NEONBOARD_SOURCE_DIR 指向仓库根）启动，--plugin-report 能列出全部官方插件且 source=appdir（PluginLoader::sourceDirs 只产出 appdata / appdir / official / sample 四个值，不存在 plugin；安装目录下的插件报 appdir）",
                 "一条可执行检查（脚本或 CI 步骤）：打包插件清单与仓库 plugins/ 目录对齐，缺一个即失败",
                 "scripts/verify.ps1 全过"
             ],
             "depends": [],
             "id": "540eb31e-3a7f-4ef5-a14d-1eafb2b500e0",
-            "note": "现象（2026-10-30 发现）：dist/NeonBoard/plugins 下只有 surfaces、today 两个示例插件；CMakeLists.txt 没有 install 插件的规则，installer 只拷 dist\\NeonBoard\\*。\n\n结果是安装版用户看不到任何官方插件（agent-bridge / plan-hook / 四个 agent-*）。开发机上之所以能看见，全靠 PluginLoader::sourceDirs() 里的 NEONBOARD_SOURCE_DIR + /plugins 这条扫描路径 —— 它只在有源码的机器上成立。\n\n与 R14-01 是同一件事的两半：一半是装了也不授权，另一半是压根没装。",
+            "note": "现象（2026-10-30 发现）：dist/NeonBoard/plugins 下只有 surfaces、today 两个示例插件；CMakeLists.txt 没有 install 插件的规则，installer 只拷 dist\\NeonBoard\\*。\n\n结果是安装版用户看不到任何官方插件（agent-bridge / plan-hook / 四个 agent-*）。开发机上之所以能看见，全靠 PluginLoader::sourceDirs() 里的 NEONBOARD_SOURCE_DIR + /plugins 这条扫描路径 —— 它只在有源码的机器上成立。\n\n与 R14-01 是同一件事的两半：一半是装了也不授权，另一半是压根没装。\n\n勘误（2026-11-04）：验收第 2 条原写 source=plugin，但 PluginLoader::sourceDirs() 与 sources[] 只产出 appdata / appdir / official / sample 四个值，没有 plugin；dist 产物实测报 appdir（isOfficialPluginSource 认的正是 appdir / official）。已按实现订正，其余条款不变。",
             "scope": [
                 "CMakeLists.txt",
                 "installer/NeonBoard.iss",
@@ -2713,6 +2730,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-19": {
+            "agent": "r14fix",
+            "branch": "chore/r14-02-errata",
+            "claimedAt": 1793760252,
+            "head": "1f1cb016792d5f53faa303ebbbc73c7a3c2481ee"
+        }
+    },
     "version": 1
 }

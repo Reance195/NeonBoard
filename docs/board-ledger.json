@@ -2480,8 +2480,8 @@
             "acceptance": [
                 "pwsh -File scripts/verify.ps1 全过（含新增单测）",
                 "installer/neonboard.iss 为 CloseApplications=no，且 [Code] PrepareToInstall 里 taskkill /F NeonBoardHost.exe 与 NeonBoard.exe 并等待两进程退出后才继续",
-                "UpdateManager 拉起安装包前先通知宿主退出（向隐藏窗口 NeonBoardHostWnd 发自定义消息，宿主走 quitHost）；消息常量宿主与客户端共用一处定义，单测断言两端一致",
-                "安装包写 {app}\\install-receipt.json（version / commit / 时间）；启动时读它，缺失或版本与自身编译版本不符即日志告警「上次更新未完成」；单测覆盖相符与不符两例",
+                "installWithSetup 拉起安装包前先强制结束 NeonBoardHost.exe（taskkill /F、CREATE_NO_WINDOW，与增量自更新脚本 UpdateManager.cpp:1049 同语义），宿主缺席时静默跳过；单测断言宿主不在时调用不报错、返回值不变",
+                "安装包在 CurStepChanged(ssPostInstall) 写 {app}\\install-receipt.json（version / writtenAt / commit，commit 取自同目录 BUILD-INFO.txt）；UpdateManager 构造时读它，缺失静默、版本与自身编译版本不符即 qWarning「上次更新未完成」并令 lastInstallIncomplete() 为真；单测覆盖相符 / 不符 / 缺失三例",
                 "UpdateManager 启用系统代理（QNetworkProxyFactory::setUseSystemConfiguration(true)），代理环境下 --check-update 不再出现 QIODevice::read device not open",
                 "docs/auto-update.md 增「更新前退宿主 / 安装回执 / 系统代理」三节，并记 2026-11-04 真机实测现象与根因"
             ],
@@ -2495,7 +2495,8 @@
                 "src/host/HostMain.cpp",
                 "installer/neonboard.iss",
                 "tests/tst_updatemanager.cpp",
-                "docs/auto-update.md"
+                "docs/auto-update.md",
+                "src/update/UpdateManager.h"
             ],
             "stage": "R5",
             "title": "R5 修复全量更新的宿主占用缺陷：更新前退宿主、安装回执、代理支持"

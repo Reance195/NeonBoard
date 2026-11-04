@@ -32,6 +32,9 @@
 #include <QDir>
 #include <QFile>
 #include <QHash>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -88,6 +91,8 @@ private slots:
     void panelProxyRewiresWhenActiveContextChanges();
     // R16-01 验收项②（无头替身）：加载真实 today 示例，加任务 → 事件 → 统计自动重算
     void samplePanelAutoRefreshesOnTaskEvents();
+    // R16-02/03：真实 agent-bridge background.qml 走批次 —— 合并写库计数、幂等、映射清扫
+    void agentBridgeBatchReconcileAndSweep();
 };
 
 void TestPluginRuntime::officialSourceClassification()
@@ -344,6 +349,128 @@ void TestPluginRuntime::samplePanelAutoRefreshesOnTaskEvents()
     // 走真实门面加任务，统计必须自己动 —— 这就是「无需手动刷新」
     QVERIFY(!host.addTask(QStringLiteral("R16-01 验收卡"), QStringLiteral("todo")).isEmpty());
     QCOMPARE(panel->property("todoCount").toInt(), 1);
+
+    QFile::remove(path);
+    QFile::remove(path + QStringLiteral("-wal"));
+    QFile::remove(path + QStringLiteral("-shm"));
+}
+
+namespace {
+
+// R16-02/03：走真实投递链路 —— 总线 publish(agent.task) → context → 代理转发 →
+// background.qml onAgentTask → applyBatch（直连信号同步完成）。
+// 动作数经后台入口暴露的 lastActionCount 属性读取。
+void publishBatch(PluginEventBus *bus, const QVariantList &items)
+{
+    bus->publish(QStringLiteral("agent.task"),
+                 QVariantMap{{QStringLiteral("text"),
+                     QString::fromUtf8(QJsonDocument(QJsonObject{
+                         {QStringLiteral("protocol"), QStringLiteral("agent-task-event")},
+                         {QStringLiteral("version"), 1},
+                         {QStringLiteral("agent"), QStringLiteral("accept")},
+                         {QStringLiteral("sessionId"), QStringLiteral("s1")},
+                         {QStringLiteral("items"), QJsonArray::fromVariantList(items)},
+                     }).toJson())}});
+}
+
+} // namespace
+
+void TestPluginRuntime::agentBridgeBatchReconcileAndSweep()
+{
+    // 真实 Database + TaskModel；加载真实的 agent-bridge 后台入口（Component.onCompleted
+    // 会经面板代理订阅 agent.task），批次经总线发布走完整消费链路。
+    const QString path = QDir::temp().absoluteFilePath(
+        QStringLiteral("nb-test-bridge-%1.db").arg(QCoreApplication::applicationPid()));
+    QFile::remove(path);
+    QFile::remove(path + QStringLiteral("-wal"));
+    QFile::remove(path + QStringLiteral("-shm"));
+
+    Database db;
+    QString error;
+    QVERIFY2(db.open(&error, path), qPrintable(error));
+
+    TaskModel model(&db);
+    model.load();
+
+    PluginEventBus bus;
+    PluginRuntime runtime(nullptr, &bus, &db, &model, nullptr);
+    PluginContext context(
+        QStringLiteral("com.lin.agent-bridge"), QStringLiteral("Agent 任务桥"), QStringLiteral("1.1.0"),
+        {QStringLiteral("tasks.read"), QStringLiteral("tasks.write"),
+         QStringLiteral("meta"), QStringLiteral("events")},
+        QUrl(), false, &db, &model, nullptr, &bus);
+    runtime.setActiveContext(&context);
+
+    PluginHost host(&runtime);
+
+    QQmlEngine engine;
+    engine.rootContext()->setContextProperty(QStringLiteral("pluginHost"), &host);
+    QQmlComponent component(&engine, QUrl::fromLocalFile(
+        QStringLiteral(NB_TEST_AGENTBRIDGE_DIR) + QStringLiteral("/background.qml")));
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    std::unique_ptr<QObject> bridge(component.create());
+    QVERIFY2(bridge != nullptr, qPrintable(component.errorString()));
+
+    const QString mapKey = QStringLiteral("agentbridge.accept.s1.t2");
+
+    // 批次①：两条待办 → 建两张卡，映射落 meta
+    publishBatch(&bus, QVariantList{
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("t1")},
+                    {QStringLiteral("title"), QStringLiteral("批次卡一")},
+                    {QStringLiteral("status"), QStringLiteral("pending")}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("t2")},
+                    {QStringLiteral("title"), QStringLiteral("批次卡二")},
+                    {QStringLiteral("status"), QStringLiteral("pending")}}});
+    QCOMPARE(bridge->property("lastActionCount").toInt(), 2);
+    const QString uuid2 = host.metaValue(mapKey);
+    QVERIFY(!uuid2.isEmpty());
+    QCOMPARE(host.tasks().size(), 2);
+
+    // 批次②：同一条目重投（status 改成未知值验证不猜）→ 幂等，0 动作，
+    // 卡片不被未知状态打回任何列
+    publishBatch(&bus, QVariantList{
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("t1")},
+                    {QStringLiteral("title"), QStringLiteral("批次卡一")},
+                    {QStringLiteral("status"), QStringLiteral("blocked")}}});
+    QCOMPARE(bridge->property("lastActionCount").toInt(), 0);
+
+    // 批次③：title + note + tags + status 四变 → 合并写库后动作数应为 2
+    //（1 次 updateTask + 1 次 moveTaskToEnd，R16-02 之前会是 4）
+    publishBatch(&bus, QVariantList{
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("t1")},
+                    {QStringLiteral("title"), QStringLiteral("批次卡一改")},
+                    {QStringLiteral("note"), QStringLiteral("验收注")},
+                    {QStringLiteral("tags"), QStringLiteral("R16")},
+                    {QStringLiteral("status"), QStringLiteral("in_progress")}}});
+    QCOMPARE(bridge->property("lastActionCount").toInt(), 2);
+    const QVariantList after = host.tasks();
+    int moved = 0;
+    for (const QVariant &v : after) {
+        const QVariantMap t = v.toMap();
+        if (t.value(QStringLiteral("title")).toString() == QStringLiteral("批次卡一改")) {
+            ++moved;
+            // 看板列存的是映射后的状态：in_progress → doing
+            QCOMPARE(t.value(QStringLiteral("status")).toString(), QStringLiteral("doing"));
+            QCOMPARE(t.value(QStringLiteral("note")).toString(), QStringLiteral("验收注"));
+            // allTasks() 的 tags 键只返回首标签；tagsFull 是 JSON 数组串（normalizeTags）
+            QVERIFY(t.value(QStringLiteral("tagsFull")).toString()
+                        .contains(QStringLiteral("\"R16\"")));
+        }
+    }
+    QCOMPARE(moved, 1);
+
+    // 删掉 t2 的卡，再投一条只含 t1 的批次：清扫必须把 t2 的残留映射拿掉，
+    // 状态键（agentbridge.status / .handled，点号数 1）不受误伤
+    QVERIFY(model.deleteTask(uuid2));
+    QVERIFY(!host.metaValue(mapKey).isEmpty());
+    publishBatch(&bus, QVariantList{
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("t1")},
+                    {QStringLiteral("title"), QStringLiteral("批次卡一改")},
+                    {QStringLiteral("status"), QStringLiteral("in_progress")}}});
+    QCOMPARE(bridge->property("lastActionCount").toInt(), 0);
+    QVERIFY(host.metaValue(mapKey).isEmpty());
+    QVERIFY(!host.metaValue(QStringLiteral("agentbridge.status")).isEmpty());
+    QVERIFY(!host.metaValue(QStringLiteral("agentbridge.handled")).isEmpty());
 
     QFile::remove(path);
     QFile::remove(path + QStringLiteral("-wal"));

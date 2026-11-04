@@ -58,7 +58,8 @@
 | `in_progress` | `doing` |
 | `completed` | `done` |
 | `todo` / `doing` / `done` | 原样（协议层已是看板状态） |
-| 其他/缺省 | `todo` |
+| 其他未知值 | **状态不动**（R16-02 防御：不猜，避免上游未来新增状态值把已完成卡打回待办；仅新建卡时按缺省 `todo` 落卡） |
+| 缺省 | 按 `pending` 处理 → `todo` |
 
 ## 消费语义（agent-bridge 插件）
 

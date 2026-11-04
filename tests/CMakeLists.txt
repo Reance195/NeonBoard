@@ -92,7 +92,8 @@ neonboard_add_test(tst_pluginruntime
 target_link_libraries(tst_pluginruntime PRIVATE Qt6::Sql Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Widgets)
 # R16-01：QML 用例按编译期烘焙的绝对路径加载真实示例文件（与 CWD 无关）
 target_compile_definitions(tst_pluginruntime PRIVATE
-    NB_TEST_SAMPLE_DIR="${CMAKE_SOURCE_DIR}/plugins-samples/today")
+    NB_TEST_SAMPLE_DIR="${CMAKE_SOURCE_DIR}/plugins-samples/today"
+    NB_TEST_AGENTBRIDGE_DIR="${CMAKE_SOURCE_DIR}/plugins/agent-bridge")
 
 # R4-02：动作层（命令行 → 动作 → QML 调用，以及二次启动的 IPC 帧）
 neonboard_add_test(tst_appactions

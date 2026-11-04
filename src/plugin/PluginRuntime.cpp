@@ -387,6 +387,8 @@ void PluginRuntime::setActiveContext(PluginContext *context)
     if (m_activeContext == context)
         return;
     m_activeContext = context;
+    // R16-01：面板代理靠这条信号换接事件转发线（谁活跃，面板就听谁的）
+    emit activeContextChanged();
 }
 
 QStringList PluginRuntime::backgroundPlugins() const

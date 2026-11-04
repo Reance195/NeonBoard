@@ -23,7 +23,22 @@ PluginHost::PluginHost(PluginRuntime *runtime, const QString &boundPluginId, QOb
             }
             emit commandInvoked(commandId);
         });
+        // R16-01：活跃 context 变化时换接事件转发线；构造时先接一次
+        // （绑定代理在这里直接挂上自己的 context，全局代理要等首次 activate）
+        connect(m_runtime, &PluginRuntime::activeContextChanged, this,
+                &PluginHost::rewireEventForwarding);
+        rewireEventForwarding();
     }
+}
+
+void PluginHost::rewireEventForwarding()
+{
+    if (m_eventConnection)
+        disconnect(m_eventConnection);
+    PluginContext *context = active();
+    if (context)
+        m_eventConnection = connect(context, &PluginContext::eventReceived,
+                                    this, &PluginHost::eventReceived);
 }
 
 PluginContext *PluginHost::active() const

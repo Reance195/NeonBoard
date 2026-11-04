@@ -9,8 +9,12 @@
 #   3. 每个测试都是独立可执行文件，CTest 单独计时，失败定位到具体用例。
 
 # Gui：R14-01 的 tst_pluginruntime 要整体编入 PluginLoader.cpp，它用 QDesktopServices
-# 打开插件目录。测试本身是 QTEST_GUILESS_MAIN，不创建 QGuiApplication，只是链接期需要。
-find_package(Qt6 6.8 REQUIRED COMPONENTS Test Sql Gui)
+# 打开插件目录。R16-01 的 QML 用例还要加载真实的 today 示例 main.qml（QtQuick 类型），
+# 因此链接 Quick 并用 QTEST_MAIN 起 QApplication —— 全程不显示窗口，仅类型系统需要。
+# R16-01：面板代理事件转发用例要编入 PluginRuntime 管线（PluginRuntime/PluginHost/
+# PluginContext/PluginEventBus），PluginRuntime.cpp 引用了 QQml 头文件、
+# PluginContext.cpp 引用 TrayController::showMessage —— 均为链接期符号，用例不实例化。
+find_package(Qt6 6.8 REQUIRED COMPONENTS Test Sql Gui Qml Quick Widgets)
 
 # ── MOD-02：源码目录映射（唯一事实源）──────────────────────────────────────────
 #
@@ -70,12 +74,25 @@ neonboard_add_test(tst_pluginpackage
 # PluginLoader.cpp —— 它带 Q_OBJECT，且构造需要 Database，故一并带上依赖。
 # 关键用例是「grants 已存在」的场景：全新库走首次 bootstrap 会全授予，
 # 拿它验收等于没测（R9 四张卡就是这么漏过去的）。
+# R16-01：补编入活跃 context 管线（PluginRuntime / PluginHost / PluginContext /
+# PluginEventBus + 各自的链接闭包），测面板代理的事件转发与换线 —— loader 传
+# nullptr，不 attach 引擎、不扫插件目录、不调 start/reload。
 neonboard_add_test(tst_pluginruntime
     ${NB_DIR_CORE}/Database.cpp
     ${NB_DIR_CORE}/AppPaths.cpp
+    ${NB_DIR_TASK}/TaskModel.cpp
+    ${NB_DIR_TASK}/TaskInputParser.cpp
     ${NB_DIR_PLUGIN}/PluginLoader.cpp
+    ${NB_DIR_PLUGIN}/PluginContext.cpp
+    ${NB_DIR_PLUGIN}/PluginEventBus.cpp
+    ${NB_DIR_PLUGIN}/PluginHost.cpp
+    ${NB_DIR_PLUGIN}/PluginRuntime.cpp
+    ${NB_DIR_SHELL}/TrayController.cpp
 )
-target_link_libraries(tst_pluginruntime PRIVATE Qt6::Sql Qt6::Gui)
+target_link_libraries(tst_pluginruntime PRIVATE Qt6::Sql Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Widgets)
+# R16-01：QML 用例按编译期烘焙的绝对路径加载真实示例文件（与 CWD 无关）
+target_compile_definitions(tst_pluginruntime PRIVATE
+    NB_TEST_SAMPLE_DIR="${CMAKE_SOURCE_DIR}/plugins-samples/today")
 
 # R4-02：动作层（命令行 → 动作 → QML 调用，以及二次启动的 IPC 帧）
 neonboard_add_test(tst_appactions

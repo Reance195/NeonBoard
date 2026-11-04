@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-30",
-            "completedAt": 0,
-            "createdAt": 1793768216,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-30",
-            "note": "DX-24 让 verify.ps1 从 build/CMakeCache.txt 的 Qt6_DIR 反推 QtRoot，但它跑在「编译」之前 —— 新 worktree 里 build/ 还不存在，CMakeCache.txt 自然也没有，于是必然探不到。当时卡面把「CMakeCache 缺失时静默跳过」写成了预期行为，验收又是在已 configure 过的 worktree 里做的，落差被掩盖。\\n\\n后果不是「少补一个 PATH」：exe 起来找不到 Qt6Core.dll 会弹系统错误对话框并**一直等待**，verify.ps1 的 180 秒超时才把它杀掉，报出来的是「--selftest 超时」——看起来像代码坏了或机器卡了，实际是缺 DLL。一个新工作区的第一次全量验收因此必然白等三分钟并失败一次，第二次（缓存已生成）才过。2026-11-04 的 dx-p2 工作区就是这么踩的：先失败一次，加 -QtRoot 重跑才 27 秒通过。\\n\\n修法是补一次探测而不是加大超时：信息在编译完成后就已经在磁盘上（build.ps1 自己解析了 Qt 并写进 CMakeCache），差的只是「什么时候读」。",
-            "orderKey": 1024,
-            "priority": 2,
-            "stage": "DX",
-            "status": "doing",
-            "tags": [
-                "DX"
-            ],
-            "title": "新 worktree 首次全量验收必卡 180 秒：Qt 探测跑在 configure 之前",
-            "updatedAt": 1793768216
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -199,6 +181,24 @@
             ],
             "title": "合并撞冲突后的善后五步全靠人记，而台账冲突本可语义合并",
             "updatedAt": 1793767593
+        },
+        {
+            "code": "DX-30",
+            "completedAt": 1793768256,
+            "createdAt": 1793768216,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-30",
+            "note": "DX-24 让 verify.ps1 从 build/CMakeCache.txt 的 Qt6_DIR 反推 QtRoot，但它跑在「编译」之前 —— 新 worktree 里 build/ 还不存在，CMakeCache.txt 自然也没有，于是必然探不到。当时卡面把「CMakeCache 缺失时静默跳过」写成了预期行为，验收又是在已 configure 过的 worktree 里做的，落差被掩盖。\\n\\n后果不是「少补一个 PATH」：exe 起来找不到 Qt6Core.dll 会弹系统错误对话框并**一直等待**，verify.ps1 的 180 秒超时才把它杀掉，报出来的是「--selftest 超时」——看起来像代码坏了或机器卡了，实际是缺 DLL。一个新工作区的第一次全量验收因此必然白等三分钟并失败一次，第二次（缓存已生成）才过。2026-11-04 的 dx-p2 工作区就是这么踩的：先失败一次，加 -QtRoot 重跑才 27 秒通过。\\n\\n修法是补一次探测而不是加大超时：信息在编译完成后就已经在磁盘上（build.ps1 自己解析了 Qt 并写进 CMakeCache），差的只是「什么时候读」。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "新 worktree 首次全量验收必卡 180 秒：Qt 探测跑在 configure 之前",
+            "updatedAt": 1793768256
         },
         {
             "code": "R5-03",
@@ -3067,6 +3067,6 @@
             "updatedAt": 1793767358
         }
     ],
-    "updated": "2026-11-04T12:56:56",
+    "updated": "2026-11-04T12:57:36",
     "version": 3
 }

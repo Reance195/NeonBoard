@@ -805,6 +805,20 @@ neonboard-market 索引已上架 8 个插件并手写 `category` / `dependencies
 | R15-01 | `plugins/*/plugin.json` / `plugins-samples/*/plugin.json` / `scripts/publish-market.ps1` / `docs/plugin-api.md` | category/dependencies 手写在市场索引里，publish-market.ps1 重建条目只取固定字段，重新发布会丢 —— 声明收进 plugin.json，发布脚本透传，索引由 manifest 单源生成 |
 | R15-02 | `src/plugin/**` / `qml/components/PluginLibraryPanel.qml` / `README.md` | 客户端 `PluginMarket::parseIndex` 丢弃未知字段，插件库面板看不到类别与依赖 —— 字段贯通到 `PluginLibrary.entries` 并在面板逐条展示类别徽章与依赖说明 |
 
+### 9.10 R16 插件巡检优化批次（进行中 0/5）
+
+2026-11-05 插件巡检（六官方 + 两示例全量通读 + 宿主门面核对）发现三处宿主 API 缺口与两处插件债：
+面板收不到事件、agent-bridge 写库放大与映射无界增长、四个 agent 名片重复且与 manifest 双源。
+本批次按「宿主 API → 插件债 → 示例示范」顺序收敛（维护者 2026-11-05 会话授权）。
+
+| 卡 | 范围 | 要解决什么 |
+| --- | --- | --- |
+| R16-01 | `src/plugin/PluginHost.*` / `src/plugin/PluginRuntime.*` / `tests/tst_pluginruntime.cpp` / `plugins-samples/today/` | 总线已广播 task.* 事件，但面板侧 PluginHost 代理只转发 commandInvoked —— 面板类插件没有实时数据源，today 只能手动刷新 |
+| R16-02 | `plugins/agent-bridge/` / `docs/agent-task-event.md` | applyItem 单卡最多 4 次独立写库，10 条批次最坏 40 次写；statusOf 未知上游状态回退 todo，上游加新状态会把已完成卡打回待办 |
+| R16-03 | `src/core/Database.*` / `src/plugin/PluginContext.*` / `src/plugin/PluginHost.*` / `plugins/agent-bridge/` | agentbridge.<agent>.<sessionId>.<todoId> 映射只增不减，Database 无前缀枚举 API，插件想清扫无从下手 |
+| R16-04 | `src/plugin/` / `qml/components/` / `plugins/agent-*/` / `tests/tst_agentprofile.cpp` | 四份 agent 名片 main.qml 约 90% 同构，命令行字符串与 manifest 双源靠测试防漂移 —— 宿主按 manifest 渲染通用名片页 |
+| R16-05 | `plugins-samples/` / `plugins/plan-hook/` | 示例插件全量硬编码颜色，教学示范教反了；plan-hook 执行记录只存内存，面板关了就丢 |
+
 ## 10. 验收指标（“炫酷”可量化）
 | 指标 | 目标 | 当前实测 |
 | --- | --- | --- |

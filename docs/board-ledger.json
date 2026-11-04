@@ -18,6 +18,7 @@
         "DX-16": "done",
         "DX-17": "done",
         "DX-18": "done",
+        "DX-19": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -506,6 +507,22 @@
             ],
             "stage": "DX",
             "title": "DX --audit 被历史卡过期 scope 淹没：191 条噪声盖住在办卡"
+        },
+        "DX-19": {
+            "acceptance": [
+                "src/plugin/PluginLoader.cpp 的 isOfficialPluginSource 注释与 sourceDirs() 的四个返回一一对应：appdata=用户数据目录、appdir=安装目录（随分发）、official=源码树 plugins/、sample=源码树 plugins-samples",
+                "注释不再出现「只有 appdir / official 随分发走」这类与实现相反的表述（official 来自 NEONBOARD_SOURCE_DIR，只存在于开发机）",
+                "grep -n '随分发走' src/plugin/PluginLoader.cpp 只剩正确表述；sourceDirs() 的 #ifdef 分支与判据逻辑均未改动",
+                "scripts/verify.ps1 全过（ctest 35/35）"
+            ],
+            "depends": [],
+            "id": "DX-19",
+            "note": "发现于 R14-02 验收订正：卡片原写 --plugin-report 的 source=plugin，而 PluginLoader::sourceDirs() 与 sources[] 只产出 appdata / appdir / official / sample 四个值。逐个比对四个来源时发现 isOfficialPluginSource() 的注释「只有 appdir / official 随分发走」与实现相反 —— official 对应 sourceDirs() 里 #ifdef NEONBOARD_SOURCE_DIR 分支的源码树 plugins/，只存在于开发机，恰恰不随分发；随分发走的只有 appdir（applicationDirPath()/plugins，即安装目录）。\n\n危害不是行为错误（判据本身对：安装态只会命中 appdir，开发态命中 official，两者都该算官方），而是注释会把人引向错误结论 —— 照它推会以为 official 是分发产物，进而误判插件来源的可信边界。这类「注释与实现相反」比缺失注释更害人，与 DX-14「文档随实现同步」同源。\n\n修法：按 sourceDirs() 的四个来源重写注释，写清各自位置与是否随分发；不动判据本身。",
+            "scope": [
+                "src/plugin/PluginLoader.cpp"
+            ],
+            "stage": "DX",
+            "title": "DX 官方来源判据的注释与 sourceDirs 实现相反"
         },
         "M01": {
             "acceptance": [

@@ -87,6 +87,8 @@
         "R14-03": "done",
         "R14-04": "done",
         "R14-05": "done",
+        "R15-01": "todo",
+        "R15-02": "todo",
         "R2-01": "done",
         "R2-02": "done",
         "R3-01": "done",
@@ -1914,6 +1916,42 @@
             ],
             "stage": "R14",
             "title": "R14 .cmd 转调下 prompt 只送第一行：换行截断与 cmd 二次解释"
+        },
+        "R15-01": {
+            "acceptance": [
+                "pwsh -File scripts/publish-market.ps1 -PluginPath plugins/plan-hook -OutputDir build/market-check 重新打包，build/market-check/market.json 的 plan-hook 条目含 category 与 dependencies 且值与 plugin.json 一致",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过"
+            ],
+            "depends": [],
+            "id": "R15-01",
+            "note": "起因：neonboard-market 索引已上架 8 个插件，category/dependencies 是手写进索引的；publish-market.ps1 重建条目只取固定字段，重新发布必丢。把声明收进 plugin.json，发布脚本透传，市场索引由 manifest 单源生成。",
+            "scope": [
+                "plugins/*/plugin.json",
+                "plugins-samples/*/plugin.json",
+                "scripts/publish-market.ps1",
+                "docs/plugin-api.md"
+            ],
+            "stage": "R15",
+            "title": "市场元数据单源化：manifest 声明类别与依赖，发布脚本透传"
+        },
+        "R15-02": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过",
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "pwsh -File scripts/dev-run.ps1 沙箱启动插件库面板：市场条目显示类别徽章与依赖说明，无 QML 报错"
+            ],
+            "depends": [
+                "R15-01"
+            ],
+            "id": "R15-02",
+            "note": "起因：市场索引携带 category/dependencies，但 PluginMarket::parseIndex 丢弃未知字段、插件库面板不展示。让类别/依赖贯通 PluginMarket → PluginLibrary.entries → PluginLibraryPanel，市场条目与本地 manifest 一致展示。",
+            "scope": [
+                "src/plugin/**",
+                "qml/components/PluginLibraryPanel.qml",
+                "README.md"
+            ],
+            "stage": "R15",
+            "title": "插件库展示类别徽章与依赖说明"
         },
         "R2-01": {
             "acceptance": [

@@ -199,7 +199,13 @@ void PluginLoader::scan()
             const QString name = object.value(QStringLiteral("name")).toString(id);
             const QString version = object.value(QStringLiteral("version")).toString();
             const int apiVersion = object.value(QStringLiteral("apiVersion")).toInt(1);
-            const QString main = object.value(QStringLiteral("main")).toString(QStringLiteral("main.qml"));
+            // R16-04：面板入口「有则校验、无则可缺」。manifest 显式声明 main → 文件必须存在；
+            // 未声明 → 兼容老插件回看默认 main.qml，连它也没有则视为无面板页
+            //（mainUrl 留空、status 保持 ok），由宿主按声明内容渲染（如 agentProfiles 名片页）。
+            const bool mainDeclared = object.contains(QStringLiteral("main"));
+            QString main = object.value(QStringLiteral("main")).toString();
+            if (!mainDeclared)
+                main = QStringLiteral("main.qml");
             const QString background =
                 object.value(QStringLiteral("background")).toString();
 
@@ -209,6 +215,9 @@ void PluginLoader::scan()
             plugin[QStringLiteral("apiVersion")] = apiVersion;
             plugin[QStringLiteral("main")] = main;
             plugin[QStringLiteral("background")] = background;
+            // R16-04：描述文案进插件 map，名片页直接取用（codex 的启用前置说明在这里）
+            plugin[QStringLiteral("description")] =
+                object.value(QStringLiteral("description")).toString();
 
             // R15-02：manifest 的类别与依赖说明原样搬运，插件库面板据此展示；
             // 缺省为空，面板不显示徽章。
@@ -290,13 +299,15 @@ void PluginLoader::scan()
                     QStringLiteral("不支持的 apiVersion: %1").arg(apiVersion);
             } else {
                 const QFileInfo mainInfo(pluginDir + QLatin1Char('/') + main);
-                if (!mainInfo.exists() || !mainInfo.isFile()) {
-                    plugin[QStringLiteral("status")] = QStringLiteral("error");
-                    plugin[QStringLiteral("error")] = QStringLiteral("入口文件不存在: %1").arg(main);
-                } else {
+                if (mainInfo.exists() && mainInfo.isFile()) {
                     plugin[QStringLiteral("mainUrl")] =
                         QUrl::fromLocalFile(mainInfo.absoluteFilePath()).toString();
+                } else if (mainDeclared) {
+                    plugin[QStringLiteral("status")] = QStringLiteral("error");
+                    plugin[QStringLiteral("error")] = QStringLiteral("入口文件不存在: %1").arg(main);
                 }
+                // 未声明 main 且默认 main.qml 也不存在：无面板页是合法状态（R16-04），
+                // mainUrl 留空，面板侧按声明内容渲染
 
                 if (!background.isEmpty() && plugin[QStringLiteral("status")] == QStringLiteral("ok")) {
                     const QFileInfo backgroundInfo(pluginDir + QLatin1Char('/') + background);

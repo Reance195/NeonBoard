@@ -1,16 +1,21 @@
 #include "AppPaths.h"
+#include "MenuSkin.h"
 #include "SingleInstance.h"
+#include "TrayMenu.h"
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QList>
 #include <QProcess>
 #include <QSettings>
 #include <QTimer>
 
 #include <windows.h>
 #include <shellapi.h>
+
+#include <cstdio>
 
 namespace {
 
@@ -23,6 +28,7 @@ constexpr int kLaunchGraceMs = 15000;
 
 NOTIFYICONDATAW g_trayIcon{};
 HWND g_hostWindow = nullptr;
+TrayMenu *g_trayMenu = nullptr;
 QProcess *g_renderer = nullptr;
 QElapsedTimer g_launchGuard;
 int g_hiddenTicks = 0;
@@ -181,25 +187,59 @@ void quitHost()
     PostQuitMessage(0);
 }
 
+// 托盘菜单的条目：真实弹窗与预览出图共用一份，避免两边画得不一样。
+QList<TrayMenu::Item> buildTrayMenuItems(bool forceAutostartChecked)
+{
+    QList<TrayMenu::Item> items;
+
+    TrayMenu::Item open;
+    open.kind = TrayMenu::Item::Action;
+    open.text = QStringLiteral("打开 NeonBoard");
+    open.onTriggered = [] { showBoard(); };
+    items.append(open);
+
+    TrayMenu::Item autostart;
+    autostart.kind = TrayMenu::Item::Action;
+    autostart.text = QStringLiteral("开机自启");
+    autostart.checkable = true;
+    autostart.checked = forceAutostartChecked || isAutostart();
+    autostart.onTriggered = [] { setAutostart(!isAutostart()); };
+    items.append(autostart);
+
+    TrayMenu::Item separator;
+    separator.kind = TrayMenu::Item::Separator;
+    items.append(separator);
+
+    TrayMenu::Item quit;
+    quit.kind = TrayMenu::Item::Action;
+    quit.text = QStringLiteral("退出");
+    quit.danger = true;
+    quit.onTriggered = [] { quitHost(); };
+    items.append(quit);
+
+    return items;
+}
+
+// 看板当前主题：与主程序读同一份界面设置（ini 在 com.lin/NeonBoard.ini），
+// 所以看板换主题时，托盘菜单的霓虹主色也跟着换。
+QString currentThemePreset()
+{
+    QSettings theme(QSettings::IniFormat, QSettings::UserScope,
+                    QStringLiteral("com.lin"), QStringLiteral("NeonBoard"));
+    return theme.value(QStringLiteral("appearance/themePreset"), QStringLiteral("neon")).toString();
+}
+
 void showTrayMenu()
 {
-    HMENU menu = CreatePopupMenu();
-    AppendMenuW(menu, MF_STRING, 1, L"打开 NeonBoard");
-    AppendMenuW(menu, MF_STRING | (isAutostart() ? MF_CHECKED : 0), 2, L"开机自启");
-    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING, 3, L"退出");
-    POINT pt{};
-    GetCursorPos(&pt);
-    SetForegroundWindow(g_hostWindow);
-    const UINT cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON,
-                                    pt.x, pt.y, 0, g_hostWindow, nullptr);
-    DestroyMenu(menu);
-    if (cmd == 1)
-        showBoard();
-    else if (cmd == 2)
-        setAutostart(!isAutostart());
-    else if (cmd == 3)
-        quitHost();
+    // 托盘右键菜单（R17-01）：自绘的霓虹弹窗。
+    // 原来这里用 CreatePopupMenu/TrackPopupMenu，画出来是 Windows 白底方框，
+    // 字号字体全由系统决定，跟 NeonBoard 的赛博霓虹风完全不搭；系统菜单也没有
+    // 「让主题系统接管」的接口。现在换成自己画的一层窗口，条目与行为保持不变。
+    if (!g_trayMenu)
+        g_trayMenu = new TrayMenu();
+    g_trayMenu->setPalette(MenuSkin::paletteForPreset(currentThemePreset()));
+    g_trayMenu->setItems(buildTrayMenuItems(false));
+    g_trayMenu->popupAtCursor();
 }
 
 LRESULT CALLBACK hostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -232,9 +272,44 @@ LRESULT CALLBACK hostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 int main(int argc, char **argv)
 {
+    // 托盘菜单是自绘位图（R17-01），必须先知道屏幕是几 DPI，
+    // 否则高缩放屏上菜单会被系统拉伸糊掉。必须在建任何窗口之前声明。
+    // SetProcessDpiAwarenessContext 只有 Win10 1703+ 有，动态取，老系统不至于起不来。
+    if (HMODULE user32 = GetModuleHandleW(L"user32.dll")) {
+        using SetDpiContextFn = BOOL(WINAPI *)(HANDLE);
+        const auto setContext = reinterpret_cast<SetDpiContextFn>(
+            GetProcAddress(user32, "SetProcessDpiAwarenessContext"));
+        if (setContext)
+            setContext(reinterpret_cast<HANDLE>(-4)); // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+    }
+
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("NeonBoardHost"));
     QCoreApplication::setApplicationVersion(QStringLiteral(NEONBOARD_VERSION_STRING));
+    // 界面设置与主程序同源（ini 在 com.lin/NeonBoard.ini）：沙箱下也指向同一个数据目录。
+    QCoreApplication::setOrganizationName(QStringLiteral("com.lin"));
+    QCoreApplication::setOrganizationDomain(QStringLiteral("com.lin.neonboard"));
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    if (AppPaths::isolated())
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, AppPaths::dataDir());
+
+    // 预览出图（验收用）：离屏把菜单画成 PNG，不弹窗、不抢单实例锁。
+    const QStringList arguments = QCoreApplication::arguments();
+    const int previewIndex = arguments.indexOf(QStringLiteral("--menu-preview"));
+    if (previewIndex >= 0) {
+        const QString output = previewIndex + 1 < arguments.size() ? arguments.at(previewIndex + 1)
+                                                                 : QString();
+        if (output.isEmpty()) {
+            fprintf(stderr, "--menu-preview needs an output path\n");
+            return 2;
+        }
+        TrayMenu preview;
+        preview.setPalette(MenuSkin::paletteForPreset(currentThemePreset()));
+        preview.setItems(buildTrayMenuItems(true));
+        const bool ok = preview.renderPreview(output, 0);
+        fprintf(stderr, "MENU-PREVIEW %s %s\n", qPrintable(output), ok ? "OK" : "FAIL");
+        return ok ? 0 : 2;
+    }
 
     SingleInstance instance(AppPaths::singleInstanceKey() + QStringLiteral("-host"));
     if (!instance.isPrimary())

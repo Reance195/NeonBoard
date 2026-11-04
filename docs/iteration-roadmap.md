@@ -819,6 +819,27 @@ neonboard-market 索引已上架 8 个插件并手写 `category` / `dependencies
 | R16-04 | `src/plugin/` / `qml/components/` / `plugins/agent-*/` / `tests/tst_agentprofile.cpp` | 四份 agent 名片 main.qml 约 90% 同构，命令行字符串与 manifest 双源靠测试防漂移 —— 宿主按 manifest 渲染通用名片页 |
 | R16-05 | `plugins-samples/` / `plugins/plan-hook/` | 示例插件全量硬编码颜色，教学示范教反了；plan-hook 执行记录只存内存，面板关了就丢 |
 
+### 9.11 R17 托盘右键菜单霓虹化（已完成 1/1）
+
+2026-11-05 维护者反馈「这个右键菜单不好看」：常驻宿主进程 `NeonBoardHost.exe` 的托盘菜单是
+纯 Win32 系统菜单（`CreatePopupMenu` / `TrackPopupMenu`），Windows 白底方框，跟看板的赛博霓虹风
+完全脱节；系统菜单也没有「让主题系统接管」的接口。主程序里那个 `QMenu` 同样没有皮肤。
+本迭代把两处菜单收敛到一套令牌上：宿主自绘分层窗口弹窗（圆角 + 外辉光 + 半透明底 + 悬停霓虹条），
+主程序 `QMenu` 套同一套皮肤，主色跟着看板主题走（维护者 2026-11-05 会话授权代登记）。
+
+| 卡 | 范围 | 要解决什么 |
+| --- | --- | --- |
+| R17-01 | `src/host/**` / `src/shell/TrayController.*` / `src/theme/MenuSkin.*` | 宿主托盘菜单是系统菜单，白底方框、接不进主题；主程序 `QMenu` 也没皮肤 —— 自绘弹窗 + 共享令牌，两处菜单视觉一致 |
+
+**交付结果（2026-11-05）**：R17-01 完成并合入主线。
+
+| 卡 | 落地内容 | 验收 |
+| --- | --- | --- |
+| R17-01 | 新增 `src/theme/MenuSkin.*`（六套预设调色板 + 度量 + QSS 生成，只依赖 QtCore，两处菜单共用一份令牌）；新增 `src/host/TrayMenu.*`（宿主自绘分层窗口弹窗：GDI+ 32bpp ARGB 位图 + `UpdateLayeredWindow`，圆角面板 + 10 层递减辉光 + 悬停霓虹条 + 霓虹对勾 + 贴边翻转 + 淡入动画，宿主不引 QtGui/QtWidgets，仍只链 Core + Network）；`HostMain.cpp` 去掉 `CreatePopupMenu` / `TrackPopupMenu`；`TrayController` 的 `QMenu` 套同一套 QSS（`WA_TranslucentBackground` 圆角 + 自绘霓虹对勾），主色随看板主题预设走（弹菜单前重读 `appearance/themePreset`） | `verify.ps1` 全过：`ctest` 36/36（含新增 `tst_menuskint` 4 例）、`--selftest` / `--smoke` 退出码 0、模块守卫通过（`src/main.cpp` 1902 ≤ 1910）✅；`NeonBoardHost.exe --menu-preview` 与 `NeonBoard.exe --menu-preview` 均退出码 0，产出 7 511 B / 17 102 B PNG，肉眼可见圆角、辉光、悬停霓虹条、霓虹对勾、细分隔线，两处同色系 ✅；`rg 'CreatePopupMenu|TrackPopupMenu' src/host/HostMain.cpp` 无匹配 ✅ |
+
+顺带修掉一个**结构性问题**：`src/main.cpp` 的工具命令链（26 条 `|| arguments.contains(...)`）改成
+表驱动，新增 CLI 命令不再顶破行数棘轮 —— 本次顺带把 `src/main.cpp` 从 1910 行降到 1902 行。
+
 ## 10. 验收指标（“炫酷”可量化）
 | 指标 | 目标 | 当前实测 |
 | --- | --- | --- |

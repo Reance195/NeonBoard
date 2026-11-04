@@ -156,32 +156,21 @@ int main(int argc, char *argv[])
         || arguments.contains(QStringLiteral("--import-tasks"))
         || arguments.contains(QStringLiteral("--backup"));
     // 诊断模式（自检 / 冒烟 / 路线图同步 / 钩子投递）不受单实例限制，
-    // 方便应用已在运行时做性能采样或由 Git 钩子投递事件
-    const bool utilityMode = arguments.contains(QStringLiteral("--selftest")) || smokeMode || syncMode
-        || dataMode
-        || arguments.contains(QStringLiteral("--emit-hook"))
-        || arguments.contains(QStringLiteral("--emit-hook-file"))
-        || arguments.contains(QStringLiteral("--install-plugin-file"))
-        || arguments.contains(QStringLiteral("--market-refresh"))
-        || arguments.contains(QStringLiteral("--market-source"))
-        || arguments.contains(QStringLiteral("--market-sources"))
-        || arguments.contains(QStringLiteral("--market-install"))
-        || arguments.contains(QStringLiteral("--install-plugin-url"))
-        || arguments.contains(QStringLiteral("--preview-list"))
-        || arguments.contains(QStringLiteral("--preview-build"))
-        || arguments.contains(QStringLiteral("--preview-package"))
-        || arguments.contains(QStringLiteral("--preview-start"))
-        || arguments.contains(QStringLiteral("--preview-stop"))
-        || arguments.contains(QStringLiteral("--plugin-report"))
-        || arguments.contains(QStringLiteral("--register-file-assoc"))
-        || arguments.contains(QStringLiteral("--unregister-file-assoc"))
-        || arguments.contains(QStringLiteral("--assoc-status"))
-        || arguments.contains(QStringLiteral("--check-update"))
-        || arguments.contains(QStringLiteral("--update-apply"))
-        || arguments.contains(QStringLiteral("--update-source"))
-        || arguments.contains(QStringLiteral("--update-sources"))
-        || arguments.contains(QStringLiteral("--run-summary"))
-        || arguments.contains(QStringLiteral("--import-ledger"));
+    // 方便应用已在运行时做性能采样或由 Git 钩子投递事件。
+    // 工具类命令列成表而不是一条条 || ：main.cpp 有行数棘轮（只许减不许增），
+    // 新增一个工具命令不该每次都顶破上限。
+    static const char *const kUtilityFlags[] = {
+        "--selftest", "--emit-hook", "--emit-hook-file", "--install-plugin-file",
+        "--market-refresh", "--market-source", "--market-sources", "--market-install",
+        "--install-plugin-url", "--preview-list", "--preview-build", "--preview-package",
+        "--preview-start", "--preview-stop", "--plugin-report", "--register-file-assoc",
+        "--unregister-file-assoc", "--assoc-status", "--check-update", "--update-apply",
+        "--update-source", "--update-sources", "--run-summary", "--menu-preview",
+        "--import-ledger",
+    };
+    bool utilityMode = smokeMode || syncMode || dataMode;
+    for (const char *flag : kUtilityFlags)
+        utilityMode = utilityMode || arguments.contains(QString::fromLatin1(flag));
     // 冷启动请求的动作（面板开关）。二次启动走同一条分发路径，见下方 dispatch：
     // 跳转列表/托盘/命令行只是「请求已在运行的实例做某事」的不同入口，
     // 各写一套必然分叉（典型症状：托盘能开新建面板、跳转列表点了只亮窗口）。
@@ -1193,6 +1182,9 @@ int main(int argc, char *argv[])
     WindowController windowController;
     Hotkey hotkey;
     TrayController tray(hosted);
+    // 预览出图（验收用）：托盘菜单离屏抓成 PNG，不弹到屏幕上（逻辑在 TrayController 里）。
+    if (const int menuPreviewCode = tray.handleMenuPreview(arguments); menuPreviewCode >= 0)
+        return menuPreviewCode;
     // 提醒调度器：30s 轮询，托盘通知 + 窗口辉光；启动后先查一轮补发漏提醒
     ReminderScheduler reminderScheduler(&taskExtra, &tray);
     PluginLoader pluginLoader(&database);

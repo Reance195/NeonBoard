@@ -2867,8 +2867,62 @@
             ],
             "title": "DX 官方来源判据的注释与 sourceDirs 实现相反",
             "updatedAt": 1793760663
+        },
+        {
+            "code": "DX-20",
+            "completedAt": 1793763063,
+            "createdAt": 1793763063,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-20",
+            "note": "根因在 scripts/git-done.ps1 remote 模式末尾的 `switch --detach`：它本来是为了「不留悬挂分支」，但它连锚点区一起脱离，于是每次收尾后锚点在 detached HEAD 上，下一次 git-done 从这里建临时分支、再 detach，循环往复。配套的第二个洞是 remote 模式只 push origin HEAD:<Main>，不更新本地 refs/heads/<Main>，锚点区的 main 于是永远落后远端一个提交。\n\n两个洞合起来的症状很温和：git log -1 在 detached 时显示的是刚合入的新提交，看着像已同步，只有 git branch --show-current 为空才暴露。2026-11-04 的会话里每次收尾都要手工 `git switch main && git merge --ff-only origin/main`，共重复十余次 —— 这类「每次都要做、做完就忘」的步骤应该由工具自己完成。",
+            "orderKey": 94208,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 收尾把锚点区留在 detached HEAD，且不同步本地 main",
+            "updatedAt": 1793763063
+        },
+        {
+            "code": "DX-21",
+            "completedAt": 1793763063,
+            "createdAt": 1793763063,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-21",
+            "note": "git-done.ps1 早就能从 `git worktree list --porcelain` 反查出分支所在路径（约 573-580 行），却要求调用方再传一次 -RemoveWorktree。忘传的连锁反应是：目录不删 → 分支被占用删不掉 → release-claims.py 判定分支还在 → 台账留下僵尸 claim，要人工跑 release-claims.py 再补一次 chore(board) 提交。\n\n这条本来是「记住每次都要带参数」，而参数所需信息工具自己已经握着 —— 与 DX-20 同一类：把可以推断的事交给人记。",
+            "orderKey": 95232,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "worktree 出的卡漏带 -RemoveWorktree 就留僵尸 claim，而路径本可自动反查",
+            "updatedAt": 1793763063
+        },
+        {
+            "code": "DX-22",
+            "completedAt": 1793763063,
+            "createdAt": 1793763063,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-22",
+            "note": "MOD-06 把 src/ 拆成 8 个模块子目录时，连带清单漏了两次（AGENTS.md、scripts/*.ps1），全靠事后单独提交补救。当时靠的是「动手前手工 grep 一次」—— 而这类检查恰恰是机器最擅长的：文件是否存在是可以判定的，不需要人记 grep 命令和 5 类清单。\n\n边界：本脚本只判「引用指向的路径是否存在」。卡片 scope 是否失效由 check_scope.py --audit 负责，project-map 的 chain 证据由 tst_projectmap 负责 —— 三者不重复实现，各管一段。",
+            "orderKey": 96256,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "src/ 目录硬编码路径引用无守卫，拆目录必断链",
+            "updatedAt": 1793763063
         }
     ],
-    "updated": "2026-11-04T10:51:03",
+    "updated": "2026-11-04T11:31:03",
     "version": 3
 }

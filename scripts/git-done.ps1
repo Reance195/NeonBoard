@@ -15,7 +15,9 @@
     用法：
       pwsh -File scripts/git-done.ps1
       pwsh -File scripts/git-done.ps1 -Branch feature/task-filter
-      pwsh -File scripts/git-done.ps1 -RemoveWorktree .worktrees/agent-c
+      pwsh -File scripts/git-done.ps1                      # .worktrees/ 下的目标区默认回收
+      pwsh -File scripts/git-done.ps1 -KeepWorktree        # 保留工作区（调试 / 续做）
+      pwsh -File scripts/git-done.ps1 -RemoveWorktree      # 强制回收（跳过未推送/脏检查）
       pwsh -File scripts/git-done.ps1 -Mode local
       pwsh -File scripts/git-done.ps1 -KeepBranch
       pwsh -File scripts/git-done.ps1 -SkipClaimCheck      # 已废弃：不再能放行代码改动
@@ -30,6 +32,7 @@ param(
     [switch]$SkipClaimCheck,
     [switch]$SkipAnchorSync,
     [switch]$RemoveWorktree,
+    [switch]$KeepWorktree,
     [string]$MainBranch = 'main',
     [string]$Worktree = ''
 )
@@ -607,23 +610,51 @@ if ($Mode -eq 'remote') {
 
     $recycleAgent = ''
     $recycleScope = ''
-    if ($RemoveWorktree -and $wtPath) {
+    # DX-21：分支所在路径本来就能从上面的 `worktree list` 反查，不该再要求调用方记一次参数
+    # （忘传 → 目录不删 → 分支被占用删不掉 → release-claims 判分支还在 → 台账留僵尸 claim）。
+    # 默认回收 .worktrees/ 下的目标区；-KeepWorktree 显式保留；-RemoveWorktree 退化为
+    # 「强制回收」（跳过下面两道安全检查），旧命令照旧能用。
+    if ((-not $KeepWorktree) -and $wtPath) {
         $abs = if ([System.IO.Path]::IsPathRooted($wtPath)) { $wtPath } else { Join-Path $repoRoot $wtPath }
         $abs = [System.IO.Path]::GetFullPath($abs)
         $currentRoot = [System.IO.Path]::GetFullPath($repoRoot)
         if ($abs -eq $currentRoot) {
             Write-Host "· 目标 worktree 就是当前目录，跳过回收（请在其它目录执行 git worktree remove）" -ForegroundColor Yellow
         } elseif (Test-Path -LiteralPath $abs) {
-            # 身份与 scope 必须在回收**之前**抓：.agent-env.ps1 随目录一起消失，事后再读只能
-            # 得到空，于是每次都「跳过释放」，agent-workspace.json 里堆已删工作区的僵尸条目
-            # （2026-11-04 实测 dx12 / dx14 / dx16 / r1402 / initfix 五条全在）。
-            $recycleAgent = Get-WorktreeAgent -Path $abs
-            if ($recycleAgent -and ((Split-Path -Leaf (Split-Path -Parent $abs)) -eq '.worktrees')) {
-                $recycleScope = "worktree:$recycleAgent"
+            # 安全检查：删掉别人正在办的工作区是事故。两道判据都不成立才回收 ——
+            #   1) 还有未推送提交（说明它不是「已合入的尾巴」）；
+            #   2) 还有未提交改动（含 untracked），删了就没了。
+            # 本次分支刚合并并推送过，它的提交此刻已是 origin/<main> 的祖先，判据自然为 0。
+            $unsafe = ''
+            if (-not $RemoveWorktree) {
+                $ahead = 0
+                $aheadRes = Invoke-GitQuiet @('-C', $abs, 'rev-list', '--count', 'HEAD', '--not', '--remotes=origin')
+                if ($aheadRes.Code -eq 0) {
+                    $first = $aheadRes.Output | Select-Object -First 1
+                    if ($first) { [void][int]::TryParse($first.ToString().Trim(), [ref]$ahead) }
+                }
+                $dirtyNum = 0
+                if ($ahead -le 0) {
+                    $dirtyRes = Invoke-GitQuiet @('-C', $abs, 'status', '--porcelain')
+                    $dirtyNum = @($dirtyRes.Output | Where-Object { $_ -and $_.ToString().Trim() -ne '' }).Count
+                }
+                if ($ahead -gt 0) { $unsafe = "还有 $ahead 个未推送提交" }
+                elseif ($dirtyNum -gt 0) { $unsafe = "还有 $dirtyNum 项未提交改动" }
             }
-            Write-Host ("· 回收 worktree {0}" -f $abs) -ForegroundColor DarkGray
-            if ((Invoke-GitQuiet @('worktree', 'remove', $abs)).Code -ne 0) {
-                Invoke-GitQuiet @('worktree', 'remove', '--force', $abs) | Out-Null
+            if ($unsafe) {
+                Write-Host ("· 跳过回收 {0}：{1}（可能是别的工作区在办；确认要删用 -RemoveWorktree）" -f $abs, $unsafe) -ForegroundColor Yellow
+            } else {
+                # 身份与 scope 必须在回收**之前**抓：.agent-env.ps1 随目录一起消失，事后再读只能
+                # 得到空，于是每次都「跳过释放」，agent-workspace.json 里堆已删工作区的僵尸条目
+                # （2026-11-04 实测 dx12 / dx14 / dx16 / r1402 / initfix 五条全在）。
+                $recycleAgent = Get-WorktreeAgent -Path $abs
+                if ($recycleAgent -and ((Split-Path -Leaf (Split-Path -Parent $abs)) -eq '.worktrees')) {
+                    $recycleScope = "worktree:$recycleAgent"
+                }
+                Write-Host ("· 回收 worktree {0}" -f $abs) -ForegroundColor DarkGray
+                if ((Invoke-GitQuiet @('worktree', 'remove', $abs)).Code -ne 0) {
+                    Invoke-GitQuiet @('worktree', 'remove', '--force', $abs) | Out-Null
+                }
             }
         }
     }

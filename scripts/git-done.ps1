@@ -105,7 +105,8 @@ function Sync-BoardSnapshot {
     $snapCommit = Invoke-GitQuiet @('commit', '-m', 'chore(roadmap): 同步进度快照', '-m', $snapBody)
     if ($snapCommit.Code -ne 0) {
         Write-Host '· 警告：快照提交失败（commit-msg 钩子或其它原因），留待下次合并' -ForegroundColor Yellow
-        Invoke-GitQuiet @('checkout', '--', 'progress.json') | Out-Null
+        $snapCommit.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+        Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'progress.json') | Out-Null
         return $false
     }
     for ($i = 1; $i -le 3; $i++) {
@@ -672,43 +673,16 @@ if ($Mode -eq 'remote') {
     # 传入回收前抓到的身份 / scope；没走回收路径时留空，函数自己按 Root 解析（原地模式）。
     Release-WorkspaceClaim -Root $repoRoot -Agent $recycleAgent -Scope $recycleScope
 
-    # 解除临时分支占用；随后归位（DX-20）。
-    # 锚点区必须回到主分支并快进 —— 它被留在分离 HEAD 正是「本地 main 永远落后远端」
-    # 的源头（Sync-AnchorWorktree 见到空分支名就跳过）。开发工作区保持「停在合并结果
-    # 上的分离 HEAD」：下一步多半就被回收，硬切回合并前的分支反而把工作区内容退回去。
-    if ($atAnchor) {
-        $homeBranch = if ($pristineBranch) { $pristineBranch } else { $MainBranch }
-        # 两个坑（2026-11-04 实测，都会让归位切到一个不存在的引用）：
-        #   1) 进入时所在的分支可能刚被本脚本删掉 —— 在锚点区直接对 main 开分支时，
-        #      $Branch 与 $pristineBranch 是同一个名字，收尾先删分支再归位必然失败；
-        #   2) 上一次归位失败会把锚点留在 merge/<...> 临时分支上，它不是归宿。
-        # 两种都回主分支。
-        if ($homeBranch -eq $tmp -or $homeBranch -like 'merge/*') {
-            $homeBranch = $MainBranch
-        } elseif ((Invoke-GitQuiet @('rev-parse', '--verify', '--quiet', "refs/heads/$homeBranch")).Code -ne 0) {
-            Write-Host ("· 归位目标 {0} 已不存在（本次收尾刚删除），改回 {1}" -f $homeBranch, $MainBranch) -ForegroundColor DarkGray
-            $homeBranch = $MainBranch
-        }
-        $sw = Invoke-GitQuiet @('switch', $homeBranch)
-        if ($sw.Code -eq 0) {
-            if ($homeBranch -eq $MainBranch) {
-                $ff = Invoke-GitQuiet @('merge', '--ff-only', "origin/$MainBranch")
-                if ($ff.Code -eq 0) {
-                    Write-Host ("✓ 锚点区已归位 {0} 并快进到 origin/{0}" -f $MainBranch) -ForegroundColor Green
-                } else {
-                    Write-Host ("· 锚点区已切回 {0}，但快进失败（本地分叉或被未跟踪文件挡住），手工：" -f $MainBranch) -ForegroundColor Yellow
-                    Write-Host ("   git -C {0} merge --ff-only origin/{1}" -f $repoRoot, $MainBranch) -ForegroundColor Yellow
-                    $ff.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
-                }
-            } else {
-                Write-Host ("· 锚点区已归位分支 {0}（非 {1}，不自动快进）" -f $homeBranch, $MainBranch) -ForegroundColor DarkGray
-            }
-        } else {
-            Write-Host ("· 锚点区归位失败（工作区改动会冲突），请手工：git -C {0} switch {1}" -f $repoRoot, $homeBranch) -ForegroundColor Yellow
-            $sw.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
-        }
-    } else {
-        Invoke-GitQuiet @('switch', '--detach') | Out-Null
+    # 解除临时分支占用：先**无条件**脱离分支（DX-26）。
+    # 收尾还有三步自动提交（claims 清理 / 结卡 / 快照），它们必须不在受保护分支上做 ——
+    # pre-commit 规则 1 禁止在 main 直接提交，而锚点区此刻若还停在 main 上，三步必被自家
+    # 钩子拒掉。这正是 DX-20 把「归位」提前到提交之前造成的回归：一天内两次收尾、六次
+    # 提交全失败，每次都留 staged 脏文件（回滚只还工作区不撤暂存区）。分离 HEAD 读不到
+    # 分支名，规则 1 不触发；三步做完再归位，见本节末尾「锚点区归位（DX-20）」。
+    $detachRes = Invoke-GitQuiet @('switch', '--detach')
+    if ($detachRes.Code -ne 0) {
+        Write-Host '· 警告：无法脱离当前分支（工作区有冲突改动），随后的自动清理会被分支保护拦下' -ForegroundColor Yellow
+        $detachRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
     }
     Invoke-GitQuiet @('branch', '-d', $tmp) | Out-Null
 
@@ -726,7 +700,10 @@ if ($Mode -eq 'remote') {
         $rcCommit = Invoke-GitQuiet @('commit', '-m', ('chore(board): 清理过期领用登记 {0}' -f ($goneCodes -join '、')))
         if ($rcCommit.Code -ne 0) {
             Write-Host '· 台账领用登记清理：提交失败，留待下次合并再清' -ForegroundColor Yellow
-            Invoke-GitQuiet @('checkout', '--', 'docs/board-ledger.json') | Out-Null
+            # 必须连暂存区一起撤（DX-26）：git checkout -- 只还工作区，add 过的结果会留在
+            # 暂存区，被下一次提交顺带夹带 —— P0 收尾时就这样把代码文件带进了 chore(board)。
+            $rcCommit.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+            Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/board-ledger.json') | Out-Null
         } else {
             $rcPush = Invoke-GitQuiet @('push', 'origin', "HEAD:$MainBranch")
             if ($rcPush.Code -eq 0) {
@@ -755,7 +732,8 @@ if ($Mode -eq 'remote') {
         $ccCommit = Invoke-GitQuiet @('commit', '-m', ('chore(board): 结卡 {0}' -f ($closedCodes -join '、')), '-m', $ccBody)
         if ($ccCommit.Code -ne 0) {
             Write-Host '· 结卡：提交失败，baseline 留待下次合并再结' -ForegroundColor Yellow
-            Invoke-GitQuiet @('checkout', '--', 'docs/board-ledger.json') | Out-Null
+            $ccCommit.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+            Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/board-ledger.json') | Out-Null
         } else {
             $ccPush = Invoke-GitQuiet @('push', 'origin', "HEAD:$MainBranch")
             if ($ccPush.Code -eq 0) {
@@ -771,6 +749,48 @@ if ($Mode -eq 'remote') {
     # 快照刷新闭环（DX-13）：结卡改的是 baseline，快照是派生产物，必须单独重算一次。
     # 放在结卡之后 —— 先改台账再派生，才能把刚结掉的卡写进快照。
     Sync-BoardSnapshot -RepoRoot $repoRoot -MainBranch $MainBranch | Out-Null
+
+    # ---- 锚点区归位（DX-20；DX-26 起移到所有自动提交之后）----
+    # 锚点区必须回到主分支并快进 —— 它被留在分离 HEAD 正是「本地 main 永远落后远端」
+    # 的源头（Sync-AnchorWorktree 见到空分支名就跳过）。开发工作区保持「停在合并结果
+    # 上的分离 HEAD」：下一步多半就被回收，硬切回合并前的分支反而把工作区内容退回去。
+    # 位置：必须在上面所有 commit 之后 —— main 上禁止直接提交（pre-commit 规则 1），
+    # 提前归位会让 claims / 结卡 / 快照三步自动提交全部被拒（DX-20 → DX-26 实测）。
+    if ($atAnchor) {
+        $homeBranch = if ($pristineBranch) { $pristineBranch } else { $MainBranch }
+        # 两个坑（2026-11-04 实测，都会让归位切到一个不存在的引用）：
+        #   1) 进入时所在的分支可能刚被本脚本删掉 —— 在锚点区直接对 main 开分支时，
+        #      $Branch 与 $pristineBranch 是同一个名字，收尾先删分支再归位必然失败；
+        #   2) 上一次归位失败会把锚点留在 merge/<...> 临时分支上，它不是归宿。
+        # 两种都回主分支。
+        if ($homeBranch -eq $tmp -or $homeBranch -like 'merge/*') {
+            $homeBranch = $MainBranch
+        } elseif ((Invoke-GitQuiet @('rev-parse', '--verify', '--quiet', "refs/heads/$homeBranch")).Code -ne 0) {
+            Write-Host ("· 归位目标 {0} 已不存在（本次收尾刚删除），改回 {1}" -f $homeBranch, $MainBranch) -ForegroundColor DarkGray
+            $homeBranch = $MainBranch
+        }
+        # 三步提交各自 push 过，但 remote-tracking ref 未必已最新；快进前再 fetch 一次
+        # （离线时失败也无妨：ff 那里会给出明确的失败诊断与手工命令）。
+        Invoke-GitQuiet @('fetch', 'origin', '--quiet') | Out-Null
+        $sw = Invoke-GitQuiet @('switch', $homeBranch)
+        if ($sw.Code -eq 0) {
+            if ($homeBranch -eq $MainBranch) {
+                $ff = Invoke-GitQuiet @('merge', '--ff-only', "origin/$MainBranch")
+                if ($ff.Code -eq 0) {
+                    Write-Host ("✓ 锚点区已归位 {0} 并快进到 origin/{0}" -f $MainBranch) -ForegroundColor Green
+                } else {
+                    Write-Host ("· 锚点区已切回 {0}，但快进失败（本地分叉或被未跟踪文件挡住），手工：" -f $MainBranch) -ForegroundColor Yellow
+                    Write-Host ("   git -C {0} merge --ff-only origin/{1}" -f $repoRoot, $MainBranch) -ForegroundColor Yellow
+                    $ff.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+                }
+            } else {
+                Write-Host ("· 锚点区已归位分支 {0}（非 {1}，不自动快进）" -f $homeBranch, $MainBranch) -ForegroundColor DarkGray
+            }
+        } else {
+            Write-Host ("· 锚点区归位失败（工作区改动会冲突），请手工：git -C {0} switch {1}" -f $repoRoot, $homeBranch) -ForegroundColor Yellow
+            $sw.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+        }
+    }
 
     Write-Host "`n✓ 合并完成：$Branch → origin/$MainBranch" -ForegroundColor Green
     Write-Host "   查看历史：git log --oneline --graph -10" -ForegroundColor DarkGray

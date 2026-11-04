@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "DX-34",
+            "completedAt": 0,
+            "createdAt": 1793818595,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-34",
+            "note": "现状证据：本会话两次收尾（fix-iss-comment-brace-ca06757.json、chore-dx38-delta-cleanup-card-512d419.json）都写进了 .worktrees\\agent-r5fix\\.sandbox\\receipts\\，而该目录按 §7.2 用完即回收 —— 回执存在的意义是回答「那次收尾到底结了什么、漏了什么、清掉了什么」，回收即失效。改动由维护者本人在锚点区手改（2026-11-05 01:10:24 落盘；5 份会话记录对 scripts/git-done.ps1 的 Edit/Write 均为 0 次，故非 agent 所为），因锚点是 agent 禁区且 pre-commit 禁止在 main 提交，一直停在未提交态、无人能认领。现按他授权接手入分支并补卡号 —— 他改的时候 DX-34 还没立卡，这也正是「改了没立卡 → 没分支 → 没人能领」这个死角的具体样本。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 收尾回执落在 worktree 内：工作区一回收，那次收尾的物证就跟着丢了",
+            "updatedAt": 1793818742
+        },
+        {
             "code": "R5-08",
             "completedAt": 0,
             "createdAt": 1793795927,
@@ -143,24 +161,6 @@
             ],
             "title": "DX 增量升级路径不清理弃用文件也不写安装回执：包间 diff 天生给不出 Deleted 条目",
             "updatedAt": 1793817872
-        },
-        {
-            "code": "DX-34",
-            "completedAt": 0,
-            "createdAt": 1793818595,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-34",
-            "note": "现状证据：本会话两次收尾（fix-iss-comment-brace-ca06757.json、chore-dx38-delta-cleanup-card-512d419.json）都写进了 .worktrees\\agent-r5fix\\.sandbox\\receipts\\，而该目录按 §7.2 用完即回收 —— 回执存在的意义是回答「那次收尾到底结了什么、漏了什么、清掉了什么」，回收即失效。改动由维护者本人在锚点区手改（2026-11-05 01:10:24 落盘；5 份会话记录对 scripts/git-done.ps1 的 Edit/Write 均为 0 次，故非 agent 所为），因锚点是 agent 禁区且 pre-commit 禁止在 main 提交，一直停在未提交态、无人能认领。现按他授权接手入分支并补卡号 —— 他改的时候 DX-34 还没立卡，这也正是「改了没立卡 → 没分支 → 没人能领」这个死角的具体样本。",
-            "orderKey": 1024,
-            "priority": 2,
-            "stage": "DX",
-            "status": "doing",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 收尾回执落在 worktree 内：工作区一回收，那次收尾的物证就跟着丢了",
-            "updatedAt": 1793818595
         },
         {
             "code": "R0-01",
@@ -3463,6 +3463,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T02:56:35",
+    "updated": "2026-11-05T02:59:02",
     "version": 3
 }

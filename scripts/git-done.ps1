@@ -779,6 +779,13 @@ if ($Mode -eq 'remote') {
         Write-Host ("· 结卡：派生器失败（退出码 {0}），baseline 留待下次合并再结" -f $ccRes.Code) -ForegroundColor Yellow
     } elseif ($closedCodes.Count -gt 0) {
         Invoke-GitQuiet @('add', 'docs/board-ledger.json') | Out-Null
+        # DX-41：把 `#<短号>=done` 写进主题，让 .githooks/post-commit 的
+        # `grep -Eq '#[A-Za-z][A-Za-z0-9]*'` 认到标记，投 hook.commit 事件到 hooks.db，
+        # plan-hook 才会把看板上的对应任务从 doing 挪到 done。
+        # 以前只写「结卡 <短号>」（不带 #），钩子判不到标记，六张已交付的卡在看板上
+        # 一直挂僵尸 doing（R9-04 / DX-26 / R15-02 / R16-02 / R16-03 / R16-05）。
+        $ccMarkers = ($closedCodes | ForEach-Object { "#{$_}=done" }) -join ' '
+        $ccSubject = 'chore(board): 结卡 {0}' -f $ccMarkers
         $ccBody = "对象：按 git 标记 #<短号>=done 自动结卡（DX-07），把 baseline 补成 done。`n`n" +
                   "自动来源：git-done.ps1 合并收尾的 derive_board_status.py --close-cards。"
         if ($explicitClosed.Count -gt 0) {
@@ -787,7 +794,7 @@ if ($Mode -eq 'remote') {
             $ccBody += "`n`n人工确认：" + ($explicitClosed -join '、') +
                        "（-Close 显式声明，提交信息里没有 #<短号>=done 标记）"
         }
-        $ccCommit = Invoke-GitQuiet @('commit', '-m', ('chore(board): 结卡 {0}' -f ($closedCodes -join '、')), '-m', $ccBody)
+        $ccCommit = Invoke-GitQuiet @('commit', '-m', $ccSubject, '-m', $ccBody)
         if ($ccCommit.Code -ne 0) {
             Write-Host '· 结卡：提交失败，baseline 留待下次合并再结' -ForegroundColor Yellow
             $ccCommit.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }

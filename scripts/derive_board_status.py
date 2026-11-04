@@ -41,6 +41,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 
 SNAPSHOT_VERSION = 3
@@ -297,6 +298,105 @@ def close_cards(cards, baseline, derived, forced=None):
     return out, changed
 
 
+def close_commit_marker(codes):
+    """自动结卡提交里用来触发 post-commit 的标记串。
+
+    .githooks/post-commit 用 `grep -Eq '#[A-Za-z][A-Za-z0-9]*'` 判 has_marker；
+    DX-07 起 chore(board): 结卡 <短号> 标题里没有 `#`，事件从未投出去，plan-hook
+    就永远看不到 done —— 看板留僵尸 doing（DX-41 现场）。这里把codes 拼成
+    `#<code>=done` 空格分隔的一串，塞进提交体，钩子就认。
+    与 --replay-closed 用同一份拼串，一条实现管两处。
+    """
+    return " ".join("#%s=done" % c for c in codes)
+
+
+def replay_marker_text(codes):
+    """--replay-closed 事件文本：一段自然语言 + 每个短号一个 `#<code>=done`。
+
+    文本会被喂给 `NeonBoard.exe --emit-hook-file`，plan-hook 按 MARKER_PATTERN 逐个
+    提取标记、匹配标题含同一短号的任务、调用 moveTaskToEnd(id, done)。
+    已在目标列由插件自己的 skip 规则跳过，因此重放幂等，不怕多张卡一起投。
+    """
+    if not codes:
+        return ""
+    return "chore(board): 补投自动结卡标记\n\n" + close_commit_marker(codes)
+
+
+def find_neonboard_exe(root=None):
+    """按 post-commit 同款顺序找 NeonBoard.exe；找不到返回 None。
+
+    与钩子对齐的原因：replay 与 post-commit 是同一条投递链路的两个入口，
+    一边找到一边找不到就是行为分裂，宁可写两行相同的候选路径。
+    """
+    env = os.environ.get("NEONBOARD_EXE")
+    if env and os.path.isfile(env):
+        return env
+    root = root or repo_root()
+    for rel in (
+        ("build", "Release", "NeonBoard.exe"),
+        ("build", "NeonBoard.exe"),
+        ("build", "Debug", "NeonBoard.exe"),
+        ("build-local", "NeonBoard.exe"),
+        ("build-local", "Release", "NeonBoard.exe"),
+        ("dist", "NeonBoard", "NeonBoard.exe"),
+        ("dist", "NeonBoard.exe"),
+    ):
+        candidate = os.path.join(root, *rel)
+        if os.path.isfile(candidate):
+            return candidate
+    local = os.environ.get("LOCALAPPDATA")
+    if local:
+        candidate = os.path.join(local, "Programs", "NeonBoard", "NeonBoard.exe")
+        if os.path.isfile(candidate):
+            return candidate
+    pf = os.environ.get("PROGRAMFILES")
+    if pf:
+        candidate = os.path.join(pf, "NeonBoard", "NeonBoard.exe")
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def replay_closed(codes, exe, emit=None):
+    """把给定短号的 `#<code>=done` 标记投一次事件，走 NeonBoard.exe --emit-hook-file。
+
+    - codes 为空 → 什么都不做，返回 (0, 0)；
+    - exe 为空 → 返回 (2, 0) 并打印待投短号，不静默成功（否则维护者以为已清僵尸）；
+    - emit 注入用于自测，默认走 subprocess.call。
+
+    返回 (退出码, 投递的卡数)。这里不判看板状态：派生器不该伸手进 board.db，
+    消费是插件与主实例的事，我们的职责止于「把标记原样投进 hooks.db」。
+    调用方若需要按环境自动找 exe，自己先跑 find_neonboard_exe() 再把结果传进来。
+    """
+    if not codes:
+        sys.stderr.write("[replay] 台账里没有 baseline=done 的卡（或 --replay-codes 全滤空），无事可做\n")
+        return 0, 0
+    if not exe:
+        sys.stderr.write(
+            "[replay] 未找到 NeonBoard.exe，事件未投递。设置 NEONBOARD_EXE 指向 exe 后重跑。\n"
+            "[replay] 将要投递的短号：%s\n" % " ".join(codes))
+        return 2, 0
+    text = replay_marker_text(codes)
+    runner = emit if emit is not None else subprocess.call
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt", delete=False) as fh:
+            fh.write(text)
+            tmp = fh.name
+        rc = int(runner([exe, "--emit-hook-file", tmp]))
+        if rc != 0:
+            sys.stderr.write("[replay] NeonBoard.exe 退出码 %d（投递失败）\n" % rc)
+            return rc, 0
+        print("[replay] 已投递 %d 张卡的 done 标记：%s" % (len(codes), " ".join(codes)))
+        return 0, len(codes)
+    finally:
+        if tmp:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
+
 def selftest():
     """--close-cards 的可执行自测（DX-07 验收项）：四种情形一次跑完。"""
     cards = {"A-1": {}, "B-2": {}, "C-3": {}, "D-4": {}}
@@ -357,6 +457,38 @@ def selftest():
     cases.append(("已 done 的卡再被人工确认 → 无变化",
                   out9.get("A-1") == "done" and changed9 == []))
 
+    # ⑩ 结卡提交标记（DX-41）：拼串里每个短号都带 # 与 =done，
+    #    post-commit 的 grep 与 plan-hook 的 MARKER_PATTERN 才认。
+    text = close_commit_marker(["R9-04", "DX-26", "R16-05"])
+    cases.append(("结卡标记串每个短号都带 #", text.count("#") == 3))
+    cases.append(("结卡标记串每个短号都写 =done", text.count("=done") == 3))
+    parsed = {m.group(1).upper(): m.group(2) for m in MARKER.finditer(text)}
+    cases.append(("结卡标记串可被 MARKER 完整解析",
+                  parsed == {"R9-04": "done", "DX-26": "done", "R16-05": "done"}))
+
+    # ⑪ replay 文本（DX-41）：codes 空 → 空串；非空 → 一段说明 + 标记串
+    cases.append(("replay 空 codes → 空文本", replay_marker_text([]) == ""))
+    rtext = replay_marker_text(["A-1", "B-2"])
+    rparse = {m.group(1).upper(): m.group(2) for m in MARKER.finditer(rtext)}
+    cases.append(("replay 文本携带所有传入短号的 done 标记",
+                  rparse.get("A-1") == "done" and rparse.get("B-2") == "done"))
+
+    # ⑫ replay_closed 走注入 emit，不碰真实 exe；空/失败/成功三条路径
+    def _fake_emit_ok(argv):
+        _fake_emit_ok.calls.append(argv)
+        return 0
+    _fake_emit_ok.calls = []
+    rc, n = replay_closed(["A-1"], exe="fake.exe", emit=_fake_emit_ok)
+    cases.append(("replay_closed 非空 codes → 调用 emit 一次并返回 0",
+                  rc == 0 and n == 1 and len(_fake_emit_ok.calls) == 1
+                  and _fake_emit_ok.calls[0][1] == "--emit-hook-file"))
+    rc0, n0 = replay_closed([], exe="fake.exe", emit=_fake_emit_ok)
+    cases.append(("replay_closed 空 codes → 不调用 emit，返回 0/0",
+                  rc0 == 0 and n0 == 0))
+    rc2, n2 = replay_closed(["A-1"], exe=None, emit=_fake_emit_ok)
+    cases.append(("replay_closed 缺 exe → 返回 2，未消费 codes",
+                  rc2 == 2 and n2 == 0 and len(_fake_emit_ok.calls) == 1))
+
     failed = [name for name, ok in cases if not ok]
     for name, ok in cases:
         print("  %s %s" % ("✓" if ok else "✗", name))
@@ -403,6 +535,15 @@ def main():
         "--emit-claimed", action="store_true",
         help="只输出 --base..--head 范围内领用过的短号（一行一个），供 git-done 结单对账",
     )
+    mode.add_argument(
+        "--replay-closed", action="store_true",
+        help="把台账 baseline=done 的卡重投一次 #<code>=done hook 事件（DX-41）。"
+             "用于修复合入前遗留的僵尸 doing 卡；已在目标列的会被插件 skip。",
+    )
+    parser.add_argument(
+        "--replay-codes", default="",
+        help="配合 --replay-closed：只投这串短号（逗号分隔），默认全表 baseline=done。",
+    )
     parser.add_argument(
         "--base", default="origin/main",
         help="--emit-claimed 的范围起点（默认 origin/main）",
@@ -425,8 +566,10 @@ def main():
     if args.selftest:
         return selftest()
 
-    if not any((args.check, args.write, args.baseline_check, args.close_cards, args.emit_claimed)):
-        parser.error("必须指定 --check / --write / --baseline-check / --close-cards / --emit-claimed 之一")
+    if not any((args.check, args.write, args.baseline_check, args.close_cards,
+                args.emit_claimed, args.replay_closed)):
+        parser.error("必须指定 --check / --write / --baseline-check / --close-cards / "
+                     "--emit-claimed / --replay-closed 之一")
 
     root = os.path.abspath(args.repo)
 
@@ -438,8 +581,32 @@ def main():
         for code in codes:
             print(code)
         return 0
-    snapshot_path = os.path.join(root, args.snapshot)
+
     ledger_path = os.path.join(root, args.ledger)
+
+    if args.replay_closed:
+        # replay 只读台账 baseline，不碰快照 —— 快照可能正被看板应用写，读它是竞争。
+        if not os.path.isfile(ledger_path):
+            sys.stderr.write("找不到台账文件：%s\n" % ledger_path)
+            return 2
+        ledger = read_json(ledger_path)
+        baseline = ledger.get("baseline") or {}
+        cards = ledger.get("cards") or {}
+        if args.replay_codes:
+            requested = [c.strip().upper() for c in args.replay_codes.split(",") if c.strip()]
+            unknown = [c for c in requested if c not in cards]
+            if unknown:
+                sys.stderr.write("[replay] --replay-codes 里这些短号不在台账：%s\n"
+                                 % "、".join(unknown))
+                return 2
+            closed = [c for c in requested]
+        else:
+            closed = sorted(c for c, v in baseline.items()
+                            if (v or "").lower() == "done")
+        rc, _count = replay_closed(closed, exe=find_neonboard_exe(root))
+        return rc
+
+    snapshot_path = os.path.join(root, args.snapshot)
 
     if not os.path.isfile(snapshot_path):
         sys.stderr.write("找不到快照文件：%s\n" % snapshot_path)

@@ -673,6 +673,72 @@
             "stage": "DX",
             "title": "git-done 收尾的自动提交全部失败：DX-20 把归位提前到提交之前，撞上 main 保护"
         },
+        "DX-27": {
+            "acceptance": [
+                "新增 scripts/merge_board.py --merge：对 docs/board-ledger.json 做三路语义合并（base = MERGE_HEAD 与 HEAD 的公共祖先，ours = HEAD，theirs = MERGE_HEAD），cards 按 id 取并集、baseline 按短号取并集、claims 按短号取并集，同一键两边值不同时保留 ours 并把差异逐条打印到 stderr",
+                "合并结果先过 derive_board_status.py --check，通过才写回；不通过退 1 并保留 git 原始冲突标记（不写回半成品）",
+                "脚本自带 --selftest：用临时 JSON 覆盖「纯新增卡并集 / 同卡不同字段 / baseline 值冲突 / claims 双方都有 / 一方删除」五类，不依赖仓库状态",
+                "新增 scripts/merge-resolve.ps1：-Merge 阶段挑出冲突文件，可语义合并的走 merge_board.py 并 git add，其余逐个列出「需手工」并退 1；无冲突时说明「不在合并中」并退 0",
+                "同一脚本 -Recover 阶段按序执行并逐步打印：release-claims.py 清理 → derive_board_status.py --write → --check 校验（非 0 时列出缺结卡标记的短号与补法，不自动写 baseline）→ 若当前在锚点区则 switch main + merge --ff-only origin/main → 终检三判据（分支非空、HEAD == origin/main、--check 退 0）",
+                "任一阶段失败不中断后续可执行项，最后汇总失败项并退 1；全部通过退 0",
+                "端到端实测：造两分支各自改台账造成真冲突，跑 -Merge 后 git status 无冲突标记且台账合法，-Recover 后 --check 退 0、锚点区归位 main 且 HEAD == origin/main"
+            ],
+            "depends": [
+                "DX-26"
+            ],
+            "id": "DX-27",
+            "note": "AGENTS.md 与 docs/git-workflow.md 里「合并撞冲突后」写的是一串手工步骤：临时分支 merge/ 不在允许前缀内要先切 chore/、冲突里 --ours 才是 origin/main、中断后要补结卡 / 删 refs/claims、派生补推、锚点快进、--check 到 0。这些步骤全部是可判定的机械动作，却每次靠人回忆顺序 —— 2026-11-04 那次合并冲突就是手工补齐的，中间漏了派生补推。\\n\\n其中最容易出错、也最适合机器做的是台账冲突本身：docs/board-ledger.json 的冲突几乎必然是「两边各加了几张卡 / 各结了几张卡」，三路语义合并是确定性的，而手工解 JSON 冲突极易把某一方的卡整段删掉（cards 是对象，冲突标记会切成两半，肉眼很难看出少没少）。\\n\\n边界：-Recover 不写 cards / baseline —— 结卡属于任务定义变更，需要人判断「哪张卡真的做完了」。脚本只负责指出「--check 说还差哪几个短号」并给出命令，判定权不自动化（与 DX-23 同一原则：能判定的自动化，拍板的留给人）。",
+            "scope": [
+                "scripts/merge-resolve.ps1",
+                "scripts/merge_board.py",
+                "docs/git-workflow.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "合并撞冲突后的善后五步全靠人记，而台账冲突本可语义合并"
+        },
+        "DX-28": {
+            "acceptance": [
+                "RoadmapSync::autoExportEnabled() 在进程命令行含 --smoke 时恒返回 false：冒烟是一次性启动探测，没有用户在等结果，回写快照只会污染工作区",
+                "判据位置选在 autoExportEnabled 而非 main.cpp：后者 1910 行已顶格（check_module_deps 的 LINE_LIMITS），且自动导出的开关本来就只在这一个函数里判定",
+                "显式 NEONBOARD_ROADMAP_AUTOWRITE=0 仍照旧生效（不改变既有语义），--smoke 只是多一个「恒关」的短路条件",
+                "verify.ps1 的冒烟步骤前后对仓库 progress.json 取 Get-FileHash 比对，变化即 Fail 并指出「有东西在冒烟启动时回写了快照」——即使将来别处又加回写路径也能被抓到",
+                "实测：在仓库根手工跑 build\\Release\\NeonBoard.exe --smoke，跑完 git status 仍为空（此前会出现 progress.json 改动）",
+                "实测：verify.ps1 全量的冒烟步骤前后哈希一致，且不因新增守卫误报（沙箱路径下本来就不写仓库文件）"
+            ],
+            "depends": [],
+            "id": "DX-28",
+            "note": "verify.ps1 早就把 NEONBOARD_ROADMAP 指向沙箱、AUTOWRITE=0，所以**经 verify 跑**是干净的 —— 脏只发生在手工直跑 exe 的场合（排查启动问题、CI 的冒烟步骤、或有人想复现用户场景）。此时 RoadmapSync::resolvePath() 从 applicationDirPath 向上找「同时含 .git 与 progress.json」的目录，在仓库里必然命中，于是自动导出把仓库快照改脏；提交时如果没看清 git status，派生产物就会被夹进实现提交（这条本会话被提醒过一次）。\\n\\n修法选「根因」而不是「事后还原」：还原只是把脏东西擦掉，写入仍然发生、仍然可能被别的进程读到半成品。一次性探测模式本就不该有持久副作用，这跟 --selftest 用独立快照文件是同一个道理。\\n\\nverify 侧的哈希守卫是防回归：这条路径没有单测覆盖（要真启动 GUI 才跑到），一旦有人在别处加回写逻辑，只有启动期校验能发现。",
+            "scope": [
+                "src/board/RoadmapSync.cpp",
+                "scripts/verify.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "--smoke 会把仓库 progress.json 写脏，一次性探测不该有副作用"
+        },
+        "DX-29": {
+            "acceptance": [
+                "新增 scripts/check_dist.py --dir <便携包目录>：按一张显式清单逐项校验，任一缺失列出全部缺失项并退 1，全过打印逐项 ✓ 并退 0",
+                "清单覆盖五类：可执行文件（NeonBoard.exe / NeonBoardHost.exe）、官方插件（仓库 plugins/*/plugin.json 逐个对应 dist/plugins/<名>/plugin.json）、示例插件（plugins-samples/* 同上）、Qt 运行时关键 DLL（Qt6Core/Gui/Qml/Quick/QuickControls2/Network/Sql）、Qt 插件目录（platforms/qwindows.dll、sqldrivers/qsqlite.dll）、qml 模块根（qml/QtQuick）",
+                "清单来源分两种并写清：插件两批以磁盘为准（新增插件不用改脚本）、Qt 运行时以固定最小集为准（windeployqt 决定具体文件，这里只断言「少了必然起不来」的那几个）",
+                "0 字节 DLL 检查并入同一脚本（release.yml 里那段 shell 内联逻辑收敛到这里），避免两处判据漂移",
+                "deploy.ps1 打包完成后改为调用 check_dist.py，删除原有的内联插件比对；端口一致，失败信息仍指向 docs/pitfalls.md",
+                "check_dist.py 可对任意已存在的 dist 目录单独复跑（不依赖构建过程）——产物验收必须能在「拷完文件之后」独立执行，而不是只能作为构建脚本的最后一步",
+                "实测：把 dist/plugins/agent-bridge 临时改名后跑 check_dist.py 能被抓到并退 1，还原后退 0；把 sqldrivers 移走同样被抓到",
+                "docs/pitfalls.md 对应小节从「只对插件做自检」更新为「清单驱动」，并写明资源 / 翻译 / DLL 的保护边界（shaders 与 qml 已内嵌进 qrc，不需要随包拷）"
+            ],
+            "depends": [],
+            "id": "DX-29",
+            "note": "R14-02 的教训是「deploy.ps1 只拷 plugins-samples，6 个官方插件从未进过安装包」，当时的修法是补一条 Copy-Item 加一段内联比对。但那段比对只盯着插件：exe 缺失、platforms/qwindows.dll 缺失、sqldrivers/qsqlite.dll 缺失、Qt6Qml.dll 是 0 字节 —— 这几种「装完直接打不开」的故障，构建脚本统统不检查，只在 release.yml 里有半段内联检测（且只覆盖 0 字节）。\\n\\n三个检查器（deploy 内联、release.yml 内联、CI 的「便携版可独立运行」）各写一套判据，必然漂 —— 记忆里那条「凡拷文件环节必须用产物验收」正是因为这类漂移才反复被踩。合并成一个可独立复跑的脚本后：本地能在打包后立刻跑，CI 能在上传 artifact 前跑，release 能在压缩包生成前跑，判据只有一份。\\n\\n边界说清楚：清单不是「所有该存在的文件」，而是「缺了必然起不来」的最小集。windeployqt 的具体产物集合随 Qt 版本变化，写死全量清单会天天误报。",
+            "scope": [
+                "scripts/check_dist.py",
+                "scripts/deploy.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "deploy.ps1 的自检只覆盖官方插件，其余「该随包走」的东西全靠运气"
+        },
         "M01": {
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_pluginpackage --output-on-failure",
@@ -2879,6 +2945,25 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-27": {
+            "agent": "agent-dxp2",
+            "branch": "chore/dx-p2-programs",
+            "claimedAt": 1793766368,
+            "head": "88060ea564093d4e2f1bd3a2984b41240c94e16c"
+        },
+        "DX-28": {
+            "agent": "agent-dxp2",
+            "branch": "chore/dx-p2-programs",
+            "claimedAt": 1793766372,
+            "head": "88060ea564093d4e2f1bd3a2984b41240c94e16c"
+        },
+        "DX-29": {
+            "agent": "agent-dxp2",
+            "branch": "chore/dx-p2-programs",
+            "claimedAt": 1793766376,
+            "head": "88060ea564093d4e2f1bd3a2984b41240c94e16c"
+        }
+    },
     "version": 1
 }

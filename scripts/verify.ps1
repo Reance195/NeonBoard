@@ -273,8 +273,21 @@ Step '冒烟启动（--smoke，45 秒上限）'
 $log = Get-NbLogFile
 if (Test-Path $log) { Remove-Item $log -Force }
 # 同样走 Invoke-Exe：45 秒兜底 + 超时强杀（GUI 程序卡在缺 DLL 的对话框上时，这是唯一出路）
+#
+# 防回归（DX-28）：--smoke 是一次性启动探测，没有用户在等结果，不该有任何持久副作用。
+# 应用侧已在 RoadmapSync::autoExportEnabled() 里对 --smoke 恒关自动导出，但那条路径
+# 没有单测覆盖（要真启动 GUI 才跑到），所以这里留一道哈希守卫：只要仓库快照变了，
+# 就说明有人在别处又加回了写路径。沙箱下本来就不写仓库文件，正常情况恒定相等。
+$snapshotPath = Join-Path $repoRoot 'progress.json'
+$snapshotHash = if (Test-Path -LiteralPath $snapshotPath) { (Get-FileHash -LiteralPath $snapshotPath -Algorithm SHA256).Hash } else { '' }
 $smokeCode = Invoke-Exe -FilePath $exe -Arguments '--smoke' -TimeoutSec 45 -What '冒烟启动'
 Write-Host ("  ✓ --smoke 已执行并自行退出（退出码 {0}）" -f $smokeCode) -ForegroundColor DarkGray
+if ($snapshotHash) {
+    $snapshotAfter = if (Test-Path -LiteralPath $snapshotPath) { (Get-FileHash -LiteralPath $snapshotPath -Algorithm SHA256).Hash } else { '' }
+    if ($snapshotAfter -ne $snapshotHash) {
+        Fail '冒烟启动回写了仓库 progress.json：--smoke 不应有持久副作用（见 DX-28 / docs/pitfalls.md）'
+    }
+}
 if (-not (Test-Path $log)) { Fail '未生成运行日志' }
 
 $patterns = 'is not a type|is not a member|TypeError|ReferenceError|' +

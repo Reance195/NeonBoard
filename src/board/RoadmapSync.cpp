@@ -177,6 +177,13 @@ QString RoadmapSync::resolvePath()
 
 bool RoadmapSync::autoExportEnabled()
 {
+    // --smoke 是一次性启动探测（DX-28）：没有用户在等结果，写下的快照只会污染工作区。
+    // resolvePath() 会从 applicationDirPath 向上找「同时含 .git 与 progress.json」的目录，
+    // 手工在仓库里跑 dist\NeonBoard.exe --smoke 时必然命中，于是自动导出把仓库快照改脏
+    // —— 提交时没看清 git status，派生产物就会被夹进实现提交。
+    // 判据放在这里而不是 main.cpp：开关本来就只在本函数判定，且 main.cpp 行数已顶格。
+    if (QCoreApplication::arguments().contains(QStringLiteral("--smoke")))
+        return false;
     if (qEnvironmentVariable("NEONBOARD_ROADMAP_AUTOWRITE") == QLatin1String("0"))
         return false;
     QSettings settings;

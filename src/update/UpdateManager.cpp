@@ -16,6 +16,7 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QNetworkAccessManager>
+#include <QNetworkProxyFactory>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
@@ -26,6 +27,10 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QUrl>
+
+#ifdef Q_OS_WINDOWS
+#include <windows.h>
+#endif
 
 namespace {
 
@@ -158,6 +163,11 @@ UpdateManager::UpdateManager(QObject *parent)
     });
     loadSettings();
     m_installKindCache = QString();
+    // 代理环境（公司网 / 本机代理）下 Qt 默认直连，而 GitHub 资产地址在只走代理的
+    // 机器上会被 RST：清单请求报 QIODevice::read device not open，更新永远走不通
+    // （2026-11-04 真机实测）。读系统代理配置是这类机器上更新可用的前提。
+    QNetworkProxyFactory::setUseSystemConfiguration(true);
+    checkInstallReceipt();
 }
 
 UpdateManager::~UpdateManager() = default;
@@ -870,22 +880,89 @@ void UpdateManager::downloadAndInstall()
     startRequest(url, Purpose::Artifact);
 }
 
+QString UpdateManager::installReceiptPath()
+{
+    return QCoreApplication::applicationDirPath()
+           + QDir::separator() + QStringLiteral("install-receipt.json");
+}
+
+QString UpdateManager::receiptVersionMismatch(const QString &receiptPath,
+                                              const QString &runningVersion)
+{
+    QFile file(receiptPath);
+    if (!file.open(QIODevice::ReadOnly))
+        return QString(); // 回执由 0.1.5 起的安装包写入，老安装目录没有属正常
+    const QByteArray payload = file.readAll();
+    file.close();
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(payload, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject())
+        return QString();
+    const QString installed = doc.object().value(QStringLiteral("version")).toString();
+    if (installed.isEmpty() || installed == runningVersion)
+        return QString();
+    return installed;
+}
+
+void UpdateManager::checkInstallReceipt()
+{
+    const QString installed = receiptVersionMismatch(installReceiptPath(), currentVersion());
+    if (installed.isEmpty())
+        return;
+    m_lastInstallIncomplete = true;
+    qWarning().noquote() << "上次更新未完成：安装回执版本" << installed
+                         << "与当前运行版本" << currentVersion()
+                         << "不符（安装器曾被占用文件打断），建议在设置面板重新检查更新";
+}
+
+int UpdateManager::terminateHostForUpdate()
+{
+    // 宿主 NeonBoardHost.exe 攥着安装目录里的自身 exe 与全部 Qt DLL，且其 checkIdle
+    // 看门狗会把被关掉的界面进程复活，Inno 的 CloseApplications（Restart Manager）
+    // 因此关不净：静默模式整单悄悄失败、交互模式逐文件 DeleteFile code 5，留下
+    // 新旧混装树（2026-11-04 真机实测，哈希取证）。增量路径的自更新脚本本就
+    // taskkill 宿主，这里给全量路径补齐同一语义。
+    QProcess taskkill;
+    taskkill.setProgram(QStringLiteral("taskkill"));
+    taskkill.setArguments({QStringLiteral("/F"), QStringLiteral("/IM"),
+                           QStringLiteral("NeonBoardHost.exe")});
+#ifdef Q_OS_WINDOWS
+    taskkill.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) {
+        args->flags |= CREATE_NO_WINDOW;
+    });
+#endif
+    taskkill.start();
+    if (!taskkill.waitForFinished(5000)) {
+        taskkill.kill();
+        qWarning() << "UPDATE host-kill timeout";
+        return -1;
+    }
+    qInfo().noquote() << "UPDATE host-kill rc=" << taskkill.exitCode();
+    return taskkill.exitCode();
+}
+
 void UpdateManager::installWithSetup(const QString &file)
 {
+    // 先释放安装目录占用再拉起安装包；顺序反了安装包就会撞在被占文件上
+    terminateHostForUpdate();
     // Inno Setup 的静默参数：不弹窗、不重启、装完由 [Run] 段自己拉起宿主。
     // PrivilegesRequired=lowest，装到 %LOCALAPPDATA%，不需要管理员。
+    // 注意不带 /CLOSEAPPLICATIONS：命令行开关会覆盖 iss 的 CloseApplications=no，
+    // 把关不净的 Restart Manager 路径重新打开（占用清理由 terminateHostForUpdate
+    // 与 iss 的 PrepareToInstall 负责）。
     const QStringList args{QStringLiteral("/VERYSILENT"),
                            QStringLiteral("/NORESTART"),
-                           QStringLiteral("/SUPPRESSMSGBOXES"),
-                           QStringLiteral("/CLOSEAPPLICATIONS")};
+                           QStringLiteral("/SUPPRESSMSGBOXES")};
     setStatusText(QStringLiteral("正在安装更新…"));
     const bool started = QProcess::startDetached(file, args);
     if (!started) {
+        qWarning().noquote() << "UPDATE installer launch failed" << file;
         setStatusText(QStringLiteral("启动安装程序失败"));
         setState(QStringLiteral("error"));
         emit errorOccurred(m_statusText);
         return;
     }
+    qInfo().noquote() << "UPDATE installer launched" << file;
     emit installLaunched();
 }
 

@@ -92,7 +92,7 @@ portable-sha256: <64 位十六进制>
 
 | 形态 | 判定 | 落地 |
 | --- | --- | --- |
-| `installed` | HKCU / HKLM 卸载项存在 | 下载 Setup → 校验 → `/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /CLOSEAPPLICATIONS` 静默升级，装完由安装包的 `[Run]` 段拉起 |
+| `installed` | HKCU / HKLM 卸载项存在 | 下载 Setup → 校验 → **先 `taskkill` 托盘宿主** → `/VERYSILENT /NORESTART /SUPPRESSMSGBOXES` 静默升级，装完由安装包的 `[Run]` 段拉起 |
 | `portable` | 卸载项不存在 | 下载 zip → 校验 → 解压到临时目录 → 生成自更新脚本 → **主程序退出后**覆盖文件 → 重新拉起 |
 
 便携版的两条硬约束：
@@ -103,6 +103,45 @@ portable-sha256: <64 位十六进制>
    中文注释或中文路径在 GBK 机器上会直接语法错误。
 
 清单里没有对应形态的产物时，客户端只提示「暂未提供当前安装方式的更新包」，不会装错包。
+
+### 全量更新前必须退宿主（R5-09）
+
+`installed` 形态的静默升级曾经**整单悄悄失败**，2026-11-04 真机实测取证如下：
+
+- 界面进程发起更新后自己退出，但 `NeonBoardHost.exe` 还活着 —— 它攥着安装目录里的
+  **自身 exe 与全部 Qt DLL**，且 `checkIdle` 看门狗会把被关掉的界面进程复活
+  （`src/host/HostMain.cpp:100-103`）。
+- Inno 的 `CloseApplications`（Restart Manager）因此永远关不净：`/VERYSILENT` 下整单静默放弃，
+  交互模式下逐文件弹 `DeleteFile failed; code 5`，「忽略」一次不够（每个被占文件都要点一遍）。
+- 结果是**新旧混装树**：`NeonBoard.exe` 已是 0.1.4、`NeonBoardHost.exe` 仍是 0.1.3、
+  Qt DLL 一个没换（按 SHA-256 逐文件比对确认）。增量路径没有这个毛病 ——
+  它的自更新脚本本来就 `taskkill` 宿主（`UpdateManager.cpp` 的 `buildDeltaUpdateScript`）。
+
+三处收口，缺一不可：
+
+| 位置 | 动作 |
+| --- | --- |
+| `UpdateManager::installWithSetup` | 拉起安装器**之前**调 `terminateHostForUpdate()`（`taskkill /F /IM NeonBoardHost.exe` + `CREATE_NO_WINDOW`）；宿主缺席时静默返回，不阻断安装 |
+| 安装器命令行 | **不再带 `/CLOSEAPPLICATIONS`** —— 命令行开关会覆盖 iss 里的设置，把已关掉的 Restart Manager 路径重新打开 |
+| `installer/neonboard.iss` | `CloseApplications=no`；`[Code] PrepareToInstall` 再 `taskkill` 一次宿主与界面进程作兜底（用户手动双击安装包、或从别的进程触发时，客户端那一刀不会执行） |
+
+### 安装回执：判出「上次没装完」
+
+安装器在 `CurStepChanged(ssPostInstall)` 写 `{app}\install-receipt.json`：
+
+```json
+{"version": "0.1.5", "writtenAt": "2026-11-04 22:45:59", "commit": "8e52812…", "source": "inno"}
+```
+
+`commit` 取自同目录 `BUILD-INFO.txt`（发布闸门第 5 条产出），因此回执既能判版本、也能溯源到具体构建。
+
+`UpdateManager` 构造时读回执（`receiptVersionMismatch`）：
+
+- 回执**缺失**（0.1.5 之前的安装目录）或**版本相符** → 放行，不打扰用户；
+- 回执版本与自身编译版本**不符** → `qWarning`「上次更新未完成…」，`lastInstallIncomplete()` 为真。
+
+这正是混装树的机器判据：文件替换被打断时，回执要么没写、要么停在目标版本，
+而运行中的 exe 还是旧版 —— 两者一比就露出来，不用等用户发现界面行为怪异。
 
 ### 增量更新（R5-06）
 
@@ -210,8 +249,13 @@ pwsh -File scripts/test-delta.ps1
 四者都属于 `utilityMode`：应用正在运行时也能执行，不会撞单实例锁。
 本地路径（存在的 `update.json`）可直接作为源，用于离线验证。
 
+网络代理：`UpdateManager` 构造时开 `QNetworkProxyFactory::setUseSystemConfiguration(true)`，
+即**跟随系统代理设置**（此前整个 `src/` 里没有任何代理支持，系统代理开着的机器上
+直连 GitHub 会被 RST，日志只留一条 `QIODevice::read (QNetworkReplyHttpImpl): device not open`，
+看着像下载器坏了）。没有单独的代理配置项，也不读环境变量代理。
+
 `--update-apply` 的退出码：`0` 已把安装器拉起来（安装本身由 Inno Setup 的
-`/VERYSILENT /CLOSEAPPLICATIONS` 完成，进程随即退出），`0` + `OK uptodate` 表示本来就最新，
+`/VERYSILENT /NORESTART /SUPPRESSMSGBOXES` 完成，进程随即退出），`0` + `OK uptodate` 表示本来就最新，
 `2` 表示检查失败 / 下载校验失败 / 10 分钟超时。它只负责「调用同一条安装路径」，不改任何安装语义。
 
 ## 6. 排障
@@ -229,6 +273,21 @@ pwsh -File scripts/test-delta.ps1
   `--update-source <本地路径>` 换传输路径验证一遍，多半是本机代理/证书链的问题
   （实测 GitHub 资产地址在开启代理时可能连上即静默，而 API 与清单地址正常）。
 - 静默安装「跑完没效果」：安装器是 detached 启动的，它结束后才替换文件。若此时仍有
-  残留的 `NeonBoardHost.exe` 占着安装目录，Inno 的 `CloseApplications` 关不掉它，
-  `/SUPPRESSMSGBOXES` 又会把「文件被占用」的询问压掉，表现为安装静默放弃。
-  排障时先确认没有残留进程，再看注册表 `DisplayVersion` 是否变化。
+  残留的 `NeonBoardHost.exe` 占着安装目录，Inno 关不掉它，`/SUPPRESSMSGBOXES` 又会把
+  「文件被占用」的询问压掉，表现为安装静默放弃。R5-09 起客户端会先杀宿主、iss 里也有
+  `PrepareToInstall` 兜底；排障时先看应用日志有没有 `UPDATE host-kill rc=`，
+  再看注册表 `DisplayVersion` 与 `{app}\install-receipt.json` 是否都变成了目标版本。
+- **2026-11-04 真机实测记录（R5-08 ⑤ / R5-09 的证据来源）**：维护者机器上实装已发布的
+  `Setup-0.1.3.exe`（SHA-256 `45a5cfa6…821cb`，55,807,822 B），再从 0.1.3 界面触发
+  「立即更新」升到 0.1.4：
+  1. 下载到 100% 后界面自动关闭，重新打开**版本仍是 0.1.3** —— 静默安装整单失败，
+     应用日志里只有 `Update: version 0.1.4 kind installed`，没有任何失败记录；
+  2. 直接双击 `Setup-0.1.4.exe`（SHA-256 `4c8d5b39…33ef`，53,788,233 B）→ 逐文件
+     `DeleteFile failed; code 5`，「忽略」要点很多次（每个被占文件一次）；
+  3. 事后按发布增量包的 `old` 哈希逐文件校验安装树：1137 个未改动文件**全部匹配**、
+     0 个哈希不符，只有 `NeonBoard.exe` 尺寸对不上（已是 0.1.4 的 4,993,536 B），
+     `NeonBoardHost.exe` 与 Qt DLL 仍是 0.1.3 的原字节 —— 混装树坐实，根因是宿主占用；
+  4. 同期发现客户端**完全不支持代理**：本机系统代理为 `127.0.0.1:7078` 时直连 GitHub
+     被 RST，日志 `QIODevice::read (QNetworkReplyHttpImpl): device not open`。
+  另：已发布的 0.1.3 **不含增量客户端**（首个具备增量能力的构建是 0.1.4），
+  所以 0.1.3 → 0.1.4 只能走全量；增量的受益区间从 0.1.4 → 0.1.5 起算。

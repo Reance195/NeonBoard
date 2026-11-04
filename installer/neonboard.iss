@@ -26,7 +26,11 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
-CloseApplications=yes
+; 2026-11-04 真机实测：Restart Manager 关不掉带看门狗的宿主 NeonBoardHost.exe
+; （界面被关后又被宿主的 checkIdle 复活），静默模式整单悄悄失败、交互模式逐文件
+; DeleteFile code 5，留下新旧混装树。占用清理改由 PrepareToInstall 的 taskkill
+; 负责（见 [Code]），关不掉就响亮地中止，不留半装。
+CloseApplications=no
 RestartApplications=no
 
 [Languages]
@@ -55,3 +59,54 @@ Filename: "{app}\{#MyAppHostName}"; Parameters: "--open"; Description: "Launch N
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
+
+[Code]
+{ 2026-11-04 真机实测：带看门狗的宿主会让 Restart Manager 永远关不净，
+  占用清理只能自己动手。客户端拉起安装包前已杀过一次宿主，这里兜底再杀，
+  ewWaitUntilTerminated 保证返回时进程已死、文件锁已释放。 }
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  R: Integer;
+begin
+  Result := '';
+  NeedsRestart := False;
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM NeonBoardHost.exe', '',
+       SW_HIDE, ewWaitUntilTerminated, R);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM NeonBoard.exe', '',
+       SW_HIDE, ewWaitUntilTerminated, R);
+end;
+
+{ 安装回执：启动时读它，版本与自身编译版本不符即报「上次更新未完成」。
+  没有这份物证，安装器静默失败与成功在日志里长得一模一样。 }
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Info: String;
+  Commit: String;
+  P: Integer;
+  Q: Integer;
+begin
+  if CurStep <> ssPostInstall then
+    Exit;
+  Commit := 'unknown';
+  if LoadStringFromFile(ExpandConstant('{app}\BUILD-INFO.txt'), Info) then begin
+    P := Pos('commit', Info);
+    if P > 0 then begin
+      Q := Pos(':', Copy(Info, P, Length(Info)));
+      if Q > 0 then begin
+        Commit := Trim(Copy(Info, P + Q, 80));
+        Q := Pos(#13, Commit);
+        if Q > 0 then
+          Commit := Copy(Commit, 1, Q - 1);
+        Q := Pos(#10, Commit);
+        if Q > 0 then
+          Commit := Copy(Commit, 1, Q - 1);
+        Commit := Trim(Commit);
+      end;
+    end;
+  end;
+  SaveStringToFile(ExpandConstant('{app}\install-receipt.json'),
+    '{"version": "{#MyAppVersion}"' +
+    ', "writtenAt": "' + GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0) + '"' +
+    ', "commit": "' + Commit + '"' +
+    ', "source": "inno"}', False);
+end;

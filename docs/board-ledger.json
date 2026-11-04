@@ -411,15 +411,20 @@
             ],
             "depends": [],
             "id": "2e1c06fe-d44b-40ce-9ca8-b44363e86328",
-            "note": "起因（2026-10-30，DX-13 实施后复查）：看板回写职责已从 ci.yml 迁到\n`.github/workflows/board.yml`，ci.yml 里的「自动回写看板状态」与 PR-only 的\n「看板状态一致性校验」两步都被移除，board.yml 本身不装仓库钩子、用普通\n`git commit` 即可 —— **当前全仓库实际零 `--no-verify` 豁免**。但条文档案仍指向旧实现：\n\n1. AGENTS.md §11.2 第 7 条（约 L714-722）：仍写「全仓库只允许 ci.yml『自动回写看板状态』\n   这一步用 `git commit --no-verify`」，该步骤已不存在；\n2. AGENTS.md §11.2 第 8 条（约 L728-730）：「ci.yml 已按先变基→再派生→提交→推送的循环实现」\n   → 应改为 board.yml，并补上现在的两级写者关系（本地 git-done 的 Sync-BoardSnapshot 为\n   第一写者、board.yml 为确定性兜底）与撞车时的处置；\n3. AGENTS.md L480（§7.6 卫生检查说明）同样引用「§11.2 第 7 条」的旧豁免面；\n4. scripts/check_script_hygiene.py 规则 B（L29-30）：\n   `NO_VERIFY_ALLOW = {\".github/workflows/ci.yml\"}` —— 白名单指向一个已不含该命令的文件，\n   等于豁免面与实现脱钩；\n5. docs/board-sync.md（L42 / L68）与 docs/iteration-roadmap.md（L304）：仍写\n   「合并到 main → CI 跑 `--write` 并自动提交」，未反映 board.yml 与本地 git-done 两级链路。\n\n这条是 DX-13 自身暴露的元问题：实现改了、条文没跟着改，下一次照着文档做事就会踩空。\n§11.2 第 7 条里「给 CI 装闸门必须同时声明豁免面」的教训本身仍然成立，要保留。\n\n边界：只同步文档与卫生检查规则，不改 board.yml / ci.yml 的实际行为，不改 pre-push 规则 4。\n\n**2026-11-04 复核（实施前）：上述前提已被 R14-01（11-03）再次推翻。** board.yml 现在\n同样不回写 —— `permissions` 降为 `contents: read`，文件内没有任何 `git commit` / `git push`，\n写权整体收归 git-done。「两级写者」「board.yml 兜底 9~13 秒」都不再成立。据此扩 scope\n三个文件（`scripts/git-done.ps1` 的过期警告语、`.github/workflows/ci.yml` 的 `--no-verify`\n注释、`docs/pitfalls.md` §1.11 的失效事故段），并把验收 2/3/5 从「两级写者」改为\n「单写者 + CI 只校验」。教训照旧成立且更锋利了：**实现改了条文就得跟着改，而且会改两遍** ——\nR14-01 把「迁到 board.yml」又推翻成「干脆不回写」，同一段条文因此过期过两次。\n\n状态：进行中",
+            "note": "起因（2026-10-30，DX-13 实施后复查）：看板回写职责已从 ci.yml 迁到\n`.github/workflows/board.yml`，ci.yml 里的「自动回写看板状态」与 PR-only 的\n「看板状态一致性校验」两步都被移除，board.yml 本身不装仓库钩子、用普通\n`git commit` 即可 —— **当前全仓库实际零 `--no-verify` 豁免**。但条文档案仍指向旧实现：\n\n1. AGENTS.md §11.2 第 7 条（约 L714-722）：仍写「全仓库只允许 ci.yml『自动回写看板状态』\n   这一步用 `git commit --no-verify`」，该步骤已不存在；\n2. AGENTS.md §11.2 第 8 条（约 L728-730）：「ci.yml 已按先变基→再派生→提交→推送的循环实现」\n   → 应改为 board.yml，并补上现在的两级写者关系（本地 git-done 的 Sync-BoardSnapshot 为\n   第一写者、board.yml 为确定性兜底）与撞车时的处置；\n3. AGENTS.md L480（§7.6 卫生检查说明）同样引用「§11.2 第 7 条」的旧豁免面；\n4. scripts/check_script_hygiene.py 规则 B（L29-30）：\n   `NO_VERIFY_ALLOW = {\".github/workflows/ci.yml\"}` —— 白名单指向一个已不含该命令的文件，\n   等于豁免面与实现脱钩；\n5. docs/board-sync.md（L42 / L68）与 docs/iteration-roadmap.md（L304）：仍写\n   「合并到 main → CI 跑 `--write` 并自动提交」，未反映 board.yml 与本地 git-done 两级链路。\n\n这条是 DX-13 自身暴露的元问题：实现改了、条文没跟着改，下一次照着文档做事就会踩空。\n§11.2 第 7 条里「给 CI 装闸门必须同时声明豁免面」的教训本身仍然成立，要保留。\n\n边界：只同步文档与卫生检查规则，不改 board.yml / ci.yml 的实际行为，不改 pre-push 规则 4。\n\n**2026-11-04 复核（实施前）：上述前提已被 R14-01（11-03）再次推翻。** board.yml 现在\n同样不回写 —— `permissions` 降为 `contents: read`，文件内没有任何 `git commit` / `git push`，\n写权整体收归 git-done。「两级写者」「board.yml 兜底 9~13 秒」都不再成立。据此扩 scope\n三个文件（`scripts/git-done.ps1` 的过期警告语、`.github/workflows/ci.yml` 的 `--no-verify`\n注释、`docs/pitfalls.md` §1.11 的失效事故段），并把验收 2/3/5 从「两级写者」改为\n「单写者 + CI 只校验」。教训照旧成立且更锋利了：**实现改了条文就得跟着改，而且会改两遍** ——\nR14-01 把「迁到 board.yml」又推翻成「干脆不回写」，同一段条文因此过期过两次。\n\n**2026-11-04 第二轮扩 scope（穷尽检索后）**：按「CI + 回写/写回/独占/提交快照」全仓扫描，\n除上面三处外还命中 9 处，波及 5 个新文件：`docs/git-workflow.md`（L256）、`docs/product-design.md`\n（L261）、`docs/announcement.md`（L33/54）、`docs/module-split-plan.md`（L716/736，历史方案文档，\n标注为「已解决」而不再改写原文）、`scripts/derive_board_status.py`（L7 注释本身写着「CI 独占维护」，\n是这堆过期的源头）。同时发现一处**文档自相矛盾**：§11.1 说「写者唯一 = 看板应用」、§11.2 第 1 条\n也这么说，而真实现是「应用写回 + git-done 校正」两条本地路径 —— 统一改为「两条受控路径，CI 不在其中」。\n\n教训（值得单独记）：**「同步文档」这类卡估 scope 永远偏低** —— 过期点是散落的，不穷尽检索就\n不知道有多少，而每轮检索都会因为改动了措辞而发现新的一批。办法是先用最宽的模式扫一遍全集\n（不是只扫「已知的那几处」），再动手。\n\n状态：进行中",
             "scope": [
                 "AGENTS.md",
-                "scripts/check_script_hygiene.py",
-                "docs/board-sync.md",
-                "docs/iteration-roadmap.md",
-                "scripts/git-done.ps1",
                 ".github/workflows/ci.yml",
-                "docs/pitfalls.md"
+                "docs/announcement.md",
+                "docs/board-sync.md",
+                "docs/git-workflow.md",
+                "docs/iteration-roadmap.md",
+                "docs/module-split-plan.md",
+                "docs/pitfalls.md",
+                "docs/product-design.md",
+                "scripts/check_script_hygiene.py",
+                "scripts/derive_board_status.py",
+                "scripts/git-done.ps1"
             ],
             "stage": "DX",
             "title": "文档与闸门随实现同步：回写整体取消（R14-01）后的过期条文"

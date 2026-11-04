@@ -127,6 +127,24 @@
             "updatedAt": 1793819851
         },
         {
+            "code": "DX-40",
+            "completedAt": 0,
+            "createdAt": 1793820988,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-40",
+            "note": "起因（R16-05 实测披露）：agent-init -InPlace 领用提交（chore(claim)）用裸 git commit，把当时工作区未提交的实现改动一并卷进流程提交（032efd8 卷走 7 个文件）；而 task_gate.py 的 cmd_message / cmd_push 对 PROCESS_SCOPES（claim / roadmap）无条件放行，不校验是否触及代码路径——代码搭流程提交便车，双闸门均不可见。修复两层：①agent-init 领用前要求工作树干净（fail-closed，exit 3，列脏文件；.agent-env.ps1 / .sandbox 均在 gitignore 不受影响）；②闸门豁免收口为「只豁免非代码路径」，流程提交触及代码即按普通代码提交校验短号与占位。幂等门（已领跳过）不受影响。另记独立问题：git-done 从 worktree 运行时锚点快进落到调用方检出，不在本卡范围。",
+            "orderKey": 16384,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "流程提交豁免收口：agent-init 拒绝脏树领用，闸门对卷入代码的流程提交失效",
+            "updatedAt": 1793820988
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3481,6 +3499,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T03:25:57",
+    "updated": "2026-11-05T03:36:28",
     "version": 3
 }

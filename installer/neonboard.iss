@@ -122,8 +122,10 @@ begin
   if CurStep <> ssPostInstall then
     Exit;
   Commit := 'unknown';
-  { BUILD-INFO.txt 由发布闸门第 5 条产出，行形如「commit    : <sha>」；
-    文件缺席（CI 目前不把它打进 {app}）就留 unknown，回执照样能判版本。 }
+  { BUILD-INFO.txt 由发布闸门第 5 条产出，行形如「commit    : <sha>」；文件缺席
+    （CI 目前不把它打进安装目录）就留 unknown，回执照样能判版本。
+    注意：Pascal 注释到第一个右花括号就结束，注释里千万别写 Inno 常量（形如
+    左花括号 app 右花括号），否则后半句会被当代码解析 —— v0.1.5 第二次发布栽在这里。 }
   if LoadStringsFromFile(ExpandConstant('{app}\BUILD-INFO.txt'), Lines) then begin
     for I := 0 to GetArrayLength(Lines) - 1 do begin
       Line := Trim(Lines[I]);

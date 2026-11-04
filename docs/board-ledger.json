@@ -33,6 +33,7 @@
         "DX-31": "done",
         "DX-32": "done",
         "DX-33": "done",
+        "DX-35": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -835,6 +836,24 @@
             ],
             "stage": "DX",
             "title": "领了卡没写 =done，收尾一声不响就放行"
+        },
+        "DX-35": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过（只动脚本与文档，走轻档）",
+                "agent-init 的幂等门除「分支历史里有领用提交」外，再查一次服务端 refs/claims/<短号>：占位不存在就重新登记并推占位，不再静默跳过（2026-11-05 现场：R5-10 合并后占位被 git-done 释放，从 main 新开的分支历史里仍有那条领用提交，agent-init 判「已在本分支领用」直接跳过，只能直调 claim-card.py 绕过唯一入口）",
+                "占位仍在时重复跑 agent-init -InPlace -Card <同一张卡> 不产生第二条领用提交（DX-03 的原意要保住）",
+                "docs/pitfalls.md 补一条现象 / 根因 / 解法"
+            ],
+            "depends": [],
+            "id": "DX-35",
+            "note": "宪章 §7.2.1 写「认领唯一入口是 agent-init.ps1 -Card」，但入口自己在「卡已合并、占位已释放、要重新领同一张卡」这种情形下不认账 —— 唯一入口失效时人只剩绕过它一条路，这比没有入口更糟。判定要看服务端事实（ref 在不在），不能只看本地历史（提交在不在）。",
+            "scope": [
+                "scripts/agent-init.ps1",
+                "docs/pitfalls.md",
+                "docs/git-workflow.md"
+            ],
+            "stage": "DX",
+            "title": "DX 领用幂等门只看分支历史：占位被合并释放后，同一张卡再也领不回来"
         },
         "M01": {
             "acceptance": [
@@ -2562,7 +2581,8 @@
             "scope": [
                 "CMakeLists.txt",
                 "docs/auto-update.md",
-                "docs/iteration-roadmap.md"
+                "docs/iteration-roadmap.md",
+                "installer/neonboard.iss"
             ],
             "stage": "R5",
             "title": "R5 发布 v0.1.5：版本号递增、tag 触发发布，让宿主占用修复与残留清理到用户手上"

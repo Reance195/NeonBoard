@@ -102,8 +102,35 @@ if (Test-Path -LiteralPath $controlsDir) {
     }
 }
 
+# ---- 插件（R14-02）：官方插件与示例插件是两批独立内容，都要进包 ----
+# 以前这里只拷 plugins-samples —— 官方 6 个（agent-bridge / agent-claude / agent-codex /
+# agent-cursor / agent-opencode / plan-hook）一个都没进包。后果不是「少几个可选插件」：
+# agent-bridge 缺席意味着「agent 事件自动建卡」整条链路在安装版上从未工作过。
+# 这类错误不会让构建变红，只会让功能静默少一半，所以下面紧跟一道对齐自检。
 $plugins = Join-Path $dist 'plugins'
 New-Item -ItemType Directory -Path $plugins -Force | Out-Null
+Copy-Item -Path (Join-Path $root 'plugins\*') -Destination $plugins -Recurse -Force
 Copy-Item -Path (Join-Path $root 'plugins-samples\*') -Destination $plugins -Recurse -Force
+
+# 对齐自检：仓库 plugins/ 下每个插件目录都必须在 dist 里、且有 plugin.json。
+# 以磁盘为准、不写死清单 —— 以后新增插件不用改这里，也不会出现「忘了同步清单」。
+$expectedPlugins = @(Get-ChildItem -LiteralPath (Join-Path $root 'plugins') -Directory |
+    Select-Object -ExpandProperty Name)
+$missingPlugins = @()
+foreach ($name in $expectedPlugins) {
+    $target = Join-Path $plugins $name
+    if (-not (Test-Path -LiteralPath $target)) {
+        $missingPlugins += "$name（目录缺失）"
+        continue
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $target 'plugin.json'))) {
+        $missingPlugins += "$name（缺 plugin.json）"
+    }
+}
+if ($missingPlugins.Count -gt 0) {
+    throw ("打包产物缺官方插件：" + ($missingPlugins -join '、') +
+        "。仓库 plugins/ 与 dist/plugins 必须对齐（见 docs/pitfalls.md §3.14）。")
+}
+Write-Host ("Official plugins bundled ({0}): {1}" -f $expectedPlugins.Count, ($expectedPlugins -join ' / '))
 
 Write-Host "Portable build ready: $dist"

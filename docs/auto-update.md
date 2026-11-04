@@ -106,7 +106,7 @@ portable-sha256: <64 位十六进制>
 
 ### 增量更新（R5-06）
 
-全量包 27–41 MB，增量包通常只有几 MB。清单里给了 `delta` 条目且当前版本恰好等于
+便携全量包 69–71 MB（v0.1.3 实测 70.6 MB），增量包通常只有几 MB。清单里给了 `delta` 条目且当前版本恰好等于
 `fromVersion` 时，「立即更新」优先走增量；**任一步失败自动回退全量**，用户无感。
 
 增量包（`delta.zip`）布局：
@@ -149,17 +149,24 @@ patches/<相对路径>.patch 修改的二进制文件（exe/dll）的 bsdiff pat
 漏改 `main.cpp` 的后果是程序永远自报旧版本 → 更新检查判定「已是最新」→ 用户再也收不到更新，
 而且现象极难复现，因此收敛到单点 + 构建期闸门。
 
-打 `v*` 标签触发 `.github/workflows/release.yml`，在原有安装包之外新增：
+打 `v*` 标签触发 `.github/workflows/release.yml`，一条流水线依次产出：
 
 1. 便携目录打 zip：`NeonBoard-<版本>-portable.zip`
-2. 增量包（可选）：`release.ps1 -DeltaFromDir <上一版便携目录> -DeltaFromVersion <上一版本号>`，
-   产出 `dist/delta/delta.zip` + `delta-manifest-entry.json`；把条目并入 `update.json`
-   的 `artifacts` 即可。上一版目录可用上一版的 portable zip 解压得到
-2. 生成清单：`scripts/build-update-manifest.ps1`（算 SHA-256 与体积）
-3. 把两行 `*-sha256:` 写进 Release 正文（`dist/RELEASE-NOTES.md` → `body_path`）——
+2. 增量包（自动，首次发布没有上一版时整步跳过）：流水线查 GitHub Releases API 取
+   **上一个非 draft / 非 prerelease** 的 release，下载它自带的
+   `NeonBoard-<prev>-portable.zip` 解压成 `dist/NeonBoard-prev`，调
+   `scripts/build-delta.ps1` 与本次便携目录做 diff，产出 `dist/delta.zip`。
+   上一版包只存在于 Release 资产上 —— fresh runner 的 `dist/` 里从来没有它，
+   必须回下载，不能在工作区里找
+3. 生成清单：`scripts/build-update-manifest.ps1`（算 SHA-256 与体积；有 `dist/delta.zip`
+   时带 `-DeltaZip` / `-DeltaFromVersion`，把 `kind=delta` 条目写进 `artifacts`）。
+   清单 schema 只有这一个实现，workflow 里不再手写 JSON
+4. 把每个产物一行的 `*-sha256:` 写进 Release 正文（`dist/RELEASE-NOTES.md` → `body_path`）——
    GitHub API 回退路径唯一的校验值来源
-4. 随 Release 上传 zip 与 `update.json`
-5. **把 `update.json` 提交回仓库** —— 客户端默认读 raw，只挂在 Release 资产上客户端找不到
+5. 上传：`delta.zip` 必须与 setup / portable 一起挂到 Release 上，否则清单里的 `url`
+   指过去就是 404。首次发布没有 `delta.zip`，该步单独用 `if` 跳过，
+   不让 `if-no-files-found: error` 把第一次出包红掉
+6. **把 `update.json` 提交回仓库** —— 客户端默认读 raw，只挂在 Release 资产上客户端找不到
 
 本机手工出清单：
 
@@ -171,6 +178,16 @@ pwsh -File scripts/build-update-manifest.ps1 -Version 0.2.0 `
 ```
 
 `-DownloadBase` 留空则 `url` 只写文件名，适合自建源或本地测试。
+
+发布前想把整条增量链路先串一遍（不落 `dist/`，产物全在 `.sandbox/delta-test/`）：
+
+```powershell
+pwsh -File scripts/test-delta.ps1
+```
+
+它用当前构建目录当「新版」，合成一个少文件 + 改文件的「旧版」目录，依次跑
+`build-delta.ps1` 与 `build-update-manifest.ps1`，断言清单里确有 `kind=delta`、
+`fromVersion` 与 zip 的 SHA-256 对得上。
 
 ## 5. 配置
 

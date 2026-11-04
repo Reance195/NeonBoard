@@ -1927,7 +1927,7 @@
             ],
             "depends": [],
             "id": "R15-01",
-            "note": "起因：neonboard-market 索引已上架 8 个插件，category/dependencies 是手写进索引的；publish-market.ps1 重建条目只取固定字段，重新发布必丢。把声明收进 plugin.json，发布脚本透传，市场索引由 manifest 单源生成。",
+            "note": "已完成 2 / 待做 0 —— manifest 单源 + 发布脚本透传（含单元素依赖数组摊平修复）已交付；重打包验收与 verify.ps1 -ScriptOnly 全过；市场索引已按 manifest 单源重发布并推送",
             "scope": [
                 "plugins/*/plugin.json",
                 "plugins-samples/*/plugin.json",
@@ -1947,7 +1947,7 @@
                 "R15-01"
             ],
             "id": "R15-02",
-            "note": "起因：市场索引携带 category/dependencies，但 PluginMarket::parseIndex 丢弃未知字段、插件库面板不展示。让类别/依赖贯通 PluginMarket → PluginLibrary.entries → PluginLibraryPanel，市场条目与本地 manifest 一致展示。",
+            "note": "已完成 3 / 待做 0 —— parseIndex/PluginLoader/PluginLibrary 贯通与插件库徽章、依赖行已交付；verify.ps1 全过（ctest 35/35、selftest/smoke 退出码 0）；沙箱 GUI 验收零 QML 错误、插件库重建 8 条市场条目",
             "scope": [
                 "src/plugin/**",
                 "qml/components/PluginLibraryPanel.qml",
@@ -3215,6 +3215,19 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R15-01": {
+            "agent": "agent-zcode",
+            "branch": "feature/market-metadata",
+            "claimedAt": 1793808272,
+            "head": "3d0f183787a76b8dee413fcc463d7a7d49fcab51"
+        },
+        "R15-02": {
+            "agent": "agent-zcode",
+            "branch": "feature/market-metadata",
+            "claimedAt": 1793808307,
+            "head": "da29a48e4494b759c07d98906ea0311c34d56bb4"
+        }
+    },
     "version": 1
 }

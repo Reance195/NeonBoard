@@ -354,13 +354,15 @@ Rectangle {
 
                         delegate: Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 58
+                            // R15-02：行高随依赖说明行数伸缩（固定 58 会截断多行依赖）
+                            Layout.preferredHeight: entryBody.implicitHeight + 16
                             radius: 8
                             color: Theme.card
                             border.width: 1
                             border.color: Theme.border
 
                             ColumnLayout {
+                                id: entryBody
                                 anchors.fill: parent
                                 anchors.margins: 8
                                 spacing: 4
@@ -380,6 +382,25 @@ Rectangle {
                                         text: modelData.version || "0.0.0"
                                         color: Theme.muted
                                         font.pixelSize: 10
+                                    }
+
+                                    // 类别徽章（R15-02）：manifest / 市场索引的 category
+                                    Rectangle {
+                                        visible: (modelData.category || "").length > 0
+                                        width: categoryText.width + 10
+                                        height: 15
+                                        radius: 7
+                                        color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.14)
+                                        border.width: 1
+                                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.4)
+
+                                        Text {
+                                            id: categoryText
+                                            anchors.centerIn: parent
+                                            text: modelData.category || ""
+                                            color: Theme.cyan
+                                            font.pixelSize: 9
+                                        }
                                     }
 
                                     Rectangle {
@@ -520,6 +541,16 @@ Rectangle {
                                         elide: Text.ElideRight
                                         Layout.maximumWidth: 200
                                     }
+                                }
+
+                                // 依赖说明（R15-02）：逐条列出运行前提，无内容时不占行
+                                Text {
+                                    visible: modelData.dependencies && modelData.dependencies.length > 0
+                                    text: "依赖：" + (modelData.dependencies || []).join("；")
+                                    color: Theme.muted
+                                    font.pixelSize: 9
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
                                 }
                             }
                         }

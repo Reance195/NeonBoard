@@ -140,15 +140,23 @@ $download = if ([string]::IsNullOrWhiteSpace($DownloadBase)) {
 }
 
 $entry = [ordered]@{
-    id          = $pluginId
-    name        = if ($manifest.PSObject.Properties.Name -contains "name") { [string]$manifest.name } else { $pluginId }
-    version     = if ($manifest.PSObject.Properties.Name -contains "version") { [string]$manifest.version } else { "0.0.0" }
-    description = if ($manifest.PSObject.Properties.Name -contains "description") { [string]$manifest.description } else { "" }
-    author      = if ($manifest.PSObject.Properties.Name -contains "author") { [string]$manifest.author } else { "" }
-    homepage    = if ($manifest.PSObject.Properties.Name -contains "homepage") { [string]$manifest.homepage } else { "" }
-    download    = $download
-    sha256      = $hash
-    size        = $packageInfo.Length
+    id           = $pluginId
+    name         = if ($manifest.PSObject.Properties.Name -contains "name") { [string]$manifest.name } else { $pluginId }
+    version      = if ($manifest.PSObject.Properties.Name -contains "version") { [string]$manifest.version } else { "0.0.0" }
+    category     = if ($manifest.PSObject.Properties.Name -contains "category") { [string]$manifest.category } else { "" }
+    description  = if ($manifest.PSObject.Properties.Name -contains "description") { [string]$manifest.description } else { "" }
+    # 注意 @(if ...) 包一层：if 语句体在哈希表字面量里按管道输出，
+    # 单元素数组会被枚举成标量（pwsh 实测），依赖说明会从数组摊平成字符串
+    dependencies = @(if ($manifest.PSObject.Properties.Name -contains "dependencies") {
+        @($manifest.dependencies | ForEach-Object { [string]$_ })
+    } else {
+        @()
+    })
+    author       = if ($manifest.PSObject.Properties.Name -contains "author") { [string]$manifest.author } else { "" }
+    homepage     = if ($manifest.PSObject.Properties.Name -contains "homepage") { [string]$manifest.homepage } else { "" }
+    download     = $download
+    sha256       = $hash
+    size         = $packageInfo.Length
 }
 
 # ---- 更新索引 ----

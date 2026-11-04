@@ -4,6 +4,12 @@
     "version": "1.0.0",
     "apiVersion": 2,
     "description": "声明 Cursor Agent 的出站执行 profile：卡片派活时以 cursor-agent -p --output-format stream-json 拉起，只读走 --plan。",
+    "category": "Agent 接入",
+    "dependencies": [
+        "PATH 中需可执行 cursor-agent（Cursor Agent CLI）",
+        "需在看板设置中开启「任务执行」（总开关默认关闭）",
+        "宿主需支持 apiVersion 2"
+    ],
     "main": "main.qml",
     "permissions": ["exec.agentProfiles"],
     "contributes": {

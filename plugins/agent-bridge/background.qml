@@ -24,7 +24,9 @@ QtObject {
         if (s === "in_progress") return "doing";
         if (s === "completed")  return "done";
         if (s === "todo" || s === "doing" || s === "done") return s;
-        return "todo";
+        // R16-02：未知状态不猜 —— 返回空串，调用方跳过状态变更。
+        // 此前回退 todo，上游协议将来新增状态值会把已完成卡打回待办。
+        return "";
     }
 
     function mapKey(agent, sessionId, todoId) {
@@ -118,8 +120,9 @@ QtObject {
         var actions = 0;
 
         if (task === null) {
-            // 映射不存在或卡片已被删除：重新建卡。恰好在 done 态到来时直接建在已办结列。
-            var newId = pluginHost.addTask(title, status);
+            // 映射不存在或卡片已被删除：重新建卡。恰好在已知 done 态到来时直接建在已办结列
+            //（未知状态按缺省 todo 落卡，与协议「缺省按 pending 处理」一致）。
+            var newId = pluginHost.addTask(title, status.length > 0 ? status : "todo");
             if (newId && newId.length > 0) {
                 // note 以协议为准（幂等：重复投递同 item 状态完全收敛）；
                 // 协议没带 note 才写归属说明。归属不再拼在 note 前端，保同步对账干净。
@@ -127,35 +130,49 @@ QtObject {
                         ? String(item.note)
                         : ("来自 agent " + agent
                             + (sessionId.length > 8 ? " · session " + sessionId.substring(0, 8) : ""));
-                pluginHost.updateTask(newId, { "tags": tagsOf(item), "note": note });
+                if (!pluginHost.updateTask(newId, { "tags": tagsOf(item), "note": note }))
+                    pluginHost.log("agent-bridge: 新建卡对账写失败 id=" + newId);
                 pluginHost.setMetaValue(key, newId);
                 actions += 1;
             }
             return actions;
         }
 
+        // R16-02：字段类对账合并为一次写库 —— title / note / tags 各自独立判定，
+        // 命中任一即并进同一次 updateTask（此前每字段各写一次，10 条批次最坏 40 次，
+        // 每次都触发模型信号与快照防抖链）。动作计数语义随之从「字段变更数」变为「写库动作数」。
+        var fields = null;
         if (task.title !== title) {
-            pluginHost.updateTask(task.id, { "title": title });
-            actions += 1;
+            fields = fields || {};
+            fields["title"] = title;
         }
         // note 全量对账：协议带 note 且与卡片当前不同才写。
         // 事件没带 note 时不覆盖 —— 保留人工备注。
         var incomingNote = (item.note !== undefined && item.note !== null) ? String(item.note) : "";
         if (incomingNote.length > 0 && String(task.note || "") !== incomingNote) {
-            pluginHost.updateTask(task.id, { "note": incomingNote });
-            actions += 1;
+            fields = fields || {};
+            fields["note"] = incomingNote;
         }
         // tags 全量对账：协议显式声明 tags 才覆盖，未声明时保留人工标签。
         if (declaredTags(item)) {
             var incomingTags = tagsOf(item);
             if (!tagsEqual(task.tags, incomingTags)) {
-                pluginHost.updateTask(task.id, { "tags": incomingTags });
-                actions += 1;
+                fields = fields || {};
+                fields["tags"] = incomingTags;
             }
         }
-        if (task.status !== status) {
-            pluginHost.moveTaskToEnd(task.id, status);
-            actions += 1;
+        if (fields !== null) {
+            if (!pluginHost.updateTask(task.id, fields))
+                pluginHost.log("agent-bridge: updateTask 失败 id=" + task.id);
+            else
+                actions += 1;
+        }
+        // 状态对账：仅当上游声明了已知状态且与当前不同才移动（未知状态不动，R16-02）
+        if (status.length > 0 && task.status !== status) {
+            if (!pluginHost.moveTaskToEnd(task.id, status))
+                pluginHost.log("agent-bridge: moveTaskToEnd 失败 id=" + task.id + " status=" + status);
+            else
+                actions += 1;
         }
         // 显式 taskId 命中后登记映射，后续同 todoId 事件走映射对账
         if (explicitId.length > 0 && pluginHost.metaValue(key, "") !== String(task.id))

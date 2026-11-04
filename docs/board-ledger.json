@@ -1506,13 +1506,13 @@
         "R14-02": {
             "acceptance": [
                 "打包后 dist/NeonBoard/plugins 含 agent-claude / agent-opencode / agent-cursor / agent-codex 与 agent-bridge / plan-hook（与仓库 plugins/ 对齐）",
-                "用 dist 产物（不设 NEONBOARD_SOURCE_DIR 指向仓库根）启动，--plugin-report 能列出全部官方插件且 source=plugin",
+                "用 dist 产物（不设 NEONBOARD_SOURCE_DIR 指向仓库根）启动，--plugin-report 能列出全部官方插件且 source=appdir（PluginLoader::sourceDirs 只产出 appdata / appdir / official / sample 四个值，不存在 plugin；安装目录下的插件报 appdir）",
                 "一条可执行检查（脚本或 CI 步骤）：打包插件清单与仓库 plugins/ 目录对齐，缺一个即失败",
                 "scripts/verify.ps1 全过"
             ],
             "depends": [],
             "id": "540eb31e-3a7f-4ef5-a14d-1eafb2b500e0",
-            "note": "现象（2026-10-30 发现）：dist/NeonBoard/plugins 下只有 surfaces、today 两个示例插件；CMakeLists.txt 没有 install 插件的规则，installer 只拷 dist\\NeonBoard\\*。\n\n结果是安装版用户看不到任何官方插件（agent-bridge / plan-hook / 四个 agent-*）。开发机上之所以能看见，全靠 PluginLoader::sourceDirs() 里的 NEONBOARD_SOURCE_DIR + /plugins 这条扫描路径 —— 它只在有源码的机器上成立。\n\n与 R14-01 是同一件事的两半：一半是装了也不授权，另一半是压根没装。",
+            "note": "现象（2026-10-30 发现）：dist/NeonBoard/plugins 下只有 surfaces、today 两个示例插件；CMakeLists.txt 没有 install 插件的规则，installer 只拷 dist\\NeonBoard\\*。\n\n结果是安装版用户看不到任何官方插件（agent-bridge / plan-hook / 四个 agent-*）。开发机上之所以能看见，全靠 PluginLoader::sourceDirs() 里的 NEONBOARD_SOURCE_DIR + /plugins 这条扫描路径 —— 它只在有源码的机器上成立。\n\n与 R14-01 是同一件事的两半：一半是装了也不授权，另一半是压根没装。\n\n勘误（2026-11-04）：验收第 2 条原写 source=plugin，但 PluginLoader::sourceDirs() 与 sources[] 只产出 appdata / appdir / official / sample 四个值，没有 plugin；dist 产物实测报 appdir（isOfficialPluginSource 认的正是 appdir / official）。已按实现订正，其余条款不变。",
             "scope": [
                 "CMakeLists.txt",
                 "installer/NeonBoard.iss",

@@ -388,14 +388,14 @@ feat(board): 支持列内精确插位 #R1-04=done
 | **R5** | 交付与运维 | 软件自动更新：清单 / 版本比较 / 下载校验 / 安装版静默升级 / 便携版自替换 / 发布侧清单生成；混合增量升级（R5-06 / R5-07） | 装了新版的用户不必手工下载；两种安装形态都能就地升级 | **7/7 完成**：UpdateManager（清单解析 / 语义化版本比较 / 缓存降级 / 下载校验）+ 安装形态判定（注册表 AppId）+ 安装版 `/VERYSILENT` + 便携版自更新脚本（纯 ASCII，主程序退出后覆盖并重启）+ 设置面板 / 命令面板 / 命令行三入口 + `scripts/build-update-manifest.ps1` 与 release.yml 产物上传回写；单测 9/9 通过、selftest OK、smoke 零 QML 报错 ✅；R5-02 逐源超时与校验值兜底 ✅、R5-03 v0.1.1 发布与版本号单源化 ✅、R5-04 候选源并行竞速（首个成功者胜出，`d99caf8`）✅、R5-05 快捷方式图标（Host 内嵌应用图标）✅、R5-06 混合增量升级（文件级 diff + bsdiff 二进制增量：客户端 DeltaUpdate / BsdiffWrapper / neonboard-delta-tool + `scripts/build-delta.ps1` + `release.ps1 -DeltaFromDir`）✅、R5-07 增量包接进 CI 发布链路（`release.yml` 查上一个 release → 下载它的 portable 资产 → build-delta 产 `dist/delta.zip` → delta 条目经 build-update-manifest 写进 `update.json` → 随 Release 上传，首次发布自动跳过）✅；待做：清单签名校验 ⬜ |
 | **R6** | 任务派发器 | 执行定义收尾、运行记录与任务锁、Agent Profile 与执行前确认、单次执行器（流式日志 / 超时 / 终止）、验收器与越界检查、结果回写与执行面板、Triage 只读分析、Loop 有限重试、（可选）台账单向导入 | 一张卡能一键执行并给出可验证结论；同卡不并发；执行完不自动 push、不自动改看板列；执行器总开关默认关闭 | **全部完成（9/9）**：R6-01 执行定义收尾 / R6-02 运行记录侧表与同卡锁 / R6-03 Agent Profile 与执行前确认 / R6-04 单次执行器 TaskRunner / R6-05 验收器与越界检查（AcceptanceRunner + ScopeMatcher）/ R6-06 执行结果回写与执行面板（latestRun/summaryOf + CLI --run-summary + 执行面板 + 卡面执行态徽章）/ R6-07 Triage 只读分析（TriageRunner，readonlyArgs + git status 前后一致双硬门）/ R6-08 Loop 失败摘要回灌与有限重试（maxAttempts 钳制 1..5、取消不重试、耗尽提示人工介入）/ R6-09 台账卡单向导入（LedgerImport，ADR-0001 只补空值 / 冲突只报告 / 幂等）均已以 `#R6-0x=done` 结项。ctest 20/20、--selftest / --smoke 退出码 0、CI 全绿；执行器总开关默认关，未开启时看板行为与引入前一致；程序不自动改看板列、不自动 push。详见 [r6-dispatcher-plan.md](archive/r6-dispatcher-plan.md)，ADR-0001 / 0002 已接受 ✅ |
 | **R7** | 派发器进阶（队列编排 + 多 Agent 角色链） | 执行队列（FIFO 排队 / 暂停 / 调序 / 跳过 / 并发 ≤2 / 夜间批量）、任务编排调度器（排队 + 背压替代 M1 的「忙则拒绝」）、角色链 workflow（M4：workflow 升级为角色步骤数组，每步一个角色 + 一份 handoff 交接物 + 独立验收，orchestrator 选 workflow / 决策失败分支 / 收口 summary；预设 fix / feature / hotfix / docs / review / delivery）、成本账（记录每 run 耗时，卡片可见累计成本） | 多卡可入队、并发受控不互相拖慢（背压 / 限流）、队列可暂停 / 恢复 / 跳过；角色链按序接力、每步交接物落盘且下一步读上一步产出、验收各自独立；夜间批量勾选 → 排队 → 次日看结果且 UI 给预计总时长；成本账每 run 记录耗时 | **全部完成（6/6）**：R7-01 执行队列与调度器（FIFO / 并发 ≤2 / 背压排队替代「忙则拒绝」/ 暂停·恢复·跳过）/ R7-02 队列视图与并发指示 UI / R7-03 角色链 workflow 引擎与 handoff 交接物 / R7-04 预设 workflow + orchestrator 选型与收口 / R7-05 夜间批量模式（多卡入队 + 预计总时长）/ R7-06 成本账（每 run 记耗时 + 卡片累计展示）均以 `#R7-0x=done` 结项；卡片拆分与波次见 [r7-dispatcher-plan.md](archive/r7-dispatcher-plan.md) ✅ |
-| **DX** | 开发体验 | 看板内置「项目全景」面板：里程碑（路线图 §9 表驱动）、链路（声明 + 证据实证）、骨架（真实目录扫描）、体检（宣称 vs 派生对账）；测试可启动性；领用/合并规则自洽性；阶段条数据驱动；会话隔离硬门；代登记可审计 | 打开面板即知里程碑/链路/骨架/漂移，不必查文档；仓库结构一改面板自动跟上，漏改则「断链」标红且 `tst_projectmap` 先红；一分支多卡不再靠绕；阶段条上不再有「看不见的卡」 | **完成**：DX-01 落地 ✅ —— 里程碑行序与主题全部取自 §9 表格（加一行即多一行）；卡片状态按 git `#短号=done` ∪ 台账 baseline 派生；链路 8 环节逐条实证 `docs/project-map.json` 的证据文件；骨架 7 组扫真实目录；派生走后台线程（0.3–0.9 s）不卡界面，文件改动 0.7 s 防抖重算。DX-02 落地 ✅ —— 测试进程自带 Qt bin 路径，没配 `PATH` 跑 `ctest` 不再弹硬错误框挂到超时。DX-03 落地 ✅ —— 一分支多卡合法化（闸门改逐短号持证：多领合法、缺证照拒；agent-init 补领幂等；方向倒置只告警；check_claim_refs.py --selftest 7 例接入 CI）。DX-04 落地 ✅ —— 阶段集合与顺序改取 §9 行序（`ProjectMap::stageOrder()`），`stageOf` 放宽到非 R 阶段，「其他」改为可对账的兜底桶（原先 R4/R5/R6 共 28 张卡在界面上不可见）；阶段条配色也改为按行序取色板，不再按 key 写死。DX-05 落地 ✅ —— 锚点区 `-InPlace` 直接 `exit 3`（须显式 `-ForceAnchor`，两个会话共用检出与 HEAD、工作区与 `.sandbox` 双双失去隔离的根因），占用登记改为开区自动 Claim / 合并自动 Release，新增 `agent-workspace.ps1 -Action Check` 体检。DX-06 落地 ✅ —— 代登记内容校验生效（立卡须 `chore(board)` + 「授权：」「批次：」两行、不得与代码混提交，`task_gate.py selftest` 9 例接入 CI）。DX-07 落地 ✅ —— 结卡权自动化：git-done 收尾按 #<短号>=done 自动补 aseline（derive_board_status.py --close-cards + 6 例自测、CI 每次跑），并把 DX-06「代登记只能在锚点区」的死锁解掉（改为凭审计凭证，任何检出可代登记）。DX-10 落地 ✅ —— `scope` / `acceptance` 纳入任务定义审计：改卡片契约须单独 `chore(board)` + 「授权：」「批次：」两行、不得与代码同提交；比较忽略顺序与空白；自动结卡仍只认 `baseline`（夹带 scope 改动照拒）；闸门自测 15 例接入 CI；**待办**：DX-12 开发链路三处重复成本（verify 撞代理变量误报 / 脚本执行策略挡住 `&` 与 `pwsh -File` 调用 / agent-init 对残留 worktree 只报不诊）⬜ 2026-10-30 立卡 |
+| **DX** | 开发体验 | 看板内置「项目全景」面板：里程碑（路线图 §9 表驱动）、链路（声明 + 证据实证）、骨架（真实目录扫描）、体检（宣称 vs 派生对账）；测试可启动性；领用/合并规则自洽性；阶段条数据驱动；会话隔离硬门；代登记可审计 | 打开面板即知里程碑/链路/骨架/漂移，不必查文档；仓库结构一改面板自动跟上，漏改则「断链」标红且 `tst_projectmap` 先红；一分支多卡不再靠绕；阶段条上不再有「看不见的卡」 | **完成**：DX-01 落地 ✅ —— 里程碑行序与主题全部取自 §9 表格（加一行即多一行）；卡片状态按 git `#短号=done` ∪ 台账 baseline 派生；链路 8 环节逐条实证 `docs/project-map.json` 的证据文件；骨架 7 组扫真实目录；派生走后台线程（0.3–0.9 s）不卡界面，文件改动 0.7 s 防抖重算。DX-02 落地 ✅ —— 测试进程自带 Qt bin 路径，没配 `PATH` 跑 `ctest` 不再弹硬错误框挂到超时。DX-03 落地 ✅ —— 一分支多卡合法化（闸门改逐短号持证：多领合法、缺证照拒；agent-init 补领幂等；方向倒置只告警；check_claim_refs.py --selftest 7 例接入 CI）。DX-04 落地 ✅ —— 阶段集合与顺序改取 §9 行序（`ProjectMap::stageOrder()`），`stageOf` 放宽到非 R 阶段，「其他」改为可对账的兜底桶（原先 R4/R5/R6 共 28 张卡在界面上不可见）；阶段条配色也改为按行序取色板，不再按 key 写死。DX-05 落地 ✅ —— 锚点区 `-InPlace` 直接 `exit 3`（须显式 `-ForceAnchor`，两个会话共用检出与 HEAD、工作区与 `.sandbox` 双双失去隔离的根因），占用登记改为开区自动 Claim / 合并自动 Release，新增 `agent-workspace.ps1 -Action Check` 体检。DX-06 落地 ✅ —— 代登记内容校验生效（立卡须 `chore(board)` + 「授权：」「批次：」两行、不得与代码混提交，`task_gate.py selftest` 9 例接入 CI）。DX-07 落地 ✅ —— 结卡权自动化：git-done 收尾按 #<短号>=done 自动补 aseline（derive_board_status.py --close-cards + 6 例自测、CI 每次跑），并把 DX-06「代登记只能在锚点区」的死锁解掉（改为凭审计凭证，任何检出可代登记）。DX-10 落地 ✅ —— `scope` / `acceptance` 纳入任务定义审计：改卡片契约须单独 `chore(board)` + 「授权：」「批次：」两行、不得与代码同提交；比较忽略顺序与空白；自动结卡仍只认 `baseline`（夹带 scope 改动照拒）；闸门自测 15 例接入 CI。DX-12 落地 ✅（`97c4c08`）—— 三处重复成本各有一处根治：`verify.ps1` 不再因 `HTTP_PROXY` / `https_proxy` 同名大小写在 Env 驱动器枚举时抛「已添加项」而把全绿的构建误报成验收不过；执行策略口径统一写进 AGENTS.md 与 `docs/git-workflow.md`（Restricted 机器上 `&` 与 dot-source 会被静默拒绝，改用 `-ExecutionPolicy Bypass -File`）；`agent-init.ps1` 撞见残留 worktree / 同名分支时给出「有无未提交、有无未推送提交」的诊断与可执行命令，但**不自动删**（§7.10） ✅ |
 | **R8** | 记忆点收尾 | 主题包格式与外部加载、主题包市场（浏览 / 安装 / 卸载）、卡片详情抽屉（Markdown 笔记 + 就地编辑）、详情进阶（子任务进度环 + 审计时间线 `task_event` 侧表）、拖拽手感升级（涟漪 / 光轨 / 磁吸 / 列高亮）、键盘位移与拖拽可达性 | 第三方主题可安装，换配色不必改代码；详情能回答「这张卡的前世今生」；拖拽全程有落点有轨迹，键盘也能做完同样的事；`Motion.reduced` 时全部新动效瞬时 | **已完成（6/6）**：承接 §5 P1 第 4–6 项（R2 只做完了记忆点的一半）；六张卡 R8-01 ~ R8-06 全部交付结卡 —— R8-01 主题包加载（`182bf2b`）、R8-02 主题包市场（`f865de8`）、R8-03 卡片详情抽屉（`34d0b9b`）、R8-04 详情进阶 + `task_event` 时间线（`4390ff0`）、R8-05 拖拽手感（`109ef92`）、R8-06 键盘位移与可达性（`515386a`）；详见 [§9.4](#94-r8-记忆点收尾主题包--卡片详情--拖拽手感已完成) 与 [r8-experience-plan.md](r8-experience-plan.md)
 | **R9** | Agent 适配插件化 | Agent Provider 扩展点（插件声明 agent profile + 三层合并 + 老 meta 迁移）、四个官方插件（agent-claude / agent-opencode / agent-cursor / agent-codex） | 新增一个 agent = 加一个插件，不改 C++；「已声明但 CLI 不可用」在设置页可见而非等到执行失败；老库打开行为不变 | **完成（5/5）**：站外适配器（统一投递器 + 四个 agent 适配器）已交付，见 [agent-adapters.md](agent-adapters.md)；站内扩展点设计稿见 [agent-provider-api.md](agent-provider-api.md)；R9-01 扩展点（`01ec4a8`）✅ + 四个官方插件 R9-02 agent-claude（`e4b2cf6`）/ R9-03 agent-opencode（`d5d5f0d`）/ R9-04 agent-cursor（`186b0e9`，不可用态进设置页列表）/ R9-05 agent-codex（`5529dda`，stdin 接 NUL 与启用前置）均已以 `#R9-0x=done` 结卡 ✅；五卡已进看板快照 详见 [§9.5](#95-r9-agent-适配插件化已完成-55) |
 | **R10** | 项目维度与卡片分类 | 项目维度数据层（`project` 表 + `task_project` 侧表）、两级看板（全局 ⇄ 项目范围切换）、标签语义修正（`stageOf` 扫全数组 + 卡片显示分类）、存量数据分类补全、范围切换器溢出修复（宽度自适应 + 渐隐 + 滚轮横滚） | 看板能按项目切开；阶段归属不再受 `tags` 顺序影响；115 张存量卡归位（NeonBoard 102 / 抢号系统 6 / 启动窗改造 7），「其他」桶归零 | **完成（5/5）**：R10-01 项目维度数据层（`927e6b7` #R10-01=done）、R10-03 标签语义修正（`1c8e837`，补结于 `d81a755`）、R10-04 存量数据分类补全（`3950cbd` #R10-04=done）、R10-02 两级看板：全局 ⇄ 项目范围切换（`d9ab85d` #R10-02=done）、R10-05 切换器溢出修复（`153b053` #R10-05=done）均已结卡 ✅ 详见 [§9.6](#96-r10-项目维度与卡片分类已完成-55) |
 | **R11** | 界面观感打磨 | 顶栏信息层级重排（标题瘦身 + 统计状态带）、顶栏视觉一致性（令牌化 + 统一工具按钮）、状态与空态反馈 + 热力图 Canvas 化 | 顶区垂直占用至少压缩 40 px，腾给看板；顶栏无重复样式代码；热力图换主题同步变色、无数据有空态；「逾期」有数字 | **完成**：三张卡 R11-01 ~ R11-03 已合入主线（2026-10-29）—— 顶区垂直占用实测省 50 px、标题栏按钮收敛为 `TopToolButton` 单一实现、热力图 91 图元 → 1 个 `Canvas` 且色阶跟随主题、新增 `taskStats.overdueCount` 与 `tst_taskstats`；`ctest` 4/4、`--selftest` / `--smoke` 退出码 0 ✅ 详见 [§9.7](#97-r11-界面观感打磨已完成-33) |
-| **R12** | 托盘图标修正 | 宿主进程托盘图标改用内嵌 neonboard 图标（R12-01） | 托盘显示 NeonBoard 霓虹图标，不再是系统通用图标 | **规划中**：R12-01 宿主托盘图标 ⬜ |
+| **R12** | 托盘图标修正 | 宿主进程托盘图标改用内嵌 neonboard 图标（R12-01） | 托盘显示 NeonBoard 霓虹图标，不再是系统通用图标 | **完成（1/1）**：R12-01 已合入主线（`e0cd23f` #R12-01）—— 宿主 `NeonBoardHost.exe` 的托盘图标从 `LoadIconW(nullptr, IDI_APPLICATION)`（系统通用图标）改为加载自身内嵌的 `neonboard.ico`（该图标 R5-05 起已由 `resources/neonboard.rc` 打进 Host，本次只是托盘代码没跟上） ✅ |
 | **R13** | 首启就绪竞态 | 看板偶发全空（0 条任务）与首启引导误弹的根因定位与修复：就绪判定从启动瞬间的一次快照改为随 count 可重算的派生状态，并留下区分「真空板 / 尚未就绪」的判据（R13-01） | 全新数据目录连续 5 次首启不出现「有卡却显示 0 条」或「有卡却弹引导」；ONBOARD 诊断行与 TaskModel 加载行 count 一致；`shouldOnboard` 三种组合有测试覆盖 | **完成**：R13-01 已合入主线（`b2d1bb8` #R13-01=done）—— 引导显隐从「启动算一次」改为随 `count` 重算，并加单测守住 `shouldOnboard` 的无状态性。**原始现象不是产品 bug**：那张「0 条 + 引导」截图截的是并行会话实例的窗口（判据：截图 mtime 落在该次运行窗口生命周期内，而同进程日志写着 `ONBOARD skip tasks 139`），见 `docs/pitfalls.md` 4.6；启动期 `load` 调两次、count 由 0 跳到实际条数的机制另见 6.4 ✅ |
-| **R14** | Agent 插件「装了没生效」 | R9 四个官方插件交付后核对发现两批空白：① 既有库上新增插件默认未授权、声明被静默丢弃（R14-01）；② 官方插件不进打包产物，安装版一个都看不到（R14-02）；③ cursor-agent 是 .cmd 包装器，执行器能否直接拉起未实测（R14-03）；④ opencode 只读参数 `--agent plan` 是否真实存在未核实（R14-04） | 既有库副本上四个插件 `declared[].authorized` 全为 true；dist 打包含全部官方插件且安装版能扫到；cursor-agent 与 opencode 两处问号各有实测结论落 `docs/agent-profile.md` | **规划中**：R14-01 ~ R14-04 已登记台账（出生即带 `acceptance` / `scope` / `depends` / `note`）⬜ 详见 [§9.8](#98-r14-agent-插件装了没生效规划中) 与 [agent-plugin-open-issues.md](agent-plugin-open-issues.md) |
+| **R14** | Agent 插件「装了没生效」 | R9 四个官方插件交付后核对发现两批空白：① 既有库上新增插件默认未授权、声明被静默丢弃（R14-01）；② 官方插件不进打包产物，安装版一个都看不到（R14-02）；③ cursor-agent 是 .cmd 包装器，执行器能否直接拉起未实测（R14-03）；④ opencode 只读参数 `--agent plan` 是否真实存在未核实（R14-04） | 既有库副本上四个插件 `declared[].authorized` 全为 true；dist 打包含全部官方插件且安装版能扫到；cursor-agent 与 opencode 两处问号各有实测结论落 `docs/agent-profile.md` | **完成（4/4）**：R14-01（`f611c19`）官方来源插件每次启动补齐缺失的声明权限、`plugins.grants.revoked` 给撤销留痕、第三方与示例仍走显式授权（伪造 `com.thirdparty.evil` 实测不放行），验收全部基于真实库副本；R14-02（`4fcdab9`）`deploy.ps1` 补拷 `plugins\*` 并加「以仓库 `plugins/` 为准、缺一个就 throw」的对齐自检，用 dist 产物（清掉 `NEONBOARD_SOURCE_DIR`）跑 `--plugin-report` 8 个插件全 `status=ok`；R14-03（`57ac656`）实测确认裸名 `.cmd` 必 `FailedToStart`（`findExecutable` 认 PATHEXT 而 `CreateProcess` 只补 `.exe`），`TaskRunner::resolveProgram` 先解析成绝对路径，A/B 对照去掉即红；R14-04（`728205c`）核实 opencode 1.19.0 内置 7 个 agent 含 `plan`，其 `edit` 为 deny、`bash` 未禁 —— 只读只到「工具白名单」档，不是系统级沙箱 ✅ 详见 [§9.8](#98-r14-agent-插件装了没生效已完成-44) 与 [agent-plugin-open-issues.md](agent-plugin-open-issues.md) |
 
 ### 9.1 R6 派发器（全部落地，9/9）
 
@@ -747,10 +747,10 @@ R10-05 切换器溢出修复（`153b053`）。
 顺带修掉一个**既有 bug**：热力图悬浮提示把文案赋给了 `Rectangle` 的 `tip.text`（`Rectangle` 没有 `text` 属性），
 日志里一直刷 `Cannot assign to non-existent property "text"`；改为赋给内部的 `tipText`。
 
-### 9.8 R14 Agent 插件「装了没生效」（规划中）
+### 9.8 R14 Agent 插件「装了没生效」（已完成 4/4）
 
 R9-01 ~ R9-05 全部结卡、`ctest` 30/30，但**交付不等于生效**。2026-10-30 核对真实数据
-目录时发现两批空白，四张卡已登记台账：
+目录时发现两批空白，四张卡登记台账并全部交付：
 
 | 卡 | 范围 | 要解决什么 |
 | --- | --- | --- |
@@ -764,6 +764,35 @@ R9-01 ~ R9-05 全部结卡、`ctest` 30/30，但**交付不等于生效**。2026
 「既有库上新增插件不生效」。所以 R14-01 的验收**明确要求用既有库的副本**，
 R14-02 要求拿 dist 产物启动而不是源码目录。方法见
 [agent-plugin-open-issues.md](agent-plugin-open-issues.md) 最后一节。
+
+交付实况（2026-11-03 ~ 11-04 合入主线）：
+
+- **R14-01**（`f611c19`）：`PluginRuntime::ensureGrantsBootstrapped` 从「只在库第一次
+  bootstrap 时全授予」改为**每次启动补齐官方来源插件缺失的声明权限**，并新增 meta 键
+  `plugins.grants.revoked` 给用户显式撤销留痕（撤销后不会被下次启动补回来）；第三方
+  （`appdata`）与示例（`sample`）仍走显式授权 —— 伪造 `com.thirdparty.evil` 实测不放行。
+  真实库副本复测：四个 `agent-*` 的 `declared[].authorized` 由 false 变 true，存量三条
+  grants 原样未动，连续两次启动幂等。`tst_pluginruntime` 新增 8 例。
+- **R14-02**（`4fcdab9`）：`scripts/deploy.ps1` 补拷 `plugins\*`，紧跟一道**以仓库
+  `plugins/` 实际目录为准**的对齐自检（不写死清单，新增插件不用改脚本），缺一个就 `throw`
+  并点名缺哪个；反证（注释掉那行再打包）自检精确列出 6 项缺失并退出码 1。
+  后果此前被低估：`agent-bridge` 缺席意味着「投 `agent-task-event` → 自动建卡/流转/对账」
+  整条链路在安装版上**从未工作过**，而源码树里永远测不出来。
+- **R14-03**（`57ac656`）：实测把问号变成句号 —— 裸名 `cursor-agent` 必 `FailedToStart`
+  （`QStandardPaths::findExecutable` 认 `PATHEXT` 所以 `available` 一直 true，但 `QProcess`
+  落到 `CreateProcess` 只补 `.exe`），给绝对路径 `.cmd` 或真身 `node.exe + index.js` 才拉得起来。
+  `TaskRunner::resolveProgram` 因此先解析再 `setProgram`；A/B 对照（去掉 resolve）用例立刻红。
+  已知边界另提卡：`.cmd` 经 `cmd.exe` 转调会二次解释参数（`& | < >`、`%VAR%`、内嵌引号、换行）。
+- **R14-04**（`728205c`）：`opencode agent list` 确认 `plan` 是内置 7 个 agent 之一（本机
+  配置无 `agent` 键，非自定义），`--agent` 参数存在；其权限表 `edit → deny *`（只放行
+  `plans/*.md`），但 **`bash` 没有单独规则、落在 `*` 的 allow 上** —— 所以「只读」只在
+  工具级成立（改不了工作区文件），不是系统级沙箱，属只读三档里的第 2 档。
+  `readonlyArgs` 维持 `["--agent", "plan"]`，面板措辞从「待核实警告」改为结论 + 边界。
+
+> 一处措辞勘误（`4fc74a5`，2026-11-04 按「有问题就处理」授权订正验收，实现未动）：R14-02 验收原写 `source=plugin`，但
+> `PluginLoader` 的 source 只有 `appdata` / `appdir` / `official` / `sample` 四个取值，
+> dist 产物里的官方插件报的是 `source=appdir` —— 语义正是「来自分发目录的官方插件」，
+> 目标已达成。
 
 ## 10. 验收指标（“炫酷”可量化）
 | 指标 | 目标 | 当前实测 |

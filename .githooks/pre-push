@@ -3,7 +3,8 @@
 # NeonBoard 仓库钩子 —— pre-push
 # 作用：确保「未合并回主分支」的成果不会被推走
 # 规则：
-#   1. 功能分支必须已合并进 main 才允许推送（refs/claims/* 领用占位除外）
+#   1. 功能分支必须已合并进 main 才允许推送（refs/claims/* 领用占位除外；
+#      refs/tags/* 是发布触发器，改按「标签指向的提交必须在主线上」判定）
 #   2. main 的推送必须是快进，禁止强推覆盖历史
 #   3. 进度快照 progress.json 语义闸门：版本不得降级、卡片数不得减少、code 不得丢失
 # ============================================================
@@ -97,6 +98,42 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   # 不是分支推送，不受「必须合并进 main」限制。
   case "$remote_ref" in
     refs/claims/*) continue ;;
+  esac
+
+  # 发布标签 refs/tags/* 是 release.yml 的触发器，不是分支推送，同样不受
+  # 「必须合并进 main」限制 —— 但它比规则 1 更该被拦：标签指向的提交一旦不在
+  # 主线上，CI 就会拿去打一个主线里不存在的构建（§7.8 闸门 2 的精神）。
+  # 所以这里不是放行，是换成「标签所指提交必须已在主线上」这条对偶判据。
+  # 附注标签的 local_sha 是 tag 对象，必须先剥到提交对象再判祖先，
+  # 否则 merge-base 拿到的是 tag 对象，判据恒假、正常发布也推不上去。
+  case "$remote_ref" in
+    refs/tags/*)
+      tagged=$(git rev-parse -q --verify "${local_sha}^{commit}" 2>/dev/null)
+      [ -n "$tagged" ] || tagged="$local_sha"
+      # 判据以 origin/main 为准（与「重开门」同源）：本地 main 可能是旧的，
+      # 按本地判会把已经合进主线的提交当成不在主线上。取不到才退回本地 main。
+      tag_base="$main_branch"
+      if git rev-parse --verify -q "origin/$main_branch" >/dev/null 2>&1; then
+        tag_base="origin/$main_branch"
+      fi
+      if git rev-parse --verify -q "$tag_base" >/dev/null 2>&1; then
+        if ! git merge-base --is-ancestor "$tagged" "$tag_base" 2>/dev/null; then
+          echo ""
+          echo "==================================================================="
+          echo " ❌ 标签 '${remote_ref#refs/tags/}' 指向的提交不在 '$tag_base' 上，禁止推送。"
+          echo "==================================================================="
+          echo ""
+          echo " 本仓库宪章要求：发布物必须来自主线（AGENTS.md §7.8 闸门 2）。"
+          echo " 先把它合进 $main_branch，再在主线提交上重新打标签："
+          echo "   git fetch origin"
+          echo "   git tag -d ${remote_ref#refs/tags/}"
+          echo "   git -c core.hooksPath=.githooks tag -a ${remote_ref#refs/tags/} origin/main -m '...'"
+          echo "   git push origin ${remote_ref#refs/tags/}"
+          echo ""
+          exit 1
+        fi
+      fi
+      continue ;;
   esac
 
   branch=$(echo "$local_ref" | sed 's#^refs/heads/##')

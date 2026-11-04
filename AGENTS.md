@@ -251,7 +251,7 @@ git branch -d feature/<简述>
 | --- | --- | --- |
 | `pre-commit` | 在 `main`/`master`/`develop` 上提交；分支名缺少规范前缀；agent 工作区改动台账 `cards`/`baseline` | `git commit --no-verify`（仅限紧急情况） |
 | `commit-msg` | 提交信息不符合 `<type>(<scope>): <subject>` 格式（`merge` 类型与 Git 自动生成的合并信息除外）；代码改动未关联台账短号 | `git commit --no-verify` |
-| `pre-push` | 推送尚未合并进 `main` 的分支；推送到 `main` 时非快进、快照降级；**推送范围内触及代码的提交缺短号或缺 claim ref**（无 python 时 fail-closed） | 需先领用任务卡 |
+| `pre-push` | 推送尚未合并进 `main` 的分支；推送到 `main` 时非快进、快照降级；**推送范围内触及代码的提交缺短号或缺 claim ref**（无 python 时 fail-closed）；**发布标签 `refs/tags/*` 指向的提交不在主线上** | 需先领用任务卡 |
 | `post-merge` | ——（仅提示可清理的已合并分支） | —— |
 
 `pre-commit` 在**合并冲突解决**、**rebase 续行**、**cherry-pick 续行**等中间态会自动放行，
@@ -552,6 +552,12 @@ pwsh -File scripts/release.ps1
 
 CI 侧同样走这条路：`.github/workflows/release.yml` 在打 tag 或手动触发时出安装包并上传 artifact，
 交付物只有 CI 一处产出，本地 `dist/` 仅作调试用途。
+
+> **发布靠 tag 触发，所以 `pre-push` 必须放行 `refs/tags/*`**（它不是分支，没有「先合并回 main」
+> 这回事可言）。但闸门 2 的精神要换成对偶判据留下：**标签指向的提交必须已在 `origin/main` 上**，
+> 否则 CI 会拿去打一个主线里不存在的构建。附注标签的 `local_sha` 是 tag 对象，判祖先前要先
+> `rev-parse <sha>^{commit}` 剥到提交，否则判据恒假、正常发布也推不上去。
+> `workflow_dispatch` 空 tag 只出 artifact、不发布 Release，用于上线前验链路。
 
 ### 7.9 预览中心（多代理成果即时可见）
 

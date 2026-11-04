@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R14-02",
-            "completedAt": 0,
-            "createdAt": 1793295841,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "540eb31e-3a7f-4ef5-a14d-1eafb2b500e0",
-            "note": "现象（2026-10-30 发现）：dist/NeonBoard/plugins 下只有 surfaces、today 两个示例插件；CMakeLists.txt 没有 install 插件的规则，installer 只拷 dist\\NeonBoard\\*。\n\n结果是安装版用户看不到任何官方插件（agent-bridge / plan-hook / 四个 agent-*）。开发机上之所以能看见，全靠 PluginLoader::sourceDirs() 里的 NEONBOARD_SOURCE_DIR + /plugins 这条扫描路径 —— 它只在有源码的机器上成立。\n\n与 R14-01 是同一件事的两半：一半是装了也不授权，另一半是压根没装。",
-            "orderKey": 3072,
-            "priority": 2,
-            "stage": "R14",
-            "status": "todo",
-            "tags": [
-                "R14"
-            ],
-            "title": "R14 官方插件不进打包产物，安装版用户一个都看不到",
-            "updatedAt": 1793295841
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -328,6 +310,24 @@
             ],
             "title": "R4 任务流转自动化：领用可见 + 统一新建入口",
             "updatedAt": 1792897811
+        },
+        {
+            "code": "R14-02",
+            "completedAt": 1793757627,
+            "createdAt": 1793295841,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "540eb31e-3a7f-4ef5-a14d-1eafb2b500e0",
+            "note": "现象（2026-10-30 发现）：dist/NeonBoard/plugins 下只有 surfaces、today 两个示例插件；CMakeLists.txt 没有 install 插件的规则，installer 只拷 dist\\NeonBoard\\*。\n\n结果是安装版用户看不到任何官方插件（agent-bridge / plan-hook / 四个 agent-*）。开发机上之所以能看见，全靠 PluginLoader::sourceDirs() 里的 NEONBOARD_SOURCE_DIR + /plugins 这条扫描路径 —— 它只在有源码的机器上成立。\n\n与 R14-01 是同一件事的两半：一半是装了也不授权，另一半是压根没装。",
+            "orderKey": 3072,
+            "priority": 2,
+            "stage": "R14",
+            "status": "done",
+            "tags": [
+                "R14"
+            ],
+            "title": "R14 官方插件不进打包产物，安装版用户一个都看不到",
+            "updatedAt": 1793757627
         },
         {
             "code": "R1-05",
@@ -2851,6 +2851,6 @@
             "updatedAt": 1793730285
         }
     ],
-    "updated": "2026-11-04T09:49:03",
+    "updated": "2026-11-04T10:00:27",
     "version": 3
 }

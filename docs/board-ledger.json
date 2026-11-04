@@ -3503,6 +3503,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-40": {
+            "agent": "agent-dx40",
+            "branch": "HEAD",
+            "claimedAt": 1793821021,
+            "head": "80ff69017ba0f8647a47979be6b7c749c854c4f6"
+        }
+    },
     "version": 1
 }

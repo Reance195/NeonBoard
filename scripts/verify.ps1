@@ -4,7 +4,7 @@
 #   全量（默认）：编译 → 单元测试(ctest) → 数据库自检(--selftest) → 冒烟启动(--smoke)
 #                 → 模块守卫 → 看板一致性(derive --check)
 #   脚本层(-ScriptOnly)：PowerShell 语法解析 → 脚本卫生(check_script_hygiene)
-#                 → 工作流 YAML 解析 → 范围检查(check_scope)
+#                 → 工作流 YAML 解析 → 范围检查(check_scope) → 路径引用(check_path_refs)
 #                 「scope 内没有 .cpp/.h/.qml/CMakeLists.txt」的卡片走这一档：
 #                 这些检查与编译无关，却要在冷启动 worktree 里付 20~30 分钟编译费才拿得到
 #                 （DX-13 实施实测）。全量编译仍由 CI 兜底，门槛不降。
@@ -71,7 +71,7 @@ function Invoke-Exe {
 }
 
 # ---------- 脚本层验收（-ScriptOnly） ----------
-# 与编译无关的四项：语法解析 / 脚本卫生 / 工作流 YAML / 范围。
+# 与编译无关的五项：语法解析 / 脚本卫生 / 工作流 YAML / 范围 / 路径引用。
 # 判定规则见 docs/task-card.md「两类验收口径」：scope 内没有 .cpp/.h/.qml/CMakeLists.txt
 # 即脚本类。为防止「脚本卡偷偷改了代码」，第一项先自查改动清单 —— 有代码就拒绝并指回全量。
 if ($ScriptOnly) {
@@ -156,8 +156,14 @@ sys.exit(1 if bad else 0)
     & python (Join-Path $repoRoot 'scripts\check_scope.py') --base $scriptBase
     if ($LASTEXITCODE -ne 0) { Fail '改动越出卡片 scope（或范围检查无法完成）' }
 
+    Step '路径引用（check_path_refs）'
+    # 棘轮口径：只报本次改动新增的失效引用（存量折叠计数），与 check_scope / check-format
+    # 同一策略 —— 一开就满屏红的闸门会被绕过。
+    & python (Join-Path $repoRoot 'scripts\check_path_refs.py') --base $scriptBase
+    if ($LASTEXITCODE -ne 0) { Fail '新增了指向不存在的 src/ 文件的引用（拆目录后未回改）' }
+
     Write-Host ''
-    Write-Host '✓ 脚本层验收通过：语法 / 卫生 / YAML / 范围 全过（未触发编译）' -ForegroundColor Green
+    Write-Host '✓ 脚本层验收通过：语法 / 卫生 / YAML / 范围 / 路径引用 全过（未触发编译）' -ForegroundColor Green
     exit 0
 }
 

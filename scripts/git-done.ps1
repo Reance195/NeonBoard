@@ -15,7 +15,9 @@
     用法：
       pwsh -File scripts/git-done.ps1
       pwsh -File scripts/git-done.ps1 -Branch feature/task-filter
-      pwsh -File scripts/git-done.ps1 -RemoveWorktree .worktrees/agent-c
+      pwsh -File scripts/git-done.ps1                      # .worktrees/ 下的目标区默认回收
+      pwsh -File scripts/git-done.ps1 -KeepWorktree        # 保留工作区（调试 / 续做）
+      pwsh -File scripts/git-done.ps1 -RemoveWorktree      # 强制回收（跳过未推送/脏检查）
       pwsh -File scripts/git-done.ps1 -Mode local
       pwsh -File scripts/git-done.ps1 -KeepBranch
       pwsh -File scripts/git-done.ps1 -SkipClaimCheck      # 已废弃：不再能放行代码改动
@@ -30,6 +32,7 @@ param(
     [switch]$SkipClaimCheck,
     [switch]$SkipAnchorSync,
     [switch]$RemoveWorktree,
+    [switch]$KeepWorktree,
     [string]$MainBranch = 'main',
     [string]$Worktree = ''
 )
@@ -250,8 +253,19 @@ function Sync-AnchorWorktree {
     $branchRes = Invoke-GitQuiet @('-C', $anchor, 'symbolic-ref', '--quiet', '--short', 'HEAD')
     $anchorBranch = if ($branchRes.Code -eq 0) { ($branchRes.Output | Select-Object -First 1).ToString().Trim() } else { '' }
     if ($anchorBranch -ne $Main) {
-        Write-Host ("· 锚点同步：锚点区当前分支是 '{0}'，跳过" -f $anchorBranch) -ForegroundColor DarkGray
-        return
+        if ($anchorBranch) {
+            Write-Host ("· 锚点同步：锚点区当前分支是 '{0}'，跳过" -f $anchorBranch) -ForegroundColor DarkGray
+            return
+        }
+        # 锚点区停在分离 HEAD：DX-20 之前每次收尾都这么留下，属历史状态，顺手修好。
+        # 切不回来（锚点区有改动会与之冲突）就跳过 —— 绝不为了同步而覆盖别人的工作区。
+        $back = Invoke-GitQuiet @('-C', $anchor, 'switch', $Main)
+        if ($back.Code -ne 0) {
+            Write-Host '· 锚点同步：锚点区停在分离 HEAD 且无法切回主分支（有改动会冲突），跳过' -ForegroundColor Yellow
+            return
+        }
+        Write-Host ("· 锚点同步：锚点区原为分离 HEAD，已切回 {0}" -f $Main) -ForegroundColor DarkGray
+        $anchorBranch = $Main
     }
 
     # root 占用登记：别人正声明「我要在锚点区动手」时，快进照做（非破坏性），
@@ -481,6 +495,20 @@ Write-Host "`n→ 合并分支 '$Branch'（模式：$Mode）" -ForegroundColor C
 
 if ($Mode -eq 'remote') {
     # ---- 3. remote 模式：临时分支 + 快进推送，不碰主 worktree ----
+    # 收尾要能回到「进来时在哪」（DX-20）：本模式中途会 checkout 临时分支，原逻辑最后一律
+    # `switch --detach`，于是锚点区被永久留在分离 HEAD —— 下一次收尾 Sync-AnchorWorktree
+    # 读到的分支名是空串，判成「锚点区不在 main」直接跳过，本地 main 从此永远落后远端一步。
+    # 先记住起点与「当前根是不是锚点」，收尾按它归位。
+    $pristineRes = Invoke-GitQuiet @('symbolic-ref', '--quiet', '--short', 'HEAD')
+    $pristineBranch = if ($pristineRes.Code -eq 0) { ($pristineRes.Output | Select-Object -First 1).ToString().Trim() } else { '' }
+    $anchorRoot = Get-AnchorWorktree
+    $atAnchor = $false
+    if ($anchorRoot) {
+        try {
+            $atAnchor = ([System.IO.Path]::GetFullPath($repoRoot) -eq [System.IO.Path]::GetFullPath($anchorRoot))
+        } catch { $atAnchor = $false }
+    }
+
     Invoke-Git fetch origin --quiet | Out-Null
     $originMain = (Invoke-Git rev-parse "origin/$MainBranch").Trim()
 
@@ -582,23 +610,51 @@ if ($Mode -eq 'remote') {
 
     $recycleAgent = ''
     $recycleScope = ''
-    if ($RemoveWorktree -and $wtPath) {
+    # DX-21：分支所在路径本来就能从上面的 `worktree list` 反查，不该再要求调用方记一次参数
+    # （忘传 → 目录不删 → 分支被占用删不掉 → release-claims 判分支还在 → 台账留僵尸 claim）。
+    # 默认回收 .worktrees/ 下的目标区；-KeepWorktree 显式保留；-RemoveWorktree 退化为
+    # 「强制回收」（跳过下面两道安全检查），旧命令照旧能用。
+    if ((-not $KeepWorktree) -and $wtPath) {
         $abs = if ([System.IO.Path]::IsPathRooted($wtPath)) { $wtPath } else { Join-Path $repoRoot $wtPath }
         $abs = [System.IO.Path]::GetFullPath($abs)
         $currentRoot = [System.IO.Path]::GetFullPath($repoRoot)
         if ($abs -eq $currentRoot) {
             Write-Host "· 目标 worktree 就是当前目录，跳过回收（请在其它目录执行 git worktree remove）" -ForegroundColor Yellow
         } elseif (Test-Path -LiteralPath $abs) {
-            # 身份与 scope 必须在回收**之前**抓：.agent-env.ps1 随目录一起消失，事后再读只能
-            # 得到空，于是每次都「跳过释放」，agent-workspace.json 里堆已删工作区的僵尸条目
-            # （2026-11-04 实测 dx12 / dx14 / dx16 / r1402 / initfix 五条全在）。
-            $recycleAgent = Get-WorktreeAgent -Path $abs
-            if ($recycleAgent -and ((Split-Path -Leaf (Split-Path -Parent $abs)) -eq '.worktrees')) {
-                $recycleScope = "worktree:$recycleAgent"
+            # 安全检查：删掉别人正在办的工作区是事故。两道判据都不成立才回收 ——
+            #   1) 还有未推送提交（说明它不是「已合入的尾巴」）；
+            #   2) 还有未提交改动（含 untracked），删了就没了。
+            # 本次分支刚合并并推送过，它的提交此刻已是 origin/<main> 的祖先，判据自然为 0。
+            $unsafe = ''
+            if (-not $RemoveWorktree) {
+                $ahead = 0
+                $aheadRes = Invoke-GitQuiet @('-C', $abs, 'rev-list', '--count', 'HEAD', '--not', '--remotes=origin')
+                if ($aheadRes.Code -eq 0) {
+                    $first = $aheadRes.Output | Select-Object -First 1
+                    if ($first) { [void][int]::TryParse($first.ToString().Trim(), [ref]$ahead) }
+                }
+                $dirtyNum = 0
+                if ($ahead -le 0) {
+                    $dirtyRes = Invoke-GitQuiet @('-C', $abs, 'status', '--porcelain')
+                    $dirtyNum = @($dirtyRes.Output | Where-Object { $_ -and $_.ToString().Trim() -ne '' }).Count
+                }
+                if ($ahead -gt 0) { $unsafe = "还有 $ahead 个未推送提交" }
+                elseif ($dirtyNum -gt 0) { $unsafe = "还有 $dirtyNum 项未提交改动" }
             }
-            Write-Host ("· 回收 worktree {0}" -f $abs) -ForegroundColor DarkGray
-            if ((Invoke-GitQuiet @('worktree', 'remove', $abs)).Code -ne 0) {
-                Invoke-GitQuiet @('worktree', 'remove', '--force', $abs) | Out-Null
+            if ($unsafe) {
+                Write-Host ("· 跳过回收 {0}：{1}（可能是别的工作区在办；确认要删用 -RemoveWorktree）" -f $abs, $unsafe) -ForegroundColor Yellow
+            } else {
+                # 身份与 scope 必须在回收**之前**抓：.agent-env.ps1 随目录一起消失，事后再读只能
+                # 得到空，于是每次都「跳过释放」，agent-workspace.json 里堆已删工作区的僵尸条目
+                # （2026-11-04 实测 dx12 / dx14 / dx16 / r1402 / initfix 五条全在）。
+                $recycleAgent = Get-WorktreeAgent -Path $abs
+                if ($recycleAgent -and ((Split-Path -Leaf (Split-Path -Parent $abs)) -eq '.worktrees')) {
+                    $recycleScope = "worktree:$recycleAgent"
+                }
+                Write-Host ("· 回收 worktree {0}" -f $abs) -ForegroundColor DarkGray
+                if ((Invoke-GitQuiet @('worktree', 'remove', $abs)).Code -ne 0) {
+                    Invoke-GitQuiet @('worktree', 'remove', '--force', $abs) | Out-Null
+                }
             }
         }
     }
@@ -616,8 +672,33 @@ if ($Mode -eq 'remote') {
     # 传入回收前抓到的身份 / scope；没走回收路径时留空，函数自己按 Root 解析（原地模式）。
     Release-WorkspaceClaim -Root $repoRoot -Agent $recycleAgent -Scope $recycleScope
 
-    # 解除临时分支占用后一并删除，工作区停在分离 HEAD 上，不留悬挂分支
-    Invoke-GitQuiet @('switch', '--detach') | Out-Null
+    # 解除临时分支占用；随后归位（DX-20）。
+    # 锚点区必须回到主分支并快进 —— 它被留在分离 HEAD 正是「本地 main 永远落后远端」
+    # 的源头（Sync-AnchorWorktree 见到空分支名就跳过）。开发工作区保持「停在合并结果
+    # 上的分离 HEAD」：下一步多半就被回收，硬切回合并前的分支反而把工作区内容退回去。
+    if ($atAnchor) {
+        $homeBranch = if ($pristineBranch) { $pristineBranch } else { $MainBranch }
+        $sw = Invoke-GitQuiet @('switch', $homeBranch)
+        if ($sw.Code -eq 0) {
+            if ($homeBranch -eq $MainBranch) {
+                $ff = Invoke-GitQuiet @('merge', '--ff-only', "origin/$MainBranch")
+                if ($ff.Code -eq 0) {
+                    Write-Host ("✓ 锚点区已归位 {0} 并快进到 origin/{0}" -f $MainBranch) -ForegroundColor Green
+                } else {
+                    Write-Host ("· 锚点区已切回 {0}，但快进失败（本地分叉或被未跟踪文件挡住），手工：" -f $MainBranch) -ForegroundColor Yellow
+                    Write-Host ("   git -C {0} merge --ff-only origin/{1}" -f $repoRoot, $MainBranch) -ForegroundColor Yellow
+                    $ff.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+                }
+            } else {
+                Write-Host ("· 锚点区已归位分支 {0}（非 {1}，不自动快进）" -f $homeBranch, $MainBranch) -ForegroundColor DarkGray
+            }
+        } else {
+            Write-Host ("· 锚点区归位失败（工作区改动会冲突），请手工：git -C {0} switch {1}" -f $repoRoot, $homeBranch) -ForegroundColor Yellow
+            $sw.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+        }
+    } else {
+        Invoke-GitQuiet @('switch', '--detach') | Out-Null
+    }
     Invoke-GitQuiet @('branch', '-d', $tmp) | Out-Null
 
     # 台账过期领用登记清理：服务端占位与认领分支此刻都已没了，投影条目留着只会让

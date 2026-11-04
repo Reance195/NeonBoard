@@ -63,6 +63,16 @@ jobs:
           $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
           python scripts/check_scope.py --base $base
 
+      - name: 路径引用检查（棘轮：只报本次新增的失效引用）
+        # src/ 拆目录 / 改名后，脚本 / 台账 / 文档里的原始文件路径会变成死链，编译器看不见。
+        # 存量（拆目录后未回改的历史文档）先折叠计数，只拦新增 —— 与上面两项同一口径，
+        # 存量清零后再去掉 continue-on-error 转硬门禁。
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
+          python scripts/check_path_refs.py --base $base
+
       - name: 模块依赖方向与行数守卫（棘轮：只查本次改动的文件）
         # src/ 未分层时任何 #include 都能成立，编译器不反对；§3.2 的层序（core L0 → plugin L7）
         # 与行数上限都只是文档约定，没有机器校验就会在重构期间悄悄长回反向边。

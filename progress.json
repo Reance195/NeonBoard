@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "DX-26",
+            "completedAt": 0,
+            "createdAt": 1793765639,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-26",
+            "note": "2026-11-04 一天内踩两次：P0（DX-20/21/22）收尾与 P1（DX-23/24/25）收尾，三次自动提交全部失败，只能手工补 chore(board) 提交。当时记作「既有缺陷（未修）」，实际是 DX-20 亲手制造的回归 ——\\n\\nDX-20 之前：收尾末尾 `switch --detach`，三步提交在分离 HEAD 上做，pre-commit 规则 1（main/master/develop 禁止直接提交）不触发（它只在 symbolic-ref 读得到分支名时生效）。\\nDX-20 之后：为了让锚点区不留在 detached HEAD，把「切回 main + merge --ff-only」提前到了 release-claims 之前 —— 于是三步提交全部落在 main 上，被自家钩子拒掉。更糟的是失败处理用 `git checkout -- <file>`，它只还工作区、不撤暂存区，于是每次收尾都留下 staged 脏文件，下次提交被顺带夹带（P0 时就这样把代码文件带进了 chore(board) 提交）。\\n\\n修复方向不是给 main 开后门（那等于把「main 禁止直接提交」废掉），而是恢复正确时序：先 detach 做提交，最后再归位。DX-20 的目标（锚点不留 detached）与 DX-21 的目标（不留僵尸）都不受影响。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "doing",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 收尾的自动提交全部失败：DX-20 把归位提前到提交之前，撞上 main 保护",
+            "updatedAt": 1793765639
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -2977,6 +2995,6 @@
             "updatedAt": 1793763063
         }
     ],
-    "updated": "2026-11-04T12:08:28",
+    "updated": "2026-11-04T12:13:59",
     "version": 3
 }

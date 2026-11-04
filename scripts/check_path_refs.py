@@ -4,7 +4,7 @@
 
 为什么要有这个文件
 ------------------
-`src/` 在 MOD-06 拆成 8 个模块子目录，一次拆目录就让全仓几十处 `src/X.cpp` 变成死链。
+`src/` 在 MOD-06 拆成 8 个模块子目录，一次拆目录就让全仓几十处旧的顶层路径变成死链。
 编译器只看得见 `#include`，看不见脚本 / 台账 / 文档里的路径；当时靠「动手前手工 grep
 一次」，仍然漏了两轮（`AGENTS.md`、`scripts/*.ps1`），都靠事后单独提交补救。
 
@@ -40,7 +40,7 @@ SRC_ROOT = REPO_ROOT / "src"
 
 # 引用形态：src/<相对路径>.cpp|.h
 #   前界 (?<![\w./-])：避免把 my_src/a.cpp、./src/a.cpp 的一段当成独立引用
-#   后界 (?![\w./-])：避免把 src/a.cpp.bak 截断成 src/a.cpp
+#   后界 (?![\w./-])：避免把 src/<名>.cpp.bak 截断成 src/<名>.cpp
 REF_RE = re.compile(r"(?<![\w./-])(src/[A-Za-z0-9_./-]+\.(?:cpp|h))(?![\w./-])")
 
 # 只有这些文本文件可能承载路径引用。二进制与构建产物一律不读。
@@ -60,8 +60,9 @@ SKIP_DIRS = {
 #                             （DX-18 已定「已结卡不回改」，在这里重复报只是噪声）
 #   progress.json          —— 派生产物
 #   docs/archive/          —— 历史归档，按定义不维护
+#   .workbuddy/            —— 本地记忆 / 日志，不进仓库，里面的旧路径是历史记录
 SKIP_FILES = {"docs/board-ledger.json", "progress.json"}
-SKIP_PREFIXES = ("docs/archive/",)
+SKIP_PREFIXES = ("docs/archive/", ".workbuddy/")
 
 HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
@@ -204,6 +205,7 @@ def selftest() -> int:
     check("存在性判据", ref("core/Database.cpp") in valid and ref("Database.cpp") not in valid)
     check("非文本后缀不扫", not is_scanned("docs/x.png") and is_scanned("docs/x.md"))
     check("归档不扫", not is_scanned("docs/archive/r6.md"))
+    check("本地记忆不扫", not is_scanned(".workbuddy/memory/2026-11-04.md"))
     check("台账不扫（另有所属）", not is_scanned("docs/board-ledger.json"))
     check("CMakeLists 扫", is_scanned("tests/CMakeLists.txt"))
 

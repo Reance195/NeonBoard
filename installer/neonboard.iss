@@ -36,6 +36,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional tasks:"; Flags: unchecked
 
 [InstallDelete]
+; 历史遗留：早期版本自带过一个 hello 示例插件，早已从仓库移除；升级时顺手清掉，
+; 免得老用户的 plugins/ 里一直躺着一个加载失败的目录。
+; 正常情况下不需要在这里逐项列插件 —— [Files] 是整目录覆盖，残留只会来自
+; 「新版本不再包含」的旧目录（如本条），新增插件不必改这里。
 Type: filesandordirs; Name: "{app}\plugins\hello"
 
 [Files]

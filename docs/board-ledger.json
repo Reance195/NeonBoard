@@ -1018,7 +1018,7 @@
             ],
             "depends": [],
             "id": "DX-42",
-            "note": "起因（DX-40 收尾实测）：worktree 处于 detached HEAD 时 agent-init 照样领用，claims[DX-40] 记下 branch=\"HEAD\"——release-claims 的 branch_exists 用 rev-parse 校验 refs/remotes/origin/HEAD，而该符号引用恒存在，判据被永久骗过，登记成僵尸（DX-40 自己的登记中招，已手工释放并在提交体披露）。另据实测：detached 领用让提交游离在分支外，变基会断开 refs/claims 祖先（CI 领用闸门红），只能 merge 不能 rebase。修复：①agent-init 检出 detached / 分支名解析为空即拒领（exit 3，fail-closed），顺带排查开区路径为何产出 detached 检出；②release-claims 的 branch_exists 把 \"HEAD\" / 空名显式判为非分支（git 禁止命名分支为 HEAD，误判面为零），使此类僵尸登记可被官方工具释放。",
+            "note": "起因（DX-40 收尾实测）：worktree 处于 detached HEAD 时 agent-init 照样领用，claims[DX-40] 记下 branch=\"HEAD\"——release-claims 的 branch_exists 用 rev-parse 校验 refs/remotes/origin/HEAD，该符号引用恒存在，判据被永久骗过，登记成僵尸（DX-40 登记中招，已手工释放并披露）；且 detached 领用的提交游离在分支外，变基会断开 refs/claims 祖先。交付（8e92850）：agent-init 检出 detached 即拒领（exit 3，fail-closed）；branch_exists 把 \"HEAD\"/空名显式判为非分支（git 禁止命名分支为 HEAD，误判面为零），补 selftest 子命令（5 例，本仓库 main 作阳性对照）。已完成 3 / 待做 0 —— 验收①selftest 过 + branch=\"HEAD\" 探测条目注入后被正常释放；验收②detached 检出实测 exit 3、DX-42 本卡领用即正常分支检出的活证；验收③verify 全过（含 BOM）。过程记录：本轮注册合并撞上并行推送（non-FF 拒绝）+ 台账双卡冲突（DX-42/43 并存，程序化合并解），均按宪章串行化协议重试收敛。",
             "scope": [
                 "scripts/agent-init.ps1",
                 "scripts/release-claims.py"

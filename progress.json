@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "R5-07",
+            "completedAt": 0,
+            "createdAt": 1793790931,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R5-07",
+            "note": "起因：R5-06 交付了 DeltaUpdate / BsdiffWrapper / neonboard-delta-tool 与 scripts/build-delta.ps1，并在 scripts/release.ps1（本地出包）里做了集成，但 .github/workflows/release.yml 里一个增量步骤都没有（git grep delta origin/main -- .github/workflows/release.yml 无命中）。发布态由 CI 产出（AGENTS.md §7.8），所以用户实际拿到的仍然只有 74 MB 的 NeonBoard-<ver>-portable.zip，增量能力在交付链路上是空转的。\n\n目标：把增量生成接进 release 流程 —— 查上一个 release、取它的 portable 资产、跑 build-delta.ps1 产出 delta.zip、把 delta 条目写进 update.json 的 artifacts，并让 delta.zip 随 Release 一起上传（否则清单里的 url 指过去就是 404）。\n\n同时修掉三处会让这条链路静默失效的写法：① 用 Write-Output \"value=\" 传 step output（Actions 只认 $env:GITHUB_OUTPUT，取到的永远是空串，整步直接跳过）；② 在 CI 工作区里找 dist/NeonBoard-<prev>-portable.zip（fresh runner 的 dist 只有本次产物，上一版包在 Release 资产上，条件永不成立）；③ 在 workflow 里手搓 update.json 的 manifest，绕开 scripts/build-update-manifest.ps1（同一份 schema 两套实现必漂，且该脚本新加的 -DeltaZip/-DeltaFromVersion 参数成了死代码）。\n\n验收边界：本卡只动发布链路与脚本，不改客户端增量算法（R5-06 已交付）；改动全部落在 .github/ 与 scripts/，按 AGENTS.md §7.7 走 -ScriptOnly 档，全量编译由 CI 兜底。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "R5",
+            "status": "todo",
+            "tags": [
+                "R5"
+            ],
+            "title": "增量升级包没接进 CI 发布链路：正式版仍只能下载全量便携包",
+            "updatedAt": 1793790931
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3121,6 +3139,6 @@
             "updatedAt": 1793767358
         }
     ],
-    "updated": "2026-11-04T17:02:03",
+    "updated": "2026-11-04T19:15:31",
     "version": 3
 }

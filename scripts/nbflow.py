@@ -14,7 +14,8 @@ claim-card.py、agent-init.ps1、git-done.ps1、release-claims.py 里，靠人�
     approve   程序受理 + 整理成五段式清单 + 20 项预演 + 落盘立卡（+ 合回主线）
     dispatch  领卡与建分支移交是**一步**：一次 agent-init.ps1 -Card 调用 + handoff.json
     report    agent 反馈结构化执行回执，程序逐条核 acceptance 与 verify 退出码
-    close     程序验收通过后 git-done.ps1 合入 / 结卡 / 回收工作区
+    close     先试合并一次，无冲突才 git-done.ps1 合入 / 结卡 / 回收工作区
+    anchor    锚点区先合并一次；阻塞/冲突则建冲突工单交回 agent（见下）
     abandon   弃卡时释放服务端 refs/claims 并回收工作区（补上原来的硬死锁）
     status    查看状态机、派发包与回执是否齐备
 
@@ -24,6 +25,26 @@ claim-card.py、agent-init.ps1、git-done.ps1、release-claims.py 里，靠人�
 ``approve`` 不必重复传 --authorize/--batch，程序仍把「授权：」「批次：」两行
 写进**每一条** ``chore(board):`` 提交体 —— 凭证不因为批量而消失。
 程序只搬运授权，不判断「这张卡该不该立」（board-apply.py:15）。
+
+合并冲突 → 新工单交回 agent（锚点区问题）
+------------------------------------------
+程序**先合并一次**再决定是否合入：
+  close / approve 调 git-done.ps1 之前，先在 .worktrees/_nbflow-probe-* 的临时
+  detached worktree 里试 ``git merge --no-commit --no-ff <branch>``，收集未合并
+  文件与冲突标记，随后 abort + 回收，绝不把冲突留在调用者检出或锚点区。
+  anchor 子命令针对锚点区：先诊断（检出分支 / 落后领先 / 脏项 / root 占用），
+  再真的执行**一次** ``git merge --ff-only origin/main``；成功即快进，失败不
+  stash、不覆盖他人改动，只留证据（而不是像以前那样静默跳过）。
+一旦探测到冲突或阻塞，程序不自行解决，而是：
+  1. 生成 ``docs/card-requests/<日期>-conflict-<slug>.md``（DX-n 工单，沿用 §9
+     已有的 DX 阶段以免新增 stage 触发全量；含冲突文件、双方提交、诊断、
+     验收项与操作步骤，并写明锚点区不得由 agent 动手的 §7.1 约束）；
+  2. 有会话级授权时自动 approve 立卡并 dispatch 派回 agent（handoff.json 带
+     conflict 字段与 nextStep）；无授权则只留请求单，提示先 authorize ——
+     程序不自己发明批准；
+  3. 原卡状态保持不变（可重跑 close），state 里记 conflictTicket；agent 在
+     自己的 worktree 里合并、消除冲突标记、report 逐条填证据、close 上交。
+退出码 5 = 「已建冲突工单并交回 agent，本次未合入」。
 
 状态载体
 --------
@@ -44,11 +65,15 @@ claim-card.py、agent-init.ps1、git-done.ps1、release-claims.py 里，靠人�
     python scripts/nbflow.py report --card FLOW-01 --run-verify --result "<验收项>=pass:证据"
     python scripts/nbflow.py close --card FLOW-01
     python scripts/nbflow.py abandon --card FLOW-01 --reason "上游卡已弃"
+    python scripts/nbflow.py anchor --report-only        # 只看锚点诊断，先试合并一次
+    python scripts/nbflow.py anchor --agent agent-conflict
+    python scripts/nbflow.py anchor --simulate-conflict --dry-run   # 演练冲突工单
     python scripts/nbflow.py status
     python scripts/nbflow.py --selftest
     python scripts/nbflow.py <任意子命令> --dry-run    # 演练：不执行外部命令、不写仓库文件
 
-退出码：0 成功 / 1 校验或状态不合法 / 2 外部命令失败 / 3 用法错误 / 4 读取失败。
+退出码：0 成功 / 1 校验或状态不合法 / 2 外部命令失败 / 3 用法错误 / 4 读取失败
+        / 5 已建冲突工单并交回 agent（本次未合入）。
 """
 from __future__ import annotations
 
@@ -408,10 +433,16 @@ def cmd_approve(ctx: Ctx, state: dict, args) -> int:
     reqs: list[tuple[str, Path, dict]] = []
     for card in cards:
         p = find_request(card)
-        if not p:
+        cached = state["sessions"].get(card, {}).get("requestText", "")
+        if p:
+            req = parse_request(p.read_text(encoding="utf-8"))
+        elif cached:
+            # 演练时请求单不落盘，程序状态里留一份等价文本，保证整条链路仍可串起来
+            p = REQUEST_DIR / (card.lower() + ".md")
+            req = parse_request(cached)
+        else:
             err("✗ 找不到 %s 的请求单" % card)
             return 4
-        req = parse_request(p.read_text(encoding="utf-8"))
         if req.get("state") in ("approved", "rejected"):
             err("✗ %s 已 %s，不能重复批准" % (card, req["state"]))
             return 1
@@ -459,6 +490,14 @@ def cmd_approve(ctx: Ctx, state: dict, args) -> int:
         if args.no_merge:
             out("  · --no-merge：立卡分支 %s 已留在 %s，未合回主线" % (branch, wt))
             return 0
+        if not getattr(args, "no_probe", False):
+            probe = probe_merge(ctx, branch)
+            if not probe["ok"]:
+                out("  · 先合并一次发现冲突：%s"
+                    % (", ".join(probe["conflicts"][:5]) or probe["reason"]))
+                _ticket, tcode = raise_conflict_ticket(ctx, state, branch=branch, info=probe,
+                                                       agent=getattr(args, "conflict_agent", CONFLICT_AGENT))
+                return 5 if tcode == 0 else tcode
         # ③ 合回主线：先推立卡分支，再由 git-done 在调用者检出里做 --no-ff 合并 + 快进推送
         code, _ = run(["git", "-C", str(wt), "push", "-u", "origin", branch], dry=ctx.dry_run)
         if code != 0:
@@ -530,6 +569,9 @@ def cmd_dispatch(ctx: Ctx, state: dict, args) -> int:
         "envFile": str(Path(wt) / ".agent-env.ps1"),
         "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
     }
+    extra = getattr(args, "extra", None)
+    if extra:
+        handoff.update(extra)
     hp = handoff_path(wt)
     if ctx.dry_run:
         out("  · [dry-run] 将写派发包 %s\n%s" % (hp, json.dumps(handoff, ensure_ascii=False, indent=2)))
@@ -670,6 +712,15 @@ def cmd_close(ctx: Ctx, state: dict, args) -> int:
     if code == 0 and not ctx.dry_run and "#%s=done" % card not in (text or ""):
         err("✗ 分支历史里没有 #%s=done；git-done 靠它自动结卡，请先补标记或传 --force-close" % card)
         return 1
+    if not getattr(args, "no_probe", False):
+        probe = probe_merge(ctx, branch)
+        if not probe["ok"]:
+            out("  · 先合并一次发现冲突：%s"
+                % (", ".join(probe["conflicts"][:5]) or probe["reason"]))
+            _ticket, tcode = raise_conflict_ticket(ctx, state, branch=branch, info=probe,
+                                                   agent=getattr(args, "conflict_agent", CONFLICT_AGENT),
+                                                   source_card=card)
+            return 5 if tcode == 0 else tcode
     params = ["-Branch", branch]
     if args.force_close:
         params += ["-Close", card]
@@ -722,6 +773,303 @@ def cmd_abandon(ctx: Ctx, state: dict, args) -> int:
     out("%s %s 已弃卡并释放占位（原因：%s）"
         % ("[演练] 未执行 ·" if ctx.dry_run else "✓", card, args.reason))
     return 0
+
+
+# ------------------------------------------- 合并冲突 → 自动建工单交回 agent
+
+CONFLICT_STAGE = "DX"     # 路线图 §9 已有阶段；新增 stage 会触发 check_board_diff 全量档
+CONFLICT_PREFIX = "DX"
+CONFLICT_AGENT = "agent-conflict"
+
+
+def _slug(text: str, limit: int = 30) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")[:limit] or "conflict"
+
+
+def anchor_root(ctx: Ctx) -> Path:
+    """锚点区 = git common dir 的父目录；在任意 worktree 里都能定位。"""
+    code, text = run(["git", "-C", str(REPO), "rev-parse", "--git-common-dir"],
+                     capture=True, quiet=True)
+    if code == 0 and text.strip():
+        p = Path(text.strip().splitlines()[0])
+        if not p.is_absolute():
+            p = (REPO / p).resolve()
+        return p.parent
+    return REPO.parent
+
+
+def probe_merge(ctx: Ctx, branch: str, simulate: bool = False) -> dict:
+    """程序先合并一次：临时 detached worktree 里试合并，收集冲突证据后原样清理。
+
+    不碰调用者检出、不碰锚点区；试完一定 abort + 回收，绝不留下冲突标记。
+    """
+    info = {"branch": branch, "ok": True, "conflicts": [], "evidence": "",
+            "ours": "", "theirs": "", "reason": ""}
+    if simulate:
+        info.update(ok=False, reason="simulated-merge-conflict",
+                    conflicts=["docs/board-ledger.json"],
+                    evidence="演练用模拟冲突：docs/board-ledger.json 三路合并撞车",
+                    ours="origin/main", theirs=branch)
+        return info
+    if ctx.dry_run:
+        out("  · [dry-run] 将先试合并 %s → origin/main（不建探测区）" % branch)
+        return info
+    wt = REPO / ".worktrees" / ("_nbflow-probe-" + _slug(branch))
+    try:
+        if wt.exists():
+            run(["git", "-C", str(REPO), "worktree", "remove", "--force", str(wt)], quiet=True)
+        code, _ = run(["git", "-C", str(REPO), "worktree", "add", "--detach",
+                       str(wt), "origin/main"], quiet=True)
+        if code != 0:
+            info.update(ok=False, reason="probe-setup-failed",
+                        evidence="临时探测区建立失败：%s" % wt)
+            return info
+        _, ours = run(["git", "-C", str(wt), "rev-parse", "--short", "HEAD"],
+                      capture=True, quiet=True)
+        _, theirs = run(["git", "-C", str(REPO), "rev-parse", "--short", branch],
+                        capture=True, quiet=True)
+        info["ours"], info["theirs"] = ours.strip(), theirs.strip()
+        code, _ = run(["git", "-C", str(wt), "merge", "--no-commit", "--no-ff", branch],
+                      quiet=True)
+        _, unmerged = run(["git", "-C", str(wt), "diff", "--name-only", "--diff-filter=U"],
+                          capture=True, quiet=True)
+        conflicts = [x.strip() for x in (unmerged or "").splitlines() if x.strip()]
+        if code != 0 or conflicts:
+            snippets = []
+            for rel in conflicts[:8]:
+                fp = wt / rel
+                if fp.is_file():
+                    marks = [ln.strip() for ln in
+                             fp.read_text(encoding="utf-8", errors="replace").splitlines()
+                             if ln.startswith(("<<<<<<<", "=======", ">>>>>>>"))][:6]
+                    snippets.append("%s: %s" % (rel, " / ".join(marks) or "无冲突标记"))
+            info.update(ok=False, reason="merge-conflict", conflicts=conflicts,
+                        evidence="; ".join(snippets) or ("git merge 退出码 %d" % code))
+        return info
+    finally:
+        if wt.exists():
+            run(["git", "-C", str(wt), "merge", "--abort"], quiet=True)
+            run(["git", "-C", str(REPO), "worktree", "remove", "--force", str(wt)], quiet=True)
+
+
+def anchor_probe(ctx: Ctx, simulate: bool = False) -> dict:
+    """锚点区：先诊断，再真的快进合并一次；失败不 stash、不覆盖他人改动，只留证据。"""
+    root = anchor_root(ctx)
+    info = {"anchor": str(root), "branch": "", "ahead": 0, "behind": 0,
+            "dirty": [], "nonSnapshotDirty": [], "rootClaim": None,
+            "merged": False, "ok": True, "reason": "", "evidence": "",
+            "conflicts": []}
+    _, b = run(["git", "-C", str(root), "symbolic-ref", "--short", "HEAD"],
+               capture=True, quiet=True)
+    info["branch"] = b.strip()
+    _, lr = run(["git", "-C", str(root), "rev-list", "--left-right", "--count",
+                 "HEAD...origin/main"], capture=True, quiet=True)
+    parts = (lr or "0 0").split()
+    if len(parts) == 2 and all(x.isdigit() for x in parts):
+        info["ahead"], info["behind"] = int(parts[0]), int(parts[1])
+    _, st = run(["git", "-C", str(root), "status", "--porcelain"], capture=True, quiet=True)
+    dirty = []
+    for line in (st or "").splitlines():
+        p = line[3:].strip()
+        if " -> " in p:
+            p = p.split(" -> ", 1)[1]
+        if p:
+            dirty.append(p)
+    info["dirty"] = dirty
+    # status --porcelain 对未跟踪目录会输出 'docs/'，它不是文件，不能进工单 scope
+    info["nonSnapshotDirty"] = [p for p in dirty
+                                if p != "progress.json" and not p.endswith("/")]
+    try:
+        ws = json.loads((ctx.common / "agent-workspace.json").read_text(encoding="utf-8"))
+        info["rootClaim"] = ws.get("root")
+    except (OSError, ValueError):
+        pass
+    if simulate:
+        info.update(ok=False, reason="simulated-anchor-block",
+                    conflicts=info["nonSnapshotDirty"] or ["progress.json"],
+                    evidence="演练用模拟阻塞：锚点落后 %d / 领先 %d，脏项 %s"
+                             % (info["behind"], info["ahead"],
+                                ", ".join(info["nonSnapshotDirty"]) or "无"))
+        return info
+    if ctx.dry_run:
+        out("  · [dry-run] 将先试一次 git merge --ff-only origin/main（不执行）")
+        return info
+    if info["branch"] != "main":
+        info.update(ok=False, reason="anchor-not-main",
+                    conflicts=info["nonSnapshotDirty"],
+                    evidence="锚点检出 %s；按 §7.1 不在此切分支或合并" % info["branch"])
+        return info
+    code, _ = run(["git", "-C", str(root), "merge", "--ff-only", "origin/main"], quiet=True)
+    if code == 0:
+        info["merged"] = True
+        return info
+    claim = info["rootClaim"]
+    claim_agent = claim.get("agent", "无") if isinstance(claim, dict) else "无"
+    info.update(ok=False, reason="ff-only-blocked",
+                conflicts=info["nonSnapshotDirty"] or ["progress.json"],
+                evidence="落后 %d / 领先 %d；脏项：%s；root 占用：%s；ff-only 退出码 %d"
+                         % (info["behind"], info["ahead"],
+                            ", ".join(info["dirty"]) or "无", claim_agent, code))
+    return info
+
+
+def next_conflict_card(state: dict) -> str:
+    """冲突工单沿用 §9 已有的 DX 阶段与编号，自动避开已占用号。"""
+    used = set(state.get("sessions", {}))
+    code, text = run(["git", "-C", str(REPO), "show", "origin/main:docs/board-ledger.json"],
+                     capture=True, quiet=True)
+    if code == 0 and text.strip():
+        try:
+            used |= set(json.loads(text).get("cards", {}))
+        except ValueError:
+            pass
+    if REQUEST_DIR.is_dir():
+        for p in REQUEST_DIR.glob("*.md"):
+            try:
+                used.add(parse_request(p.read_text(encoding="utf-8")).get("card", "").upper())
+            except (OSError, ValueError):
+                continue
+    return pick_conflict_card(used)
+
+
+def pick_conflict_card(used: set[str]) -> str:
+    """纯函数：从已占用卡号里挑下一个 DX-n，便于自测，不碰 git。"""
+    nums = [int(m.group(1)) for c in used
+            for m in [re.match(r"^%s-(\d+)$" % CONFLICT_PREFIX, c)] if m]
+    return "%s-%02d" % (CONFLICT_PREFIX, max(nums) + 1 if nums else 1)
+
+
+def conflict_ticket_body(card: str, branch: str, info: dict,
+                         scope: list[str], acceptance: list[str]) -> str:
+    anchor_note = ""
+    if info.get("anchor"):
+        claim = info.get("rootClaim")
+        claim_agent = claim.get("agent", "无") if isinstance(claim, dict) else "无"
+        anchor_note = ("\n## 锚点区约束\n"
+                       "- 锚点 %s 检出 %s，落后 %d / 领先 %d；root 占用：%s\n"
+                       "- 程序不 stash、不覆盖、不在锚点区改代码（§7.1）；本地改动由维护者/占用者处理，\n"
+                       "  agent 只在自己的 worktree 里解决合并并把结果合回主线，让锚点后续能自然快进。\n"
+                       % (info["anchor"], info.get("branch", ""), info.get("behind", 0),
+                          info.get("ahead", 0), claim_agent))
+    return "\n".join([
+        "## 来源",
+        "由 nbflow 自动建单：程序先合并一次，遇到冲突/阻塞不自行解决，交回 agent 合并后上交。",
+        "", "## 冲突证据",
+        "- 触发：%s" % info.get("reason", ""),
+        "- 分支：%s（ours %s / theirs %s）" % (branch, info.get("ours", ""), info.get("theirs", "")),
+        "- 冲突/脏项文件：%s" % (", ".join(info.get("conflicts", [])) or "无"),
+        "- 诊断：%s" % (info.get("evidence", "") or "无"),
+        anchor_note,
+        "", "## 目标",
+        "由 agent 在自己的 worktree 里完成合并、消除冲突标记，再合回主线并结卡上交。",
+        "", "## 步骤",
+        "1. dot-source .agent-env.ps1，先看 NB_SCOPE / NB_ACCEPTANCE",
+        "2. git fetch origin; git merge --no-ff %s（或基于最新 origin/main 重建合并）" % branch,
+        "3. 台账冲突用 scripts/merge_board.py / scripts/merge-resolve.ps1 辅助，禁止留冲突标记",
+        "4. 提交信息带 #%s=done，合并体写四段（变更/验收/影响/卡片）" % card,
+        "5. 跑 verify.ps1，再用 nbflow report 逐条填证据，最后 nbflow close 上交",
+        "", "## 验收", "; ".join(acceptance),
+        "", "## 边界", "; ".join(scope),
+        "", "## 交接",
+        "原卡保持原状态（可重跑 close）；本工单 cleaned 后再重跑原卡的 close。",
+    ])
+
+
+def raise_conflict_ticket(ctx: Ctx, state: dict, *, branch: str, info: dict,
+                          agent: str, source_card: str = "") -> tuple[str, int]:
+    """把冲突建成一张新工单，立卡并派发回 agent；无会话授权时只留请求单。"""
+    card = next_conflict_card(state)
+    conflicts = [p for p in info.get("conflicts", []) if (REPO / p).exists()]
+    scope = conflicts[:8] or ["docs/**", "scripts/**"]
+    acceptance = [
+        "冲突文件无 <<<<<<< 标记",
+        "git merge --no-ff %s 完成" % branch,
+        "pwsh -File scripts/verify.ps1 -ScriptOnly 通过",
+        "合并结果用 merge 提交合回 origin/main",
+        "工单 note 记录冲突文件与解决方式",
+    ]
+    evidence = ("reason=%s branch=%s behind=%s files=%s %s"
+                % (info.get("reason", ""), branch, info.get("behind", ""),
+                   ",".join(info.get("conflicts", [])[:8]), info.get("evidence", "")))
+    evidence = " ".join(evidence.split())[:480]
+    title = ("锚点区合并阻塞：快进 origin/main 未通过（程序自动建单）" if info.get("anchor")
+             else "合并冲突：%s 与 origin/main（程序自动建单）" % branch)
+    req = {
+        "state": "requested", "card": card, "stage": CONFLICT_STAGE,
+        "title": title,
+        "author": "nbflow", "evidence": evidence,
+        "scope": ";".join(scope), "acceptance": ";".join(acceptance),
+        "depends": "", "suggestedId": card, "rejectReason": "", "createdAt": now(),
+        "body": conflict_ticket_body(card, branch, info, scope, acceptance),
+    }
+    p = request_path(card, "conflict-" + _slug(branch))
+    if not ctx.dry_run:
+        REQUEST_DIR.mkdir(parents=True, exist_ok=True)
+        p.write_text(render_request(req), encoding="utf-8")
+    out("  · 冲突工单请求单：%s（%s）" % (p, card))
+    try:
+        rel = str(p.relative_to(REPO))
+    except ValueError:
+        rel = str(p)
+    state["sessions"][card] = {"state": "requested", "request": rel,
+                               "conflictOf": source_card or branch,
+                               "requestText": render_request(req),
+                               "history": [{"at": now(), "from": "-", "to": "requested"}]}
+    if source_card and source_card in state["sessions"]:
+        state["sessions"][source_card]["conflictTicket"] = card
+        state["sessions"][source_card]["nextStep"] = "等 %s 解决合并后重跑 close" % card
+    save_state(ctx, state)
+    # 程序不自己发明批准：没有会话级授权就停在 requested，等人授权后再 approve
+    try:
+        authorization(state)
+    except RuntimeError as exc:
+        err("  · %s" % exc)
+        out("  · 工单已建但未立卡/未派发；请维护者 authorize 后跑：nbflow approve --cards %s" % card)
+        return card, 0
+    # 工单自己的立卡分支不再试合并：否则冲突会再生成一张工单，形成递归
+    approve_args = argparse.Namespace(cards=card, all=False, authorize="", batch="",
+                                      ttl_hours=24, no_merge=False, no_probe=True,
+                                      conflict_agent=agent, dry_run_sub=ctx.dry_run)
+    code = cmd_approve(ctx, state, approve_args)
+    if code != 0:
+        err("✗ 冲突工单立卡失败（%d）；请求单已留档 %s" % (code, p))
+        return card, code
+    dbranch = "fix/conflict-" + _slug(branch)
+    dispatch_args = argparse.Namespace(card=card, agent=agent, branch=dbranch, base="",
+                                       dry_run_sub=ctx.dry_run,
+                                       extra={"conflict": info,
+                                              "nextStep": "在派发 worktree 里解决 %s 合并冲突，"
+                                                          "report 逐条填证据后 close 上交" % branch})
+    code = cmd_dispatch(ctx, state, dispatch_args)
+    if code != 0:
+        err("✗ 冲突工单派发失败（%d）；请手工：nbflow dispatch --card %s --agent %s --branch %s"
+            % (code, card, agent, dbranch))
+        return card, code
+    out("✓ 冲突已建工单 %s 并交回 %s（分支 %s）；agent 合并后 report → close 再上交"
+        % (card, agent, dbranch))
+    return card, 0
+
+
+def cmd_anchor(ctx: Ctx, state: dict, args) -> int:
+    """锚点区问题：先合并一次，阻塞/冲突则自动建工单交回 agent。"""
+    out("→ 锚点区：先合并一次，阻塞则建工单交回 agent")
+    info = anchor_probe(ctx, simulate=args.simulate_conflict)
+    claim = info["rootClaim"]
+    claim_agent = claim.get("agent", "无") if isinstance(claim, dict) else "无"
+    out("  · 检出 %s，落后 %d / 领先 %d，脏项 %d（非快照 %d），root 占用 %s"
+        % (info["branch"] or "detached", info["behind"], info["ahead"],
+           len(info["dirty"]), len(info["nonSnapshotDirty"]), claim_agent))
+    if info["ok"]:
+        out("✓ %s" % ("锚点已快进到 origin/main" if info.get("merged")
+                      else "锚点无需合并（演练/诊断通过）"))
+        return 0
+    out("  · 先合并一次未通过：%s —— %s" % (info["reason"], info["evidence"][:200]))
+    if args.report_only:
+        out("  · --report-only：只诊断，未建工单")
+        return 0
+    _card, code = raise_conflict_ticket(ctx, state, branch="origin/main", info=info,
+                                        agent=args.agent)
+    return code
 
 
 def cmd_status(ctx: Ctx, state: dict, args) -> int:
@@ -834,6 +1182,47 @@ def selftest() -> int:
         check("状态转移落盘", load_state(c)["sessions"]["FLOW-01"]["state"] == "accepted")
         check("非法转移被拒", _raises(lambda: transition(c, loaded, "FLOW-01", "cleaned")))
 
+        # 合并冲突 → 工单：试合并证据、卡号分配、请求单结构、无授权不立卡
+        info = probe_merge(c, "feature/x", simulate=True)
+        check("试合并探测能识别冲突", info["ok"] is False
+              and "docs/board-ledger.json" in info["conflicts"])
+        anchor_info = {"anchor": str(REPO), "branch": "main", "behind": 45, "ahead": 0,
+                       "reason": "ff-only-blocked", "conflicts": ["scripts/git-done.ps1"],
+                       "evidence": "演练", "rootClaim": None}
+        body = conflict_ticket_body("DX-99", "origin/main", anchor_info,
+                                    ["docs/**", "scripts/**"], ["验收一", "验收二"])
+        check("锚点阻塞工单写明约束与交接",
+              "## 锚点区约束" in body and "§7.1" in body and "nbflow close 上交" in body)
+        acc = ["冲突文件无 <<<<<<< 标记", "git merge --no-ff feature/x 完成",
+               "pwsh -File scripts/verify.ps1 -ScriptOnly 通过",
+               "合并结果用 merge 提交合回 origin/main", "工单 note 记录冲突文件与解决方式"]
+        ticket = {"state": "requested", "card": "DX-99", "stage": CONFLICT_STAGE,
+                  "title": "合并冲突：feature/x 与 origin/main（程序自动建单）", "author": "nbflow",
+                  "evidence": "reason=merge-conflict", "scope": "docs/**;scripts/**",
+                  "acceptance": ";".join(acc), "depends": "", "suggestedId": "DX-99",
+                  "rejectReason": "", "createdAt": now(), "body": body}
+        tparsed = parse_request(render_request(ticket))
+        check("冲突工单 front matter 可解析",
+              tparsed["card"] == "DX-99" and tparsed["stage"] == "DX")
+        check("冲突工单验收逐条且 scope 非空",
+              len(split_multi(tparsed["acceptance"])) == 5
+              and split_multi(tparsed["scope"]) == ["docs/**", "scripts/**"])
+        check("冲突卡号避开已占用",
+              pick_conflict_card({"DX-01", "DX-03", "DX-25", "FLOW-01"}) == "DX-26")
+        check("slug 只留安全字符", _slug("feature/Foo Bar~x") == "feature-foo-bar-x")
+        old_dir = REQUEST_DIR
+        globals()["REQUEST_DIR"] = Path(td) / "card-requests"
+        try:
+            st3 = blank_state()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                ticket_card, ticket_code = raise_conflict_ticket(
+                    c, st3, branch="feature/x", info=info, agent="agent-conflict")
+            check("无会话授权只建单不立卡",
+                  ticket_code == 0 and st3["sessions"][ticket_card]["state"] == "requested")
+            check("冲突请求单已落盘", len(list((Path(td) / "card-requests").glob("*.md"))) == 1)
+        finally:
+            globals()["REQUEST_DIR"] = old_dir
+
     failed = [n for n, ok in cases if not ok]
     for name, ok in cases:
         out(("  ✓ " if ok else "  ✗ ") + name)
@@ -888,6 +1277,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--batch", default="")
     ap.add_argument("--ttl-hours", type=int, default=24)
     ap.add_argument("--no-merge", action="store_true", help="只落盘立卡分支，不合回主线")
+    ap.add_argument("--no-probe", action="store_true", help="跳过合回主线前的试合并探测")
+    ap.add_argument("--conflict-agent", default=CONFLICT_AGENT, help="冲突工单派给哪个 agent")
 
     d = sub.add_parser("dispatch", parents=[common], help="领卡 + 建分支 + 移交（一步）")
     d.add_argument("--card", required=True)
@@ -909,11 +1300,19 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--card", required=True)
     c.add_argument("--branch", default="")
     c.add_argument("--force-close", action="store_true", help="缺 #短号=done 时用 git-done -Close 兜底")
+    c.add_argument("--no-probe", action="store_true", help="跳过合入前的试合并探测")
+    c.add_argument("--conflict-agent", default=CONFLICT_AGENT, help="冲突工单派给哪个 agent")
 
     ab = sub.add_parser("abandon", parents=[common], help="弃卡：释放 claim ref + 回收工作区")
     ab.add_argument("--card", required=True)
     ab.add_argument("--reason", required=True)
     ab.add_argument("--force", action="store_true", help="允许丢弃未提交改动 / 强删分支")
+
+    an = sub.add_parser("anchor", parents=[common],
+                        help="锚点区：先合并一次，阻塞/冲突则建工单交回 agent")
+    an.add_argument("--agent", default=CONFLICT_AGENT, help="冲突工单派给哪个 agent")
+    an.add_argument("--simulate-conflict", action="store_true", help="演练：模拟锚点阻塞")
+    an.add_argument("--report-only", action="store_true", help="只诊断，不建工单")
 
     sub.add_parser("status", parents=[common], help="查看状态机")
     return p
@@ -941,7 +1340,7 @@ def main() -> int:
     handlers = {
         "authorize": cmd_authorize, "request": cmd_request, "approve": cmd_approve,
         "dispatch": cmd_dispatch, "report": cmd_report, "close": cmd_close,
-        "abandon": cmd_abandon, "status": cmd_status,
+        "abandon": cmd_abandon, "anchor": cmd_anchor, "status": cmd_status,
     }
     try:
         return handlers[args.cmd](ctx, state, args)

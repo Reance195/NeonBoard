@@ -18,6 +18,7 @@
 #include <QProcess>
 #include <QSettings>
 #include <QTemporaryDir>
+#include <QVariant>
 
 #ifdef Q_OS_WINDOWS
 #include <windows.h> // CREATE_NO_WINDOW：探测与击杀宿主都不能弹控制台窗
@@ -518,6 +519,13 @@ private slots:
         // 构建目录里没有回执，新实例默认不报警
         UpdateManager manager;
         QVERIFY(!manager.lastInstallIncomplete());
+
+        // 设置面板的警示条按属性名绑定：Q_PROPERTY 漏注册时 QML 只留一条运行时警告、
+        // 界面静默不显示，编译期查不出来，所以在这里按名字读一次
+        const QVariant exposed = manager.property("lastInstallIncomplete");
+        QVERIFY(exposed.isValid());
+        QCOMPARE(exposed.typeId(), QMetaType::Bool);
+        QCOMPARE(exposed.toBool(), false);
     }
 
     void terminateHostIsHarmlessWhenAbsent()

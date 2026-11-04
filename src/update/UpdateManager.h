@@ -56,6 +56,8 @@ class UpdateManager : public QObject
     Q_PROPERTY(bool autoCheck READ autoCheck WRITE setAutoCheck NOTIFY autoCheckChanged)
     Q_PROPERTY(QString skippedVersion READ skippedVersion NOTIFY skippedVersionChanged)
     Q_PROPERTY(qint64 lastCheckAt READ lastCheckAt NOTIFY lastCheckChanged)
+    // 构造时读一次安装回执就定型，运行期不会变，所以是 CONSTANT
+    Q_PROPERTY(bool lastInstallIncomplete READ lastInstallIncomplete CONSTANT)
 
 public:
     explicit UpdateManager(QObject *parent = nullptr);

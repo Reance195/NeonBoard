@@ -55,24 +55,6 @@
             "updatedAt": 1793813175
         },
         {
-            "code": "R16-05",
-            "completedAt": 0,
-            "createdAt": 1793814339,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R16-05",
-            "note": "起因：today / surfaces 示例全部硬编码颜色（#0A1524、#22D3EE 等），与仓库「组件只用 Theme.xxx 令牌」的约定相悖——示例是教学材料，教的是反模式。顺手：plan-hook 面板执行记录只存内存（records 数组），面板关了就丢，落到 storage 保留最近 20 条。today/main.qml 与 R16-01 同文件，串行。",
-            "orderKey": 10240,
-            "priority": 2,
-            "stage": "R16",
-            "status": "todo",
-            "tags": [
-                "R16"
-            ],
-            "title": "示例插件 Theme 令牌化 + plan-hook 执行记录落 storage",
-            "updatedAt": 1793814339
-        },
-        {
             "code": "DX-36",
             "completedAt": 0,
             "createdAt": 1793816382,
@@ -1396,6 +1378,24 @@
             ],
             "title": "MOD src/ 物理分层：8 个模块子目录 + 连带 5 处引用",
             "updatedAt": 1793729394
+        },
+        {
+            "code": "R16-05",
+            "completedAt": 1793820357,
+            "createdAt": 1793814339,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R16-05",
+            "note": "起因：today / surfaces 示例全部硬编码颜色（#0A1524、#22D3EE 等），与仓库「组件只用 Theme.xxx 令牌」的约定相悖——示例是教学材料，教的是反模式。顺手：plan-hook 面板执行记录只存内存（records 数组），面板关了就丢，落到 storage 保留最近 20 条。today/main.qml 与 R16-01 同文件，串行。",
+            "orderKey": 10240,
+            "priority": 2,
+            "stage": "R16",
+            "status": "done",
+            "tags": [
+                "R16"
+            ],
+            "title": "示例插件 Theme 令牌化 + plan-hook 执行记录落 storage",
+            "updatedAt": 1793820357
         },
         {
             "code": "R3-02",
@@ -3481,6 +3481,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T03:17:31",
+    "updated": "2026-11-05T03:25:57",
     "version": 3
 }

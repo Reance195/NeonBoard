@@ -794,6 +794,17 @@ R14-02 要求拿 dist 产物启动而不是源码目录。方法见
 > dist 产物里的官方插件报的是 `source=appdir` —— 语义正是「来自分发目录的官方插件」，
 > 目标已达成。
 
+### 9.9 R15 插件市场元数据：类别与依赖贯穿（进行中 0/2）
+
+neonboard-market 索引已上架 8 个插件并手写 `category` / `dependencies`，但两个字段没有单源：
+发布脚本重建条目只取固定字段，重新发布必丢；客户端解析也把未知字段丢掉、面板不展示。
+本迭代把声明收进 manifest、经发布脚本贯通到插件库面板（维护者 2026-11-04 会话授权）。
+
+| 卡 | 范围 | 要解决什么 |
+| --- | --- | --- |
+| R15-01 | `plugins/*/plugin.json` / `plugins-samples/*/plugin.json` / `scripts/publish-market.ps1` / `docs/plugin-api.md` | category/dependencies 手写在市场索引里，publish-market.ps1 重建条目只取固定字段，重新发布会丢 —— 声明收进 plugin.json，发布脚本透传，索引由 manifest 单源生成 |
+| R15-02 | `src/plugin/**` / `qml/components/PluginLibraryPanel.qml` / `README.md` | 客户端 `PluginMarket::parseIndex` 丢弃未知字段，插件库面板看不到类别与依赖 —— 字段贯通到 `PluginLibrary.entries` 并在面板逐条展示类别徽章与依赖说明 |
+
 ## 10. 验收指标（“炫酷”可量化）
 | 指标 | 目标 | 当前实测 |
 | --- | --- | --- |

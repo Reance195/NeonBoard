@@ -41,6 +41,7 @@
         "DX-39": "todo",
         "DX-40": "done",
         "DX-41": "todo",
+        "DX-42": "todo",
         "DX-43": "todo",
         "M01": "done",
         "M02": "done",
@@ -1008,6 +1009,22 @@
             ],
             "stage": "DX",
             "title": "自动结卡提交缺 # 标记：plan-hook 收不到 done、看板留僵尸 doing"
+        },
+        "DX-42": {
+            "acceptance": [
+                "python scripts/release-claims.py selftest（如无自测则补齐）全过，覆盖 branch=\"HEAD\" 与空分支名的条目按「分支不存在」释放、origin/HEAD 符号引用不再误判为分支存在",
+                "detached 领用被拒：在 detached HEAD 的检出里跑 agent-init.ps1 -InPlace -Card <短号> 退出码 3；正常分支检出领用不受影响",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过"
+            ],
+            "depends": [],
+            "id": "DX-42",
+            "note": "起因（DX-40 收尾实测）：worktree 处于 detached HEAD 时 agent-init 照样领用，claims[DX-40] 记下 branch=\"HEAD\"——release-claims 的 branch_exists 用 rev-parse 校验 refs/remotes/origin/HEAD，而该符号引用恒存在，判据被永久骗过，登记成僵尸（DX-40 自己的登记中招，已手工释放并在提交体披露）。另据实测：detached 领用让提交游离在分支外，变基会断开 refs/claims 祖先（CI 领用闸门红），只能 merge 不能 rebase。修复：①agent-init 检出 detached / 分支名解析为空即拒领（exit 3，fail-closed），顺带排查开区路径为何产出 detached 检出；②release-claims 的 branch_exists 把 \"HEAD\" / 空名显式判为非分支（git 禁止命名分支为 HEAD，误判面为零），使此类僵尸登记可被官方工具释放。",
+            "scope": [
+                "scripts/agent-init.ps1",
+                "scripts/release-claims.py"
+            ],
+            "stage": "DX",
+            "title": "detached 领用修复：agent-init 拒绝游离检出，release-claims 不再被 origin/HEAD 骗过"
         },
         "DX-43": {
             "acceptance": [

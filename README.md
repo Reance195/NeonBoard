@@ -60,6 +60,7 @@
 - agent 领用可见：看板自动扫描锚点与各 worktree 台账里的任务领用，卡片显示 `◈ agent` 标记；仍活跃的领用会自动把卡从「待办」转到「进行中」，分支合并后标记转灰。agent 只负责领任务、干活、提交，状态由看板接管
 - 任务派发器（默认关闭，在 设置 → 任务执行 打开总开关后生效）：卡片五段式执行定义（目标 / 验收 / 边界 / 输入 / 产出）+ 一键拉起本机 agent CLI（opencode / claude / cursor-agent，可自定义 profile）。执行链路：执行前确认（agent / 目录 / 完整命令行 / 验收项，目录首次使用需勾选信任）→ 受控拉起进程（argv 直起不经过 shell、流式日志脱敏落 `runs/`、心跳 + 超时强杀 + 进程树整棵回收、同卡不并发）→ 验收判定（acceptance 命令白名单执行、`file.exists` 断言、`git status` 基线比对越界改动）→ 执行面板回显（结论徽章 / 耗时 / 退出码 / 日志末尾 / 重试 attempt+1 / 「标为已办结」走人工确认路径可撤销）。附带：Triage 只读分析（用 profile 只读参数 + 分析前后 git status 一致双硬门，产出结构化执行草案，人采纳后回填表单，置信度 <0.5 禁止一键执行）；失败自动重试（轮数上限 5，失败摘要注入下一轮 prompt，人取消后不再重试）；台账卡单向导入（`docs/board-ledger.json` 的 acceptance / scope / goal 只补空值进 board.db，冲突只报告不覆盖，无写回台账的入口）。硬约束：程序不自动改看板列、不自动 push，详见 [docs/archive/r6-dispatcher-plan.md](docs/archive/r6-dispatcher-plan.md)
 - 系统托盘、全局热键、开机自启、单实例、窗口位置记忆
+- 托盘右键菜单霓虹化：宿主进程自绘分层窗口（圆角 + 外辉光 + 半透明底 + 悬停霓虹条），主程序里的 `QMenu` 套同一套皮肤令牌；菜单主色跟着看板主题走（`打开 NeonBoard` / `开机自启` / `退出`）
 - 运行时 QML 插件：权限清单、独立存储、宿主任务 API
 - 插件平台 2.0：apiVersion 2 支持后台常驻插件、事件订阅、meta 共享配置、设置页、侧栏 / 底部 / 卡片三种槽位、命令与快捷键注册、权限授权弹窗、插件启停与热重载；插件目录热插拔，新增 / 覆盖 / 删除插件后自动重扫重载，无需重启
 - 计划钩子：提交信息里写 `#T12`，标题带 `#T12` 的任务自动转到「进行中」（`#T12=done` / `#T12=todo` 同理，`#R3-01` 这类连字符路线图短号同样生效），详见 [docs/plan-hook.md](docs/plan-hook.md)
@@ -254,6 +255,8 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
              把看板现状写回路线图快照
 --newtask    启动后打开新建任务弹窗
 --autostart  静默启动到托盘
+--menu-preview <png>
+             把托盘右键菜单离屏抓成 PNG（验收 / 截图用，不弹窗）
 --emit-hook <text>
              把一段文本当作提交信息投递给计划钩子（只投递，规则由插件执行）
 --emit-hook-file <path>
@@ -333,7 +336,7 @@ docs/themes/         6 套主题预设实机截图
 
 | 进程 | 可执行文件 | 职责 | 常驻内存 |
 | --- | --- | --- | --- |
-| 宿主 | `NeonBoardHost.exe` | Win32 托盘、全局热键 `Ctrl+Shift+Space`、单实例、按需拉起/回收渲染进程 | 约 6 MB |
+| 宿主 | `NeonBoardHost.exe` | Win32 托盘（含自绘霓虹托盘菜单）、全局热键 `Ctrl+Shift+Space`、单实例、按需拉起/回收渲染进程 | 约 6 MB |
 | 渲染 | `NeonBoard.exe --hosted` | QML 看板界面，关窗后 60 秒无操作自动退出，内存归零 | 约 140 MB（仅展开时） |
 
 `--hosted` 由宿主注入：渲染进程在该模式下不创建系统托盘、不注册全局热键，避免与宿主争抢。

@@ -66,6 +66,7 @@ qt_add_executable(NeonBoard
     src/task/TaskAudit.h src/task/TaskAudit.cpp
     src/theme/ThemePack.h src/theme/ThemePack.cpp
     src/theme/ThemeMarket.h src/theme/ThemeMarket.cpp
+    src/theme/MenuSkin.h src/theme/MenuSkin.cpp
     src/board/ProjectStore.h src/board/ProjectStore.cpp
     src/task/TaskExec.h src/task/TaskExec.cpp
     src/shell/ReminderScheduler.h src/shell/ReminderScheduler.cpp
@@ -230,6 +231,8 @@ set_target_properties(NeonBoard PROPERTIES
 
 qt_add_executable(NeonBoardHost
     src/host/HostMain.cpp
+    src/host/TrayMenu.h src/host/TrayMenu.cpp
+    src/theme/MenuSkin.h src/theme/MenuSkin.cpp
     src/core/AppPaths.h src/core/AppPaths.cpp
     src/core/SingleInstance.h src/core/SingleInstance.cpp
     src/core/AppActions.h src/core/AppActions.cpp
@@ -241,6 +244,9 @@ target_link_libraries(NeonBoardHost PRIVATE
     Qt6::Network
     user32
     shell32
+    # R17-01：托盘右键菜单改成自绘的分层窗口 —— GDI+ 画带 alpha 的圆角 + 辉光，
+    # 再用 UpdateLayeredWindow 贴到屏幕上。gdiplus.dll 是 Windows 自带的，不用随包分发。
+    gdiplus
 )
 
 target_compile_definitions(NeonBoardHost PRIVATE
@@ -255,7 +261,7 @@ set_target_properties(NeonBoardHost PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE FALSE
 )
-target_include_directories(NeonBoardHost PRIVATE src src/core)
+target_include_directories(NeonBoardHost PRIVATE src src/core src/theme)
 
 # 增量升级发布侧工具（R5-06）：neonboard-delta-tool build --from <旧> --to <新> --out <目录>
 # 由 scripts/build-delta.ps1 调用，生成 delta.json + files/ + patches/（bsdiff patch）。

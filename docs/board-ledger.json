@@ -2011,7 +2011,7 @@
             ],
             "depends": [],
             "id": "R16-02",
-            "note": "起因：applyItem 对同一张卡最多 4 次独立写库（title/note/tags 各一次 updateTask + 一次 moveTaskToEnd），10 条批次最坏 40 次写，每次都触发模型信号与快照防抖链。交付（4bdc86e）：字段类对账合并为一次 updateTask、状态变更单独 moveTaskToEnd，动作计数语义变为「写库动作数」；statusOf 未知上游状态返回空串跳过状态变更（新建卡路径按缺省 todo 落卡，与协议「缺省按 pending」一致）；updateTask / moveTaskToEnd 失败记 pluginHost.log；docs/agent-task-event.md 状态映射表补防御语义。已完成 4 / 待做 0 —— 验收①合并写库（单卡至多 1 次 updateTask + 1 次移动，代码路径与日志计数为证）；验收②未知状态语义落协议文档；验收③失败可检索日志；验收④verify 全过。幂等语义不变：重复投递同 item 仍收敛。",
+            "note": "起因：applyItem 对同一张卡最多 4 次独立写库（title/note/tags 各一次 updateTask + 一次 moveTaskToEnd），10 条批次最坏 40 次写，每次都触发模型信号与快照防抖链。交付（4bdc86e）：字段类对账合并为一次 updateTask、状态变更单独 moveTaskToEnd，动作计数语义变为「写库动作数」；statusOf 未知上游状态返回空串跳过状态变更（新建卡路径按缺省 todo 落卡，与协议「缺省按 pending」一致）；updateTask / moveTaskToEnd 失败记 pluginHost.log；docs/agent-task-event.md 状态映射表补防御语义。已完成 4 / 待做 0 —— 验收①合并写库：无头批次用例（tst_pluginruntime，加载真实 background.qml 经总线走完整链路）断言 title+note+tags+status 四变 → 恰好 2 个写库动作（旧实现是 4）；验收②未知状态语义落协议文档；验收③失败可检索日志；验收④verify 全过。幂等语义不变：重复投递同 item 仍收敛。",
             "scope": [
                 "plugins/agent-bridge/",
                 "docs/agent-task-event.md"
@@ -2030,7 +2030,7 @@
                 "R16-02"
             ],
             "id": "R16-03",
-            "note": "起因：agentbridge.<agent>.<sessionId>.<todoId> 映射只增不减，卡片删除后残留永久留在 meta 表；Database 只有单键 get/set/remove，插件想清扫无从下手。交付（f86c6ea）：Database::metaKeys(prefix)（LIKE 前缀、转义 % _ \\、升序，空前缀返回全部）；PluginContext / PluginHost 代理同步暴露，权限仍归 meta；agent-bridge 每批处理完顺带清扫「指向已不存在任务」的映射键（存活任务一次快照建索引，不逐键 tasks()）；状态键按点号数 + 显式名单双判据排除误伤。已完成 4 / 待做 0 —— 验收①metaKeys 用例（前缀/不误伤/无匹配空/通配符字面量化）在 tst_databasemigration；验收②清扫用例由 metaKeys 用例 + sweep 判据覆盖（键过滤 + 存活索引）；验收③PRAGMA user_version 不变断言在用例内；验收④verify 全过。偏离说明：note 提到的 30 天 TTL 未实现 —— meta 键无时间戳，逐映射补写时间戳不成比例，「指向已删任务」清扫覆盖实际观测到的泄漏面；验收项未含 TTL，属有意取舍。",
+            "note": "起因：agentbridge.<agent>.<sessionId>.<todoId> 映射只增不减，卡片删除后残留永久留在 meta 表；Database 只有单键 get/set/remove，插件想清扫无从下手。交付（f86c6ea）：Database::metaKeys(prefix)（LIKE 前缀、转义 % _ \\、升序，空前缀返回全部）；PluginContext / PluginHost 代理同步暴露，权限仍归 meta；agent-bridge 每批处理完顺带清扫「指向已不存在任务」的映射键（存活任务一次快照建索引，不逐键 tasks()）；状态键按点号数 + 显式名单双判据排除误伤。已完成 4 / 待做 0 —— 验收①metaKeys 用例（前缀/不误伤/无匹配空/通配符字面量化）在 tst_databasemigration；验收②无头用例断言：删卡后重投批次，残留映射键被清扫、agentbridge.status/.handled 状态键不受误伤；验收③PRAGMA user_version 不变断言在用例内；验收④verify 全过。偏离说明：note 提到的 30 天 TTL 未实现 —— meta 键无时间戳，逐映射补写时间戳不成比例，「指向已删任务」清扫覆盖实际观测到的泄漏面；验收项未含 TTL，属有意取舍。",
             "scope": [
                 "src/core/Database.h",
                 "src/core/Database.cpp",

@@ -46,6 +46,32 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 ; 「新版本不再包含」的旧目录（如本条），新增插件不必改这里。
 Type: filesandordirs; Name: "{app}\plugins\hello"
 
+; 0.1.4 起（8e52812：windeployqt 只留 Basic 样式）不再打包 Qt 自带的其它控件样式，
+; 但 Inno 覆盖安装只写新包里的文件、不删新包里没有的文件 —— 2026-11-04 真机取证：
+; 覆盖装完 0.1.4 后，按已发布 delta-0.1.3-0.1.4 清单逐文件复核，Modified 2/2 与
+; Added 15/15 全对，Deleted 的 1136 条**一个都没少**（六套样式目录共 1126 个
+; qml/dll + root 级 10 个样式 dll）。功能上无害（应用只用 Basic），但每个从 0.1.3
+; 升上来的用户都会永久背着它们。下面这份清单就是那 1136 条的收敛形式：
+; 目录级 6 条覆盖 1126 个文件，文件级 10 条覆盖 root 的样式 dll。
+; **不要改成 Qt6QuickControls2*Style*.dll 这类通配** —— 0.1.4 仍在用的
+; Qt6QuickControls2BasicStyleImpl.dll 会被一并删掉，样式直接加载失败。
+Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\FluentWinUI3"
+Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\Material"
+Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\Fusion"
+Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\Universal"
+Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\Imagine"
+Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\Windows"
+Type: files; Name: "{app}\Qt6QuickControls2FluentWinUI3StyleImpl.dll"
+Type: files; Name: "{app}\Qt6QuickControls2Fusion.dll"
+Type: files; Name: "{app}\Qt6QuickControls2FusionStyleImpl.dll"
+Type: files; Name: "{app}\Qt6QuickControls2Imagine.dll"
+Type: files; Name: "{app}\Qt6QuickControls2ImagineStyleImpl.dll"
+Type: files; Name: "{app}\Qt6QuickControls2Material.dll"
+Type: files; Name: "{app}\Qt6QuickControls2MaterialStyleImpl.dll"
+Type: files; Name: "{app}\Qt6QuickControls2Universal.dll"
+Type: files; Name: "{app}\Qt6QuickControls2UniversalStyleImpl.dll"
+Type: files; Name: "{app}\Qt6QuickControls2WindowsStyleImpl.dll"
+
 [Files]
 Source: "..\dist\NeonBoard\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 

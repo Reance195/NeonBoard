@@ -115,6 +115,9 @@
         "R5-07": "done",
         "R5-08": "todo",
         "R5-09": "done",
+        "R5-10": "todo",
+        "R5-11": "todo",
+        "R5-12": "todo",
         "R6-01": "done",
         "R6-02": "done",
         "R6-03": "done",
@@ -2540,6 +2543,72 @@
             "stage": "R5",
             "title": "R5 修复全量更新的宿主占用缺陷：更新前退宿主、安装回执、代理支持"
         },
+        "R5-10": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（CMakeLists.txt 属代码路径，走全量档）",
+                "CMakeLists.txt 的 project(NeonBoard VERSION) 为 0.1.5，打 tag 后 release.yml 的「校验标签与源码版本一致」步骤通过",
+                "推 tag v0.1.5 后 GitHub Release v0.1.5 的资产齐全：NeonBoard-Setup-0.1.5.exe / NeonBoard-0.1.5-portable.zip / delta.zip / update.json / BUILD-INFO.txt",
+                "update.json 的 artifacts 含 kind=delta 且 fromVersion=0.1.4，其 sha256 与 Release 正文的 delta-sha256 一致",
+                "docs/auto-update.md 订正 2026-11-04 实测记录里的归因：Qt DLL 在 0.1.3 与 0.1.4 之间字节相同（不在增量清单的 Modified 里）、本就不该换，混装树的二进制证据只有 NeonBoardHost.exe 一条",
+                "维护者本机 0.1.4 → 0.1.5 真机升级一次成功：不手动退宿主（验证 R5-09 的安装器侧 PrepareToInstall 兜底），装完 {app}\\install-receipt.json 的 version 为 0.1.5，且 1136 个弃用样式文件已被清掉（验证 R5-11）"
+            ],
+            "depends": [
+                "R5-09",
+                "R5-11",
+                "R5-12"
+            ],
+            "id": "R5-10",
+            "note": "R5-09 的修复已合入 main（97ccc91），但没出包就等于用户拿不到：已发布的 0.1.3 与 0.1.4 都不含任何一处修复。本卡把版本号推到 0.1.5 并走 tag → release.yml 出包，让安装器侧的宿主兜底、安装回执、系统代理，以及 R5-11 的残留清理第一次真正到用户手上。生效边界要写清楚：0.1.4 → 0.1.5 靠安装器侧兜底（0.1.4 客户端不杀宿主、命令行还带着 /CLOSEAPPLICATIONS，但 Setup-0.1.5.exe 的 PrepareToInstall 会先把宿主杀掉）；客户端侧那一刀要 0.1.5 → 0.1.6 起才完整生效。授权：维护者会话授权（2026-11-04，AskUserQuestion 选「三张卡：再加界面显性化」并授权 agent 推 tag）。",
+            "scope": [
+                "CMakeLists.txt",
+                "docs/auto-update.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R5",
+            "title": "R5 发布 v0.1.5：版本号递增、tag 触发发布，让宿主占用修复与残留清理到用户手上"
+        },
+        "R5-11": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过（iss 不属代码路径，走脚本档）",
+                "installer/neonboard.iss 有 [InstallDelete] 段：逐个列出 {app}\\qml\\QtQuick\\Controls 下 FluentWinUI3 / Material / Fusion / Universal / Imagine / Windows 六个目录（Type: filesandordirs），以及 root 级 10 个 dll（Type: files）—— Qt6QuickControls2FluentWinUI3StyleImpl / Fusion / FusionStyleImpl / Imagine / ImagineStyleImpl / Material / MaterialStyleImpl / Universal / UniversalStyleImpl / WindowsStyleImpl",
+                "不得用 Qt6QuickControls2*Style*.dll 之类通配：0.1.4 起仍在用的 Qt6QuickControls2BasicStyleImpl.dll 会被一并误删；清理清单以 delta-0.1.3-0.1.4 的 1136 条 Deleted 为唯一事实源，逐条对得上",
+                "在带 1136 个残留的安装树上装完 0.1.5：那些文件不再存在，而 Basic / impl / qtquickcontrols2plugin.dll / Qt6QuickControls2.dll / Qt6QuickControls2Basic*.dll / Qt6QuickControls2Impl.dll / plugins 全部保留（真机验收由维护者在本机执行）"
+            ],
+            "depends": [
+                "R5-09"
+            ],
+            "id": "R5-11",
+            "note": "取证（2026-11-04，维护者本机）：把已校验的 Setup-0.1.4.exe 覆盖装在混装树上之后，按已发布 delta-0.1.3-0.1.4 清单逐文件复核安装目录 —— Modified 2/2 吻合（NeonBoard.exe、NeonBoardHost.exe 都是真 0.1.4）、Added 15/15 吻合，但 Deleted 的 1136 条**全都还在**：qml/QtQuick/Controls 下六套弃用样式共 1126 个 qml/dll（FluentWinUI3 836、Material 68、Fusion 63、Universal 60、Imagine 57、Windows 42）+ root 级 10 个 Qt6QuickControls2*Style*.dll。根因：Inno 覆盖安装只写新包里的文件，不删新包里不存在的文件，而 8e52812（windeployqt 只留 Basic）晚于 v0.1.3 标签，0.1.4 是首个不带这批样式文件的构建。功能上无害（应用用 Basic 样式，这些插件不会被加载），但每个从 0.1.3 升上来的用户都会永久背着它们，且全量路径没有任何清理机制。",
+            "scope": [
+                "installer/neonboard.iss",
+                "docs/auto-update.md"
+            ],
+            "stage": "R5",
+            "title": "R5 安装器清理上一版残留：全量覆盖安装不删弃用文件，0.1.3 用户永久背着 1136 个死文件"
+        },
+        "R5-12": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（含 .qml 与 .cpp，走全量档）",
+                "UpdateManager 以 Q_PROPERTY 暴露 lastInstallIncomplete（READ lastInstallIncomplete），QML 侧可直接读，不需要额外 Q_INVOKABLE",
+                "qml/components/SettingsPanel.qml 的更新区在 lastInstallIncomplete 为真时显示提示条，文案含「上次更新未完成」并给出重新检查更新的入口；为假时不占位（visible=false 且不留空白）；颜色与间距一律用 Theme.xxx 令牌，不得写死",
+                "tst_updatemanager 断言回执缺失时属性为 false（与既有 installReceiptThreeCases 的相符/不符/缺失三例并存，不重复实现）",
+                "docs/auto-update.md 的「安装回执」小节补上界面显性化这一段（提示条出现在哪、点了做什么）"
+            ],
+            "depends": [
+                "R5-09"
+            ],
+            "id": "R5-12",
+            "note": "R5-09 让「安装器静默失败」第一次有物证可查（{app}\\install-receipt.json + 启动时版本比对），但判出异常后只写了一条 qWarning 进日志文件 —— 用户不会去读日志，等于修了一半：机器知道上次没装完，人不知道。本卡把这条信号接到设置面板的更新区，让「上次更新未完成，建议重新检查更新」直接出现在用户眼前。",
+            "scope": [
+                "src/update/UpdateManager.h",
+                "src/update/UpdateManager.cpp",
+                "qml/components/SettingsPanel.qml",
+                "tests/tst_updatemanager.cpp",
+                "docs/auto-update.md"
+            ],
+            "stage": "R5",
+            "title": "R5 把「上次更新未完成」显性化到设置面板：安装回执目前只写日志，没人读得到"
+        },
         "R6-01": {
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_taskexec --output-on-failure",
@@ -3146,6 +3215,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R5-11": {
+            "agent": "agent-r5fix",
+            "branch": "fix/installer-leftover-cleanup",
+            "claimedAt": 1793808337,
+            "head": "b2ef68a945eea2f423d97c2e1f90116682a94c08"
+        }
+    },
     "version": 1
 }

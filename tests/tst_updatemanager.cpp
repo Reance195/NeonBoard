@@ -12,9 +12,16 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
+#include <QProcess>
 #include <QSettings>
 #include <QTemporaryDir>
+
+#ifdef Q_OS_WINDOWS
+#include <windows.h> // CREATE_NO_WINDOW：探测与击杀宿主都不能弹控制台窗
+#endif
 
 class TestUpdateManager : public QObject
 {
@@ -460,6 +467,109 @@ private slots:
         QVERIFY(script.contains(QStringLiteral("robocopy")));
         QVERIFY(script.contains(QStringLiteral("NeonBoardHost.exe")));
         QVERIFY(script.contains(QStringLiteral("waitloop")));
+    }
+
+    // ---- R5-09：全量更新的宿主占用缺陷 ----
+
+    void installReceiptThreeCases()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        // 注意：lambda 返回 QString，里面不能用 QVERIFY（失败时展开成 `return;`）
+        auto write = [&dir](const QString &name, const QByteArray &payload) -> QString {
+            const QString path = dir.filePath(name);
+            QFile f(path);
+            if (!f.open(QIODevice::WriteOnly))
+                return QString();
+            f.write(payload);
+            f.close();
+            return path;
+        };
+
+        // 相符：放行
+        const QString same = write(QStringLiteral("same.json"),
+                                   "{\"version\": \"0.1.4\", \"source\": \"inno\"}");
+        QVERIFY(!same.isEmpty());
+        QVERIFY(UpdateManager::receiptVersionMismatch(same, QStringLiteral("0.1.4")).isEmpty());
+
+        // 不符：返回回执里的版本，供上层告警
+        const QString other = write(QStringLiteral("other.json"),
+                                    "{\"version\": \"0.1.4\", \"source\": \"inno\"}");
+        QVERIFY(!other.isEmpty());
+        QCOMPARE(UpdateManager::receiptVersionMismatch(other, QStringLiteral("0.1.3")),
+                 QStringLiteral("0.1.4"));
+
+        // 缺失：放行（回执由 0.1.5 起的安装包才写，老安装目录没有属正常）
+        QVERIFY(UpdateManager::receiptVersionMismatch(
+                    dir.filePath(QStringLiteral("absent.json")), QStringLiteral("0.1.3")).isEmpty());
+
+        // 坏回执同样放行：读不懂不等于「上次没装完」，别拿它去吓用户
+        const QString broken = write(QStringLiteral("broken.json"), QByteArrayLiteral("{not json"));
+        QVERIFY(!broken.isEmpty());
+        QVERIFY(UpdateManager::receiptVersionMismatch(broken, QStringLiteral("0.1.3")).isEmpty());
+        const QString noVersion = write(QStringLiteral("noversion.json"),
+                                        QByteArrayLiteral("{\"source\":\"inno\"}"));
+        QVERIFY(!noVersion.isEmpty());
+        QVERIFY(UpdateManager::receiptVersionMismatch(noVersion, QStringLiteral("0.1.3")).isEmpty());
+
+        // 回执文件名与位置固定：安装包的 [Code] 段按同一约定写
+        QCOMPARE(QFileInfo(UpdateManager::installReceiptPath()).fileName(),
+                 QStringLiteral("install-receipt.json"));
+        // 构建目录里没有回执，新实例默认不报警
+        UpdateManager manager;
+        QVERIFY(!manager.lastInstallIncomplete());
+    }
+
+    void terminateHostIsHarmlessWhenAbsent()
+    {
+#ifndef Q_OS_WINDOWS
+        QSKIP("宿主与 taskkill 都是 Windows 专有");
+#else
+        // 开发机上真跑着宿主时不能杀：那会把维护者的托盘端掉
+        QProcess probe;
+        probe.setProgram(QStringLiteral("tasklist"));
+        probe.setArguments({QStringLiteral("/FI"), QStringLiteral("IMAGENAME eq NeonBoardHost.exe"),
+                            QStringLiteral("/NH")});
+        probe.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) {
+            args->flags |= CREATE_NO_WINDOW;
+        });
+        probe.start();
+        QVERIFY(probe.waitForFinished(10000));
+        if (QString::fromLocal8Bit(probe.readAllStandardOutput()).contains(
+                QStringLiteral("NeonBoardHost.exe")))
+            QSKIP("本机宿主在跑，跳过以免误杀");
+
+        QElapsedTimer timer;
+        timer.start();
+        const int first = UpdateManager::terminateHostForUpdate();
+        const qint64 elapsed = timer.elapsed();
+        const int second = UpdateManager::terminateHostForUpdate();
+
+        // 宿主缺席时 taskkill 报「找不到进程」，返回值非 0 但必须稳定、不得卡住
+        QCOMPARE(second, first);
+        QVERIFY2(elapsed < 5000, qPrintable(QStringLiteral("宿主缺席时耗时 %1 ms").arg(elapsed)));
+#endif
+    }
+
+    void installerScriptGuardsHostLock()
+    {
+        const QString iss = QFileInfo(QString::fromLatin1(__FILE__))
+                                .dir().filePath(QStringLiteral("../installer/neonboard.iss"));
+        QFile file(iss);
+        QVERIFY2(file.open(QIODevice::ReadOnly), qPrintable(iss));
+        const QString text = QString::fromUtf8(file.readAll());
+        file.close();
+
+        // Restart Manager 关不净宿主，只能靠 [Code] 段自己 taskkill
+        QVERIFY(text.contains(QStringLiteral("CloseApplications=no")));
+        QVERIFY(text.contains(QStringLiteral("PrepareToInstall")));
+        QVERIFY(text.contains(QStringLiteral("taskkill")));
+        QVERIFY(text.contains(QStringLiteral("NeonBoardHost.exe")));
+        QVERIFY(text.contains(QStringLiteral("NeonBoard.exe")));
+        // 装完写回执，下次启动才能判出「上次被占用文件打断」
+        QVERIFY(text.contains(QStringLiteral("ssPostInstall")));
+        QVERIFY(text.contains(QStringLiteral("install-receipt.json")));
+        QVERIFY(text.contains(QStringLiteral("BUILD-INFO.txt")));
     }
 };
 

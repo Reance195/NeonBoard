@@ -115,6 +115,15 @@ public:
     static QString uninstallKeyPath();
     /** 清单里只写文件名时，按清单所在地址解析成完整下载链接（与插件市场同约定） */
     static QString resolveUrl(const QString &url, const QString &baseUrl);
+    /** 结束宿主进程 NeonBoardHost.exe，释放它对安装目录的占用（全量更新前置步骤）。
+     *  宿主缺席时静默返回 taskkill 的退出码；超时返回 -1。 */
+    static int terminateHostForUpdate();
+    /** 安装回执路径：{app}\install-receipt.json，由安装包在 ssPostInstall 写入 */
+    static QString installReceiptPath();
+    /** 读回执并与运行版本比对：不符返回回执里记录的版本，
+     *  相符 / 回执缺失 / 无法解析一律返回空串（放行）。 */
+    static QString receiptVersionMismatch(const QString &receiptPath,
+                                          const QString &runningVersion);
 
     QString currentVersion() const;
     QString installKind() const;
@@ -134,6 +143,8 @@ public:
     void setAutoCheck(bool enabled);
     QString skippedVersion() const { return m_skippedVersion; }
     qint64 lastCheckAt() const { return m_lastCheckAt; }
+    /** 安装回执版本与自身编译版本不符 = 上次更新被占用文件打断，留下半装树 */
+    bool lastInstallIncomplete() const { return m_lastInstallIncomplete; }
 
     /** 内置默认清单地址（Gitee raw 优先，GitHub raw 兜底） */
     static QString defaultSource();
@@ -208,6 +219,8 @@ private:
 
     void loadSettings();
     void saveSources();
+    /** 启动时读安装回执：版本不符即告警并置 m_lastInstallIncomplete */
+    void checkInstallReceipt();
 
     QNetworkAccessManager *m_network = nullptr;
     QNetworkReply *m_reply = nullptr;
@@ -227,6 +240,7 @@ private:
     bool m_autoCheck = true;
     bool m_silent = true;
     qint64 m_lastCheckAt = 0;
+    bool m_lastInstallIncomplete = false;
 
     ReleaseInfo m_latest;
     QStringList m_sources;

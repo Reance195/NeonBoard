@@ -112,6 +112,7 @@
         "R5-06": "done",
         "R5-07": "done",
         "R5-08": "todo",
+        "R5-09": "todo",
         "R6-01": "done",
         "R6-02": "done",
         "R6-03": "done",
@@ -2460,13 +2461,13 @@
                 "CMakeLists.txt 的 project(NeonBoard VERSION) 为 0.1.4，打 tag 后 release.yml 的「校验标签与源码版本一致」步骤绿",
                 "推 tag v0.1.4 后 GitHub Release v0.1.4 的资产齐全：NeonBoard-Setup-0.1.4.exe / NeonBoard-0.1.4-portable.zip / delta.zip / update.json / BUILD-INFO.txt",
                 "update.json 的 artifacts 含 kind=delta 且 fromVersion=0.1.3，Release 正文含 delta-sha256 一行",
-                "沙箱里的 0.1.3 实例点「立即更新」：日志显示命中增量包并升级成功、版本号自报 0.1.4；若增量任一步失败必须自动回退全量且仍升级成功"
+                "沙箱里的 0.1.3 实例点「立即更新」：日志显示命中增量包并升级成功、版本号自报 0.1.4；若增量任一步失败必须自动回退全量且仍升级成功\n\n【勘误 2026-11-04｜授权批次：R5-08 收尾 + 全量更新宿主占用修复】本条永不可过，原文保留作审计：v0.1.3 发布树不含增量客户端（R5-06 的 02de128 晚于 v0.1.3 标签；v0.1.3 的 UpdateManager 只认 setup / portable 两种 kind，全树 'delta' 零匹配），任何已发布的 0.1.3 实例都会跳过 kind=delta 直接走全量，「命中增量包」在野外没有消费者；首个带增量客户端的构建是 0.1.4，真正受益的是 0.1.4→0.1.5。替代实测结论见本卡 note 与 R5-09。"
             ],
             "depends": [
                 "R5-07"
             ],
             "id": "R5-08",
-            "note": "起因：R5-07（62ebd93 → 248d7a3 → cbc18f5）已把增量生成接进 release.yml，2026-11-04 用 workflow_dispatch 在真实 runner 实测 0.1.2 → 0.1.3 产出 dist/delta.zip = 2,191.2 KB（delta-ok added=75 modified=2 deleted=1136 patched=2），但已发布的 v0.1.3（2026-10-28）资产只有 BUILD-INFO.txt / NeonBoard-0.1.3-portable.zip / NeonBoard-Setup-0.1.3.exe / update.json —— 没有 delta.zip，update.json 里也没有 delta 条目。所以用户实际拿到的仍是 70 MB 全量包，增量能力停在「CI 会产但没人发」。\n\n取证补记（deleted=1136 不是缺陷）：拆开发物 delta.zip 读 delta.json，1126 条删除全在 qml/QtQuick/**（Fusion/Material/Imagine/Universal/FluentWinUI3 全套样式 qml）加 10 个 Qt6QuickControls2*Style*.dll —— 即 0.1.3 的便携包白带了这些 Qt 自带样式文件，本次打包已不含；同次 run 的「验证便携包可独立运行」步骤打印「便携包自检通过」，说明去掉后仍能独立运行。modified 恰为 NeonBoard.exe 与 NeonBoardHost.exe 两个二进制（走 bsdiff，patched=2），added 75 为 Dialogs 相关 qml/dll 与 plugins/**。客户端侧 src/update/DeltaUpdate.cpp 的 Deleted 分支会真删文件并带 backup 回滚，不是死字段。\n\n目标：把版本号从 0.1.3 递增到 0.1.4，合入主线后打 tag v0.1.4 推 origin，让 release.yml 走完「查上一 release（0.1.3）→ 下载它的 portable → build-delta → build-update-manifest 带 -DeltaZip → delta.zip 随 Release 上传」这条链路，产出用户真正能消费的增量包。\n\n验收边界：不改增量算法（R5-06 已交付）也不改 CI 链路（R5-07 已交付），只动版本号与两份文档；打 tag 与推 tag 属发布动作，由维护者在本卡授权后执行。",
+            "note": "起因：R5-07（62ebd93 → 248d7a3 → cbc18f5）已把增量生成接进 release.yml，2026-11-04 用 workflow_dispatch 在真实 runner 实测 0.1.2 → 0.1.3 产出 dist/delta.zip = 2,191.2 KB（delta-ok added=75 modified=2 deleted=1136 patched=2），但已发布的 v0.1.3（2026-10-28）资产只有 BUILD-INFO.txt / NeonBoard-0.1.3-portable.zip / NeonBoard-Setup-0.1.3.exe / update.json —— 没有 delta.zip，update.json 里也没有 delta 条目。所以用户实际拿到的仍是 70 MB 全量包，增量能力停在「CI 会产但没人发」。\n\n取证补记（deleted=1136 不是缺陷）：拆开发物 delta.zip 读 delta.json，1126 条删除全在 qml/QtQuick/**（Fusion/Material/Imagine/Universal/FluentWinUI3 全套样式 qml）加 10 个 Qt6QuickControls2*Style*.dll —— 即 0.1.3 的便携包白带了这些 Qt 自带样式文件，本次打包已不含；同次 run 的「验证便携包可独立运行」步骤打印「便携包自检通过」，说明去掉后仍能独立运行。modified 恰为 NeonBoard.exe 与 NeonBoardHost.exe 两个二进制（走 bsdiff，patched=2），added 75 为 Dialogs 相关 qml/dll 与 plugins/**。客户端侧 src/update/DeltaUpdate.cpp 的 Deleted 分支会真删文件并带 backup 回滚，不是死字段。\n\n目标：把版本号从 0.1.3 递增到 0.1.4，合入主线后打 tag v0.1.4 推 origin，让 release.yml 走完「查上一 release（0.1.3）→ 下载它的 portable → build-delta → build-update-manifest 带 -DeltaZip → delta.zip 随 Release 上传」这条链路，产出用户真正能消费的增量包。\n\n验收边界：不改增量算法（R5-06 已交付）也不改 CI 链路（R5-07 已交付），只动版本号与两份文档；打 tag 与推 tag 属发布动作，由维护者在本卡授权后执行。\n\n【交付 2026-11-04】①②③ 实测通过：verify 全量档 ctest 35/35 + selftest/smoke 退 0；CI「校验标签与源码版本一致」success；Release v0.1.4 资产含 delta.zip（1,007,078 B，sha 457ef4ed…）；update.json 有 kind=delta 且 fromVersion=0.1.3，Release 正文含 delta-sha256 行。⑤ 按勘误永不可过。真机实测（维护者授权在本人机器装真实 0.1.3 再升级）换来两条硬结论：a) 发布增量包对真实 0.1.3 字节完全可消费 —— 前置校验 1137/1137 旧哈希吻合、0 缺失（唯一不符项 NeonBoard.exe 因半装已被换成 0.1.4，恰是树不干净的指纹）；b) 全量更新路径有缺陷：宿主 NeonBoardHost.exe 的看门狗会复活界面进程，而更新只退发起进程，Inno CloseApplications 关不净 → 静默整单悄悄失败 / 交互逐文件 DeleteFile code 5，留下 0.1.4 界面 + 0.1.3 宿主 + 旧 Qt DLL 的混合树（哈希取证：host=a45d8561=增量清单 old 值）。该缺陷与客户端无代理支持另立 R5-09 修。deleted=1136 的来源：8e52812（windeployqt 只留 Basic 样式）晚于 v0.1.3 标签，0.1.4 是首个删除这批 Qt 自带样式文件的构建。",
             "scope": [
                 "CMakeLists.txt",
                 "docs/iteration-roadmap.md",
@@ -2474,6 +2475,32 @@
             ],
             "stage": "R5",
             "title": "R5 发布 v0.1.4：版本号递增，让增量包第一次真正到用户手上"
+        },
+        "R5-09": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（含新增单测）",
+                "installer/neonboard.iss 为 CloseApplications=no，且 [Code] PrepareToInstall 里 taskkill /F NeonBoardHost.exe 与 NeonBoard.exe 并等待两进程退出后才继续",
+                "installWithSetup 拉起安装包前先强制结束 NeonBoardHost.exe（taskkill /F、CREATE_NO_WINDOW，与增量自更新脚本 UpdateManager.cpp:1049 同语义），宿主缺席时静默跳过；单测断言宿主不在时调用不报错、返回值不变",
+                "安装包在 CurStepChanged(ssPostInstall) 写 {app}\\install-receipt.json（version / writtenAt / commit，commit 取自同目录 BUILD-INFO.txt）；UpdateManager 构造时读它，缺失静默、版本与自身编译版本不符即 qWarning「上次更新未完成」并令 lastInstallIncomplete() 为真；单测覆盖相符 / 不符 / 缺失三例",
+                "UpdateManager 启用系统代理（QNetworkProxyFactory::setUseSystemConfiguration(true)），代理环境下 --check-update 不再出现 QIODevice::read device not open",
+                "docs/auto-update.md 增「更新前退宿主 / 安装回执 / 系统代理」三节，并记 2026-11-04 真机实测现象与根因"
+            ],
+            "depends": [
+                "R5-08"
+            ],
+            "id": "R5-09",
+            "note": "2026-11-04 真机实测（维护者授权装真实 0.1.3 再升级）暴露：点「立即更新」后界面进程下载完自退，宿主 NeonBoardHost.exe 存活，且其 checkIdle 看门狗（HostMain.cpp:100-103）会把界面复活；Inno CloseApplications（Restart Manager）关不净 → 静默模式整单悄悄失败、交互模式逐文件 DeleteFile code 5；留下 NeonBoard.exe=0.1.4、NeonBoardHost.exe=0.1.3、Qt DLL 未换的混合树。增量路径无此病：其自更新脚本本就 taskkill 宿主（UpdateManager.cpp:1049），全量路径漏了同一语义。同场另测：客户端网络栈零代理支持，代理环境直连 GitHub 被 RST（日志 QIODevice::read … device not open）。",
+            "scope": [
+                "src/update/UpdateManager.cpp",
+                "src/host/HostMain.cpp",
+                "installer/neonboard.iss",
+                "tests/tst_updatemanager.cpp",
+                "docs/auto-update.md",
+                "src/update/UpdateManager.h",
+                "src/main.cpp"
+            ],
+            "stage": "R5",
+            "title": "R5 修复全量更新的宿主占用缺陷：更新前退宿主、安装回执、代理支持"
         },
         "R6-01": {
             "acceptance": [
@@ -3081,6 +3108,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R5-09": {
+            "agent": "agent-r5fix",
+            "branch": "fix/fullupdate-host-lock",
+            "claimedAt": 1793805196,
+            "head": "b2b6a21df788e265f2bc0b302214c7f2fad7f1bf"
+        }
+    },
     "version": 1
 }

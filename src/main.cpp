@@ -1596,8 +1596,8 @@ int main(int argc, char *argv[])
             }
         });
         QObject::connect(&updateManager, &UpdateManager::installLaunched, &loop, [&]() {
-            // 安装包已启动（/VERYSILENT /CLOSEAPPLICATIONS，安装完成由 [Run] 段拉起宿主）。
-            // 本进程到此结束，不等待安装结束 —— 安装器会结束掉占用文件的进程。
+            // 安装包已启动（/VERYSILENT /NORESTART /SUPPRESSMSGBOXES，宿主已在启动前
+            // 被 taskkill，安装完成由 [Run] 段拉起宿主）。本进程到此结束，不等待安装结束。
             qInfo().noquote() << "UPDATE-APPLY INSTALLING" << updateManager.latestVersion()
                               << updateManager.installKind();
             emitCliLine(QStringLiteral("OK installing %1 %2")

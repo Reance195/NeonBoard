@@ -43,9 +43,14 @@
         "DX-41": "done",
         "DX-42": "done",
         "DX-43": "todo",
+        "DX-44": "todo",
         "DX-45": "todo",
         "DX-46": "todo",
         "DX-47": "todo",
+        "DX-48": "todo",
+        "DX-49": "todo",
+        "DX-50": "todo",
+        "DX-51": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -78,6 +83,7 @@
         "R0-09": "done",
         "R0-10": "done",
         "R0-11": "done",
+        "R0-12": "todo",
         "R1-01": "done",
         "R1-02": "done",
         "R1-03": "done",
@@ -1046,6 +1052,26 @@
             "stage": "DX",
             "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用"
         },
+        "DX-44": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过（只动流水线与文档，走轻档，不涉代码路径）",
+                "中间态判据未被改松：依次 checkout 一次收尾推到 main 的三个提交（合并/结卡/快照）跑 python scripts/derive_board_status.py --check，退出码仍是 1/1/0（实测基线 R5-10 收尾 9e43177→47d1ced→3a78cc8；R5-08 收尾 52c908f=1、4a2a6bb=1、7116780=0）",
+                "折叠生效：改后走一次真实结卡收尾，gh run list --workflow=board.yml --branch main --limit 8 中 main tip 那条为 success、中间提交对应的 run 不再产生 failure，维护者侧本批收尾失败邮件 0 封",
+                "眼睛还在：人为只推合并不推快照的一次性演练（做完立刻补推转绿），main tip 的 board run 必须 failure 并打印 --close-cards/--write 提示",
+                "单写者约束不动：board.yml 保持 permissions: contents: read，文件内 grep 不到任何 git commit/git push；AGENTS.md §11.2 第 8 条与文件顶部注释同步改写为「红灯只可能落在 main tip 的 run 上」",
+                "docs/pitfalls.md 补一条现象/根因/解法：拿注定短暂的中间态套最终状态判据，每次收尾固定产 1~3 封邮件（实测 R16-05 3 封、R5-08 2 封、R5-10 2 封、DX-40 立卡 1 封）"
+            ],
+            "depends": [],
+            "id": "DX-44",
+            "note": "触发证据：机制四条叠加：① git-done 分步快进补推（合并/清理登记/结卡/快照各一次 push origin HEAD:main）② board.yml 只校验 derive --check 且不回写（R14-01 收权，permissions contents:read）③ 合并提交推上去那一刻 #短号=done 标记即生效而 baseline/快照仍旧 ④ 快照必须最后刷新（派生器要读前两步写完的 git 事实）。因此红 N 次 = 收尾推了几个不自洽中间态，确定性不是竞态。实测 2026-11-05 19:24-19:42 与 20:05 两组收尾：afd08e1/11355db/a7cce03 三连 failure 后 9a7a23a success；52c908f+4a2a6bb failure 后 7116780 success；本次 47d1ced 前后同样红两轮再转绿。本地按三个提交逐个跑 --check 得 exit 1/1/0。修复取向：board.yml 的 concurrency.cancel-in-progress 由 false 翻成 true（job 约 40s、推送间隔 8s，中间 run 被取消且不发失败通知），使判据落点自动挪到 main tip；否决「--check 区分滞后与矛盾」（收尾失败的唯一表现就是快照一直滞后，等于拆掉眼睛）。方案 A（收尾三步合并成一次补推）列二期，动 git-done.ps1 不在本卡 scope。附带发现：nbflow request 不查台账卡号占用，本请求原提 DX-42 与另一会话 03:58 立的 DX-42 撞号（已弃单重提为 DX-44），该缺口属 scripts/nbflow.py，不在本卡 scope。\n\n## 目标\nboard.yml 把注定短暂的中间态当最终状态校验，每次收尾固定产 1~3 封失败邮件\n\n## 验收\npwsh -File scripts/verify.ps1 -ScriptOnly 全过（只动流水线与文档，走轻档，不涉代码路径）; 中间态判据未被改松：依次 checkout 一次收尾推到 main 的三个提交（合并/结卡/快照）跑 python scripts/derive_board_status.py --check，退出码仍是 1/1/0（实测基线 R5-10 收尾 9e43177→47d1ced→3a78cc8；R5-08 收尾 52c908f=1、4a2a6bb=1、7116780=0）; 折叠生效：改后走一次真实结卡收尾，gh run list --workflow=board.yml --branch main --limit 8 中 main tip 那条为 success、中间提交对应的 run 不再产生 failure，维护者侧本批收尾失败邮件 0 封; 眼睛还在：人为只推合并不推快照的一次性演练（做完立刻补推转绿），main tip 的 board run 必须 failure 并打印 --close-cards/--write 提示; 单写者约束不动：board.yml 保持 permissions: contents: read，文件内 grep 不到任何 git commit/git push；AGENTS.md §11.2 第 8 条与文件顶部注释同步改写为「红灯只可能落在 main tip 的 run 上」; docs/pitfalls.md 补一条现象/根因/解法：拿注定短暂的中间态套最终状态判据，每次收尾固定产 1~3 封邮件（实测 R16-05 3 封、R5-08 2 封、R5-10 2 封、DX-40 立卡 1 封）\n\n## 边界\n.github/workflows/board.yml;AGENTS.md;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                ".github/workflows/board.yml",
+                "AGENTS.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "board.yml 把注定短暂的中间态当最终状态校验，每次收尾固定产 1~3 封失败邮件"
+        },
         "DX-45": {
             "acceptance": [
                 "scripts/nbflow.py cmd_approve 里不再有独立的 git push -u origin <branch> 步骤；收尾统一交给 scripts/git-done.ps1 -Branch <boardBranch>（remote 模式：合入 origin/main + 快进推 + 删分支）",
@@ -1086,6 +1112,80 @@
             ],
             "stage": "DX",
             "title": "nbflow 请求单与 handoff.json 落工作树，挡住 git-done §11.2 未提交只允许是快照的 pre-check"
+        },
+        "DX-48": {
+            "acceptance": [
+                "闸门 2（HEAD 与 origin/main 不一致）的报错文本包含出路指引：版本 bump 与清单同步在独立分支提交、经 git-done 合回主线后重跑 release",
+                "docs/git-workflow.md 发布节补「版本 bump 与清单同步不落锚点 main」流程说明",
+                "docs/pitfalls.md 7.2 更新处置记录（护栏以报错指引形式落地）",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 通过"
+            ],
+            "depends": [],
+            "id": "DX-48",
+            "note": "触发证据：pitfalls 7.2：发版类提交在锚点 main 直接提交会造成分叉，Sync-AnchorWorktree 只放弃不收敛。release.ps1 已有闸门 2/3 拦截，缺的是分叉后的出路指引与流程固化，不重复造门。\n\n## 目标\n发布分叉出路：闸门 2 报错附版本 bump 走分支与 git-done 的指引并固化流程文档\n\n## 验收\n闸门 2（HEAD 与 origin/main 不一致）的报错文本包含出路指引：版本 bump 与清单同步在独立分支提交、经 git-done 合回主线后重跑 release;docs/git-workflow.md 发布节补「版本 bump 与清单同步不落锚点 main」流程说明;docs/pitfalls.md 7.2 更新处置记录（护栏以报错指引形式落地）;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/release.ps1;docs/git-workflow.md;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/release.ps1",
+                "docs/git-workflow.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "发布分叉出路：闸门 2 报错附版本 bump 走分支与 git-done 的指引并固化流程文档"
+        },
+        "DX-49": {
+            "acceptance": [
+                "调用方 CWD 所在检出与脚本所属检出不一致时默认中止，打印两棵工作树路径与建议（git -C 或 cd），退出码非 0",
+                "提供显式放行参数用于有意交叉验证（如复现旧脚本行为），放行时输出显著告警",
+                "同区调用行为不变：worktree 内跑 git-done 真实合并一次 EXIT=0",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 通过"
+            ],
+            "depends": [],
+            "id": "DX-49",
+            "note": "触发证据：ZCode 会话记忆 multitree-cwd-drift：R16-05 实测 Bash CWD 在锚点区与 worktree 间静默漂移，示例插件改动误写进锚点并 stage。pitfalls 2.13（从锚点区跑 worktree 脚本验的是旧版本）同族。\n\n## 目标\n检出漂移响亮失败：git-done 与 agent-init 入口校验调用方检出与脚本所属检出一致\n\n## 验收\n调用方 CWD 所在检出与脚本所属检出不一致时默认中止，打印两棵工作树路径与建议（git -C 或 cd），退出码非 0;提供显式放行参数用于有意交叉验证（如复现旧脚本行为），放行时输出显著告警;同区调用行为不变：worktree 内跑 git-done 真实合并一次 EXIT=0;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/git-done.ps1;scripts/agent-init.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/agent-init.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "检出漂移响亮失败：git-done 与 agent-init 入口校验调用方检出与脚本所属检出一致"
+        },
+        "DX-50": {
+            "acceptance": [
+                "git-done 支持 dry-run 开关：fetch/push 打桩不触网，收尾三步（清理登记/结卡/快照）时序可完整走完并逐步输出所在检出与分支",
+                "dry-run 断言 DX-26 时序：三步提交前已 switch --detach、归位在所有 commit 之后、失败回滚清理暂存区",
+                "verify.ps1 增加该档并接入常规验收",
+                "真实收尾行为不变：一次真实 git-done 端到端 EXIT=0",
+                "pwsh -File scripts/verify.ps1 全量通过"
+            ],
+            "depends": [],
+            "id": "DX-50",
+            "note": "触发证据：DX-20 到 DX-26 回归链：改收尾顺序时所有检查全绿、端到端才炸，一天误判两次。收尾顺序无自动化测试（pitfalls 2.15，要真 push 才跑得到）。\n\n## 目标\n收尾时序回归：git-done 加 dry-run 档，verify.ps1 断言三步提交时序\n\n## 验收\ngit-done 支持 dry-run 开关：fetch/push 打桩不触网，收尾三步（清理登记/结卡/快照）时序可完整走完并逐步输出所在检出与分支;dry-run 断言 DX-26 时序：三步提交前已 switch --detach、归位在所有 commit 之后、失败回滚清理暂存区;verify.ps1 增加该档并接入常规验收;真实收尾行为不变：一次真实 git-done 端到端 EXIT=0;pwsh -File scripts/verify.ps1 全量通过\n\n## 边界\nscripts/git-done.ps1;scripts/verify.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/verify.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "收尾时序回归：git-done 加 dry-run 档，verify.ps1 断言三步提交时序"
+        },
+        "DX-51": {
+            "acceptance": [
+                "领用提交前工作区存在未提交改动（staged 或 tracked 修改）即拒绝领用并给出处置指引（先提交或 stash），退出码明确",
+                "task_gate 对 chore(claim)/chore(board) 等流程 scope 的豁免在 diff 触及非台账、非流程路径时失效，commit-msg 与 pre-push 双闸门口径一致",
+                "python scripts/task_gate.py selftest 新增用例全过（脏树拒、豁免失效、纯流程提交仍放行）",
+                "干净树领用端到端不变：-Card 正常开区、提交、git-done 收尾全绿",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 通过"
+            ],
+            "depends": [],
+            "id": "DX-51",
+            "note": "触发证据：ZCode 会话记忆 agent-init-inplace-launder-dirty-tree：R16-05 的 032efd8 实测，无关实现改动被卷进领用提交，task_gate 对 chore(claim) 整体豁免，commit-msg 与 pre-push 双闸门均不可见。\n\n## 目标\n堵流程豁免洗白：agent-init 领用前脏树即拒，流程 scope 触及代码路径时豁免失效\n\n## 验收\n领用提交前工作区存在未提交改动（staged 或 tracked 修改）即拒绝领用并给出处置指引（先提交或 stash），退出码明确;task_gate 对 chore(claim)/chore(board) 等流程 scope 的豁免在 diff 触及非台账、非流程路径时失效，commit-msg 与 pre-push 双闸门口径一致;python scripts/task_gate.py selftest 新增用例全过（脏树拒、豁免失效、纯流程提交仍放行）;干净树领用端到端不变：-Card 正常开区、提交、git-done 收尾全绿;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/agent-init.ps1;scripts/task_gate.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/agent-init.ps1",
+                "scripts/task_gate.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "堵流程豁免洗白：agent-init 领用前脏树即拒，流程 scope 触及代码路径时豁免失效"
         },
         "M01": {
             "acceptance": [
@@ -1665,6 +1765,26 @@
             ],
             "stage": "R0",
             "title": "R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）"
+        },
+        "R0-12": {
+            "acceptance": [
+                "pwsh -File scripts/deploy.ps1 出包成功，dist 的 qml 样式目录仅剩 Basic（Fusion/Imagine/Material/Universal/FluentWinUI3/Windows 不再随包）",
+                "python scripts/check_dist.py --dir dist/NeonBoard 通过",
+                "dist NeonBoard NeonBoard.exe --selftest 退出码 0 且 --smoke 退出码 0",
+                "冷启动对比：BOOT loaded 分段与 startupCpuMs 记录进卡片 note，CPU 口径不回归",
+                "pwsh -File scripts/verify.ps1 全量通过"
+            ],
+            "depends": [],
+            "id": "R0-12",
+            "note": "触发证据：pitfalls 7.6 与 R0-11 诊断定案：CI 冷启动 6010ms 中 CPU 仅 702ms，88% 墙钟在等 35 个 DLL 与 7 套 QML 样式的冷 I/O，秒级收益在打包侧（deploy 只随 Basic + CMake DELAYLOAD 链接）。R0-11 已结卡，治本改动不在其 scope，经维护者批准另立新卡。\n\n## 目标\n发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头\n\n## 验收\npwsh -File scripts/deploy.ps1 出包成功，dist 的 qml 样式目录仅剩 Basic（Fusion/Imagine/Material/Universal/FluentWinUI3/Windows 不再随包）;python scripts/check_dist.py --dir dist/NeonBoard 通过;dist NeonBoard NeonBoard.exe --selftest 退出码 0 且 --smoke 退出码 0;冷启动对比：BOOT loaded 分段与 startupCpuMs 记录进卡片 note，CPU 口径不回归;pwsh -File scripts/verify.ps1 全量通过\n\n## 边界\nscripts/deploy.ps1;CMakeLists.txt;scripts/check_dist.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/deploy.ps1",
+                "CMakeLists.txt",
+                "scripts/check_dist.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "R0",
+            "title": "发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头"
         },
         "R1-01": {
             "acceptance": [

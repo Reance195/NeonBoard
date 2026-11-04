@@ -210,6 +210,10 @@ jobs:
           $deltaDir = Join-Path $PWD 'dist\delta'
 
           Expand-Archive -LiteralPath $prevZip -DestinationPath $prevDir -Force
+          # 解完就删：它落在 dist/ 下，名字是 NeonBoard-<prev>-portable.zip，正好被后面
+          # 「上传产物」与 Release files 的 dist/NeonBoard-*-portable.zip glob 命中 ——
+          # 上一版的包会被当成新 release 的资产再传一遍（70 MB 白跑，还看着像本次产物）。
+          Remove-Item -LiteralPath $prevZip -Force
 
           # diff + bsdiff + 打包 + 清单条目，只有 scripts/build-delta.ps1 一份实现，
           # 这里只负责把新旧目录和版本号喂给它

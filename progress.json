@@ -19,6 +19,42 @@
             "updatedAt": 1793795927
         },
         {
+            "code": "R15-01",
+            "completedAt": 0,
+            "createdAt": 1793808152,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R15-01",
+            "note": "起因：neonboard-market 索引已上架 8 个插件，category/dependencies 是手写进索引的；publish-market.ps1 重建条目只取固定字段，重新发布必丢。把声明收进 plugin.json，发布脚本透传，市场索引由 manifest 单源生成。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "R15",
+            "status": "todo",
+            "tags": [
+                "R15"
+            ],
+            "title": "市场元数据单源化：manifest 声明类别与依赖，发布脚本透传",
+            "updatedAt": 1793808152
+        },
+        {
+            "code": "R15-02",
+            "completedAt": 0,
+            "createdAt": 1793808152,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R15-02",
+            "note": "起因：市场索引携带 category/dependencies，但 PluginMarket::parseIndex 丢弃未知字段、插件库面板不展示。让类别/依赖贯通 PluginMarket → PluginLibrary.entries → PluginLibraryPanel，市场条目与本地 manifest 一致展示。",
+            "orderKey": 3072,
+            "priority": 2,
+            "stage": "R15",
+            "status": "todo",
+            "tags": [
+                "R15"
+            ],
+            "title": "插件库展示类别徽章与依赖说明",
+            "updatedAt": 1793808152
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3175,6 +3211,6 @@
             "updatedAt": 1793806759
         }
     ],
-    "updated": "2026-11-04T23:39:19",
+    "updated": "2026-11-05T00:02:32",
     "version": 3
 }

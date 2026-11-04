@@ -103,36 +103,42 @@ begin
 end;
 
 { 安装回执：启动时读它，版本与自身编译版本不符即报「上次更新未完成」。
-  没有这份物证，安装器静默失败与成功在日志里长得一模一样。 }
+  没有这份物证，安装器静默失败与成功在日志里长得一模一样。
+
+  Inno Setup 6 只有 Unicode 版：LoadStringFromFile / SaveStringToFile 的字符串参数
+  是 AnsiString，不是 String。用 String 变量传进去会在**编译期**报 Type mismatch ——
+  v0.1.5 第一次发布就栽在这里（iss:117），而 iss 的 [Code] 段只有 ISCC 会编译，
+  verify.ps1 不跑 ISCC、单测只 grep 文本，本地全绿也拦不住。
+  所以这里一律走 TArrayOfString 的 LoadStringsFromFile / SaveStringsToFile。 }
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  Info: String;
+  Lines: TArrayOfString;
+  Receipt: TArrayOfString;
   Commit: String;
+  Line: String;
   P: Integer;
-  Q: Integer;
+  I: Integer;
 begin
   if CurStep <> ssPostInstall then
     Exit;
   Commit := 'unknown';
-  if LoadStringFromFile(ExpandConstant('{app}\BUILD-INFO.txt'), Info) then begin
-    P := Pos('commit', Info);
-    if P > 0 then begin
-      Q := Pos(':', Copy(Info, P, Length(Info)));
-      if Q > 0 then begin
-        Commit := Trim(Copy(Info, P + Q, 80));
-        Q := Pos(#13, Commit);
-        if Q > 0 then
-          Commit := Copy(Commit, 1, Q - 1);
-        Q := Pos(#10, Commit);
-        if Q > 0 then
-          Commit := Copy(Commit, 1, Q - 1);
-        Commit := Trim(Commit);
+  { BUILD-INFO.txt 由发布闸门第 5 条产出，行形如「commit    : <sha>」；
+    文件缺席（CI 目前不把它打进 {app}）就留 unknown，回执照样能判版本。 }
+  if LoadStringsFromFile(ExpandConstant('{app}\BUILD-INFO.txt'), Lines) then begin
+    for I := 0 to GetArrayLength(Lines) - 1 do begin
+      Line := Trim(Lines[I]);
+      if Pos('commit', Lowercase(Line)) = 1 then begin
+        P := Pos(':', Line);
+        if P > 0 then
+          Commit := Trim(Copy(Line, P + 1, Length(Line)));
+        Break;
       end;
     end;
   end;
-  SaveStringToFile(ExpandConstant('{app}\install-receipt.json'),
-    '{"version": "{#MyAppVersion}"' +
-    ', "writtenAt": "' + GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0) + '"' +
+  SetArrayLength(Receipt, 1);
+  Receipt[0] := '{"version": "{#MyAppVersion}"' +
+    ', "writtenAt": "' + GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':') + '"' +
     ', "commit": "' + Commit + '"' +
-    ', "source": "inno"}', False);
+    ', "source": "inno"}';
+  SaveStringsToFile(ExpandConstant('{app}\install-receipt.json'), Receipt, False);
 end;

@@ -27,12 +27,18 @@ git commit
 
 ## 安装
 
-仓库里的 `plugins/plan-hook/` 是官方插件，**不随安装包分发**。把它复制到用户插件目录即可生效：
+`plugins/plan-hook/` 是官方插件，**随安装包分发**（R14-02 起：`scripts/deploy.ps1` 把 `plugins\*` 与 `plugins-samples\*` 两批一起拷进 `dist/plugins/`，并以仓库 `plugins/` 为准做「缺一个就失败」的对齐自检）。安装版里它落在程序安装目录，来源记为 `appdir`，声明的权限由启动时自动补授直接生效 —— **不需要手工复制，也不会弹授权窗**。来源与授权的对应关系见 [plugin-api.md](plugin-api.md) 的「官方来源插件的自动授权」。
+
+源码树里跑（`scripts/dev-run.ps1`）同理：`plugins/` 扫出来是 `official`，一样自动补授。
+
+只有两种情况还需要手工复制到用户插件目录：用的是 0.1.3 及更早的安装包（当时官方插件没进 `dist`），或想跑一份改到一半的版本。
 
 ```powershell
 Copy-Item -Recurse -Force plugins\plan-hook `
   "$env:APPDATA\com.lin\NeonBoard\plugins\plan-hook"
 ```
+
+> 复制后它的来源会变成 `appdata`（按第三方处理），**需要手动点一次授权**才生效；而扫描顺序是用户安装区优先、同 id 只留第一个，所以这份会遮蔽安装目录里那份自动补授的。除非确实要覆盖，否则别往用户安装区复制官方插件。
 
 复制后点侧栏「设置」→「重新扫描插件」，插件列表里会出现「计划钩子」。
 

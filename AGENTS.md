@@ -682,7 +682,9 @@ WorkBuddy 客户端自带一套并行隔离：为某个任务开启 Worktree 开
 7. **每个源各自缓存**：缓存文件 `market-cache.json` 格式为 `{version:2, sources:[{spec,url,index,etag,lastModified,fetchedAt}]}`，**按源分条记录、互不覆盖**；请求带 `If-None-Match` / `If-Modified-Since`，`304` 直接用缓存；某个源拉取失败**只降级这个源**到自己的缓存，不得让插件库整体不可用。
 8. **发布侧走脚本**：市场包由 `scripts/publish-market.ps1` 生成（读 `plugin.json` → 打 `.neon` → 算 SHA-256 → 更新 `market.json`）；索引里 `download` 可只写文件名，客户端按索引所在目录解析。索引顶层预留 `signature` 字段位，**本轮不校验签名**，以后接上不改协议。
 9. **安装/卸载后必须 `PluginRuntime::reload()`**，并刷新插件库条目，否则界面与实际不一致；运行时另有目录监视自动热插拔（四个源目录 + 各插件子目录，约 400 ms 防抖），显式调用仍是兜底。
-10. **官方插件不随安装包分发**：`plugins/`（官方源）不进 `dist`，发布态靠市场获取或用户手工复制；`scripts/deploy.ps1` 只复制 `plugins-samples/`。
+10. **官方插件随分发包一起打**（R14-02 起）：`scripts/deploy.ps1` 把 `plugins\*`（官方插件，产品功能）与 `plugins-samples\*`（教学示例）**两批都拷**进 `dist/plugins/`，拷贝后紧跟**对齐自检** —— 以仓库 `plugins/` 的实际目录为准（不写死清单，新增插件不用改这里），逐个确认 `dist/plugins/<名字>/plugin.json` 存在，缺一个就 `throw` 并点名缺哪个。漏拷一个目录不会让构建变红，只能靠机器拦；**凡「拷文件」环节都必须用产物本身验收，不能只跑源码树**（`docs/pitfalls.md` §3.14 —— 当年 `agent-bridge` 缺席意味着整条自动建卡链路在安装版上从未工作过，而源码树里永远测不出来）。
+    - 权限按**来源**分档：`appdir` / `official` 算官方来源（`PluginLoader::isOfficialPluginSource()`），`PluginRuntime::ensureGrantsBootstrapped()` 每次启动补齐其缺失的声明权限，用户显式撤销记在 meta 键 `plugins.grants.revoked` 且不会被补回；`appdata`（第三方）与 `sample`（示例）**仍走显式授权**，不得顺带放行。
+    - 市场与手工复制仍是**第三方插件**的分发路径，官方插件不再依赖它。
 
 ### 9.3 验证口径
 

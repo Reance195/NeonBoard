@@ -24,6 +24,25 @@ Rectangle {
         alreadyBox.currentIndex = rules.onAlreadyInTarget === "move" ? 1 : 0
     }
 
+    // R16-05：执行记录落 storage（按插件命名空间隔离，卸载即随库清理）。
+    // 此前只存内存数组，面板一关就丢。
+    function readRecords() {
+        var raw = pluginHost.storageGet("plan.records")
+        if (!raw || raw.length === 0)
+            return []
+        try {
+            var parsed = JSON.parse(raw)
+            return Array.isArray(parsed) ? parsed : []
+        } catch (e) {
+            return []
+        }
+    }
+
+    function persistRecords() {
+        if (!pluginHost.storageSet("plan.records", JSON.stringify(records)))
+            pluginHost.log("plan-hook: 执行记录写入 storage 失败")
+    }
+
     function saveRules() {
         if (pluginHost.setMetaValue("plan.rules", JSON.stringify(rules)))
             statusText.text = "规则已保存"
@@ -48,11 +67,15 @@ Rectangle {
         })
         while (records.length > 20)
             records.pop()
+        persistRecords()
 
         statusText.text = actions.length > 0 ? (actions.length + " 个任务已流转") : "未匹配到任务"
     }
 
-    Component.onCompleted: readRules()
+    Component.onCompleted: {
+        readRules()
+        records = readRecords()
+    }
 
     ColumnLayout {
         anchors.fill: parent

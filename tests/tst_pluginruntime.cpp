@@ -40,6 +40,7 @@
 #include <QQmlEngine>
 #include <QSignalSpy>
 #include <QTest>
+#include <QTemporaryDir>
 #include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
@@ -333,7 +334,44 @@ void TestPluginRuntime::samplePanelAutoRefreshesOnTaskEvents()
 
     PluginHost host(&runtime);
 
+    // R16-05：示例 import NeonBoard（Theme 单例）—— 测试进程没有宿主编入的 QML 模块，
+    // 在临时目录伪造一个最小 NeonBoard 模块（只含示例用到的颜色令牌；色值是测试夹具，
+    // 不受 plugins-samples 的令牌纪律约束）。
+    QTemporaryDir qmlStub;
+    QVERIFY(qmlStub.isValid());
+    const QString moduleDir = qmlStub.filePath(QStringLiteral("NeonBoard"));
+    QVERIFY(QDir().mkpath(moduleDir));
+    const auto writeStub = [&moduleDir](const QString &name, const QString &body) {
+        QFile f(moduleDir + QLatin1Char('/') + name);
+        QVERIFY2(f.open(QIODevice::WriteOnly | QIODevice::Truncate), qPrintable(name));
+        f.write(body.toUtf8());
+    };
+    writeStub(QStringLiteral("qmldir"),
+              QStringLiteral("module NeonBoard\nsingleton Theme 1.0 Theme.qml\n"));
+    writeStub(QStringLiteral("Theme.qml"), QStringLiteral(
+        "pragma Singleton\n"
+        "import QtQuick\n"
+        "QtObject {\n"
+        "    property color bg: \"#05060A\"\n"
+        "    property color text: \"#E6F1FF\"\n"
+        "    property color muted: \"#7C8BA1\"\n"
+        "    property color cyan: \"#22D3EE\"\n"
+        "    property color magenta: \"#F472B6\"\n"
+        "    property color violet: \"#A78BFA\"\n"
+        "    property color success: \"#5EEAD4\"\n"
+        "    property color warning: \"#FBBF24\"\n"
+        "    property color danger: \"#FB7185\"\n"
+        "    property color border: Qt.rgba(cyan.r, cyan.g, cyan.b, 0.16)\n"
+        "    property color card: \"#0A1524\"\n"
+        "    property color cardHover: \"#12303A\"\n"
+        "    property color input: \"#12202F\"\n"
+        "    property color elevated: \"#1A2433\"\n"
+        "    property color panelSolid: \"#0D1420\"\n"
+        "    property color accentSoft: Qt.rgba(cyan.r, cyan.g, cyan.b, 0.16)\n"
+        "}\n"));
+
     QQmlEngine engine;
+    engine.addImportPath(qmlStub.path());
     engine.rootContext()->setContextProperty(QStringLiteral("pluginHost"), &host);
     QQmlComponent component(&engine, QUrl::fromLocalFile(
         QStringLiteral(NB_TEST_SAMPLE_DIR) + QStringLiteral("/main.qml")));

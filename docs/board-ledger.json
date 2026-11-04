@@ -3417,19 +3417,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "R16-02": {
-            "agent": "agent-r16",
-            "branch": "feature/agentbridge-reconcile-cost",
-            "claimedAt": 1793815910,
-            "head": "1e3483da657b03256d82dff7cb2a51d99723efcb"
-        },
-        "R16-03": {
-            "agent": "agent-r16",
-            "branch": "feature/agentbridge-reconcile-cost",
-            "claimedAt": 1793815933,
-            "head": "c4dc7e119bb454c5ec85d53585252dfbbe31fff0"
-        }
-    },
+    "claims": {},
     "version": 1
 }

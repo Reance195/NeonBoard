@@ -357,12 +357,39 @@ def find_neonboard_exe(root=None):
     return None
 
 
+def _qt_bin_candidates():
+    """Qt bin 目录候选，跟 .githooks/post-commit 里的探测序列一致。
+
+    源码树 build/NeonBoard.exe 是 GUI 子系统、旁边不带 Qt DLL，直接跑就是 0xC0000135
+    「找不到 Qt6Core.dll」。post-commit 一直靠给 PATH 前置 Qt bin 兜住；
+    replay 若沿用同一份候选清单却不做这一步，等于「同一个坑两次踩」。
+    """
+    q = os.environ.get("NEONBOARD_QT_BIN")
+    if q:
+        yield q
+    import glob
+    for pat in ("C:/Qt/*/msvc2022_64/bin", "C:/Qt/*/mingw*/bin", "C:/Qt/*/gcc_64/bin"):
+        for p in sorted(glob.glob(pat)):
+            if os.path.isfile(os.path.join(p, "Qt6Core.dll")):
+                yield p
+
+
+def _run_emit_default(argv):
+    """默认 emit：给子进程 PATH 前置 exe 目录 + Qt bin，让源码树 exe 也能起。"""
+    env = os.environ.copy()
+    exe_dir = os.path.dirname(os.path.abspath(argv[0])) if argv else ""
+    extra = [p for p in [exe_dir] + list(_qt_bin_candidates()) if p]
+    if extra:
+        env["PATH"] = os.pathsep.join(extra + [env.get("PATH", "")])
+    return subprocess.call(argv, env=env)
+
+
 def replay_closed(codes, exe, emit=None):
     """把给定短号的 `#<code>=done` 标记投一次事件，走 NeonBoard.exe --emit-hook-file。
 
     - codes 为空 → 什么都不做，返回 (0, 0)；
     - exe 为空 → 返回 (2, 0) 并打印待投短号，不静默成功（否则维护者以为已清僵尸）；
-    - emit 注入用于自测，默认走 subprocess.call。
+    - emit 注入用于自测，默认走 _run_emit_default（会补 PATH，见该函数注释）。
 
     返回 (退出码, 投递的卡数)。这里不判看板状态：派生器不该伸手进 board.db，
     消费是插件与主实例的事，我们的职责止于「把标记原样投进 hooks.db」。
@@ -377,7 +404,7 @@ def replay_closed(codes, exe, emit=None):
             "[replay] 将要投递的短号：%s\n" % " ".join(codes))
         return 2, 0
     text = replay_marker_text(codes)
-    runner = emit if emit is not None else subprocess.call
+    runner = emit if emit is not None else _run_emit_default
     tmp = None
     try:
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt", delete=False) as fh:
@@ -488,6 +515,37 @@ def selftest():
     rc2, n2 = replay_closed(["A-1"], exe=None, emit=_fake_emit_ok)
     cases.append(("replay_closed 缺 exe → 返回 2，未消费 codes",
                   rc2 == 2 and n2 == 0 and len(_fake_emit_ok.calls) == 1))
+
+    # ⑬ 默认 emit 会给子进程 PATH 前置 exe 目录 + Qt bin（治 0xC0000135 缺 Qt6Core.dll）
+    saved_qt = os.environ.get("NEONBOARD_QT_BIN")
+    os.environ["NEONBOARD_QT_BIN"] = "C:/Qt/fake/bin"
+    try:
+        cands = list(_qt_bin_candidates())
+        cases.append(("_qt_bin_candidates 首条尊重 NEONBOARD_QT_BIN",
+                      cands and cands[0] == "C:/Qt/fake/bin"))
+    finally:
+        if saved_qt is None:
+            del os.environ["NEONBOARD_QT_BIN"]
+        else:
+            os.environ["NEONBOARD_QT_BIN"] = saved_qt
+
+    captured = {}
+
+    def _fake_call(argv, env=None):
+        captured["argv"] = argv
+        captured["env"] = env
+        return 0
+    fake_exe = os.path.abspath(os.path.join("fake_dir", "NeonBoard.exe"))
+    saved_call = subprocess.call
+    subprocess.call = _fake_call  # type: ignore[attr-defined]
+    try:
+        rc3, n3 = replay_closed(["A-1"], exe=fake_exe)
+    finally:
+        subprocess.call = saved_call  # type: ignore[attr-defined]
+    new_path = (captured.get("env") or {}).get("PATH", "")
+    head = new_path.split(os.pathsep)[0] if new_path else ""
+    cases.append(("replay_closed 默认走 _run_emit_default，前置 exe 目录到 PATH",
+                  rc3 == 0 and n3 == 1 and head == os.path.dirname(fake_exe)))
 
     failed = [name for name, ok in cases if not ok]
     for name, ok in cases:

@@ -19,24 +19,6 @@
             "updatedAt": 1793295841
         },
         {
-            "code": "DX-16",
-            "completedAt": 0,
-            "createdAt": 1793299949,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "d757eb59-4e65-444a-a3b7-323189e16ea0",
-            "note": "实测（2026-10-30，新建的 `.worktrees/agent-dx13`）：512 个目标全量重编，进度停在\n510/512 —— 剩下的是 `NeonBoard.exe`（4.98 MB）与 `tst_projectmap` 两个**链接**目标\n（单线程、吃内存，进度条看着不动），跑到 28 分钟仍未完成；而 CI 上同样全量是\n10m36s / 16m00s。被中止后续编只补完最后 2 个链接目标就结束了，说明绝大多数成本是\n一次性冷启动而非增量。\n\n三个成因：\n1. 新 worktree 的 `build/` 是空的：moc、rcc、QML 预编译（qmlcache AOT）、shader 编译\n   全跑一遍，光 CMake 配置就 20 秒；\n2. `.worktrees/` 下 agent-cat / agent-dx13 / agent-modsplit / agent-r011 **各有独立 build**，\n   并行会话同时在编时 8 核被分摊；\n3. R4-08 已结卡引入 sccache，但本机 `sccache --show-stats` 取不到统计，**是否真的生效\n   从未验证过** —— 结卡≠生效。\n\n边界：不引入跨 worktree 共享 build 目录（会破坏会话隔离）；不要求缩短 CI 时长；\n不改 CMake 构建图。目标是让「慢在哪」可观测，而不是盲目提速。",
-            "orderKey": 8192,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "构建反馈回路成本：新 worktree 冷启动与编译缓存未生效",
-            "updatedAt": 1793299949
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -712,6 +694,24 @@
             ],
             "title": "R0 启动瘦身：重型面板按需加载",
             "updatedAt": 1792577522
+        },
+        {
+            "code": "DX-16",
+            "completedAt": 1793756943,
+            "createdAt": 1793299949,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "d757eb59-4e65-444a-a3b7-323189e16ea0",
+            "note": "实测（2026-10-30，新建的 `.worktrees/agent-dx13`）：512 个目标全量重编，进度停在\n510/512 —— 剩下的是 `NeonBoard.exe`（4.98 MB）与 `tst_projectmap` 两个**链接**目标\n（单线程、吃内存，进度条看着不动），跑到 28 分钟仍未完成；而 CI 上同样全量是\n10m36s / 16m00s。被中止后续编只补完最后 2 个链接目标就结束了，说明绝大多数成本是\n一次性冷启动而非增量。\n\n三个成因：\n1. 新 worktree 的 `build/` 是空的：moc、rcc、QML 预编译（qmlcache AOT）、shader 编译\n   全跑一遍，光 CMake 配置就 20 秒；\n2. `.worktrees/` 下 agent-cat / agent-dx13 / agent-modsplit / agent-r011 **各有独立 build**，\n   并行会话同时在编时 8 核被分摊；\n3. R4-08 已结卡引入 sccache，但本机 `sccache --show-stats` 取不到统计，**是否真的生效\n   从未验证过** —— 结卡≠生效。\n\n边界：不引入跨 worktree 共享 build 目录（会破坏会话隔离）；不要求缩短 CI 时长；\n不改 CMake 构建图。目标是让「慢在哪」可观测，而不是盲目提速。",
+            "orderKey": 8192,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "构建反馈回路成本：新 worktree 冷启动与编译缓存未生效",
+            "updatedAt": 1793756943
         },
         {
             "code": "R6-08",
@@ -2851,6 +2851,6 @@
             "updatedAt": 1793730285
         }
     ],
-    "updated": "2026-11-04T09:22:25",
+    "updated": "2026-11-04T09:49:03",
     "version": 3
 }

@@ -37,6 +37,24 @@
             "updatedAt": 1793809026
         },
         {
+            "code": "DX-35",
+            "completedAt": 0,
+            "createdAt": 1793813175,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-35",
+            "note": "宪章 §7.2.1 写「认领唯一入口是 agent-init.ps1 -Card」，但入口自己在「卡已合并、占位已释放、要重新领同一张卡」这种情形下不认账 —— 唯一入口失效时人只剩绕过它一条路，这比没有入口更糟。判定要看服务端事实（ref 在不在），不能只看本地历史（提交在不在）。",
+            "orderKey": 5120,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 领用幂等门只看分支历史：占位被合并释放后，同一张卡再也领不回来",
+            "updatedAt": 1793813175
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3265,6 +3283,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T00:34:22",
+    "updated": "2026-11-05T01:26:15",
     "version": 3
 }

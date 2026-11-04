@@ -36,6 +36,7 @@
         "DX-35": "todo",
         "DX-36": "todo",
         "DX-37": "todo",
+        "DX-38": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -903,6 +904,30 @@
             ],
             "stage": "DX",
             "title": "DX 发布构建零缓存：冷编译占掉四分之三墙钟，放大每次出包失败的排查代价"
+        },
+        "DX-38": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全量通过（scope 含 .cpp，属代码类卡）",
+                "弃用文件清单单一事实源：把 installer/neonboard.iss 的 [InstallDelete] 那批条目抽成一份共享清单（如 installer/obsolete-files.txt），安装器与增量侧都读它，不再两处各写一遍",
+                "增量路径升级完成后必须写 install-receipt.json（source 标 delta），让 R5-12 的「上次更新未完成」警示条在增量用户身上也亮得起来；回执写失败只告警，不阻断已成功的升级",
+                "清理必须在增量路径生效，且容忍文件已不存在：DeltaUpdate.cpp:311 现在把「Deleted 条目的旧文件不存在」判成整单失败，所以直接往增量清单塞 Deleted 条目，会让已经跑过一次完整安装包的用户从此永远升不了级。清理要走独立于 patch 预校验的通道（缺席即视为已清理），且不进备份环 —— DeltaUpdate.cpp:326 会为每个 Deleted 文件先复制一份备份，1136 个文件会把备份目录撑爆",
+                "负测三条：装过完整包、弃用文件已不存在的机器上增量仍成功且清理静默跳过；弃用文件仍在的机器上升级后被删除且 Qt6QuickControls2Basic*.dll 不受影响；某个弃用文件被占用时只跳过并计入回执，不整单失败",
+                "docs/pitfalls.md 记两条：包间 diff 结构性地给不出「两个包都没有」的文件删除动作；预校验对缺失文件硬失败会反噬后续所有升级"
+            ],
+            "depends": [],
+            "id": "DX-38",
+            "note": "真机实测（2026-11-05，v0.1.4 → v0.1.5 增量升级成功）：delta.json 的 10 条改动全是 Modified、0 条 Deleted；1136 条弃用文件（六个样式目录 1126 个文件 + root 级 10 条 dll）原封不动，install-receipt.json 缺席。根因是增量清单算的是两个发布包之间的差，而这批文件在 0.1.4 和 0.1.5 的包里都不存在，任何包间断层都不可能为它们生成删除动作 —— 清理只有安装器侧那份显式 [InstallDelete] 清单做得到，回执同样是安装器 CurStepChanged(ssPostInstall) 写的，增量路径走的是自更新 bat，压根不跑安装器。后果：从 0.1.3 一路增量升上来的用户永久背着这批文件，而且升级后拿不到任何物证，R5-11 / R5-09 / R5-12 只对「跑过完整安装包」的人生效。宿主清理那条增量路径自己是用 bat 里的 taskkill 兜的（UpdateManager.cpp:1126），所以这次没暴露。",
+            "scope": [
+                "src/update/DeltaUpdate.cpp",
+                "src/update/DeltaUpdate.h",
+                "src/update/UpdateManager.cpp",
+                "scripts/build-delta.ps1",
+                "installer/neonboard.iss",
+                "docs/pitfalls.md",
+                "docs/auto-update.md"
+            ],
+            "stage": "DX",
+            "title": "DX 增量升级路径不清理弃用文件也不写安装回执：包间 diff 天生给不出 Deleted 条目"
         },
         "M01": {
             "acceptance": [

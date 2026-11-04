@@ -1,6 +1,60 @@
 {
     "items": [
         {
+            "code": "DX-23",
+            "completedAt": 0,
+            "createdAt": 1793765088,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-23",
+            "note": "现有脚本只回答「这个 worktree 多久没动了」，回答不了「能不能删」。而真正要删之前必须确认三件事：有没有未推送的提交、有没有没提交的改动、是不是停在 detached HEAD 上。这三点都是可判定的，却每次靠人手工敲三条 git 命令（2026-11-04 清历史 worktree 时逐个敲过一遍）。\\n\\n归属问题同样可判定：.git/agent-workspace.json 里每条登记都带 since 时间戳，谁在什么时候开的区一目了然。同类僵尸登记（目录已删、登记还在）也能靠「登记有、目录无」直接发现 —— 这正是 DX-05 之后仍未自动清理的那类残留。\\n\\n边界：-Audit 只报告不删除。删除是不可逆操作，判定可以自动化，决定权不自动化。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "doing",
+            "tags": [
+                "DX"
+            ],
+            "title": "worktree 巡检只看最后提交时间，判断不了「这个能不能删」",
+            "updatedAt": 1793765088
+        },
+        {
+            "code": "DX-24",
+            "completedAt": 0,
+            "createdAt": 1793765088,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-24",
+            "note": "build.ps1 自己会解析 Qt 路径（-QtRoot → NEONBOARD_QT_ROOT → QT_ROOT → dev-env.ps1 → C://Qt 下最新版本），所以编译那步从来不缺 Qt。缺的只有 verify.ps1 主进程：它只把自己收到的 -QtRoot 加进 PATH，收不到就没加，于是随后直接跑的 NeonBoard.exe 找不到 Qt6Core.dll，报 0xC0000135（0xC0000135 = STATUS_DLL_NOT_FOUND）。\\n\\n症状是「编译通过、自检崩溃」，看起来像代码坏了。worktree 里必现，因为新工作区没有继承任何 Qt 环境变量，而锚点区往往手工设过。\\n\\n信息本来就在手边：CMakeCache.txt 里的 Qt6_DIR 就是 configure 时用的那个 Qt，反推三级即根目录。同 DX-20/21 一类 —— 可以推断的事不该要求人再传一遍。",
+            "orderKey": 2048,
+            "priority": 2,
+            "stage": "DX",
+            "status": "doing",
+            "tags": [
+                "DX"
+            ],
+            "title": "verify.ps1 只认显式 -QtRoot，worktree 里必现 0xC0000135",
+            "updatedAt": 1793765088
+        },
+        {
+            "code": "DX-25",
+            "completedAt": 0,
+            "createdAt": 1793765088,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-25",
+            "note": "docs/board-ledger.json 看起来像文档，实际是 tst_projectmap 的测试输入（它读 stage 排序、把 baseline 当 done 判据、校验 cards 与 roadmap 行对应）。改了它而只跑 -ScriptOnly，本地全绿、CI 红 —— 主线被弄红过一次就是这条路径。\\n\\n但反过来「改台账就全量」也太重：全量要编译 3.3 分钟。实测增量构建 196 秒、冷启动 3.8 分钟，把它塞进 -ScriptOnly 会让「两秒验收」失去意义。\\n\\n所以按「改了什么」分流：只动 baseline / claims 的（结卡、领用登记，最高频）派生一致性由 derive_board_status.py --check 覆盖，秒级；动了 cards 结构的（立卡、改 scope、改 stage，低频但影响 tst_projectmap）才要求全量。判定是机械的（比 JSON），不需要人记。\\n\\n边界：本脚本不做 tst_projectmap 的等价校验，只决定「这一档够不够」。真校验仍在编译产物里。",
+            "orderKey": 3072,
+            "priority": 2,
+            "stage": "DX",
+            "status": "doing",
+            "tags": [
+                "DX"
+            ],
+            "title": "改台账后本地无任何提示，派生漂移只能等 CI 报红",
+            "updatedAt": 1793765088
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -2923,6 +2977,6 @@
             "updatedAt": 1793763063
         }
     ],
-    "updated": "2026-11-04T11:31:03",
+    "updated": "2026-11-04T12:04:48",
     "version": 3
 }

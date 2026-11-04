@@ -98,6 +98,59 @@ def run_derive() -> int:
     return proc.returncode
 
 
+def classify(old: dict, new: dict) -> tuple[str, list[str]]:
+    """判断这次台账改动属于哪一档，返回 (action, 说明行)。
+
+    action：
+      'skip'   —— 台账没实质变化，这一档够
+      'derive' —— 可以留在轻档，但仍要校验派生一致性（子进程 derive --check）
+      'full'   —— 必须全量
+
+    为什么「新增卡」不等于「必须全量」：立卡是每张卡的必经步骤，而它必然改 cards。
+    若把新增卡也判成 full，任何含立卡的分支在 -ScriptOnly 上都会被拦 —— 脚本卡就再也
+    用不了轻档（DX-15 白做）。真正需要警惕的是**改动既有卡的契约**（stage / scope 等）
+    和**删卡**，那才是会让 tst_projectmap 与 roadmap 对不上的操作。
+
+    「新增卡的 stage 是否是陌生取值」要判：stage 第一次出现时，roadmap 里未必有对应行，
+    这正是 `stageOrderFollowsRoadmapRows` 会红的情形。
+    """
+    old_cards = old.get("cards") or {}
+    new_cards = new.get("cards") or {}
+    added, removed, changed = diff_cards(old, new)
+    lines: list[str] = []
+
+    if removed or changed:
+        lines = [f"  卡片结构有变化（{len(added)} 新增 / {len(removed)} 删除 / {len(changed)} 修改）"]
+        if added:
+            lines.append("    新增：" + "、".join(added))
+        if removed:
+            lines.append("    删除：" + "、".join(removed))
+        for line in describe_changed(old, new, changed):
+            lines.append("    修改：" + line)
+        lines.append("  改动了既有卡片的契约，tst_projectmap 可能读不到对应 roadmap 行；请跑全量：")
+        lines.append("    pwsh -File scripts/verify.ps1")
+        return "full", lines
+
+    if added:
+        known = {c.get("stage") for c in old_cards.values() if c.get("stage")}
+        fresh = sorted({new_cards[c].get("stage") for c in added} - known - {None})
+        lines = [f"  新增 {len(added)} 张卡：{'、'.join(added)}（立卡，属正常流动）"]
+        if fresh:
+            lines.append(f"    首次出现的 stage：{'、'.join(fresh)} —— roadmap 里未必有对应行")
+            lines.append("  新 stage 需要全量确认 roadmap 行：")
+            lines.append("    pwsh -File scripts/verify.ps1")
+            return "full", lines
+
+    base_changed = (old.get("baseline") or {}) != (new.get("baseline") or {})
+    claims_changed = (old.get("claims") or {}) != (new.get("claims") or {})
+    if not (added or base_changed or claims_changed):
+        return "skip", ["  · 台账未改动，跳过"]
+
+    what = [n for n, f in (("cards 新增", bool(added)), ("baseline", base_changed), ("claims", claims_changed)) if f]
+    lines.append(f"  · 只动了 {'、'.join(what)}，校验派生一致性（新增卡必须已在快照里）")
+    return "derive", lines
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="改台账时判断验收档位")
     ap.add_argument("--base", help="比较基准 ref（如 origin/main）；省略则只跑 --selftest")
@@ -116,27 +169,14 @@ def main(argv: list[str] | None = None) -> int:
         print("  · 台账在基准或 HEAD 中不存在，跳过")
         return 0
 
-    added, removed, changed = diff_cards(old, new)
-    if added or removed or changed:
-        print(f"  卡片结构有变化（{len(added)} 新增 / {len(removed)} 删除 / {len(changed)} 修改）")
-        if added:
-            print("    新增：" + "、".join(added))
-        if removed:
-            print("    删除：" + "、".join(removed))
-        for line in describe_changed(old, new, changed):
-            print("    修改：" + line)
-        print("  卡片结构是 tst_projectmap 的输入，-ScriptOnly 不足以验收；请跑全量：")
-        print("    pwsh -File scripts/verify.ps1")
+    action, lines = classify(old, new)
+    for line in lines:
+        print(line)
+    if action == "skip":
+        return 0
+    if action == "full":
         return 2
 
-    base_changed = (old.get("baseline") or {}) != (new.get("baseline") or {})
-    claims_changed = (old.get("claims") or {}) != (new.get("claims") or {})
-    if not base_changed and not claims_changed:
-        print("  · 台账未改动（或只改了 cards 以外的非状态字段），跳过")
-        return 0
-
-    what = "、".join([n for n, f in (("baseline", base_changed), ("claims", claims_changed)) if f])
-    print(f"  · 只动了 {what}，校验派生一致性")
     code = run_derive()
     if code != 0:
         print("  派生快照与 git 历史 / 台账不一致：先跑 derive_board_status.py --write 补推")
@@ -199,6 +239,37 @@ def selftest() -> int:
 
     # 8. 空 inputs 不炸
     check("缺 cards 键不炸", diff_cards({}, {}) == ([], [], []))
+
+    # 9-13. 分档（classify）—— 这才是闸门的实际判据
+    act, _ = classify(a, a)
+    check("未改动 → skip", act == "skip")
+
+    act, _ = classify(a, ledger({"DX-1": card("DX-1")}, {"DX-1": "todo"}, {}))
+    check("仅 baseline 变化 → derive", act == "derive")
+
+    act, _ = classify(a, ledger({"DX-1": card("DX-1")}, {"DX-1": "done"}, {"DX-9": {"branch": "z"}}))
+    check("仅 claims 变化 → derive", act == "derive")
+
+    # 立卡：新增卡但 stage 是既有取值 → 不该逼人全量（否则脚本卡的轻档永远用不了）
+    act, lines = classify(a, ledger({"DX-1": card("DX-1"), "DX-2": card("DX-2")}, {"DX-1": "done"}, {}))
+    check("新增卡 + stage 已知 → derive（不是 full）", act == "derive")
+    check("新增卡 → 说明里列出卡号", any("DX-2" in l for l in lines))
+
+    # 新增卡但 stage 是全新的 → roadmap 里未必有对应行，必须全量
+    fresh = ledger({"DX-1": card("DX-1"), "M99": card("M99", stage="M99X")}, {"DX-1": "done"}, {})
+    act, lines = classify(a, fresh)
+    check("新增卡 + 陌生 stage → full", act == "full")
+    check("陌生 stage → 说明里点名", any("M99X" in l for l in lines))
+
+    # 改既有卡 / 删卡 → full
+    act, _ = classify(a, ledger({"DX-1": card("DX-1", stage="R14")}, {"DX-1": "done"}, {}))
+    check("改既有卡 stage → full", act == "full")
+    act, _ = classify(a, ledger({}, {"DX-1": "done"}, {}))
+    check("删卡 → full", act == "full")
+
+    # 改既有卡的非契约字段（title）也算改动既有卡 → full（保守）
+    act, _ = classify(a, ledger({"DX-1": card("DX-1", title="改了标题")}, {"DX-1": "done"}, {}))
+    check("改既有卡 title → full", act == "full")
 
     print()
     if fails:

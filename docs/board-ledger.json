@@ -2969,6 +2969,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-30": {
+            "agent": "agent-dxp3",
+            "branch": "chore/dx-qt-probe-cold",
+            "claimedAt": 1793767862,
+            "head": "1a1f5f50a98f216d8e3a9e3e527e771104fd8113"
+        }
+    },
     "version": 1
 }

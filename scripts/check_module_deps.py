@@ -130,7 +130,8 @@ def in_scope(rel_path: str) -> bool:
 
 def git_lines(args: list[str]) -> list[str] | None:
     proc = subprocess.run(["git"] + args, cwd=REPO_ROOT,
-                          capture_output=True, text=True)
+                          capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
     if proc.returncode != 0:
         return None
     return [line.strip() for line in proc.stdout.splitlines() if line.strip()]

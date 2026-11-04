@@ -84,11 +84,17 @@
 #include <QUrl>
 #include <cstdio>
 #include <memory>
+#include <mutex>
 
 static void neonboardLogHandler(QtMsgType, const QMessageLogContext &, const QString &message)
 {
+    // 闪屏的渲染线程也会打日志（DX-39 起），而 QFile 不是线程安全的：
+    // 两个线程同时写同一个文件会撕行，甚至踩坏 QTextStream 的内部缓冲。
+    // 所以这里上把锁 —— 锁的范围只包住「写一行」，不影响任何业务路径。
+    static std::mutex logMutex;
     static QFile file;
     static bool opened = false;
+    std::lock_guard<std::mutex> lock(logMutex);
     if (!opened) {
         opened = true;
         file.setFileName(AppPaths::logFilePath());

@@ -55,24 +55,6 @@
             "updatedAt": 1793813175
         },
         {
-            "code": "R16-04",
-            "completedAt": 0,
-            "createdAt": 1793814339,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R16-04",
-            "note": "起因：agent-claude/codex/cursor/opencode 四份 main.qml 约 90% 同构（KeyValue 组件、授权徽章、布局），exeLine/readonlyLine 与 plugin.json 的 args 是两份数据，靠测试防漂移（main.qml 注释自认「测试会校验这两处与内置 profile 三者一致」）。宿主为「声明 agentProfiles 且无 main.qml」的插件渲染通用名片页，数据单源于 manifest；codex 面板上的本机实测长说明（stdin 接 NUL、Store 版路径等）移 docs/agent-profile.md，名片页只留 manifest 能表达的事实。",
-            "orderKey": 9216,
-            "priority": 2,
-            "stage": "R16",
-            "status": "todo",
-            "tags": [
-                "R16"
-            ],
-            "title": "通用 agent profile 名片页：宿主按 manifest 渲染，删四份 main.qml",
-            "updatedAt": 1793814339
-        },
-        {
             "code": "R16-05",
             "completedAt": 0,
             "createdAt": 1793814339,
@@ -1306,6 +1288,24 @@
             ],
             "title": "MOD 守卫：模块依赖方向与行数上限接入 CI",
             "updatedAt": 1793722384
+        },
+        {
+            "code": "R16-04",
+            "completedAt": 1793819210,
+            "createdAt": 1793814339,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R16-04",
+            "note": "起因：agent-claude/codex/cursor/opencode 四份 main.qml 约 90% 同构（KeyValue 组件、授权徽章、布局），exeLine/readonlyLine 与 plugin.json 的 args 是两份数据，靠测试防漂移（main.qml 注释自认「测试会校验这两处与内置 profile 三者一致」）。宿主为「声明 agentProfiles 且无 main.qml」的插件渲染通用名片页，数据单源于 manifest；codex 面板上的本机实测长说明（stdin 接 NUL、Store 版路径等）移 docs/agent-profile.md，名片页只留 manifest 能表达的事实。",
+            "orderKey": 9216,
+            "priority": 2,
+            "stage": "R16",
+            "status": "done",
+            "tags": [
+                "R16"
+            ],
+            "title": "通用 agent profile 名片页：宿主按 manifest 渲染，删四份 main.qml",
+            "updatedAt": 1793819210
         },
         {
             "code": "R5-04",
@@ -3463,6 +3463,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T03:01:52",
+    "updated": "2026-11-05T03:06:50",
     "version": 3
 }

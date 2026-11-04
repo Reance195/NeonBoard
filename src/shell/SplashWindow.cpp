@@ -1,543 +1,623 @@
 #include "SplashWindow.h"
+#include "SplashLayeredWindow.h"
+#include "SplashScene.h"
 
 #include <QApplication>
 #include <QDebug>
+#include <QElapsedTimer>
 #include <QEventLoop>
-#include <QFont>
-#include <QFontMetricsF>
-#include <QLinearGradient>
+#include <QGuiApplication>
+#include <QImage>
 #include <QPainter>
-#include <QPainterPath>
-#include <QRadialGradient>
-#include <QRandomGenerator>
 #include <QScreen>
+#include <QStringList>
 #include <QThread>
-#include <QtMath>
+#include <QTimer>
 
 #include <algorithm>
-#include <cmath>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
 
 namespace {
 
-const QColor kCyan(34, 211, 238);
-const QColor kPurple(168, 85, 247);
-const QColor kPink(244, 114, 182);
-const QColor kInk(230, 241, 255);
-const QColor kMuted(124, 139, 161);
-
-QColor withAlpha(QColor color, qreal alpha)
-{
-    color.setAlphaF(std::clamp(alpha, 0.0, 1.0));
-    return color;
-}
-
-qreal wave(qreal t)
-{
-    return 0.5 + 0.5 * std::sin(t);
-}
+constexpr int kWidth = 700;
+constexpr int kHeight = 430;
+// 30fps：闪屏的动效都是慢的（辉光脉动 3.7s 一轮、轨道环 156°/s、扫光 105px/s），
+// 30 帧足够顺；而帧率翻倍就是 CPU 翻倍 —— 渲染线程一旦占满一个核，
+// 就会被主线程的同步阻塞挤掉，画面照样冻住（DX-39 实测：60fps 下每帧 12~20ms，
+// 渲染线程满负荷 → 出现 200ms+ 停顿）。
+constexpr int kFrameIntervalMs = 33;
+constexpr int kFinishHoldMs = 320;
+constexpr int kFadeMs = 220;
 
 } // namespace
 
-SplashWindow::SplashWindow(QWidget *parent)
-    : QWidget(parent, Qt::SplashScreen | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint
-                         | Qt::WindowTransparentForInput)
+/**
+ * 渲染线程。
+ *
+ * 画面在这里画、在这里贴屏（Win32 分层窗口，见 SplashLayeredWindow），
+ * **与主线程完全无关**：主线程堵在数据库打开 / engine.load() 里时，
+ * 动画照走不误 —— 这正是 DX-39 要修的那件事。
+ *
+ * 主线程 → 渲染线程只走「阶段值 / 显示 / 收尾」三类命令（互斥量保护），
+ * **不走排队信号**：主线程在启动期经常是阻塞的，排队信号要等主线程的事件循环
+ * 才有空取，而这里要的是「主线程堵着也能立刻看到新阶段」。
+ *
+ * 渲染线程 → 主线程只回一个「已关闭」信号（条件变量），供 finish() 收尾等。
+ */
+class SplashWindow::RenderThread : public QThread
 {
-    setAttribute(Qt::WA_TranslucentBackground);
-    setAttribute(Qt::WA_DeleteOnClose, false);
-    setFixedSize(700, 430);
-    setWindowOpacity(1.0);
+public:
+    RenderThread();
+    ~RenderThread() override;
 
-    QRandomGenerator rng(0x4e454f4e);
-    m_stars.reserve(150);
-    for (int i = 0; i < 150; ++i) {
-        m_stars.append(Star{
-            rng.bounded(1.0),
-            std::pow(rng.bounded(1.0), 1.5) * 0.62,
-            0.5 + rng.bounded(1.0) * 1.6,
-            rng.bounded(6.2831853),
-            0.5 + rng.bounded(1.8),
-        });
+    void setStage(qreal progress, const QString &label, const QImage &labelImage, qreal labelAscent);
+    void setDigitAtlas(const QImage &atlas, qreal advance, qreal ascent);
+    void showWindow(const QRect &logicalRect, qreal devicePixelRatio);
+    void requestClose();
+    void requestFinish();
+
+    bool waitForFirstFrame(int timeoutMs);
+    bool waitForClosed(int timeoutMs);
+    bool isClosed() const;
+    bool isVisible() const;
+
+protected:
+    void run() override;
+
+private:
+    enum class Phase
+    {
+        Running,
+        Holding,
+        Fading,
+        Done,
+    };
+
+    void tick();
+    void renderFrame(qreal alpha);
+    void shutdown();
+
+    // 诊断（NEONBOARD_SPLASH_DIAG=1 时才记账）：用来回答两个问题 ——
+    //  「画面是真冻住了，还是探针采样太稀？」、「渲染线程到底烧了多少 CPU？」
+    void recordDiag(qint64 paintUs, qint64 blitUs, quint64 contentHash);
+    void dumpDiag();
+
+    mutable std::mutex m_mutex;
+    std::condition_variable m_cv;
+
+    // 主线程 → 渲染线程
+    bool m_hasStage = false;
+    qreal m_pendingProgress = 0.0;
+    QString m_pendingLabel;
+    QImage m_pendingLabelImage;
+    qreal m_pendingLabelAscent = 0.0;
+    bool m_hasLabelImage = false;
+    bool m_hasAtlas = false;
+    QImage m_pendingAtlas;
+    qreal m_pendingAtlasAdvance = 0.0;
+    qreal m_pendingAtlasAscent = 0.0;
+    bool m_showRequested = false;
+    QRect m_pendingLogicalRect;
+    qreal m_pendingDpr = 1.0;
+    bool m_closeRequested = false;
+    bool m_finishRequested = false;
+
+    // 渲染线程内部
+    SplashLayeredWindow m_window;
+    Splash::Scene m_scene;
+    QImage m_frame;
+    QElapsedTimer m_clock;
+    qreal m_lastNow = 0.0;
+    qreal m_dpr = 1.0;
+    Phase m_phase = Phase::Running;
+    qint64 m_phaseStartedMs = 0;
+    int m_ticks = 0;
+    int m_frames = 0;
+
+    // 状态回报
+    bool m_firstFrame = false;
+    bool m_closed = false;
+    bool m_visible = false;
+
+    // 诊断统计（仅 NEONBOARD_SPLASH_DIAG=1 时使用）
+    bool m_diag = false;
+    qint64 m_diagPaintUs = 0;
+    qint64 m_diagBlitUs = 0;
+    qint64 m_diagPaintMaxUs = 0;
+    qint64 m_diagBlitMaxUs = 0;
+    qint64 m_diagMaxGapMs = 0;
+    qint64 m_diagMaxGapAtMs = -1;
+    qint64 m_diagLastTickMs = -1;
+    quint64 m_diagHash = 0;
+    bool m_diagHasHash = false;
+    qint64 m_diagSameSinceMs = -1;    // 「画面与上一帧完全相同」的连续段起点
+    qint64 m_diagSameTotalMs = 0;
+    qint64 m_diagSameMaxMs = 0;
+    qint64 m_diagSameMaxAtMs = -1;
+    QStringList m_diagSameRuns;       // "起点ms:时长ms" 列表
+};
+
+SplashWindow::RenderThread::RenderThread()
+{
+    m_diag = !qEnvironmentVariableIsEmpty("NEONBOARD_SPLASH_DIAG");
+    Splash::Scene::setProfiling(m_diag);
+    start();
+}
+
+SplashWindow::RenderThread::~RenderThread()
+{
+    requestClose();
+    quit(); // 兜底：即使 tick 没跑到也让事件循环退出
+    wait(3000);
+    // 线程已 join，这里读统计是安全的。
+    dumpDiag();
+}
+
+void SplashWindow::RenderThread::setStage(qreal progress, const QString &label,
+                                         const QImage &labelImage, qreal labelAscent)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_pendingProgress = progress;
+    m_pendingLabel = label;
+    m_pendingLabelImage = labelImage;
+    m_pendingLabelAscent = labelAscent;
+    m_hasLabelImage = true;
+    m_hasStage = true;
+}
+
+void SplashWindow::RenderThread::setDigitAtlas(const QImage &atlas, qreal advance, qreal ascent)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_pendingAtlas = atlas;
+    m_pendingAtlasAdvance = advance;
+    m_pendingAtlasAscent = ascent;
+    m_hasAtlas = true;
+}
+
+void SplashWindow::RenderThread::showWindow(const QRect &logicalRect, qreal devicePixelRatio)
+{
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_pendingLogicalRect = logicalRect;
+        m_pendingDpr = devicePixelRatio;
+        m_showRequested = true;
+    }
+    m_cv.notify_all();
+}
+
+void SplashWindow::RenderThread::requestClose()
+{
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_closeRequested = true;
+    }
+    m_cv.notify_all();
+}
+
+void SplashWindow::RenderThread::requestFinish()
+{
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_finishRequested = true;
+    }
+    m_cv.notify_all();
+}
+
+bool SplashWindow::RenderThread::waitForFirstFrame(int timeoutMs)
+{
+    QElapsedTimer timer;
+    timer.start();
+    while (timer.elapsed() < timeoutMs) {
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            if (m_firstFrame || m_closed)
+                return true;
+            m_cv.wait_for(lock, std::chrono::milliseconds(4),
+                          [this] { return m_firstFrame || m_closed; });
+            if (m_firstFrame || m_closed)
+                return true;
+        }
+        QApplication::processEvents(QEventLoop::AllEvents, 4);
+    }
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_firstFrame;
+}
+
+bool SplashWindow::RenderThread::waitForClosed(int timeoutMs)
+{
+    QElapsedTimer timer;
+    timer.start();
+    while (timer.elapsed() < timeoutMs) {
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            if (m_closed)
+                return true;
+            m_cv.wait_for(lock, std::chrono::milliseconds(4),
+                          [this] { return m_closed; });
+            if (m_closed)
+                return true;
+        }
+        QApplication::processEvents(QEventLoop::AllEvents, 4);
+    }
+    return isClosed();
+}
+
+bool SplashWindow::RenderThread::isClosed() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_closed;
+}
+
+bool SplashWindow::RenderThread::isVisible() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_visible;
+}
+
+void SplashWindow::RenderThread::run()
+{
+    // 帧定时器必须住在渲染线程（QTimer 的线程归属看它在哪创建），
+    // 所以它是 run() 的局部变量，不能做成 RenderThread 的成员。
+    QTimer frameTimer;
+    frameTimer.setInterval(kFrameIntervalMs);
+    frameTimer.setTimerType(Qt::PreciseTimer);
+    QObject::connect(&frameTimer, &QTimer::timeout, [this] { tick(); });
+    frameTimer.start();
+
+    m_clock.start();
+
+    exec(); // 渲染线程自己的事件循环
+
+    m_window.destroy();
+
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_closed = true;
+        m_visible = false;
+    }
+    m_cv.notify_all();
+}
+
+void SplashWindow::RenderThread::tick()
+{
+    // 1) 取主线程推来的命令
+    bool hasStage = false;
+    qreal progress = 0.0;
+    QString label;
+    QImage labelImage;
+    qreal labelAscent = 0.0;
+    bool hasLabelImage = false;
+    bool hasAtlas = false;
+    QImage atlas;
+    qreal atlasAdvance = 0.0;
+    qreal atlasAscent = 0.0;
+    bool show = false;
+    QRect logicalRect;
+    qreal dpr = 1.0;
+    bool close = false;
+    bool finish = false;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_hasStage) {
+            hasStage = true;
+            progress = m_pendingProgress;
+            label = m_pendingLabel;
+            m_hasStage = false;
+        }
+        if (m_hasLabelImage) {
+            hasLabelImage = true;
+            labelImage = m_pendingLabelImage;
+            labelAscent = m_pendingLabelAscent;
+            m_hasLabelImage = false;
+        }
+        if (m_hasAtlas) {
+            hasAtlas = true;
+            atlas = m_pendingAtlas;
+            atlasAdvance = m_pendingAtlasAdvance;
+            atlasAscent = m_pendingAtlasAscent;
+            m_hasAtlas = false;
+        }
+        if (m_showRequested) {
+            show = true;
+            logicalRect = m_pendingLogicalRect;
+            dpr = m_pendingDpr;
+            m_showRequested = false;
+        }
+        close = m_closeRequested;
+        m_closeRequested = false;
+        finish = m_finishRequested;
+        m_finishRequested = false;
     }
 
-    m_label = QStringLiteral("BOOT SEQUENCE");
+    if (hasStage)
+        m_scene.setStage(progress, label);
+    if (hasLabelImage)
+        m_scene.setStageLabelImage(labelImage, labelAscent);
+    if (hasAtlas)
+        m_scene.setDigitAtlas(atlas, atlasAdvance, atlasAscent);
 
-    m_frameTimer.setInterval(16);
-    m_frameTimer.setTimerType(Qt::PreciseTimer);
-    connect(&m_frameTimer, &QTimer::timeout, this, &SplashWindow::tick);
+    if (show) {
+        m_dpr = dpr > 0.0 ? dpr : 1.0;
+        // Windows 的窗口坐标一律物理像素：逻辑矩形按设备像素比换算过去。
+        const QRect physical(
+            qRound(logicalRect.left() * m_dpr), qRound(logicalRect.top() * m_dpr),
+            qRound(logicalRect.width() * m_dpr), qRound(logicalRect.height() * m_dpr));
+        if (m_window.create(physical))
+            m_window.show();
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_visible = true;
+    }
+
+    if (finish && m_phase == Phase::Running) {
+        m_scene.setStage(1.0, QStringLiteral("READY"));
+        m_phase = Phase::Holding;
+        m_phaseStartedMs = m_clock.elapsed();
+    }
+
+    if (close) {
+        shutdown();
+        return;
+    }
+
+    // 2) 推进动画（这一段与主线程无关：主线程堵住时照走）
+    const qreal now = m_clock.elapsed() / 1000.0;
+    m_scene.advance(now - m_lastNow);
+    m_lastNow = now;
+
+    // 3) 收尾序列：READY 停留 → 淡出 → 关闭
+    qreal alpha = 1.0;
+    if (m_phase == Phase::Holding) {
+        if (m_clock.elapsed() - m_phaseStartedMs >= kFinishHoldMs) {
+            m_phase = Phase::Fading;
+            m_phaseStartedMs = m_clock.elapsed();
+        }
+    }
+    if (m_phase == Phase::Fading) {
+        const qint64 since = m_clock.elapsed() - m_phaseStartedMs;
+        const qreal k = std::clamp(qreal(since) / qreal(kFadeMs), 0.0, 1.0);
+        alpha = 1.0 - k;
+        if (k >= 1.0) {
+            shutdown();
+            return;
+        }
+    }
+
+    // 4) 画一帧并贴到屏幕上
+    renderFrame(alpha);
+
+    // 每秒一行渲染状态：出问题时先看这行（帧数不动 = 渲染线程被卡住）
+    if (++m_ticks % 60 == 0) {
+        qInfo() << "SPLASH tick" << m_ticks << "frames" << m_frames;
+    }
+}
+
+void SplashWindow::RenderThread::renderFrame(qreal alpha)
+{
+    if (!m_window.isVisible())
+        return;
+    const int pixelWidth = qMax(1, qRound(kWidth * m_dpr));
+    const int pixelHeight = qMax(1, qRound(kHeight * m_dpr));
+
+    QElapsedTimer frameTimer;
+    frameTimer.start();
+
+    // 复用同一块缓冲：每帧新建 2MB+ 的 QImage 是纯浪费。
+    if (m_frame.isNull() || m_frame.width() != pixelWidth || m_frame.height() != pixelHeight) {
+        m_frame = QImage(pixelWidth, pixelHeight, QImage::Format_ARGB32_Premultiplied);
+    }
+    QImage &frame = m_frame;
+    frame.fill(Qt::transparent);
+    {
+        QPainter painter(&frame);
+        // 自己按设备像素比缩放，不依赖 QImage 的 devicePixelRatio 约定。
+        painter.scale(m_dpr, m_dpr);
+        m_scene.paint(painter, QSizeF(kWidth, kHeight), alpha);
+    }
+    const qint64 paintUs = frameTimer.nsecsElapsed() / 1000;
+
+    frameTimer.restart();
+    m_window.blit(frame);
+    const qint64 blitUs = frameTimer.nsecsElapsed() / 1000;
+    ++m_frames;
+
+    if (m_diag) {
+        // 画面内容指纹：隔行隔列抽样做 FNV-1a，够便宜又不至于漏掉整幅画面的变化。
+        quint64 hash = 1469598103934665603ULL;
+        const uchar *bits = frame.constBits();
+        const int stride = frame.bytesPerLine();
+        for (int y = 0; y < pixelHeight; y += 4) {
+            const uchar *row = bits + static_cast<size_t>(y) * stride;
+            for (int x = 0; x < pixelWidth; x += 4) {
+                hash ^= static_cast<quint64>(row[x * 4]);
+                hash *= 1099511628211ULL;
+                hash ^= static_cast<quint64>(row[x * 4 + 1]);
+                hash *= 1099511628211ULL;
+            }
+        }
+        recordDiag(paintUs, blitUs, hash);
+    }
+
+    // 首帧贴上屏后回报一次：show() 要等它，保证「画面已上屏」再往下走启动流程。
+    if (!m_firstFrame) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_firstFrame = true;
+        m_cv.notify_all();
+    }
+}
+
+void SplashWindow::RenderThread::recordDiag(qint64 paintUs, qint64 blitUs, quint64 contentHash)
+{
+    const qint64 nowMs = m_clock.elapsed();
+    m_diagPaintUs += paintUs;
+    m_diagBlitUs += blitUs;
+    m_diagPaintMaxUs = qMax(m_diagPaintMaxUs, paintUs);
+    m_diagBlitMaxUs = qMax(m_diagBlitMaxUs, blitUs);
+
+    if (m_diagLastTickMs >= 0) {
+        const qint64 gap = nowMs - m_diagLastTickMs;
+        if (gap > m_diagMaxGapMs) {
+            m_diagMaxGapMs = gap;
+            m_diagMaxGapAtMs = m_diagLastTickMs;
+        }
+    }
+    m_diagLastTickMs = nowMs;
+
+    const bool same = m_diagHasHash && contentHash == m_diagHash;
+    if (same) {
+        if (m_diagSameSinceMs < 0)
+            m_diagSameSinceMs = nowMs;
+    } else {
+        if (m_diagSameSinceMs >= 0) {
+            const qint64 len = nowMs - m_diagSameSinceMs;
+            m_diagSameTotalMs += len;
+            if (len > m_diagSameMaxMs) {
+                m_diagSameMaxMs = len;
+                m_diagSameMaxAtMs = m_diagSameSinceMs;
+            }
+            m_diagSameRuns.append(QStringLiteral("%1:%2").arg(m_diagSameSinceMs).arg(len));
+        }
+        m_diagSameSinceMs = -1;
+    }
+    m_diagHash = contentHash;
+    m_diagHasHash = true;
+}
+
+void SplashWindow::RenderThread::dumpDiag()
+{
+    if (!m_diag)
+        return;
+    // 收尾时把还在累积的「同画面段」结账
+    if (m_diagSameSinceMs >= 0) {
+        const qint64 len = m_diagLastTickMs - m_diagSameSinceMs;
+        m_diagSameTotalMs += len;
+        if (len > m_diagSameMaxMs) {
+            m_diagSameMaxMs = len;
+            m_diagSameMaxAtMs = m_diagSameSinceMs;
+        }
+        m_diagSameRuns.append(QStringLiteral("%1:%2").arg(m_diagSameSinceMs).arg(len));
+        m_diagSameSinceMs = -1;
+    }
+    const int frames = qMax(1, m_frames);
+    const Splash::Scene::Profile &p = m_scene.profile();
+    qInfo() << "SPLASH diag frames" << m_frames
+            << "paintAvgUs" << (m_diagPaintUs / frames)
+            << "paintMaxUs" << m_diagPaintMaxUs
+            << "blitAvgUs" << (m_diagBlitUs / frames)
+            << "blitMaxUs" << m_diagBlitMaxUs
+            << "maxGapMs" << m_diagMaxGapMs << "atMs" << m_diagMaxGapAtMs
+            << "sameTotalMs" << m_diagSameTotalMs
+            << "sameMaxMs" << m_diagSameMaxMs
+            << "sameMaxAtMs" << m_diagSameMaxAtMs
+            << "runs" << m_diagSameRuns.join(QLatin1Char(','));
+    const double perSample = p.samples > 0 ? 1000000.0 / p.samples : 0.0;
+    qInfo() << "SPLASH diag avgMs frame" << (p.frameNs * perSample / 1000.0)
+            << "prologue" << (p.prologueNs * perSample / 1000.0)
+            << "refreshBg" << (p.refreshBgNs * perSample / 1000.0)
+            << "refreshScroll" << (p.refreshScrollNs * perSample / 1000.0)
+            << "refreshLogo" << (p.refreshLogoNs * perSample / 1000.0)
+            << "blit" << (p.blitNs * perSample / 1000.0)
+            << "logo" << (p.logoNs * perSample / 1000.0)
+            << "live" << (p.liveNs * perSample / 1000.0)
+            << "tail" << (p.tailNs * perSample / 1000.0)
+            << "bgGlow" << (p.glowNs * perSample / 1000.0)
+            << "bgBackdrop" << (p.backdropNs * perSample / 1000.0)
+            << "bgGrid" << (p.gridNs * perSample / 1000.0)
+            << "samples" << p.samples;
+}
+
+void SplashWindow::RenderThread::shutdown()
+{
+    m_phase = Phase::Done;
+    m_window.hide();
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_visible = false;
+    }
+    quit();
+}
+
+// ---------------------------------------------------------------- 门面
+
+SplashWindow::SplashWindow()
+    : m_thread(std::make_unique<RenderThread>())
+{
+    // 设备像素比在这里定下来：主线程要按它渲染文字字图。
+    QScreen *screen = QGuiApplication::primaryScreen();
+    m_dpr = screen ? screen->devicePixelRatio() : 1.0;
+
+    // 数字图集：主线程渲染一次，渲染线程只负责按格贴图。
+    // 为什么不在渲染线程画字：QML 引擎启动期间主线程会长时间持有字体库锁，
+    // 渲染线程这时画字会被整段阻塞 —— 实测一次画字 = 250ms 的画面冻结（DX-39）。
+    qreal advance = 0.0;
+    qreal ascent = 0.0;
+    const QFontMetricsF metrics(Splash::Scene::percentFont());
+    ascent = metrics.ascent();
+    const QImage atlas = Splash::Scene::renderDigitAtlas(m_dpr, &advance);
+    m_thread->setDigitAtlas(atlas, advance, ascent);
+}
+
+SplashWindow::~SplashWindow()
+{
+    // 析构必须把渲染线程收干净：否则线程还在跑就析构函数体，Qt 会报
+    // "QThread: Destroyed while thread is still running"。
+    m_thread->requestClose();
+    m_thread->wait(3000);
 }
 
 void SplashWindow::setStage(qreal progress, const QString &label)
 {
-    m_targetProgress = std::clamp(progress, 0.0, 1.0);
-    if (!label.isEmpty() && label != m_label) {
-        m_label = label;
-        m_labelChangedAt = m_elapsed;
-    }
+    // 标签文字在**主线程**渲染：字体库锁在 QML 加载期被主线程长时间持有，
+    // 渲染线程这时去画字会被整段阻塞（DX-39 实测 250ms 停顿的元凶）。
+    qreal ascent = 0.0;
+    const QImage labelImage = Splash::Scene::renderStageLabel(label, m_dpr, &ascent);
+    m_thread->setStage(progress, label, labelImage, ascent);
+}
+
+void SplashWindow::show()
+{
+    QScreen *screen = QGuiApplication::primaryScreen();
+    const QRect available = screen ? screen->availableGeometry() : QRect(0, 0, 1920, 1080);
+    const QRect geometry(available.center() - QPoint(kWidth / 2, kHeight / 2),
+                         QSize(kWidth, kHeight));
+    const qreal dpr = screen ? screen->devicePixelRatio() : 1.0;
+    qInfo() << "SPLASH geometry" << geometry << "available" << available << "dpr" << dpr;
+    m_thread->showWindow(geometry, dpr);
+    if (!m_thread->waitForFirstFrame(2000))
+        qWarning() << "SPLASH first frame timeout";
+}
+
+void SplashWindow::close()
+{
+    if (m_thread->isClosed())
+        return;
+    m_thread->requestClose();
+    m_thread->waitForClosed(1000);
 }
 
 void SplashWindow::pump(int milliseconds)
 {
     if (!isVisible())
         return;
-
+    // 画面由渲染线程自己推进，这里只负责「主线程按剧本停留 + 顺带处理事件」。
     QElapsedTimer timer;
     timer.start();
     do {
         QApplication::processEvents(QEventLoop::AllEvents, 4);
-        tick();
-        repaint();
         QThread::msleep(4);
     } while (timer.elapsed() < milliseconds);
 }
 
 void SplashWindow::finish()
 {
-    if (m_finished)
+    if (m_thread->isClosed())
         return;
-    m_finished = true;
-    m_label = QStringLiteral("READY");
-    m_labelChangedAt = m_elapsed;
-    m_targetProgress = 1.0;
-
-    pump(320);
-
-    constexpr int fadeMs = 220;
-    QElapsedTimer fade;
-    fade.start();
-    while (fade.elapsed() < fadeMs) {
-        const qreal k = std::clamp(fade.elapsed() / qreal(fadeMs), 0.0, 1.0);
-        setWindowOpacity(1.0 - k);
-        QApplication::processEvents(QEventLoop::AllEvents, 4);
-        repaint();
-        QThread::msleep(4);
-    }
-
-    m_frameTimer.stop();
-    close();
+    m_thread->requestFinish();
+    m_thread->waitForClosed(4000);
 }
 
-void SplashWindow::showEvent(QShowEvent *event)
+bool SplashWindow::isVisible() const
 {
-    QWidget::showEvent(event);
-    if (QScreen *scr = screen()) {
-        const QRect available = scr->availableGeometry();
-        move(available.center() - QPoint(width() / 2, height() / 2));
-        qInfo() << "SPLASH geometry" << geometry() << "available" << available
-                << "dpr" << scr->devicePixelRatio();
-    }
-    if (!m_clock.isValid())
-        m_clock.start();
-    m_frameTimer.start();
-    tick();
-    repaint();
-}
-
-void SplashWindow::tick()
-{
-    if (!m_clock.isValid())
-        m_clock.start();
-
-    const qreal now = m_clock.elapsed() / 1000.0;
-    const qreal delta = std::clamp(now - m_elapsed, 0.0, 0.12);
-    m_elapsed = now;
-    m_fadeIn = std::min(1.0, m_fadeIn + delta * 5.0);
-    m_progress += (m_targetProgress - m_progress) * std::clamp(delta * 6.0, 0.0, 1.0);
-    m_progress = std::clamp(m_progress, 0.0, 1.0);
-    update();
-}
-
-void SplashWindow::paintEvent(QPaintEvent *)
-{
-    QPainter painter(this);
-    painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing
-                           | QPainter::SmoothPixmapTransform);
-    painter.setOpacity(m_fadeIn);
-
-    constexpr qreal margin = 14.0;
-    constexpr qreal radius = 24.0;
-    const QRectF frame(margin, margin, width() - margin * 2.0, height() - margin * 2.0);
-
-    painter.setBrush(Qt::NoBrush);
-    for (int i = 8; i >= 1; --i) {
-        const qreal spread = i * 3.0;
-        painter.setPen(QPen(withAlpha(kCyan, 0.055 - i * 0.005), 1.2));
-        painter.drawRoundedRect(frame.adjusted(-spread, -spread, spread, spread),
-                                radius + spread, radius + spread);
-    }
-
-    QPainterPath clip;
-    clip.addRoundedRect(frame, radius, radius);
-
-    painter.save();
-    painter.setClipPath(clip);
-    drawBackdrop(painter, frame, m_elapsed);
-    drawGrid(painter, frame, m_elapsed);
-    drawStars(painter, frame, m_elapsed);
-    drawLogo(painter, frame, m_elapsed);
-    drawTitle(painter, frame, m_elapsed);
-    drawProgress(painter, frame, m_elapsed);
-    drawHud(painter, frame, m_elapsed);
-    painter.restore();
-
-    painter.setBrush(Qt::NoBrush);
-    painter.setPen(QPen(withAlpha(kCyan, 0.28 + 0.12 * wave(m_elapsed * 1.4)), 1.0));
-    painter.drawRoundedRect(frame, radius, radius);
-    painter.setPen(QPen(withAlpha(kCyan, 0.08), 1.0));
-    painter.drawRoundedRect(frame.adjusted(3.0, 3.0, -3.0, -3.0), radius - 3.0, radius - 3.0);
-}
-
-void SplashWindow::drawBackdrop(QPainter &painter, const QRectF &frame, qreal t) const
-{
-    QLinearGradient background(frame.topLeft(), frame.bottomRight());
-    background.setColorAt(0.0, QColor(8, 13, 28));
-    background.setColorAt(0.42, QColor(4, 6, 13));
-    background.setColorAt(1.0, QColor(19, 7, 31));
-    painter.fillRect(frame, background);
-
-    const qreal pulse = wave(t * 1.7);
-
-    QRadialGradient core(frame.center().x(), frame.top() + frame.height() * 0.34,
-                         frame.width() * 0.62);
-    core.setColorAt(0.0, withAlpha(kCyan, 0.150 + 0.060 * pulse));
-    core.setColorAt(0.45, withAlpha(kPurple, 0.090));
-    core.setColorAt(1.0, QColor(0, 0, 0, 0));
-    painter.fillRect(frame, core);
-
-    QRadialGradient edge(frame.right(), frame.bottom(), frame.width() * 0.72);
-    edge.setColorAt(0.0, withAlpha(kPink, 0.075));
-    edge.setColorAt(1.0, QColor(0, 0, 0, 0));
-    painter.fillRect(frame, edge);
-
-    painter.save();
-    painter.setPen(QPen(QColor(255, 255, 255, 5), 1.0));
-    for (qreal y = frame.top(); y < frame.bottom(); y += 3.0)
-        painter.drawLine(QPointF(frame.left(), y), QPointF(frame.right(), y));
-    painter.restore();
-
-    const qreal bandY = frame.top() + std::fmod(t * 0.085, 1.0) * frame.height();
-    constexpr qreal bandH = 72.0;
-    QLinearGradient band(0.0, bandY - bandH, 0.0, bandY + bandH);
-    band.setColorAt(0.0, QColor(34, 211, 238, 0));
-    band.setColorAt(0.5, QColor(34, 211, 238, 15));
-    band.setColorAt(1.0, QColor(34, 211, 238, 0));
-    painter.fillRect(QRectF(frame.left(), bandY - bandH, frame.width(), bandH * 2.0), band);
-}
-
-void SplashWindow::drawGrid(QPainter &painter, const QRectF &frame, qreal t) const
-{
-    const qreal horizon = frame.top() + frame.height() * 0.60;
-    const qreal cx = frame.center().x();
-
-    painter.save();
-    painter.setClipRect(QRectF(frame.left(), horizon, frame.width(), frame.bottom() - horizon));
-
-    painter.setPen(QPen(withAlpha(kCyan, 0.13), 1.0));
-    for (int i = -12; i <= 12; ++i) {
-        const qreal bottomX = cx + i * frame.width() * 0.085;
-        painter.drawLine(QPointF(cx, horizon), QPointF(bottomX, frame.bottom()));
-    }
-
-    const qreal scroll = std::fmod(t * 0.30, 1.0);
-    for (int i = 0; i < 16; ++i) {
-        const qreal k = (i + scroll) / 16.0;
-        const qreal y = horizon + std::pow(k, 2.1) * (frame.bottom() - horizon);
-        painter.setPen(QPen(withAlpha(kCyan, 0.03 + 0.16 * k * k), 1.0));
-        painter.drawLine(QPointF(frame.left(), y), QPointF(frame.right(), y));
-    }
-    painter.restore();
-
-    QLinearGradient horizonLine(frame.left(), 0.0, frame.right(), 0.0);
-    horizonLine.setColorAt(0.0, QColor(34, 211, 238, 0));
-    horizonLine.setColorAt(0.5, QColor(34, 211, 238, 140));
-    horizonLine.setColorAt(1.0, QColor(34, 211, 238, 0));
-    painter.setPen(QPen(QBrush(horizonLine), 1.4));
-    painter.drawLine(QPointF(frame.left(), horizon), QPointF(frame.right(), horizon));
-}
-
-void SplashWindow::drawStars(QPainter &painter, const QRectF &frame, qreal t) const
-{
-    painter.save();
-    painter.setPen(Qt::NoPen);
-    for (const Star &star : m_stars) {
-        const qreal x = frame.left() + star.x * frame.width();
-        const qreal y = frame.top() + star.y * frame.height();
-        const qreal twinkle = 0.45 + 0.55 * std::sin(t * star.speed + star.phase);
-        painter.setBrush(withAlpha(kInk, 0.16 + 0.42 * twinkle));
-        painter.drawEllipse(QPointF(x, y), star.size, star.size);
-    }
-    painter.restore();
-}
-
-void SplashWindow::drawLogo(QPainter &painter, const QRectF &frame, qreal t) const
-{
-    const QPointF center(frame.center().x(), frame.top() + frame.height() * 0.335);
-    const qreal pulse = 0.82 + 0.18 * wave(t * 2.6);
-
-    struct Orbit
-    {
-        qreal rx;
-        qreal ry;
-        qreal tilt;
-        qreal spin;
-        qreal width;
-        qreal alpha;
-    };
-
-    const Orbit orbits[] = {
-        {128.0, 38.0, -16.0, 13.0, 1.2, 0.26},
-        {96.0, 30.0, 58.0, -19.0, 1.0, 0.16},
-        {150.0, 46.0, 96.0, 8.0, 1.0, 0.12},
-    };
-
-    for (const Orbit &orbit : orbits) {
-        painter.save();
-        painter.translate(center);
-        painter.rotate(orbit.tilt + std::sin(t * 0.35 + orbit.tilt) * 5.0);
-        painter.setBrush(Qt::NoBrush);
-
-        QPen pen(withAlpha(kCyan, orbit.alpha), orbit.width);
-        pen.setCapStyle(Qt::RoundCap);
-        painter.setPen(pen);
-
-        const qreal start = std::fmod(t * orbit.spin * 12.0, 360.0) * 16.0;
-        painter.drawArc(QRectF(-orbit.rx, -orbit.ry, orbit.rx * 2.0, orbit.ry * 2.0),
-                        start, 255.0 * 16.0);
-
-        const qreal angle = qDegreesToRadians(start / 16.0);
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(withAlpha(kPink, 0.85));
-        painter.drawEllipse(QPointF(orbit.rx * std::cos(angle), orbit.ry * std::sin(angle)),
-                            2.1, 2.1);
-        painter.setBrush(withAlpha(kCyan, 0.65));
-        const qreal tail = qDegreesToRadians(start / 16.0 + 255.0);
-        painter.drawEllipse(QPointF(orbit.rx * std::cos(tail), orbit.ry * std::sin(tail)),
-                            1.4, 1.4);
-        painter.restore();
-    }
-
-    QFont logoFont(QStringLiteral("Segoe UI"));
-    logoFont.setPixelSize(128);
-    logoFont.setWeight(QFont::Black);
-    QPainterPath glyph;
-    glyph.addText(QPointF(0.0, 0.0), logoFont, QStringLiteral("N"));
-    const QRectF bounds = glyph.boundingRect();
-
-    painter.save();
-    painter.translate(center.x() - bounds.center().x(), center.y() - bounds.center().y());
-
-    for (int i = 10; i >= 1; --i) {
-        const qreal alpha = 0.045 * pulse * (1.0 - (i - 1) / 10.0 * 0.7);
-        painter.strokePath(glyph, QPen(withAlpha(kCyan, alpha), i * 2.4,
-                                       Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-    }
-
-    QLinearGradient fill(bounds.topLeft(), bounds.bottomRight());
-    fill.setColorAt(0.00, QColor(236, 254, 255));
-    fill.setColorAt(0.38, QColor(103, 232, 249));
-    fill.setColorAt(0.72, QColor(34, 211, 238));
-    fill.setColorAt(1.00, QColor(168, 85, 247));
-    painter.fillPath(glyph, fill);
-    painter.strokePath(glyph, QPen(withAlpha(QColor(255, 255, 255), 0.35), 1.2));
-
-    painter.save();
-    painter.setClipPath(glyph);
-    const qreal sweepY = bounds.top() - 40.0
-                         + std::fmod(t * 105.0, bounds.height() + 140.0);
-    QLinearGradient sweep(0.0, sweepY - 28.0, 0.0, sweepY + 28.0);
-    sweep.setColorAt(0.0, QColor(255, 255, 255, 0));
-    sweep.setColorAt(0.5, QColor(255, 255, 255, 135));
-    sweep.setColorAt(1.0, QColor(255, 255, 255, 0));
-    painter.fillRect(bounds.adjusted(-30.0, -60.0, 30.0, 60.0), sweep);
-    painter.restore();
-
-    const qreal glitchPhase = std::fmod(t, 3.7);
-    if (glitchPhase < 0.05) {
-        painter.save();
-        painter.translate(3.0, 0.0);
-        painter.fillPath(glyph, withAlpha(kPink, 0.30));
-        painter.restore();
-        painter.save();
-        painter.translate(-3.0, 0.0);
-        painter.fillPath(glyph, withAlpha(kCyan, 0.34));
-        painter.restore();
-    }
-
-    painter.restore();
-}
-
-void SplashWindow::drawTitle(QPainter &painter, const QRectF &frame, qreal t) const
-{
-    QFont font(QStringLiteral("Segoe UI"));
-    font.setPixelSize(29);
-    font.setWeight(QFont::DemiBold);
-    const QFontMetricsF metrics(font);
-
-    const QString title = QStringLiteral("NEONBOARD");
-    constexpr qreal spacing = 9.0;
-
-    qreal total = 0.0;
-    for (const QChar ch : title)
-        total += metrics.horizontalAdvance(ch) + spacing;
-    total -= spacing;
-
-    const qreal baseline = frame.top() + frame.height() * 0.560;
-    const bool glitch = std::fmod(t, 4.3) < 0.05;
-
-    QLinearGradient fill(0.0, baseline - 26.0, 0.0, baseline);
-    fill.setColorAt(0.0, QColor(246, 254, 255));
-    fill.setColorAt(0.48, QColor(178, 246, 253));
-    fill.setColorAt(1.0, QColor(34, 211, 238));
-
-    painter.setFont(font);
-
-    qreal x = frame.center().x() - total / 2.0;
-    for (int i = 0; i < title.size(); ++i) {
-        const QChar ch = title.at(i);
-        const qreal advance = metrics.horizontalAdvance(ch);
-        const qreal appear = std::clamp((t - 0.24 - i * 0.05) * 3.4, 0.0, 1.0);
-        const qreal rise = (1.0 - appear) * 7.0;
-
-        if (appear > 0.0) {
-            QPainterPath path;
-            path.addText(QPointF(x, baseline + rise), font, QString(ch));
-
-            painter.save();
-            painter.setOpacity(m_fadeIn * appear);
-
-            if (glitch) {
-                painter.save();
-                painter.translate(2.5, 0.0);
-                painter.fillPath(path, withAlpha(kPink, 0.30));
-                painter.restore();
-                painter.save();
-                painter.translate(-2.5, 0.0);
-                painter.fillPath(path, withAlpha(kCyan, 0.38));
-                painter.restore();
-            }
-
-            painter.strokePath(path, QPen(withAlpha(kCyan, 0.10), 7.0));
-            painter.strokePath(path, QPen(withAlpha(kCyan, 0.20), 2.6));
-            painter.fillPath(path, fill);
-            painter.restore();
-        }
-
-        x += advance + spacing;
-    }
-
-    const qreal ruleY = baseline + 21.0;
-    const qreal half = 16.0 + 150.0 * std::clamp(m_progress * 1.35, 0.0, 1.0);
-    QLinearGradient rule(frame.center().x() - half, 0.0, frame.center().x() + half, 0.0);
-    rule.setColorAt(0.0, withAlpha(kCyan, 0.0));
-    rule.setColorAt(0.5, withAlpha(kCyan, 0.60));
-    rule.setColorAt(1.0, withAlpha(kCyan, 0.0));
-    painter.setPen(QPen(QBrush(rule), 1.0));
-    painter.drawLine(QPointF(frame.center().x() - half, ruleY),
-                     QPointF(frame.center().x() + half, ruleY));
-
-    QFont sub(QStringLiteral("Segoe UI"));
-    sub.setPixelSize(10);
-    sub.setLetterSpacing(QFont::AbsoluteSpacing, 3.2);
-    painter.setFont(sub);
-    painter.setPen(withAlpha(kMuted, 0.40 + 0.32 * std::clamp(t * 1.3, 0.0, 1.0)));
-    painter.drawText(QRectF(frame.left(), ruleY + 11.0, frame.width(), 16.0),
-                     Qt::AlignHCenter | Qt::AlignTop,
-                     QStringLiteral("PERSONAL WORKBENCH   //   LOADING"));
-}
-
-void SplashWindow::drawProgress(QPainter &painter, const QRectF &frame, qreal t) const
-{
-    const qreal barWidth = frame.width() * 0.52;
-    const QRectF track(frame.center().x() - barWidth / 2.0,
-                       frame.top() + frame.height() * 0.815,
-                       barWidth, 3.0);
-
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(255, 255, 255, 14));
-    painter.drawRoundedRect(track, 1.5, 1.5);
-
-    const qreal filled = track.width() * m_progress;
-    if (filled > 0.5) {
-        QLinearGradient fill(track.topLeft(), track.topRight());
-        fill.setColorAt(0.0, kCyan);
-        fill.setColorAt(0.55, QColor(103, 232, 249));
-        fill.setColorAt(0.82, kPurple);
-        fill.setColorAt(1.0, kPink);
-        painter.setBrush(fill);
-        painter.drawRoundedRect(QRectF(track.left(), track.top(), filled, track.height()),
-                                1.5, 1.5);
-
-        const QPointF head(track.left() + filled, track.center().y());
-        QRadialGradient halo(head, 24.0);
-        halo.setColorAt(0.0, QColor(255, 255, 255, 150));
-        halo.setColorAt(0.22, QColor(103, 232, 249, 110));
-        halo.setColorAt(1.0, QColor(34, 211, 238, 0));
-        painter.setBrush(halo);
-        painter.drawEllipse(head, 24.0, 24.0);
-    }
-
-    QFont mono(QStringLiteral("Consolas"));
-    mono.setPixelSize(10);
-    painter.setFont(mono);
-    painter.setPen(withAlpha(kCyan, 0.90));
-    const QString percent = QString::number(qRound(m_progress * 100.0))
-                            + QStringLiteral("%");
-    painter.drawText(QPointF(track.right() + 14.0, track.top() + 4.0), percent);
-
-    QFont labelFont(QStringLiteral("Microsoft YaHei UI"));
-    labelFont.setPixelSize(10);
-    labelFont.setLetterSpacing(QFont::AbsoluteSpacing, 2.6);
-    painter.setFont(labelFont);
-
-    const qreal flash = std::clamp(1.0 - (t - m_labelChangedAt) * 2.2, 0.0, 1.0);
-    painter.setPen(withAlpha(kMuted, 0.68 + 0.32 * flash));
-    painter.drawText(QPointF(track.left(), track.bottom() + 22.0), m_label);
-
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(withAlpha(kCyan, 0.35 + 0.55 * wave(t * 5.0)));
-    painter.drawEllipse(QPointF(track.left() - 11.0, track.center().y()), 2.0, 2.0);
-}
-
-void SplashWindow::drawHud(QPainter &painter, const QRectF &frame, qreal) const
-{
-    QFont hud(QStringLiteral("Consolas"));
-    hud.setPixelSize(9);
-    painter.setFont(hud);
-    painter.setPen(withAlpha(kMuted, 0.55));
-
-    const qreal topLine = frame.top() + 27.0;
-    painter.drawText(QPointF(frame.left() + 42.0, topLine), QStringLiteral("NB://BOOT.SEQUENCE"));
-    painter.drawText(QRectF(frame.left(), topLine - 9.0, frame.width() - 42.0, 12.0),
-                     Qt::AlignRight | Qt::AlignTop, QStringLiteral("v" NEONBOARD_VERSION_STRING));
-
-    painter.setPen(withAlpha(kMuted, 0.36));
-    painter.drawText(QPointF(frame.left() + 42.0, frame.bottom() - 24.0),
-                     QStringLiteral("PERSONAL WORKBENCH"));
-    painter.drawText(QRectF(frame.left(), frame.bottom() - 33.0, frame.width() - 42.0, 12.0),
-                     Qt::AlignRight | Qt::AlignTop, QStringLiteral("CTRL+SHIFT+SPACE"));
-
-    painter.setPen(QPen(withAlpha(kCyan, 0.50), 1.4));
-    constexpr qreal inset = 20.0;
-    constexpr qreal len = 14.0;
-    const qreal left = frame.left() + inset;
-    const qreal right = frame.right() - inset;
-    const qreal top = frame.top() + inset;
-    const qreal bottom = frame.bottom() - inset;
-    painter.drawLine(QPointF(left, top), QPointF(left + len, top));
-    painter.drawLine(QPointF(left, top), QPointF(left, top + len));
-    painter.drawLine(QPointF(right, top), QPointF(right - len, top));
-    painter.drawLine(QPointF(right, top), QPointF(right, top + len));
-    painter.drawLine(QPointF(left, bottom), QPointF(left + len, bottom));
-    painter.drawLine(QPointF(left, bottom), QPointF(left, bottom - len));
-    painter.drawLine(QPointF(right, bottom), QPointF(right - len, bottom));
-    painter.drawLine(QPointF(right, bottom), QPointF(right, bottom - len));
-
-    painter.setPen(QPen(withAlpha(kCyan, 0.16), 1.0));
-    for (int i = 0; i < 14; ++i) {
-        const qreal y = frame.top() + 62.0 + i * 15.0;
-        const qreal tick = (i % 4 == 0) ? 8.0 : 4.0;
-        painter.drawLine(QPointF(frame.left() + 10.0, y),
-                         QPointF(frame.left() + 10.0 + tick, y));
-        painter.drawLine(QPointF(frame.right() - 10.0, y),
-                         QPointF(frame.right() - 10.0 - tick, y));
-    }
+    return m_thread->isVisible();
 }

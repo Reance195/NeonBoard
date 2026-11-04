@@ -974,7 +974,7 @@
             ],
             "depends": [],
             "id": "DX-39",
-            "note": "起因（2026-11-05，维护者本会话报障）：「启动动画在进度条卡顿时会一起卡顿」。实测根因是**同一个原因，不是两个 bug**：SplashWindow 是主线程上的 QWidget，动画由 16ms QTimer 驱动；启动路径上有三段主线程同步阻塞，期间事件循环不转 → 定时器不触发 → 整幅画面（含进度条）冻成静止图。\n\n【实测证据（2026-11-05，本机 build/NeonBoard.exe 正常启动）】boot 时钟分段：BOOT app 25 → SPLASH geometry 34 → BOOT db 254 → TaskModel loaded(295 张卡) 354 → BOOT engine 448（模型层 194ms）→ BOOT loaded 1035（engine.load() 535ms）→ BOOT attached 1871（attach 836ms）。截帧探针按 ~50ms 采样闪屏窗口画面做 SHA256 比对：闪屏存活约 1.9s，其中 **686ms + 543ms 两段逐像素完全静止**（连续 ≥120ms 哈希不变），总计约 1229ms —— 启动画面约 64% 的时间是冻住的；动画真正在动的只有 pump() 预算那 160ms（NEONBOARD_SPLASH_BUDGET 默认值）。冷启动时 engine.load() 可达数秒，冻结只会更长。\n\n【做法】闪屏渲染移入专属线程（QWindow 自绘），主线程只推阶段值 —— 进度条该停就停（真实工作本来就没进展），动画不再跟着停。视觉保持不变：700×430 无边框半透明置顶、居中、标题 / 进度条 / 百分比 / 阶段标签 / LOGO 全保留，关闭前淡出。\n\n【边界】不动启动路径的同步结构本身（那属于 R0 启动瘦身，另一条线）；不动 QML 主界面；只改闪屏的渲染归属与线程边界。",
+            "note": "【交付（2026-11-05，agent-dx39 / fix/splash-render-thread）】闪屏渲染已搬进专属线程，冻结从 1120ms 降到 0ms。\n\n【做法】SplashWindow 拆三层：① Splash::Scene —— 纯逻辑的画面 + 状态机（不持窗口、不碰线程，可单测）；② SplashLayeredWindow —— Win32 分层窗口（WS_EX_LAYERED|TRANSPARENT|TOOLWINDOW|NOACTIVATE|TOPMOST）承载渲染线程，CreateDIBSection + UpdateLayeredWindow；③ SplashWindow 门面 —— 主线程只推阶段值。载体用原生窗口而不是 Qt 窗口：Qt 窗口不能在非 GUI 线程创建（本机实测卡 3.2s）。文字素材一律主线程渲染好送进渲染线程（数字图集 / 阶段标签字图），渲染线程不碰字体。\n\n【实测（2026-11-05，同一台机器、同一个探针、同一份种子库、同一天）】改动前（旧 QWidget 版）：闪屏存活 2.3s，470ms 起逐像素完全静止 1121ms，43 帧只有 18 个不同画面；改动后：冻结 0ms（连续三轮全部为 0），41~42 帧全部不同画面。每帧 paint 46ms → 4.8ms，最大帧间隔 40ms。--smoke 同条件对照（新 / 旧各三轮取中位）：startup 1356ms / 1377ms，cpu 702ms / 765ms —— 均不高于改动前基线（基线 startup=1573ms、cpu=905ms）。\n\n【实施中踩的坑（已写进 docs/pitfalls.md §4.9 / §4.10 / §3.16）】① 图层化之后坐标系混用：LOGO 字形路径是「字形局部坐标」而标题路径是「场景坐标」，前者少一次 translate(logoOrigin)、后者多一次平移，结果两者都被画到图层缓冲外面裁没了 —— 症状是「LOGO 与标题整段消失」，看着像字体/线程问题，实际是坐标系问题。已补两条像素级回归用例钉死。② 渲染线程画字会被字体库锁整段阻塞（实测单帧 252ms），所以文字素材只能主线程渲染。③ Ninja 没开 /showIncludes，改公共头文件不重编 → 陈旧 obj → 堆损坏（崩溃点报在 QImage::~QImage）：属仓库级构建缺陷，不在本卡 scope，未修，已上报维护者另立卡。\n\n【刻意的偏差（需知悉）】① 帧率 60 → 30fps：闪屏动效本来就慢（辉光脉动 3.7s/轮、轨道环 156°/s、扫光 105px/s），30 帧足够顺；帧率翻倍就是 CPU 翻倍，而渲染线程一旦占满一个核就会被主线程的同步阻塞挤掉，画面照样冻住。② 分层合并后，径向辉光画在放射网格线之上（原来在下）、滚动网格线画在星星之上（原来在下）—— 两者 alpha ≤ 0.19，肉眼不可察。\n\n【边界】未动启动路径的同步结构本身（属 R0 启动瘦身，另一条线）、未动 QML 主界面；src/main.cpp 只加了一处：日志 handler 加互斥量（渲染线程与主线程原本共写同一个静态 QFile，不安全）。新增文件：src/shell/SplashScene.{h,cpp}、src/shell/SplashLayeredWindow.{h,cpp}、tests/tst_splashscene.cpp、scripts/probe-splash-frames.ps1（探针顺带修了两个自身缺陷：没设 DPI 感知导致 1.5x 屏上只采窗口左上角、没补 Qt 运行库路径导致一个窗口都抓不到）。",
             "scope": [
                 "src/shell/**",
                 "src/main.cpp",
@@ -3720,6 +3720,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-39": {
+            "agent": "agent-dx39",
+            "branch": "fix/splash-render-thread",
+            "claimedAt": 1793819906,
+            "head": "3482c5574ed01385e744fa6e2ebd9011a27f0a71"
+        }
+    },
     "version": 1
 }

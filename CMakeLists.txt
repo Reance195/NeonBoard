@@ -51,6 +51,8 @@ qt_add_executable(NeonBoard
     src/core/SingleInstance.h src/core/SingleInstance.cpp
     src/core/AppActions.h src/core/AppActions.cpp
     src/shell/SplashWindow.h src/shell/SplashWindow.cpp
+    src/shell/SplashScene.h src/shell/SplashScene.cpp
+    src/shell/SplashLayeredWindow.h src/shell/SplashLayeredWindow.cpp
     src/core/UiSettings.h src/core/UiSettings.cpp
     src/core/AppPaths.h src/core/AppPaths.cpp
     src/board/RoadmapSync.h src/board/RoadmapSync.cpp

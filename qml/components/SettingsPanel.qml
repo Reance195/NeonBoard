@@ -350,6 +350,38 @@ Rectangle {
                     wrapMode: Text.WordWrap
                 }
 
+                // 安装回执版本与自身编译版本不符 = 上次静默升级被占用文件打断（R5-09 留下的物证）。
+                // 这条异常过去只写进日志文件，用户看不到也不知道该做什么；显性化在更新区，
+                // 并让整条可点 —— 就地重查更新是最直接的补救动作。
+                Rectangle {
+                    Layout.fillWidth: true
+                    visible: updateManager.lastInstallIncomplete
+                    implicitHeight: incompleteHint.implicitHeight + 12
+                    radius: 6
+                    color: Theme.warningSoft
+                    border.width: 1
+                    border.color: Theme.warning
+
+                    Text {
+                        id: incompleteHint
+                        anchors.fill: parent
+                        anchors.margins: 6
+                        text: "上次更新未完成：安装时被占用的文件没能替换，当前可能是新旧混装。点这里重新检查更新。"
+                        color: Theme.warning
+                        font.pixelSize: 10
+                        wrapMode: Text.WordWrap
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        enabled: updateManager.state !== "checking"
+                                 && updateManager.state !== "downloading"
+                                 && updateManager.state !== "installing"
+                        onClicked: updateManager.checkForUpdates(false)
+                    }
+                }
+
                 // 有更新时展示版本与更新日志；日志可能很长，截断 6 行不撑爆面板
                 Text {
                     Layout.fillWidth: true

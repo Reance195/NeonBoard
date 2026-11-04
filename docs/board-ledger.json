@@ -3218,7 +3218,7 @@
     "claims": {
         "R5-12": {
             "agent": "agent-r5fix",
-            "branch": "HEAD",
+            "branch": "fix/settings-incomplete-install-banner",
             "claimedAt": 1793809079,
             "head": "0a254317cd9c1ea4071ae930beb6a741e6c40a65"
         }

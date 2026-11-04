@@ -45,7 +45,14 @@ Rectangle {
         overdueCount = overdue
     }
 
-    Component.onCompleted: refresh()
+    Component.onCompleted: {
+        refresh()
+        // R16-01：面板侧代理补了 eventReceived 转发，订阅任务域后统计随看板自动刷新。
+        // subscribe 返回 false（未授权 events 等）时静默退化，手动刷新按钮仍然可用。
+        if (pluginHost.subscribe(["task.created", "task.updated", "task.moved",
+                                  "task.completed", "task.removed"]))
+            pluginHost.eventReceived.connect(function() { refresh() })
+    }
 
     component StatCard: Rectangle {
         property string label: ""

@@ -89,6 +89,8 @@ signals:
     void backgroundCountChanged();
     void commandsChanged();
     void surfacesChanged();
+    /** R16-01：活跃插件 context 变化（PluginHost 代理据此换接事件转发线） */
+    void activeContextChanged();
     void permissionRequested(const QString &pluginId, const QString &permission);
     void commandPending(const QString &pluginId, const QString &commandId);
     void commandDelivered(const QString &pluginId, const QString &commandId);

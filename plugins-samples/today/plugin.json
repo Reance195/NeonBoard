@@ -1,13 +1,13 @@
 {
   "id": "com.lin.today",
   "name": "今日概览",
-  "version": "1.0.0",
-  "apiVersion": 1,
-  "description": "待办、进行中、今日完成与逾期统计",
+  "version": "1.1.0",
+  "apiVersion": 2,
+  "description": "待办、进行中、今日完成与逾期统计（订阅 task.* 域自动刷新）",
   "category": "示例",
   "dependencies": [
-      "无外部依赖（仅 tasks.read 权限，apiVersion 1 宿主即可运行）"
+      "events 权限（apiVersion 2 宿主 + 面板事件转发）：用于看板变动后自动刷新；未授权时退化为手动刷新"
   ],
   "main": "main.qml",
-  "permissions": ["tasks.read"]
+  "permissions": ["tasks.read", "events"]
 }

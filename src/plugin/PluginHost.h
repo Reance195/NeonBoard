@@ -56,10 +56,17 @@ public:
 signals:
     void pluginIdChanged();
     void commandInvoked(const QString &commandId);
+    /** R16-01：转发活跃（或绑定）插件 context 的事件给面板。
+     *  后台插件经子上下文直连自己的 PluginContext，面板侧代理此前只转发
+     *  commandInvoked —— 订阅了 task.* 域也收不到，today 这类面板只能手动刷新。 */
+    void eventReceived(const QString &name, const QVariantMap &payload);
 
 private:
     PluginContext *active() const;
+    /** R16-01：换接事件转发线 —— 断开旧 context，接上当前活跃（或绑定）的 context */
+    void rewireEventForwarding();
 
     PluginRuntime *m_runtime = nullptr;
     QString m_boundId;
+    QMetaObject::Connection m_eventConnection;
 };

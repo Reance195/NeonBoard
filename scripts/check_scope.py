@@ -109,11 +109,16 @@ def repo_files() -> list[str]:
 
 
 def changed_files(base: str) -> list[str]:
+    # Git 输出恒为 UTF-8，而 text=True 在 Windows 上按本地代码页（GBK）解码：中文提交信息
+    # 里遇到非法字节序列会让读线程抛异常、stdout 变成 None，范围检查整体崩（与
+    # task_gate.py / check_claim_refs.py 的显式 encoding 口径保持一致）。
     proc = subprocess.run(
         ["git", "diff", "--name-only", "--diff-filter=ACMR", f"{base}...HEAD"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if proc.returncode != 0:
         proc = subprocess.run(
@@ -121,6 +126,8 @@ def changed_files(base: str) -> list[str]:
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
     if proc.returncode != 0:
         print(f"git diff 失败：{proc.stderr.strip()}", file=sys.stderr)
@@ -148,6 +155,8 @@ def detect_card_from_commits(base: str) -> str | None:
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if proc.returncode != 0:
         return None

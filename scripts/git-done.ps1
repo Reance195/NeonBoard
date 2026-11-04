@@ -87,7 +87,7 @@ function Sync-BoardSnapshot {
     $dwRes = Invoke-Cmd -File 'python' -CmdArgs @($deriveScript, '--write')
     $dwRes.Output | ForEach-Object { Write-Host ("   {0}" -f $_) -ForegroundColor DarkGray }
     if ($dwRes.Code -ne 0) {
-        Write-Host '· 警告：派生器未能刷新快照（见上），留待下次合并或 board.yml 回写' -ForegroundColor Yellow
+        Write-Host '· 警告：派生器未能刷新快照（见上）。board.yml 只校验不回写（R14-01），这份落差只能等下次合并补' -ForegroundColor Yellow
         return $false
     }
     # 无变化不落盘，绝不产生空提交

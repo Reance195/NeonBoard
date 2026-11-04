@@ -253,7 +253,7 @@ feat(board): 支持列内精确插位 #R1-04=done
 ```
 
 - 短号查 `docs/board-ledger.json`；
-- **特性分支不要手工改 `progress.json`** —— 它是派生器 + CI 独占写的派生产物，合并到 `main` 后由 CI 自动回写；
+- **特性分支不要手工改 `progress.json`** —— 它是派生器算出来的派生产物，写权在本地两处：`git-done` 收尾校正与看板应用；合并到 `main` 后由 `git-done` 刷新（CI 只校验，不回写）；
 - 本地想先看派生结果：`python scripts/derive_board_status.py --check`（校验）/ `--write`（写回）；
 - **台账 baseline 漂移**另有一个只读口径：`--baseline-check` 对比 git 历史里的 `#短号=done` 与台账 `baseline`，
   打印「漂移项 / 缺项」并恒退出 0，CI 里作为一步警告输出。`baseline` 归维护者，这个检查**只报不改**；

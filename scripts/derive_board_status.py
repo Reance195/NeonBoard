@@ -4,7 +4,8 @@
 
 三件套的职责边界（v3 快照）：
   docs/board-ledger.json   卡片身份与初始状态的人工台账（唯一人工入口）
-  progress.json             派生产物：status / code 由本脚本写入，CI 独占维护
+  progress.json             派生产物：status / code 由本脚本写入；写者是 git-done 收尾
+                            与看板应用，**CI 只校验不回写**（R14-01）
   git 提交信息 #短号=状态   状态变更的唯一「代码事实」来源
 
 派生规则：

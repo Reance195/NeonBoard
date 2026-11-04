@@ -1039,7 +1039,7 @@
             ],
             "depends": [],
             "id": "DX-43",
-            "note": "起因：每立一张卡，维护者须手工走完「临时分支 → 临时检出（agent 工作区禁改 cards）→ 手编 ledger JSON → 手写 chore(board) 授权/批次 → git-done 合并推送 → 清理」全套仪式（DX-40 即此流程），agent 侧还要等卡、领卡、再开区；需求队列 docs/card-requests/ 已有雏形但无人消费，请求积压。目标：scripts/card-approve.ps1 一键完成「受理队列请求/显式参数 → 查重 → 临时 worktree 立卡（授权/批次注入提交体）→ git-done 合并推送 → 回收 →（可选 -Claim）接 agent-init 领用开区」，维护者只需在会话中批准；宪章仅要求授权行不可省（位置不是凭证），仪式全部可自动化。看板 UI 需求面板/批准按钮为第二阶段，另立卡走全量验收。",
+            "note": "起因：每立一张卡，维护者须手工走完「临时分支 → 临时检出（agent 工作区禁改 cards）→ 手编 ledger JSON → 手写 chore(board) 授权/批次 → git-done 合并推送 → 清理」全套仪式（DX-40 即此流程），agent 侧还要等卡、领卡、再开区；需求队列 docs/card-requests/ 已有雏形但无人消费，请求积压。目标：scripts/card-approve.ps1 一键完成「受理队列请求/显式参数 → 查重 → 临时 worktree 立卡（授权/批次注入提交体）→ git-done 合并推送 → 回收 →（可选 -Claim）接 agent-init 领用开区」，维护者只需在会话中批准；宪章仅要求授权行不可省（位置不是凭证），仪式全部可自动化。看板 UI 需求面板/批准按钮为第二阶段，另立卡走全量验收。弃单（2026-11-05 会话）：实现期间并行会话已将 nbflow.py（request/authorize/approve/dispatch/close 全流程状态机，批次 B）合入主线，本卡「一键立卡发区」的目标由其 approve/dispatch 覆盖；card-approve.ps1 实现自测与干跑通过但未入库（备份在维护者临时目录），实现中踩实一坑供后续参考：PowerShell 管道捕获 git show 中文输出会按控制台编码（GBK）解码，UTF-8 尾字节可吞掉 JSON 转义符导致结构断裂，读台账必须走原始字节（Start-Process 重定向）或 python。claim ref 已释放，工作区已回收。",
             "scope": [
                 "scripts/card-approve.ps1"
             ],

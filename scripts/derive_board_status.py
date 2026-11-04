@@ -49,6 +49,9 @@ MARKER = re.compile(r"#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)(?:=(todo|doing|d
 # 路线图短号格式：R0-01 / R1-03 / M01 这类。写错这类短号属于真错误，必须拦下；
 # 其余短号（例如 plan-hook 用的 #T12）不属于看板台账范畴，只提示不拦截。
 ROADMAP_CODE = re.compile(r"^(?:[A-Za-z]{1,4}\d*-\d+|M\d+)$")
+# 「形似看板短号」：字母段 + 数字，可选 -数字（台账里的卡号无一例外都是这个形态）。
+# 只给纯提示性质的 warnings 用；unknown 的判定口径完全不变（见 scan_markers）。
+LIKELY_CODE = re.compile(r"^[A-Za-z]{1,4}\d+(?:-\d+)?$")
 STATUS_RANK = {"todo": 0, "doing": 1, "done": 2}
 VALID_STATUS = ("todo", "doing", "done")
 
@@ -93,6 +96,43 @@ def git_log(root):
     return commits
 
 
+def scan_markers(subject, body, known_codes):
+    """把一条提交里的 # 标记分类成 (derived_patch, unknown, warnings)。
+
+    三类信号的口径故意不同（DX-31）—— 别再图省事把 subject + body 拼起来一次扫完：
+
+      · 状态标记 `#code=done`：subject 与 body **都认**。全历史里 15 个提交把标记写在
+        body，其中 7 张卡的 derived 状态只有那一处；只认 subject 会改掉派生结果。
+      · unknown（形如路线图短号却没登记）：subject 与 body **都收**。写错短号必须拦下，
+        不能因为写在正文里就放过。
+      · warnings（登记之外的其它 #词）：**只认 subject，且必须形似短号**。body 是散文，
+        `#IFDEF` / `#RRGGBB` / `#R7-0X` 这类技术写法是正常内容 —— 把它们报成
+        「提交信息里的短号不在台账」纯属噪声，每次收尾刷一屏。
+    """
+    derived = {}
+    unknown = set()
+    warnings = set()
+
+    # 同一条提交内 body 后于 subject，与原先拼串扫描的顺序一致。
+    for text in (subject, body):
+        for match in MARKER.finditer(text):
+            code = match.group(1).upper()
+            status = match.group(2)
+            if code in known_codes and status:
+                derived[code] = status
+
+    for text, allow_warning in ((subject, True), (body, False)):
+        for match in MARKER.finditer(text):
+            code = match.group(1).upper()
+            if code in known_codes:
+                continue
+            if ROADMAP_CODE.match(code):
+                unknown.add(code)
+            elif allow_warning and LIKELY_CODE.match(code):
+                warnings.add(code)
+    return derived, unknown, warnings
+
+
 def derive_status(root, known_codes):
     """返回 (derived, unknown_codes, warnings)。
 
@@ -103,18 +143,10 @@ def derive_status(root, known_codes):
     unknown = set()
     warnings = set()
     for _sha, subject, body in git_log(root):
-        text = subject + "\n" + body
-        for match in MARKER.finditer(text):
-            code = match.group(1).upper()
-            status = match.group(2)
-            if code not in known_codes:
-                if ROADMAP_CODE.match(code):
-                    unknown.add(code)
-                else:
-                    warnings.add(code)
-                continue
-            if status:
-                derived[code] = status
+        patch, u, w = scan_markers(subject, body, known_codes)
+        derived.update(patch)   # git_log 按时间正序，最后一次标记胜出
+        unknown |= u
+        warnings |= w
     return derived, unknown, warnings
 
 
@@ -255,6 +287,20 @@ def selftest():
     base_done = {"C-3": "done"}
     out3, _ = close_cards({"C-3": {}}, base_done, {})
     cases.append(("已 done 但无标记 → 保持 done（不擅自重开）", out3.get("C-3") == "done"))
+
+    # ⑦ 标记分类（DX-31）：正文里的技术散文不该被当成「写错的卡号」报出来
+    known = {"A-1", "DX-31"}
+    prose = ("C++ 预处理示例 #IFDEF / #INCLUDE / #IFNDEF，颜色 #RGB / #RRGGBB，\n"
+             "占位符 #R7-0X、#ERROR、#R，已知卡 #A-1=done，写错 #R99-98=done")
+    d, u, w = scan_markers("feat(theme): 主题包格式 #DX-31=done", prose, known)
+    cases.append(("body 里的宏 / 颜色 / 占位符不进 warnings", w == set()))
+    cases.append(("body 里的已知卡状态仍派生", d.get("A-1") == "done"))
+    cases.append(("body 里写错的路线图短号仍进 unknown", "R99-98" in u))
+    cases.append(("subject 里的已知卡状态仍派生", d.get("DX-31") == "done"))
+
+    d2, u2, w2 = scan_markers("chore: plan-hook 用 #T12；写错 #R99-99", "", known)
+    cases.append(("subject 里形似短号的 #T12 仍提示", "T12" in w2))
+    cases.append(("subject 里写错的 #R99-99 仍进 unknown", "R99-99" in u2))
 
     failed = [name for name, ok in cases if not ok]
     for name, ok in cases:

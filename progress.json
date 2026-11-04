@@ -201,6 +201,24 @@
             "updatedAt": 1793768256
         },
         {
+            "code": "DX-31",
+            "completedAt": 1793768734,
+            "createdAt": 1793768676,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-31",
+            "note": "每次 git-done 收尾都刷 8 行「提交信息里的 #ERROR / #IFDEF / #IFNDEF / #INCLUDE / #R / #R7-0X / #RGB / #RRGGBB 不在看板台账中」。全部来自同一个提交（182bf2b 主题包格式）的正文：C++ 预处理宏示例、#RRGGBB 颜色写法、#R7-0X 占位符。这些是正常技术散文，不是有人写错了卡号。\\n\\nMARKER 正则 `#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)` 匹配任意字母开头的词，正文里的宏自然一并命中。原实现把 subject + body 拼起来一起扫，于是散文里的每个 #xxx 都进了 warnings。\\n\\n一度想改成「只扫 subject」，实测否定：全历史里 15 个提交把状态标记写在 body，其中 7 张卡（DX-20/21/22/23/24/25、R7-04）的 derived 状态只有 body 里那一处。只扫 subject 会直接改掉派生语义。所以改成按「诊断信号」分层：状态标记照旧两处都认，unknown 照旧两处都收（写错短号必须拦），只有纯提示性质的 warnings 收紧到「subject + 形似短号」。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "派生器把提交正文里的 C++ 宏 / 颜色值当卡号，每次收尾刷 8 条噪声",
+            "updatedAt": 1793768734
+        },
+        {
             "code": "R5-03",
             "completedAt": 1793021221,
             "createdAt": 1793016029,
@@ -3067,6 +3085,6 @@
             "updatedAt": 1793767358
         }
     ],
-    "updated": "2026-11-04T12:57:36",
+    "updated": "2026-11-04T13:05:34",
     "version": 3
 }

@@ -3461,13 +3461,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-34": {
-            "agent": "agent-r5fix",
-            "branch": "chore/receipt-anchor-path",
-            "claimedAt": 1793818360,
-            "head": "202d83d660f280bcc95687b81d81f8c62a8e6fb4"
-        }
-    },
+    "claims": {},
     "version": 1
 }

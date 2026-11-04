@@ -113,8 +113,11 @@ portable-sha256: <64 位十六进制>
   （`src/host/HostMain.cpp:100-103`）。
 - Inno 的 `CloseApplications`（Restart Manager）因此永远关不净：`/VERYSILENT` 下整单静默放弃，
   交互模式下逐文件弹 `DeleteFile failed; code 5`，「忽略」一次不够（每个被占文件都要点一遍）。
-- 结果是**新旧混装树**：`NeonBoard.exe` 已是 0.1.4、`NeonBoardHost.exe` 仍是 0.1.3、
-  Qt DLL 一个没换（按 SHA-256 逐文件比对确认）。增量路径没有这个毛病 ——
+- 结果是**新旧混装树**：`NeonBoard.exe` 已是 0.1.4、`NeonBoardHost.exe` 仍是 0.1.3。
+  按已发布 `delta-0.1.3-0.1.4` 清单逐文件复核，混装树的**二进制证据只有 `NeonBoardHost.exe`
+  这一条** —— Qt DLL 在 0.1.3 与 0.1.4 之间字节相同（不在增量清单的 Modified 里），
+  本就不该换，把它们「没换」当证据是错的（本文件早先这么写过，2026-11-05 订正）。
+  增量路径没有这个毛病 ——
   它的自更新脚本本来就 `taskkill` 宿主（`UpdateManager.cpp` 的 `buildDeltaUpdateScript`）。
 
 三处收口，缺一不可：
@@ -310,7 +313,9 @@ pwsh -File scripts/test-delta.ps1
      `DeleteFile failed; code 5`，「忽略」要点很多次（每个被占文件一次）；
   3. 事后按发布增量包的 `old` 哈希逐文件校验安装树：1137 个未改动文件**全部匹配**、
      0 个哈希不符，只有 `NeonBoard.exe` 尺寸对不上（已是 0.1.4 的 4,993,536 B），
-     `NeonBoardHost.exe` 与 Qt DLL 仍是 0.1.3 的原字节 —— 混装树坐实，根因是宿主占用；
+     而 `NeonBoardHost.exe` 仍是 0.1.3 的原字节 —— 混装树坐实，根因是宿主占用。
+     **混装树的二进制证据只有宿主这一条**：Qt DLL 在 0.1.3 与 0.1.4 之间字节相同
+     （不在增量清单的 Modified 里），「DLL 没换」不构成证据，别拿它归因；
   4. 同期发现客户端**完全不支持代理**：本机系统代理为 `127.0.0.1:7078` 时直连 GitHub
      被 RST，日志 `QIODevice::read (QNetworkReplyHttpImpl): device not open`。
   另：已发布的 0.1.3 **不含增量客户端**（首个具备增量能力的构建是 0.1.4），

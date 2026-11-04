@@ -524,6 +524,64 @@
             "stage": "DX",
             "title": "DX 官方来源判据的注释与 sourceDirs 实现相反"
         },
+        "DX-20": {
+            "acceptance": [
+                "remote 模式收尾后，若当前检出就是锚点区（git-common-dir == git-dir），自动 git switch <Main> 并 git merge --ff-only origin/<Main>，结束时 git branch --show-current 非空",
+                "收尾后 git rev-parse HEAD 与 git rev-parse origin/<Main> 相等（锚点区与远端一致）",
+                "当前检出是开发工作区（.worktrees/<agent>）时不切换其分支，只打印「锚点区待同步」的具体命令，不把别人的检出挪走",
+                "同步失败（untracked 挡住 ff / 分叉）不改写已完成的合并结果，只打印手工步骤并以退出码 0 结束",
+                "锚点区有未提交改动 / 在制品时跳过自动同步并明确说明原因（不制造 git switch 冲突）"
+            ],
+            "depends": [],
+            "id": "DX-20",
+            "note": "根因在 scripts/git-done.ps1 remote 模式末尾的 `switch --detach`：它本来是为了「不留悬挂分支」，但它连锚点区一起脱离，于是每次收尾后锚点在 detached HEAD 上，下一次 git-done 从这里建临时分支、再 detach，循环往复。配套的第二个洞是 remote 模式只 push origin HEAD:<Main>，不更新本地 refs/heads/<Main>，锚点区的 main 于是永远落后远端一个提交。\n\n两个洞合起来的症状很温和：git log -1 在 detached 时显示的是刚合入的新提交，看着像已同步，只有 git branch --show-current 为空才暴露。2026-11-04 的会话里每次收尾都要手工 `git switch main && git merge --ff-only origin/main`，共重复十余次 —— 这类「每次都要做、做完就忘」的步骤应该由工具自己完成。",
+            "scope": [
+                "scripts/git-done.ps1"
+            ],
+            "stage": "DX",
+            "title": "git-done 收尾把锚点区留在 detached HEAD，且不同步本地 main"
+        },
+        "DX-21": {
+            "acceptance": [
+                "remote 模式下，目标分支所在 worktree 位于 .worktrees/ 且不是当前目录时，默认回收，无需显式传参",
+                "新增 -KeepWorktree 显式保留；-RemoveWorktree 保留为兼容别名，传了也不报错",
+                "当前目录就是目标 worktree 时不尝试自删，沿用现有提示（请在其它目录执行）",
+                "回收前用 Get-WorktreeAgent 抓到 agent / scope（DX-05 的既有路径），回收后 .git/agent-workspace.json 不留该 worktree:<名> 条目",
+                "端到端实测：agent-init 开区 → 提交 → git-done 不带任何 worktree 参数 → 目录消失、分支已删、claims 为空、占用登记无残留",
+                "不误伤并行会话：目标是别的 agent 的工作区且其有未推送提交时不回收，只告警"
+            ],
+            "depends": [
+                "DX-20"
+            ],
+            "id": "DX-21",
+            "note": "git-done.ps1 早就能从 `git worktree list --porcelain` 反查出分支所在路径（约 573-580 行），却要求调用方再传一次 -RemoveWorktree。忘传的连锁反应是：目录不删 → 分支被占用删不掉 → release-claims.py 判定分支还在 → 台账留下僵尸 claim，要人工跑 release-claims.py 再补一次 chore(board) 提交。\n\n这条本来是「记住每次都要带参数」，而参数所需信息工具自己已经握着 —— 与 DX-20 同一类：把可以推断的事交给人记。",
+            "scope": [
+                "scripts/git-done.ps1"
+            ],
+            "stage": "DX",
+            "title": "worktree 出的卡漏带 -RemoveWorktree 就留僵尸 claim，而路径本可自动反查"
+        },
+        "DX-22": {
+            "acceptance": [
+                "新增 scripts/check_path_refs.py：以 src/** 实际文件集为真值，扫描仓库内 *.ps1/*.py/*.yml/*.json/*.md/*.iss/*.txt/CMakeLists.txt 里的 src/<name>.(cpp|h) 形态引用，目标不存在即列出并退 1",
+                "支持 --base <ref> 棘轮模式：只报本次改动新增的失效引用，存量以计数折叠，避免一开就满屏红",
+                "支持 --selftest：无仓库依赖的断言（能识别 src/a.cpp、忽略 src/**、忽略 URL 与注释里的反例）",
+                "verify.ps1 -ScriptOnly 接入该检查，失败即 Fail",
+                "CI 先以 continue-on-error 作信号（与 check-format / check_scope 同一口径），基线清零后再转硬门禁",
+                "人为埋一条 src/NotExist.cpp 引用能被抓到并退 1；清掉后复跑退 0",
+                "MOD-06 拆目录时漏掉的 5 类引用（tests/CMakeLists.txt、卡片精确 scope、project-map chain 证据、CMakeLists 源列表、文档引用）里有明确路径的都能被本脚本覆盖；卡片 scope 与 chain 证据由各自校验器负责，note 里写清边界"
+            ],
+            "depends": [],
+            "id": "DX-22",
+            "note": "MOD-06 把 src/ 拆成 8 个模块子目录时，连带清单漏了两次（AGENTS.md、scripts/*.ps1），全靠事后单独提交补救。当时靠的是「动手前手工 grep 一次」—— 而这类检查恰恰是机器最擅长的：文件是否存在是可以判定的，不需要人记 grep 命令和 5 类清单。\n\n边界：本脚本只判「引用指向的路径是否存在」。卡片 scope 是否失效由 check_scope.py --audit 负责，project-map 的 chain 证据由 tst_projectmap 负责 —— 三者不重复实现，各管一段。",
+            "scope": [
+                "scripts/check_path_refs.py",
+                "scripts/verify.ps1",
+                ".github/workflows/ci.yml"
+            ],
+            "stage": "DX",
+            "title": "src/ 目录硬编码路径引用无守卫，拆目录必断链"
+        },
         "M01": {
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_pluginpackage --output-on-failure",

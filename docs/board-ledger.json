@@ -742,6 +742,27 @@
             "stage": "DX",
             "title": "deploy.ps1 的自检只覆盖官方插件，其余「该随包走」的东西全靠运气"
         },
+        "DX-30": {
+            "acceptance": [
+                "把 CMakeCache 的 Qt6_DIR 反推逻辑抽成函数，在「build/CMakeCache.txt 存在」时返回 Qt 根目录，否则返回空串（不报错）",
+                "现有「构建前探测」保留：已 configure 过的目录照旧一次命中，行为不变",
+                "新增「构建后补探」：若构建前没探到、构建完成后 CMakeCache 已存在，则再探一次并补进 PATH，日志写明是「构建后从 CMakeCache 探测」",
+                "补探成功后 --selftest 与 --smoke 不再报 0xC0000135，也不再用满 180 / 45 秒超时",
+                "补探仍失败时如实提示「仍未探测到 Qt：--selftest 可能报 0xC0000135，请用 -QtRoot 指定」，不假装成功",
+                "实测：在全新 worktree（无 build 目录）不带 -QtRoot 跑全量 verify.ps1，一次通过且总耗时不超过正常增量编译 + 测试的时间"
+            ],
+            "depends": [
+                "DX-24"
+            ],
+            "id": "DX-30",
+            "note": "DX-24 让 verify.ps1 从 build/CMakeCache.txt 的 Qt6_DIR 反推 QtRoot，但它跑在「编译」之前 —— 新 worktree 里 build/ 还不存在，CMakeCache.txt 自然也没有，于是必然探不到。当时卡面把「CMakeCache 缺失时静默跳过」写成了预期行为，验收又是在已 configure 过的 worktree 里做的，落差被掩盖。\\n\\n后果不是「少补一个 PATH」：exe 起来找不到 Qt6Core.dll 会弹系统错误对话框并**一直等待**，verify.ps1 的 180 秒超时才把它杀掉，报出来的是「--selftest 超时」——看起来像代码坏了或机器卡了，实际是缺 DLL。一个新工作区的第一次全量验收因此必然白等三分钟并失败一次，第二次（缓存已生成）才过。2026-11-04 的 dx-p2 工作区就是这么踩的：先失败一次，加 -QtRoot 重跑才 27 秒通过。\\n\\n修法是补一次探测而不是加大超时：信息在编译完成后就已经在磁盘上（build.ps1 自己解析了 Qt 并写进 CMakeCache），差的只是「什么时候读」。",
+            "scope": [
+                "scripts/verify.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "新 worktree 首次全量验收必卡 180 秒：Qt 探测跑在 configure 之前"
+        },
         "M01": {
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_pluginpackage --output-on-failure",
@@ -2948,6 +2969,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-30": {
+            "agent": "agent-dxp3",
+            "branch": "chore/dx-qt-probe-cold",
+            "claimedAt": 1793767862,
+            "head": "1a1f5f50a98f216d8e3a9e3e527e771104fd8113"
+        }
+    },
     "version": 1
 }

@@ -186,24 +186,30 @@ sys.exit(1 if bad else 0)
 # 症状是「编译通过、自检崩溃」，在 .worktrees/<agent> 里必现 —— 新工作区不继承任何
 # Qt 环境变量，而锚点区往往手工设过。信息就在手边：CMakeCache.txt 的 Qt6_DIR 正是
 # configure 时用的那个 Qt，反推掉 \lib\cmake\Qt6 即根目录。
-if (-not $QtRoot -and -not $ScriptOnly) {
+function Resolve-QtRootFromCache {
+    # 只读 build/CMakeCache.txt：没有就返回空串（不报错）。
+    # 单独成函数是因为它要在两个时刻被调用 —— 构建前（已 configure 过的目录）和
+    # 构建后（新工作区，CMakeCache 刚被 build.ps1 写出来）。
     $cacheFile = Join-Path (Join-Path $repoRoot $BuildDir) 'CMakeCache.txt'
-    if (Test-Path -LiteralPath $cacheFile) {
-        $qt6Dir = ''
-        foreach ($line in [IO.File]::ReadAllLines($cacheFile)) {
-            if ($line -match '^Qt6_DIR:PATH=(.+)$') { $qt6Dir = $Matches[1].Trim(); break }
-        }
-        if ($qt6Dir -match '^(.+)[\\/]lib[\\/]cmake[\\/]Qt6[\\/]?$') {
-            $candidate = $Matches[1]
-            $okWindeploy = Test-Path -LiteralPath (Join-Path $candidate 'bin\windeployqt.exe')
-            $okConfig = Test-Path -LiteralPath (Join-Path $candidate 'lib\cmake\Qt6\Qt6Config.cmake')
-            if ($okWindeploy -or $okConfig) { $QtRoot = $candidate }
-        }
+    if (-not (Test-Path -LiteralPath $cacheFile)) { return '' }
+    $qt6Dir = ''
+    foreach ($line in [IO.File]::ReadAllLines($cacheFile)) {
+        if ($line -match '^Qt6_DIR:PATH=(.+)$') { $qt6Dir = $Matches[1].Trim(); break }
     }
+    if ($qt6Dir -notmatch '^(.+)[\\/]lib[\\/]cmake[\\/]Qt6[\\/]?$') { return '' }
+    $candidate = $Matches[1]
+    $okWindeploy = Test-Path -LiteralPath (Join-Path $candidate 'bin\windeployqt.exe')
+    $okConfig = Test-Path -LiteralPath (Join-Path $candidate 'lib\cmake\Qt6\Qt6Config.cmake')
+    if ($okWindeploy -or $okConfig) { return $candidate }
+    return ''
+}
+
+if (-not $QtRoot -and -not $ScriptOnly) {
+    $QtRoot = Resolve-QtRootFromCache
     if ($QtRoot) {
         Write-Host "Qt（从 CMakeCache 探测）: $QtRoot" -ForegroundColor DarkGray
     } else {
-        Write-Host '  · 未探测到 Qt：若 --selftest 报 0xC0000135，请用 -QtRoot 指定' -ForegroundColor DarkGray
+        Write-Host '  · 未探测到 Qt（构建前）：构建完成后会再探一次' -ForegroundColor DarkGray
     }
 }
 
@@ -216,6 +222,20 @@ if (-not $SkipBuild) {
     if ($LASTEXITCODE -ne 0) { Fail "编译失败（退出码 $LASTEXITCODE）" }
 } else {
     Step '编译（已跳过）'
+}
+
+# 冷启动兜底（DX-30）：上面的探测跑在 configure **之前**，新 worktree 的
+# build/CMakeCache.txt 还不存在，必然探不到。于是 exe 起来找不到 Qt6Core.dll 会弹系统
+# 错误对话框并一直等待，直到 180 秒超时被杀掉 —— 报出来是「--selftest 超时」，看起来
+# 像代码坏了。编译由 build.ps1 完成、它自己解析了 Qt 并写进 CMakeCache，所以差的只是
+# 「什么时候读」。补探一次，别让每个新工作区的第一次验收都白等三分钟再失败。
+if (-not $QtRoot -and -not $ScriptOnly) {
+    $QtRoot = Resolve-QtRootFromCache
+    if ($QtRoot) {
+        Write-Host "Qt（构建后从 CMakeCache 探测）: $QtRoot" -ForegroundColor DarkGray
+    } else {
+        Write-Host '  · 仍未探测到 Qt：--selftest 可能报 0xC0000135，请用 -QtRoot 指定' -ForegroundColor Yellow
+    }
 }
 
 # ---------- 定位产物 ----------

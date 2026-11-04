@@ -5,6 +5,7 @@
 #                 → 模块守卫 → 看板一致性(derive --check)
 #   脚本层(-ScriptOnly)：PowerShell 语法解析 → 脚本卫生(check_script_hygiene)
 #                 → 工作流 YAML 解析 → 范围检查(check_scope) → 路径引用(check_path_refs)
+#                 → 台账分档(check_board_diff)
 #                 「scope 内没有 .cpp/.h/.qml/CMakeLists.txt」的卡片走这一档：
 #                 这些检查与编译无关，却要在冷启动 worktree 里付 20~30 分钟编译费才拿得到
 #                 （DX-13 实施实测）。全量编译仍由 CI 兜底，门槛不降。
@@ -163,8 +164,18 @@ sys.exit(1 if bad else 0)
     & python (Join-Path $repoRoot 'scripts\check_path_refs.py') --base $scriptBase
     if ($LASTEXITCODE -ne 0) { Fail '新增了指向不存在的 src/ 文件的引用（拆目录后未回改）' }
 
+    Step '台账分档（check_board_diff）'
+    # docs/board-ledger.json 是 tst_projectmap 的测试输入，不是普通文档：
+    # 动了 cards 结构就必须全量；只动 baseline / claims 则校验派生一致性即可（秒级）。
+    # 以前这条规则只写在人脑子里，漏一次就把主线 CI 弄红。
+    & python (Join-Path $repoRoot 'scripts\check_board_diff.py') --base $scriptBase
+    $boardCode = $LASTEXITCODE
+    if ($boardCode -eq 1) { Fail '台账派生快照不一致：跑 derive_board_status.py --write 后重试' }
+    if ($boardCode -eq 2) { Fail '台账的 cards 结构有变化，-ScriptOnly 不足以验收；请跑 pwsh -File scripts/verify.ps1（全量）' }
+    if ($boardCode -ne 0) { Fail "台账分档检查失败（退出码 $boardCode）" }
+
     Write-Host ''
-    Write-Host '✓ 脚本层验收通过：语法 / 卫生 / YAML / 范围 / 路径引用 全过（未触发编译）' -ForegroundColor Green
+    Write-Host '✓ 脚本层验收通过：语法 / 卫生 / YAML / 范围 / 路径引用 / 台账分档 全过（未触发编译）' -ForegroundColor Green
     exit 0
 }
 

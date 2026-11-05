@@ -1007,6 +1007,14 @@ if ($Mode -eq 'remote') {
     # 放在结卡之后 —— 先改台账再派生，才能把刚结掉的卡写进快照。
     Sync-BoardSnapshot -RepoRoot $repoRoot -MainBranch $MainBranch | Out-Null
 
+    # DX-95：747 行的清理跑在 release-claims / close-cards 之前 —— 本次合并自身的卡那时
+    # baseline 还是 todo，判据 B（done 且无分支引用）必然 keep，rebase 重写占位漏释
+    # （DX-90 交付当日实测：DX-76/90/91 三条滞留 origin，只能手工 --release-zombies 补清；
+    # 1111 行那次调用属 local 模式专属，remote 模式 1110 行 exit 0 根本到不了）。
+    # 台账三步（登记清理 / 结卡 / 快照）完成后 baseline 已落 done，这里再清一次即命中；
+    # 函数内部判定与释放全幂等，重复调用无害。
+    Invoke-ClaimRefCleanup -Main $MainBranch
+
     # ---- 锚点区归位（DX-20；DX-26 起移到所有自动提交之后）----
     # 锚点区必须回到主分支并快进 —— 它被留在分离 HEAD 正是「本地 main 永远落后远端」
     # 的源头（Sync-AnchorWorktree 见到空分支名就跳过）。开发工作区保持「停在合并结果

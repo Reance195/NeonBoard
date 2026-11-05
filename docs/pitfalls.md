@@ -469,10 +469,30 @@
   - 构建被中断后重跑**只补剩余目标**（Ninja 有 `.ninja_log`），不需要 `-Clean`；
   - `build.ps1` 结尾现在会打「配置 / 编译 / 合计」三段耗时与 sccache 命中率 ——
     怀疑变慢时先看这三个数字，别靠体感。
+- **`-NoCache` 以前根本没关掉 sccache（DX-52 一并修掉）**：旧实现里 `-NoCache` 只是
+  「不把 sccache 补进 PATH」，而 `CMakeLists.txt` 里的 `find_program(sccache)` **照样找得到它**
+  （winget 装的 sccache 在用户级 PATH 里，新开的终端就看得见）—— 于是「关缓存」的构建其实
+  一直在走缓存，**拿它做 A/B 对比测出来的数是假的**。
+  现在 launcher 由构建脚本**显式指定**（`-DNEONBOARD_SCCACHE_LAUNCHER`），`-NoCache` 真的关得掉；
+  顺带保证「探针实测前缀用的 launcher」与「真正编译用的 launcher」是同一个
+  —— 两边不是同一条链路，测到的前缀就对不上，依赖条目又空了（实测：`-NoCache` 下 12/12 个 obj
+  的 `#deps` 全是 0）。
 - **一个已知副作用**：挂了 sccache 之后，MSVC 的 `/showIncludes` 输出会被透传到控制台
   （中文机器上是成片的 `注意: 包含文件: ...`，一次全量构建能刷出 **10 MB 以上**日志）。
-  它**不影响**依赖解析 —— 实测构建完 `ninja -n` 仍报 `no work to do`，增量正常。
   要干净的日志就重定向到文件（`> build.log 2>&1`）再 tail，别在 CI 里直接刷屏。
+  > 旧版本在这里写着「它**不影响**依赖解析 —— 实测构建完 `ninja -n` 仍报 `no work to do`」——
+  > **这句是错的**，害人不浅：`no work to do` 只说明「.cpp 没变」，恰恰是依赖条目全空时的表现。
+  > 真正的判据是 `ninja -t deps` 里 obj 的 `#deps` 是不是 0（DX-52，见 §3.16）。
+- **缓存不再跨 worktree 共享（DX-52 起，这是有意的）**：sccache 的缓存按**内容**寻址，
+  同样的源码在哪个目录编译都命中同一条目；而条目里存着**当初那个目录**的 `/showIncludes` 输出，
+  里面的头文件路径属于别的 worktree。Ninja 把那些路径当依赖 → 改本地头文件不重编（陈旧 obj），
+  那个 worktree 被回收后构建还会直接报错。DX-52 让构建脚本给每个**源码树**生成一份
+  「编译身份头」并强制包含它 —— 预处理结果随源码树而不同，缓存因此按源码树分桶，
+  回放的路径也就永远属于当前这棵树。
+  **代价**：换个 **build 目录**（同一棵树）仍然共享缓存（3.8 分钟那个数字不变），
+  但**换一棵源码树**（新 worktree）就是冷启动 —— 与 AGENTS.md 里「新 worktree 首次全量构建
+  约 20~30 分钟（零缓存）」的既有预期一致。**用「同一棵树换 build 目录」测缓存命中率才有意义**，
+  拿新 worktree 测会得到全 miss，那是设计如此，不是缓存坏了。
 
 ### 2.13 验脚本改动时，在锚点区跑的是 main 上的旧版本
 
@@ -762,25 +782,72 @@
   （「测试超时」）。另一条：验收要单独覆盖**冷启动**这一档 —— 只在已 configure 过的目录
   里验，会漏掉所有「第一次」才有的问题。
 
-### 3.16 Ninja 没开 `/showIncludes`：改公共头文件不重编，陈旧 obj 打出堆损坏
+### 3.16 Ninja 依赖条目全空：改公共头文件不重编，陈旧 obj 打出堆损坏
+
+> **DX-52 已根治。** 本节原先写的根因（「本仓库 Ninja 构建没有开 `/showIncludes`」）
+> **是错的** —— `/showIncludes` 一直开着，`deps = msvc` 也在。下面是真正的根因与解法。
 
 - **现象**：改了 `src/shell/SplashScene.h` 里的类成员（加字段 / 改签名）后重新编译，
   链接期报「无法解析的外部符号」，或更邪门的：运行期堆损坏，崩溃点报在
   `QImage::~QImage`（与真实原因毫无关系），`gdb` 里看到的是「释放了别人的内存」。
-- **根因**：本仓库 Ninja 构建**没有开 `/showIncludes`**，`ninja -t deps` 里所有 obj 的
-  `#deps 0` —— 编译器根本没把头文件依赖报给 Ninja。于是 Ninja 认为「只有 .cpp 变了才重编」，
-  改了头文件却不动引用它的 TU：**旧 obj 用旧类布局、新实现按新布局写** → 堆损坏。
+- **真根因（三层叠加，缺一不可）**：
+  1. **CMake 的编译器探测绕开启动器**：`CMAKE_DETERMINE_MSVC_SHOWINCLUDES_PREFIX` 直接调
+     `cl.exe`，不走 `CMAKE_<LANG>_COMPILER_LAUNCHER` —— 它记下的是「干净 cl.exe」的前缀；
+  2. **sccache 改写了本地化前缀**：编译器输出经 sccache 后，前缀字节变成
+     `D7 A2 EF BF BD 3A 20 EF BF BD 3A 20 20`（含 U+FFFD），两种控制台代码页下完全一样；
+     CMake 记的干净前缀因此永远对不上 Ninja 实际看到的；
+  3. **代码页漂移**是另一个独立故障：build 目录若在 CP 936 下配置、却在 CP 65001 下编译，
+     即使没有 sccache 也对不上。
+  三者叠加的结果：Ninja 一个依赖条目都解析不出来 → `#deps 0` → 它认为「只有 .cpp 变了才重编」
+  → 改了头文件却不动引用它的 TU：**旧 obj 用旧类布局、新实现按新布局写** → 堆损坏。
 - **判据**：`ninja -t deps` 输出里 obj 的 `#deps` 全是 0（应按 include 数量为正）。
   另一个判据：改完头文件后 `obj` 文件的时间戳没变。
-- **绕过（当前唯一可用）**：改完闪屏相关头文件，把引用它的 TU 时间戳顶上去强制重编：
-  ```powershell
-  Get-ChildItem build-local -Recurse -Filter 'tst_xxx*.obj' | Remove-Item   # 旧做法：删产物
-  ```
-  或 `Get-Item src\shell\SplashScene.cpp | % { $_.LastWriteTime = Get-Date }`（本卡在用）。
-  连同其 `*_autogen` 目录一起清，别信链接器的第一眼报错。
-- **根治**：给 MSVC 加 `/showIncludes` + Ninja 的 `deps = msvc`（`CMAKE_DEPENDS_FLAGS`），
-  这属于**全仓库构建行为改动**，不在任何单卡的 scope 内 —— 需要另立卡修。
-  在那之前，任何「改了头文件」的提交都要手工确认引用 TU 真的重编了。
+  > **别用 `ninja -n` 判**：`no work to do` 只说明「.cpp 没变」，依赖条目全空时也是这个表现。
+- **反证清单（都试过，全部无效，别再走一遍）**：
+  - 「没开 `/showIncludes`」—— 错，开着的；
+  - `/utf-8` —— **不改变**诊断输出编码（两种代码页下输出字节完全相同）；
+  - `CMAKE_NINJA_CMCLDEPS=ON` —— 无效，CMake 4.4 对 MSVC 不生成 `/sourceDependencies`；
+  - `CL_SHOWINCLUDES_PREFIX` 环境变量 —— 对 sccache 无效；
+  - `VSLANG=1033`（切英文输出）—— 无效，本机没装英文语言包，仍输出中文前缀；
+  - 把 launcher 提前到 `project()` 之前 —— 无效，探测仍绕开 launcher。
+- **解法（DX-52）**：**别让 CMake 自探测前缀，改成实测**。`scripts/build.ps1` 用**同一条编译链路**
+  （含 sccache 启动器）跑一次探针编译，取 include 行里「已知路径」之前的原始字节，
+  把这个前缀**按字节**交给 CMake（`project()` 之后覆盖 `CMAKE_CXX_CL_SHOWINCLUDES_PREFIX` /
+  `CMAKE_CL_SHOWINCLUDES_PREFIX`）—— 让 **CMake 记录值 == Ninja 实际看到的值**。
+  前缀按字节经**文件**传递而不是命令行：本地化前缀在中文机器上可能是 GBK，不是合法 UTF-8，
+  走命令行会被替换成 U+FFFD，字节一失真就又对不上。
+  前缀一变就强制重新配置，并让编译命令行带上前缀哈希 —— 否则旧 obj 不会被重编，
+  「陈旧 obj」的隐患原样留着。
+  > **「同一条链路」包括 launcher**：探针不带 sccache、编译却带（或反过来），测到的前缀照样对不上。
+  > 所以 launcher 也由构建脚本显式指定（`-DNEONBOARD_SCCACHE_LAUNCHER`），两边共用同一个值。
+- **踩过的三个坑（照着抄就行）**：
+  1. `CMAKE_<LANG>_CL_SHOWINCLUDES_PREFIX` 是**普通变量**（不是缓存变量），
+     `CMakeCXXCompiler.cmake` 里刚设过 —— **必须在 `project()` 之后覆盖**才生效；
+     用 `-DCMAKE_CXX_CL_SHOWINCLUDES_PREFIX=...` 传是无效的（缓存变量会被普通变量盖住）。
+  2. PowerShell 里 `,` 的优先级**高于** `+`：`@("-D" + $a, "-D" + $b)` 会算成「字符串 + 数组」，
+     两个 `-D` 被拼成**一条**传给 cmake（缓存里会看到两个值连在一起）。每个元素都要加括号。
+  3. 复用 CMake 缓存时 **cmake 根本不会被调用**，新加的 `-D` 进不了缓存 ——
+     实测「编译身份头」就是这样丢的，症状是「参数写了但命令行里没有」。
+     解法：把 `-D` 参数集合的指纹也存进缓存，对不上就强制重配。
+- **配套的一条（不做就等于没修）**：sccache 的缓存**按内容寻址、跨工作区共享**，
+  命中时回放的是**当初那个目录**的 `/showIncludes` 输出 —— 里面的头文件路径属于别的 worktree。
+  Ninja 把那些路径当依赖 → 改本地头文件不重编（陈旧 obj），那个 worktree 被回收后构建还会直接
+  报「missing and no known rule to make it」。**实测**：同样的源码在另一个 worktree 编译，
+  `ninja -t deps` 里赫然是 `../../agent-dx38/src/...`。
+  解法：给每个源码树生成一份带「源码根路径」的**强制包含头**（`/FI`）——
+  预处理结果随之按源码树分桶，sccache 的 key 也随之分桶，回放的路径就永远属于当前这棵树。
+  - `/FI` 的写法有坑：MSVC 只把「`/FI` 之后那个 token 的剩余部分」当文件名，
+    **Ninja 不经过 shell，带引号的路径会把引号当成文件名的一部分**；
+    选项里一旦有空格，**CMake 会给整个选项加引号**，MSVC 就把「/FI 名字」整个当文件名了。
+    实测三种写法（带引号绝对路径 / 带空格 / 相对路径）都能踩到，最后用的是
+    「不含空格的绝对路径」（必要时用 8.3 短路径）。
+  - sccache 的 key **不吃 `-D` 定义、也不吃源文件路径**（实测：换个 `-D` 仍然命中）——
+    所以「用宏给缓存分桶」这条路是不通的，必须让内容本身变。
+  - `SCCACHE_DIR` **客户端改不动**（缓存目录归服务端配置管）—— 「每 worktree 一个缓存目录」
+    这条路也走不通。
+- **验收怎么算过**：`ninja -t deps` 里 obj 的 `#deps` 为正且列出真实头文件；
+  改一个公共头文件后重新构建，对应 TU **确实重编**（日志里出现该源文件名）；
+  `ninja -t deps` 里**不出现别的 worktree 的路径**。
 ### 3.17 包间 diff 结构性地给不出「两个包都没有」的文件删除动作
 
 - **现象**：2026-11-05 真机 v0.1.4 → v0.1.5 增量升级成功，日志干净。但装完之后对着发布目录比：

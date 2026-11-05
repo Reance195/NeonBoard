@@ -1,6 +1,44 @@
 cmake_minimum_required(VERSION 3.21)
 project(NeonBoard VERSION 0.1.5 LANGUAGES C CXX)
 
+# ---- DX-52：把「实际编译链路」上的 /showIncludes 前缀告诉 Ninja 依赖解析 ----
+# CMake 的编译器探测**绕开启动器**（CMAKE_DETERMINE_MSVC_SHOWINCLUDES_PREFIX 直接调 cl.exe，
+# 不走 CMAKE_<LANG>_COMPILER_LAUNCHER），记下的是「干净 cl.exe」的前缀；而真正编译经过
+# sccache 时，本地化的前缀字节被它改写。两边对不上 → Ninja 解析不出依赖条目（#deps 0）
+# → 改公共头文件不重编 → 陈旧 obj 被链进新代码 → 类布局不一致 → 堆损坏。
+#
+# 构建脚本用同一条链路（同一个启动器）实测一次前缀，把原始字节落成文件，这里读回来覆盖自探测值。
+# 前缀按**字节**经文件传递，不走命令行 —— 本地化前缀在中文机器上可能是 GBK，不是合法 UTF-8，
+# 走命令行会被替换成 U+FFFD，字节一失真就又对不上了。
+#
+# 注意：这两个是**普通变量**（不是缓存变量），CMakeCXXCompiler.cmake 里刚设过，
+# 必须在 project() 之后覆盖才生效。
+if (NEONBOARD_SHOWINCLUDES_PREFIX_FILE AND EXISTS "${NEONBOARD_SHOWINCLUDES_PREFIX_FILE}")
+    file(READ "${NEONBOARD_SHOWINCLUDES_PREFIX_FILE}" NEONBOARD_SHOWINCLUDES_PREFIX)
+    set(CMAKE_CXX_CL_SHOWINCLUDES_PREFIX "${NEONBOARD_SHOWINCLUDES_PREFIX}")
+    set(CMAKE_CL_SHOWINCLUDES_PREFIX "${NEONBOARD_SHOWINCLUDES_PREFIX}")
+    set(CMAKE_C_CL_SHOWINCLUDES_PREFIX "${NEONBOARD_SHOWINCLUDES_PREFIX}")
+    # 前缀变了，编译命令行也得跟着变：否则旧 obj 不会被重编，「陈旧 obj」的隐患原样留着。
+    # 哈希进命令行 → Ninja 判定命令变了 → 该重编的一定重编。
+    if (NEONBOARD_SHOWINCLUDES_PREFIX_HASH)
+        add_compile_definitions(NEONBOARD_DEPS_PREFIX_TAG=${NEONBOARD_SHOWINCLUDES_PREFIX_HASH})
+    endif()
+    message(STATUS "NeonBoard: /showIncludes 前缀由构建脚本实测指定（哈希 ${NEONBOARD_SHOWINCLUDES_PREFIX_HASH}）")
+endif()
+
+# ---- DX-52：编译缓存按「源码树」分桶 ----
+# sccache 的缓存按内容寻址、跨工作区共享；命中时它回放的是**当初那个目录**的 /showIncludes 输出，
+# 里面的头文件路径属于别的 worktree。Ninja 把那些路径当依赖记下来 → 改本地头文件不重编（陈旧 obj），
+# 那个 worktree 被回收后构建还会直接报错。
+# 强制包含一份带「源码根路径」的头：预处理结果随之按源码树分桶，缓存 key 也随之分桶，
+# 回放的路径就永远属于当前这棵树。文件由 scripts/build.ps1 生成在构建目录里，不进仓库。
+if (NEONBOARD_BUILD_IDENTITY_HEADER AND EXISTS "${NEONBOARD_BUILD_IDENTITY_HEADER}")
+    # /FI 后面不能有空格：MSVC 只把「/FI 之后那个 token 的剩余部分」当文件名，
+    # 而 CMake 会给含空格的选项整体加引号（Ninja 不经过 shell，引号不会被剥掉）。
+    # 构建脚本已保证传进来的是不含空格的路径（必要时用 8.3 短路径）。
+    add_compile_options("/FI${NEONBOARD_BUILD_IDENTITY_HEADER}")
+endif()
+
 # 版本号唯一来源就是上面这行 project(VERSION)。发版只需改这里：
 #   · 运行时版本（QCoreApplication::applicationVersion）→ 编译期常量 NEONBOARD_VERSION_STRING
 #   · 安装包版本（installer/neonboard.iss 的 MyAppVersion）→ 由 scripts/release.ps1
@@ -23,11 +61,23 @@ qt_standard_project_setup()
 # 编译缓存（R4-08）：本机装有 sccache 时，将其作为 C/C++ 编译器启动器包裹 cl.exe，
 # 复用未变动的翻译单元编译结果，显著加速增量 / 重复构建（与 Ninja 生成器配合最佳）。
 # 未安装 sccache 时 find_program 返回空，此处自动跳过，不影响任何现有构建路径。
-find_program(NEONBOARD_SCCACHE NAMES sccache)
-if (NEONBOARD_SCCACHE)
-    set(CMAKE_C_COMPILER_LAUNCHER "${NEONBOARD_SCCACHE}")
-    set(CMAKE_CXX_COMPILER_LAUNCHER "${NEONBOARD_SCCACHE}")
-    message(STATUS "NeonBoard: 启用 sccache 编译缓存 (${NEONBOARD_SCCACHE})")
+#
+# DX-52：launcher 由构建脚本**显式指定**（-DNEONBOARD_SCCACHE_LAUNCHER），不再让这里自己找 ——
+# 因为「构建脚本实测 /showIncludes 前缀」用的必须与真正编译**同一条链路**，两边 launcher 不同，
+# 测到的前缀就对不上（Ninja 又解析不出依赖条目）。没指定时才退回 find_program 自找。
+if (NOT DEFINED NEONBOARD_SCCACHE_LAUNCHER)
+    find_program(NEONBOARD_SCCACHE NAMES sccache)
+    set(NEONBOARD_SCCACHE_LAUNCHER "${NEONBOARD_SCCACHE}")
+endif()
+if (NEONBOARD_SCCACHE_LAUNCHER)
+    set(CMAKE_C_COMPILER_LAUNCHER "${NEONBOARD_SCCACHE_LAUNCHER}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${NEONBOARD_SCCACHE_LAUNCHER}")
+    message(STATUS "NeonBoard: 启用 sccache 编译缓存 (${NEONBOARD_SCCACHE_LAUNCHER})")
+else()
+    # 显式清空：缓存里可能留着上一轮的 launcher，不清就会出现「关了还在用」（-NoCache 就是这么失灵的）。
+    set(CMAKE_C_COMPILER_LAUNCHER "")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "")
+    message(STATUS "NeonBoard: 未启用 sccache 编译缓存")
 endif()
 
 qt_add_executable(NeonBoard

@@ -283,6 +283,155 @@ function Resolve-Sccache {
     return $null
 }
 
+# ---- DX-52：实测「实际编译链路」上的 /showIncludes 前缀 ----
+# 为什么必须实测、不能让 CMake 自探测：
+#   ① CMake 的编译器探测**绕开启动器** —— CMAKE_DETERMINE_MSVC_SHOWINCLUDES_PREFIX 直接调
+#      cl.exe，不走 CMAKE_<LANG>_COMPILER_LAUNCHER，所以它记下的是「干净 cl.exe」的前缀；
+#   ② 真正编译经过 sccache，MSVC 的本地化前缀字节被它改写（实测变成含 U+FFFD 的乱码，
+#      且两种控制台代码页下结果相同）。
+#   两边对不上 → Ninja 一个依赖条目都解析不出来（#deps 0）→ 改公共头文件不重编 →
+#   陈旧 obj 被链进新代码 → 类布局不一致 → 堆损坏（崩溃点还误导性地报在 QImage::~QImage）。
+# 所以这里用**同一条链路**（同一个启动器）跑一次探针编译，取 include 行里「已知路径」之前的
+# 原始字节，再把这个字节序列交给 CMake —— 让 CMake 记录值 == Ninja 实际看到的值。
+#
+# 只对 Ninja 有意义：MSBuild（-Generator VS）自己扫依赖，不读 msvc_deps_prefix。
+function Get-NbShowIncludesPrefix {
+    param(
+        [string]$Launcher = '',
+        [string]$ProbeRoot = ''
+    )
+
+    if (-not $ProbeRoot) { return $null }
+    try {
+        New-Item -ItemType Directory -Path $ProbeRoot -Force | Out-Null
+    } catch {
+        return $null
+    }
+
+    $headerName = 'nb_showincludes_probe.h'
+    $sourceName = 'nb_showincludes_probe.cpp'
+    $headerPath = Join-Path $ProbeRoot $headerName
+    $sourcePath = Join-Path $ProbeRoot $sourceName
+    $objPath = Join-Path $ProbeRoot 'nb_showincludes_probe.obj'
+    $logPath = Join-Path $ProbeRoot 'probe.log'
+
+    # 探针源码固定不变：sccache 命中缓存时回放的就是同一条输出，测到的前缀与真实编译一致，
+    # 同时不会每次构建都往缓存里塞一条用不上的新条目。
+    try {
+        Set-Content -LiteralPath $headerPath -Value "#pragma once`nint nb_probe();`n" -Encoding UTF8
+        Set-Content -LiteralPath $sourcePath -Value "#include `"$headerName`"`nint nb_probe() { return 0; }`n" -Encoding UTF8
+    } catch {
+        return $null
+    }
+
+    $cmdLine = if ($Launcher) {
+        '"' + $Launcher + '" cl.exe /nologo /c /TP "' + $sourcePath + '" /Fo"' + $objPath + '" /showIncludes'
+    } else {
+        'cl.exe /nologo /c /TP "' + $sourcePath + '" /Fo"' + $objPath + '" /showIncludes'
+    }
+    # 输出重定向到**文件**而不是管道：诊断输出按控制台输出代码页写原始字节，
+    # 经 PowerShell 管道会被重新编码，字节就失真了 —— 前缀必须逐字节对得上。
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & cmd.exe /c ($cmdLine + ' > "' + $logPath + '" 2>&1') | Out-Null
+    } catch {
+        return $null
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+
+    if (-not (Test-Path -LiteralPath $logPath)) { return $null }
+    $bytes = [System.IO.File]::ReadAllBytes($logPath)
+    if ($bytes.Length -eq 0) { return $null }
+
+    # latin1(28591) 解码：1 字节 ↔ 1 字符，字节保真。按 UTF-8 解会把中文前缀换成 U+FFFD，
+    # 那样测到的就不是编译器真正写出的字节了。
+    $text = [System.Text.Encoding]::GetEncoding(28591).GetString($bytes)
+    $idx = $text.LastIndexOf($headerPath)
+    if ($idx -lt 0) {
+        $idx = $text.LastIndexOf($headerPath.Replace('\', '/'))
+    }
+    if ($idx -lt 0) { return $null }
+
+    # 前缀 = 该行行首到「路径起点」之间的字节
+    $lineStart = $text.LastIndexOf("`n", $idx)
+    if ($lineStart -lt 0) { $lineStart = 0 } else { $lineStart = 1 + $lineStart }
+    if ($idx -le $lineStart) { return $null }
+
+    $prefix = New-Object byte[] ($idx - $lineStart)
+    [System.Array]::Copy($bytes, $lineStart, $prefix, 0, $prefix.Length)
+    # 逗号包一层：裸 byte[] 会被 PowerShell 管道拆成一堆字节，逐个返回
+    return , $prefix
+}
+
+# ---- DX-52：编译缓存必须按「源码树」分桶，否则依赖条目会指向别的 worktree ----
+# sccache 的缓存是**按内容寻址**的：同样的源码内容在哪个目录编译都命中同一个条目
+# （-D 定义、源文件路径都不参与 key —— 实测过）。命中时 sccache 回放的是**当初编译那个目录**
+# 的 /showIncludes 输出，里面的头文件路径属于**别的 worktree**。
+# Ninja 把这些路径当成依赖记下来，后果有两样：
+#   ① 改本地头文件不重编（陈旧 obj —— 正是 DX-52 要根治的那个坑，只是换了个来源）；
+#   ② 那个 worktree 被回收后，Ninja 直接报「missing and no known rule to make it」，构建崩掉。
+# 办法：给每个源码树生成一份带「源码根路径」的强制包含头。预处理结果因此随源码树而不同，
+# sccache 的 key 随之不同 → 缓存天然分桶 → 回放的路径永远属于当前这棵树。
+#
+# 代价：缓存不再跨 worktree 共享（每个源码树一个桶）。这与 AGENTS.md 里「新 worktree 首次全量
+# 构建约 20~30 分钟（零缓存）」的既有预期一致；换来的是依赖条目永远指向本树，不再出陈旧 obj。
+function New-NbBuildIdentityHeader {
+    param(
+        [string]$SourceRoot = '',
+        [string]$OutputPath = ''
+    )
+
+    if (-not $SourceRoot -or -not $OutputPath) { return $false }
+    $root = ($SourceRoot -replace '\\', '/')
+    $content = @(
+        '/* 由 scripts/build.ps1 自动生成（DX-52）—— 不要手工改，也不要提交进仓库。',
+        '   作用：让编译缓存按「源码树」分桶。sccache 的缓存按内容寻址、跨工作区共享，',
+        '   命中时回放的是当初那个目录的 /showIncludes 输出（头文件路径属于别的 worktree），',
+        '   Ninja 会把那些路径当依赖 —— 改本地头文件就不重编了。这里把源码根路径写进预处理结果，',
+        '   sccache 的 key 随之按源码树分桶，回放的路径也就永远属于当前这棵树。 */',
+        "static const char nb_build_identity[] = `"$root`";",
+        ''
+    ) -join "`n"
+    try {
+        # 内容没变就别重写：这个头会被 Ninja 当成依赖，重写会刷新 mtime → 全量重编。
+        if ((Test-Path -LiteralPath $OutputPath) -and
+            ([System.IO.File]::ReadAllText($OutputPath) -eq $content)) {
+            return $true
+        }
+        [System.IO.File]::WriteAllText($OutputPath, $content, (New-Object System.Text.UTF8Encoding($false)))
+    } catch {
+        return $false
+    }
+    return $true
+}
+
+# MSVC 的 /FI 只能吃「一个 token 里剩下的全部字符」当文件名，带引号会把引号当成文件名的一部分
+# （Ninja 不经过 shell，引号不会被剥掉）。而选项里一旦有空格，CMake 会给整个选项加引号 ——
+# 于是带空格的路径（仓库装在 "C:\Users\John Doe\..." 下）就会踩到「引号进了文件名」。
+# 8.3 短路径能绕开：它不含空格，MSVC 也认。
+function Get-NbShortPath {
+    param([string]$Path)
+
+    if (-not $Path) { return '' }
+    try {
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $out = & cmd.exe /c ('for %I in ("' + $Path + '") do @echo %~sI') 2>$null
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+        $short = ([string]($out | Select-Object -First 1)).Trim()
+        if ($short -and ($short -notlike '*~*' -or (Test-Path -LiteralPath $short))) {
+            if (Test-Path -LiteralPath $short) { return $short }
+        }
+    } catch {
+    }
+    return ''
+}
+
 # Ninja + MSVC 需要 cl.exe 及 INCLUDE/LIB/PATH 等环境；与 VS 生成器不同，Ninja 不会自带工具集，
 # 必须在 MSVC 开发者环境里运行。仅在确实缺失时才装配（已在开发者环境则跳过）。
 #
@@ -416,25 +565,115 @@ if (-not $needsConfigure) {
         $needsConfigure = $true
     }
 }
+
+# ---- DX-52：/showIncludes 前缀必须与实际编译链路一致，否则 Ninja 依赖条目全空 ----
+# 探测只在 Ninja 下做（MSBuild 自己扫依赖）；探测失败就退回 CMake 自探测并如实提示，
+# 不假装成功 —— 症状是「改公共头文件不重编」，静默降级等于把老坑留在原地。
+$prefixFile = ''
+$prefixHash = ''
+$prefixArgs = @()
+if ($useNinja) {
+    $probeRoot = Join-Path $buildPath '.nb-deps-probe'
+    $launcherPath = if ($sccache) { $sccache.Path } else { '' }
+    $probePrefix = Get-NbShowIncludesPrefix -Launcher $launcherPath -ProbeRoot $probeRoot
+    if ($probePrefix -and $probePrefix.Length -gt 0) {
+        $prefixFile = Join-Path $probeRoot 'showincludes-prefix.bin'
+        [System.IO.File]::WriteAllBytes($prefixFile, $probePrefix)
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $prefixHash = ([System.BitConverter]::ToString($sha.ComputeHash($probePrefix))).Replace('-', '').ToLowerInvariant()
+        } finally {
+            $sha.Dispose()
+        }
+        # 注意每个元素都要加括号：PowerShell 里 ',' 的优先级高于 '+'，
+        # 不加括号会算成「字符串 + 数组」，两个 -D 被拼成一条传给 cmake。
+        $prefixArgs = @(
+            ("-DNEONBOARD_SHOWINCLUDES_PREFIX_FILE=" + $prefixFile.Replace('\', '/')),
+            ("-DNEONBOARD_SHOWINCLUDES_PREFIX_HASH=$prefixHash")
+        )
+        Write-Detail ("依赖前缀: " + (($probePrefix | ForEach-Object { '{0:X2}' -f $_ }) -join ' '))
+        Write-Detail ("前缀哈希: " + $prefixHash.Substring(0, 16) + "…（启动器: " + $(if ($launcherPath) { Split-Path -Leaf $launcherPath } else { '无' }) + "）")
+    } else {
+        Write-Host '· 未能实测 /showIncludes 前缀，退回 CMake 自探测 —— 依赖条目可能仍为空，见 docs/pitfalls.md §3.16' -ForegroundColor Yellow
+    }
+}
+
+# launcher 显式交给 CMake：探针测的就是它，真正编译也必须是它 —— 两边不一致，
+# 测到的前缀就对不上，依赖条目又空了。顺带修掉一个老 bug：**-NoCache 以前根本没关掉 sccache**
+# （CMakeLists 里的 find_program 照样找到它，于是「关缓存」的构建其实一直在走缓存）。
+$launcherArg = if ($sccache) { $sccache.Path.Replace('\', '/') } else { '' }
+$prefixArgs += ("-DNEONBOARD_SCCACHE_LAUNCHER=" + $launcherArg)
+
+# 编译缓存按源码树分桶（理由见 New-NbBuildIdentityHeader 的注释）。
+# Ninja 与 MSBuild 都要：MSBuild 的依赖信息也是从缓存里的 obj 读出来的，
+# 那里同样带着「当初那个目录」的头文件路径。
+$identityHeader = Join-Path $buildPath 'nb_build_identity.h'
+if (New-NbBuildIdentityHeader -SourceRoot $repoRoot -OutputPath $identityHeader) {
+    # /FI 只能吃一个 token；路径带空格时 CMake 会给整个选项加引号，MSVC 就把引号
+    # 当成文件名的一部分了。8.3 短路径不含空格，MSVC 照认。
+    $identityFlagPath = $identityHeader
+    if ($identityFlagPath -like '* *') {
+        $short = Get-NbShortPath -Path $identityHeader
+        if ($short) {
+            $identityFlagPath = $short
+        } else {
+            Write-Host '· 构建路径含空格且取不到 8.3 短路径：编译缓存将跨工作区共享（依赖条目可能指向别处）' -ForegroundColor Yellow
+            $identityFlagPath = ''
+        }
+    }
+    if ($identityFlagPath) {
+        $prefixArgs += ("-DNEONBOARD_BUILD_IDENTITY_HEADER=" + $identityFlagPath.Replace('\', '/'))
+    }
+} else {
+    Write-Host '· 未能生成编译身份头，编译缓存将跨工作区共享（依赖条目可能指向别处）' -ForegroundColor Yellow
+}
+
+if ($prefixArgs.Count -gt 0) {
+    # 传给 cmake 的 -D 参数集合的指纹：新增或改动任何一个 -D 都必须重配。
+    # 不做这件事的后果很隐蔽 —— 复用缓存时 cmake 根本不会被调用，新参数进不了缓存，
+    # 编译命令行也就没有那个新参数（踩过一次：编译身份头没进命令行，缓存照样跨工作区共享）。
+    $fingerprintSource = ($prefixArgs -join '|')
+    $sha2 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $argsFingerprint = ([System.BitConverter]::ToString(
+            $sha2.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($fingerprintSource)))).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $sha2.Dispose()
+    }
+    $prefixArgs += ("-DNEONBOARD_CONFIG_ARGS_FINGERPRINT=$argsFingerprint")
+
+    # 前缀变了也必须重配：CMake 记的是普通变量，不重配就还留着旧值。
+    # 旧值对不上 → Ninja 又解析不出依赖；旧 obj 也不会重编（编译命令行没变）。
+    if (-not $needsConfigure) {
+        $cachedFp = Select-String -LiteralPath $cacheFile -Pattern '^NEONBOARD_CONFIG_ARGS_FINGERPRINT:[^=]*=(.*)$' -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        $cachedFpValue = if ($cachedFp) { $cachedFp.Matches[0].Groups[1].Value.Trim() } else { '' }
+        if ($cachedFpValue -ne $argsFingerprint) {
+            Write-Step '检测到配置参数变化（/showIncludes 前缀或编译身份头），强制重新配置（旧 obj 会因编译命令行变化而全部重编）'
+            $needsConfigure = $true
+        }
+    }
+}
+
 $swConfigure = [System.Diagnostics.Stopwatch]::StartNew()
 if ($needsConfigure) {
     Write-Step "配置 CMake（$wantGenerator）"
     if ($useNinja) {
-        Invoke-Native -Exe $cmake -Label 'CMake 配置' -Arguments @(
+        Invoke-Native -Exe $cmake -Label 'CMake 配置' -Arguments (@(
             '-S', $repoRoot,
             '-B', $buildPath,
             '-G', 'Ninja',
             "-DCMAKE_BUILD_TYPE=$Config",
             "-DCMAKE_PREFIX_PATH=$qtPrefix"
-        )
+        ) + $prefixArgs)
     } else {
-        Invoke-Native -Exe $cmake -Label 'CMake 配置' -Arguments @(
+        Invoke-Native -Exe $cmake -Label 'CMake 配置' -Arguments (@(
             '-S', $repoRoot,
             '-B', $buildPath,
             '-G', $vsGenerator,
             '-A', 'x64',
             "-DCMAKE_PREFIX_PATH=$qtPrefix"
-        )
+        ) + $prefixArgs)
     }
 } else {
     Write-Step "复用已有 CMake 缓存（加 -Reconfigure 可强制重配）"

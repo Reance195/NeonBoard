@@ -15,6 +15,7 @@ layout(std140, binding = 0) uniform buf {
     vec4 uSecondary;
     vec4 uAccent;
     float uQuality;
+    float uGlow;     // 辉光强度乘子（Motion.glowScale）：低画质 / 减弱动效时收敛
     float iState;   // 0..1 进行中负载：越满网格流速越快
     float iFocus;   // 0..1 专注强度：压暗背景、只留一束追光
     float iBurst;   // 0..1 完成脉冲：一次性能量环由中心扩散
@@ -47,6 +48,10 @@ void main()
 
     // 画质档位：0 低 / 1 中 / 2 高（由主题引擎下发）
     float q = clamp(uQuality, 0.0, 2.0);
+
+    // 辉光强度（R11-05「精致化」）：背景是氛围，不是主角。
+    // 网格与鼠标辉光统一乘一个系数，降噪档自动收敛 —— 之前网格亮到能压过卡片。
+    float glowAmt = 0.45 + 0.55 * clamp(uGlow, 0.0, 1.0);
 
     // 场景通道：负载 / 专注 / 完成脉冲
     float state = clamp(iState, 0.0, 1.0);
@@ -88,8 +93,8 @@ void main()
         float line = smoothstep(0.46, 0.50, max(f.x, f.y));
         float fade = pow(1.0 - depth, 0.35);
         float gain = (0.55 + 0.45 * state) * (1.0 - 0.7 * focus);
-        col += primary * 0.70 * line * fade * gain;
-        col += accent * 0.45 * line * fade * 0.18 * gain;
+        col += primary * 0.52 * line * fade * gain * glowAmt;
+        col += accent * 0.45 * line * fade * 0.18 * gain * glowAmt;
     }
 
     if (q >= 1.0) {
@@ -108,7 +113,7 @@ void main()
     }
 
     float glow = smoothstep(0.55, 0.0, length(uv - iMouse));
-    col += primary * 0.22 * glow * 0.35 * (1.0 - 0.55 * focus);
+    col += primary * 0.16 * glow * 0.35 * (1.0 - 0.55 * focus) * glowAmt;
 
     // 完成脉冲：能量环由中心扩散，核心闪一下
     if (burst > 0.001) {

@@ -21,6 +21,9 @@ ShaderEffect {
     property color uSecondary: Theme.magenta
     property color uAccent: Theme.violet
     property real uQuality: Theme.quality
+    // 辉光强度乘子（R11-05）：背景网格与鼠标辉光统一收敛，
+    // 低画质 / 减弱动效时自动变淡 —— 背景是氛围，不该抢卡片的对比度。
+    property real uGlow: Motion.glowScale
 
     fragmentShader: "qrc:/shaders/neon.frag.qsb"
 

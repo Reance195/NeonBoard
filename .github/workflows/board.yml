@@ -35,8 +35,9 @@ on:
       # 预期行为（DX-44 改写）：**中间态不再产生 failure run**。
       # 一次 git-done 收尾会分步快进补推 3~4 个提交（合并 / 清理登记 / 结卡 / 快照），
       # 每个都不自洽（快照必须最后刷新，因为派生器要读前几步写完的 git 事实），
-      # 而 job 约 40 秒、推送间隔约 8 秒 —— 下面 concurrency.cancel-in-progress=true
-      # 会让前几个 run 直接被判为过时并取消，不发失败通知。
+      # 首步先沉降等待 ~30s（实测推送间隔 6~13s，留足余量），保证 job 一定比推送间隔久；
+      # 于是 concurrency.cancel-in-progress=true 下，新推送到来时上一个 run 仍在沉降中
+      # （in-progress）被判为过时并取消，不发失败通知。
       #
       # 因此判据落点自动挪到 **main tip 那一个 run**：
       #   - main tip 绿 = 收尾完成、快照与 git 事实一致；
@@ -59,8 +60,9 @@ concurrency:
   # 一次收尾推 3~4 个提交，前几个是注定短暂的中间态（快照还没刷），false 时它们
   # 各自排队跑完并各自报红 —— 实测每批收尾固定产 1~3 封失败邮件（R16-05 3 封、
   # R5-08 2 封、R5-10 2 封、DX-40 立卡 1 封），噪声大到没人再看这条流水线。
-  # job 约 40s、推送间隔约 8s，true 之后新推送取消上一个在跑的 run：
-  # 只有最后一个（= main tip）会跑完并给出结论。校验逻辑与权限一字未动。
+  # 关键在 job 必须比推送间隔久：首步沉降等待 ~30s（实测推送间隔 6~13s），中间 run 在新推送
+  # 到来时仍在 sleep 中（in-progress）被取消。只有最后一个（= main tip）会睡醒跑完并给出结论。
+  # 校验逻辑与权限一字未动。
   cancel-in-progress: true
 
 jobs:
@@ -69,6 +71,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # DX-44：收尾一次推 3~4 个提交（合并 / 清理登记 / 结卡 / 快照），前几个是注定短暂的中间态。
+      # cancel-in-progress 只能在「上一个 run 还在跑」时取消它，所以 job 必须比推送间隔久。
+      # 首步沉降等待 ~30s（实测推送间隔 6~13s，留足余量）：中间 run 在新推送到来时仍处于
+      # in-progress（sleep 中）被取消、不落 failure；只有 main tip 那个 run 睡醒后真正校验。
+      # 校验本身不松（--check 对中间态仍返回非零），只是那次 run 不再被留着报红。
+      - name: 等待收尾沉降（debounce）
+        run: sleep 30
+
       - uses: actions/checkout@v4
         with:
           # 派生器要读完整提交历史里的 #短号=done 标记，浅克隆会漏

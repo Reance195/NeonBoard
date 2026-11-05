@@ -67,6 +67,7 @@
         "DX-66": "todo",
         "DX-67": "todo",
         "DX-68": "done",
+        "DX-69": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1498,6 +1499,27 @@
             ],
             "stage": "DX",
             "title": "合并冲突：chore/board-2026-11-06 与 origin/main（程序自动建单）"
+        },
+        "DX-69": {
+            "acceptance": [
+                "闪屏百分比读数在 dpr=1.5 与 dpr=1.0 下字形一致（列墨迹分布相关性 > 0.8）",
+                "ctest --test-dir build -C Release -R tst_splashscene --output-on-failure 通过",
+                "pwsh -File scripts/verify.ps1 通过",
+                "docs/pitfalls.md 记一条：QImage 图集是设备像素，按逻辑像素采样会错位"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [],
+            "evidence": "实测复现：dpr=1.0 渲染百分比读数为 42%，dpr=1.5 渲染为乱码碎片",
+            "id": "DX-69",
+            "note": "",
+            "scope": [
+                "src/shell/SplashScene.cpp",
+                "src/shell/SplashScene.h",
+                "tests/tst_splashscene.cpp",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "启动闪屏百分比读数在高 DPI 下乱码：数字图集按逻辑像素采样"
         },
         "M01": {
             "acceptance": [

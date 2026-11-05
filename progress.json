@@ -109,24 +109,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-61",
-            "completedAt": 0,
-            "createdAt": 1793899147,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-61",
-            "note": "触发证据：R5-13（v0.1.6 发版）实测：cmd_report 的 check_report 强制每条验收 pass 才能进 reported，cmd_close 复核 allPass（nbflow.py:778），而发版卡验收 3/4/5（Release 资产/update.json/真机升级）结构性排在合并与打 tag 之后——全绿前提在合并前不可能满足。只能绕走 git-done -Close 完成结卡，nbflow 会话以 abandoned 对账（附完整缘由）。R5-10 先例同样是「合并时结卡、tag 后核验」，nbflow 模型未覆盖。\n\n## 目标\nnbflow 补 release 卡模式：允许「合并后验收」的回执与结卡通道\n\n## 验收\n发版类卡能通过 nbflow 完成 report→close：验收项可声明合并后核验时序，close 不再要求合并前全绿（或提供显式 release 通道）;回执与台账 note 保留「已核验/待核验」区分，待核验项不得混成 pass（防 Z9 口径被工具逼破）;python scripts/nbflow.py --selftest 全过，release 模式用例入自测;pwsh -File scripts/verify.ps1 -ScriptOnly 全过\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 31744,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow 补 release 卡模式：允许「合并后验收」的回执与结卡通道",
-            "updatedAt": 1793899147
-        },
-        {
             "code": "DX-62",
             "completedAt": 0,
             "createdAt": 1793900688,
@@ -2819,6 +2801,24 @@
             "updatedAt": 1793299560
         },
         {
+            "code": "DX-61",
+            "completedAt": 1793901072,
+            "createdAt": 1793899147,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-61",
+            "note": "触发证据：R5-13（v0.1.6 发版）实测：cmd_report 的 check_report 强制每条验收 pass 才能进 reported，cmd_close 复核 allPass（nbflow.py:778），而发版卡验收 3/4/5（Release 资产/update.json/真机升级）结构性排在合并与打 tag 之后——全绿前提在合并前不可能满足。只能绕走 git-done -Close 完成结卡，nbflow 会话以 abandoned 对账（附完整缘由）。R5-10 先例同样是「合并时结卡、tag 后核验」，nbflow 模型未覆盖。\n\n## 目标\nnbflow 补 release 卡模式：允许「合并后验收」的回执与结卡通道\n\n## 验收\n发版类卡能通过 nbflow 完成 report→close：验收项可声明合并后核验时序，close 不再要求合并前全绿（或提供显式 release 通道）;回执与台账 note 保留「已核验/待核验」区分，待核验项不得混成 pass（防 Z9 口径被工具逼破）;python scripts/nbflow.py --selftest 全过，release 模式用例入自测;pwsh -File scripts/verify.ps1 -ScriptOnly 全过\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 31744,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow 补 release 卡模式：允许「合并后验收」的回执与结卡通道",
+            "updatedAt": 1793901072
+        },
+        {
             "code": "R11-07",
             "completedAt": 1793892936,
             "createdAt": 1793890841,
@@ -4003,6 +4003,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T01:48:18",
+    "updated": "2026-11-06T01:51:12",
     "version": 3
 }

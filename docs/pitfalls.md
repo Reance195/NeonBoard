@@ -1210,6 +1210,32 @@
   链路终点的行为。附带副作用说明：build.ps1 会把宿主控制台代码页留在 65001，本仓库
   脚本与日志全按 UTF-8，这是更对的状态，未做还原。
 
+### 3.22 Unicode Inno 的文件读写 API 参数是 AnsiString，不是 String
+
+- **现象**（v0.1.5 发布 run 41870082136）：`iss:117 Column 71 Type mismatch` ——
+  `LoadStringFromFile` / `SaveStringToFile` 用 `String` 变量传参，本地全绿
+  （verify 不跑 ISCC、单测只 grep 文本），打 tag 出包才炸。
+- **根因**：Inno Setup 6 只有 Unicode 版，但这两个文件读写的字符串参数是
+  **AnsiString**；`String`（Unicode）变量传进去在**编译期**报 Type mismatch。
+  而 iss 的 `[Code]` 段只有 ISCC 会编译 —— 任何「文本级检查」都到不了这一层。
+- **解法**：一律走 `TArrayOfString` 的 `LoadStringsFromFile` / `SaveStringsToFile`
+  （installer/neonboard.iss 头部注释已固化）；配合 DX-36 的 verify.ps1 ISCC 编译闸门
+  （临时假 payload 真编译一次），这类错误在本地验收就红。
+- **判据**：负测——在 iss 里加一个用 `String` 传参调 `LoadStringFromFile` 的过程，
+  `pwsh -File scripts/verify.ps1 -ScriptOnly` 的「安装器编译闸门」必须红。
+
+### 3.23 Pascal 注释里写花括号：第一个 `}` 提前闭合注释，后半句变代码
+
+- **现象**（v0.1.5 发布 run 41877631595）：`iss:126 Column 26 Syntax error` ——
+  注释文本里写了 Inno 常量 `{app}`，`{...}` 注释在第一个 `}` 处就结束，
+  后半句被当成代码。
+- **根因**：Pascal 的 `{ }` 注释**不支持嵌套**：从 `{` 到第一个 `}`。
+  注释里再写 `XX}` 形态的内容（Inno 常量、花括号枚举）都会提前闭合。
+- **解法**：iss 注释里不写花括号（要提常量就用不带花括号的词，如「app 常量」）；
+  DX-36 的 ISCC 编译闸门会在本地把这类语法错误当场拦下。
+- **判据**：负测——在 iss 注释里写 `{ 用 {app} 常量拼接 }`，
+  `-ScriptOnly` 的「安装器编译闸门」必须红。
+
 ---
 
 ## 四、界面验收与自动化

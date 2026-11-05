@@ -85,6 +85,25 @@ jobs:
             -RedirectStandardOutput selftest.out -RedirectStandardError selftest.err
           Get-Content selftest.out -ErrorAction SilentlyContinue
           Get-Content selftest.err -ErrorAction SilentlyContinue
+
+      - name: 写溯源信息
+        # DX-36：必须在「生成便携版 / 编译安装包」**之前**写，且要写进 dist\NeonBoard\
+        # （安装树）——以前只在编译安装包之后写 dist\BUILD-INFO.txt，安装器打包的是
+        # dist\NeonBoard\*，BUILD-INFO 永远不进安装树，安装回执的 commit 字段恒为 unknown。
+        shell: pwsh
+        run: |
+          $commit = (git rev-parse HEAD).Trim()
+          $exeHash = (Get-FileHash -LiteralPath 'build\Release\NeonBoard.exe' -Algorithm SHA256).Hash
+          $lines = @(
+            'NeonBoard build info',
+            "generated : $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))",
+            "commit    : $commit",
+            "exe sha256: $exeHash"
+          )
+          $text = ($lines -join "`n") + "`n"
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'dist\BUILD-INFO.txt'), $text, (New-Object System.Text.UTF8Encoding($false)))
+          New-Item -ItemType Directory -Force -Path 'dist\NeonBoard' | Out-Null
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'dist\NeonBoard\BUILD-INFO.txt'), $text, (New-Object System.Text.UTF8Encoding($false)))
           if ($proc.ExitCode -ne 0) { throw "自检失败：$($proc.ExitCode)" }
 
       - name: 生成便携版
@@ -277,19 +296,6 @@ jobs:
           $bodyPath = Join-Path $PWD 'dist\RELEASE-NOTES.md'
           [System.IO.File]::WriteAllText($bodyPath, (($body -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
           Get-Content $bodyPath
-
-      - name: 写溯源信息
-        shell: pwsh
-        run: |
-          $commit = (git rev-parse HEAD).Trim()
-          $exeHash = (Get-FileHash -LiteralPath 'build\Release\NeonBoard.exe' -Algorithm SHA256).Hash
-          $lines = @(
-            'NeonBoard build info',
-            "generated : $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))",
-            "commit    : $commit",
-            "exe sha256: $exeHash"
-          )
-          [System.IO.File]::WriteAllText((Join-Path $PWD 'dist\BUILD-INFO.txt'), (($lines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
 
       - name: 上传产物
         uses: actions/upload-artifact@v4

@@ -137,6 +137,73 @@ if ($ScriptOnly) {
     & pwsh -NoProfile -File (Join-Path $repoRoot 'scripts\git-helpers.ps1') -SelfTest
     if ($LASTEXITCODE -ne 0) { Fail 'git-helpers 自测未通过' }
 
+    Step '安装器编译闸门（ISCC，DX-36）'
+    # iss 的 [Code] 段只有 ISCC 会编译：v0.1.5 两次发布失败都是编译期错误（Unicode Inno
+    # 的 AnsiString 参数、Pascal 注释里的花括号），本地全绿、构建 job 全绿，直到打 tag
+    # 出包才炸。这里按 repo 布局镜像一棵临时树、放假 payload，把 installer/neonboard.iss
+    # **真编译**一次（2~3 秒），编译期错误当场拦下。探测不到 ISCC 只告警不静默 ——
+    # 闸门缺席必须可见（Z4）。
+    $iscc = @('C:\Program Files (x86)\Inno Setup 6\ISCC.exe', 'C:\Program Files\Inno Setup 6\ISCC.exe') |
+        Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if (-not $iscc) {
+        $cmd = Get-Command iscc -ErrorAction SilentlyContinue
+        if ($cmd) { $iscc = $cmd.Source }
+    }
+    if (-not $iscc) {
+        # 按用户安装不落 Program Files（本机实测）：Inno 内核装的程序必写卸载注册表键
+        # InstallLocation，三处键位覆盖 32/64 位视图与 HKCU
+        foreach ($key in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1',
+                           'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1',
+                           'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1')) {
+            if ($iscc) { break }
+            try {
+                $loc = (Get-ItemProperty -LiteralPath $key -ErrorAction Stop).InstallLocation
+                if ($loc -and (Test-Path -LiteralPath (Join-Path $loc 'ISCC.exe'))) {
+                    $iscc = Join-Path $loc 'ISCC.exe'
+                }
+            } catch { }
+        }
+    }
+    $issPath = Join-Path $repoRoot 'installer\neonboard.iss'
+    if (-not $iscc) {
+        Write-Host '! 探测不到 ISCC（Inno Setup 6）：本次安装器编译闸门未生效，iss 的 [Code] 段错误会漏到发布时才炸' -ForegroundColor Yellow
+    } elseif (-not (Test-Path -LiteralPath $issPath)) {
+        Write-Host '· 跳过：没有 installer/neonboard.iss' -ForegroundColor DarkGray
+    } else {
+        $gate = Join-Path ([System.IO.Path]::GetTempPath()) ("nb-iscc-gate-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+        try {
+            foreach ($d in @('installer', 'resources\icons', 'dist\NeonBoard')) {
+                New-Item -ItemType Directory -Force -Path (Join-Path $gate $d) | Out-Null
+            }
+            Copy-Item -LiteralPath $issPath -Destination (Join-Path $gate 'installer\neonboard.iss')
+            $obsolete = Join-Path $repoRoot 'installer\obsolete-files.txt'
+            if (Test-Path -LiteralPath $obsolete) {
+                Copy-Item -LiteralPath $obsolete -Destination (Join-Path $gate 'installer\obsolete-files.txt')
+            } else {
+                Set-Content -LiteralPath (Join-Path $gate 'installer\obsolete-files.txt') -Value '# gate stub' -Encoding ASCII
+            }
+            $icon = Join-Path $repoRoot 'resources\icons\neonboard.ico'
+            if (Test-Path -LiteralPath $icon) {
+                Copy-Item -LiteralPath $icon -Destination (Join-Path $gate 'resources\icons\neonboard.ico')
+            }
+            Set-Content -LiteralPath (Join-Path $gate 'dist\NeonBoard\NeonBoard.exe') -Value 'install-gate fake payload' -Encoding ASCII
+            $outDir = Join-Path $gate 'out'
+            # ISCC 往 stderr 写进度，EAP=Stop 下 2>&1 会被当成终止性错误（§7.3 教训），先降档
+            $eap = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try { $isccOut = & $iscc (Join-Path $gate 'installer\neonboard.iss') "/O$outDir" '/DMyAppVersion=0.0.0-gate' 2>&1 } finally {
+                $ErrorActionPreference = $eap
+            }
+            if ($LASTEXITCODE -ne 0) {
+                $isccOut | Select-Object -Last 12 | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+                Fail "安装器 iss 编译失败（ISCC 退出码 $LASTEXITCODE）：[Code] 段错误发布时才炸，必须现在拦下"
+            }
+            Write-Host '  ✓ iss 真编译通过（临时假 payload，[Code] 段编译期无错）' -ForegroundColor DarkGray
+        } finally {
+            if (Test-Path -LiteralPath $gate) { Remove-Item -Recurse -Force $gate }
+        }
+    }
+
     Step '编译口径守卫（/utf-8，DX-53）'
     # /utf-8 决定 MSVC 怎么解析源码里的中文：漏了不会报错，只是按本地代码页读进去
     # （症状是「断言莫名失败」/中文常量乱码）。DX-53 起它收敛为顶层目录级

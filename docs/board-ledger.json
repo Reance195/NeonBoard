@@ -2993,7 +2993,9 @@
                 "repo_path 字段迁移遵守侧表纪律：不升 user_version，老库照常打开，测试断言 user_version 不变",
                 "pwsh -File scripts/verify.ps1 全过（build + ctest + selftest + smoke）"
             ],
-            "depends": ["R18-01"],
+            "depends": [
+                "R18-01"
+            ],
             "id": "R18-02",
             "note": "起因：RoadmapSync 是单路径设计（NEONBOARD_ROADMAP > ini [roadmap]/path > 从 exe 向上探测），一个实例只能盯一份 progress.json，「把其他项目纳入面板监控」没有原生路径 —— 目前唯一做法是手动搭脚手架 + 环境变量双实例。目标：project 表加可空 repo_path 字段（不升 user_version、老库兼容）；ProjectStore 增加 repo_path 读写并在项目清单中返回；RoadmapSync 由单例升级为注册表形态 —— 每个绑定项目独立监听 <repo_path>/progress.json，导入幂等、导入的卡自动归属该项目（task_project）、写回（autoExport）按项目隔离；未绑定任何项目时全局路线图行为与现状完全一致。非目标：不把 git 标记派生（derive_board_status.py）搬进应用（那是仓库侧工具）；不做跨项目卡片合并与去重。",
             "scope": [
@@ -3018,7 +3020,9 @@
                 "非法路径（相对路径 / 不存在 / 非 git 目录）被拒绝且不写入任何文件",
                 "新增测试覆盖上述三场景全绿；pwsh -File scripts/verify.ps1 全过"
             ],
-            "depends": ["R18-02"],
+            "depends": [
+                "R18-02"
+            ],
             "id": "R18-03",
             "note": "起因：R18-02 只能监听已有 progress.json 的仓库，全新仓库要用户手工建台账/快照 —— 正是维护者要求消灭的手工搭脚手架。目标：设置面板的项目绑定流程中，目标仓库缺 docs/board-ledger.json + progress.json 时提供「生成脚手架」选项：在目标仓库生成最小 v3 快照（version=3, items=[]）与空台账（baseline / cards / claims 均为空对象），生成后自动完成绑定；目标仓库任一文件已存在时不触发接入、不覆盖、给出提示。fail-closed：相对路径、不存在的目录、非 git 目录一律拒绝。非目标：不往目标仓库复制 derive_board_status.py / git 钩子工具链，不改目标仓库的 .gitignore / 钩子 / git 配置。",
             "scope": [
@@ -4308,13 +4312,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-63": {
-            "agent": "agent-dx63",
-            "branch": "refactor/git-helpers-nullsafe",
-            "claimedAt": 1793904508,
-            "head": "42aef4b7d2d886f9c39545ad38afc2a7cff03982"
-        }
-    },
+    "claims": {},
     "version": 1
 }

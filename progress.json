@@ -199,6 +199,78 @@
             "updatedAt": 1793825191
         },
         {
+            "code": "R11-04",
+            "completedAt": 0,
+            "createdAt": 1793890841,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-04",
+            "note": "起因（2026-11-05 维护者授权批次）：看板是每天要看十几小时的一屏，当前卡片与背景对比偏弱、正文 10 px 与标题 13 px 层级太近、列内间距是散落的写死数字。目标：卡片标题/辅助信息字号阶梯拉开（正文最小 11 px）、圆角与内边距改走 Theme 令牌、列内间距与卡片间距统一取自 spacing 档位、顶栏统计带与阶段条的分隔线只取令牌不再写 rgba 字面量。边界：只动 qml/components 四个文件，不改数据结构与交互语义，不删任何现有徽章。依赖 R11-05 的令牌先行。",
+            "orderKey": 28672,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "看板主体精致化：卡片层级、字号阶梯、列内密度",
+            "updatedAt": 1793890841
+        },
+        {
+            "code": "R11-05",
+            "completedAt": 0,
+            "createdAt": 1793890841,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-05",
+            "note": "起因（2026-11-05 维护者授权批次）：看板主体与二级界面各写各的间距与字号，辉光与描边强度偏高，多卡同屏时信息被光吃掉。目标：(1) 在 qml/theme/Theme.qml 补齐 spacing / typography 两组令牌，并提升卡片底色不透明度（card / cardHover）让卡片从背景里立起来；(2) 收敛辉光与描边强度（borderStrong / glow / accentSoft），保留赛博霓虹但降噪；(3) 在 qml/theme/Motion.qml 补 glow 强度档与 reduced 降级档；(4) qml/NeonBackground.qml 与 shaders/neon.frag 只做保守参数调整，不改场景结构。边界：不动 src/**、不动数据库、不加依赖；辉光只降不升。",
+            "orderKey": 29696,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "主题令牌与霓虹氛围：统一 spacing/typography 令牌，辉光降噪",
+            "updatedAt": 1793890841
+        },
+        {
+            "code": "R11-06",
+            "completedAt": 0,
+            "createdAt": 1793890841,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-06",
+            "note": "起因（2026-11-05 维护者授权批次）：设置 / 插件 / 命令面板 / 卡片详情等二级界面各自写死颜色与圆角，和看板主体的令牌体系脱节 —— 换主题时它们不跟着变。目标：这些面板的底色、描边、圆角、字号统一取自 Theme 令牌；面板标题层级一致；清掉硬编码颜色字面量。边界：不动交互与数据流，不改插件与市场逻辑。依赖 R11-05 的令牌先行。",
+            "orderKey": 30720,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "面板与弹窗统一：二级界面全部走同一套令牌",
+            "updatedAt": 1793890841
+        },
+        {
+            "code": "R11-07",
+            "completedAt": 0,
+            "createdAt": 1793890841,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-07",
+            "note": "起因（2026-11-05 维护者授权批次）：空列只有一行灰字，搜索无结果 / 概览无数据也没有对应反馈，用户不知道是该继续输入还是该换条件。目标：新增 qml/components/EmptyState.qml 统一空态组件（图标 + 主文案 + 副文案 + 可选行动按钮），在主界面搜索无结果、录入框空态、统计芯片与工具按钮细节处复用；把「已完成 X / 待做 Y」写回需求卡 note，并同步 README 与路线图的界面描述。边界：不改数据流与筛选逻辑，只改「没有内容时给人看什么」。",
+            "orderKey": 31744,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "空态与细节反馈：空列表有引导，筛选有回声",
+            "updatedAt": 1793890841
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3769,6 +3841,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T12:17:35",
+    "updated": "2026-11-05T23:00:41",
     "version": 3
 }

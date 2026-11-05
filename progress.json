@@ -145,24 +145,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-58",
-            "completedAt": 0,
-            "createdAt": 1793898800,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-58",
-            "note": "触发证据：DX-57 收尾实录（2026-11-06）：receipt 写 closed:[DX-57] closeMode:marker，但结卡提交从未落 main（无 chore(board): 结卡 提交、baseline 留 todo），git log --all 也找不到该提交——补推撞 non-ff 后按设计 reset 回滚，回执却照派生器输出记意图不记结果。危害：baseline 悬空期间 DX-57 可被重新领用重做（pitfalls 1.14 原始风险回归），且看回执的人被静默骗过。同期快照步推送赢下竞态，证明是瞬时竞态、重试可救。靠本会话手工 derive --close-cards + 自动来源行补回（063cf64）。\n\n## 目标\ngit-done 结卡补推撞 non-ff 静默回滚后回执仍虚报 closed，baseline 悬空可重领\n\n## 验收\n结卡补推撞 non-ff 时自动恢复：fetch origin → rebase 到 origin/main → 重推，上限 2 次重试；仍失败才 reset 回滚并明示「结卡挂起，待下次合并再结」; 回执只记事实：推送落地的卡才进 closed，回滚挂起的进新字段 closePending，结单对账行区分「已结 N / 挂起 M」; receipt 的 head 字段与主线实际推送结果一致，不再凭派生器输出记意图; pwsh -File scripts/verify.ps1 -ScriptOnly 全过（含 BOM 检查）\n\n## 边界\nscripts/git-done.ps1\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 28672,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "git-done 结卡补推撞 non-ff 静默回滚后回执仍虚报 closed，baseline 悬空可重领",
-            "updatedAt": 1793898800
-        },
-        {
             "code": "DX-59",
             "completedAt": 0,
             "createdAt": 1793898948,
@@ -2551,6 +2533,24 @@
             "updatedAt": 1793852255
         },
         {
+            "code": "DX-58",
+            "completedAt": 1793899114,
+            "createdAt": 1793898800,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-58",
+            "note": "触发证据：DX-57 收尾实录（2026-11-06）：receipt 写 closed:[DX-57] closeMode:marker，但结卡提交从未落 main（无 chore(board): 结卡 提交、baseline 留 todo），git log --all 也找不到该提交——补推撞 non-ff 后按设计 reset 回滚，回执却照派生器输出记意图不记结果。危害：baseline 悬空期间 DX-57 可被重新领用重做（pitfalls 1.14 原始风险回归），且看回执的人被静默骗过。同期快照步推送赢下竞态，证明是瞬时竞态、重试可救。靠本会话手工 derive --close-cards + 自动来源行补回（063cf64）。\n\n## 目标\ngit-done 结卡补推撞 non-ff 静默回滚后回执仍虚报 closed，baseline 悬空可重领\n\n## 验收\n结卡补推撞 non-ff 时自动恢复：fetch origin → rebase 到 origin/main → 重推，上限 2 次重试；仍失败才 reset 回滚并明示「结卡挂起，待下次合并再结」; 回执只记事实：推送落地的卡才进 closed，回滚挂起的进新字段 closePending，结单对账行区分「已结 N / 挂起 M」; receipt 的 head 字段与主线实际推送结果一致，不再凭派生器输出记意图; pwsh -File scripts/verify.ps1 -ScriptOnly 全过（含 BOM 检查）\n\n## 边界\nscripts/git-done.ps1\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 28672,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 结卡补推撞 non-ff 静默回滚后回执仍虚报 closed，baseline 悬空可重领",
+            "updatedAt": 1793899114
+        },
+        {
             "code": "R11-04",
             "completedAt": 1793892936,
             "createdAt": 1793890841,
@@ -3931,6 +3931,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T01:15:48",
+    "updated": "2026-11-06T01:18:34",
     "version": 3
 }

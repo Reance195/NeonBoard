@@ -4175,6 +4175,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-69": {
+            "agent": "agent-splash",
+            "branch": "fix/splash-percent-dpr",
+            "claimedAt": 1793901985,
+            "head": "245ed73686ab0c083a2a547ab1c0cb477866dc40"
+        }
+    },
     "version": 1
 }

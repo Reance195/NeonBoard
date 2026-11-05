@@ -4501,6 +4501,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-72": {
+            "agent": "agent-dx72",
+            "branch": "fix/nbflow-approve-guard",
+            "claimedAt": 1793904771,
+            "head": "f4b338e109cb6e1defc861f40c518036755ab4c6"
+        }
+    },
     "version": 1
 }

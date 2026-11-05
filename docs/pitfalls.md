@@ -678,6 +678,33 @@
 
 ---
 
+### 2.20 PowerShell 管道捕获 `git show` 中文输出按 GBK 解码，JSON 结构性断裂
+
+- **现象**：`$raw = & git show origin/main:docs/board-ledger.json` 后
+  `($raw -join "`n") | ConvertFrom-Json` 报「After parsing a value an unexpected
+  character was encountered: s. Path 'cards.DX-01.note'」——318KB 的台账在第一条中文
+  note 附近就断了，同一份文件 python `json.load` 一直正常。
+- **根因**：PowerShell 管道捕获 native 命令输出按 `[Console]::OutputEncoding`
+  （中文 Windows = GBK/cp936）解码，而 git 输出是 UTF-8。CJK 的 UTF-8 尾字节
+  （0x80-0xBF）大多落在 GBK trail 字节合法范围（0x40-0xFE，**含 0x5C 反斜杠**）：
+  某个多字节序列把紧随其后的 `\` 吞进自己的字形，`\"` 退化成裸 `"`，JSON 字符串
+  提前闭合，下一个内容字符成了「意外的 s」。引号本身（0x22）不会被吞，所以报错点
+  漂在第一个「中文后恰好跟转义符」的位置——看似随机损坏，实则确定性复现。
+- **解法**：拿原始字节，不过文本管道。两条实测可行：① `Start-Process -FilePath git
+  -ArgumentList ... -RedirectStandardOutput <文件> -Wait` 落盘后
+  `[IO.File]::ReadAllText(<文件>, [Text.Encoding]::UTF8)`；② 换 python 读
+  （`subprocess` 显式 `encoding="utf-8"`，nbflow 的 `run()` 即此做法）。
+- **判据**：PS 脚本里凡「native 命令输出 → JSON/结构化解析」的组合必须走字节落盘或
+  显式 utf-8；python 侧 `subprocess` 的 `text=True` 不带 `encoding` 同样中招（cp936）。
+  nbflow `run()` 已显式 utf-8；board-apply 同类问题由 DX-46 修复。
+- **一般化**：这不是 git 的坑，是「中文控制台 × UTF-8 世界」的坑——凡 PowerShell
+  捕获含非 ASCII 的 native 输出都适用（日志断言、diff 解析、JSON/YAML 解析）。
+  同构坑：`StringBuilder.AppendLine()` 写 `
+`，会让 `(?m)^...$` 行锚匹配落空，
+  自测断言与钩子正则双双失灵——手工拼接一律用反引号 n。
+
+---
+
 ## 三、构建与 Qt / QML
 
 ### 3.1 `rc.exe not found` / `type_traits` 找不到

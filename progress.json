@@ -235,6 +235,60 @@
             "updatedAt": 1793906024
         },
         {
+            "code": "DX-79",
+            "completedAt": 0,
+            "createdAt": 1793906764,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-79",
+            "note": "立卡通道说明：nbflow approve 两次竞态（DX-72 board-apply 未落盘 + 状态机视图互相矛盾）后改走宪章代登记；nbflow 请求单 frontmatter 的 acceptance 字段只落最后一条，多验收项丢失，属 nbflow 侧待修缺陷（与 DX-80 同域）。",
+            "orderKey": 53248,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "孤儿 refs/claims 永久滞留：释放判据只覆盖「台账有登记」与「sha 是 main 祖先」两类，孤儿占位三不管",
+            "updatedAt": 1793906764
+        },
+        {
+            "code": "DX-80",
+            "completedAt": 0,
+            "createdAt": 1793906764,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-80",
+            "note": "第三次实录补记（立卡后当天）：并行会话立卡 DX-81 未传显式 --batch，消费了本会话显式注册的授权行，DX-81 提交体批次错挂为「DX-79、DX-80」批次。另：request 多验收项只落最后一条（见 DX-79 note），建议随本卡一并修。",
+            "orderKey": 54272,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 复用共享授权行时批次标签跟着错挂：无机器判据，两次实录（DX-63~67、DX-73）",
+            "updatedAt": 1793906764
+        },
+        {
+            "code": "DX-81",
+            "completedAt": 0,
+            "createdAt": 1793906764,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-81",
+            "note": "触发证据：DX-64 把归因集合限定为「本分支 #卡=done 标记」（check_board_diff.py drift_explained 只吃 done 集合），但领卡（agent-init claims 登记 / nbflow dispatch）同样让派生状态变 doing 而快照留 todo——漂移同样由本分支自身动作解释、同样在合入时由 git-done 收敛，却仍红灯。本会话实录两次：DX-65、DX-36 领用后第一次 -ScriptOnly 均红于「todo → doing」，各手工 derive --write 一次；DX-67/DX-63 靠先提交 done 标记再 verify 绕开。归因判据应覆盖本分支自身动作的全体来源（done 标记 + claims 登记），不是只有最早踩坑的那一种。查重命中的 DX-64 已交付且验收只覆盖 done 半边，本卡是归因集合扩展非重复；DX-13/41/62 为 done/标记 词面噪声\n\n## 目标\n领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯\n\n## 验收\n漂移项可被本分支自身新增的 claims 登记（相对 base 的 claims diff 且派生状态为 doing）解释时降为提示（合入由 git-done 收敛），其余漂移维持非零退出;DX-64 的 done 标记归因口径回归不破（反例：与分支无关的真漂移仍红灯）;自测覆盖 claims 解释命中 / 无 claims 的 doing 漂移仍红 / done 与 claims 混合归因，verify -ScriptOnly 通过\n\n## 边界\nscripts/check_board_diff.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 55296,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯",
+            "updatedAt": 1793906764
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4327,6 +4381,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T03:18:25",
+    "updated": "2026-11-06T03:26:04",
     "version": 3
 }

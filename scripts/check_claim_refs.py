@@ -154,36 +154,37 @@ def _git_lines(*args):
     return [line.strip() for line in run.stdout.splitlines() if line.strip()]
 
 
-def audit_zombies():
-    """DX-76 巡检：全量扫描服务端 refs/claims/*，点名「应释放」的僵尸占位。
+def _scan_zombie_refs():
+    """服务端实态扫描 + classify（audit 与 release 共用的唯一扫描实现）。
 
     占位清单以 ls-remote 的服务端实态为准（§7.2.1：服务端 ref 是唯一事实源），
-    本地镜像可能滞后于他人已做的释放；对象不可达（离线）保守跳过整轮并告警。
-    退出码：0 干净（或保守跳过）/ 1 存在僵尸（CI 红，按提示补清）/ 2 仓库错误。
+    本地镜像可能滞后于他人已做的释放；同时刷新 origin/main 跟踪引用，
+    保证祖先判定读到的是服务器主线（合并刚推完、本地 tracking 尚未跟上的场景）。
+    返回 (zombies, skips, total)；origin / 台账不可达时返回 (None, None, 0)
+    表示整轮保守跳过。zombies 元素为 (ref, sha, code, detail)。
     """
-    server = _git_lines("ls-remote", "origin", "refs/claims/*")
+    server = _git_lines("ls-remote", "origin", "refs/claims/*", "refs/heads/main")
     if server is None:
-        sys.stderr.write("[巡检] origin 不可达（离线？），本轮保守跳过，不计僵尸。\n")
-        return 0
-    if not server:
-        print("[巡检] 服务端无任何 refs/claims/*，干净。")
-        return 0
-    # 对象可达性：先把服务端占位镜像到本地，merge-base / for-each-ref 才有对象可用。
-    git("fetch", "origin", "+refs/claims/*:refs/claims/*")
+        return None, None, 0
+    # 对象可达性：先把服务端占位与主线镜像到本地，merge-base / for-each-ref 才有对象可用。
+    git("fetch", "origin", "+refs/claims/*:refs/claims/*",
+        "+refs/heads/main:refs/remotes/origin/main")
 
+    # ls-remote 混入了 main 的跟踪行，占位遍历只留 claims；main 的存在性用 rev-parse 复核。
+    claims = [l for l in server if l.split("\t")[-1].strip().startswith("refs/claims/")]
     main_sha_run = git("rev-parse", "--verify", "-q", "origin/main")
     if main_sha_run.returncode != 0:
         sys.stderr.write("[巡检] origin/main 不可解析，本轮保守跳过，不计僵尸。\n")
-        return 0
+        return None, None, 0
 
     try:
         baseline = json.loads(LEDGER.read_text(encoding="utf-8")).get("baseline") or {}
     except (OSError, ValueError) as exc:
         sys.stderr.write("[巡检] 台账不可读（%s），本轮保守跳过，不计僵尸。\n" % exc)
-        return 0
+        return None, None, 0
 
     zombies, skips = [], []
-    for line in server:
+    for line in claims:
         sha, _, ref = line.partition("\t")
         sha, ref = sha.strip(), ref.strip()
         code = ref[len("refs/claims/"):]
@@ -203,11 +204,22 @@ def audit_zombies():
             zombies.append((ref, sha, code, detail))
         elif verdict == "skip":
             skips.append("%s：%s" % (ref, detail))
+    return zombies, skips, len(claims)
 
+
+def audit_zombies():
+    """DX-76 巡检：全量扫描服务端 refs/claims/*，点名「应释放」的僵尸占位。
+
+    退出码：0 干净（或保守跳过）/ 1 存在僵尸（CI 红，按提示补清）/ 2 仓库错误。
+    """
+    zombies, skips, total = _scan_zombie_refs()
+    if zombies is None:
+        sys.stderr.write("[巡检] origin 不可达（离线？），本轮保守跳过，不计僵尸。\n")
+        return 0
     for line in skips:
         sys.stderr.write("[巡检] 跳过：%s\n" % line)
     if not zombies:
-        print("[巡检] 僵尸占位巡检通过：%d 条服务端占位均无可释放项。" % len(server))
+        print("[巡检] 僵尸占位巡检通过：%d 条服务端占位均无可释放项。" % total)
         return 0
     sys.stderr.write("[巡检] 发现 %d 条应释放的僵尸占位（卡已 done、占位再无在办用途）：\n"
                      % len(zombies))
@@ -216,6 +228,33 @@ def audit_zombies():
         sys.stderr.write("    释放：git push origin --delete %s\n" % ref)
     sys.stderr.write("[巡检] 补清后重跑本巡检应转绿；收尾侧由 git-done 自动释放（单一实现见 classify_claim）。\n")
     return 1
+
+
+def release_zombies():
+    """DX-90 收尾释放：对巡检判定的僵尸逐条本地释放 + 服务端删除。
+
+    判定与巡检共用 _scan_zombie_refs / classify_claim（单一实现，不在 PS 复制判据）。
+    离线时服务端删除失败只告警（下次收尾再试，巡检会兜底点名），不阻断收尾。
+    输出实际释放的短号，一行一个（调用方据此留痕）。退出码恒 0（除仓库错误 2）。
+    """
+    zombies, skips, _ = _scan_zombie_refs()
+    if zombies is None:
+        sys.stderr.write("[释放] origin 或台账不可达（离线？），本轮保守跳过，下次收尾再试。\n")
+        return 0
+    for line in skips or []:
+        sys.stderr.write("[释放] 跳过：%s\n" % line)
+    for ref, sha, code, detail in zombies:
+        git("update-ref", "-d", ref)
+        print(code)
+        del_res = git("push", "origin", "--delete", ref)
+        if del_res.returncode == 0:
+            sys.stderr.write("[释放] %s @ %s：%s → 本地与服务端均已释放\n"
+                             % (ref, sha[:7], detail))
+        else:
+            sys.stderr.write("[释放] %s：服务端删除失败（离线？），本地已清，下次收尾再试\n" % ref)
+    if not zombies:
+        sys.stderr.write("[释放] 无可释放的僵尸占位。\n")
+    return 0
 
 
 def selftest():
@@ -321,6 +360,8 @@ def main():
                         help="只跑一分支多卡判定的自测（不读仓库）")
     parser.add_argument("--audit-zombies", action="store_true",
                         help="DX-76 巡检：全量扫描服务端 claim 占位，点名应释放的僵尸（不校验分支）")
+    parser.add_argument("--release-zombies", action="store_true",
+                        help="DX-90 收尾释放：对巡检判定的僵尸逐条本地释放并删服务端占位（stdout 输出释放短号）")
     args = parser.parse_args()
 
     # Windows 管道下 stdout 默认走 ANSI 代码页，打印 ✓ / ✗ 与中文直接 GBK 崩
@@ -335,6 +376,8 @@ def main():
         return selftest()
     if args.audit_zombies:
         return audit_zombies()
+    if args.release_zombies:
+        return release_zombies()
 
     log = git("log", "--format=%H%x09%s", "%s..%s" % (args.base, args.head))
     if log.returncode != 0:

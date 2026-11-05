@@ -126,7 +126,7 @@ TRANSITIONS = {
     "requested": {"accepted", "approved", "rejected", "abandoned"},
     "accepted": {"approved", "rejected", "blocked", "abandoned"},
     "approved": {"created", "blocked", "abandoned"},
-    "created": {"dispatched", "abandoned"},
+    "created": {"dispatched", "abandoned", "requested"},   # requested 仅 requeue 用（台账确无此卡，DX-57）
     "dispatched": {"running", "reported", "abandoned"},
     "running": {"reported", "abandoned"},
     "reported": {"closed", "running", "abandoned"},
@@ -395,8 +395,12 @@ def cmd_authorize(ctx: Ctx, state: dict, args) -> int:
 def cmd_request(ctx: Ctx, state: dict, args) -> int:
     # 编号自动分配（DX-55）：--card 省略时按 stage 命名空间从台账取下一个空号；
     # 显式给号时也查台账占用——请求阶段就拦，别等 approve 才炸。
+    # 占用集含台账 + 活队列 + 在途会话（DX-57：只看台账会撞队列/会话内占号，DX-56 实录）。
     stage = (args.stage or "DX").upper()
-    used = ledger_card_ids()
+    used = ledger_card_ids() | queued_card_ids() | {
+        k for k, v in state["sessions"].items()
+        if v.get("state") not in ("abandoned", "rejected")
+    }
     if args.card:
         card = args.card.upper()
         if not CARD_ID_RE.match(card):
@@ -470,6 +474,7 @@ def cmd_approve(ctx: Ctx, state: dict, args) -> int:
 
     reqs: list[tuple[str, Path, dict]] = []
     allocated: set[str] = set()
+    batch_ids = set(cards)
     for card in cards:
         p = find_request(card)
         cached = state["sessions"].get(card, {}).get("requestText", "")
@@ -487,7 +492,9 @@ def cmd_approve(ctx: Ctx, state: dict, args) -> int:
             return 1
         # 撞号改配（DX-55）：建议号已被台账（或本批先到的卡）占用时，按 stage
         # 命名空间改配下一个空号；会话键、请求单 card:、台账 note 全部跟着新号走。
-        used = ledger_card_ids() | allocated
+        # 占用集含台账 + 活队列 + 在途会话（DX-57），扣除本批自身的号防自撞。
+        used = (ledger_card_ids() | queued_card_ids()
+                | set(state["sessions"]) | allocated) - batch_ids
         suggested = (req.get("card") or card).upper()
         if suggested in used:
             new_id = next_card_id(used, req.get("stage") or "DX")
@@ -589,17 +596,36 @@ def _read_card(card: str) -> dict:
     return json.loads(text).get("cards", {}).get(card, {})
 
 
-def ledger_card_ids() -> set[str]:
-    """origin/main 台账的全部卡号；离线退回工作区副本，再退空集（DX-55 取号用）。"""
+def ledger_doc() -> dict | None:
+    """origin/main 台账原文；离线退回工作区副本，再退 None（DX-57 对账用）。"""
     code, text = run(["git", "-C", str(REPO), "show", "origin/main:docs/board-ledger.json"],
                      capture=True, quiet=True)
     if code != 0 or not text.strip():
         p = REPO / "docs" / "board-ledger.json"
         text = p.read_text(encoding="utf-8") if p.exists() else ""
     try:
-        return set(json.loads(text).get("cards", {}))
+        return json.loads(text)
     except ValueError:
-        return set()
+        return None
+
+
+def ledger_card_ids() -> set[str]:
+    """origin/main 台账的全部卡号；离线退回工作区副本，再退空集（DX-55 取号用）。"""
+    return set((ledger_doc() or {}).get("cards", {}))
+
+
+def queued_card_ids() -> set[str]:
+    """活队列请求单的卡号（DX-57：取号占用集漏了这里就会撞队列内占号）。"""
+    used: set[str] = set()
+    if REQUEST_DIR.is_dir():
+        for p in REQUEST_DIR.glob("*.md"):
+            try:
+                card = parse_request(p.read_text(encoding="utf-8")).get("card", "")
+            except (OSError, ValueError):
+                continue
+            if card:
+                used.add(card.upper())
+    return used
 
 
 def handoff_path(worktree: str) -> Path:
@@ -1178,6 +1204,80 @@ def cmd_status(ctx: Ctx, state: dict, args) -> int:
     return 0
 
 
+def reconcile_plan(sessions: dict, done_facts: set[str],
+                   ledger_cards: set[str]) -> list[tuple[str, str, str]]:
+    """纯函数：产出对账动作 [(card, from, to)]，不改任何状态（DX-57）。
+
+    事实判据由调用方收集（baseline=done 或会话 head 已并入 origin/main 记入
+    done_facts）。只动 dispatched/running 的僵尸在办与 approved 的滞后态；
+    created 且台账无卡的断链项不动，交 requeue 显式处理。
+    """
+    actions: list[tuple[str, str, str]] = []
+    for card, sess in sorted(sessions.items()):
+        st = sess.get("state", "")
+        if st in ("dispatched", "running") and card in done_facts:
+            actions.append((card, st, "closed"))
+        elif st == "approved" and card in ledger_cards:
+            actions.append((card, st, "created"))
+    return actions
+
+
+def cmd_reconcile(ctx: Ctx, state: dict, args) -> int:
+    """按 git 事实对齐状态机；只改程序状态，绝不写台账与工作树（DX-57）。"""
+    doc = ledger_doc() or {}
+    baseline = doc.get("baseline", {}) or {}
+    ledger_cards = set(doc.get("cards", {}))
+    done_facts = {c for c, b in baseline.items() if b == "done"}
+    for card, sess in state["sessions"].items():
+        head = sess.get("head", "")
+        if head and sess.get("state") in ("dispatched", "running"):
+            code, _ = run(["git", "-C", str(REPO), "merge-base", "--is-ancestor",
+                           head, "origin/main"], check=False, quiet=True)
+            if code == 0:
+                done_facts.add(card)
+    actions = reconcile_plan(state["sessions"], done_facts, ledger_cards)
+    if not actions:
+        out("✓ 状态机与 git 事实已对齐，无需动作")
+    for card, frm, to in actions:
+        out("  · %s: %s → %s（git 事实对账）" % (card, frm, to))
+        if to == "closed" and "closed" not in TRANSITIONS.get(frm, set()):
+            # 「未 report 不能 close」的纪律不破：reconcile 的 git 事实就是补交的
+            # 完成报告，走合法两跳 dispatched/running → reported → closed（DX-57）。
+            transition(ctx, state, card, "reported", reconcileBy="git-facts")
+            transition(ctx, state, card, "closed")
+        else:
+            transition(ctx, state, card, to)
+    stranded = sorted(c for c, s in state["sessions"].items()
+                      if s.get("state") == "created" and c not in ledger_cards)
+    if stranded:
+        out("  · 断链项（created 且台账无卡，可 requeue 重批）：%s" % ", ".join(stranded))
+    if actions:
+        out("✓ 对账完成：%d 项对齐" % len(actions))
+    return 0
+
+
+def cmd_requeue(ctx: Ctx, state: dict, args) -> int:
+    """断链恢复：created 且台账确无此卡 → 重置 requested 重新走 approve（DX-57）。"""
+    card = args.card.upper()
+    sess = state["sessions"].get(card)
+    if not sess or sess.get("state") != "created":
+        err("✗ %s 不在 created 态，无法重批（当前：%s）"
+            % (card, (sess or {}).get("state", "无会话")))
+        return 1
+    if card in ledger_card_ids():
+        err("✗ %s 已在台账，立卡已落地——请走 dispatch 领卡，不是 requeue" % card)
+        return 1
+    transition(ctx, state, card, "requested", requeuedAt=now())
+    p = find_request(card)
+    if p:
+        data = parse_request(p.read_text(encoding="utf-8"))
+        data["state"] = "requested"
+        if not ctx.dry_run:
+            p.write_text(render_request(data), encoding="utf-8")
+    out("✓ %s 已重置 requested，可重新 approve" % card)
+    return 0
+
+
 # ---------------------------------------------------------------- 自测
 
 def selftest() -> int:
@@ -1309,6 +1409,21 @@ def selftest() -> int:
               next_card_id({"DX-01"}, "ZZ") == "DX-02")
         check("撞号改配顺延且避开已占",
               next_card_id({"DX-55", "DX-56"}, "DX") == "DX-57")
+        check("对账规划：僵尸 dispatched/running 对齐 closed，approved+已立卡对齐 created",
+              reconcile_plan(
+                  {"DX-90": {"state": "dispatched"}, "DX-91": {"state": "running"},
+                   "DX-92": {"state": "approved"}, "DX-93": {"state": "created"},
+                   "DX-94": {"state": "requested"}},
+                  {"DX-90", "DX-91"}, {"DX-90", "DX-91", "DX-92", "DX-94"})
+              == [("DX-90", "dispatched", "closed"), ("DX-91", "running", "closed"),
+                  ("DX-92", "approved", "created")])
+        check("对账不动 created 断链项与正常项",
+              reconcile_plan({"DX-93": {"state": "created"}, "DX-95": {"state": "closed"}},
+                             set(), set()) == [])
+        check("转移表：created→requested 已合法，未 report 不能 close 的纪律未松",
+              "requested" in TRANSITIONS["created"]
+              and "closed" not in TRANSITIONS["dispatched"]
+              and "closed" not in TRANSITIONS["running"])
         check("slug 只留安全字符", _slug("feature/Foo Bar~x") == "feature-foo-bar-x")
         old_dir = REQUEST_DIR
         globals()["REQUEST_DIR"] = Path(td) / "card-requests"
@@ -1320,6 +1435,9 @@ def selftest() -> int:
             check("无会话授权只建单不立卡",
                   ticket_code == 0 and st3["sessions"][ticket_card]["state"] == "requested")
             check("冲突请求单已落盘", len(list((Path(td) / "card-requests").glob("*.md"))) == 1)
+            (Path(td) / "card-requests" / "fake.md").write_text(
+                "---\nstate: requested\ncard: DX-77\n---\n", encoding="utf-8")
+            check("queued_card_ids 读活队列", queued_card_ids() >= {"DX-77"})
         finally:
             globals()["REQUEST_DIR"] = old_dir
 
@@ -1415,6 +1533,13 @@ def build_parser() -> argparse.ArgumentParser:
     an.add_argument("--simulate-conflict", action="store_true", help="演练：模拟锚点阻塞")
     an.add_argument("--report-only", action="store_true", help="只诊断，不建工单")
 
+    rq2 = sub.add_parser("requeue", parents=[common],
+                         help="断链恢复：created 且台账无卡 → 重置 requested 重新 approve")
+    rq2.add_argument("--card", required=True)
+
+    sub.add_parser("reconcile", parents=[common],
+                   help="状态机对账：按 git 事实对齐僵尸态（只改程序状态）")
+
     sub.add_parser("status", parents=[common], help="查看状态机")
     return p
 
@@ -1442,6 +1567,7 @@ def main() -> int:
         "authorize": cmd_authorize, "request": cmd_request, "approve": cmd_approve,
         "dispatch": cmd_dispatch, "report": cmd_report, "close": cmd_close,
         "abandon": cmd_abandon, "anchor": cmd_anchor, "status": cmd_status,
+        "requeue": cmd_requeue, "reconcile": cmd_reconcile,
     }
     try:
         return handlers[args.cmd](ctx, state, args)

@@ -191,12 +191,12 @@
             "orderKey": 29696,
             "priority": 2,
             "stage": "DX",
-            "status": "todo",
+            "status": "doing",
             "tags": [
                 "DX"
             ],
             "title": "nbflow 状态机对账：report/close 被绕过致僵尸态，created 断链与取号队列盲区一并收口",
-            "updatedAt": 1793896640
+            "updatedAt": 1793897119
         },
         {
             "code": "R0-01",
@@ -3895,6 +3895,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T00:37:20",
+    "updated": "2026-11-06T00:45:19",
     "version": 3
 }

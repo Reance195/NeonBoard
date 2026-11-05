@@ -914,4 +914,13 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as exc:
+        # DX-72：预演/落盘崩溃也走干净的非零退出，traceback 不再混进调用方（nbflow approve
+        # 预演）的 diff 输出；NBFLOW_DEBUG=1 重跑可看完整堆栈。fail-closed：退出码非 0。
+        if os.environ.get("NBFLOW_DEBUG"):
+            raise
+        sys.stderr.write("✗ board-apply 内部错误：%s: %s（设 NBFLOW_DEBUG=1 重跑可看堆栈）\n"
+                         % (type(exc).__name__, exc))
+        sys.exit(5)

@@ -253,6 +253,42 @@
             "updatedAt": 1793906980
         },
         {
+            "code": "DX-86",
+            "completedAt": 0,
+            "createdAt": 1793908464,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-86",
+            "note": "与 DX-84（已修）的关系：DX-84 收口的是数据层三形态并存（台账数组/单串展开/清单校验），本卡是输入层 argparse 吞参——吞参发生在任何校验之前，DX-84 的校验看不见被吞的项，两卡互补不重叠。",
+            "orderKey": 58368,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow request 同一 flag 传多次静默吞参：多验收项只落最后一条，请求单定义残缺",
+            "updatedAt": 1793908464
+        },
+        {
+            "code": "DX-87",
+            "completedAt": 0,
+            "createdAt": 1793908464,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-87",
+            "note": "补充实录：同日 nbflow approve 立卡 DX-86/87 又卡在 approved 且 board-apply 零产出（DX-72 已修但仍有 variant），批次文件用完即删无法手工补跑——立卡通道的 fail-soft 失败面同样需要本卡式的「待办可见性」。",
+            "orderKey": 59392,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 冲突中止后收尾待办不可见：结卡/清领用/快照悬空，依赖后续会话顺带补",
+            "updatedAt": 1793908464
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4453,6 +4489,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T03:52:56",
+    "updated": "2026-11-06T03:54:24",
     "version": 3
 }

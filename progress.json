@@ -181,6 +181,24 @@
             "updatedAt": 1793901108
         },
         {
+            "code": "DX-69",
+            "completedAt": 0,
+            "createdAt": 1793901942,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-69",
+            "note": "",
+            "orderKey": 39936,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "启动闪屏百分比读数在高 DPI 下乱码：数字图集按逻辑像素采样",
+            "updatedAt": 1793901942
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4093,6 +4111,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T01:58:28",
+    "updated": "2026-11-06T02:05:42",
     "version": 3
 }

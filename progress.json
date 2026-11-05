@@ -55,24 +55,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-71",
-            "completedAt": 0,
-            "createdAt": 1793903068,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-71",
-            "note": "触发证据：本会话（DX-62 交付日 2026-11-06）实测：开区后并行会话把立卡 DX-69（67cb00c）推上主线，本分支基点停在 aff2dfd，verify -ScriptOnly 的台账分档报「卡片结构有变化（1 删除）：DX-69」并要求全量验收 —— 分支只是基点旧，无人删卡；靠手工 rebase 解决，诊断约十分钟。多代理并行（AGENTS.md 七）下这个场景会反复出现，报错应直接给出可执行的出路\n\n## 目标\n分支基点落后主线时台账分档误报删卡：按 origin/main 增量归因并提示 rebase\n\n## 验收\n对账前取 merge-base(origin/main, HEAD)：卡片结构差异若能被 origin/main 相对基点新增的立卡提交完整解释，降级为「台账基点落后于 origin/main（并行立卡 <短号>），先 rebase」的提示，不按删卡处理、不要求全量验收；反例不破：分支自身 diff 删除的主线现存卡仍按删卡红灯，与分支无关的真改契约仍要求全量；python scripts/check_board_diff.py --selftest 覆盖基点落后与真删卡两场景，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/check_board_diff.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 41984,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "分支基点落后主线时台账分档误报删卡：按 origin/main 增量归因并提示 rebase",
-            "updatedAt": 1793903068
-        },
-        {
             "code": "DX-72",
             "completedAt": 0,
             "createdAt": 1793903455,
@@ -3333,6 +3315,24 @@
             "updatedAt": 1793904322
         },
         {
+            "code": "DX-71",
+            "completedAt": 1793906305,
+            "createdAt": 1793903068,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-71",
+            "note": "触发证据：本会话（DX-62 交付日 2026-11-06）实测：开区后并行会话把立卡 DX-69（67cb00c）推上主线，本分支基点停在 aff2dfd，verify -ScriptOnly 的台账分档报「卡片结构有变化（1 删除）：DX-69」并要求全量验收 —— 分支只是基点旧，无人删卡；靠手工 rebase 解决，诊断约十分钟。多代理并行（AGENTS.md 七）下这个场景会反复出现，报错应直接给出可执行的出路\n\n## 目标\n分支基点落后主线时台账分档误报删卡：按 origin/main 增量归因并提示 rebase\n\n## 验收\n对账前取 merge-base(origin/main, HEAD)：卡片结构差异若能被 origin/main 相对基点新增的立卡提交完整解释，降级为「台账基点落后于 origin/main（并行立卡 <短号>），先 rebase」的提示，不按删卡处理、不要求全量验收；反例不破：分支自身 diff 删除的主线现存卡仍按删卡红灯，与分支无关的真改契约仍要求全量；python scripts/check_board_diff.py --selftest 覆盖基点落后与真删卡两场景，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/check_board_diff.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 41984,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "分支基点落后主线时台账分档误报删卡：按 origin/main 增量归因并提示 rebase",
+            "updatedAt": 1793906305
+        },
+        {
             "completedAt": 1792748226,
             "createdAt": 1792724522,
             "deleted": false,
@@ -4327,6 +4327,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T03:13:44",
+    "updated": "2026-11-06T03:18:25",
     "version": 3
 }

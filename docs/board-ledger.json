@@ -88,6 +88,8 @@
         "DX-87": "done",
         "DX-88": "todo",
         "DX-89": "done",
+        "DX-90": "todo",
+        "DX-91": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1893,6 +1895,36 @@
             ],
             "stage": "DX",
             "title": "nbflow dispatch 把 agent-init 指向调用者检出：领卡误入原地模式，冲突工单自动派发恒被 in-place 守卫拒"
+        },
+        "DX-90": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "depends": [],
+            "id": "DX-90",
+            "note": "触发证据：2026-11-06 实测：origin 13 条 done 卡占位无人释放——判据 1（main 祖先）被 rebase 重写打不中、判据 2（台账登记+分支已删）被 release-claims 前手清空打不中，死角形态见 pitfalls 2.24；DX-76 巡检落地后若收尾不自动释放，每张走 rebase 合并的卡都会新增一条僵尸，CI 巡检永远在追，必须在写者处根治。与查重命中的关系：DX-79 即本卡的直接前因——它立的就是这个第三判据，但全主线无任何实现提交即被结卡（虚假结卡，另行立卡收口结卡证据闸门），本卡是其补交付非重复\n\n## 目标\ngit-done 收尾不释放 rebase 重写占位：孤儿判定接入自动释放，僵尸不再每次合并新增\n\n## 验收\npwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/git-done.ps1;scripts/check_claim_refs.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/check_claim_refs.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "git-done 收尾不释放 rebase 重写占位：孤儿判定接入自动释放，僵尸不再每次合并新增"
+        },
+        "DX-91": {
+            "acceptance": [
+                "python scripts/derive_board_status.py --selftest 通过",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "depends": [],
+            "id": "DX-91",
+            "note": "触发证据：2026-11-06 实录：DX-79 baseline=done，但 git log origin/main --grep '#DX-79' 只命中立卡（chore(board): 立卡 DX-79 DX-80）与结卡（chore(board): 结卡）两类流程提交，非流程实现提交为零——其 acceptance 全部四项（第三判据进 release-claims.py、离线保守跳过、实测释放、selftest 进 CI）从未交付即被结卡。根因：结卡自动化只认提交信息里的 #短号=done 标记，标记谁都能写，写卡者与验卡者同一人，缺一道「活儿真干了」的机器判据（Z6）。在唯一写者（--close-cards）处 fail-closed 是最小且完整的拦截点\n\n## 目标\n结卡无证据闸门：无实现提交也能标 done（DX-79 虚假结卡实录），close-cards 需 fail-closed\n\n## 验收\npython scripts/derive_board_status.py --selftest 通过；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/derive_board_status.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/derive_board_status.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "结卡无证据闸门：无实现提交也能标 done（DX-79 虚假结卡实录），close-cards 需 fail-closed"
         },
         "M01": {
             "acceptance": [

@@ -61,6 +61,7 @@
         "DX-60": "todo",
         "DX-61": "todo",
         "DX-62": "todo",
+        "DX-68": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1385,6 +1386,23 @@
             ],
             "stage": "DX",
             "title": "交付合并但未投 done 标记的卡永久滞留且可被重复领用（DX-38/DX-44 实录）"
+        },
+        "DX-68": {
+            "acceptance": [
+                "冲突文件无 <<<<<<< 标记",
+                "git merge --no-ff chore/board-2026-11-06 完成",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 通过",
+                "合并结果用 merge 提交合回 origin/main",
+                "工单 note 记录冲突文件与解决方式"
+            ],
+            "depends": [],
+            "id": "DX-68",
+            "note": "触发证据：reason=merge-conflict branch=chore/board-2026-11-06 behind= files=docs/board-ledger.json docs/board-ledger.json: <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06 / <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06\n\n## 来源\n由 nbflow 自动建单：程序先合并一次，遇到冲突/阻塞不自行解决，交回 agent 合并后上交。\n\n## 冲突证据\n- 触发：merge-conflict\n- 分支：chore/board-2026-11-06（ours 329a099 / theirs 46a2c4c）\n- 冲突/脏项文件：docs/board-ledger.json\n- 诊断：docs/board-ledger.json: <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06 / <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06\n\n\n## 目标\n由 agent 在自己的 worktree 里完成合并、消除冲突标记，再合回主线并结卡上交。\n\n## 步骤\n1. dot-source .agent-env.ps1，先看 NB_SCOPE / NB_ACCEPTANCE\n2. git fetch origin; git merge --no-ff chore/board-2026-11-06（或基于最新 origin/main 重建合并）\n3. 台账冲突用 scripts/merge_board.py / scripts/merge-resolve.ps1 辅助，禁止留冲突标记\n4. 提交信息带 #DX-68=done，合并体写四段（变更/验收/影响/卡片）\n5. 跑 verify.ps1，再用 nbflow report 逐条填证据，最后 nbflow close 上交\n\n## 验收\n冲突文件无 <<<<<<< 标记; git merge --no-ff chore/board-2026-11-06 完成; pwsh -File scripts/verify.ps1 -ScriptOnly 通过; 合并结果用 merge 提交合回 origin/main; 工单 note 记录冲突文件与解决方式\n\n## 边界\ndocs/board-ledger.json\n\n## 交接\n原卡保持原状态（可重跑 close）；本工单 cleaned 后再重跑原卡的 close。",
+            "scope": [
+                "docs/board-ledger.json"
+            ],
+            "stage": "DX",
+            "title": "合并冲突：chore/board-2026-11-06 与 origin/main（程序自动建单）"
         },
         "M01": {
             "acceptance": [

@@ -70,6 +70,7 @@
         "DX-69": "done",
         "DX-70": "todo",
         "DX-71": "todo",
+        "DX-72": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1548,6 +1549,24 @@
             ],
             "stage": "DX",
             "title": "分支基点落后主线时台账分档误报删卡：按 origin/main 增量归因并提示 rebase"
+        },
+        "DX-72": {
+            "acceptance": [
+                "approve 内部异常被捕获并以非零退出码报错，不把 traceback 混进 diff 输出",
+                "approve 失败后台账保持未改（不出现半写状态）",
+                "python scripts/nbflow.py --selftest 通过"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [],
+            "evidence": "DX-69 立卡时实测：nbflow approve --cards DX-69 抛 board-apply.py 未捕获异常，traceback 打进 diff 输出，台账未写入，卡会话态停在 approved（绕过办法：直接跑 board-apply.py 落盘成功）。同批次同类问题已见 DX-45 / DX-46。",
+            "id": "DX-72",
+            "note": "",
+            "scope": [
+                "scripts/nbflow.py",
+                "scripts/board-apply.py"
+            ],
+            "stage": "DX",
+            "title": "nbflow approve 内部 board-apply 抛未捕获异常：立卡没落盘、会话卡在 approved"
         },
         "M01": {
             "acceptance": [

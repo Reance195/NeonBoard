@@ -38,7 +38,15 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LEDGER_REL = "docs/board-ledger.json"
+SNAPSHOT_REL = "progress.json"
 DERIVE = "scripts/derive_board_status.py"
+
+# 派生语义（标记解析 / 状态推导）只有一份实现在 derive_board_status.py（Z5），
+# 本文件只「调用」它做归因，不重复实现任何判定。
+try:
+    import derive_board_status as drv
+except ImportError:  # 同目录实现被挪走时保守退化：不可归因 → 维持红灯
+    drv = None
 
 # 卡片字段：任一变化都要全量（tst_projectmap 会读 stage / scope，其余字段变了
 # 虽不直接影响断言，但改卡片结构属于低频高风险动作，一并要求全量更省心）
@@ -96,6 +104,54 @@ def run_derive() -> int:
     for line in (out + err).splitlines():
         print("  " + line)
     return proc.returncode
+
+
+def drift_explained(drift: set[str], done: set[str]) -> bool:
+    """漂移集合是否被本分支自身的 #卡=done 标记**完整**解释（空漂移不算被解释）。"""
+    return bool(drift) and drift <= done
+
+
+def branch_done_codes(base: str, known: set[str]) -> set[str]:
+    """本分支相对 base 的提交里出现过的 #<短号>=done（DX-64 归因用）。
+
+    标记口径与派生器同源（collect_delivery_signals：subject 与 body 都算 done，
+    裸短号不算）。base..HEAD 在 main 上是空区间，归因自然不触发，CI 口径不变。
+    """
+    if drv is None:
+        return set()
+    commits = drv.git_log(str(REPO_ROOT), f"{base}..HEAD")
+    done, _bare = drv.collect_delivery_signals(commits, known)
+    return done
+
+
+def snapshot_drift_codes() -> set[str]:
+    """快照状态 ≠ 派生结果的卡号集合（DX-64 归因用）。
+
+    状态推导复用派生器自己的函数（derive_status / claims_doing / status_of），
+    只重走一遍「逐卡对快照」的比较；任何一步取不到都返回空集（归因不了就维持红灯）。
+    """
+    if drv is None:
+        return set()
+    try:
+        ledger = json.loads((REPO_ROOT / LEDGER_REL).read_text(encoding="utf-8"))
+        snapshot = json.loads((REPO_ROOT / SNAPSHOT_REL).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    cards = ledger.get("cards") or {}
+    baseline = ledger.get("baseline") or {}
+    claims = ledger.get("claims") or {}
+    root = str(REPO_ROOT)
+    derived, _unknown, _warnings = drv.derive_status(root, set(cards))
+    main_ref = drv.resolve_main_ref(root)
+    claims_active, _notes = drv.claims_doing(root, claims, main_ref)
+    by_code = {item["code"]: item for item in (snapshot.get("items") or []) if item.get("code")}
+    drift = set()
+    for code in cards:
+        want = drv.status_of(code, derived, claims_active, baseline)
+        item = by_code.get(code)
+        if item is None or item.get("status") != want:
+            drift.add(code)
+    return drift
 
 
 def classify(old: dict, new: dict) -> tuple[str, list[str]]:
@@ -179,6 +235,16 @@ def main(argv: list[str] | None = None) -> int:
 
     code = run_derive()
     if code != 0:
+        # DX-64 归因：漂移若能被**本分支自身**的 #卡=done 标记完整解释，说明快照
+        # 落后是分支中间态的必然（快照在合入收尾时才由 git-done 统一刷新），
+        # 降为提示；与分支无关的真漂移照旧红灯。
+        head_ledger = read_from_git("HEAD", LEDGER_REL) or {}
+        drift = snapshot_drift_codes()
+        done = branch_done_codes(args.base, set(head_ledger.get("cards") or {}))
+        if drift_explained(drift, done):
+            print("  · 快照漂移（%s）可被本分支自身 #卡=done 标记完整解释（DX-64）："
+                  "合入收尾时由 git-done 收敛，降为提示" % "、".join(sorted(drift)))
+            return 0
         print("  派生快照与 git 历史 / 台账不一致：先跑 derive_board_status.py --write 补推")
         return 1
     return 0
@@ -270,6 +336,18 @@ def selftest() -> int:
     # 改既有卡的非契约字段（title）也算改动既有卡 → full（保守）
     act, _ = classify(a, ledger({"DX-1": card("DX-1", title="改了标题")}, {"DX-1": "done"}, {}))
     check("改既有卡 title → full", act == "full")
+
+    # DX-64 归因：本分支 #卡=done 标记能完整解释的漂移降为提示
+    if drv is not None:
+        done, bare = drv.scan_delivery_commit("fix: x #DX-9=done", "另见 #DX-8=done", {"DX-8", "DX-9"})
+        check("归因解析：subject/body 的 #短号=done 都算本分支交付",
+              done == {"DX-9", "DX-8"} and not bare)
+        done, bare = drv.scan_delivery_commit("fix: x", "引用 #DX-8 讨论", {"DX-8"})
+        check("归因解析：裸短号不算交付（DX-31 口径）", done == set() and bare == set())
+    check("归因判定：漂移非空且全部被标记覆盖才降级",
+          drift_explained({"DX-9"}, {"DX-9", "DX-8"})
+          and not drift_explained(set(), {"DX-9"})
+          and not drift_explained({"DX-9", "DX-7"}, {"DX-9"}))
 
     print()
     if fails:

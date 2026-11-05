@@ -4336,13 +4336,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-36": {
-            "agent": "agent-dx36",
-            "branch": "fix/installer-compile-gate",
-            "claimedAt": 1793905319,
-            "head": "2b25cef45caed50b8cf0630b597b1d345b6937af"
-        }
-    },
+    "claims": {},
     "version": 1
 }

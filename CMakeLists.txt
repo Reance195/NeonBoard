@@ -58,6 +58,26 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS
 
 qt_standard_project_setup()
 
+# ---- DX-53：/utf-8 收敛到顶层一处 ----
+# MSVC 默认按**本地代码页**（中文机器上是 CP936）解析源码里的中文字面量，症状是
+# 「断言莫名失败」/中文常量乱码；/utf-8 把源字符集与执行字符集统一成 UTF-8。
+#
+# 这件事以前散在四处（NeonBoard / NeonBoardHost / neonboard-delta-tool 三个
+# target_compile_options，加上 tests/CMakeLists.txt 的 neonboard_add_test 一处），
+# 每加一个目标都得记得再写一遍 —— 漏写就静默回退到本地代码页。靠人记的约定迟早会漂：
+# 现状之所以没出事，是因为 Qt6::Platform 的 INTERFACE_COMPILE_OPTIONS 顺带带了 -utf-8
+# （Qt6Targets.cmake:64），凡是链 Qt6::Core 的目标都白捡了这个开关。那是**搭便车**，
+# 不是我方的约定 —— 哪天多一个不链 Qt 的目标（纯 C 工具、第三方库），覆盖就静默消失。
+#
+# 现在收敛成目录级 add_compile_options：一处声明，本目录以及此后 add_subdirectory
+# 引入的子目录里所有目标自动继承，新增目标不用再写第二遍。
+#
+# 位置有讲究：必须落在所有 add_subdirectory() 之前（本文件的 tests/ 在末尾），
+# 否则子目录拿不到目录属性 —— scripts/check_utf8_flag.py 强制校验这一条。
+if (MSVC)
+    add_compile_options(/utf-8)
+endif()
+
 # 编译缓存（R4-08）：本机装有 sccache 时，将其作为 C/C++ 编译器启动器包裹 cl.exe，
 # 复用未变动的翻译单元编译结果，显著加速增量 / 重复构建（与 Ninja 生成器配合最佳）。
 # 未安装 sccache 时 find_program 返回空，此处自动跳过，不影响任何现有构建路径。
@@ -182,10 +202,6 @@ target_compile_definitions(NeonBoard PRIVATE
     NEONBOARD_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
 
-if (MSVC)
-    target_compile_options(NeonBoard PRIVATE /utf-8)
-endif()
-
 qt_policy(SET QTP0001 NEW)
 
 set_source_files_properties(qml/theme/Theme.qml qml/theme/Motion.qml
@@ -305,10 +321,6 @@ target_compile_definitions(NeonBoardHost PRIVATE
     NEONBOARD_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
 
-if (MSVC)
-    target_compile_options(NeonBoardHost PRIVATE /utf-8)
-endif()
-
 set_target_properties(NeonBoardHost PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE FALSE
@@ -335,9 +347,6 @@ add_executable(neonboard-delta-tool
 target_compile_definitions(neonboard-delta-tool PRIVATE NEONBOARD_DELTA_TOOL_MAIN)
 target_link_libraries(neonboard-delta-tool PRIVATE Qt6::Core)
 target_include_directories(neonboard-delta-tool PRIVATE src src/update ${CMAKE_SOURCE_DIR})
-if (MSVC)
-    target_compile_options(neonboard-delta-tool PRIVATE /utf-8)
-endif()
 
 # 自动化测试（R4-05）：include(CTest) 提供 BUILD_TESTING 开关与 test 目标，
 # 默认开启，因此 CI 与本地 `cmake --build` 都会编译测试目标 —— 编译失败即等于

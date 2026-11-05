@@ -125,6 +125,18 @@ if ($ScriptOnly) {
     & python (Join-Path $repoRoot 'scripts\check_script_hygiene.py')
     if ($LASTEXITCODE -ne 0) { Fail '脚本卫生检查未通过' }
 
+    Step '编译口径守卫（/utf-8，DX-53）'
+    # /utf-8 决定 MSVC 怎么解析源码里的中文：漏了不会报错，只是按本地代码页读进去
+    # （症状是「断言莫名失败」/中文常量乱码）。DX-53 起它收敛为顶层目录级
+    # add_compile_options 一处，这一步守住「不许再散落回目标级」。
+    $utf8Script = Join-Path $repoRoot 'scripts\check_utf8_flag.py'
+    if ((Test-Path $utf8Script) -and (Get-Command python -ErrorAction SilentlyContinue)) {
+        & python $utf8Script --repo $repoRoot
+        if ($LASTEXITCODE -ne 0) { Fail '源码层的 /utf-8 声明不合规（应只有顶层一处目录级 add_compile_options）' }
+    } else {
+        Write-Host '· 跳过：未找到 scripts/check_utf8_flag.py 或 python' -ForegroundColor DarkGray
+    }
+
     Step '工作流 YAML 解析（.github/workflows/*.yml）'
     # 提示语只用 ASCII：这段程序的输出要被 capture 回来再打印，PowerShell 用控制台代码页
     # 解码子进程输出，中文会变乱码（「3 涓?workflow」）。少一类 bug 比多一行中文划算。
@@ -236,6 +248,22 @@ if (-not $QtRoot -and -not $ScriptOnly) {
     } else {
         Write-Host '  · 仍未探测到 Qt：--selftest 可能报 0xC0000135，请用 -QtRoot 指定' -ForegroundColor Yellow
     }
+}
+
+# ---------- 1.5 编译口径守卫（/utf-8，DX-53） ----------
+Step '编译口径守卫（/utf-8）'
+# 源码层合规不代表**生成物**真的带上了：目录属性位置不对、目标被覆盖、生成器行为差异，
+# 都会让某个编译单元漏掉 /utf-8。构建层实测的是「实际发生的事」，所以两层都查。
+$utf8Script = Join-Path $repoRoot 'scripts\check_utf8_flag.py'
+if ((Test-Path $utf8Script) -and (Get-Command python -ErrorAction SilentlyContinue)) {
+    & python $utf8Script --repo $repoRoot
+    if ($LASTEXITCODE -ne 0) { Fail '源码层的 /utf-8 声明不合规（应只有顶层一处目录级 add_compile_options）' }
+    & python $utf8Script --scan-build (Join-Path $repoRoot $BuildDir)
+    $utf8Code = $LASTEXITCODE
+    if ($utf8Code -eq 1) { Fail '生成物里有编译单元没带 /utf-8（见 scripts/check_utf8_flag.py）' }
+    if ($utf8Code -eq 2) { Fail "编译口径守卫无法检查构建目录 $BuildDir（找不到编译单元）" }
+} else {
+    Write-Host '· 跳过：未找到 scripts/check_utf8_flag.py 或 python' -ForegroundColor DarkGray
 }
 
 # ---------- 定位产物 ----------

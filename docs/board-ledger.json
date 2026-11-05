@@ -1513,7 +1513,7 @@
             "depends": [],
             "evidence": "实测复现：dpr=1.0 渲染百分比读数为 42%，dpr=1.5 渲染为乱码碎片",
             "id": "DX-69",
-            "note": "",
+            "note": "已完成 4 / 待做 0。\n\n根因：Scene::drawProgress 用**逻辑像素**当源矩形去采样**设备像素**数字图集（renderDigitAtlas 内部 scale(dpr)）。dpr=1.0 时 ×dpr 与 /dpr 恰好抵消，源矩形正好对上；dpr>1 则横向错位半格（取到隔壁格）、纵向只截到图集 2/3 高度，百分比碎成一片。125%/150% 屏必现，100% 屏正常。\n\n修复（src/shell/SplashScene.cpp）：源矩形改用设备像素尺度（宽 cell×dpr、高=图集完整设备高），目标矩形仍为逻辑坐标（画笔自带 dpr 变换，落到设备像素正好 1:1）。不动 renderDigitAtlas / renderStageLabel 的生成逻辑，不动 SplashWindow 的主线程渲染契约（DX-39）。\n\n回归（tests/tst_splashscene.cpp 新增 percentReadoutMatchesAcrossDevicePixelRatios）：同一场景在 dpr=1.0 / 1.5 各画两遍（有图集 / 无图集），作差得纯读数墨迹，比较两者逐逻辑列的墨迹纵向覆盖分布，相关性须 > 0.8。实测：修复后 0.95 通过；临时回退修复重编后 0.23 判红（确认用例不是假阳性）。\n\n文档：docs/pitfalls.md §4.11「设备像素图集按逻辑像素采样」。\n\n验收实测：ctest 37/37 通过（含 tst_splashscene）；pwsh -File scripts/verify.ps1 通过；NeonBoard.exe --selftest 退出码 0。",
             "scope": [
                 "src/shell/SplashScene.cpp",
                 "src/shell/SplashScene.h",
@@ -4203,6 +4203,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-69": {
+            "agent": "agent-splash",
+            "branch": "fix/splash-percent-dpr",
+            "claimedAt": 1793901985,
+            "head": "245ed73686ab0c083a2a547ab1c0cb477866dc40"
+        }
+    },
     "version": 1
 }

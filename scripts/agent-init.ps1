@@ -83,9 +83,11 @@ if ($scriptRepoRoot) {
 # 同一仓库的不同工作树 → 默认中止并给两条出路；不在检出里 / 属于别的仓库没有漂移信号，不拦。
 function Get-NbCommonDir {
     param([string]$RepoPath)
-    $p = ([string](& git -C $RepoPath rev-parse --path-format=absolute --git-common-dir 2>$null)).Trim()
+    $raw = & git -C $RepoPath rev-parse --path-format=absolute --git-common-dir 2>$null
+    $p = if ($raw) { ([string]$raw).Trim() } else { '' }
     if (-not $p) {
-        $p = ([string](& git -C $RepoPath rev-parse --git-common-dir 2>$null)).Trim()
+        $raw = & git -C $RepoPath rev-parse --git-common-dir 2>$null
+        $p = if ($raw) { ([string]$raw).Trim() } else { '' }
         if (-not $p) { return $null }
         if (-not [System.IO.Path]::IsPathRooted($p)) { $p = Join-Path $RepoPath $p }
     }
@@ -95,8 +97,9 @@ function Test-CheckoutDrift {
     param([string]$ScriptTree, [switch]$Allowed)
 
     if (-not $ScriptTree) { return }                          # 脚本不在检出内（异常布局），无从比对
-    $callerTop = ([string](& git rev-parse --show-toplevel 2>$null)).Trim()
-    if (-not $callerTop) { return }                           # 调用方不在任何 git 检出里，无漂移信号
+    $rawTop = & git rev-parse --show-toplevel 2>$null
+    if (-not $rawTop) { return }                              # 调用方不在任何 git 检出里，无漂移信号
+    $callerTop = ([string]$rawTop).Trim()
     $callerTop = (Resolve-Path -LiteralPath $callerTop).Path -replace '/', '\'
     $scriptTop = (Resolve-Path -LiteralPath $ScriptTree).Path -replace '/', '\'
     if ($callerTop -ieq $scriptTop) { return }                # 同区调用，正常

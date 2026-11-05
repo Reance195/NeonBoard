@@ -143,6 +143,22 @@ function Invoke-MergeStage {
             } elseif (-not $DryRun) {
                 if ((Invoke-Git add '--' $file).Code -ne 0) { $manual += "$file（git add 失败）" }
             }
+        } elseif ($file -eq 'progress.json') {
+            # DX-64：快照是派生物（AGENTS.md §11——agent 禁止手改，分支上的快照改动
+            # 只会来自 git-done 收尾的派生），两边必然重叠。按「取主线为底加重算」的
+            # 手工舞步自动处理：先取 origin/main 版本，合并提交后 -Recover 的
+            # derive --write 按合并后的全量历史重算收敛，提交体带自动来源行留痕。
+            Write-Host "· 快照冲突（$file）：取 origin/main 版本为底，合并提交后由 -Recover 派生重算收敛" -ForegroundColor DarkGray
+            if ($DryRun) {
+                Write-Host '  [dry-run] 将执行：git checkout origin/main -- progress.json && git add' -ForegroundColor DarkGray
+            } else {
+                $co = Invoke-Git checkout 'origin/main' '--' $file
+                if ($co.Code -ne 0) {
+                    $manual += "$file（取 origin/main 版本失败，需手工解）"
+                } elseif ((Invoke-Git add '--' $file).Code -ne 0) {
+                    $manual += "$file（git add 失败）"
+                }
+            }
         } else {
             $manual += "$file（无自动合并规则）"
         }

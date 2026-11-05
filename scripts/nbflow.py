@@ -52,8 +52,10 @@ claim-card.py、agent-init.ps1、git-done.ps1、release-claims.py 里，靠人�
 运行时状态在 ``<git-common-dir>/neonboard-flow/state.json``（不入库、跨 worktree 共享）。
 任务定义仍只存在于 ``docs/board-ledger.json``，本程序不把它当状态库。
 审计留痕仍走既有通道：提交信息、台账、refs/claims、合并提交体。
-``--dry-run`` 只写程序内部状态（.git 下），不写仓库文件、不执行任何外部 git/pwsh 命令
-（不联网、不推送、不开区），因此逐条演练也能把状态机串起来。
+``--dry-run`` 的状态转移只在内存演算，不落盘也不执行任何外部 git/pwsh 命令
+（不联网、不推送、不开区）：预演不留痕迹，预演后紧跟真跑不会被「非法状态转移」拒（DX-65）。
+状态机是台账与 git 事实的**投影**：每个子命令入口先隐式对账（缺会话补影、僵尸对齐），
+删掉 state.json 各子命令照常工作（DX-65）。
 
 用法
 ----
@@ -242,9 +244,13 @@ def load_state(ctx: Ctx) -> dict:
 
 def save_state(ctx: Ctx, state: dict) -> None:
     state["updatedAt"] = now()
+    if ctx.dry_run:
+        # dry-run 纯化（DX-65）：状态转移只在内存演算。以前 dry-run 也写 state.json
+        # （在 .git/ 下）好让逐条演练串起来，代价是预演后紧跟真跑会被自己留下的
+        # 状态拒掉（「非法状态转移」，DX-65 实录）；投影化后状态可由事实重建，
+        # 演练痕迹不再值得留盘。
+        return
     p = ctx.state_file
-    # dry-run 也写程序内部状态（在 .git/ 下，不属于仓库工作树），这样逐条 --dry-run
-    # 能把状态机串起来；仓库文件（请求单/派发包/回执）与外部命令仍一律不碰。
     p.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix="state-", suffix=".json", dir=str(p.parent))
     try:
@@ -1342,12 +1348,25 @@ def reconcile_plan(sessions: dict, done_facts: set[str],
     return actions
 
 
-def cmd_reconcile(ctx: Ctx, state: dict, args) -> int:
-    """按 git 事实对齐状态机；只改程序状态，绝不写台账与工作树（DX-57）。"""
+def reconcile_state(ctx: Ctx, state: dict) -> tuple[list[tuple[str, str, str]], list[str]]:
+    """投影对账（DX-65）：按台账/git 事实把内存状态对齐，可被任意子命令隐式调用。
+
+    ① 缺会话补影：台账未结卡且无会话 → created（粗粒度但足以让 dispatch/close 接手；
+       已结卡不补，status 不被 181 张历史卡淹没）。
+    ② 僵尸对齐：dispatched/running 且事实已并入 origin/main → closed（两跳，DX-57）；
+       approved 且台账已有卡 → created。
+    只改内存 state；是否落盘由调用方定（dry-run 永不落盘）。返回 (对齐动作, 补影卡号)。
+    """
     doc = ledger_doc() or {}
     baseline = doc.get("baseline", {}) or {}
     ledger_cards = set(doc.get("cards", {}))
     done_facts = {c for c, b in baseline.items() if b == "done"}
+    synthesized: list[str] = []
+    for card in sorted(ledger_cards - set(state["sessions"])):
+        if baseline.get(card) != "done":
+            state["sessions"][card] = {"state": "created", "history": [
+                {"at": now(), "from": "-", "to": "created", "by": "projection"}]}
+            synthesized.append(card)
     for card, sess in state["sessions"].items():
         head = sess.get("head", "")
         if head and sess.get("state") in ("dispatched", "running"):
@@ -1356,10 +1375,7 @@ def cmd_reconcile(ctx: Ctx, state: dict, args) -> int:
             if code == 0:
                 done_facts.add(card)
     actions = reconcile_plan(state["sessions"], done_facts, ledger_cards)
-    if not actions:
-        out("✓ 状态机与 git 事实已对齐，无需动作")
     for card, frm, to in actions:
-        out("  · %s: %s → %s（git 事实对账）" % (card, frm, to))
         if to == "closed" and "closed" not in TRANSITIONS.get(frm, set()):
             # 「未 report 不能 close」的纪律不破：reconcile 的 git 事实就是补交的
             # 完成报告，走合法两跳 dispatched/running → reported → closed（DX-57）。
@@ -1367,12 +1383,25 @@ def cmd_reconcile(ctx: Ctx, state: dict, args) -> int:
             transition(ctx, state, card, "closed")
         else:
             transition(ctx, state, card, to)
+    return actions, synthesized
+
+
+def cmd_reconcile(ctx: Ctx, state: dict, args) -> int:
+    """按 git 事实对齐状态机；只改程序状态，绝不写台账与工作树（DX-57）。"""
+    actions, synthesized = reconcile_state(ctx, state)
+    for card in synthesized:
+        out("  · %s: 补影 → created（台账未结卡缺会话，DX-65）" % card)
+    for card, frm, to in actions:
+        out("  · %s: %s → %s（git 事实对账）" % (card, frm, to))
+    if not actions and not synthesized:
+        out("✓ 状态机与 git 事实已对齐，无需动作")
     stranded = sorted(c for c, s in state["sessions"].items()
-                      if s.get("state") == "created" and c not in ledger_cards)
+                      if s.get("state") == "created" and c not in set(ledger_card_ids()))
     if stranded:
         out("  · 断链项（created 且台账无卡，可 requeue 重批）：%s" % ", ".join(stranded))
-    if actions:
-        out("✓ 对账完成：%d 项对齐" % len(actions))
+    if actions or synthesized:
+        save_state(ctx, state)
+        out("✓ 对账完成：%d 项对齐 / %d 项补影" % (len(actions), len(synthesized)))
     return 0
 
 
@@ -1613,6 +1642,48 @@ def selftest() -> int:
             globals()["ARCHIVE_REQUEST_DIR"] = old_arch
             globals()["ledger_doc"] = old_doc
 
+        # DX-65 投影化：断链重算 / 缺会话补影 / dry-run 纯化 / 删 state.json 可重建
+        old_doc65 = ledger_doc
+        globals()["ledger_doc"] = lambda: {
+            "baseline": {"DX-80": "done", "DX-81": "todo", "DX-83": "todo"},
+            "cards": {"DX-80": {"title": "已交付卡"}, "DX-81": {"title": "在库卡有会话"},
+                      "DX-83": {"title": "在库卡缺会话"}}}
+        try:
+            st6 = blank_state()
+            st6["sessions"]["DX-80"] = {"state": "dispatched", "history": []}
+            st6["sessions"]["DX-81"] = {"state": "approved", "history": []}
+            with contextlib.redirect_stdout(io.StringIO()):
+                actions, synth = reconcile_state(c, st6)
+            check("投影：僵尸 dispatched 事实已结 → 两跳 closed",
+                  ("DX-80", "dispatched", "closed") in actions
+                  and st6["sessions"]["DX-80"]["state"] == "closed")
+            check("投影：approved 且台账已有卡 → created",
+                  ("DX-81", "approved", "created") in actions
+                  and st6["sessions"]["DX-81"]["state"] == "created")
+            check("投影：台账未结卡缺会话补影 created，已结卡不补",
+                  synth == ["DX-83"] and st6["sessions"]["DX-83"]["state"] == "created")
+
+            class DryCtx(Ctx):
+                def __init__(self):
+                    super().__init__(dry_run=True)
+                    self._common = Path(td) / "dry-projection"
+
+            dry = DryCtx()
+            st7 = blank_state()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                transition(dry, st7, "DX-90", "accepted")
+            check("dry-run 纯化：状态转移不落盘", not dry.state_file.exists())
+            fresh = FakeCtx()
+            fresh._common = Path(td) / "fresh-projection"
+            loaded = load_state(fresh)
+            check("删 state.json 后 load 得空投影", loaded["sessions"] == {})
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                transition(fresh, loaded, "DX-90", "accepted")
+            check("删 state.json 后真跑不被预演状态拒",
+                  load_state(fresh)["sessions"]["DX-90"]["state"] == "accepted")
+        finally:
+            globals()["ledger_doc"] = old_doc65
+
     failed = [n for n, ok in cases if not ok]
     for name, ok in cases:
         out(("  ✓ " if ok else "  ✗ ") + name)
@@ -1737,6 +1808,15 @@ def main() -> int:
     except RuntimeError as exc:
         err("✗ %s" % exc)
         return 4
+    # 投影化（DX-65）：每个子命令入口先按事实对账，status 结论恒等于现算结果；
+    # state.json 丢失也能重建。reconcile 子命令自己就是对账，跳过免得做两遍。
+    if args.cmd != "reconcile":
+        try:
+            fixes, _synth = reconcile_state(ctx, state)
+        except (RuntimeError, OSError, ValueError):
+            fixes = []  # 对账是投影校正（fail-soft）：取不到事实就按现状继续
+        if fixes and not ctx.dry_run:
+            save_state(ctx, state)
     handlers = {
         "authorize": cmd_authorize, "request": cmd_request, "approve": cmd_approve,
         "dispatch": cmd_dispatch, "report": cmd_report, "close": cmd_close,

@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="neon">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeonBoard 界面重排 · 主界面原型</title>
+<link rel="stylesheet" href="prototype.css">
+<style>
+  /* ---------- 原型页外围（不属于应用界面） ---------- */
+  body {
+    background: #05060A;
+    padding: 28px 0 56px;
+    min-height: 100vh;
+  }
+
+  .proto-bar {
+    width: 1180px;
+    margin: 0 auto 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .proto-bar h1 {
+    font-size: 14px;
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: .5px;
+  }
+
+  .proto-bar .sub {
+    font-size: 11px;
+    color: #7C8BA1;
+  }
+
+  .proto-bar .spacer { flex: 1; }
+
+  .proto-group {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 8px;
+    border: 1px solid rgba(34,211,238,.16);
+    background: rgba(255,255,255,.03);
+  }
+
+  .proto-group button {
+    padding: 5px 11px;
+    border-radius: 6px;
+    font-size: 11px;
+    color: #7C8BA1;
+    transition: all .16s ease;
+  }
+
+  .proto-group button:hover { color: #E6F1FF; }
+  .proto-group button.on {
+    background: rgba(34,211,238,.2);
+    color: #22D3EE;
+    font-weight: 600;
+  }
+
+  .proto-note {
+    width: 1180px;
+    margin: 16px auto 0;
+    font-size: 11px;
+    line-height: 1.7;
+    color: #7C8BA1;
+    border-left: 2px solid rgba(34,211,238,.3);
+    padding-left: 12px;
+  }
+
+  .proto-note b { color: #22D3EE; font-weight: 600; }
+
+  /* ---------- 旧版对照视图 ---------- */
+  .compare {
+    width: 1180px;
+    margin: 0 auto;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  .compare-side { flex: 1; min-width: 0; }
+
+  .compare-label {
+    font-size: 11px;
+    color: #7C8BA1;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .compare-label .tagline {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: rgba(255,255,255,.06);
+  }
+
+  .compare-label .tagline--new {
+    color: #22D3EE;
+    background: rgba(34,211,238,.16);
+  }
+
+  .compare-label .tagline--old { color: #F472B6; background: rgba(244,114,182,.14); }
+
+  .budget {
+    width: 1180px;
+    margin: 18px auto 0;
+    border-radius: 12px;
+    border: 1px solid rgba(34,211,238,.14);
+    background: rgba(255,255,255,.02);
+    padding: 14px 16px;
+  }
+
+  .budget h2 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    color: #E6F1FF;
+    letter-spacing: .5px;
+  }
+
+  .budget table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  .budget th, .budget td {
+    text-align: left;
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    color: #A9B6C8;
+  }
+
+  .budget th {
+    color: #7C8BA1;
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: .8px;
+  }
+
+  .budget td b { color: #E6F1FF; }
+  .budget .cut { color: #FB7185; }
+  .budget .keep { color: #5EEAD4; }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <h1>NeonBoard 界面重排 · 主界面</h1>
+  <span class="sub">保留赛博霓虹基调，重做信息层级与竖直密度</span>
+  <span class="spacer"></span>
+
+  <div class="proto-group" id="viewGroup">
+    <button data-view="new" class="on">新版排版</button>
+    <button data-view="old">现状对照</button>
+    <button data-view="compare">并排对比</button>
+    <button data-view="budget">竖直预算</button>
+  </div>
+
+  <div class="proto-group" id="themeGroup">
+    <button data-theme="neon" class="on">霓虹青</button>
+    <button data-theme="violet">赛博紫</button>
+    <button data-theme="sunset">落日橙</button>
+    <button data-theme="abyss">深海蓝</button>
+    <button data-theme="forest">森野绿</button>
+    <button data-theme="mono">极夜灰</button>
+  </div>
+</div>
+
+<!-- ============ 新版主界面 ============ -->
+<div id="viewNew">
+  <div class="nb-window">
+    <div class="nb-titlebar">
+      <div class="nb-logo">N</div>
+      <div class="nb-wordmark">NEONBOARD</div>
+      <span class="nb-titlebar-spacer"></span>
+      <button class="nb-tool nb-tool--primary">＋ 新建</button>
+      <button class="nb-tool">全景</button>
+      <div class="nb-themedots">
+        <i class="nb-themedot nb-themedot--1"></i>
+        <i class="nb-themedot nb-themedot--2"></i>
+        <i class="nb-themedot nb-themedot--3"></i>
+      </div>
+      <div class="nb-winbtns">
+        <button class="nb-winbtn">—</button>
+        <button class="nb-winbtn">□</button>
+        <button class="nb-winbtn nb-winbtn--close">✕</button>
+      </div>
+    </div>
+
+    <div class="nb-body">
+      <!-- 侧栏 -->
+      <aside class="nb-sidebar">
+        <div class="nb-sidebar-head">
+          <span class="nb-sidebar-title">工作台</span>
+          <span class="nb-sidebar-sub">PERSONAL WORKBENCH</span>
+        </div>
+
+        <nav>
+          <div class="nb-nav nb-nav--active"><span class="nb-nav-icon">▦</span>看板</div>
+          <div class="nb-nav"><span class="nb-nav-icon">◈</span>插件</div>
+          <div class="nb-nav"><span class="nb-nav-icon">⚙</span>设置</div>
+          <div class="nb-nav"><span class="nb-nav-icon">⧗</span>队列<span class="nb-nav-badge">1/3</span></div>
+          <div class="nb-nav"><span class="nb-nav-icon">▷</span>预览</div>
+        </nav>
+
+        <div class="nb-slot">
+          <b>多表面示例</b>
+          <small>侧栏槽位 · 示例插件</small>
+        </div>
+
+        <div class="nb-sidebar-spacer"></div>
+
+        <div class="nb-sidecard">
+          <div class="nb-sidecard-head"><span>插件库</span><span>8</span></div>
+          <div class="nb-sidecard-row">Agent 任务桥<span class="tag">已装</span></div>
+          <div class="nb-sidecard-row">Claude Code<span class="tag">已装</span></div>
+          <div class="nb-sidecard-row">Codex CLI<span class="tag">已装</span></div>
+          <div class="nb-sidecard-row">Cursor Agent<span class="tag">已装</span></div>
+          <div class="nb-sidecard-row">opencode<span class="tag">已装</span></div>
+          <div class="nb-sidecard-row">计划钩子<span class="tag">已装</span></div>
+          <div class="nb-sidecard-links">
+            <span>刷新市场</span><span>重新扫描</span><span>打开目录</span><span>详情</span>
+          </div>
+        </div>
+
+        <div class="nb-sidefoot">
+          <div>SQLite · 552 条任务</div>
+          <div class="ok">HOTKEY  Ctrl+Shift+Space</div>
+        </div>
+      </aside>
+
+      <!-- 主区 -->
+      <main class="nb-main">
+        <!-- 顶栏：标题 + 统计 + 操作收进一行 -->
+        <header class="nb-header">
+          <span class="nb-header-title">工作台</span>
+          <span class="nb-header-sub">专注当下，逐项推进</span>
+          <span class="nb-header-spacer"></span>
+          <div class="nb-statband">
+            <div class="nb-stat nb-stat--cyan"><b>359</b><span>待办</span></div>
+            <div class="nb-stat-sep"></div>
+            <div class="nb-stat nb-stat--violet"><b>17</b><span>进行中</span></div>
+            <div class="nb-stat-sep"></div>
+            <div class="nb-stat nb-stat--magenta"><b>21</b><span>今日完成</span></div>
+            <div class="nb-stat-sep"></div>
+            <div class="nb-stat nb-stat--danger"><b>101</b><span>逾期</span></div>
+          </div>
+          <button class="nb-tool" style="height:26px">专注</button>
+        </header>
+
+        <!-- 工具行：项目 / 阶段 / 搜索合并成一行 -->
+        <div class="nb-toolrow">
+          <div class="nb-segment">
+            <span class="nb-seg nb-seg--active">● 全局 <span class="num">552</span></span>
+            <span class="nb-seg">● NeonBoard <span class="num">112</span></span>
+            <span class="nb-seg">● 抢号系统 <span class="num">6</span></span>
+            <span class="nb-seg">● 启动窗改造 <span class="num">7</span></span>
+          </div>
+
+          <div class="nb-stagebar">
+            <span class="nb-stagebar-label">里程碑</span>
+            <span class="nb-chip nb-chip--active">全部</span>
+            <span class="nb-chip"><i class="bar" style="color:#22D3EE"></i>R0 <span class="num">12/14</span></span>
+            <span class="nb-chip"><i class="bar" style="color:#A78BFA"></i>R1 <span class="num">9/12</span></span>
+            <span class="nb-chip"><i class="bar" style="color:#F472B6"></i>R2 <span class="num">7/11</span></span>
+            <span class="nb-chip"><i class="bar" style="color:#5EEAD4"></i>R3 <span class="num">4/9</span></span>
+            <span class="nb-chip"><i class="bar" style="color:#FBBF24"></i>R6 <span class="num">3/8</span></span>
+            <span class="nb-chip" style="color:var(--nb-muted)">其他 <span class="num">221</span></span>
+          </div>
+
+          <div class="nb-search">
+            <span>⌕</span><span>搜索任务</span><kbd>Ctrl K</kbd>
+          </div>
+        </div>
+
+        <!-- 活跃横幅：可收起 -->
+        <section class="nb-activity" id="activityBar">
+          <div class="nb-activity-title">
+            <b>活跃热力</b>
+            <span>近 13 周 · 共 220 次完成</span>
+          </div>
+          <div class="nb-heat" id="heatGrid"></div>
+          <div class="nb-activity-stats">
+            <div class="nb-activity-stat">
+              <div class="k">单日峰值</div>
+              <div class="v">40</div>
+            </div>
+            <div class="nb-activity-stat">
+              <div class="k">连续</div>
+              <div class="v hot">4 天</div>
+            </div>
+          </div>
+          <button class="nb-collapse-btn" onclick="toggleActivity()">收起</button>
+        </section>
+
+        <!-- 看板 -->
+        <section class="nb-board">
+          <div class="nb-column">
+            <div class="nb-column-head">
+              <i class="nb-column-dot" style="background:#22D3EE"></i>
+              <span class="nb-column-title">待办</span>
+              <span class="nb-column-count">359</span>
+            </div>
+            <div class="nb-column-list">
+              <div class="nb-card" style="color:#22D3EE">
+                <div class="nb-card-title">a</div>
+                <div class="nb-card-meta">
+                  <span class="nb-tag nb-tag--plain">多表面示例</span>
+                  <span>卡片槽位 · 8c94675f</span>
+                </div>
+              </div>
+              <div class="nb-card" style="color:#A78BFA">
+                <div class="nb-card-title">DX 开发链路三处重复实现收敛</div>
+                <div class="nb-card-meta">
+                  <span class="nb-tag">NeonBoard</span>
+                  <span class="nb-tag nb-tag--violet">DX</span>
+                  <span class="nb-tag nb-tag--danger">10-23</span>
+                </div>
+              </div>
+              <div class="nb-card" style="color:#22D3EE">
+                <div class="nb-card-title">路线图进度上板：里程碑条与项目视图打通</div>
+                <div class="nb-card-meta">
+                  <span class="nb-tag">NeonBoard</span>
+                  <span class="nb-tag nb-tag--violet">路线图</span>
+                  <span class="nb-tag nb-tag--danger">10-23</span>
+                </div>
+              </div>
+            </div>
+            <div class="nb-quickadd">＋ 添加任务，回车</div>
+          </div>
+
+          <div class="nb-column">
+            <div class="nb-column-head">
+              <i class="nb-column-dot" style="background:#A78BFA"></i>
+              <span class="nb-column-title">进行中</span>
+              <span class="nb-column-count">17</span>
+            </div>
+            <div class="nb-column-list">
+              <div class="nb-card" style="color:#A78BFA">
+                <div class="nb-card-title">拆解成插件</div>
+                <div class="nb-card-meta">
+                  <span class="nb-tag nb-tag--plain">多表面示例</span>
+                  <span>卡片槽位 · 7b9884b9</span>
+                </div>
+              </div>
+              <div class="nb-card" style="color:#A78BFA">
+                <div class="nb-card-title">托盘右键菜单霓虹化：宿主自绘分层窗口</div>
+                <div class="nb-card-meta">
+                  <span class="nb-tag">NeonBoard</span>
+                  <span class="nb-tag nb-tag--violet">R17</span>
+                </div>
+              </div>
+            </div>
+            <div class="nb-quickadd">＋ 添加任务，回车</div>
+          </div>
+
+          <div class="nb-column nb-column--done">
+            <div class="nb-column-head">
+              <i class="nb-column-dot" style="background:#F472B6"></i>
+              <span class="nb-column-title">已完成</span>
+              <span class="nb-column-count">176</span>
+            </div>
+            <div class="nb-column-list">
+              <div class="nb-card" style="color:#F472B6">
+                <div class="nb-card-title">主题引擎 v1：6 套预设 + 换色渐变</div>
+                <div class="nb-card-meta">
+                  <span class="nb-tag">NeonBoard</span>
+                  <span class="nb-tag nb-tag--magenta">主题</span>
+                </div>
+              </div>
+              <div class="nb-card" style="color:#F472B6">
+                <div class="nb-card-title">路线图进度上板：里程碑完成度一眼可见</div>
+                <div class="nb-card-meta">
+                  <span class="nb-tag">NeonBoard</span>
+                  <span class="nb-tag nb-tag--violet">路线图</span>
+                  <span class="nb-tag nb-tag--danger">10-23</span>
+                </div>
+              </div>
+            </div>
+            <div class="nb-quickadd">＋ 添加任务，回车</div>
+          </div>
+
+          <div class="nb-addcol">
+            <span class="plus">＋</span>
+            <span>列</span>
+          </div>
+        </section>
+
+        <div class="nb-bottomslot">
+          <span class="diamond">◈</span>
+          <span>底部面板槽位：插件可以在这里放状态条、播放控制或快捷入口。</span>
+          <span class="right">SURFACES</span>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 现状对照 ============ -->
+<div id="viewOld" style="display:none">
+  <div class="compare">
+    <div class="compare-side">
+      <div class="compare-label">
+        <span class="tagline tagline--old">现状</span>
+        <span>顶区 264 px · 三条独立筛选行 · 热力图常驻 72 px</span>
+      </div>
+      <div class="nb-window" style="transform:scale(.86);transform-origin:top left;width:1180px;height:760px;margin-bottom:-105px">
+        <div class="nb-titlebar">
+          <div class="nb-logo">N</div>
+          <div class="nb-wordmark">NEONBOARD</div>
+          <span class="nb-titlebar-spacer"></span>
+          <button class="nb-tool nb-tool--primary">＋ 新建</button>
+          <button class="nb-tool">全景</button>
+          <div class="nb-themedots"><i class="nb-themedot nb-themedot--1"></i><i class="nb-themedot nb-themedot--2"></i><i class="nb-themedot nb-themedot--3"></i></div>
+          <div class="nb-winbtns"><button class="nb-winbtn">—</button><button class="nb-winbtn">□</button><button class="nb-winbtn nb-winbtn--close">✕</button></div>
+        </div>
+        <div class="nb-body">
+          <aside class="nb-sidebar">
+            <div class="nb-sidebar-head"><span class="nb-sidebar-title">工作台</span></div>
+            <nav>
+              <div class="nb-nav nb-nav--active"><span class="nb-nav-icon">▦</span>看板</div>
+              <div class="nb-nav"><span class="nb-nav-icon">◈</span>插件</div>
+              <div class="nb-nav"><span class="nb-nav-icon">⚙</span>设置</div>
+              <div class="nb-nav"><span class="nb-nav-icon">⧗</span>队列<span class="nb-nav-badge">1/3</span></div>
+              <div class="nb-nav"><span class="nb-nav-icon">▷</span>预览</div>
+            </nav>
+            <div class="nb-slot"><b>多表面示例</b><small>侧栏槽位 · 示例插件</small></div>
+            <div class="nb-sidebar-spacer"></div>
+            <div class="nb-sidecard">
+              <div class="nb-sidecard-head"><span>插件库</span><span>8</span></div>
+              <div class="nb-sidecard-links"><span>刷新市场</span><span>重新扫描</span><span>打开目录</span><span>详情</span></div>
+            </div>
+            <div class="nb-sidefoot"><div>SQLite · 552 条任务</div></div>
+          </aside>
+          <main class="nb-main">
+            <!-- 现状：标题 + 副标题一行 -->
+            <header class="nb-header" style="height:40px">
+              <span class="nb-header-title" style="font-size:18px">工作台</span>
+              <span class="nb-header-sub">专注当下，逐项推进</span>
+              <span class="nb-header-spacer"></span>
+              <div class="nb-statband">
+                <div class="nb-stat nb-stat--cyan"><b>359</b><span>待办</span></div>
+                <div class="nb-stat nb-stat--violet"><b>17</b><span>进行中</span></div>
+                <div class="nb-stat nb-stat--magenta"><b>21</b><span>今日完成</span></div>
+                <div class="nb-stat nb-stat--danger"><b>101</b><span>逾期</span></div>
+              </div>
+            </header>
+            <!-- 现状：项目行 + 搜索（独立一行） -->
+            <div style="height:48px;display:flex;align-items:center;padding:0 20px;gap:12px">
+              <span style="font-size:11px;color:var(--nb-muted)">项目</span>
+              <div class="nb-segment">
+                <span class="nb-seg nb-seg--active">全局 <span class="num">552</span></span>
+                <span class="nb-seg">NeonBoard <span class="num">112</span></span>
+                <span class="nb-seg">抢号系统 <span class="num">6</span></span>
+                <span class="nb-seg">启动窗改造 <span class="num">7</span></span>
+              </div>
+              <span class="nb-header-spacer"></span>
+              <div class="nb-search" style="flex:0 0 300px;height:28px"><span>⌕</span><span>搜索任务</span></div>
+            </div>
+            <!-- 现状：阶段行（独立一行） -->
+            <div style="height:48px;display:flex;align-items:center;padding:0 20px;gap:12px;border-bottom:1px solid var(--nb-hairline)">
+              <span class="nb-stagebar-label">里程碑</span>
+              <div class="nb-stagebar">
+                <span class="nb-chip nb-chip--active">全部</span>
+                <span class="nb-chip">其他 <span class="num">221</span></span>
+              </div>
+              <span class="nb-header-spacer"></span>
+              <span style="font-size:10px;color:var(--nb-warning)">⚠ 路线图同步未启用</span>
+            </div>
+            <!-- 现状：热力图常驻 72px -->
+            <div class="nb-activity" style="height:72px;margin:8px 0">
+              <div class="nb-activity-title"><b>活跃热力</b><span>近 13 周 · 共 220 次完成</span><span>单日峰值 40</span></div>
+              <div class="nb-heat" id="heatGridOld"></div>
+              <div class="nb-activity-stats">
+                <div class="nb-activity-stat"><div class="k">连续</div><div class="v hot">4 天</div></div>
+              </div>
+            </div>
+            <section class="nb-board">
+              <div class="nb-column">
+                <div class="nb-column-head"><i class="nb-column-dot" style="background:#22D3EE"></i><span class="nb-column-title">待办</span><span class="nb-column-count">359</span></div>
+                <div class="nb-column-list"><div class="nb-card" style="color:#22D3EE"><div class="nb-card-title">a</div><div class="nb-card-meta"><span class="nb-tag nb-tag--plain">多表面示例</span></div></div></div>
+                <div class="nb-quickadd">＋ 添加任务，回车</div>
+              </div>
+              <div class="nb-column">
+                <div class="nb-column-head"><i class="nb-column-dot" style="background:#A78BFA"></i><span class="nb-column-title">进行中</span><span class="nb-column-count">17</span></div>
+                <div class="nb-column-list"><div class="nb-card" style="color:#A78BFA"><div class="nb-card-title">拆解成插件</div></div></div>
+                <div class="nb-quickadd">＋ 添加任务，回车</div>
+              </div>
+              <div class="nb-column nb-column--done">
+                <div class="nb-column-head"><i class="nb-column-dot" style="background:#F472B6"></i><span class="nb-column-title">已完成</span><span class="nb-column-count">176</span></div>
+                <div class="nb-column-list"><div class="nb-card" style="color:#F472B6"><div class="nb-card-title">主题引擎 v1：6 套预设</div></div></div>
+                <div class="nb-quickadd">＋ 添加任务，回车</div>
+              </div>
+              <div class="nb-addcol"><span class="plus">＋</span><span>列</span></div>
+            </section>
+          </main>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 并排对比 ============ -->
+<div id="viewCompare" style="display:none">
+  <div class="compare">
+    <div class="compare-side">
+      <div class="compare-label">
+        <span class="tagline tagline--old">现状</span>
+        <span>顶区 264 px</span>
+      </div>
+      <div class="nb-window" id="cmpOld" style="transform:scale(.52);transform-origin:top left;width:1180px;height:760px;margin-bottom:-365px"></div>
+    </div>
+    <div class="compare-side">
+      <div class="compare-label">
+        <span class="tagline tagline--new">新版</span>
+        <span>顶区 128 px</span>
+      </div>
+      <div class="nb-window" id="cmpNew" style="transform:scale(.52);transform-origin:top left;width:1180px;height:760px;margin-bottom:-365px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 竖直预算表 ============ -->
+<div id="viewBudget" style="display:none">
+  <div class="budget">
+    <h2>竖直预算：顶区 264 px → 128 px（省 136 px）</h2>
+    <table>
+      <thead>
+        <tr><th>区块</th><th>现状</th><th>新版</th><th>做法</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>标题栏</td><td>40</td><td class="keep">40</td>
+          <td>不动。自绘标题栏是既定设计</td>
+        </tr>
+        <tr>
+          <td>标题 + 统计行</td><td>40</td><td class="keep">44</td>
+          <td>「工作台 / 专注当下」与统计带同行，省掉一整行</td>
+        </tr>
+        <tr>
+          <td>项目切换行</td><td>48</td><td class="cut">—</td>
+          <td class="cut">并入工具行，不再独占一行</td>
+        </tr>
+        <tr>
+          <td>里程碑行</td><td>48</td><td class="cut">—</td>
+          <td class="cut">并入工具行，与项目切换器同行</td>
+        </tr>
+        <tr>
+          <td>搜索框</td><td>（占项目行右侧）</td><td class="keep">（占工具行右侧）</td>
+          <td>位置不变，但不再挤占项目行的横向空间</td>
+        </tr>
+        <tr>
+          <td>热力图横幅</td><td>80</td><td class="keep">54</td>
+          <td>压缩高度 + 可收起为 28 px 摘要条</td>
+        </tr>
+        <tr>
+          <td>工具行（新增）</td><td>—</td><td class="keep">36</td>
+          <td>项目 / 阶段 / 搜索合并的单一工具行</td>
+        </tr>
+        <tr>
+          <td><b>顶区合计</b></td><td><b>264</b></td><td class="keep"><b>128</b></td>
+          <td><b>省 136 px，760 px 窗口下看板从 476 px 涨到 612 px（+28%）</b></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 style="margin-top:18px">横向预算：主区每列 283 px → 296 px</h2>
+    <table>
+      <thead>
+        <tr><th>项</th><th>现状</th><th>新版</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>侧栏宽</td><td>220</td><td class="keep">220</td><td>不动。插件库卡片需要这个宽度</td></tr>
+        <tr><td>主区左右留白</td><td>20 + 20</td><td class="keep">20 + 20</td><td>不动</td></tr>
+        <tr><td>列间距</td><td>12</td><td class="keep">12</td><td>不动</td></tr>
+        <tr><td>加列按钮</td><td>46</td><td class="keep">40</td><td>略收窄</td></tr>
+        <tr><td><b>每列净宽</b></td><td><b>283</b></td><td class="keep"><b>296</b></td><td>卡片标题 15 px 下少折一行</td></tr>
+      </tbody>
+    </table>
+
+    <h2 style="margin-top:18px">本次不动的部分（避免越界）</h2>
+    <table>
+      <thead><tr><th>保留项</th><th>原因</th></tr></thead>
+      <tbody>
+        <tr><td>霓虹 Shader 背景</td><td>既定视觉资产，重排不改氛围</td></tr>
+        <tr><td>六套主题预设</td><td>配色不动，只重排位置</td></tr>
+        <tr><td>令牌阶梯（圆角 / 间距 / 字号）</td><td>Theme.qml 已有，重排沿用同一套，不新增第二份</td></tr>
+        <tr><td>快捷键与无障碍语义</td><td>交互契约，与排版无关</td></tr>
+        <tr><td>卡片拖拽与撤销栈</td><td>行为逻辑，与排版无关</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="proto-note">
+  <b>读法：</b>点「并排对比」看新旧两版的同屏差异，点「竖直预算」看每个区块的 px 明细。
+  顶部主题按钮可切换 6 套预设（数值取自 <code>qml/theme/Theme.qml</code>），确认配色在重排后依然成立。
+</div>
+
+<script>
+  // 视图切换
+  const views = { new: 'viewNew', old: 'viewOld', compare: 'viewCompare', budget: 'viewBudget' };
+  document.getElementById('viewGroup').addEventListener('click', function (e) {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    [...this.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b === btn));
+    for (const k in views) {
+      document.getElementById(views[k]).style.display = (k === btn.dataset.view) ? '' : 'none';
+    }
+  });
+
+  // 主题切换
+  document.getElementById('themeGroup').addEventListener('click', function (e) {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    [...this.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b === btn));
+    document.documentElement.setAttribute('data-theme', btn.dataset.theme);
+  });
+
+  // 热力图：造 91 格（13 周 × 7 天）
+  function buildHeat(el) {
+    if (!el) return;
+    let html = '';
+    for (let w = 0; w < 13; w++) {
+      for (let d = 0; d < 7; d++) {
+        const v = (w * 7 + d * 3) % 11;
+        const a = v === 0 ? 0.06 : 0.12 + (v / 11) * 0.72;
+        html += '<i style="background:color-mix(in srgb, var(--nb-cyan) ' + Math.round(a * 100) + '%, transparent)"></i>';
+      }
+    }
+    el.innerHTML = html;
+  }
+  buildHeat(document.getElementById('heatGrid'));
+  buildHeat(document.getElementById('heatGridOld'));
+
+  // 并排对比：克隆两版窗口
+  function cloneWindows() {
+    const newSrc = document.querySelector('#viewNew .nb-window');
+    const oldSrc = document.querySelector('#viewOld .nb-window');
+    const cNew = document.getElementById('cmpNew');
+    const cOld = document.getElementById('cmpOld');
+    if (!cNew.dataset.filled) {
+      cNew.innerHTML = newSrc.outerHTML;
+      cOld.innerHTML = oldSrc.outerHTML;
+      cNew.dataset.filled = '1';
+      buildHeat(cNew.querySelector('#heatGrid'));
+      buildHeat(cOld.querySelector('#heatGridOld'));
+    }
+  }
+  document.getElementById('viewGroup').addEventListener('click', function (e) {
+    const btn = e.target.closest('button');
+    if (btn && btn.dataset.view === 'compare') cloneWindows();
+  });
+
+  // 热力图横幅收起 / 展开
+  function toggleActivity() {
+    const bar = document.getElementById('activityBar');
+    const collapsed = bar.classList.toggle('nb-activity--collapsed');
+    bar.querySelector('.nb-collapse-btn').textContent = collapsed ? '展开' : '收起';
+    const title = bar.querySelector('.nb-activity-title');
+    if (collapsed) {
+      title.innerHTML = '<b>活跃热力</b> 近 13 周 · 共 220 次完成';
+    } else {
+      title.innerHTML = '<b>活跃热力</b><span>近 13 周 · 共 220 次完成</span>';
+    }
+  }
+</script>
+
+</body>
+</html>

@@ -31,10 +31,16 @@ on:
       # progress.json 刻意**不**忽略：快照变更恰恰最需要被校验 ——
       # 原先忽略它是为了躲开自己回写造成的自激，不回写了就没有这个顾虑。
       #
-      # 预期行为：合并提交那一刻 progress.json 还没被 git-done 收尾刷新，这次 run
-      # 会红一次；紧随其后的收尾提交（改 ledger / progress.json）再触发一次并通过。
-      # **红灯停在这儿不消失，就是收尾失败了** —— R14-01 那次正是三件收尾全部回滚，
-      # 靠人肉补的 d064c12。这个红灯是信号，不是噪声，别顺手屏蔽。
+      # 预期行为（DX-44 改写）：**中间态不再产生 failure run**。
+      # 一次 git-done 收尾会分步快进补推 3~4 个提交（合并 / 清理登记 / 结卡 / 快照），
+      # 每个都不自洽（快照必须最后刷新，因为派生器要读前几步写完的 git 事实），
+      # 而 job 约 40 秒、推送间隔约 8 秒 —— 下面 concurrency.cancel-in-progress=true
+      # 会让前几个 run 直接被判为过时并取消，不发失败通知。
+      #
+      # 因此判据落点自动挪到 **main tip 那一个 run**：
+      #   - main tip 绿 = 收尾完成、快照与 git 事实一致；
+      #   - main tip 红 = 收尾那几步真的失败了（离线 / 撞车 / 脚本失败），照提示补跑。
+      # 校验本身一档没松：--check 对中间态照样返回非零，只是那次 run 不再被留着报红。
       - 'update.json'
   pull_request:
     branches: [ main ]
@@ -48,7 +54,13 @@ permissions:
 
 concurrency:
   group: board-${{ github.ref }}
-  cancel-in-progress: false
+  # DX-44：这里必须是 true。
+  # 一次收尾推 3~4 个提交，前几个是注定短暂的中间态（快照还没刷），false 时它们
+  # 各自排队跑完并各自报红 —— 实测每批收尾固定产 1~3 封失败邮件（R16-05 3 封、
+  # R5-08 2 封、R5-10 2 封、DX-40 立卡 1 封），噪声大到没人再看这条流水线。
+  # job 约 40s、推送间隔约 8s，true 之后新推送取消上一个在跑的 run：
+  # 只有最后一个（= main tip）会跑完并给出结论。校验逻辑与权限一字未动。
+  cancel-in-progress: true
 
 jobs:
   board:

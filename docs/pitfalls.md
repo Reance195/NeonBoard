@@ -927,8 +927,9 @@
   卡已 done 且（占位是 main 祖先 ‖ 占位不被任何本地/远端分支引用）→ 点名「应释放」；
   台账无卡 / 对象不可达 / 离线一律保守跳过并告警，绝不误删活跃占位（R18 这类在办卡的占位
   仍被在办分支引用，判据天然保留）。CI 侧 `board.yml` 新增巡检步骤（只点名拦截，无写权限不代删）；
-  存量按巡检输出逐条 `git push origin --delete` 补清。收尾侧的自动释放接线见同日立卡的
-  后继卡（git-done 接入同一判定），否则每次合并新增一条、巡检永远在追。
+  存量按巡检输出逐条 `git push origin --delete` 补清。收尾侧 DX-90 把同一判定接入
+  `Invoke-ClaimRefCleanup`（`check_claim_refs.py --release-zombies`，不在 PS 复制判据），
+  rebase 重写占位在收尾时自动释放，不再靠巡检追着手工补。
 - **判据**：`python scripts/check_claim_refs.py --selftest`（含僵尸判定正反例）通过；
   `python scripts/check_claim_refs.py --audit-zombies` 对真实 origin 实跑，点名数与预期存量一致、
   补清后转绿（退出码 1 → 0）；`board.yml` 巡检步骤随 push 生效。
@@ -936,6 +937,33 @@
   单看都无害（宁滥勿缺），但一条失效对象、一条被前手清空，联合起来就是永久死角。给「该被清掉
   的东西」配巡检时，判据必须按**最终实态**（对象还在不在、还被不被引用）设计，不能只按
   「某次动作有没有跑到」设计——动作会漏跑、会打不中，实态不会撒谎。
+
+### 2.25 虚假结卡（DX-79 实录）：`#短号=done` 标记谁都能写，零实现也能关掉防重领的门
+
+- **现象**（2026-11-06 会话发现）：DX-79 baseline=done，但其 acceptance 全部四项
+  （孤儿释放第三判据进 release-claims.py、离线保守跳过、实测释放、selftest 进 CI）
+  一项都没交付 —— `git log origin/main --grep '#DX-79'` 只命中立卡（`chore(board): 立卡 DX-79 DX-80`）
+  与结卡（`chore(board): 结卡`）两类流程提交，非流程实现提交为**零**。auto-close 后防重复领用的
+  门（baseline=done）反而把这个没做过的卡永久关上了。
+- **根因**：结卡自动化（DX-07）只认提交信息里的 `#短号=done` 标记，而标记由提交作者自己写
+  ——写标记与验卡是同一人，缺一道「活儿真干了」的机器判据（Z6）。结卡提交自身的 body 还会
+  写入 `#短号=done`（`close_commit_marker`），一旦错误结卡，标记自我 perpetuate，
+  事后没有任何信号能发现。
+- **修复（DX-91）**：在唯一写者处 fail-closed —— `derive_board_status.py --close-cards`
+  结卡前校验**交付证据**：候选结卡的短号必须被至少一条非流程提交（`ADMIN_SUBJECT` 排除
+  chore(claim)/chore(board)）在 subject 或 body 里引用过；缺失即逐卡点名并整轮拒绝落盘
+  （退出码 2，git-done 按派生器失败回滚，留待补引用后重跑收尾）。body 也算证据是刻意的：
+  状态标记本来就认 body（DX-31，7 张卡的派生状态只有 body 一处），只认 subject 会把合法
+  交付误拦；闸门拦的是「零提交引用」的机械假结，不是散文交叉引用。
+  `--close-explicit`（DX-33）不经此门 —— 人工确认通道本来就是给无标记可读的卡留的。
+- **判据**：`python scripts/derive_board_status.py --selftest`（含 DX-79 形态正反例）通过；
+  实跑验证：DX-79 存量形态（全流程引用）被拒、正常实现提交形态放行。
+- **存量豁免**：已 done 卡不追溯重开（幂等口径不变，`--check` 不新增红灯）；DX-79 本身
+  作为虚假结卡实态保留在台账（其验收项由 DX-76/DX-90 补交付，见 2.24）。
+- **一般化**：**自动化的闸门只认「谁写的」，不认「写的对不对」；凡是「作者即验者」的信号，
+  都要配一道独立于作者的证据判据**。结卡闭环缺的不是流程，是证据——补证据的位置选在
+  唯一写者（fail-closed 阻断落盘），而不是 CI 事后报红（红完 baseline 已经错了，防重领的
+  门已经关上了）。
 
 ---
 

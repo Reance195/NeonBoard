@@ -71,6 +71,7 @@
         "DX-70": "done",
         "DX-71": "todo",
         "DX-72": "todo",
+        "DX-73": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1567,6 +1568,20 @@
             ],
             "stage": "DX",
             "title": "nbflow approve 内部 board-apply 抛未捕获异常：立卡没落盘、会话卡在 approved"
+        },
+        "DX-73": {
+            "acceptance": [
+                "自测覆盖：删 state.json 后按 refs/claims + 分支历史重建，已领用卡不退回 created；python scripts/nbflow.py 自测通过"
+            ],
+            "depends": [],
+            "id": "DX-73",
+            "note": "触发证据：2026-11-06 DX-66 实录：nbflow dispatch 回执明确输出「DX-66: created → dispatched」，refs/claims/DX-66 已推上 origin（a91f544），分支带两条领用提交；随后 nbflow status 却显示 created、state.json 无 DX-66 条目，report 被拒「DX-66 不在可执行态（当前：created）」，只能绕过 nbflow report/close 走 git-done 裸收尾（即 memory 里长期记录的『report/close 回路被普遍绕过』的又一成因）\n\n## 目标\nnbflow 投影重建不消费服务端 refs/claims：已领用卡被重建成 created，report/close 拒收\n\n## 验收\n自测覆盖：删 state.json 后按 refs/claims + 分支历史重建，已领用卡不退回 created；python scripts/nbflow.py 自测通过\n\n## 边界\nscripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/nbflow.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "nbflow 投影重建不消费服务端 refs/claims：已领用卡被重建成 created，report/close 拒收"
         },
         "M01": {
             "acceptance": [

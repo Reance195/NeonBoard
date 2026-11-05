@@ -482,6 +482,31 @@ def _board_worktree(ctx: Ctx, batch_slug: str) -> Path:
     return REPO / ".worktrees" / ("_nbflow-board-" + batch_slug)
 
 
+def board_apply_outcome(code: int) -> str:
+    """board-apply 退出码归类（DX-72）：ok=已落盘；noop=台账已有所需卡，无需变更；fail=其余一律失败。
+
+    3 是 board-apply 的「无需变更」信号（清单里的卡台账全都有 / 应用后无差异），
+    旧实现把落盘阶段的 3 当失败，重复批准 / 并行会话抢先落盘都会把会话卡死。
+    """
+    if code == 0:
+        return "ok"
+    if code == 3:
+        return "noop"
+    return "fail"
+
+
+def _mark_created(ctx: Ctx, state: dict, card: str, p: Path, auth: dict, branch: str) -> None:
+    """落盘确认后回写请求单并推进会话；approved→created 两跳都发生在台账落盘之后（DX-72）。"""
+    data = parse_request(p.read_text(encoding="utf-8")) if p.exists() else {}
+    data["state"] = "approved"
+    data["approvedBy"] = auth["by"]
+    data["batch"] = auth["batch"]
+    if not ctx.dry_run:
+        p.write_text(render_request(data), encoding="utf-8")
+    transition(ctx, state, card, "approved")
+    transition(ctx, state, card, "created", boardBranch=branch)
+
+
 def cmd_approve(ctx: Ctx, state: dict, args) -> int:
     cards = [c.strip().upper() for c in (args.cards or "").split(",") if c.strip()]
     if args.all:
@@ -539,14 +564,29 @@ def cmd_approve(ctx: Ctx, state: dict, args) -> int:
     manifests = []
     for card, _p, req in reqs:
         manifests.append(request_to_manifest(req))
-        transition(ctx, state, card, "approved")
     path, temps = _write_manifest(manifests, ctx.dry_run)
+
+    def block_batch(reason: str) -> int:
+        # DX-72：落盘失败整批退回 blocked（blocked→accepted 可重试），
+        # approved 只在台账真正落盘后才进入，会话不再卡死在中间态。
+        for card, _p, _req in reqs:
+            transition(ctx, state, card, "blocked", nextStep=reason + "；排查后重跑 approve")
+        return 2
+
     try:
         # ① 预演：20 项校验由 board-apply.py 负责，程序不重复实现
         code, _ = run(py_script("board-apply.py", [path, "--diff"]), dry=ctx.dry_run)
-        if code not in (0, 3):
+        if board_apply_outcome(code) == "fail":
             err("✗ 预演未通过（退出码 %d），整批不落盘" % code)
-            return 2
+            return block_batch("预演未通过（退出码 %d）" % code)
+        if board_apply_outcome(code) == "noop":
+            # 清单里的卡台账全都有了（重复批准 / 并行会话已立卡 / 断链重试）：
+            # board-apply 判定无需变更，跳过落盘与合并直接进 created（DX-72）
+            out("  · 卡片已在台账，无需再立卡")
+            for card, p, _req in reqs:
+                _mark_created(ctx, state, card, p, auth, "")
+            out("✓ 已在台账，跳过落盘与合并：%s" % ", ".join(cards))
+            return 0
         # ② 落盘：专用立卡 worktree，不改调用者检出；提交体带授权/批次两行
         slug = re.sub(r"[^a-z0-9]+", "-", auth["batch"].lower()).strip("-")[:40] or "batch"
         branch = "chore/board-" + slug
@@ -557,23 +597,23 @@ def cmd_approve(ctx: Ctx, state: dict, args) -> int:
                                str(wt), "origin/main"], check=False)
                 if code != 0:
                     err("✗ 建立立卡工作区失败（%s 已存在？先手工回收）" % wt)
-                    return 2
+                    return block_batch("建立立卡工作区失败（%s 已存在？）" % wt)
             else:
                 run(["git", "-C", str(wt), "checkout", "-B", branch, "origin/main"], check=True)
         code, _ = run([sys.executable, str(wt / "scripts" / "board-apply.py"), path,
                        "--commit", "--authorize", auth["by"], "--batch", auth["batch"]],
                       cwd=wt, dry=ctx.dry_run)
-        if code != 0:
+        outcome = board_apply_outcome(code)
+        if outcome == "fail":
             err("✗ 立卡失败（退出码 %d）；未改主线" % code)
-            return 2
+            return block_batch("立卡失败（退出码 %d）" % code)
         for card, p, _req in reqs:
-            data = parse_request(p.read_text(encoding="utf-8")) if p.exists() else {}
-            data["state"] = "approved"
-            data["approvedBy"] = auth["by"]
-            data["batch"] = auth["batch"]
-            if not ctx.dry_run:
-                p.write_text(render_request(data), encoding="utf-8")
-            transition(ctx, state, card, "created", boardBranch=branch)
+            _mark_created(ctx, state, card, p, auth, branch)
+        if outcome == "noop":
+            # 预演与落盘之间被并行会话抢先落盘：台账已有所需卡，无需再合并（DX-72）
+            out("  · 并行会话已落盘同批卡，跳过合并")
+            out("✓ 已在台账：%s" % ", ".join(cards))
+            return 0
         if args.no_merge:
             out("  · --no-merge：立卡分支 %s 已留在 %s，未合回主线" % (branch, wt))
             return 0
@@ -1642,6 +1682,15 @@ def selftest() -> int:
               "requested" in TRANSITIONS["created"]
               and "closed" not in TRANSITIONS["dispatched"]
               and "closed" not in TRANSITIONS["running"])
+        # DX-72：落盘失败退 blocked 可重试，approved 只在落盘后一跳进 created
+        check("board-apply 退出码归类（3=noop 不是失败）",
+              board_apply_outcome(0) == "ok" and board_apply_outcome(3) == "noop"
+              and all(board_apply_outcome(c) == "fail" for c in (1, 2, 4, 5)))
+        check("accepted 可退 blocked，blocked 可重试回 accepted",
+              "blocked" in TRANSITIONS["accepted"] and "accepted" in TRANSITIONS["blocked"])
+        check("accepted 不得直跳 created（须经 approved，落盘后才推进）",
+              "created" not in TRANSITIONS["accepted"]
+              and "created" in TRANSITIONS["approved"])
         check("slug 只留安全字符", _slug("feature/Foo Bar~x") == "feature-foo-bar-x")
         old_dir = REQUEST_DIR
         globals()["REQUEST_DIR"] = Path(td) / "card-requests"
@@ -1887,6 +1936,14 @@ def main() -> int:
     except (RuntimeError, OSError, ValueError, json.JSONDecodeError) as exc:
         err("✗ %s" % exc)
         return 1
+    except Exception as exc:
+        # DX-72：唯一出口 —— 未预期异常也转成干净的非零退出，traceback 不喷进输出；
+        # NBFLOW_DEBUG=1 重跑可看完整堆栈（排障用，不改变退出语义）。
+        if os.environ.get("NBFLOW_DEBUG"):
+            raise
+        err("✗ %s 内部错误：%s: %s（设 NBFLOW_DEBUG=1 重跑可看堆栈）"
+            % (args.cmd, type(exc).__name__, exc))
+        return 5
 
 
 if __name__ == "__main__":

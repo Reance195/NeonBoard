@@ -468,6 +468,27 @@
   `nbflow status`，已领用卡必须带完整现场回来。判据写法上记一条：**凡闸门认的事实源，投影重建
   就必须消费；新增事实源（如未来的占位字段）时先过一遍 reconcile 三条路径**。
 
+### 1.32 nbflow dispatch 把建区脚本指向调用者检出：§7.10 自动原地模式反噬派发链（DX-89）
+
+- **现象**（2026-11-06 DX-73 交付实录）：close 从 linked worktree 里探测到台账冲突，自动建工单
+  DX-85 并 approve 合回主线成功；随后的自动派发却撞「检出里已有他人 in-place 环境」守卫 exit 3，
+  工单卡死 created。工单没派出去，冲突也没人接。
+- **根因**：`cmd_dispatch` 用 `ps_script(..., root=REPO)` 调 `agent-init.ps1`——REPO 是**调用者**
+  所在检出。从 linked worktree 里跑 nbflow（report/close 的常态位置）时，REPO = worktree，
+  agent-init 检测到「脚本所属检出本身就是 linked worktree」按 §7.10 自动转原地模式（-InPlace），
+  把领用往调用者检出里塞，撞 in-place 守卫被拒。领卡语义是「在**锚点**建 `.worktrees/<agent>`」，
+  建区脚本的定位与调用位置无关；`handoff.json` 记录的现场路径同样用了 `REPO/.worktrees`，
+  会让 report/close 在错误的检出下找派发包。与 DX-49 的区别：DX-49 治「调用方检出与脚本所属
+  检出不一致要响亮失败」（防跨区误操作），本卡治「程序自己把建区动作指到了错误检出」。
+- **解法（DX-89）**：`dispatch_argv()` 统一以 `ctx.common.parent`（锚点区根）定位 agent-init.ps1
+  与 handoff 现场路径，cmd_dispatch 单一调用方（`raise_conflict_ticket` → `cmd_dispatch` 同一
+  实现，不复制第二份 root 判定）；从锚点跑时锚点 = REPO，行为不变。
+- **预防**：selftest 断言「dispatch root=锚点而非调用者检出」（stub common-dir 指向临时目录，
+  命令行必须出现锚点的 agent-init.ps1、不得出现 REPO 的副本）；实机口径 = 在 linked worktree 里
+  `nbflow dispatch --dry-run`，打印的脚本路径必须是锚点那份。判据写法上记一条：**「在锚点建区」
+  类动作（开区、出包、立卡合回主线）定位脚本时一律按锚点/目标检出，绝不按调用方 REPO**——
+  调用方 REPO 只适合「作用于调用方自己」的动作（verify、report 的验证）。
+
 ---
 
 ## 二、脚本与编码（PowerShell / Python）

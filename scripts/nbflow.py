@@ -846,6 +846,19 @@ def report_path(worktree: str) -> Path:
     return Path(worktree) / ".sandbox" / "artifacts" / "run-report.json"
 
 
+def dispatch_argv(ctx: Ctx, card: str, agent: str, branch: str, base: str = "") -> list[str]:
+    """dispatch 的 agent-init 命令行。root 必须是锚点区 = git common dir 父目录（DX-89）：
+    领卡语义 = 在锚点建 .worktrees/<agent>，与调用位置无关——从 linked worktree 里跑
+    nbflow 时若用调用者检出的副本，会触发 §7.10 的自动原地模式把领用塞回调用者检出
+    （in-place 守卫拒绝，exit 3；close → 冲突工单自动派发这条链因此恒挂，DX-85 实录）。
+    handoff 记录的现场路径同理，也要落在锚点，否则 report/close 找不到派发包。
+    """
+    params = ["-Agent", agent, "-Branch", branch, "-Card", card]
+    if base:
+        params += ["-Base", base]
+    return ps_script("agent-init.ps1", params, root=ctx.common.parent)
+
+
 def cmd_dispatch(ctx: Ctx, state: dict, args) -> int:
     """领卡 + 建分支 + 移交 = 一次 agent-init.ps1 -Card 调用 + handoff.json。"""
     card = args.card.upper()
@@ -856,15 +869,12 @@ def cmd_dispatch(ctx: Ctx, state: dict, args) -> int:
     if not sess or sess["state"] != "created":
         err("✗ %s 不处于 created（当前：%s）；先 approve" % (card, sess["state"] if sess else "无"))
         return 1
-    params = ["-Agent", args.agent, "-Branch", args.branch, "-Card", card]
-    if args.base:
-        params += ["-Base", args.base]
-    code, _ = run(ps_script("agent-init.ps1", params), dry=ctx.dry_run)
+    code, _ = run(dispatch_argv(ctx, card, args.agent, args.branch, args.base), dry=ctx.dry_run)
     if code != 0:
         err("✗ 开区失败（退出码 %d）：离线 / 占用冲突 / 已有同名分支，见上方诊断" % code)
         transition(ctx, state, card, "blocked", nextStep="排查 agent-init 失败原因后重跑 dispatch")
         return 2
-    wt = str(REPO / ".worktrees" / args.agent)
+    wt = str(ctx.common.parent / ".worktrees" / args.agent)
     card_def = _read_card(card)
     handoff = {
         "card": card, "branch": args.branch, "agent": args.agent,
@@ -1695,6 +1705,17 @@ def selftest() -> int:
     argv = ps_script("agent-init.ps1", ["-Agent", "agent-a", "-Branch", "feature/x", "-Card", "FLOW-01"])
     check("dispatch 只调一次 agent-init 且带 -Card",
           "agent-init.ps1" in " ".join(argv) and "-Card" in argv and "FLOW-01" in argv)
+    # DX-89：建区脚本必须落在锚点（common dir 父目录），与调用位置无关
+    with tempfile.TemporaryDirectory() as td89:
+        class _StubCtx(Ctx):
+            def __init__(self):
+                super().__init__(dry_run=True)
+                self._common = Path(td89)
+
+        dargv = dispatch_argv(_StubCtx(), "FLOW-01", "agent-a", "feature/x")
+        check("dispatch root=锚点而非调用者检出（DX-89）",
+              str(Path(td89).parent / "scripts" / "agent-init.ps1") in " ".join(dargv)
+              and str(REPO / "scripts" / "agent-init.ps1") not in " ".join(dargv))
     close_argv = ps_script("git-done.ps1", ["-Branch", "feature/x"])
     check("close 调 git-done 且带分支", "git-done.ps1" in " ".join(close_argv) and "-Branch" in close_argv)
     check("abandon 释放服务端 ref", "refs/claims/FLOW-01" in "refs/claims/%s" % "FLOW-01")

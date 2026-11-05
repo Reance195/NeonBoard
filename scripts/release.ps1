@@ -137,7 +137,7 @@ try {
     $head = (& git -C $repoRoot rev-parse HEAD).Trim()
     $originMain = (& git -C $repoRoot rev-parse origin/main).Trim()
     if ($head -ne $originMain) {
-        throw ("HEAD 与 origin/main 不一致，拒绝出包`n  HEAD        = {0}`n  origin/main = {1}`n请先同步主线（git fetch && git rebase origin/main）。" -f $head, $originMain)
+        throw ("HEAD 与 origin/main 不一致，拒绝出包`n  HEAD        = {0}`n  origin/main = {1}`n`n出路（DX-48）：发版类提交（版本 bump / 清单同步）不要直接落在锚点 main ——`n  把本地独有提交落到独立分支，经 git-done 合回主线后重跑本脚本（完整步骤见 docs/git-workflow.md §三.5）：`n    git branch build/version-bump`n    pwsh -File scripts/git-done.ps1 -Branch build/version-bump`n    pwsh -File scripts/release.ps1`n  若只是落后于主线（无本地独有提交），git merge --ff-only origin/main 即可。" -f $head, $originMain)
     }
     $branch = (& git -C $repoRoot rev-parse --abbrev-ref HEAD).Trim()
 

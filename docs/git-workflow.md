@@ -264,6 +264,20 @@ pwsh -File scripts/release.ps1
 
 > CI 侧同样出包：`.github/workflows/release.yml` 在打 `v*` 标签或手动触发时生成安装包并上传制品。
 
+#### 版本 bump 与清单同步不落锚点 main（DX-48）
+
+发版类提交（版本号 bump、`update.json` 清单同步）天然发生在根目录，而锚点检出停在 `main`——
+直接 `git commit` 会让锚点与 `origin/main` 分叉：闸门 2 随即拒绝出包，且锚点同步遇到分叉只会
+放弃、不会自动收敛（pitfalls 7.2）。正确路径是先落独立分支，再经 `git-done` 合回主线：
+
+```powershell
+git branch build/version-bump                              # 1) 本地独有提交落到分支（成果保住）
+pwsh -File scripts/git-done.ps1 -Branch build/version-bump # 2) --no-ff 合回 main 并推送，锚点自动归位快进
+pwsh -File scripts/release.ps1                             # 3) 重跑出包，闸门 2 即通过
+```
+
+若 HEAD 只是落后于主线（没有本地独有提交），`git merge --ff-only origin/main` 即可。
+
 ### 6. 交付需求时顺手更新看板状态
 
 看板卡片的 `status` **不是手写的**，而是从提交信息里的短号派生出来的：

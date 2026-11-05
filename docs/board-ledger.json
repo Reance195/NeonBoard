@@ -4538,13 +4538,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-84": {
-            "agent": "agent-dx84",
-            "branch": "fix/acceptance-split-unify",
-            "claimedAt": 1793907509,
-            "head": "d3232dfdaf480371060c95b30482ee50e48eabca"
-        }
-    },
+    "claims": {},
     "version": 1
 }

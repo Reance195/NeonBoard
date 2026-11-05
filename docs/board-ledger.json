@@ -56,6 +56,7 @@
         "DX-54": "done",
         "DX-55": "done",
         "DX-57": "done",
+        "DX-58": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1299,6 +1300,22 @@
             ],
             "stage": "DX",
             "title": "nbflow 状态机对账：report/close 被绕过致僵尸态，created 断链与取号队列盲区一并收口"
+        },
+        "DX-58": {
+            "acceptance": [
+                "结卡补推撞 non-ff 时自动恢复：fetch origin → rebase 到 origin/main → 重推，上限 2 次重试；仍失败才 reset 回滚并明示「结卡挂起，待下次合并再结」",
+                "回执只记事实：推送落地的卡才进 closed，回滚挂起的进新字段 closePending，结单对账行区分「已结 N / 挂起 M」",
+                "receipt 的 head 字段与主线实际推送结果一致，不再凭派生器输出记意图",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过（含 BOM 检查）"
+            ],
+            "depends": [],
+            "id": "DX-58",
+            "note": "触发证据：DX-57 收尾实录（2026-11-06）：receipt 写 closed:[DX-57] closeMode:marker，但结卡提交从未落 main（无 chore(board): 结卡 提交、baseline 留 todo），git log --all 也找不到该提交——补推撞 non-ff 后按设计 reset 回滚，回执却照派生器输出记意图不记结果。危害：baseline 悬空期间 DX-57 可被重新领用重做（pitfalls 1.14 原始风险回归），且看回执的人被静默骗过。同期快照步推送赢下竞态，证明是瞬时竞态、重试可救。靠本会话手工 derive --close-cards + 自动来源行补回（063cf64）。\n\n## 目标\ngit-done 结卡补推撞 non-ff 静默回滚后回执仍虚报 closed，baseline 悬空可重领\n\n## 验收\n结卡补推撞 non-ff 时自动恢复：fetch origin → rebase 到 origin/main → 重推，上限 2 次重试；仍失败才 reset 回滚并明示「结卡挂起，待下次合并再结」; 回执只记事实：推送落地的卡才进 closed，回滚挂起的进新字段 closePending，结单对账行区分「已结 N / 挂起 M」; receipt 的 head 字段与主线实际推送结果一致，不再凭派生器输出记意图; pwsh -File scripts/verify.ps1 -ScriptOnly 全过（含 BOM 检查）\n\n## 边界\nscripts/git-done.ps1\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/git-done.ps1"
+            ],
+            "stage": "DX",
+            "title": "git-done 结卡补推撞 non-ff 静默回滚后回执仍虚报 closed，baseline 悬空可重领"
         },
         "M01": {
             "acceptance": [

@@ -55,7 +55,9 @@ claim-card.py、agent-init.ps1、git-done.ps1、release-claims.py 里，靠人�
 ``--dry-run`` 的状态转移只在内存演算，不落盘也不执行任何外部 git/pwsh 命令
 （不联网、不推送、不开区）：预演不留痕迹，预演后紧跟真跑不会被「非法状态转移」拒（DX-65）。
 状态机是台账与 git 事实的**投影**：每个子命令入口先隐式对账（缺会话补影、僵尸对齐），
-删掉 state.json 各子命令照常工作（DX-65）。
+删掉 state.json 各子命令照常工作（DX-65）；重建同时消费服务端 refs/claims 领用占位，
+已领用卡不因状态文件丢失退回 created（DX-73）——否则 report/close 全被拒，
+回路被逼绕过（DX-66 实录）。
 
 用法
 ----
@@ -697,6 +699,72 @@ def queued_card_ids() -> set[str]:
             if card:
                 used.add(card.upper())
     return used
+
+
+def claim_refs() -> dict[str, str]:
+    """服务端 refs/claims/* 领用占位快照：卡号 → 占位指向的提交（DX-73）。
+
+    服务端可达性以 ls-remote 为准（与 agent-init 的防双领同源）；不可达退回本地
+    镜像（git-done / task_gate 会 fetch 回来）——镜像可能含孤儿占位，但投影本就
+    fail-soft，宁可用略旧的证据，也别把已领用卡重建成 created（DX-66 实录）。
+    """
+    code, text = run(["git", "-C", str(REPO), "ls-remote", "origin", "refs/claims/*"],
+                     capture=True, quiet=True)
+    if code != 0:
+        out("  · 服务端 claim 占位不可达（离线？），退回本地 refs/claims 镜像（可能含孤儿）")
+        code, text = run(["git", "-C", str(REPO), "for-each-ref",
+                          "--format=%(objectname) %(refname)", "refs/claims/"],
+                         capture=True, quiet=True)
+        if code != 0:
+            return {}
+    refs: dict[str, str] = {}
+    for line in (text or "").splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[1].startswith("refs/claims/"):
+            refs[parts[1][len("refs/claims/"):].upper()] = parts[0]
+    return refs
+
+
+def recover_claim_context(card: str, head: str) -> dict:
+    """按领用现场恢复分支 / 工作区字段（尽力而为；都拿不到也不影响状态本身，DX-73）。
+
+    ① 派发包：扫各 worktree 的 handoff.json，卡号对上即恢复 branch/worktree/sessionId
+       （锚点区根 = git common dir 父目录，.worktrees 只在那里；report/close 常从
+       linked worktree 里调 nbflow，按 REPO 扫会扫空）；
+    ② 分支历史：占位指向的提交仍在某条分支上且**未**并入 origin/main 时取该分支——
+       已并入 main 的领用现场不可靠（之后从 main 新切的分支都「包含」它），不猜。
+    """
+    facts: dict = {}
+    wt_root = _git_common_dir().parent / ".worktrees"
+    if wt_root.is_dir():
+        for d in sorted(wt_root.iterdir()):
+            if not d.is_dir() or d.name.startswith("_nbflow-"):
+                continue
+            try:
+                data = json.loads(handoff_path(str(d)).read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if (data or {}).get("card", "").upper() == card.upper():
+                facts.update(worktree=str(d), branch=data.get("branch", ""),
+                             agent=data.get("agent", ""),
+                             sessionId=data.get("sessionId", ""))
+                break
+    if not facts.get("branch") and head:
+        code, _ = run(["git", "-C", str(REPO), "merge-base", "--is-ancestor",
+                       head, "origin/main"], check=False, quiet=True)
+        if code != 0:
+            code, text = run(["git", "-C", str(REPO), "for-each-ref", "--contains", head,
+                              "--format=%(refname)", "refs/heads/", "refs/remotes/origin/"],
+                             capture=True, quiet=True)
+            names = [ln.strip() for ln in (text or "").splitlines() if ln.strip()] if code == 0 else []
+            local = [n for n in names if n.startswith("refs/heads/") and n != "refs/heads/main"]
+            remote = [n for n in names if n.startswith("refs/remotes/origin/")
+                      and n != "refs/remotes/origin/main" and not n.endswith("/HEAD")]
+            if local:
+                facts["branch"] = local[0][len("refs/heads/"):]
+            elif remote:
+                facts["branch"] = remote[0][len("refs/remotes/origin/"):]
+    return {k: v for k, v in facts.items() if v}
 
 
 # ---------------------------------------------------------------- 语义查重（DX-67）
@@ -1396,42 +1464,60 @@ def cmd_status(ctx: Ctx, state: dict, args) -> int:
 
 
 def reconcile_plan(sessions: dict, done_facts: set[str],
-                   ledger_cards: set[str]) -> list[tuple[str, str, str]]:
+                   ledger_cards: set[str],
+                   claim_heads: dict[str, str] | None = None) -> list[tuple[str, str, str]]:
     """纯函数：产出对账动作 [(card, from, to)]，不改任何状态（DX-57）。
 
     事实判据由调用方收集（baseline=done 或会话 head 已并入 origin/main 记入
-    done_facts）。只动 dispatched/running 的僵尸在办与 approved 的滞后态；
-    created 且台账无卡的断链项不动，交 requeue 显式处理。
+    done_facts；claim_heads 是服务端 refs/claims 占位快照，DX-73）。只动
+    dispatched/running 的僵尸在办、approved 的滞后态，与会话滞留 created 但
+    服务端占位仍在的卡（领用事实成立，升回 dispatched）；created 且台账无卡
+    的断链项不动，交 requeue 显式处理。
     """
     actions: list[tuple[str, str, str]] = []
+    claims = claim_heads or {}
     for card, sess in sorted(sessions.items()):
         st = sess.get("state", "")
         if st in ("dispatched", "running") and card in done_facts:
             actions.append((card, st, "closed"))
         elif st == "approved" and card in ledger_cards:
             actions.append((card, st, "created"))
+        elif st == "created" and card in claims:
+            actions.append((card, st, "dispatched"))
     return actions
 
 
 def reconcile_state(ctx: Ctx, state: dict) -> tuple[list[tuple[str, str, str]], list[str]]:
     """投影对账（DX-65）：按台账/git 事实把内存状态对齐，可被任意子命令隐式调用。
 
-    ① 缺会话补影：台账未结卡且无会话 → created（粗粒度但足以让 dispatch/close 接手；
-       已结卡不补，status 不被 181 张历史卡淹没）。
+    ① 缺会话补影：台账未结卡且无会话 → created；服务端 refs/claims 占位仍在的
+       已领用卡 → dispatched 并尽力恢复领用现场（DX-73：领用是已发生的 git 事实，
+       不因状态文件丢失退回 created，否则 report/close 全被拒、回路被逼绕过）。
+       已结卡不补，status 不被 181 张历史卡淹没。
     ② 僵尸对齐：dispatched/running 且事实已并入 origin/main → closed（两跳，DX-57）；
-       approved 且台账已有卡 → created。
+       approved 且台账已有卡 → created；会话滞留 created 但占位仍在 → dispatched（DX-73）。
     只改内存 state；是否落盘由调用方定（dry-run 永不落盘）。返回 (对齐动作, 补影卡号)。
     """
     doc = ledger_doc() or {}
     baseline = doc.get("baseline", {}) or {}
     ledger_cards = set(doc.get("cards", {}))
     done_facts = {c for c, b in baseline.items() if b == "done"}
+    claims = claim_refs()
     synthesized: list[str] = []
     for card in sorted(ledger_cards - set(state["sessions"])):
-        if baseline.get(card) != "done":
+        if baseline.get(card) == "done":
+            continue
+        head = claims.get(card, "")
+        if head:
+            state["sessions"][card] = {"state": "dispatched", "claimHead": head,
+                                       "rebuiltBy": "refs/claims",
+                                       **recover_claim_context(card, head),
+                                       "history": [{"at": now(), "from": "-", "to": "dispatched",
+                                                    "by": "projection:refs/claims"}]}
+        else:
             state["sessions"][card] = {"state": "created", "history": [
                 {"at": now(), "from": "-", "to": "created", "by": "projection"}]}
-            synthesized.append(card)
+        synthesized.append(card)
     for card, sess in state["sessions"].items():
         head = sess.get("head", "")
         if head and sess.get("state") in ("dispatched", "running"):
@@ -1439,13 +1525,18 @@ def reconcile_state(ctx: Ctx, state: dict) -> tuple[list[tuple[str, str, str]], 
                            head, "origin/main"], check=False, quiet=True)
             if code == 0:
                 done_facts.add(card)
-    actions = reconcile_plan(state["sessions"], done_facts, ledger_cards)
+    actions = reconcile_plan(state["sessions"], done_facts, ledger_cards, claim_heads=claims)
     for card, frm, to in actions:
         if to == "closed" and "closed" not in TRANSITIONS.get(frm, set()):
             # 「未 report 不能 close」的纪律不破：reconcile 的 git 事实就是补交的
             # 完成报告，走合法两跳 dispatched/running → reported → closed（DX-57）。
             transition(ctx, state, card, "reported", reconcileBy="git-facts")
             transition(ctx, state, card, "closed")
+        elif to == "dispatched" and frm == "created":
+            # DX-73：升回 dispatched 时补齐领用现场，口径与补影一致
+            transition(ctx, state, card, to, claimHead=claims.get(card, ""),
+                       rebuiltBy="refs/claims",
+                       **recover_claim_context(card, claims.get(card, "")))
         else:
             transition(ctx, state, card, to)
     return actions, synthesized
@@ -1791,6 +1882,39 @@ def selftest() -> int:
                   load_state(fresh)["sessions"]["DX-90"]["state"] == "accepted")
         finally:
             globals()["ledger_doc"] = old_doc65
+
+        # DX-73：投影重建消费服务端 refs/claims —— 已领用卡不因状态丢失退回 created
+        old_doc73, old_refs73, old_rec73 = ledger_doc, claim_refs, recover_claim_context
+        globals()["ledger_doc"] = lambda: {
+            "baseline": {"DX-90": "todo", "DX-91": "todo", "DX-92": "todo"},
+            "cards": {"DX-90": {"title": "已领用但缺会话"}, "DX-91": {"title": "未领用缺会话"},
+                      "DX-92": {"title": "会话滞留 created"}}}
+        globals()["claim_refs"] = lambda: {"DX-90": "abc123", "DX-92": "def456"}
+        globals()["recover_claim_context"] = lambda card, head: (
+            {"branch": "fix/%s-rebuild" % card.lower(), "worktree": "W"} if card == "DX-90" else {})
+        try:
+            st73 = blank_state()  # 空投影 = 删 state.json 后的最坏现场
+            st73["sessions"]["DX-92"] = {"state": "created", "history": []}
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                _acts73, _synth73 = reconcile_state(c, st73)
+            sess90 = st73["sessions"]["DX-90"]
+            check("投影：占位仍在的缺会话卡重建 dispatched 并恢复现场",
+                  sess90["state"] == "dispatched" and sess90["claimHead"] == "abc123"
+                  and sess90["branch"] == "fix/dx-90-rebuild" and sess90["worktree"] == "W")
+            check("投影：无占位的缺会话卡仍补影 created",
+                  st73["sessions"]["DX-91"]["state"] == "created")
+            check("投影：滞留 created 但占位仍在 → 对账升回 dispatched",
+                  st73["sessions"]["DX-92"]["state"] == "dispatched"
+                  and st73["sessions"]["DX-92"]["claimHead"] == "def456")
+            check("对账规划：created+占位 → dispatched；无占位不动（回归不破）",
+                  reconcile_plan({"DX-93": {"state": "created"}}, set(), {"DX-93"},
+                                 claim_heads={"DX-93": "abc"})
+                  == [("DX-93", "created", "dispatched")]
+                  and reconcile_plan({"DX-93": {"state": "created"}}, set(), {"DX-93"}) == [])
+        finally:
+            globals()["ledger_doc"] = old_doc73
+            globals()["claim_refs"] = old_refs73
+            globals()["recover_claim_context"] = old_rec73
 
     failed = [n for n, ok in cases if not ok]
     for name, ok in cases:

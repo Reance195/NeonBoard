@@ -4723,6 +4723,12 @@
             "branch": "fix/claim-ref-zombie-sweep",
             "claimedAt": 1793909632,
             "head": "a2371a51ece52b6b64f76de449794189f3f99def"
+        },
+        "DX-91": {
+            "agent": "agent-dx76",
+            "branch": "fix/claim-ref-zombie-sweep",
+            "claimedAt": 1793909651,
+            "head": "e167f3530d541667f0ae6cf749fdc923d3238d50"
         }
     },
     "version": 1

@@ -9,7 +9,8 @@ claim-card.py、agent-init.ps1、git-done.ps1、release-claims.py 里，靠人�
 本程序把它们收口成**一个状态机 + 一组子命令**，是这些脚本的调用方，
 不重复实现任何判定逻辑（task_gate.py / board-apply.py 仍是唯一规则实现）。
 
-    request   agent 提交立卡请求 → docs/card-requests/<日期>-<slug>.md（状态 requested）
+    request   agent 提交立卡请求 → docs/card-requests/<日期>-<slug>.md（状态 requested）；
+              写单前按标题关键词查重，命中现有卡/请求须 --ack-duplicate 放行（DX-67）
     authorize 维护者给一次「会话级批量授权」，本会话后续 approve 自动复用
     approve   程序受理 + 整理成五段式清单 + 20 项预演 + 落盘立卡（+ 合回主线）
     dispatch  领卡与建分支移交是**一步**：一次 agent-init.ps1 -Card 调用 + handoff.json
@@ -109,6 +110,7 @@ def _git_common_dir() -> Path:
 
 
 REQUEST_DIR = _git_common_dir() / "neonboard-flow" / "requests"
+ARCHIVE_REQUEST_DIR = REPO / "docs" / "card-requests"  # 归档副本，只读扫描（DX-47）
 STATE_VERSION = 1
 
 # 与 scripts/board-apply.py:77 / task_gate.py 保持同一口径
@@ -422,6 +424,18 @@ def cmd_request(ctx: Ctx, state: dict, args) -> int:
     if not SLUG_RE.match(slug):
         err("✗ slug 不合规：%s" % slug)
         return 1
+    # 语义查重（DX-67）：DX-51 教训——立卡只查号段占用没查痛点重叠，与已交付卡重复。
+    # 查重是提示不是闸门，但放行必须显式（--ack-duplicate 留在调用方命令里）。
+    dup = duplicate_hits(args.title or "", known_titles(exclude=card))
+    if dup:
+        for cid, t, shared in dup[:8]:
+            out("  · 疑似重复：%s %s（共同：%s）" % (cid, t, "、".join(shared)))
+        if len(dup) > 8:
+            out("  · …另有 %d 条疑似重复" % (len(dup) - 8))
+        if not args.ack_duplicate:
+            err("✗ 标题命中 %d 条疑似重复卡/请求；确认是新痛点请加 --ack-duplicate 放行" % len(dup))
+            return 1
+        out("  · --ack-duplicate 已放行（%d 条疑似重复仅提示）" % len(dup))
     req = {
         "state": "requested", "card": card, "stage": args.stage, "title": args.title,
         "author": args.author, "evidence": args.evidence, "scope": args.scope,
@@ -509,6 +523,11 @@ def cmd_approve(ctx: Ctx, state: dict, args) -> int:
             card = new_id
         allocated.add(card)
         reqs.append((card, p, req))
+        # 查重提示（DX-67）：approve 时重跑一遍，展示给维护者，不阻断
+        for cid, t, shared in duplicate_hits(req.get("title") or "",
+                                             known_titles(exclude=card))[:5]:
+            out("  · 查重提示：%s 与 %s 相似（共同：%s）——确认非重复再批"
+                % (card, cid, "、".join(shared)))
         transition(ctx, state, card, "accepted")
 
     manifests = []
@@ -626,6 +645,77 @@ def queued_card_ids() -> set[str]:
             if card:
                 used.add(card.upper())
     return used
+
+
+# ---------------------------------------------------------------- 语义查重（DX-67）
+
+STAGE_PREFIX_RE = re.compile(r"^(?:dx|r\d+|m\d+|mod)$")
+
+
+def title_tokens(title: str) -> set[str]:
+    """标题关键词：ASCII 词（≥2 字符，小写）+ CJK 连续段的二元组。
+
+    stage 前缀（dx / r3 / m01 / mod）几乎每张卡的标题都带，剔掉防全员命中。
+    """
+    toks: set[str] = set()
+    for m in re.finditer(r"[A-Za-z0-9][A-Za-z0-9_.-]*", title or ""):
+        tok = m.group(0).lower().strip("-._")
+        if len(tok) >= 2 and not STAGE_PREFIX_RE.match(tok):
+            toks.add(tok)
+    for m in re.finditer(r"[\u4e00-\u9fff]+", title or ""):
+        run = m.group(0)
+        if len(run) == 1:
+            toks.add(run)
+        else:
+            toks.update(run[i:i + 2] for i in range(len(run) - 1))
+    return toks
+
+
+def duplicate_hits(title: str, known: list[tuple[str, str]],
+                   min_shared: int = 3) -> list[tuple[str, str, list[str]]]:
+    """疑似重复判定：与既有卡/请求的共同关键词 ≥ min_shared 即命中。
+
+    阈值 3 按本仓库语料校准：DX-51↔DX-40（≥6 共同词）与 DX-69↔DX-39（3 共同词）
+    都必须命中，而「自定义」拆出的 自定/定义 这类通用二元组不再误报。
+    返回 [(卡号, 已有标题, 共同关键词)]，共同词多者在前；纯函数，便于自测。
+    """
+    want = title_tokens(title)
+    hits: list[tuple[str, str, list[str]]] = []
+    for cid, t in known:
+        shared = sorted(want & title_tokens(t))
+        if len(shared) >= min_shared:
+            hits.append((cid, t, shared))
+    hits.sort(key=lambda h: (-len(h[2]), h[0]))
+    return hits
+
+
+def known_titles(exclude: str = "") -> list[tuple[str, str]]:
+    """查重语料：台账 cards + 活队列 + 归档请求单（DX-51 的重复痛点就停在已交付卡里）。
+
+    同卡号在队列与归档各有一份时按卡号去重，台账版本优先。
+    """
+    doc = ledger_doc() or {}
+    corpus: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for cid, c in (doc.get("cards") or {}).items():
+        t = (c or {}).get("title") or ""
+        if cid != exclude and t:
+            corpus.append((cid, t))
+            seen.add(cid)
+    for d in (REQUEST_DIR, ARCHIVE_REQUEST_DIR):
+        if not d.is_dir():
+            continue
+        for p in d.glob("*.md"):
+            try:
+                req = parse_request(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            cid = (req.get("card") or "").upper()
+            t = req.get("title") or ""
+            if cid and cid != exclude and t and cid not in seen:
+                corpus.append((cid, t))
+                seen.add(cid)
+    return corpus
 
 
 def handoff_path(worktree: str) -> Path:
@@ -1481,6 +1571,48 @@ def selftest() -> int:
         finally:
             globals()["REQUEST_DIR"] = old_dir
 
+        # DX-67 语义查重：命中即拒 / ack 放行 / 无命中直通（语料全部注入，不碰真仓库）
+        old_dir2, old_arch, old_doc = REQUEST_DIR, ARCHIVE_REQUEST_DIR, ledger_doc
+        globals()["REQUEST_DIR"] = Path(td) / "dup-q"
+        globals()["ARCHIVE_REQUEST_DIR"] = Path(td) / "dup-arch"
+        globals()["ledger_doc"] = lambda: {"cards": {
+            "DX-40": {"title": "流程提交豁免收口：agent-init 拒绝脏树领用，闸门对卷入代码的流程提交失效"}}}
+        try:
+            def req_args(card: str, title: str, ack: bool = False):
+                return argparse.Namespace(
+                    card=card, stage="DX", title=title, scope="scripts/**",
+                    acceptance="python scripts/nbflow.py --selftest 通过",
+                    evidence="自测", author="selftest", depends="", slug="",
+                    ack_duplicate=ack)
+
+            dup_title = "堵流程豁免洗白：agent-init 领用前脏树即拒，流程 scope 触及代码路径时豁免失效"
+            clean_title = "启动闪屏百分比读数在高 DPI 下乱码：数字图集按逻辑像素采样"
+            dx40_title = "流程提交豁免收口：agent-init 拒绝脏树领用，闸门对卷入代码的流程提交失效"
+            hits = duplicate_hits(dup_title, [("DX-40", dx40_title)])
+            check("查重：DX-51 式重复命中且共同词≥3",
+                  len(hits) == 1 and len(hits[0][2]) >= 3)
+            check("查重：通用二元组/单共同词/无关标题不命中",
+                  not duplicate_hits("侧栏支持拖拽自定义排序并记住顺序",
+                                     [("R4-03", "R4 多板 / 自定义列架构解锁")])
+                  and not duplicate_hits("nbflow 卡片", [("DX-55", "nbflow 编号自动分配：request/approve 取号")])
+                  and not duplicate_hits(clean_title, [("DX-40", dx40_title)]))
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                rc_hit = cmd_request(c, st := blank_state(), req_args("DX-71", dup_title))
+            check("查重命中未 ack → 拒绝且不写单",
+                  rc_hit == 1 and not list((Path(td) / "dup-q").glob("*.md")))
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                rc_ack = cmd_request(c, st, req_args("DX-72", dup_title, ack=True))
+            check("查重命中 ack 放行 → 请求单落盘",
+                  rc_ack == 0 and len(list((Path(td) / "dup-q").glob("*.md"))) == 1)
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                rc_clean = cmd_request(c, st, req_args("DX-73", clean_title))
+            check("无命中直通",
+                  rc_clean == 0 and len(list((Path(td) / "dup-q").glob("*.md"))) == 2)
+        finally:
+            globals()["REQUEST_DIR"] = old_dir2
+            globals()["ARCHIVE_REQUEST_DIR"] = old_arch
+            globals()["ledger_doc"] = old_doc
+
     failed = [n for n, ok in cases if not ok]
     for name, ok in cases:
         out(("  ✓ " if ok else "  ✗ ") + name)
@@ -1528,6 +1660,8 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--author", default="agent")
     r.add_argument("--depends", default="")
     r.add_argument("--slug", default="")
+    r.add_argument("--ack-duplicate", action="store_true",
+                   help="查重命中时显式放行（DX-67：提示不阻断，放行必须显式）")
 
     ap = sub.add_parser("approve", parents=[common], help="受理 + 整理 + 预演 + 立卡（+ 合回主线）")
     ap.add_argument("--cards", default="", help="逗号分隔的卡号")

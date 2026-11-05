@@ -19,7 +19,8 @@
 #
 # 现在把写权收归一处：**git-done 独占**（合并收尾的 derive --write / --close-cards）。
 # CI 只校验：不一致就报红，由人按提示在本地补跑收尾，不再自作主张改主干。
-# 本文件因此不含任何 git push / git commit，permissions 降为 contents: read。
+# 本文件因此不含任何提交 / 推送动作，permissions 降为 contents: read。
+# （自检口径：在本文件里 grep 提交与推送命令应当一个都找不到 —— 只有触发用的 push:。）
 
 name: Board
 

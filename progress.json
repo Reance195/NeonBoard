@@ -199,6 +199,24 @@
             "updatedAt": 1793903068
         },
         {
+            "code": "DX-72",
+            "completedAt": 0,
+            "createdAt": 1793903455,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-72",
+            "note": "",
+            "orderKey": 43008,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 内部 board-apply 抛未捕获异常：立卡没落盘、会话卡在 approved",
+            "updatedAt": 1793903455
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4147,6 +4165,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T02:27:06",
+    "updated": "2026-11-06T02:30:55",
     "version": 3
 }

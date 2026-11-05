@@ -173,11 +173,42 @@ button {
 
 /* ---------- 4. 应用窗口模拟框 ---------- */
 
+/* 缩放包装层：外层盒子按缩放后的尺寸占位，内层窗口框做 transform。
+   这样页面高度与滚动范围都跟着缩放走，不会出现内容被裁或留白错位。 */
+.nb-scale-wrap {
+  width: var(--nb-fit-w, 1180px);
+  height: var(--nb-fit-h, 760px);
+  margin: 0 auto;
+  overflow: visible;
+  position: relative;
+}
+
+.nb-scale-wrap > .nb-window {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1180px;
+  height: 760px;
+  transform: scale(var(--nb-scale, 1));
+  transform-origin: top left;
+}
+
+/* 现状对照视图：固定 0.86 倍展示，不跟随视口缩放 */
+.nb-scale-wrap--old {
+  width: calc(1180px * .86);
+  height: calc(760px * .86);
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.nb-scale-wrap--old > .nb-window {
+  transform: scale(.86);
+  transform-origin: top left;
+}
 .nb-window {
   position: relative;
   width: 1180px;
   height: 760px;
-  margin: 0 auto;
   border-radius: 16px;
   overflow: hidden;
   background: var(--nb-bg);
@@ -285,6 +316,26 @@ button {
 .nb-winbtn:hover { background: rgba(255,255,255,.06); color: var(--nb-text); }
 .nb-winbtn--close:hover { background: var(--nb-danger); color: #fff; }
 
+/* 图标按钮：标题栏右侧的设置等次级入口 */
+.nb-iconbtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--nb-radius-control);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--nb-muted);
+  font-size: 14px;
+  display: grid;
+  place-items: center;
+  transition: all .16s ease;
+}
+
+.nb-iconbtn:hover {
+  color: var(--nb-cyan);
+  border-color: var(--nb-border-strong);
+  background: var(--nb-accent-soft);
+}
+
 /* 主题切换点（ThemePicker） */
 .nb-themedots {
   display: flex;
@@ -320,8 +371,8 @@ button {
 
 /* 侧栏 */
 .nb-sidebar {
-  width: 220px;
-  flex: 0 0 220px;
+  width: 200px;
+  flex: 0 0 200px;
   background: var(--nb-panel);
   display: flex;
   flex-direction: column;
@@ -971,24 +1022,24 @@ button {
 
 .nb-addcol .plus { font-size: 18px; }
 
-/* 底部插件槽 */
+/* 底部插件槽：空态只占 20px 细条（不放「可以放什么」的说明文案） */
 .nb-bottomslot {
   flex: 0 0 auto;
-  height: 34px;
+  height: 20px;
   margin-bottom: var(--nb-space-sm);
-  border-radius: var(--nb-radius-panel);
-  border: 1px solid color-mix(in srgb, var(--nb-violet) 30%, transparent);
-  background: color-mix(in srgb, var(--nb-violet) 7%, transparent);
+  border-radius: var(--nb-radius-control);
+  border: 1px solid var(--nb-hairline);
+  background: transparent;
   display: flex;
   align-items: center;
   gap: var(--nb-space-sm);
-  padding: 0 var(--nb-space-md);
-  font-size: var(--nb-font-caption);
+  padding: 0 10px;
+  font-size: 10px;
   color: var(--nb-muted);
 }
 
-.nb-bottomslot .diamond { color: var(--nb-violet); }
-.nb-bottomslot .right { margin-left: auto; letter-spacing: 1.6px; font-size: 9px; }
+.nb-bottomslot .diamond { color: var(--nb-violet); font-size: 9px; }
+.nb-bottomslot .right { margin-left: auto; letter-spacing: 1.6px; font-size: 9px; opacity: .7; }
 
 /* ---------- 8. 弹窗壳（本次重排的核心交付） ---------- */
 

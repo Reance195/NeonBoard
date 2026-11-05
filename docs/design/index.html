@@ -173,6 +173,7 @@
 
 <!-- ============ 新版主界面 ============ -->
 <div id="viewNew">
+  <div class="nb-scale-wrap">
   <div class="nb-window">
     <div class="nb-titlebar">
       <div class="nb-logo">N</div>
@@ -180,11 +181,13 @@
       <span class="nb-titlebar-spacer"></span>
       <button class="nb-tool nb-tool--primary">＋ 新建</button>
       <button class="nb-tool">全景</button>
+      <button class="nb-tool" id="focusBtnTop">专注</button>
       <div class="nb-themedots">
         <i class="nb-themedot nb-themedot--1"></i>
         <i class="nb-themedot nb-themedot--2"></i>
         <i class="nb-themedot nb-themedot--3"></i>
       </div>
+      <button class="nb-iconbtn" title="设置（Ctrl+,）">⚙</button>
       <div class="nb-winbtns">
         <button class="nb-winbtn">—</button>
         <button class="nb-winbtn">□</button>
@@ -203,7 +206,6 @@
         <nav>
           <div class="nb-nav nb-nav--active"><span class="nb-nav-icon">▦</span>看板</div>
           <div class="nb-nav"><span class="nb-nav-icon">◈</span>插件</div>
-          <div class="nb-nav"><span class="nb-nav-icon">⚙</span>设置</div>
           <div class="nb-nav"><span class="nb-nav-icon">⧗</span>队列<span class="nb-nav-badge">1/3</span></div>
           <div class="nb-nav"><span class="nb-nav-icon">▷</span>预览</div>
         </nav>
@@ -215,19 +217,7 @@
 
         <div class="nb-sidebar-spacer"></div>
 
-        <div class="nb-sidecard">
-          <div class="nb-sidecard-head"><span>插件库</span><span>8</span></div>
-          <div class="nb-sidecard-row">Agent 任务桥<span class="tag">已装</span></div>
-          <div class="nb-sidecard-row">Claude Code<span class="tag">已装</span></div>
-          <div class="nb-sidecard-row">Codex CLI<span class="tag">已装</span></div>
-          <div class="nb-sidecard-row">Cursor Agent<span class="tag">已装</span></div>
-          <div class="nb-sidecard-row">opencode<span class="tag">已装</span></div>
-          <div class="nb-sidecard-row">计划钩子<span class="tag">已装</span></div>
-          <div class="nb-sidecard-links">
-            <span>刷新市场</span><span>重新扫描</span><span>打开目录</span><span>详情</span>
-          </div>
-        </div>
-
+        <!-- 插件库卡片：不再是侧栏常驻项，改由「插件」导航打开插件库面板查看 -->
         <div class="nb-sidefoot">
           <div>SQLite · 552 条任务</div>
           <div class="ok">HOTKEY  Ctrl+Shift+Space</div>
@@ -250,7 +240,6 @@
             <div class="nb-stat-sep"></div>
             <div class="nb-stat nb-stat--danger"><b>101</b><span>逾期</span></div>
           </div>
-          <button class="nb-tool" style="height:26px">专注</button>
         </header>
 
         <!-- 工具行：项目 / 阶段 / 搜索合并成一行 -->
@@ -311,7 +300,6 @@
                 <div class="nb-card-title">a</div>
                 <div class="nb-card-meta">
                   <span class="nb-tag nb-tag--plain">多表面示例</span>
-                  <span>卡片槽位 · 8c94675f</span>
                 </div>
               </div>
               <div class="nb-card" style="color:#A78BFA">
@@ -345,7 +333,6 @@
                 <div class="nb-card-title">拆解成插件</div>
                 <div class="nb-card-meta">
                   <span class="nb-tag nb-tag--plain">多表面示例</span>
-                  <span>卡片槽位 · 7b9884b9</span>
                 </div>
               </div>
               <div class="nb-card" style="color:#A78BFA">
@@ -393,11 +380,12 @@
 
         <div class="nb-bottomslot">
           <span class="diamond">◈</span>
-          <span>底部面板槽位：插件可以在这里放状态条、播放控制或快捷入口。</span>
+          <span>底部槽位 · 空</span>
           <span class="right">SURFACES</span>
         </div>
       </main>
     </div>
+  </div>
   </div>
 </div>
 
@@ -409,7 +397,8 @@
         <span class="tagline tagline--old">现状</span>
         <span>顶区 264 px · 三条独立筛选行 · 热力图常驻 72 px</span>
       </div>
-      <div class="nb-window" style="transform:scale(.86);transform-origin:top left;width:1180px;height:760px;margin-bottom:-105px">
+      <div class="nb-scale-wrap nb-scale-wrap--old" style="--nb-old-scale:.86">
+      <div class="nb-window" style="width:1180px;height:760px">
         <div class="nb-titlebar">
           <div class="nb-logo">N</div>
           <div class="nb-wordmark">NEONBOARD</div>
@@ -436,8 +425,7 @@
               <div class="nb-sidecard-links"><span>刷新市场</span><span>重新扫描</span><span>打开目录</span><span>详情</span></div>
             </div>
             <div class="nb-sidefoot"><div>SQLite · 552 条任务</div></div>
-          </aside>
-          <main class="nb-main">
+          </aside>          <main class="nb-main">
             <!-- 现状：标题 + 副标题一行 -->
             <header class="nb-header" style="height:40px">
               <span class="nb-header-title" style="font-size:18px">工作台</span>
@@ -500,6 +488,7 @@
             </section>
           </main>
         </div>
+      </div>
       </div>
     </div>
   </div>
@@ -575,11 +564,11 @@
         <tr><th>项</th><th>现状</th><th>新版</th><th>说明</th></tr>
       </thead>
       <tbody>
-        <tr><td>侧栏宽</td><td>220</td><td class="keep">220</td><td>不动。插件库卡片需要这个宽度</td></tr>
+        <tr><td>侧栏宽</td><td>220</td><td class="keep">200</td><td>去掉插件库常驻卡片后 220 px 偏宽，收窄 20 px 给看板</td></tr>
         <tr><td>主区左右留白</td><td>20 + 20</td><td class="keep">20 + 20</td><td>不动</td></tr>
         <tr><td>列间距</td><td>12</td><td class="keep">12</td><td>不动</td></tr>
         <tr><td>加列按钮</td><td>46</td><td class="keep">40</td><td>略收窄</td></tr>
-        <tr><td><b>每列净宽</b></td><td><b>283</b></td><td class="keep"><b>296</b></td><td>卡片标题 15 px 下少折一行</td></tr>
+        <tr><td><b>每列净宽</b></td><td><b>283</b></td><td class="keep"><b>301</b></td><td>卡片标题 15 px 下少折一行</td></tr>
       </tbody>
     </table>
 
@@ -603,6 +592,20 @@
 </div>
 
 <script>
+  // 窄视口自适应：1180 px 的窗口框等比缩放，避免被裁掉右侧。
+  // 只缩放 .nb-scale-wrap，不动其它内容。
+  function applyScale() {
+    const wraps = document.querySelectorAll('.nb-scale-wrap');
+    const avail = window.innerWidth - 24;
+    // 主视图按视口算；现状对照视图自带 0.86 倍，不重复缩放
+    const scale = Math.min(1, avail / 1180);
+    document.documentElement.style.setProperty('--nb-scale', scale);
+    document.documentElement.style.setProperty('--nb-fit-h', (760 * scale) + 'px');
+    document.documentElement.style.setProperty('--nb-fit-w', (1180 * scale) + 'px');
+  }
+  applyScale();
+  window.addEventListener('resize', applyScale);
+
   // 视图切换
   const views = { new: 'viewNew', old: 'viewOld', compare: 'viewCompare', budget: 'viewBudget' };
   document.getElementById('viewGroup').addEventListener('click', function (e) {

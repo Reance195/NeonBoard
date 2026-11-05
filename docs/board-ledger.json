@@ -4153,19 +4153,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-46": {
-            "agent": "agent-flowguard",
-            "branch": "fix/claim-guard-utf8",
-            "claimedAt": 1793900823,
-            "head": "5d5616e6fdb1cfe4a4199f8cb7a54e1aade2d4e5"
-        },
-        "DX-51": {
-            "agent": "agent-flowguard",
-            "branch": "fix/claim-guard-utf8",
-            "claimedAt": 1793900855,
-            "head": "65d9439e2845f372ca93d4d125d2bd4b8c2bfccd"
-        }
-    },
+    "claims": {},
     "version": 1
 }

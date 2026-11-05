@@ -4409,13 +4409,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-71": {
-            "agent": "agent-dx71",
-            "branch": "fix/board-diff-stale-base",
-            "claimedAt": 1793905097,
-            "head": "5df4fc328630357f3d95bb4bbfc6cbd8382c2b38"
-        }
-    },
+    "claims": {},
     "version": 1
 }

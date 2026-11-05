@@ -109,24 +109,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-60",
-            "completedAt": 0,
-            "createdAt": 1793899147,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-60",
-            "note": "触发证据：R5-13（v0.1.6 发版）2026-11-06 实测：全新 worktree 验证死于 build.ps1:749 依赖自检，419/419 编译单元 #deps 全 0。根因链：GBK 控制台 cl 的 /showIncludes 重定向输出为 GBK → sccache 改写为 d7a2+U+FFFD 混合字节 → 探针如实落盘 showincludes-prefix.bin → CMakeLists 的 file(READ)（pip CMake 4.4.4）把非 UTF-8 字节打成 ASCII ? → build.ninja 的 msvc_deps_prefix 为「??: ?:  」匹配不到任何编译输出。chcp 65001 会话重建后该跳逐字节保真、闸门真实通过（sccache 全量命中重建约 4 分钟）。CI 不受影响（英文 locale）。\n\n## 目标\n依赖前缀机制中文 locale 适配：探针转码或 VSLANG=1033 固化进构建链\n\n## 验收\n中文 locale（GBK ANSI 代码页）机器上，新 worktree 不设 chcp 65001 直接跑 pwsh -File scripts/build.ps1 全量构建：依赖守卫通过（无空依赖条目）;探针捕获的前缀字节与 build.ninja 的 msvc_deps_prefix 逐字节一致（经 sccache 后不失真）;pwsh -File scripts/verify.ps1 全过（build.ps1 与 CMakeLists.txt 属代码路径，走全量档）;CI（英文 locale）构建与 ctest 不回归;docs/pitfalls.md §3.16/§3.20 增补「file(READ) 字节失真」层与机器判据\n\n## 边界\nscripts/build.ps1;CMakeLists.txt;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 30720,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "依赖前缀机制中文 locale 适配：探针转码或 VSLANG=1033 固化进构建链",
-            "updatedAt": 1793899147
-        },
-        {
             "code": "DX-61",
             "completedAt": 0,
             "createdAt": 1793899147,
@@ -2783,6 +2765,24 @@
             "updatedAt": 1792719894
         },
         {
+            "code": "DX-60",
+            "completedAt": 1793900898,
+            "createdAt": 1793899147,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-60",
+            "note": "触发证据：R5-13（v0.1.6 发版）2026-11-06 实测：全新 worktree 验证死于 build.ps1:749 依赖自检，419/419 编译单元 #deps 全 0。根因链：GBK 控制台 cl 的 /showIncludes 重定向输出为 GBK → sccache 改写为 d7a2+U+FFFD 混合字节 → 探针如实落盘 showincludes-prefix.bin → CMakeLists 的 file(READ)（pip CMake 4.4.4）把非 UTF-8 字节打成 ASCII ? → build.ninja 的 msvc_deps_prefix 为「??: ?:  」匹配不到任何编译输出。chcp 65001 会话重建后该跳逐字节保真、闸门真实通过（sccache 全量命中重建约 4 分钟）。CI 不受影响（英文 locale）。\n\n## 目标\n依赖前缀机制中文 locale 适配：探针转码或 VSLANG=1033 固化进构建链\n\n## 验收\n中文 locale（GBK ANSI 代码页）机器上，新 worktree 不设 chcp 65001 直接跑 pwsh -File scripts/build.ps1 全量构建：依赖守卫通过（无空依赖条目）;探针捕获的前缀字节与 build.ninja 的 msvc_deps_prefix 逐字节一致（经 sccache 后不失真）;pwsh -File scripts/verify.ps1 全过（build.ps1 与 CMakeLists.txt 属代码路径，走全量档）;CI（英文 locale）构建与 ctest 不回归;docs/pitfalls.md §3.16/§3.20 增补「file(READ) 字节失真」层与机器判据\n\n## 边界\nscripts/build.ps1;CMakeLists.txt;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 30720,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "依赖前缀机制中文 locale 适配：探针转码或 VSLANG=1033 固化进构建链",
+            "updatedAt": 1793900898
+        },
+        {
             "code": "R11-06",
             "completedAt": 1793892936,
             "createdAt": 1793890841,
@@ -4003,6 +4003,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T01:44:48",
+    "updated": "2026-11-06T01:48:18",
     "version": 3
 }

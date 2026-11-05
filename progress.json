@@ -55,24 +55,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-72",
-            "completedAt": 0,
-            "createdAt": 1793903455,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-72",
-            "note": "",
-            "orderKey": 43008,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow approve 内部 board-apply 抛未捕获异常：立卡没落盘、会话卡在 approved",
-            "updatedAt": 1793903455
-        },
-        {
             "code": "DX-73",
             "completedAt": 0,
             "createdAt": 1793904757,
@@ -3421,6 +3403,24 @@
             "updatedAt": 1792748226
         },
         {
+            "code": "DX-72",
+            "completedAt": 1793907097,
+            "createdAt": 1793903455,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-72",
+            "note": "",
+            "orderKey": 43008,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 内部 board-apply 抛未捕获异常：立卡没落盘、会话卡在 approved",
+            "updatedAt": 1793907097
+        },
+        {
             "completedAt": 1792748226,
             "createdAt": 1792724522,
             "deleted": false,
@@ -4417,6 +4417,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T03:29:40",
+    "updated": "2026-11-06T03:31:37",
     "version": 3
 }

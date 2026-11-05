@@ -24,6 +24,7 @@
       pwsh -File scripts/git-done.ps1 -SkipAnchorSync      # 合并后不快进锚点区
       pwsh -File scripts/git-done.ps1 -Close DX-32,DX-33   # 人工确认结卡（卡必须是本分支领用的）
       pwsh -File scripts/git-done.ps1 -AllowCrossTree      # 跨区调用显式放行（DX-49 检出漂移守卫）
+      pwsh -File scripts/git-done.ps1 -DryRun              # 收尾演练（DX-50）：fetch/push 打桩不触网，本地完整走一遍时序后回滚
 #>
 [CmdletBinding()]
 param(
@@ -42,7 +43,10 @@ param(
     [string]$Worktree = '',
     # 检出漂移守卫（DX-49）：调用方 CWD 与脚本所属检出是同一仓库的不同工作树时默认中止；
     # 有意的跨区调用（复现旧脚本行为 / 跨区验证）用它显式放行并打显著告警
-    [switch]$AllowCrossTree
+    [switch]$AllowCrossTree,
+    # 收尾时序演练（DX-50）：fetch/push 全部打桩不触网，合并与三步收尾提交在本地真实走一遍，
+    # 断言「三步提交在分离 HEAD、归位在最后」，结束切回进入时的分支，演练提交全部丢弃。
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
@@ -80,6 +84,30 @@ function Invoke-Git {
 # 失败不抛，由调用方按 Code 自行处置（探测类命令用这里）
 function Invoke-GitQuiet { param([string[]]$GitArgs) return Invoke-Cmd -File 'git' -CmdArgs $GitArgs }
 
+# 网络动作打桩（DX-50）：-DryRun 下 fetch / push 不执行、只留痕，返回成功形态让调用方
+# 走「成功」分支 —— 演练的是时序，不是网络。真实调用一律走 Invoke-GitQuiet。
+function Invoke-NetGit {
+    param([string[]]$GitArgs)
+    if ($DryRun) {
+        Write-Host ("  [dry-run] 桩：git {0}" -f ($GitArgs -join ' ')) -ForegroundColor DarkCyan
+        return [pscustomobject]@{ Code = 0; Output = @('[dry-run] 桩') }
+    }
+    return Invoke-GitQuiet -GitArgs $GitArgs
+}
+
+# 收尾时序断言（DX-50）：三步自动提交（claims 清理 / 结卡 / 快照）必须发生在分离 HEAD 上 ——
+# pre-commit 规则 1 禁止在 main 直接提交，DX-20 的回归正是归位提前导致三步全被自家钩子拒掉。
+function Assert-DryCloseStep {
+    param([string]$Step)
+    if (-not $DryRun) { return }
+    $ref = ([string](& git symbolic-ref -q --short HEAD 2>$null)).Trim()
+    if ($ref) {
+        Write-Host ("✗ dry-run 断言失败：{0} 发生在命名分支 {1} 上（DX-26 要求收尾提交在分离 HEAD）" -f $Step, $ref) -ForegroundColor Red
+        exit 7
+    }
+    Write-Host ("  [dry-run] {0} @ detached HEAD {1}" -f $Step, (& git rev-parse --short HEAD)) -ForegroundColor DarkCyan
+}
+
 function Sync-BoardSnapshot {
     param([string]$RepoRoot, [string]$MainBranch)
     # 快照刷新闭环（DX-13）：progress.json 是「git 标记 + 台账」的派生产物，只有 --write
@@ -107,6 +135,7 @@ function Sync-BoardSnapshot {
         Write-Host '· 快照：派生结果与现有快照一致，无需提交' -ForegroundColor DarkGray
         return $true
     }
+    Assert-DryCloseStep -Step '快照提交'
     Invoke-GitQuiet @('add', 'progress.json') | Out-Null
     $snapBody = "对象：合并收尾按 git 事实重算派生状态，使 progress.json 与台账一致（DX-13）。`n`n" +
                 "自动来源：git-done.ps1 的 derive_board_status.py --write。"
@@ -118,9 +147,13 @@ function Sync-BoardSnapshot {
         return $false
     }
     for ($i = 1; $i -le 3; $i++) {
-        $snapPush = Invoke-GitQuiet @('push', 'origin', "HEAD:$MainBranch")
+        $snapPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
         if ($snapPush.Code -eq 0) {
-            Write-Host ('✓ 快照：派生状态已同步并推上 {0}' -f $MainBranch) -ForegroundColor Green
+            if ($DryRun) {
+                Write-Host '✓ [dry-run] 快照：本地已提交（未推送）' -ForegroundColor Green
+            } else {
+                Write-Host ('✓ 快照：派生状态已同步并推上 {0}' -f $MainBranch) -ForegroundColor Green
+            }
             return $true
         }
         if ($i -eq 3) {
@@ -129,7 +162,7 @@ function Sync-BoardSnapshot {
             return $false
         }
         Write-Host ("   · 快照推送被拒（第 {0} 次）：拉取主线变基后重试" -f $i) -ForegroundColor DarkGray
-        Invoke-GitQuiet @('fetch', 'origin', $MainBranch) | Out-Null
+        Invoke-NetGit @('fetch', 'origin', $MainBranch) | Out-Null
         $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
         if ($rb.Code -ne 0) {
             # 快照的唯一事实源就是派生结果，重叠提交丢弃即可，绝不手工解冲突
@@ -371,11 +404,19 @@ function Sync-AnchorWorktree {
 # 故离线时仅清本地，联网后由下次运行彻底清 origin。
 function Release-ClaimRef {
     param([string]$Ref)
-    & git update-ref -d $Ref 2>$null
-    Write-Host ('· 认领占位清理：本地释放 {0}' -f $Ref) -ForegroundColor DarkGray
-    $del = Invoke-GitQuiet @('push', 'origin', '--delete', $Ref)
+    if ($DryRun) {
+        Write-Host ("  [dry-run] 桩：git update-ref -d {0}（演练不动引用）" -f $Ref) -ForegroundColor DarkCyan
+    } else {
+        & git update-ref -d $Ref 2>$null
+        Write-Host ('· 认领占位清理：本地释放 {0}' -f $Ref) -ForegroundColor DarkGray
+    }
+    $del = Invoke-NetGit @('push', 'origin', '--delete', $Ref)
     if ($del.Code -eq 0) {
-        Write-Host ('✓ 认领占位清理：服务端释放 {0}' -f $Ref) -ForegroundColor Green
+        if ($DryRun) {
+            Write-Host ('✓ [dry-run] 认领占位清理：本地与远端均未动（演练）' -f $Ref) -ForegroundColor Green
+        } else {
+            Write-Host ('✓ 认领占位清理：服务端释放 {0}' -f $Ref) -ForegroundColor Green
+        }
     } else {
         Write-Host ('· 认领占位清理：服务端 {0} 删除失败（离线或本就不存在），联网后下次运行再清' -f $Ref) -ForegroundColor Yellow
     }
@@ -634,7 +675,7 @@ if ($Mode -eq 'remote') {
         Write-Host '· 领用闸门：校验服务端 claim ref ...' -ForegroundColor DarkGray
         # git fetch 的进度全在 stderr，且离线时必须 fail-closed（宪章 §7.2.1）——
         # 原先 `2>&1 | Out-Null` 既会被 Stop 打断，又把失败吞成「继续往下跑」。
-        $claimFetch = Invoke-GitQuiet @('fetch', 'origin', '+refs/claims/*:refs/claims/*')
+        $claimFetch = Invoke-NetGit @('fetch', 'origin', '+refs/claims/*:refs/claims/*')
         if ($claimFetch.Code -ne 0) {
             Write-Host "`n✗ 领用闸门未通过：拉取服务端 refs/claims/* 失败（退出码 $($claimFetch.Code)），需要联网。" -ForegroundColor Red
             $claimFetch.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
@@ -657,6 +698,8 @@ if ($Mode -eq 'remote') {
         Invoke-Git branch -D $tmp | Out-Null
     }
 
+    $script:dryEntryRef = ([string](& git symbolic-ref -q --short HEAD 2>$null)).Trim()
+    if ($DryRun -and -not $script:dryEntryRef) { Write-Host '· [dry-run] 进入时已在分离 HEAD，结束时无可回滚' -ForegroundColor DarkCyan }
     Write-Host "· 基于 origin/$MainBranch 创建临时分支 $tmp" -ForegroundColor DarkGray
     Invoke-Git switch -c $tmp "origin/$MainBranch" | Out-Null
 
@@ -671,22 +714,32 @@ if ($Mode -eq 'remote') {
     }
 
     Write-Host "· 快进推送 $tmp → origin/$MainBranch" -ForegroundColor DarkGray
-    try {
-        Invoke-Git push origin "HEAD:$MainBranch" | Out-Null
-    } catch {
-        Write-Host "`n✗ 推送主分支失败（多半是别人刚推了新提交）：" -ForegroundColor Yellow
-        Write-Host $_.Exception.Message -ForegroundColor Yellow
-        Write-Host "`n恢复步骤：`n  git fetch origin`n  git switch -c merge/retry origin/$MainBranch`n  git merge --no-ff $Branch -m `"merge: 合入 $Branch`"`n  git push origin HEAD:$MainBranch`n" -ForegroundColor Yellow
-        exit 1
+    if ($DryRun) {
+        Write-Host "  [dry-run] 桩：git push origin HEAD:$MainBranch（不触网）" -ForegroundColor DarkCyan
+    } else {
+        try {
+            Invoke-Git push origin "HEAD:$MainBranch" | Out-Null
+        } catch {
+            Write-Host "`n✗ 推送主分支失败（多半是别人刚推了新提交）：" -ForegroundColor Yellow
+            Write-Host $_.Exception.Message -ForegroundColor Yellow
+            Write-Host "`n恢复步骤：`n  git fetch origin`n  git switch -c merge/retry origin/$MainBranch`n  git merge --no-ff $Branch -m `"merge: 合入 $Branch`"`n  git push origin HEAD:$MainBranch`n" -ForegroundColor Yellow
+            exit 1
+        }
     }
 
     $merged = (Invoke-Git rev-parse HEAD).Trim()
-    Write-Host ("✓ 已推送到 origin/{0}（{1}）" -f $MainBranch, $merged.Substring(0, 7)) -ForegroundColor Green
+    if ($DryRun) {
+        Write-Host ("✓ [dry-run] 合并在本地完成（未推送 origin/{0}，合并提交 {1}）" -f $MainBranch, $merged.Substring(0, 7)) -ForegroundColor Green
+    } else {
+        Write-Host ("✓ 已推送到 origin/{0}（{1}）" -f $MainBranch, $merged.Substring(0, 7)) -ForegroundColor Green
+    }
 
     # 合并收尾：释放已合入主线的认领占位（refs/claims/*），避免永久残留误拦重新认领。
     Invoke-ClaimRefCleanup -Main $MainBranch
 
-    if (-not $SkipAnchorSync) {
+    if ($DryRun) {
+        Write-Host '· [dry-run] 跳过锚点同步（演练不碰锚点区）' -ForegroundColor DarkCyan
+    } elseif (-not $SkipAnchorSync) {
         Sync-AnchorWorktree -Main $MainBranch -CurrentRoot $repoRoot
     } else {
         Write-Host '· 已跳过锚点同步（-SkipAnchorSync）' -ForegroundColor Yellow
@@ -710,7 +763,9 @@ if ($Mode -eq 'remote') {
     # （忘传 → 目录不删 → 分支被占用删不掉 → release-claims 判分支还在 → 台账留僵尸 claim）。
     # 默认回收 .worktrees/ 下的目标区；-KeepWorktree 显式保留；-RemoveWorktree 退化为
     # 「强制回收」（跳过下面两道安全检查），旧命令照旧能用。
-    if ((-not $KeepWorktree) -and $wtPath) {
+    if ($DryRun) {
+        Write-Host '· [dry-run] 跳过 worktree 回收与分支删除（演练不动现场，结束时切回原分支）' -ForegroundColor DarkCyan
+    } elseif ((-not $KeepWorktree) -and $wtPath) {
         $abs = if ([System.IO.Path]::IsPathRooted($wtPath)) { $wtPath } else { Join-Path $repoRoot $wtPath }
         $abs = [System.IO.Path]::GetFullPath($abs)
         $currentRoot = [System.IO.Path]::GetFullPath($repoRoot)
@@ -755,7 +810,9 @@ if ($Mode -eq 'remote') {
         }
     }
 
-    if (-not $KeepBranch) {
+    if ($DryRun) {
+        Write-Host ("· [dry-run] 保留分支 {0}（演练不删）" -f $Branch) -ForegroundColor DarkCyan
+    } elseif (-not $KeepBranch) {
         Write-Host ("· 删除分支 {0}" -f $Branch) -ForegroundColor DarkGray
         $delRes = Invoke-GitQuiet @('branch', '-d', $Branch)
         $delRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
@@ -779,6 +836,7 @@ if ($Mode -eq 'remote') {
         Write-Host '· 警告：无法脱离当前分支（工作区有冲突改动），随后的自动清理会被分支保护拦下' -ForegroundColor Yellow
         $detachRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
     }
+    if ($DryRun) { Write-Host '  [dry-run] 三步收尾前已 switch --detach（DX-26 时序）' -ForegroundColor DarkCyan }
     Invoke-GitQuiet @('branch', '-d', $tmp) | Out-Null
 
     # 台账过期领用登记清理：服务端占位与认领分支此刻都已没了，投影条目留着只会让
@@ -791,6 +849,7 @@ if ($Mode -eq 'remote') {
     if ($rcRes.Code -ne 0) {
         Write-Host ("· 台账领用登记清理：脚本失败（退出码 {0}），留待下次合并再清" -f $rcRes.Code) -ForegroundColor Yellow
     } elseif ($goneCodes.Count -gt 0) {
+        Assert-DryCloseStep -Step '台账领用登记清理提交'
         Invoke-GitQuiet @('add', 'docs/board-ledger.json') | Out-Null
         $rcCommit = Invoke-GitQuiet @('commit', '-m', ('chore(board): 清理过期领用登记 {0}' -f ($goneCodes -join '、')))
         if ($rcCommit.Code -ne 0) {
@@ -800,9 +859,13 @@ if ($Mode -eq 'remote') {
             $rcCommit.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
             Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/board-ledger.json') | Out-Null
         } else {
-            $rcPush = Invoke-GitQuiet @('push', 'origin', "HEAD:$MainBranch")
+            $rcPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
             if ($rcPush.Code -eq 0) {
-                Write-Host ('✓ 台账领用登记清理：{0} 已删除并推上 {1}' -f ($goneCodes -join '、'), $MainBranch) -ForegroundColor Green
+                if ($DryRun) {
+                    Write-Host '✓ [dry-run] 台账领用登记清理：本地已提交（未推送）' -ForegroundColor Green
+                } else {
+                    Write-Host ('✓ 台账领用登记清理：{0} 已删除并推上 {1}' -f ($goneCodes -join '、'), $MainBranch) -ForegroundColor Green
+                }
             } else {
                 Write-Host '· 台账领用登记清理：补推失败（离线 / 主线被推进），本地回滚，留待下次合并再清' -ForegroundColor Yellow
                 Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
@@ -826,6 +889,7 @@ if ($Mode -eq 'remote') {
     if ($ccRes.Code -ne 0) {
         Write-Host ("· 结卡：派生器失败（退出码 {0}），baseline 留待下次合并再结" -f $ccRes.Code) -ForegroundColor Yellow
     } elseif ($closedCodes.Count -gt 0) {
+        Assert-DryCloseStep -Step '结卡提交'
         Invoke-GitQuiet @('add', 'docs/board-ledger.json') | Out-Null
         # DX-41：把 `#<短号>=done` 写进主题，让 .githooks/post-commit 的
         # `grep -Eq '#[A-Za-z][A-Za-z0-9]*'` 认到标记，投 hook.commit 事件到 hooks.db，
@@ -851,9 +915,13 @@ if ($Mode -eq 'remote') {
             $ccCommit.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
             Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/board-ledger.json') | Out-Null
         } else {
-            $ccPush = Invoke-GitQuiet @('push', 'origin', "HEAD:$MainBranch")
+            $ccPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
             if ($ccPush.Code -eq 0) {
-                Write-Host ('✓ 结卡：{0} 的 baseline 已补为 done 并推上 {1}' -f ($closedCodes -join '、'), $MainBranch) -ForegroundColor Green
+                if ($DryRun) {
+                    Write-Host '✓ [dry-run] 结卡：本地已提交（未推送）' -ForegroundColor Green
+                } else {
+                    Write-Host ('✓ 结卡：{0} 的 baseline 已补为 done 并推上 {1}' -f ($closedCodes -join '、'), $MainBranch) -ForegroundColor Green
+                }
             } else {
                 Write-Host '· 结卡：补推失败（离线 / 主线被推进），本地回滚，留待下次合并再结' -ForegroundColor Yellow
                 Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
@@ -923,17 +991,22 @@ if ($Mode -eq 'remote') {
         }
         # 三步提交各自 push 过，但 remote-tracking ref 未必已最新；快进前再 fetch 一次
         # （离线时失败也无妨：ff 那里会给出明确的失败诊断与手工命令）。
-        Invoke-GitQuiet @('fetch', 'origin', '--quiet') | Out-Null
+        Invoke-NetGit @('fetch', 'origin', '--quiet') | Out-Null
         $sw = Invoke-GitQuiet @('switch', $homeBranch)
         if ($sw.Code -eq 0) {
             if ($homeBranch -eq $MainBranch) {
-                $ff = Invoke-GitQuiet @('merge', '--ff-only', "origin/$MainBranch")
-                if ($ff.Code -eq 0) {
-                    Write-Host ("✓ 锚点区已归位 {0} 并快进到 origin/{0}" -f $MainBranch) -ForegroundColor Green
+                if ($DryRun) {
+                    Write-Host '  [dry-run] 桩：git merge --ff-only origin/main（演练不移动锚点分支）' -ForegroundColor DarkCyan
+                    Write-Host '✓ [dry-run] 归位发生在所有自动提交之后（DX-26 时序，演练确认）' -ForegroundColor Green
                 } else {
-                    Write-Host ("· 锚点区已切回 {0}，但快进失败（本地分叉或被未跟踪文件挡住），手工：" -f $MainBranch) -ForegroundColor Yellow
-                    Write-Host ("   git -C {0} merge --ff-only origin/{1}" -f $repoRoot, $MainBranch) -ForegroundColor Yellow
-                    $ff.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+                    $ff = Invoke-GitQuiet @('merge', '--ff-only', "origin/$MainBranch")
+                    if ($ff.Code -eq 0) {
+                        Write-Host ("✓ 锚点区已归位 {0} 并快进到 origin/{0}" -f $MainBranch) -ForegroundColor Green
+                    } else {
+                        Write-Host ("· 锚点区已切回 {0}，但快进失败（本地分叉或被未跟踪文件挡住），手工：" -f $MainBranch) -ForegroundColor Yellow
+                        Write-Host ("   git -C {0} merge --ff-only origin/{1}" -f $repoRoot, $MainBranch) -ForegroundColor Yellow
+                        $ff.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+                    }
                 }
             } else {
                 Write-Host ("· 锚点区已归位分支 {0}（非 {1}，不自动快进）" -f $homeBranch, $MainBranch) -ForegroundColor DarkGray
@@ -941,6 +1014,21 @@ if ($Mode -eq 'remote') {
         } else {
             Write-Host ("· 锚点区归位失败（工作区改动会冲突），请手工：git -C {0} switch {1}" -f $repoRoot, $homeBranch) -ForegroundColor Yellow
             $sw.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+        }
+    }
+
+    # ---- 演练回滚（DX-50）----
+    # -DryRun 的合并与三步收尾提交只发生在本地，切回进入时的分支即全部丢弃；
+    # 锚点区演练不走这里（归位块自己打桩，不移动任何分支）。
+    if ($DryRun -and -not $atAnchor) {
+        if ($script:dryEntryRef) {
+            $back = Invoke-GitQuiet @('switch', $script:dryEntryRef)
+            if ($back.Code -eq 0) {
+                Write-Host ("✓ [dry-run] 演练结束，已切回 {0}（演练提交全部丢弃，未触网）" -f $script:dryEntryRef) -ForegroundColor Green
+            } else {
+                Write-Host ("· [dry-run] 切回 {0} 失败，请手工 git switch {0}" -f $script:dryEntryRef) -ForegroundColor Yellow
+                $back.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+            }
         }
     }
 

@@ -20,11 +20,15 @@
 #   pwsh -File scripts/verify.ps1                    # 完整验收
 #   pwsh -File scripts/verify.ps1 -SkipBuild         # 已构建过，只跑测试
 #   pwsh -File scripts/verify.ps1 -ScriptOnly        # 纯脚本/配置类卡片的脚本层验收
+#   pwsh -File scripts/verify.ps1 -GitDoneDryRun     # 收尾时序演练（DX-50）：git-done -DryRun 本地走一遍，不触网
 #   pwsh -File scripts/verify.ps1 -Config Release -BuildDir build
 
 param(
     [switch]$SkipBuild,
     [switch]$ScriptOnly,
+    # 收尾时序演练（DX-50）：对当前分支跑一次 git-done -DryRun —— fetch/push 打桩不触网，
+    # 合并与三步收尾提交在本地真实走完并断言时序，结束回滚。用于真实收尾前先排练一遍。
+    [switch]$GitDoneDryRun,
     [string]$QtRoot = '',
     [string]$BuildDir = 'build',
     [string]$Config = 'Release'
@@ -188,6 +192,25 @@ sys.exit(1 if bad else 0)
 
     Write-Host ''
     Write-Host '✓ 脚本层验收通过：语法 / 卫生 / YAML / 范围 / 路径引用 / 台账分档 全过（未触发编译）' -ForegroundColor Green
+    exit 0
+}
+
+# ---------- 收尾时序演练（-GitDoneDryRun，DX-50） ----------
+# git-done 的收尾顺序（三步自动提交在分离 HEAD、归位在最后）没有别的自动化测试覆盖 ——
+# 要真 push 才跑得到，DX-20 改坏时所有检查全绿。这里用 -DryRun 档在本地把同样的序列
+# 完整走一遍：不触网、不动远端、结束回滚，退出码即「这次收尾能不能过」的预演答案。
+if ($GitDoneDryRun) {
+    Step '收尾时序演练（git-done -DryRun）'
+    $branch = ([string](& git rev-parse --abbrev-ref HEAD 2>$null)).Trim()
+    if (-not $branch -or $branch -eq 'HEAD') { Fail '当前处于分离 HEAD，没有可演练的分支；请切到功能分支后重跑' }
+    if ($branch -eq 'main') { Fail 'main 上没有可演练的收尾；请切到待合并的功能分支后重跑' }
+    Write-Host ("· 演练对象：分支 {0}（fetch/push 打桩，结束回滚）" -f $branch)
+    $gd = Join-Path $PSScriptRoot 'git-done.ps1'
+    $out = & pwsh -NoProfile -File $gd -DryRun -Branch $branch 2>&1
+    $code = $LASTEXITCODE
+    $out | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+    if ($code -ne 0) { Fail "git-done -DryRun 演练失败（退出码 $code）：收尾时序有问题，别急着真合并" }
+    Write-Host '✓ 收尾时序演练通过：三步提交均在分离 HEAD、归位在最后、回滚干净（未触网）' -ForegroundColor Green
     exit 0
 }
 

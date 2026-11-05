@@ -4058,6 +4058,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-68": {
+            "agent": "agent-conflict",
+            "branch": "fix/conflict-chore-board-2026-11-06",
+            "claimedAt": 1793900499,
+            "head": "48dfb2f8fd408be0d638a65bfcf3e47922a687c8"
+        }
+    },
     "version": 1
 }

@@ -325,6 +325,24 @@
             "updatedAt": 1793911047
         },
         {
+            "code": "DX-93",
+            "completedAt": 0,
+            "createdAt": 1793911353,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-93",
+            "note": "触发证据：2026-11-06 实录两段：①DX-89 收尾 git worktree remove 撞 Permission denied，git 注销了 worktree 但目录半删除（文件残缺、.git 指针指向已清理的管理目录）；②随后 DX-92 approve 走「目录存在即复用」路径（cmd_approve 里 wt.exists() 分支），在尸体里跑 git -C wt checkout -B——git 沿目录树向上搜索落到锚点 .git，把锚点检出从 main 静默切到 chore/board-2026-11-06（已手工切回，锚点本地 3 个未推提交完好）；board-apply 也因尸体 scripts 残缺报 can not open file 而失败。目录存在 ≠ 检出可用；broken 检出里的 git -C 是跨仓库误操作入口，正撞 §7.1 要防的事故面。\n\n## 目标\n半删除的 worktree 尸体被当活检出复用：git -C 沿目录树落到锚点，锚点检出被静默切走\n\n## 验收\napprove 的立卡 worktree 复用前先验活：git -C wt rev-parse --is-inside-work-tree 成功且 --git-common-dir 等于本仓库 common dir、scripts/board-apply.py 存在，任一不满足判死;判死后先 git worktree prune 再删目录，目录删不掉（被占用）必须中止并点名路径，绝不带着尸体继续（fail-closed）;probe_merge 的临时探测区复用同源消费同一验活 helper，不复制第二份判定;selftest 覆盖负例（临时目录无 .git 指针/无 board-apply.py → 判死，不碰真仓库不跑真 git 之外的网络命令）;docs/pitfalls.md 记条目：目录存在不等于检出可用，git -C 前必须验证注册链接;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 62464,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "半删除的 worktree 尸体被当活检出复用：git -C 沿目录树落到锚点，锚点检出被静默切走",
+            "updatedAt": 1793911353
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4597,6 +4615,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T04:37:27",
+    "updated": "2026-11-06T04:42:33",
     "version": 3
 }

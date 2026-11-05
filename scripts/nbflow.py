@@ -779,33 +779,68 @@ def cmd_dispatch(ctx: Ctx, state: dict, args) -> int:
     return 0
 
 
+# 结果词紧跟在「=」后（可带空白，后随冒号或串尾）才是分割点（DX-70）：
+# 键与证据都可能含「=」，rsplit / lsplit 都会取错 —— 按结果词定位两种形态都稳。
+_RESULT_SPLIT_RE = re.compile(r"=\s*(pass|fail|defer)\s*(?::|$)", re.IGNORECASE)
+
+
+def flatten_acceptance(entries: list[str]) -> list[str]:
+    """存量卡把多条验收写进一条竖线分隔的串（DX-62 形态）：拆成子项再映射序号。
+
+    引号内的 ``|`` 不是分隔符（``ctest -R "a|b"`` 这类正则参数），只在引号外切；
+    拆不出两个以上非空子项的原样保留，函数幂等（拆过的列表再进来不动）。
+    """
+    flat: list[str] = []
+    for entry in entries:
+        pieces: list[str] = []
+        buf = []
+        quoted = ""
+        for ch in entry:
+            if quoted:
+                if ch == quoted:
+                    quoted = ""
+            elif ch in "\"'":
+                quoted = ch
+            elif ch == "|":
+                pieces.append("".join(buf))
+                buf = []
+                continue
+            buf.append(ch)
+        pieces.append("".join(buf))
+        stripped = [p.strip() for p in pieces if p.strip()]
+        flat.extend(stripped if len(stripped) > 1 else [entry])
+    return flat
+
+
 def parse_results(items: list[str], acceptance: list[str] | None = None) -> dict[str, dict]:
     """'<验收项>=pass:证据' → {验收项: {result, evidence}}。
 
     验收项可以照抄原文，也可以用序号 ``1=pass:证据`` 指向 acceptance[0]，
     避免长验收命令里的等号与转义把 agent 绕晕。
+    分割点取「= 后紧跟结果词」的第一处（DX-70）：键或证据含等号都不会误切；
+    竖线分隔的存量 acceptance 先拆子项，序号映射按子项走。
     ``defer`` 表示「待合并后核验」（发版卡的 Release 资产 / update.json / 真机升级
     这类结构性排在合并之后的验收项，DX-61）：必须给出非空理由，close 时会大声打印
     并留痕，但不算失败 —— 把待核验混成 pass 才是这里要防的。
     """
+    acceptance = flatten_acceptance(acceptance or [])
     parsed: dict[str, dict] = {}
     for raw in items:
-        if "=" not in raw:
+        m = _RESULT_SPLIT_RE.search(raw)
+        if not m:
             raise ValueError("结果格式应为 <验收项或序号>=pass|fail|defer:证据，收到 %r" % raw)
-        key, tail = raw.rsplit("=", 1)
+        key, tail = raw[:m.start()], raw[m.end():]
         key = key.strip()
         if key.isdigit():
             if not acceptance or not (1 <= int(key) <= len(acceptance)):
                 raise ValueError("序号 %s 超出 acceptance 范围（共 %d 条）"
                                  % (key, len(acceptance or [])))
             key = acceptance[int(key) - 1]
-        if ":" in tail:
-            result, evidence = tail.split(":", 1)
+        if tail.startswith(":"):
+            evidence = tail[1:]
         else:
-            result, evidence = tail, ""
-        if result.strip().lower() not in ("pass", "fail", "defer"):
-            raise ValueError("结果只能是 pass / fail / defer：%r" % raw)
-        result = result.strip().lower()
+            evidence = tail
+        result = m.group(1).lower()
         evidence = evidence.strip()
         if result == "defer" and not evidence:
             raise ValueError("defer 必须给出待核验的理由（合并前核不了什么、由谁核）：%r" % raw)
@@ -856,6 +891,8 @@ def cmd_report(ctx: Ctx, state: dict, args) -> int:
         rq = find_request(card)
         if rq:
             acceptance = split_multi(parse_request(rq.read_text(encoding="utf-8")).get("acceptance", ""))
+    # 竖线分隔的存量卡（DX-62 形态）拆成子项，序号映射与逐条核验都按子项走（DX-70）
+    acceptance = flatten_acceptance(acceptance)
     results: dict[str, dict] = {}
     if args.results_json:
         results = json.loads(Path(args.results_json).read_text(encoding="utf-8"))
@@ -1490,6 +1527,28 @@ def selftest() -> int:
     check("序号可引用验收项",
           parse_results(["1=pass:证据"], acc) == {"ctest 全绿": {"result": "pass", "evidence": "证据"}})
     check("序号越界被拒", _raises(lambda: parse_results(["9=pass:证据"], acc)))
+
+    # DX-70：分割点按「= 后紧跟结果词」定位，键与证据含等号都不误切
+    eq = parse_results(["合并落位=pass:95bb295（c69cc7f=父提交）均已在 main"])
+    check("证据含等号不误切",
+          eq["合并落位"] == {"result": "pass", "evidence": "95bb295（c69cc7f=父提交）均已在 main"})
+    keyed = parse_results(['-R "tst_a|tst_b" 全过=pass:ctest 2/2'])
+    check("键含等号不误切",
+          keyed['-R "tst_a|tst_b" 全过'] == {"result": "pass", "evidence": "ctest 2/2"})
+    check("证据里再出现 =pass: 仍取第一分割点",
+          parse_results(["项=pass:步骤=pass:均绿"])["项"]["evidence"] == "步骤=pass:均绿")
+
+    # DX-70：竖线分隔的存量卡（DX-62 形态）先拆子项再做序号映射
+    pipe_acc = ["derive 能点名滞留卡|agent-init 领用时显式警告|selftest 全过|补结落地 baseline 归位"]
+    check("竖线单条拆成四子项", len(flatten_acceptance(pipe_acc)) == 4)
+    check("子项序号可回报",
+          parse_results(["2=pass:警告已投递"], pipe_acc)
+          == {"agent-init 领用时显式警告": {"result": "pass", "evidence": "警告已投递"}})
+    check("引号内的竖线不是分隔符",
+          flatten_acceptance(['ctest -R "tst_a|tst_b" 通过']) == ['ctest -R "tst_a|tst_b" 通过'])
+    check("拆分幂等", flatten_acceptance(flatten_acceptance(pipe_acc)) == flatten_acceptance(pipe_acc))
+    pipe_results = parse_results(["1=pass:a", "2=pass:b", "3=pass:c", "4=pass:d"], pipe_acc)
+    check("四子项逐条回报互不冲突", not check_report(flatten_acceptance(pipe_acc), pipe_results, 0, []))
 
     # DX-61：defer 结论 —— 待合并后核验的合法通道（必须有理由，不算失败）
     defer_results = parse_results(

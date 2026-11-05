@@ -127,24 +127,6 @@
             "updatedAt": 1793901108
         },
         {
-            "code": "DX-70",
-            "completedAt": 0,
-            "createdAt": 1793903068,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-70",
-            "note": "触发证据：本会话（DX-62 交付日 2026-11-06）实测两次被拒：--result 证据含「95bb295（c69cc7f 父提交）」形态的等号时 rsplit 取错分割点，报「结果只能是 pass/fail/defer」；DX-62 卡 acceptance 为单串四子项（竖线连接），序号 2 被拒「超出 acceptance 范围（共 1 条）」，被迫按单条回报。修复方向是完善方案：分割点定位与子项拆分都在 parse_results 单一实现内做，配 selftest 回归，不是调用方绕行\n\n## 目标\nnbflow report 结果解析对证据含等号不健壮，竖线分隔的存量 acceptance 序号映射失灵\n\n## 验收\nparse_results 对证据含等号的结果不再误切：按「结果词 pass/fail/defer 紧随其后」定位分割点，selftest 增补证据含等号与键含等号两例；单条 acceptance 内含竖线分隔的存量卡（DX-62 形态）先拆子项再做序号映射，逐子项回报互不冲突；python scripts/nbflow.py --selftest 全过，report 与 approve 既有流程回归不变\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 40960,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow report 结果解析对证据含等号不健壮，竖线分隔的存量 acceptance 序号映射失灵",
-            "updatedAt": 1793903068
-        },
-        {
             "code": "DX-71",
             "completedAt": 0,
             "createdAt": 1793903068,
@@ -3171,6 +3153,24 @@
             "updatedAt": 1792748226
         },
         {
+            "code": "DX-70",
+            "completedAt": 1793904322,
+            "createdAt": 1793903068,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-70",
+            "note": "触发证据：本会话（DX-62 交付日 2026-11-06）实测两次被拒：--result 证据含「95bb295（c69cc7f 父提交）」形态的等号时 rsplit 取错分割点，报「结果只能是 pass/fail/defer」；DX-62 卡 acceptance 为单串四子项（竖线连接），序号 2 被拒「超出 acceptance 范围（共 1 条）」，被迫按单条回报。修复方向是完善方案：分割点定位与子项拆分都在 parse_results 单一实现内做，配 selftest 回归，不是调用方绕行\n\n## 目标\nnbflow report 结果解析对证据含等号不健壮，竖线分隔的存量 acceptance 序号映射失灵\n\n## 验收\nparse_results 对证据含等号的结果不再误切：按「结果词 pass/fail/defer 紧随其后」定位分割点，selftest 增补证据含等号与键含等号两例；单条 acceptance 内含竖线分隔的存量卡（DX-62 形态）先拆子项再做序号映射，逐子项回报互不冲突；python scripts/nbflow.py --selftest 全过，report 与 approve 既有流程回归不变\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 40960,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow report 结果解析对证据含等号不健壮，竖线分隔的存量 acceptance 序号映射失灵",
+            "updatedAt": 1793904322
+        },
+        {
             "completedAt": 1792748226,
             "createdAt": 1792724522,
             "deleted": false,
@@ -4165,6 +4165,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T02:37:28",
+    "updated": "2026-11-06T02:45:22",
     "version": 3
 }

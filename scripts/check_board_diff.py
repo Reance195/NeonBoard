@@ -154,6 +154,38 @@ def snapshot_drift_codes() -> set[str]:
     return drift
 
 
+def git_output(*args: str) -> str | None:
+    """跑 git 子命令取 stdout；失败返回 None，调用方保守维持原判（fail-closed）。"""
+    proc = subprocess.run(
+        ["git", *args],
+        cwd=str(REPO_ROOT), capture_output=True, check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.decode("utf-8", errors="replace").strip() or None
+
+
+def classify_stale_base(main_ledger: dict, head_ledger: dict, mb_ledger: dict) -> tuple[str, list[str]]:
+    """基点落后时的对账：基准换成分支真正的分叉点（DX-71）。
+
+    origin/main 上并行会话的立卡，会让「origin/main vs HEAD」凭空出现「删卡」——
+    那是基点旧，不是本分支动了卡。这里用 merge-base(origin/main, HEAD) 的台账
+    重新分档：主线增量（并行立卡等）单独提示并给出可执行出路；分支自身的删卡 /
+    改契约照旧红灯（反例不破）。三个入参都是台账 dict，保持纯函数可进 selftest。
+    """
+    action, lines = classify(mb_ledger, head_ledger)
+    main_added, main_removed, main_changed = diff_cards(mb_ledger, main_ledger)
+    hint = ["  · 台账基点落后于 origin/main：对账基准已换成本分支的 merge-base（DX-71）"]
+    if main_added:
+        hint.append("    并行立卡：" + "、".join(main_added))
+    if main_removed:
+        hint.append("    主线删卡：" + "、".join(main_removed) + "（rebase 后即消失）")
+    if main_changed:
+        hint.append("    主线改卡：" + "、".join(describe_changed(mb_ledger, main_ledger, main_changed)))
+    hint.append("    收尾前先同步主线：git rebase origin/main")
+    return action, hint + lines
+
+
 def classify(old: dict, new: dict) -> tuple[str, list[str]]:
     """判断这次台账改动属于哪一档，返回 (action, 说明行)。
 
@@ -226,6 +258,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     action, lines = classify(old, new)
+    # DX-71 基点落后归因：origin/main 领先本分支基点时，主线上的并行立卡会伪装成
+    # 本分支「删卡 / 改契约」。对账基准换成本分支真正的分叉点（merge-base）；取不到
+    # merge-base 或基点未落后时维持原判（fail-closed）。
+    base_commit = git_output("rev-parse", "--verify", f"{args.base}^{{commit}}")
+    mb = git_output("merge-base", args.base, "HEAD") if base_commit else None
+    if mb and mb != base_commit:
+        mb_ledger = read_from_git(mb, LEDGER_REL)
+        if mb_ledger is not None:
+            action, lines = classify_stale_base(old, new, mb_ledger)
     for line in lines:
         print(line)
     if action == "skip":
@@ -348,6 +389,35 @@ def selftest() -> int:
           drift_explained({"DX-9"}, {"DX-9", "DX-8"})
           and not drift_explained(set(), {"DX-9"})
           and not drift_explained({"DX-9", "DX-7"}, {"DX-9"}))
+
+    # DX-71：基点落后归因 —— 对账基准换成 merge-base，而不是放行
+    mb_l = ledger({"DX-1": card("DX-1")}, {"DX-1": "done"}, {})
+    main_l = ledger(
+        {"DX-1": card("DX-1"), "DX-69": card("DX-69")},
+        {"DX-1": "done", "DX-69": "todo"}, {},
+    )
+    # 复现误报：旧基准（origin/main vs HEAD）把并行立卡当成删卡
+    act, lines = classify(main_l, mb_l)
+    check("复现：基点落后时旧基准把并行立卡误报成删卡 → full", act == "full")
+    check("复现：误报点名 DX-69 为删除", any("删除：DX-69" in l for l in lines))
+    # 换基准后：分支没动台账 → skip，提示给出可执行出路
+    act, lines = classify_stale_base(main_l, mb_l, mb_l)
+    check("基点落后 + 分支没动台账 → skip（不按删卡、不要求全量）", act == "skip")
+    check("提示点名并行立卡短号", any("DX-69" in l for l in lines))
+    check("提示给出 rebase 出路", any("rebase" in l for l in lines))
+    # 反例：分支自身删主线现存卡仍红灯
+    mb_l2 = ledger({"DX-1": card("DX-1"), "DX-2": card("DX-2")}, {}, {})
+    head_del = ledger({"DX-1": card("DX-1")}, {}, {})
+    act, _ = classify_stale_base(mb_l2, head_del, mb_l2)
+    check("反例：分支自身删主线现存卡 → 仍 full", act == "full")
+    # 反例：分支自身改契约仍红灯
+    head_chg = ledger({"DX-1": card("DX-1", stage="R14")}, {}, {})
+    act, _ = classify_stale_base(mb_l2, head_chg, mb_l2)
+    check("反例：分支自身改契约 → 仍 full", act == "full")
+    # 基点落后 + 分支只动 baseline → 轻档（derive）仍可用
+    head_bl = ledger({"DX-1": card("DX-1")}, {"DX-1": "todo"}, {})
+    act, _ = classify_stale_base(main_l, head_bl, mb_l)
+    check("基点落后 + 分支只动 baseline → derive", act == "derive")
 
     print()
     if fails:

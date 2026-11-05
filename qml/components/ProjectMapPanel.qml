@@ -63,7 +63,7 @@ Rectangle {
     // 背景遮罩：点外侧关闭
     Rectangle {
         anchors.fill: parent
-        color: "#000000"
+        color: Theme.bg
         opacity: 0.32
         MouseArea { anchors.fill: parent; onClicked: root.requestClose() }
     }
@@ -91,17 +91,17 @@ Rectangle {
                 Layout.rightMargin: 10
                 spacing: 8
 
-                Text { text: "项目全景"; color: Theme.text; font.pixelSize: 15; font.bold: true }
+                Text { text: "项目全景"; color: Theme.text; font.pixelSize: Theme.fontTitle; font.bold: true }
                 Text {
                     text: projectMap.busy ? "派生中…" : "跟随仓库实时派生"
                     color: projectMap.busy ? Theme.cyan : Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
                 Item { Layout.fillWidth: true }
                 Text {
                     text: "↻"
                     color: refreshArea.containsMouse ? Theme.text : Theme.cyan
-                    font.pixelSize: 14
+                    font.pixelSize: Theme.fontTitle
                     MouseArea {
                         id: refreshArea
                         anchors.fill: parent
@@ -113,7 +113,7 @@ Rectangle {
                 Text {
                     text: "✕"
                     color: closeArea.containsMouse ? Theme.cyan : Theme.text
-                    font.pixelSize: 13
+                    font.pixelSize: Theme.fontBody
                     MouseArea {
                         id: closeArea
                         anchors.fill: parent
@@ -134,7 +134,7 @@ Rectangle {
                       ? (projectMap.branch + " · " + projectMap.head)
                       : (projectMap.busy ? "正在定位仓库…" : "未找到仓库（docs/board-ledger.json）")
                 color: Theme.muted
-                font.pixelSize: 10
+                font.pixelSize: Theme.fontMicro
                 font.family: "Consolas, monospace"
                 elide: Text.ElideRight
             }
@@ -161,7 +161,7 @@ Rectangle {
                     Rectangle {
                         Layout.preferredWidth: 78
                         Layout.preferredHeight: 28
-                        radius: 7
+                        radius: Theme.radiusControl
                         color: root.view === modelData.key ? Theme.cyan : "transparent"
                         border.width: root.view === modelData.key ? 0 : 1
                         border.color: Theme.border
@@ -170,8 +170,8 @@ Rectangle {
                             text: modelData.label + (modelData.alarm > 0
                                                      ? (" !" + modelData.alarm)
                                                      : (modelData.n > 0 ? (" " + modelData.n) : ""))
-                            color: root.view === modelData.key ? "#04121f" : Theme.text
-                            font.pixelSize: 11
+                            color: root.view === modelData.key ? Theme.bg : Theme.text
+                            font.pixelSize: Theme.fontCaption
                             font.bold: true
                         }
                         MouseArea {
@@ -185,7 +185,7 @@ Rectangle {
                 Text {
                     text: projectMap.refreshedAt && !projectMap.busy ? projectMap.refreshedAt : ""
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                 }
             }
 
@@ -218,7 +218,7 @@ Rectangle {
                             Layout.fillWidth: true
                             text: "正在派生：读路线图 §9 → 扫 git 结卡标记 → 核对链路证据 → 统计目录"
                             color: Theme.cyan
-                            font.pixelSize: 10
+                            font.pixelSize: Theme.fontMicro
                             wrapMode: Text.Wrap
                         }
 
@@ -233,7 +233,7 @@ Rectangle {
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 52
-                                    radius: 9
+                                    radius: Theme.radiusCard
                                     color: msArea.containsMouse ? Theme.elevated : Theme.card
                                     border.width: 1
                                     border.color: (modelData.driftLevel === "warn"
@@ -249,13 +249,13 @@ Rectangle {
                                         Rectangle {
                                             Layout.preferredWidth: 34
                                             Layout.preferredHeight: 34
-                                            radius: 8
+                                            radius: Theme.radiusControl
                                             color: modelData.claim === "planning" ? Theme.border : Theme.cyan
                                             Text {
                                                 anchors.centerIn: parent
                                                 text: modelData.stage
-                                                color: modelData.claim === "planning" ? Theme.text : "#04121f"
-                                                font.pixelSize: 11
+                                                color: modelData.claim === "planning" ? Theme.text : Theme.bg
+                                                font.pixelSize: Theme.fontCaption
                                                 font.bold: true
                                             }
                                         }
@@ -267,7 +267,7 @@ Rectangle {
                                                 Layout.fillWidth: true
                                                 text: modelData.topic
                                                 color: Theme.text
-                                                font.pixelSize: 12
+                                                font.pixelSize: Theme.fontBody
                                                 font.bold: true
                                                 elide: Text.ElideRight
                                             }
@@ -278,7 +278,7 @@ Rectangle {
                                                       + (modelData.doing > 0 ? (" · 进行 " + modelData.doing) : "")
                                                       + (modelData.driftText ? (" · ⚠ " + modelData.driftText) : "")
                                                 color: modelData.driftText ? Theme.warning : Theme.muted
-                                                font.pixelSize: 9
+                                                font.pixelSize: Theme.fontMicro
                                                 elide: Text.ElideRight
                                             }
                                         }
@@ -286,7 +286,7 @@ Rectangle {
                                         Rectangle {
                                             Layout.preferredWidth: 64
                                             Layout.preferredHeight: 6
-                                            radius: 3
+                                            radius: Theme.radiusControl
                                             color: Theme.border
                                             Rectangle {
                                                 anchors.left: parent.left
@@ -295,7 +295,7 @@ Rectangle {
                                                 width: parent.width
                                                        * (modelData.total > 0
                                                           ? modelData.done / modelData.total : 0)
-                                                radius: 3
+                                                radius: Theme.radiusControl
                                                 color: (modelData.total > 0 && modelData.done === modelData.total)
                                                        ? Theme.success : Theme.cyan
                                             }
@@ -304,10 +304,10 @@ Rectangle {
                                         Text {
                                             text: modelData.done + "/" + modelData.total
                                             color: Theme.text
-                                            font.pixelSize: 10
+                                            font.pixelSize: Theme.fontMicro
                                             font.bold: true
                                         }
-                                        Text { text: "▸"; color: Theme.muted; font.pixelSize: 11 }
+                                        Text { text: "▸"; color: Theme.muted; font.pixelSize: Theme.fontCaption }
                                     }
 
                                     MouseArea {
@@ -337,7 +337,7 @@ Rectangle {
                                 Layout.bottomMargin: 4
                                 text: "链路 = 声明（docs/project-map.json）+ 实证（证据文件真的在）"
                                 color: Theme.muted
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                                 wrapMode: Text.Wrap
                             }
 
@@ -365,13 +365,13 @@ Rectangle {
                                             anchors.verticalCenter: parent.verticalCenter
                                             width: 22
                                             height: 22
-                                            radius: 11
+                                            radius: Theme.radiusCard
                                             color: modelData.ok ? Theme.cyan : Theme.danger
                                             Text {
                                                 anchors.centerIn: parent
                                                 text: modelData.ok ? (index + 1) : "!"
-                                                color: "#04121f"
-                                                font.pixelSize: 11
+                                                color: Theme.bg
+                                                font.pixelSize: Theme.fontCaption
                                                 font.bold: true
                                             }
                                         }
@@ -380,7 +380,7 @@ Rectangle {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 54
-                                        radius: 9
+                                        radius: Theme.radiusCard
                                         color: nodeArea.containsMouse ? Theme.elevated : Theme.card
                                         border.width: 1
                                         border.color: modelData.ok ? Theme.border : Theme.danger
@@ -394,7 +394,7 @@ Rectangle {
                                             Text {
                                                 text: modelData.title
                                                 color: Theme.text
-                                                font.pixelSize: 12
+                                                font.pixelSize: Theme.fontBody
                                                 font.bold: true
                                             }
                                             Text {
@@ -404,7 +404,7 @@ Rectangle {
                                                          + modelData.evidence.length + "）")
                                                       : (modelData.tag + " · 缺 " + modelData.missing + " 个文件")
                                                 color: modelData.ok ? Theme.muted : Theme.danger
-                                                font.pixelSize: 9
+                                                font.pixelSize: Theme.fontMicro
                                                 font.family: "Consolas, monospace"
                                                 elide: Text.ElideMiddle
                                             }
@@ -441,7 +441,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 text: "真实目录扫描：文件数 / 行数 / 最近提交。改仓库结构，这里跟着变。"
                                 color: Theme.muted
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                                 wrapMode: Text.Wrap
                             }
 
@@ -450,7 +450,7 @@ Rectangle {
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 52
-                                    radius: 9
+                                    radius: Theme.radiusCard
                                     color: skArea.containsMouse ? Theme.elevated : Theme.card
                                     border.width: 1
                                     border.color: Theme.border
@@ -466,13 +466,13 @@ Rectangle {
                                             Text {
                                                 text: modelData.group
                                                 color: Theme.text
-                                                font.pixelSize: 12
+                                                font.pixelSize: Theme.fontBody
                                                 font.bold: true
                                             }
                                             Text {
                                                 text: modelData.files + " 文件 · " + modelData.loc + " 行"
                                                 color: Theme.cyan
-                                                font.pixelSize: 9
+                                                font.pixelSize: Theme.fontMicro
                                                 font.family: "Consolas, monospace"
                                             }
                                         }
@@ -483,7 +483,7 @@ Rectangle {
                                                      + "  (" + modelData.lastWhen + ")")
                                                   : "无提交记录"
                                             color: Theme.muted
-                                            font.pixelSize: 9
+                                            font.pixelSize: Theme.fontMicro
                                             elide: Text.ElideRight
                                         }
                                     }
@@ -522,7 +522,7 @@ Rectangle {
                                       : "发现 " + projectMap.driftCount
                                         + " 处不一致。error = 结构断了，warn = 宣称与事实不符。"
                                 color: projectMap.driftCount === 0 ? Theme.success : Theme.muted
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                                 wrapMode: Text.Wrap
                             }
 
@@ -531,7 +531,7 @@ Rectangle {
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: driftContent.implicitHeight + 14
-                                    radius: 8
+                                    radius: Theme.radiusControl
                                     color: Theme.card
                                     border.width: 1
                                     border.color: modelData.level === "error"
@@ -550,7 +550,7 @@ Rectangle {
                                             Layout.fillWidth: true
                                             text: modelData.title
                                             color: Theme.text
-                                            font.pixelSize: 11
+                                            font.pixelSize: Theme.fontCaption
                                             font.bold: true
                                             wrapMode: Text.Wrap
                                         }
@@ -558,7 +558,7 @@ Rectangle {
                                             Layout.fillWidth: true
                                             text: modelData.detail
                                             color: root.levelColor(modelData.level)
-                                            font.pixelSize: 9
+                                            font.pixelSize: Theme.fontMicro
                                             wrapMode: Text.Wrap
                                         }
                                     }
@@ -575,7 +575,7 @@ Rectangle {
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 28
-                                radius: 7
+                                radius: Theme.radiusControl
                                 color: "transparent"
                                 border.width: 1
                                 border.color: Theme.border
@@ -583,7 +583,7 @@ Rectangle {
                                     anchors.centerIn: parent
                                     text: "‹ 返回"
                                     color: Theme.text
-                                    font.pixelSize: 11
+                                    font.pixelSize: Theme.fontCaption
                                 }
                                 MouseArea {
                                     anchors.fill: parent
@@ -596,7 +596,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 text: root.detail.title || root.detail.code || ""
                                 color: Theme.text
-                                font.pixelSize: 14
+                                font.pixelSize: Theme.fontTitle
                                 font.bold: true
                                 wrapMode: Text.Wrap
                             }
@@ -608,32 +608,32 @@ Rectangle {
                                 Rectangle {
                                     Layout.preferredWidth: 42
                                     Layout.preferredHeight: 20
-                                    radius: 6
+                                    radius: Theme.radiusControl
                                     color: Theme.cyan
                                     Text {
                                         anchors.centerIn: parent
                                         text: root.detail.stage || ""
-                                        color: "#04121f"
-                                        font.pixelSize: 10
+                                        color: Theme.bg
+                                        font.pixelSize: Theme.fontMicro
                                         font.bold: true
                                     }
                                 }
                                 Text {
                                     text: root.claimLabel(root.detail.claim)
                                     color: root.claimColor(root.detail.claim)
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                     font.bold: true
                                 }
                                 Text {
                                     text: (root.detail.done || 0) + "/" + (root.detail.total || 0)
                                     color: Theme.text
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                     font.family: "Consolas, monospace"
                                 }
                                 Text {
                                     text: root.detail.gitDone !== undefined ? ("git 结卡 " + root.detail.gitDone) : ""
                                     color: Theme.muted
-                                    font.pixelSize: 9
+                                    font.pixelSize: Theme.fontMicro
                                 }
                             }
 
@@ -644,7 +644,7 @@ Rectangle {
                                 Rectangle {
                                     Layout.preferredWidth: 52
                                     Layout.preferredHeight: 20
-                                    radius: 6
+                                    radius: Theme.radiusControl
                                     color: root.detail.status === "done"
                                            ? Theme.success
                                            : (root.detail.status === "doing" ? Theme.warning : Theme.border)
@@ -653,8 +653,8 @@ Rectangle {
                                         text: root.detail.status === "done"
                                               ? "已完成"
                                               : (root.detail.status === "doing" ? "进行中" : "待办")
-                                        color: root.detail.status === "todo" ? Theme.text : "#04121f"
-                                        font.pixelSize: 10
+                                        color: root.detail.status === "todo" ? Theme.text : Theme.bg
+                                        font.pixelSize: Theme.fontMicro
                                         font.bold: true
                                     }
                                 }
@@ -663,19 +663,19 @@ Rectangle {
                                           ? "依据 git #=done"
                                           : (root.detail.statusSource === "ledger" ? "依据台账" : "")
                                     color: Theme.muted
-                                    font.pixelSize: 9
+                                    font.pixelSize: Theme.fontMicro
                                 }
                                 Text {
                                     text: root.detail.code || ""
                                     color: Theme.muted
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                     font.family: "Consolas, monospace"
                                 }
                                 Text {
                                     visible: root.detail.staleBaseline === true
                                     text: "baseline 陈旧"
                                     color: Theme.warning
-                                    font.pixelSize: 9
+                                    font.pixelSize: Theme.fontMicro
                                 }
                             }
 
@@ -685,7 +685,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 text: root.detail.claimText || ""
                                 color: Theme.muted
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                                 wrapMode: Text.Wrap
                             }
                             SectionLabel { visible: root.detail.kind === "milestone"; text: "目标" }
@@ -694,7 +694,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 text: root.detail.goal || ""
                                 color: Theme.text
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.fontCaption
                                 wrapMode: Text.Wrap
                             }
                             SectionLabel { visible: root.detail.kind === "milestone"; text: "出口标准" }
@@ -703,7 +703,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 text: root.detail.exit || ""
                                 color: Theme.text
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.fontCaption
                                 wrapMode: Text.Wrap
                             }
                             SectionLabel { visible: root.detail.kind === "milestone" && root.detailCards.length > 0; text: "卡片" }
@@ -712,7 +712,7 @@ Rectangle {
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 26
-                                    radius: 6
+                                    radius: Theme.radiusControl
                                     color: cardArea.containsMouse ? Theme.elevated : "transparent"
                                     RowLayout {
                                         anchors.fill: parent
@@ -722,20 +722,20 @@ Rectangle {
                                         Text {
                                             text: modelData
                                             color: Theme.text
-                                            font.pixelSize: 10
+                                            font.pixelSize: Theme.fontMicro
                                             font.family: "Consolas, monospace"
                                         }
                                         Text {
                                             visible: root.cardStale(modelData)
                                             text: "baseline 陈旧"
                                             color: Theme.warning
-                                            font.pixelSize: 9
+                                            font.pixelSize: Theme.fontMicro
                                         }
                                         Item { Layout.fillWidth: true }
                                         Rectangle {
                                             Layout.preferredWidth: 8
                                             Layout.preferredHeight: 8
-                                            radius: 4
+                                            radius: Theme.radiusControl
                                             color: {
                                                 var s = root.cardStatus(modelData)
                                                 if (s === "done")
@@ -766,7 +766,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 text: root.detail.note || ""
                                 color: Theme.muted
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                                 wrapMode: Text.Wrap
                             }
                             SectionLabel { visible: root.detail.kind === "card"; text: "验收命令" }
@@ -777,7 +777,7 @@ Rectangle {
                                     Layout.fillWidth: true
                                     text: "• " + modelData
                                     color: Theme.text
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                     font.family: "Consolas, monospace"
                                     wrapMode: Text.Wrap
                                 }
@@ -790,7 +790,7 @@ Rectangle {
                                     Layout.fillWidth: true
                                     text: "• " + modelData
                                     color: Theme.muted
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                     font.family: "Consolas, monospace"
                                     wrapMode: Text.Wrap
                                 }
@@ -802,7 +802,7 @@ Rectangle {
                                 text: Array.isArray(root.detail.depends)
                                       ? root.detail.depends.join("  ·  ") : ""
                                 color: Theme.text
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                                 font.family: "Consolas, monospace"
                                 wrapMode: Text.Wrap
                             }
@@ -813,7 +813,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 text: root.detail.desc || ""
                                 color: Theme.text
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.fontCaption
                                 wrapMode: Text.Wrap
                             }
                             SectionLabel { visible: root.detail.kind === "chain"; text: "入口命令" }
@@ -822,7 +822,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 text: root.detail.command || "—"
                                 color: Theme.cyan
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                                 font.family: "Consolas, monospace"
                                 wrapMode: Text.Wrap
                             }
@@ -836,14 +836,14 @@ Rectangle {
                                     Text {
                                         text: modelData.exists ? "✓" : "✕"
                                         color: modelData.exists ? Theme.success : Theme.danger
-                                        font.pixelSize: 10
+                                        font.pixelSize: Theme.fontMicro
                                         font.bold: true
                                     }
                                     Text {
                                         Layout.fillWidth: true
                                         text: modelData.path
                                         color: modelData.exists ? Theme.muted : Theme.danger
-                                        font.pixelSize: 10
+                                        font.pixelSize: Theme.fontMicro
                                         font.family: "Consolas, monospace"
                                         wrapMode: Text.Wrap
                                     }
@@ -857,7 +857,7 @@ Rectangle {
                                 text: (root.detail.desc || "") + "  ·  " + (root.detail.files || 0)
                                       + " 文件 / " + (root.detail.loc || 0) + " 行"
                                 color: Theme.text
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.fontCaption
                                 wrapMode: Text.Wrap
                             }
                             Text {
@@ -865,7 +865,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 text: Array.isArray(root.detail.paths) ? root.detail.paths.join("  ·  ") : ""
                                 color: Theme.muted
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                                 font.family: "Consolas, monospace"
                                 wrapMode: Text.Wrap
                             }
@@ -880,14 +880,14 @@ Rectangle {
                                         Layout.fillWidth: true
                                         text: modelData.name
                                         color: Theme.text
-                                        font.pixelSize: 10
+                                        font.pixelSize: Theme.fontMicro
                                         font.family: "Consolas, monospace"
                                         elide: Text.ElideMiddle
                                     }
                                     Text {
                                         text: modelData.loc + " 行"
                                         color: Theme.muted
-                                        font.pixelSize: 9
+                                        font.pixelSize: Theme.fontMicro
                                     }
                                 }
                             }
@@ -903,7 +903,7 @@ Rectangle {
     // 小节标签
     component SectionLabel: Text {
         color: Theme.cyan
-        font.pixelSize: 10
+        font.pixelSize: Theme.fontMicro
         font.bold: true
         Layout.topMargin: 6
     }

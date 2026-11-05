@@ -59,7 +59,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.66)
+        color: Theme.alpha(Theme.bg, 0.66)
         MouseArea {
             anchors.fill: parent
             onClicked: root.close()
@@ -73,7 +73,7 @@ Item {
         anchors.topMargin: 88
         width: Math.min(660, root.width - 64)
         height: Math.min(430, root.height - 140)
-        radius: 18
+        radius: Theme.radiusPanel
         color: Theme.panelSolid
         border.width: 1
         border.color: Theme.border
@@ -104,7 +104,7 @@ Item {
                 Text {
                     text: "⌘"
                     color: Theme.cyan
-                    font.pixelSize: 15
+                    font.pixelSize: Theme.fontTitle
                     font.bold: true
                 }
 
@@ -114,7 +114,7 @@ Item {
                     placeholderText: root.placeholder
                     color: Theme.text
                     placeholderTextColor: Theme.muted
-                    font.pixelSize: 14
+                    font.pixelSize: Theme.fontTitle
                     selectByMouse: true
                     background: Rectangle {
                         color: "transparent"
@@ -162,7 +162,7 @@ Item {
                     id: cmdRow
                     width: cmdList.width
                     height: 46
-                    radius: 10
+                    radius: Theme.radiusCard
                     color: index === root.currentIndex ? Theme.accentSoft : "transparent"
                     border.width: index === root.currentIndex ? 1 : 0
                     border.color: Theme.border
@@ -183,7 +183,7 @@ Item {
                         Rectangle {
                             Layout.preferredWidth: 4
                             Layout.preferredHeight: 20
-                            radius: 2
+                            radius: Theme.radiusControl
                             color: cmdRow.index === root.currentIndex ? Theme.cyan : "transparent"
                         }
 
@@ -195,7 +195,7 @@ Item {
                                 Layout.fillWidth: true
                                 text: cmdRow.modelData.title
                                 color: Theme.text
-                                font.pixelSize: 13
+                                font.pixelSize: Theme.fontBody
                                 elide: Text.ElideRight
                             }
 
@@ -204,7 +204,7 @@ Item {
                                 text: cmdRow.modelData.subtitle ? cmdRow.modelData.subtitle : ""
                                 visible: text.length > 0
                                 color: Theme.muted
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.fontCaption
                                 elide: Text.ElideRight
                             }
                         }
@@ -212,7 +212,7 @@ Item {
                         Text {
                             text: cmdRow.modelData.category ? cmdRow.modelData.category : ""
                             color: Theme.muted
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.fontCaption
                         }
                     }
 
@@ -239,17 +239,17 @@ Item {
                 Text {
                     text: "↑ ↓ 选择"
                     color: Theme.muted
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
                 Text {
                     text: "Enter 执行"
                     color: Theme.muted
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
                 Text {
                     text: "Esc 关闭"
                     color: Theme.muted
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
                 Item {
                     Layout.fillWidth: true
@@ -257,7 +257,7 @@ Item {
                 Text {
                     text: root.results.length + " 项"
                     color: Theme.muted
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
             }
         }

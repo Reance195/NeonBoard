@@ -38,7 +38,7 @@ Item {
     // 遮罩：点空白关闭
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.62)
+        color: Theme.alpha(Theme.bg, 0.62)
 
         MouseArea {
             anchors.fill: parent
@@ -51,7 +51,7 @@ Item {
         anchors.centerIn: parent
         width: 460
         height: Math.min(parent.height - 96, content.implicitHeight + 40)
-        radius: 16
+        radius: Theme.radiusPanel
         color: Theme.panelSolid
         border.width: 1
         border.color: Theme.borderStrong
@@ -63,8 +63,8 @@ Item {
             anchors.right: parent.right
             anchors.margins: 1
             height: 2
-            radius: 1
-            color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.35)
+            radius: Theme.radiusControl
+            color: Theme.alpha(Theme.cyan, 0.35)
         }
 
         ColumnLayout {
@@ -79,7 +79,7 @@ Item {
                 Text {
                     text: "列管理"
                     color: Theme.text
-                    font.pixelSize: 16
+                    font.pixelSize: Theme.fontTitle
                     font.bold: true
                 }
 
@@ -88,21 +88,21 @@ Item {
                 Text {
                     text: "列的先后就是看板上的左右顺序"
                     color: Theme.muted
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
 
                 // 关闭
                 Rectangle {
                     width: 28
                     height: 28
-                    radius: 8
+                    radius: Theme.radiusControl
                     color: closeMouse.containsMouse ? Theme.ghost : "transparent"
 
                     Text {
                         anchors.centerIn: parent
                         text: "✕"
                         color: Theme.muted
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fontBody
                     }
 
                     MouseArea {
@@ -139,12 +139,10 @@ Item {
 
                             Layout.fillWidth: true
                             height: 40
-                            radius: 9
+                            radius: Theme.radiusCard
                             color: Theme.card
                             border.width: 1
-                            border.color: Qt.rgba(manager.statusColor(boardColumnStatus).r,
-                                                  manager.statusColor(boardColumnStatus).g,
-                                                  manager.statusColor(boardColumnStatus).b, 0.22)
+                            border.color: Theme.alpha(manager.statusColor(boardColumnStatus), 0.22)
 
                             RowLayout {
                                 anchors.fill: parent
@@ -155,7 +153,7 @@ Item {
                                 Rectangle {
                                     width: 8
                                     height: 8
-                                    radius: 4
+                                    radius: Theme.radiusControl
                                     color: manager.statusColor(boardColumnStatus)
                                 }
 
@@ -164,7 +162,7 @@ Item {
                                     Layout.fillWidth: true
                                     text: boardColumnTitle
                                     color: Theme.text
-                                    font.pixelSize: 12
+                                    font.pixelSize: Theme.fontBody
                                     selectByMouse: true
                                     background: null
                                     placeholderText: "列名"
@@ -179,13 +177,13 @@ Item {
                                 Text {
                                     text: manager.statusLabel(boardColumnStatus)
                                     color: manager.statusColor(boardColumnStatus)
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                 }
 
                                 Text {
                                     text: boardColumnModel ? boardColumnModel.count : 0
                                     color: Theme.muted
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                 }
 
                                 // ← →
@@ -199,14 +197,14 @@ Item {
                                         required property var modelData
                                         width: 24
                                         height: 24
-                                        radius: 7
+                                        radius: Theme.radiusControl
                                         color: arrowMouse.containsMouse ? Theme.ghost : Theme.input
 
                                         Text {
                                             anchors.centerIn: parent
                                             text: modelData.glyph
                                             color: Theme.text
-                                            font.pixelSize: 14
+                                            font.pixelSize: Theme.fontTitle
                                         }
 
                                         MouseArea {
@@ -223,21 +221,21 @@ Item {
                                 Rectangle {
                                     width: 24
                                     height: 24
-                                    radius: 7
+                                    radius: Theme.radiusControl
                                     readonly property bool allowed:
                                         boardColumns.columnCountForStatus(boardColumnStatus) > 1
                                     color: allowed
                                            ? (deleteMouse.containsMouse
-                                              ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.20)
+                                              ? Theme.alpha(Theme.danger, 0.20)
                                               : Theme.input)
-                                           : Qt.rgba(1, 1, 1, 0.03)
+                                           : Theme.alpha(Theme.text, 0.03)
                                     opacity: allowed ? 1 : 0.4
 
                                     Text {
                                         anchors.centerIn: parent
                                         text: "✕"
                                         color: parent.allowed ? Theme.danger : Theme.muted
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.fontCaption
                                     }
 
                                     MouseArea {
@@ -267,10 +265,10 @@ Item {
                 Layout.fillWidth: true
                 visible: pendingId.length > 0
                 height: visible ? 38 : 0
-                radius: 9
-                color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.12)
+                radius: Theme.radiusCard
+                color: Theme.alpha(Theme.danger, 0.12)
                 border.width: 1
-                border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.35)
+                border.color: Theme.alpha(Theme.danger, 0.35)
 
                 RowLayout {
                     anchors.fill: parent
@@ -281,21 +279,21 @@ Item {
                         Layout.fillWidth: true
                         text: "该列里的卡片会挪到同状态的其它列，确定删除？"
                         color: Theme.text
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                         elide: Text.ElideRight
                     }
 
                     Rectangle {
                         width: 52
                         height: 24
-                        radius: 7
-                        color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.22)
+                        radius: Theme.radiusControl
+                        color: Theme.alpha(Theme.danger, 0.22)
 
                         Text {
                             anchors.centerIn: parent
                             text: "删除"
                             color: Theme.danger
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.fontCaption
                         }
 
                         MouseArea {
@@ -311,14 +309,14 @@ Item {
                     Rectangle {
                         width: 44
                         height: 24
-                        radius: 7
+                        radius: Theme.radiusControl
                         color: Theme.input
 
                         Text {
                             anchors.centerIn: parent
                             text: "取消"
                             color: Theme.muted
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.fontCaption
                         }
 
                         MouseArea {
@@ -337,7 +335,7 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true
                     height: 34
-                    radius: 9
+                    radius: Theme.radiusCard
                     color: Theme.input
                     border.width: 1
                     border.color: newField.activeFocus ? Theme.borderStrong : Theme.border
@@ -350,7 +348,7 @@ Item {
                         placeholderText: "新列名，例如「本周重点」"
                         placeholderTextColor: Theme.muted
                         color: Theme.text
-                        font.pixelSize: 12
+                        font.pixelSize: Theme.fontBody
                         background: null
                         onAccepted: addButton.activate()
                     }
@@ -371,17 +369,13 @@ Item {
                             required property var modelData
                             width: 52
                             height: 34
-                            radius: 9
+                            radius: Theme.radiusCard
                             color: newStatus.key === modelData.key
-                                   ? Qt.rgba(manager.statusColor(modelData.key).r,
-                                             manager.statusColor(modelData.key).g,
-                                             manager.statusColor(modelData.key).b, 0.20)
+                                   ? Theme.alpha(manager.statusColor(modelData.key), 0.20)
                                    : Theme.input
                             border.width: 1
                             border.color: newStatus.key === modelData.key
-                                          ? Qt.rgba(manager.statusColor(modelData.key).r,
-                                                    manager.statusColor(modelData.key).g,
-                                                    manager.statusColor(modelData.key).b, 0.45)
+                                          ? Theme.alpha(manager.statusColor(modelData.key), 0.45)
                                           : Theme.border
 
                             Text {
@@ -390,7 +384,7 @@ Item {
                                 color: newStatus.key === modelData.key
                                        ? manager.statusColor(modelData.key)
                                        : Theme.muted
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                             }
 
                             MouseArea {
@@ -405,7 +399,7 @@ Item {
                     id: addButton
                     width: 56
                     height: 34
-                    radius: 9
+                    radius: Theme.radiusCard
                     color: addMouse.containsMouse ? Theme.accentSoft : Theme.input
                     border.width: 1
                     border.color: Theme.borderStrong
@@ -422,7 +416,7 @@ Item {
                         anchors.centerIn: parent
                         text: "添加"
                         color: Theme.text
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                     }
 
                     MouseArea {
@@ -445,7 +439,7 @@ Item {
                 visible: boardColumns.lastError.length > 0
                 text: boardColumns.lastError
                 color: Theme.danger
-                font.pixelSize: 11
+                font.pixelSize: Theme.fontCaption
                 wrapMode: Text.WordWrap
             }
         }

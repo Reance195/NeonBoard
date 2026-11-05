@@ -200,12 +200,12 @@ Rectangle {
     Layout.fillHeight: true
     Layout.minimumWidth: 150
     Layout.preferredWidth: 340
-    radius: 16
+    radius: Theme.radiusPanel
     color: Theme.panel
     border.width: 1
     border.color: column.dropTarget
-               ? Qt.rgba(accent.r, accent.g, accent.b, 0.45 + 0.35 * column.dropPulse)
-               : Qt.rgba(accent.r, accent.g, accent.b, 0.20)
+               ? Theme.alpha(accent, 0.45 + 0.35 * column.dropPulse)
+               : Theme.alpha(accent, 0.20)
 
     Behavior on border.color {
         ColorAnimation { duration: Motion.base }
@@ -218,8 +218,7 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: 1
         radius: column.radius - 1
-        color: Qt.rgba(column.accent.r, column.accent.g, column.accent.b,
-                       0.045 + 0.055 * column.dropPulse)
+        color: Theme.alpha(column.accent, 0.045 + 0.055 * column.dropPulse)
         opacity: column.dropTarget ? 1 : 0
         visible: opacity > 0.01
 
@@ -330,8 +329,8 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 10
+        anchors.margins: Theme.spacingMd
+        spacing: Theme.spacingSm
 
         RowLayout {
             Layout.fillWidth: true
@@ -346,7 +345,7 @@ Rectangle {
             Text {
                 text: column.title
                 color: Theme.text
-                font.pixelSize: 14
+                font.pixelSize: Theme.fontTitle
                 font.bold: true
             }
 
@@ -355,16 +354,16 @@ Rectangle {
             Rectangle {
                 width: 28
                 height: 20
-                radius: 10
-                color: Qt.rgba(column.accent.r, column.accent.g, column.accent.b, 0.12)
+                radius: Theme.radiusCard
+                color: Theme.alpha(column.accent, 0.12)
                 border.width: 1
-                border.color: Qt.rgba(column.accent.r, column.accent.g, column.accent.b, 0.24)
+                border.color: Theme.alpha(column.accent, 0.24)
 
                 Text {
                     anchors.centerIn: parent
                     text: column.taskModel ? column.taskModel.count : 0
                     color: column.accent
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontCaption
                     font.bold: true
                 }
             }
@@ -378,7 +377,7 @@ Rectangle {
                 id: list
                 anchors.fill: parent
                 clip: true
-                spacing: 8
+                spacing: Theme.spacingSm
                 boundsBehavior: Flickable.StopAtBounds
                 model: column.taskModel
                 activeFocusOnTab: true
@@ -432,7 +431,7 @@ Rectangle {
                             : "暂无任务\n在下方输入，回车添加"))
                 color: Theme.muted
                 opacity: 0.75
-                font.pixelSize: 12
+                font.pixelSize: Theme.fontBody
                 lineHeight: 1.5
                 horizontalAlignment: Text.AlignHCenter
             }
@@ -462,7 +461,7 @@ Rectangle {
                     anchors.fill: parent
                     anchors.margins: -4
                     radius: 7
-                    color: Qt.rgba(column.accent.r, column.accent.g, column.accent.b, 0.28)
+                    color: Theme.alpha(column.accent, 0.28)
                 }
             }
 
@@ -497,7 +496,7 @@ Rectangle {
             id: parsePreview
             Layout.fillWidth: true
             Layout.preferredHeight: 18
-            spacing: 6
+            spacing: Theme.spacingXs
 
             readonly property bool hasInfo: column.parseDue.length > 0
                                            || column.parsePriority >= 0
@@ -509,7 +508,7 @@ Rectangle {
                 Layout.alignment: Qt.AlignVCenter
                 text: column.parseHasText ? "支持 明天 15:00 #标签 !3" : " "
                 color: Theme.muted
-                font.pixelSize: 10
+                font.pixelSize: Theme.fontCaption
                 elide: Text.ElideRight
             }
 
@@ -519,17 +518,17 @@ Rectangle {
                 Layout.alignment: Qt.AlignVCenter
                 height: 18
                 width: dueLabel.implicitWidth + 14
-                radius: 9
-                color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.12)
+                radius: Theme.radiusCard
+                color: Theme.alpha(Theme.cyan, 0.12)
                 border.width: 1
-                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.35)
+                border.color: Theme.alpha(Theme.cyan, 0.35)
 
                 Text {
                     id: dueLabel
                     anchors.centerIn: parent
                     text: "⏰ " + column.parseDue
                     color: Theme.cyan
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontCaption
                 }
             }
 
@@ -539,10 +538,10 @@ Rectangle {
                 Layout.alignment: Qt.AlignVCenter
                 height: 18
                 width: priorityLabel.implicitWidth + 14
-                radius: 9
-                color: Qt.rgba(priorityChip.accent.r, priorityChip.accent.g, priorityChip.accent.b, 0.12)
+                radius: Theme.radiusCard
+                color: Theme.alpha(priorityChip.accent, 0.12)
                 border.width: 1
-                border.color: Qt.rgba(priorityChip.accent.r, priorityChip.accent.g, priorityChip.accent.b, 0.35)
+                border.color: Theme.alpha(priorityChip.accent, 0.35)
 
                 readonly property color accent: column.parsePriority >= 3 ? Theme.magenta
                                                   : column.parsePriority === 2 ? Theme.violet
@@ -554,7 +553,7 @@ Rectangle {
                     text: column.parsePriority >= 3 ? "高优先"
                         : column.parsePriority === 2 ? "中优先" : "低优先"
                     color: priorityChip.accent
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontCaption
                 }
             }
 
@@ -575,7 +574,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: "#" + modelData
                         color: Theme.muted
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontCaption
                     }
                 }
             }
@@ -584,10 +583,10 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             height: 34
-            radius: 8
+            radius: Theme.radiusControl
             color: Theme.input
             border.width: 1
-            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.14)
+            border.color: Theme.alpha(Theme.cyan, 0.14)
 
             Behavior on border.color {
                 ColorAnimation { duration: Motion.fast }
@@ -601,7 +600,7 @@ Rectangle {
                 placeholderText: "＋ 添加任务，回车"
                 placeholderTextColor: Theme.muted
                 color: Theme.text
-                font.pixelSize: 12
+                font.pixelSize: Theme.fontBody
                 background: null
                 onTextChanged: {
                     column.parseHasText = text.trim().length > 0;

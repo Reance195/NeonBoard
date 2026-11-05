@@ -41,21 +41,21 @@ Item {
             Text {
                 text: "活跃热力"
                 color: Theme.text
-                font.pixelSize: 11
+                font.pixelSize: Theme.fontCaption
                 font.bold: true
             }
 
             Text {
                 text: "近 " + heatmapRoot.weeks + " 周 · 共 " + heatmapRoot.totalDone + " 次完成"
                 color: Theme.muted
-                font.pixelSize: 9
+                font.pixelSize: Theme.fontMicro
             }
 
             Text {
                 visible: heatmapRoot.bestDay > 0
                 text: "单日峰值 " + heatmapRoot.bestDay
                 color: Theme.muted
-                font.pixelSize: 9
+                font.pixelSize: Theme.fontMicro
             }
         }
 
@@ -108,19 +108,19 @@ Item {
                         let fill
                         switch (cell.level) {
                         case 0:
-                            fill = Qt.rgba(1, 1, 1, 0.05 * dim)
+                            fill = Theme.alpha(Theme.text, 0.05 * dim)
                             break
                         case 1:
-                            fill = Qt.rgba(accent.r, accent.g, accent.b, 0.28 * dim)
+                            fill = Theme.alpha(accent, 0.28 * dim)
                             break
                         case 2:
-                            fill = Qt.rgba(accent.r, accent.g, accent.b, 0.48 * dim)
+                            fill = Theme.alpha(accent, 0.48 * dim)
                             break
                         case 3:
-                            fill = Qt.rgba(accent.r, accent.g, accent.b, 0.72 * dim)
+                            fill = Theme.alpha(accent, 0.72 * dim)
                             break
                         default:
-                            fill = Qt.rgba(accent.r, accent.g, accent.b, dim)
+                            fill = Theme.alpha(accent, dim)
                             break
                         }
 
@@ -129,7 +129,7 @@ Item {
                         ctx.fill()
 
                         if (cell.level === 4) {
-                            ctx.strokeStyle = Qt.rgba(accent.r, accent.g, accent.b, 0.35 * dim)
+                            ctx.strokeStyle = Theme.alpha(accent, 0.35 * dim)
                             ctx.lineWidth = 1
                             ctx.stroke()
                         }
@@ -175,7 +175,7 @@ Item {
                 visible: !heatmapRoot.hasData
                 text: "还没有完成记录 · 完成第一张卡即可点亮"
                 color: Theme.muted
-                font.pixelSize: 9
+                font.pixelSize: Theme.fontMicro
             }
 
             Rectangle {
@@ -186,7 +186,7 @@ Item {
                 anchors.bottomMargin: 2
                 width: gridTipText.implicitWidth + 12
                 height: 20
-                radius: 5
+                radius: Theme.radiusControl
                 color: Theme.panelSolid
                 border.width: 1
                 border.color: Theme.border
@@ -196,7 +196,7 @@ Item {
                     id: gridTipText
                     anchors.centerIn: parent
                     color: Theme.text
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                     text: {
                         const data = heatmapRoot.cells || []
                         const cell = data[heatmapRoot.activeIndex]
@@ -225,20 +225,20 @@ Item {
                 Text {
                     text: "连续"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 Text {
                     text: heatmapRoot.streak
                     color: heatmapRoot.streak > 0 ? Theme.magenta : Theme.muted
-                    font.pixelSize: 18
+                    font.pixelSize: Theme.fontDisplay
                     font.bold: true
                 }
 
                 Text {
                     text: "天"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                     Layout.alignment: Qt.AlignBottom
                     Layout.bottomMargin: 4
                 }
@@ -247,7 +247,7 @@ Item {
             Text {
                 text: "周吞吐"
                 color: Theme.muted
-                font.pixelSize: 9
+                font.pixelSize: Theme.fontMicro
             }
         }
 
@@ -298,8 +298,8 @@ Item {
                     ctx.lineTo(padX, height - padY)
                     ctx.closePath()
                     const grad = ctx.createLinearGradient(0, 0, 0, height)
-                    grad.addColorStop(0, Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.28))
-                    grad.addColorStop(1, Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.0))
+                    grad.addColorStop(0, Theme.alpha(Theme.accent, 0.28))
+                    grad.addColorStop(1, Theme.alpha(Theme.accent, 0.0))
                     ctx.fillStyle = grad
                     ctx.fill()
 
@@ -359,7 +359,7 @@ Item {
                 anchors.bottomMargin: 2
                 width: tipText.implicitWidth + 10
                 height: 18
-                radius: 4
+                radius: Theme.radiusControl
                 color: Theme.panel
                 border.width: 1
                 border.color: Theme.border
@@ -369,7 +369,7 @@ Item {
                     id: tipText
                     anchors.centerIn: parent
                     color: Theme.text
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                 }
             }
         }

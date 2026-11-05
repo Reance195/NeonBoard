@@ -123,7 +123,7 @@ Rectangle {
     signal dragEnded(real x, real y)
 
     height: 82 + card.cardSlotExtra
-    radius: 12
+    radius: Theme.radiusCard
     color: cardMouse.containsMouse ? Theme.cardHover : Theme.card
     border.width: (card.selected || card.highlight) ? 2 : 1
     border.color: {
@@ -134,7 +134,7 @@ Rectangle {
         if (card.glitching)
             return Theme.danger
         if (card.overdue)
-            return Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.25 + 0.45 * card.overduePulse)
+            return Theme.alpha(Theme.danger, 0.25 + 0.45 * card.overduePulse)
         return cardMouse.containsMouse ? Theme.borderStrong : Theme.border
     }
     scale: cardMouse.pressed ? 0.985 : (cardMouse.dragging ? 1.04 : (cardMouse.containsMouse ? 1.012 : 1.0))
@@ -308,7 +308,7 @@ Rectangle {
             anchors.left: parent.left
             anchors.leftMargin: 3
             anchors.verticalCenter: parent.verticalCenter
-            color: Qt.rgba(Theme.accent3.r, Theme.accent3.g, Theme.accent3.b, 0.45)
+            color: Theme.alpha(Theme.accent3, 0.45)
         }
 
         Column {
@@ -317,33 +317,33 @@ Rectangle {
             anchors.right: parent.right
             anchors.rightMargin: 82
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 7
+            spacing: Theme.spacingSm
 
             Text {
                 width: parent.width
                 text: card.title
                 color: Theme.text
-                font.pixelSize: 13
+                font.pixelSize: Theme.fontTitle
                 font.bold: true
                 elide: Text.ElideRight
             }
 
             Row {
-                spacing: 6
+                spacing: Theme.spacingXs
 
                 // 项目角标排最左：先看「这是谁的事」，再看「这是谁的子任务 / 谁在跑」
                 Rectangle {
                     visible: card.showProjectBadge && card.projectLabel.length > 0
                     height: 18
                     width: projectBadgeText.width + 18
-                    radius: 5
-                    color: Qt.rgba(card.projectAccent.r, card.projectAccent.g, card.projectAccent.b, 0.14)
+                    radius: Theme.radiusControl
+                    color: Theme.alpha(card.projectAccent, 0.14)
                     border.width: 1
-                    border.color: Qt.rgba(card.projectAccent.r, card.projectAccent.g, card.projectAccent.b, 0.32)
+                    border.color: Theme.alpha(card.projectAccent, 0.32)
 
                     Row {
                         anchors.centerIn: parent
-                        spacing: 4
+                        spacing: Theme.spacingXs
 
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
@@ -357,7 +357,7 @@ Rectangle {
                             id: projectBadgeText
                             text: card.projectLabel
                             color: card.projectAccent
-                            font.pixelSize: 10
+                            font.pixelSize: Theme.fontCaption
                             elide: Text.ElideRight
                             width: Math.min(implicitWidth, 96)
                         }
@@ -368,10 +368,10 @@ Rectangle {
                     visible: card.hasParent
                     height: 18
                     width: parentChipText.width + 12
-                    radius: 5
-                    color: Qt.rgba(Theme.accent3.r, Theme.accent3.g, Theme.accent3.b, 0.14)
+                    radius: Theme.radiusControl
+                    color: Theme.alpha(Theme.accent3, 0.14)
                     border.width: 1
-                    border.color: Qt.rgba(Theme.accent3.r, Theme.accent3.g, Theme.accent3.b, 0.28)
+                    border.color: Theme.alpha(Theme.accent3, 0.28)
 
                     Text {
                         id: parentChipText
@@ -379,7 +379,7 @@ Rectangle {
                         width: Math.min(implicitWidth, 190)
                         text: "↳ " + card.parentTitle
                         color: Theme.accent3
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontCaption
                         elide: Text.ElideRight
                     }
                 }
@@ -388,10 +388,10 @@ Rectangle {
                     visible: card.claimed
                     height: 18
                     width: claimText.implicitWidth + 12
-                    radius: 5
-                    color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, card.claimActive ? 0.18 : 0.07)
+                    radius: Theme.radiusControl
+                    color: Theme.alpha(Theme.violet, card.claimActive ? 0.18 : 0.07)
                     border.width: 1
-                    border.color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, card.claimActive ? 0.36 : 0.16)
+                    border.color: Theme.alpha(Theme.violet, card.claimActive ? 0.36 : 0.16)
 
                     Text {
                         id: claimText
@@ -399,7 +399,7 @@ Rectangle {
                         text: (card.claimActive ? "◈ " : "◇ ") + card.claim.agent
                         color: Theme.violet
                         opacity: card.claimActive ? 1.0 : 0.45
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontCaption
                     }
                 }
 
@@ -407,17 +407,17 @@ Rectangle {
                     visible: card.tag.length > 0
                     height: 18
                     width: tagText.implicitWidth + 12
-                    radius: 5
-                    color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.16)
+                    radius: Theme.radiusControl
+                    color: Theme.alpha(Theme.cyan, 0.16)
                     border.width: 1
-                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.30)
+                    border.color: Theme.alpha(Theme.cyan, 0.30)
 
                     Text {
                         id: tagText
                         anchors.centerIn: parent
                         text: card.tag
                         color: Theme.cyan
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontCaption
                     }
                 }
 
@@ -426,7 +426,7 @@ Rectangle {
                     visible: card.rrule.length > 0
                     text: "↻"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontCaption
                 }
 
                 Text {
@@ -434,7 +434,7 @@ Rectangle {
                     visible: card.due.length > 0
                     text: card.due
                     color: card.overdue ? Theme.danger : Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontCaption
                 }
 
                 // 成本账（R7-06）：本卡累计运行耗时，有历史才显示
@@ -443,7 +443,7 @@ Rectangle {
                     visible: card.totalCostMs > 0
                     text: "⏱ " + card.costLabel
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontCaption
                 }
 
                 // 执行态小徽章（R6-06 + R7-02）：
@@ -486,8 +486,8 @@ Rectangle {
             id: actions
             anchors.top: parent.top
             anchors.right: parent.right
-            anchors.margins: 8
-            spacing: 4
+            anchors.margins: Theme.spacingSm
+            spacing: Theme.spacingXs
             z: 3
             opacity: cardMouse.containsMouse ? 1.0 : 0.0
             visible: opacity > 0.01
@@ -500,16 +500,16 @@ Rectangle {
                 visible: card.taskStatus === "todo"
                 width: 22
                 height: 22
-                radius: 6
-                color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.24)
+                radius: Theme.radiusControl
+                color: Theme.alpha(Theme.cyan, 0.24)
                 border.width: 1
-                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.35)
+                border.color: Theme.alpha(Theme.cyan, 0.35)
 
                 Text {
                     anchors.centerIn: parent
                     text: "▶"
                     color: Theme.cyan
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     font.bold: true
                 }
 
@@ -528,16 +528,16 @@ Rectangle {
             Rectangle {
                 width: 22
                 height: 22
-                radius: 6
-                color: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.24)
+                radius: Theme.radiusControl
+                color: Theme.alpha(Theme.success, 0.24)
                 border.width: 1
-                border.color: Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.35)
+                border.color: Theme.alpha(Theme.success, 0.35)
 
                 Text {
                     anchors.centerIn: parent
                     text: card.taskStatus === "done" ? "↩" : "✓"
                     color: Theme.success
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fontCaption
                     font.bold: true
                 }
 
@@ -556,16 +556,16 @@ Rectangle {
             Rectangle {
                 width: 22
                 height: 22
-                radius: 6
-                color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.24)
+                radius: Theme.radiusControl
+                color: Theme.alpha(Theme.danger, 0.24)
                 border.width: 1
-                border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.35)
+                border.color: Theme.alpha(Theme.danger, 0.35)
 
                 Text {
                     anchors.centerIn: parent
                     text: "✕"
                     color: Theme.danger
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                     font.bold: true
                 }
 
@@ -628,7 +628,7 @@ Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 text: card.childStats.done + "/" + card.childStats.total
                 color: Theme.muted
-                font.pixelSize: 10
+                font.pixelSize: Theme.fontCaption
             }
         }
     }
@@ -664,7 +664,7 @@ Rectangle {
         radius: card.radius - 1
         color: "transparent"
         border.width: 1
-        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.45)
+        border.color: Theme.alpha(Theme.cyan, 0.45)
         visible: cardMouse.dragging
         z: 20
 

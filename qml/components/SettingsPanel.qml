@@ -18,18 +18,18 @@ Rectangle {
         signal triggered()
 
         height: 30
-        radius: 8
+        radius: Theme.radiusControl
         color: btnMouse.pressed ? Theme.elevated : Theme.card
         border.width: 1
         border.color: btnMouse.containsMouse
-                         ? Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.55)
+                         ? Theme.alpha(accentColor, 0.55)
                          : Theme.border
 
         Text {
             anchors.centerIn: parent
             text: btn.label
             color: btn.accentColor
-            font.pixelSize: 11
+            font.pixelSize: Theme.fontCaption
         }
 
         MouseArea {
@@ -48,7 +48,7 @@ Rectangle {
         property string labelRole: ""
         property string emptyText: ""
         Layout.preferredHeight: 30
-        font.pixelSize: 10
+        font.pixelSize: Theme.fontMicro
 
         // displayText 对 QVariantList<map> 会退化成空串，必须按 labelRole 自己取
         readonly property string currentLabel: {
@@ -71,7 +71,7 @@ Rectangle {
         }
 
         background: Rectangle {
-            radius: 8
+            radius: Theme.radiusControl
             color: Theme.input
             border.width: 1
             border.color: Theme.border
@@ -84,7 +84,7 @@ Rectangle {
                 leftPadding: 8
                 text: combo.labelRole.length > 0 ? modelData[combo.labelRole] : modelData
                 color: Theme.text
-                font.pixelSize: 10
+                font.pixelSize: Theme.fontMicro
                 verticalAlignment: Text.AlignVCenter
                 elide: Text.ElideRight
             }
@@ -106,7 +106,7 @@ Rectangle {
                 ScrollIndicator.vertical: ScrollIndicator {}
             }
             background: Rectangle {
-                radius: 8
+                radius: Theme.radiusControl
                 color: Theme.panelSolid
                 border.width: 1
                 border.color: Theme.border
@@ -119,11 +119,11 @@ Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: 28
         color: Theme.text
-        font.pixelSize: 10
+        font.pixelSize: Theme.fontMicro
         selectByMouse: true
         background: Rectangle {
             color: Theme.input
-            radius: 6
+            radius: Theme.radiusControl
             border.width: 1
             border.color: Theme.border
         }
@@ -162,7 +162,7 @@ Rectangle {
             exportCombo.currentIndex = 0
     }
     visible: false
-    color: Qt.rgba(0.0, 0.0, 0.0, 0.45)
+    color: Theme.alpha(Theme.bg, 0.45)
 
     function open() {
         visible = true
@@ -182,10 +182,10 @@ Rectangle {
         width: Math.min(520, parent.width - 48)
         height: Math.min(560, parent.height - 48)
         anchors.centerIn: parent
-        radius: 16
+        radius: Theme.radiusPanel
         color: Theme.panelSolid
         border.width: 1
-        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.35)
+        border.color: Theme.alpha(Theme.cyan, 0.35)
 
         MouseArea { anchors.fill: parent }
 
@@ -207,14 +207,14 @@ Rectangle {
                 Text {
                     text: "设置"
                     color: Theme.text
-                    font.pixelSize: 18
+                    font.pixelSize: Theme.fontDisplay
                     font.bold: true
                 }
 
                 Text {
                     text: "SETTINGS"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                     font.letterSpacing: 1.5
                 }
 
@@ -223,14 +223,14 @@ Rectangle {
                 Rectangle {
                     width: 26
                     height: 26
-                    radius: 8
-                    color: closeSettingsMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                    radius: Theme.radiusControl
+                    color: closeSettingsMouse.containsMouse ? Theme.alpha(Theme.text, 0.08) : "transparent"
 
                     Text {
                         anchors.centerIn: parent
                         text: "✕"
                         color: Theme.muted
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fontBody
                     }
 
                     MouseArea {
@@ -245,7 +245,7 @@ Rectangle {
             Rectangle {
                 Layout.fillWidth: true
                 height: 1
-                color: Qt.rgba(1, 1, 1, 0.08)
+                color: Theme.alpha(Theme.text, 0.08)
             }
 
             RowLayout {
@@ -257,13 +257,13 @@ Rectangle {
                     Text {
                         text: "开机自启"
                         color: Theme.text
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fontBody
                     }
 
                     Text {
                         text: "登录 Windows 后静默启动到托盘"
                         color: Theme.muted
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontMicro
                     }
                 }
 
@@ -284,13 +284,13 @@ Rectangle {
                     Text {
                         text: "全局热键"
                         color: Theme.text
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fontBody
                     }
 
                     Text {
                         text: hotkey.registered ? "Ctrl + Shift + Space" : "注册失败（可能被占用）"
                         color: hotkey.registered ? Theme.muted : Theme.magenta
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontMicro
                     }
                 }
 
@@ -300,7 +300,7 @@ Rectangle {
                     text: hotkey.registered ? "ACTIVE" : "OFF"
                     color: hotkey.registered ? Theme.cyan : Theme.magenta
                     font.family: "Cascadia Code"
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
             }
 
@@ -314,7 +314,7 @@ Rectangle {
                     Text {
                         text: "软件更新"
                         color: Theme.text
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fontBody
                     }
 
                     Item { Layout.fillWidth: true }
@@ -323,7 +323,7 @@ Rectangle {
                         text: updateManager.currentVersion
                         color: Theme.muted
                         font.family: "Cascadia Code"
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontMicro
                     }
                 }
 
@@ -336,7 +336,7 @@ Rectangle {
                              ? " · 上次检查 " + Qt.formatDateTime(new Date(updateManager.lastCheckAt * 1000), "MM-dd hh:mm")
                              : " · 尚未检查")
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap
                 }
 
@@ -346,7 +346,7 @@ Rectangle {
                     color: updateManager.state === "error" ? Theme.danger
                          : updateManager.updateAvailable ? Theme.cyan
                          : Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap
                 }
 
@@ -357,7 +357,7 @@ Rectangle {
                     Layout.fillWidth: true
                     visible: updateManager.lastInstallIncomplete
                     implicitHeight: incompleteHint.implicitHeight + 12
-                    radius: 6
+                    radius: Theme.radiusControl
                     color: Theme.warningSoft
                     border.width: 1
                     border.color: Theme.warning
@@ -368,7 +368,7 @@ Rectangle {
                         anchors.margins: 6
                         text: "上次更新未完成：安装时被占用的文件没能替换，当前可能是新旧混装。点这里重新检查更新。"
                         color: Theme.warning
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontMicro
                         wrapMode: Text.WordWrap
                     }
 
@@ -392,7 +392,7 @@ Rectangle {
                              ? " · " + (updateManager.releaseSize / 1048576).toFixed(1) + " MB" : "")
                           + (updateManager.releaseNotes.length > 0 ? "\n" + updateManager.releaseNotes : "")
                     color: Theme.text
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap
                     elide: Text.ElideRight
                     maximumLineCount: 6
@@ -440,7 +440,7 @@ Rectangle {
                     Text {
                         text: "自动检查"
                         color: Theme.text
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                     }
 
                     Item { Layout.fillWidth: true }
@@ -449,7 +449,7 @@ Rectangle {
                         visible: updateManager.updateAvailable
                         text: "跳过此版本"
                         color: Theme.muted
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontMicro
 
                         MouseArea {
                             anchors.fill: parent
@@ -469,7 +469,7 @@ Rectangle {
                     Layout.fillWidth: true
                     text: "更新包下载后先校验 SHA-256 再安装；安装版走静默升级，便携版由自更新脚本在程序退出后替换文件并重新拉起。"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap
                 }
             }
@@ -485,7 +485,7 @@ Rectangle {
                     Text {
                         text: "任务执行"
                         color: Theme.text
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fontBody
                     }
 
                     Item { Layout.fillWidth: true }
@@ -502,7 +502,7 @@ Rectangle {
                           ? "总开关已开：卡片执行前仍会弹出确认框，cwd 首次执行需勾选「信任本目录」"
                           : "总开关默认关：卡片上的「执行」只提示原因，不会启动任何进程"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap
                 }
 
@@ -514,7 +514,7 @@ Rectangle {
                     Text {
                         text: "默认 agent"
                         color: Theme.text
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                     }
 
                     NeonComboBox {
@@ -545,7 +545,7 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.topMargin: 2
                         implicitHeight: profileRowColumn.implicitHeight + 16
-                        radius: 8
+                        radius: Theme.radiusControl
                         color: Theme.card
                         border.width: 1
                         border.color: Theme.border
@@ -565,7 +565,7 @@ Rectangle {
                                 Text {
                                     text: profileRow.modelData.displayName
                                     color: Theme.text
-                                    font.pixelSize: 11
+                                    font.pixelSize: Theme.fontCaption
                                 }
 
                                 // R9-04：exe 在本机解析不到时显式标注。
@@ -575,8 +575,8 @@ Rectangle {
                                     visible: profileRow.modelData.available === false
                                     width: unavailableLabel.implicitWidth + 10
                                     height: 15
-                                    radius: 7
-                                    color: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.14)
+                                    radius: Theme.radiusControl
+                                    color: Theme.alpha(Theme.warning, 0.14)
                                     border.width: 1
                                     border.color: Theme.warning
 
@@ -585,7 +585,7 @@ Rectangle {
                                         anchors.centerIn: parent
                                         text: "不可用"
                                         color: Theme.warning
-                                        font.pixelSize: 8
+                                        font.pixelSize: Theme.fontMicro
                                     }
                                 }
 
@@ -593,7 +593,7 @@ Rectangle {
                                     text: profileRow.modelData.id
                                     color: Theme.muted
                                     font.family: "Consolas"
-                                    font.pixelSize: 9
+                                    font.pixelSize: Theme.fontMicro
                                 }
 
                                 Item { Layout.fillWidth: true }
@@ -601,7 +601,7 @@ Rectangle {
                                 Text {
                                     text: "编辑"
                                     color: Theme.cyan
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
 
                                     MouseArea {
                                         anchors.fill: parent
@@ -613,7 +613,7 @@ Rectangle {
                                 Text {
                                     text: "删除"
                                     color: Theme.magenta
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
 
                                     MouseArea {
                                         anchors.fill: parent
@@ -638,7 +638,7 @@ Rectangle {
                                          ? " · 已声明但不可用（exe 找不到）" : "")
                                 color: profileRow.modelData.available === false
                                        ? Theme.warning : Theme.muted
-                                font.pixelSize: 9
+                                font.pixelSize: Theme.fontMicro
                                 elide: Text.ElideRight
                             }
                         }
@@ -672,7 +672,7 @@ Rectangle {
                     Layout.fillWidth: true
                     text: "profile 存 meta 表；命令行只拼 argv，不经过 shell。codex 未实测，不内置。"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap
                 }
             }
@@ -684,14 +684,14 @@ Rectangle {
                 Text {
                     text: "数据文件"
                     color: Theme.text
-                    font.pixelSize: 13
+                    font.pixelSize: Theme.fontBody
                 }
 
                 Text {
                     Layout.fillWidth: true
                     text: database.path
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     elide: Text.ElideMiddle
                 }
             }
@@ -703,14 +703,14 @@ Rectangle {
                 Text {
                     text: "导入导出与备份"
                     color: Theme.text
-                    font.pixelSize: 13
+                    font.pixelSize: Theme.fontBody
                 }
 
                 Text {
                     Layout.fillWidth: true
                     text: "备份目录 " + dataPort.backupDir
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     elide: Text.ElideMiddle
                 }
 
@@ -750,7 +750,7 @@ Rectangle {
                         Layout.minimumWidth: 90
                         Layout.preferredHeight: 30
                         model: []
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontMicro
                         displayText: (currentIndex >= 0 && currentText.length > 0)
                                      ? currentText.split(/[\\/]/).pop()
                                      : "（数据目录下暂无导出文件）"
@@ -766,7 +766,7 @@ Rectangle {
                         }
 
                         background: Rectangle {
-                            radius: 8
+                            radius: Theme.radiusControl
                             color: Theme.input
                             border.width: 1
                             border.color: Theme.border
@@ -778,7 +778,7 @@ Rectangle {
                             contentItem: Text {
                                 text: modelData
                                 color: Theme.text
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                                 verticalAlignment: Text.AlignVCenter
                                 elide: Text.ElideMiddle
                                 leftPadding: 6
@@ -801,7 +801,7 @@ Rectangle {
                                 ScrollIndicator.vertical: ScrollIndicator {}
                             }
                             background: Rectangle {
-                                radius: 8
+                                radius: Theme.radiusControl
                                 color: Theme.panelSolid
                                 border.width: 1
                                 border.color: Theme.border
@@ -846,11 +846,11 @@ Rectangle {
                         Layout.preferredHeight: 28
                         placeholderText: "或粘贴文件完整路径后回车导入"
                         color: Theme.text
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontMicro
                         selectByMouse: true
                         background: Rectangle {
                             color: Theme.input
-                            radius: 6
+                            radius: Theme.radiusControl
                             border.width: 1
                             border.color: Theme.border
                         }
@@ -871,7 +871,7 @@ Rectangle {
                     Layout.fillWidth: true
                     text: "支持 JSON / Markdown / Todo.txt 三种格式；每天首次启动自动备份一次数据库。"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap
                 }
             }
@@ -883,14 +883,14 @@ Rectangle {
                 Text {
                     text: "插件"
                     color: Theme.text
-                    font.pixelSize: 13
+                    font.pixelSize: Theme.fontBody
                 }
 
                 Text {
                     Layout.fillWidth: true
                     text: pluginLoader.plugins.length + " 个已发现 · 目录 " + pluginLoader.pluginDir
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap
                 }
 
@@ -901,7 +901,7 @@ Rectangle {
                     Rectangle {
                         Layout.fillWidth: true
                         height: 30
-                        radius: 8
+                        radius: Theme.radiusControl
                         color: rescanArea.pressed ? Theme.elevated : Theme.card
                         border.width: 1
                         border.color: Theme.border
@@ -910,7 +910,7 @@ Rectangle {
                             anchors.centerIn: parent
                             text: "重新扫描插件"
                             color: Theme.cyan
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.fontCaption
                         }
 
                         MouseArea {
@@ -931,7 +931,7 @@ Rectangle {
                     Layout.fillWidth: true
                     text: "把插件目录放进上面的路径后点「重新扫描插件」"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap
                 }
 
@@ -943,7 +943,7 @@ Rectangle {
                     Rectangle {
                         Layout.fillWidth: true
                         height: 30
-                        radius: 8
+                        radius: Theme.radiusControl
                         color: libraryArea.pressed ? Theme.elevated : Theme.card
                         border.width: 1
                         border.color: Theme.border
@@ -952,7 +952,7 @@ Rectangle {
                             anchors.centerIn: parent
                             text: "打开插件库"
                             color: Theme.cyan
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.fontCaption
                         }
 
                         MouseArea {
@@ -969,7 +969,7 @@ Rectangle {
                     Layout.fillWidth: true
                     text: "插件市场源"
                     color: Theme.text
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
 
                 RowLayout {
@@ -981,14 +981,14 @@ Rectangle {
                         text: pluginLibrary.marketSources.length + " 个源 · "
                               + (pluginLibrary.marketSource || "未配置")
                         color: Theme.muted
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontMicro
                         elide: Text.ElideRight
                     }
 
                     Text {
                         text: "管理源…"
                         color: marketManageMouse.containsMouse ? Theme.cyan : Theme.text
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                         MouseArea {
                             id: marketManageMouse
                             anchors.fill: parent
@@ -1002,7 +1002,7 @@ Rectangle {
                     Layout.fillWidth: true
                     text: "支持 owner/repo 简写（自动尝试 Gitee → GitHub）与完整 market.json 地址，多源并列生效"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap
                 }
 
@@ -1011,7 +1011,7 @@ Rectangle {
                     Layout.topMargin: 6
                     text: "插件设置"
                     color: Theme.text
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
 
                 Text {
@@ -1019,7 +1019,7 @@ Rectangle {
                     visible: pluginRuntime.settingsPages.length === 0
                     text: "当前没有插件提供设置页（manifest 里声明 settings 即可出现在这里）"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap
                 }
 
@@ -1032,7 +1032,7 @@ Rectangle {
 
                         Layout.fillWidth: true
                         implicitHeight: settingsPageColumn.implicitHeight + 20
-                        radius: 8
+                        radius: Theme.radiusControl
                         color: Theme.card
                         border.width: 1
                         border.color: settingsPageRow.expanded ? Theme.borderStrong : Theme.border
@@ -1055,19 +1055,19 @@ Rectangle {
                                     Layout.fillWidth: true
                                     text: settingsPageRow.modelData.pluginName
                                     color: Theme.text
-                                    font.pixelSize: 11
+                                    font.pixelSize: Theme.fontCaption
                                 }
 
                                 Text {
                                     text: settingsPageRow.modelData.sourceLabel
                                     color: Theme.muted
-                                    font.pixelSize: 9
+                                    font.pixelSize: Theme.fontMicro
                                 }
 
                                 Text {
                                     text: settingsPageRow.expanded ? "收起" : "展开"
                                     color: Theme.cyan
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
 
                                     MouseArea {
                                         anchors.fill: parent
@@ -1101,7 +1101,7 @@ Rectangle {
                 Text {
                     text: "NeonBoard 0.1.0 · Qt 6.8 · SQLite"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 Item { Layout.fillWidth: true }
@@ -1109,7 +1109,7 @@ Rectangle {
                 Text {
                     text: "Ctrl+Z 撤销上一步"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                 }
             }
             }
@@ -1132,9 +1132,9 @@ Rectangle {
 
         background: Rectangle {
             color: Theme.panelSolid
-            radius: 14
+            radius: Theme.radiusPanel
             border.width: 1
-            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.35)
+            border.color: Theme.alpha(Theme.cyan, 0.35)
         }
 
         contentItem: ColumnLayout {
@@ -1143,7 +1143,7 @@ Rectangle {
             Text {
                 text: profileEditor.editingId.length > 0 ? "编辑 profile" : "新增 profile"
                 color: Theme.text
-                font.pixelSize: 15
+                font.pixelSize: Theme.fontTitle
                 font.bold: true
             }
 
@@ -1156,7 +1156,7 @@ Rectangle {
                 Text {
                     text: "id"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 NeonField {
@@ -1168,7 +1168,7 @@ Rectangle {
                 Text {
                     text: "显示名"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 NeonField {
@@ -1179,7 +1179,7 @@ Rectangle {
                 Text {
                     text: "可执行文件"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 NeonField {
@@ -1190,7 +1190,7 @@ Rectangle {
                 Text {
                     text: "参数"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 NeonField {
@@ -1201,7 +1201,7 @@ Rectangle {
                 Text {
                     text: "只读参数"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 NeonField {
@@ -1212,7 +1212,7 @@ Rectangle {
                 Text {
                     text: "prompt"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 NeonComboBox {
@@ -1223,7 +1223,7 @@ Rectangle {
                 Text {
                     text: "输出格式"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 NeonComboBox {
@@ -1234,7 +1234,7 @@ Rectangle {
                 Text {
                     text: "默认超时"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 RowLayout {
@@ -1251,7 +1251,7 @@ Rectangle {
                     Text {
                         text: "分钟"
                         color: Theme.muted
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontMicro
                     }
 
                     Item { Layout.fillWidth: true }
@@ -1263,7 +1263,7 @@ Rectangle {
                 visible: profileEditor.errorText.length > 0
                 text: profileEditor.errorText
                 color: Theme.danger
-                font.pixelSize: 10
+                font.pixelSize: Theme.fontMicro
                 wrapMode: Text.WordWrap
             }
 

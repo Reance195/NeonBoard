@@ -29,14 +29,14 @@ Item {
     RowLayout {
         id: row
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 4
+        spacing: Theme.spacingXs
 
         Text {
             id: numberText
             Layout.alignment: Qt.AlignBaseline
             text: Math.round(chip.shownValue)
             color: (chip.dimWhenZero && chip.isZero) ? Theme.muted : chip.accent
-            font.pixelSize: 15
+            font.pixelSize: Theme.fontTitle
             font.bold: true
             scale: chip.pulse
 
@@ -49,7 +49,7 @@ Item {
             Layout.alignment: Qt.AlignBaseline
             text: chip.label
             color: Theme.muted
-            font.pixelSize: 10
+            font.pixelSize: Theme.fontCaption
         }
     }
 

@@ -32,7 +32,7 @@ RowLayout {
             id: metric
             required property int index
 
-            spacing: 10
+            spacing: Theme.spacingMd
 
             StatChip {
                 Layout.alignment: Qt.AlignVCenter

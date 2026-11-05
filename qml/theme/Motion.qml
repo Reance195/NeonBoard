@@ -40,6 +40,16 @@ QtObject {
     readonly property int dragLift: reduced ? 0 : 120     // 拎起放大
     readonly property int dragSnap: reduced ? 0 : 90      // 磁吸吸附
 
+    // ---- 辉光强度（R11-05）----
+    // 「精致化」的方向是降噪：光只负责氛围，不负责抢正文的对比度。
+    // 强度乘子集中在这里，Theme 的 glow / glowSoft 都乘它 ——
+    // 于是「要不要更亮的光」只需要改一个数，不必满屏找 rgba。
+    //
+    // lowSpec 由外观面板在画质设为「低」时打开（不反向引用 Theme，
+    // 避免 Theme ↔ Motion 互相依赖成环）。
+    property bool lowSpec: false
+    readonly property real glowScale: (reduced ? 0.35 : 1.0) * (lowSpec ? 0.6 : 1.0)
+
     // ---- 缓动 ----
     readonly property int easeOut: Easing.OutCubic
     readonly property int easeInOut: Easing.InOutSine

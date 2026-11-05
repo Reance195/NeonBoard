@@ -544,6 +544,9 @@ ApplicationWindow {
         boardColumns.project = projectId
     }
 
+    // 一键清除筛选：搜索词、里程碑、项目范围三处一起复位
+    function clearFilters() { searchField.text = ""; setStageFilter(""); setProjectFilter("") }
+
     function refreshStageData() {
         // 阶段顺序由 projectMap 给出（读路线图 §9 的行序，只读一份 md、不跑 git）；
         // 模型层保持零依赖，测试里也能直接传一组顺序进来断言。
@@ -1025,7 +1028,7 @@ MouseArea {
                     Text {
                         text: "工作台"
                         color: Theme.text
-                        font.pixelSize: 20
+                        font.pixelSize: Theme.fontDisplay
                         font.bold: true
                     }
 
@@ -1310,14 +1313,14 @@ MouseArea {
                         Text {
                             text: "工作台"
                             color: Theme.text
-                            font.pixelSize: 18
+                            font.pixelSize: Theme.fontDisplay
                             font.bold: true
                         }
 
                         Text {
                             text: "专注当下，逐项推进"
                             color: Theme.muted
-                            font.pixelSize: 10
+                            font.pixelSize: Theme.fontCaption
                         }
                     }
 
@@ -1469,7 +1472,7 @@ MouseArea {
                             placeholderText: "搜索任务"
                             placeholderTextColor: Theme.muted
                             color: Theme.text
-                            font.pixelSize: 12
+                            font.pixelSize: Theme.fontBody
                             background: null
                             onTextChanged: boardColumns.search = text
                             Keys.onEscapePressed: text = ""
@@ -1575,42 +1578,10 @@ MouseArea {
                     }
 
                     // 列管理入口：列由数据库驱动，加列 / 改名 / 调序都在这里
-                    Rectangle {
+                    AddColumnButton {
                         Layout.preferredWidth: 46
                         Layout.fillHeight: true
-                        radius: 16
-                        color: addColumnMouse.containsMouse ? Theme.cardHover : Theme.card
-                        border.width: 1
-                        border.color: addColumnMouse.containsMouse ? Theme.borderStrong : Theme.border
-
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: 4
-
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: "＋"
-                                color: addColumnMouse.containsMouse ? Theme.cyan : Theme.muted
-                                font.pixelSize: 18
-                            }
-
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: "列"
-                                color: Theme.muted
-                                font.pixelSize: 10
-                            }
-                        }
-
-                        MouseArea {
-                            id: addColumnMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: {
-                                window.closeAllPanels()
-                                columnManager.open = true
-                            }
-                        }
+                        onClicked: { window.closeAllPanels(); columnManager.open = true }
                     }
                 }
 
@@ -1726,6 +1697,18 @@ MouseArea {
                     projectMapLoader.active = false
                 })
             }
+        }
+
+        // 筛选把看板清空时的空态（R11-07）：浮在看板正中间，并给一个「清除筛选」出口
+        EmptyState {
+            anchors.centerIn: boardRow
+            width: Math.min(360, boardRow.width - Theme.spacingXl * 2)
+            query: searchField.text
+            stageFiltered: window.stageFilter.length > 0
+            projectFiltered: window.projectFilter.length > 0
+            visibleCount: boardColumns.todoCount + boardColumns.doingCount + boardColumns.doneCount
+            actionText: "清除筛选"
+            onActionTriggered: window.clearFilters()
         }
 
         // 首启动引导：录任务 → 拖列 → 装插件（可用「跳过」直接收尾）

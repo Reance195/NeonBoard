@@ -11,7 +11,7 @@ Dialog {
     anchors.centerIn: parent
     modal: true
     focus: true
-    padding: 20
+    padding: Theme.spacingXl
     width: Math.min(460, Overlay.overlay.width - 80)
     closePolicy: Popup.CloseOnEscape
 
@@ -52,18 +52,18 @@ Dialog {
 
     background: Rectangle {
         color: Theme.panelSolid
-        radius: 16
+        radius: Theme.radiusPanel
         border.width: 1
-        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+        border.color: Theme.alpha(Theme.cyan, 0.32)
     }
 
     contentItem: ColumnLayout {
-        spacing: 12
+        spacing: Theme.spacingMd
 
         Text {
             text: "新建任务"
             color: Theme.text
-            font.pixelSize: 18
+            font.pixelSize: Theme.fontDisplay
             font.bold: true
         }
 
@@ -73,13 +73,13 @@ Dialog {
             placeholderText: "任务标题，支持「明天」「!高」「#标签」"
             placeholderTextColor: Theme.muted
             color: Theme.text
-            font.pixelSize: 14
+            font.pixelSize: Theme.fontTitle
             selectByMouse: true
             background: Rectangle {
                 color: Theme.elevated
-                radius: 8
+                radius: Theme.radiusControl
                 border.width: 1
-                border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                border.color: Theme.alpha(Theme.cyan, 0.20)
             }
             onAccepted: composer.submit()
         }
@@ -87,20 +87,20 @@ Dialog {
         // 解析预览：与列底快速添加同一套 TaskInputParser，避免两处行为不一致
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: Theme.spacingSm
             visible: titleField.text.trim().length > 0
 
             Text {
                 text: "解析"
                 color: Theme.muted
-                font.pixelSize: 11
+                font.pixelSize: Theme.fontCaption
             }
 
             Text {
                 Layout.fillWidth: true
                 text: composer.preview.title
                 color: Theme.text
-                font.pixelSize: 11
+                font.pixelSize: Theme.fontCaption
                 elide: Text.ElideRight
             }
 
@@ -108,14 +108,14 @@ Dialog {
                 visible: composer.preview.hasDue
                 text: "◷ " + composer.preview.dueText
                 color: Theme.cyan
-                font.pixelSize: 10
+                font.pixelSize: Theme.fontCaption
             }
 
             Text {
                 visible: composer.preview.priority > 1
                 text: composer.preview.priority === 3 ? "!! 高" : "! 中"
                 color: Theme.accent3
-                font.pixelSize: 10
+                font.pixelSize: Theme.fontCaption
             }
 
             Repeater {
@@ -123,19 +123,19 @@ Dialog {
                 delegate: Text {
                     text: "#" + modelData
                     color: Theme.cyan
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontCaption
                 }
             }
         }
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: Theme.spacingSm
 
             Text {
                 text: "列"
                 color: Theme.muted
-                font.pixelSize: 12
+                font.pixelSize: Theme.fontBody
             }
 
             Repeater {
@@ -143,9 +143,9 @@ Dialog {
                 delegate: Rectangle {
                     width: 68
                     height: 30
-                    radius: 8
+                    radius: Theme.radiusControl
                     color: composer.status === modelData[1]
-                           ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.48)
+                           ? Theme.alpha(Theme.cyan, 0.48)
                            : Theme.input
                     border.width: 1
                     border.color: composer.status === modelData[1] ? Theme.cyan : Theme.border
@@ -154,7 +154,7 @@ Dialog {
                         anchors.centerIn: parent
                         text: modelData[0]
                         color: composer.status === modelData[1] ? Theme.text : Theme.muted
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                     }
 
                     MouseArea {
@@ -168,12 +168,12 @@ Dialog {
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: Theme.spacingSm
 
             Text {
                 text: "父卡"
                 color: Theme.muted
-                font.pixelSize: 12
+                font.pixelSize: Theme.fontBody
             }
 
             ComboBox {
@@ -182,7 +182,7 @@ Dialog {
                 model: composer.parentChoices
                 textRole: "title"
                 valueRole: "id"
-                font.pixelSize: 12
+                font.pixelSize: Theme.fontBody
                 contentItem: Text {
                     leftPadding: 10
                     text: parentBox.displayText
@@ -194,9 +194,9 @@ Dialog {
                 background: Rectangle {
                     implicitHeight: 32
                     color: Theme.elevated
-                    radius: 8
+                    radius: Theme.radiusControl
                     border.width: 1
-                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                    border.color: Theme.alpha(Theme.cyan, 0.20)
                 }
                 delegate: ItemDelegate {
                     width: parentBox.width
@@ -204,12 +204,12 @@ Dialog {
                     contentItem: Text {
                         text: modelData.title
                         color: Theme.text
-                        font.pixelSize: 12
+                        font.pixelSize: Theme.fontBody
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
                     }
                     background: Rectangle {
-                        color: highlighted ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.16)
+                        color: highlighted ? Theme.alpha(Theme.cyan, 0.16)
                                            : "transparent"
                     }
                 }
@@ -226,7 +226,7 @@ Dialog {
                     }
                     background: Rectangle {
                         color: Theme.panelSolid
-                        radius: 8
+                        radius: Theme.radiusControl
                         border.width: 1
                         border.color: Theme.border
                     }
@@ -236,7 +236,7 @@ Dialog {
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: Theme.spacingSm
 
             Item { Layout.fillWidth: true }
 

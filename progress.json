@@ -37,24 +37,6 @@
             "updatedAt": 1793816382
         },
         {
-            "code": "DX-38",
-            "completedAt": 0,
-            "createdAt": 1793817872,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-38",
-            "note": "真机实测（2026-11-05，v0.1.4 → v0.1.5 增量升级成功）：delta.json 的 10 条改动全是 Modified、0 条 Deleted；1136 条弃用文件（六个样式目录 1126 个文件 + root 级 10 条 dll）原封不动，install-receipt.json 缺席。根因是增量清单算的是两个发布包之间的差，而这批文件在 0.1.4 和 0.1.5 的包里都不存在，任何包间断层都不可能为它们生成删除动作 —— 清理只有安装器侧那份显式 [InstallDelete] 清单做得到，回执同样是安装器 CurStepChanged(ssPostInstall) 写的，增量路径走的是自更新 bat，压根不跑安装器。后果：从 0.1.3 一路增量升上来的用户永久背着这批文件，而且升级后拿不到任何物证，R5-11 / R5-09 / R5-12 只对「跑过完整安装包」的人生效。宿主清理那条增量路径自己是用 bat 里的 taskkill 兜的（UpdateManager.cpp:1126），所以这次没暴露。",
-            "orderKey": 14336,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 增量升级路径不清理弃用文件也不写安装回执：包间 diff 天生给不出 Deleted 条目",
-            "updatedAt": 1793817872
-        },
-        {
             "code": "DX-43",
             "completedAt": 0,
             "createdAt": 1793822375,
@@ -89,24 +71,6 @@
             ],
             "title": "board-apply.py 未 reconfigure UTF-8，GBK 控制台打 ✓ 抛 UnicodeEncodeError 让 nbflow 误判失败",
             "updatedAt": 1793823087
-        },
-        {
-            "code": "DX-44",
-            "completedAt": 0,
-            "createdAt": 1793825191,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-44",
-            "note": "触发证据：机制四条叠加：① git-done 分步快进补推（合并/清理登记/结卡/快照各一次 push origin HEAD:main）② board.yml 只校验 derive --check 且不回写（R14-01 收权，permissions contents:read）③ 合并提交推上去那一刻 #短号=done 标记即生效而 baseline/快照仍旧 ④ 快照必须最后刷新（派生器要读前两步写完的 git 事实）。因此红 N 次 = 收尾推了几个不自洽中间态，确定性不是竞态。实测 2026-11-05 19:24-19:42 与 20:05 两组收尾：afd08e1/11355db/a7cce03 三连 failure 后 9a7a23a success；52c908f+4a2a6bb failure 后 7116780 success；本次 47d1ced 前后同样红两轮再转绿。本地按三个提交逐个跑 --check 得 exit 1/1/0。修复取向：board.yml 的 concurrency.cancel-in-progress 由 false 翻成 true（job 约 40s、推送间隔 8s，中间 run 被取消且不发失败通知），使判据落点自动挪到 main tip；否决「--check 区分滞后与矛盾」（收尾失败的唯一表现就是快照一直滞后，等于拆掉眼睛）。方案 A（收尾三步合并成一次补推）列二期，动 git-done.ps1 不在本卡 scope。附带发现：nbflow request 不查台账卡号占用，本请求原提 DX-42 与另一会话 03:58 立的 DX-42 撞号（已弃单重提为 DX-44），该缺口属 scripts/nbflow.py，不在本卡 scope。\n\n## 目标\nboard.yml 把注定短暂的中间态当最终状态校验，每次收尾固定产 1~3 封失败邮件\n\n## 验收\npwsh -File scripts/verify.ps1 -ScriptOnly 全过（只动流水线与文档，走轻档，不涉代码路径）; 中间态判据未被改松：依次 checkout 一次收尾推到 main 的三个提交（合并/结卡/快照）跑 python scripts/derive_board_status.py --check，退出码仍是 1/1/0（实测基线 R5-10 收尾 9e43177→47d1ced→3a78cc8；R5-08 收尾 52c908f=1、4a2a6bb=1、7116780=0）; 折叠生效：改后走一次真实结卡收尾，gh run list --workflow=board.yml --branch main --limit 8 中 main tip 那条为 success、中间提交对应的 run 不再产生 failure，维护者侧本批收尾失败邮件 0 封; 眼睛还在：人为只推合并不推快照的一次性演练（做完立刻补推转绿），main tip 的 board run 必须 failure 并打印 --close-cards/--write 提示; 单写者约束不动：board.yml 保持 permissions: contents: read，文件内 grep 不到任何 git commit/git push；AGENTS.md §11.2 第 8 条与文件顶部注释同步改写为「红灯只可能落在 main tip 的 run 上」; docs/pitfalls.md 补一条现象/根因/解法：拿注定短暂的中间态套最终状态判据，每次收尾固定产 1~3 封邮件（实测 R16-05 3 封、R5-08 2 封、R5-10 2 封、DX-40 立卡 1 封）\n\n## 边界\n.github/workflows/board.yml;AGENTS.md;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 22528,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "board.yml 把注定短暂的中间态当最终状态校验，每次收尾固定产 1~3 封失败邮件",
-            "updatedAt": 1793825191
         },
         {
             "code": "DX-51",
@@ -179,6 +143,42 @@
             ],
             "title": "nbflow 补 release 卡模式：允许「合并后验收」的回执与结卡通道",
             "updatedAt": 1793899147
+        },
+        {
+            "code": "DX-62",
+            "completedAt": 0,
+            "createdAt": 1793900688,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-62",
+            "note": "触发证据：DX-38/DX-44 交付提交已在 origin/main 全历史但无 #=done 标记（2026-11-06 核实：git log origin/main --format=%B grep 零命中）。DX-59 同症但 git-done 收尾已补结（aea0572），反证收尾只救有标记的卡\n\n## 目标\n交付合并但未投 done 标记的卡永久滞留且可被重复领用（DX-38/DX-44 实录）\n\n## 验收\nderive --baseline-check 能点名「交付提交已合入 main（含裸 #<短号> 标记）但全历史无 #<短号>=done 的卡」，DX-38/DX-44 在当前 main 上被点名，--selftest 增补用例|agent-init 领用上述卡时显式警告「交付疑似已在 main，防重做」，不静默放行|python scripts/derive_board_status.py --selftest 与 python scripts/nbflow.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿|DX-38/DX-44 经人工确认通道补结落地（本批次执行），baseline 归位 done\n\n## 边界\nscripts/derive_board_status.py;scripts/agent-init.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 32768,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "交付合并但未投 done 标记的卡永久滞留且可被重复领用（DX-38/DX-44 实录）",
+            "updatedAt": 1793900688
+        },
+        {
+            "code": "DX-68",
+            "completedAt": 0,
+            "createdAt": 1793900688,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-68",
+            "note": "触发证据：reason=merge-conflict branch=chore/board-2026-11-06 behind= files=docs/board-ledger.json docs/board-ledger.json: <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06 / <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06\n\n## 来源\n由 nbflow 自动建单：程序先合并一次，遇到冲突/阻塞不自行解决，交回 agent 合并后上交。\n\n## 冲突证据\n- 触发：merge-conflict\n- 分支：chore/board-2026-11-06（ours 329a099 / theirs 46a2c4c）\n- 冲突/脏项文件：docs/board-ledger.json\n- 诊断：docs/board-ledger.json: <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06 / <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06\n\n\n## 目标\n由 agent 在自己的 worktree 里完成合并、消除冲突标记，再合回主线并结卡上交。\n\n## 步骤\n1. dot-source .agent-env.ps1，先看 NB_SCOPE / NB_ACCEPTANCE\n2. git fetch origin; git merge --no-ff chore/board-2026-11-06（或基于最新 origin/main 重建合并）\n3. 台账冲突用 scripts/merge_board.py / scripts/merge-resolve.ps1 辅助，禁止留冲突标记\n4. 提交信息带 #DX-68=done，合并体写四段（变更/验收/影响/卡片）\n5. 跑 verify.ps1，再用 nbflow report 逐条填证据，最后 nbflow close 上交\n\n## 验收\n冲突文件无 <<<<<<< 标记; git merge --no-ff chore/board-2026-11-06 完成; pwsh -File scripts/verify.ps1 -ScriptOnly 通过; 合并结果用 merge 提交合回 origin/main; 工单 note 记录冲突文件与解决方式\n\n## 边界\ndocs/board-ledger.json\n\n## 交接\n原卡保持原状态（可重跑 close）；本工单 cleaned 后再重跑原卡的 close。",
+            "orderKey": 33792,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "合并冲突：chore/board-2026-11-06 与 origin/main（程序自动建单）",
+            "updatedAt": 1793900688
         },
         {
             "code": "R0-01",
@@ -1761,6 +1761,24 @@
             "updatedAt": 1792588621
         },
         {
+            "code": "DX-38",
+            "completedAt": 1793900688,
+            "createdAt": 1793817872,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-38",
+            "note": "真机实测（2026-11-05，v0.1.4 → v0.1.5 增量升级成功）：delta.json 的 10 条改动全是 Modified、0 条 Deleted；1136 条弃用文件（六个样式目录 1126 个文件 + root 级 10 条 dll）原封不动，install-receipt.json 缺席。根因是增量清单算的是两个发布包之间的差，而这批文件在 0.1.4 和 0.1.5 的包里都不存在，任何包间断层都不可能为它们生成删除动作 —— 清理只有安装器侧那份显式 [InstallDelete] 清单做得到，回执同样是安装器 CurStepChanged(ssPostInstall) 写的，增量路径走的是自更新 bat，压根不跑安装器。后果：从 0.1.3 一路增量升上来的用户永久背着这批文件，而且升级后拿不到任何物证，R5-11 / R5-09 / R5-12 只对「跑过完整安装包」的人生效。宿主清理那条增量路径自己是用 bat 里的 taskkill 兜的（UpdateManager.cpp:1126），所以这次没暴露。",
+            "orderKey": 14336,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 增量升级路径不清理弃用文件也不写安装回执：包间 diff 天生给不出 Deleted 条目",
+            "updatedAt": 1793900688
+        },
+        {
             "code": "R7-04",
             "completedAt": 1793213056,
             "createdAt": 1793123355,
@@ -2238,6 +2256,24 @@
             ],
             "title": "DX 阶段条监听路线图变更：§9 增删/重排无需重启即生效（#11）",
             "updatedAt": 1793208841
+        },
+        {
+            "code": "DX-44",
+            "completedAt": 1793900688,
+            "createdAt": 1793825191,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-44",
+            "note": "触发证据：机制四条叠加：① git-done 分步快进补推（合并/清理登记/结卡/快照各一次 push origin HEAD:main）② board.yml 只校验 derive --check 且不回写（R14-01 收权，permissions contents:read）③ 合并提交推上去那一刻 #短号=done 标记即生效而 baseline/快照仍旧 ④ 快照必须最后刷新（派生器要读前两步写完的 git 事实）。因此红 N 次 = 收尾推了几个不自洽中间态，确定性不是竞态。实测 2026-11-05 19:24-19:42 与 20:05 两组收尾：afd08e1/11355db/a7cce03 三连 failure 后 9a7a23a success；52c908f+4a2a6bb failure 后 7116780 success；本次 47d1ced 前后同样红两轮再转绿。本地按三个提交逐个跑 --check 得 exit 1/1/0。修复取向：board.yml 的 concurrency.cancel-in-progress 由 false 翻成 true（job 约 40s、推送间隔 8s，中间 run 被取消且不发失败通知），使判据落点自动挪到 main tip；否决「--check 区分滞后与矛盾」（收尾失败的唯一表现就是快照一直滞后，等于拆掉眼睛）。方案 A（收尾三步合并成一次补推）列二期，动 git-done.ps1 不在本卡 scope。附带发现：nbflow request 不查台账卡号占用，本请求原提 DX-42 与另一会话 03:58 立的 DX-42 撞号（已弃单重提为 DX-44），该缺口属 scripts/nbflow.py，不在本卡 scope。\n\n## 目标\nboard.yml 把注定短暂的中间态当最终状态校验，每次收尾固定产 1~3 封失败邮件\n\n## 验收\npwsh -File scripts/verify.ps1 -ScriptOnly 全过（只动流水线与文档，走轻档，不涉代码路径）; 中间态判据未被改松：依次 checkout 一次收尾推到 main 的三个提交（合并/结卡/快照）跑 python scripts/derive_board_status.py --check，退出码仍是 1/1/0（实测基线 R5-10 收尾 9e43177→47d1ced→3a78cc8；R5-08 收尾 52c908f=1、4a2a6bb=1、7116780=0）; 折叠生效：改后走一次真实结卡收尾，gh run list --workflow=board.yml --branch main --limit 8 中 main tip 那条为 success、中间提交对应的 run 不再产生 failure，维护者侧本批收尾失败邮件 0 封; 眼睛还在：人为只推合并不推快照的一次性演练（做完立刻补推转绿），main tip 的 board run 必须 failure 并打印 --close-cards/--write 提示; 单写者约束不动：board.yml 保持 permissions: contents: read，文件内 grep 不到任何 git commit/git push；AGENTS.md §11.2 第 8 条与文件顶部注释同步改写为「红灯只可能落在 main tip 的 run 上」; docs/pitfalls.md 补一条现象/根因/解法：拿注定短暂的中间态套最终状态判据，每次收尾固定产 1~3 封邮件（实测 R16-05 3 封、R5-08 2 封、R5-10 2 封、DX-40 立卡 1 封）\n\n## 边界\n.github/workflows/board.yml;AGENTS.md;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 22528,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "board.yml 把注定短暂的中间态当最终状态校验，每次收尾固定产 1~3 封失败邮件",
+            "updatedAt": 1793900688
         },
         {
             "code": "M14",
@@ -3967,6 +4003,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T01:21:09",
+    "updated": "2026-11-06T01:44:48",
     "version": 3
 }

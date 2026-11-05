@@ -396,6 +396,7 @@ feat(board): 支持列内精确插位 #R1-04=done
 | **R12** | 托盘图标修正 | 宿主进程托盘图标改用内嵌 neonboard 图标（R12-01） | 托盘显示 NeonBoard 霓虹图标，不再是系统通用图标 | **完成（1/1）**：R12-01 已合入主线（`e0cd23f` #R12-01）—— 宿主 `NeonBoardHost.exe` 的托盘图标从 `LoadIconW(nullptr, IDI_APPLICATION)`（系统通用图标）改为加载自身内嵌的 `neonboard.ico`（该图标 R5-05 起已由 `resources/neonboard.rc` 打进 Host，本次只是托盘代码没跟上） ✅ |
 | **R13** | 首启就绪竞态 | 看板偶发全空（0 条任务）与首启引导误弹的根因定位与修复：就绪判定从启动瞬间的一次快照改为随 count 可重算的派生状态，并留下区分「真空板 / 尚未就绪」的判据（R13-01） | 全新数据目录连续 5 次首启不出现「有卡却显示 0 条」或「有卡却弹引导」；ONBOARD 诊断行与 TaskModel 加载行 count 一致；`shouldOnboard` 三种组合有测试覆盖 | **完成**：R13-01 已合入主线（`b2d1bb8` #R13-01=done）—— 引导显隐从「启动算一次」改为随 `count` 重算，并加单测守住 `shouldOnboard` 的无状态性。**原始现象不是产品 bug**：那张「0 条 + 引导」截图截的是并行会话实例的窗口（判据：截图 mtime 落在该次运行窗口生命周期内，而同进程日志写着 `ONBOARD skip tasks 139`），见 `docs/pitfalls.md` 4.6；启动期 `load` 调两次、count 由 0 跳到实际条数的机制另见 6.4 ✅ |
 | **R14** | Agent 插件「装了没生效」 | R9 四个官方插件交付后核对发现两批空白：① 既有库上新增插件默认未授权、声明被静默丢弃（R14-01）；② 官方插件不进打包产物，安装版一个都看不到（R14-02）；③ cursor-agent 是 .cmd 包装器，执行器能否直接拉起未实测（R14-03）；④ opencode 只读参数 `--agent plan` 是否真实存在未核实（R14-04） | 既有库副本上四个插件 `declared[].authorized` 全为 true；dist 打包含全部官方插件且安装版能扫到；cursor-agent 与 opencode 两处问号各有实测结论落 `docs/agent-profile.md` | **完成（4/4）**：R14-01（`f611c19`）官方来源插件每次启动补齐缺失的声明权限、`plugins.grants.revoked` 给撤销留痕、第三方与示例仍走显式授权（伪造 `com.thirdparty.evil` 实测不放行），验收全部基于真实库副本；R14-02（`4fcdab9`）`deploy.ps1` 补拷 `plugins\*` 并加「以仓库 `plugins/` 为准、缺一个就 throw」的对齐自检，用 dist 产物（清掉 `NEONBOARD_SOURCE_DIR`）跑 `--plugin-report` 8 个插件全 `status=ok`；R14-03（`57ac656`）实测确认裸名 `.cmd` 必 `FailedToStart`（`findExecutable` 认 PATHEXT 而 `CreateProcess` 只补 `.exe`），`TaskRunner::resolveProgram` 先解析成绝对路径，A/B 对照去掉即红；R14-04（`728205c`）核实 opencode 1.19.0 内置 7 个 agent 含 `plan`，其 `edit` 为 deny、`bash` 未禁 —— 只读只到「工具白名单」档，不是系统级沙箱 ✅ 详见 [§9.8](#98-r14-agent-插件装了没生效已完成-44) 与 [agent-plugin-open-issues.md](agent-plugin-open-issues.md) |
+| **R18** | 多项目接入 | 项目管理界面（设置面板创建 / 重命名 / 删除 + 详情抽屉归属下拉）、项目 ↔ 仓库绑定（可空 repo_path + 每项目独立监听 progress.json / 自动归属 / 写回隔离）、无台账仓库一键脚手架接入 | 程序内把任意仓库纳入面板监控，无需手工搭脚手架与双实例；未绑定项目行为与旧版完全一致 | **进行中（0/3）**：R18-01 ~ R18-03 已立卡，待实现 |
 
 ### 9.1 R6 派发器（全部落地，9/9）
 
@@ -866,6 +867,22 @@ neonboard-market 索引已上架 8 个插件并手写 `category` / `dependencies
 模块守门通过）。
 
 **非目标**：不换主题风格（保留赛博霓虹）、不加特效、不改数据模型与交互语义、不动 `src/**`。
+
+### 9.13 R18 多项目接入（进行中 0/3）
+
+2026-11-06 维护者要求「将其他项目纳入面板监控」，并明确要**程序原生能力**而非手工搭脚手架
+或环境变量双实例。缺口两处：R10 只解决了「看板能按项目切开」，项目增删改界面当时明确留作
+后续卡（QML 对 ProjectStore 写 API 零引用）；RoadmapSync 单路径设计，一个实例只能盯一份
+`progress.json`。
+
+| 卡 | scope | 目标 |
+| --- | --- | --- |
+| R18-01 | `qml/components/`（SettingsPanel / CardDetailPanel）/ `src/board/ProjectStore.*` / `tests/**` | 设置面板「项目」区（创建 / 重命名 / 删除）+ 详情抽屉项目归属下拉，全部复用现有 ProjectStore API |
+| R18-02 | `src/board/RoadmapSync.*` / `src/board/ProjectStore.*` / `src/core/Database.*` / `src/main.cpp` / `tests/**` | project 表加可空 repo_path（不升 user_version）；RoadmapSync 升级注册表形态：每项目独立监听 / 导入 / 自动归属 / 写回隔离；未绑定行为向后兼容 |
+| R18-03 | `src/board/**` / `src/main.cpp` / `tests/**` / `qml/components/SettingsPanel.qml` | 绑定无台账仓库时一键生成 v3 空快照 + 空台账脚手架，fail-closed 校验路径，既有文件不覆盖 |
+
+**出口标准**：程序内把任意仓库纳入面板监控（有台账 → 直接监听；无台账 → 脚手架接入）；
+项目管理零脚本；未绑定项目时行为与旧版逐字节一致（老库、老快照、老路径解析全兼容）。
 
 ## 10. 验收指标（“炫酷”可量化）
 | 指标 | 目标 | 当前实测 |

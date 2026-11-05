@@ -91,24 +91,6 @@
             "updatedAt": 1793901108
         },
         {
-            "code": "DX-66",
-            "completedAt": 0,
-            "createdAt": 1793901108,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-66",
-            "note": "触发证据：本会话 502 打断 dispatch 两次，残留 worktree 目录与半初始化状态需手工诊断清理；pitfalls 5.1 只有重试纪律没有程序化兜底。\n\n## 目标\nagent-init 开区事务化：网络预检前置加失败自动回滚已建工作区\n\n## 验收\n写动作（worktree add / 占用登记）前先做带退避的 ls-remote 预检（3 次），网络故障在第一行报错而非半途;任一步失败时已创建的 worktree/分支/占用登记自动回滚并打印回滚清单，退出码非 0，失败即无残留;断网模拟实测：退出后 git worktree list / 分支表 / agent-workspace.json 三处零残留;正常开区-领用-收尾端到端不变;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/agent-init.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 37888,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "agent-init 开区事务化：网络预检前置加失败自动回滚已建工作区",
-            "updatedAt": 1793901108
-        },
-        {
             "code": "DX-71",
             "completedAt": 0,
             "createdAt": 1793903068,
@@ -3100,6 +3082,24 @@
             "updatedAt": 1792719894
         },
         {
+            "code": "DX-66",
+            "completedAt": 1793904588,
+            "createdAt": 1793901108,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-66",
+            "note": "触发证据：本会话 502 打断 dispatch 两次，残留 worktree 目录与半初始化状态需手工诊断清理；pitfalls 5.1 只有重试纪律没有程序化兜底。\n\n## 目标\nagent-init 开区事务化：网络预检前置加失败自动回滚已建工作区\n\n## 验收\n写动作（worktree add / 占用登记）前先做带退避的 ls-remote 预检（3 次），网络故障在第一行报错而非半途;任一步失败时已创建的 worktree/分支/占用登记自动回滚并打印回滚清单，退出码非 0，失败即无残留;断网模拟实测：退出后 git worktree list / 分支表 / agent-workspace.json 三处零残留;正常开区-领用-收尾端到端不变;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/agent-init.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 37888,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "agent-init 开区事务化：网络预检前置加失败自动回滚已建工作区",
+            "updatedAt": 1793904588
+        },
+        {
             "code": "DX-67",
             "completedAt": 1793903572,
             "createdAt": 1793901108,
@@ -4165,6 +4165,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T02:47:54",
+    "updated": "2026-11-06T02:49:48",
     "version": 3
 }

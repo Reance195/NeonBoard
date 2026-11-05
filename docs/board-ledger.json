@@ -76,6 +76,7 @@
         "DX-75": "todo",
         "DX-76": "todo",
         "DX-77": "todo",
+        "DX-78": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1663,6 +1664,24 @@
             ],
             "stage": "DX",
             "title": "DX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码"
+        },
+        "DX-78": {
+            "acceptance": [
+                "主合并推送撞 non-ff 时自动恢复重试（fetch → 基于新 origin/main 重建 --no-ff 合并 → 重推，上限 2 次），与结卡补推共用同一份抽出的重试实现（Z5：不复制第二份）",
+                "推送重试耗尽后检出切回进入时的分支再退出（dryEntryRef 已有记录），不再停在 merge/<slug>；「清理残留临时分支」的 branch -D 前先脱离自家检出占用，保证重跑永远走通",
+                "负测：打桩让 push 首次拒绝、二次成功，断言自动重试后合并落地且检出已归位；连续拒绝时退出码非 0 且 git branch --show-current 不在 merge/* 上",
+                "dry-run 演练口径不回归（pwsh -File scripts/git-done.ps1 -DryRun 全绿）",
+                "docs/pitfalls.md 记一条：同一失败类别在两处推送步骤只修一处（DX-58）必复发，收口时抽单一实现"
+            ],
+            "depends": [],
+            "id": "DX-78",
+            "note": "触发证据：2026-11-06 会话两次实录（DX-64 交付时）：主推送撞 non-ff 只打印恢复步骤退出（git-done.ps1:721-733），人工重跑；残留临时分支 merge/fix-board-diff-attribution 被自家 worktree 占住，branch -D 失败 throw（git-done.ps1:700-703），需先 switch 走再重跑。同型失败在结卡补推已有自动重试（DX-58，git-done.ps1:929-945），主推送这一步被漏掉——同类别只修一处必复发的实例。查重命中 DX-63 系「单一实现」措辞重叠，本卡是推送重试主题，非重复。\n\n## 目标\ngit-done 主推送撞 non-ff 无自动重试且把检出留在临时分支：DX-58 的重试收口为单一实现供两处推送共用\n\n## 验收\n主合并推送撞 non-ff 时自动恢复重试（fetch → 基于新 origin/main 重建 --no-ff 合并 → 重推，上限 2 次），与结卡补推共用同一份抽出的重试实现（Z5：不复制第二份）;推送重试耗尽后检出切回进入时的分支再退出（dryEntryRef 已有记录），不再停在 merge/<slug>；「清理残留临时分支」的 branch -D 前先脱离自家检出占用，保证重跑永远走通;负测：打桩让 push 首次拒绝、二次成功，断言自动重试后合并落地且检出已归位；连续拒绝时退出码非 0 且 git branch --show-current 不在 merge/* 上;dry-run 演练口径不回归（pwsh -File scripts/git-done.ps1 -DryRun 全绿）;docs/pitfalls.md 记一条：同一失败类别在两处推送步骤只修一处（DX-58）必复发，收口时抽单一实现\n\n## 边界\nscripts/git-done.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "git-done 主推送撞 non-ff 无自动重试且把检出留在临时分支：DX-58 的重试收口为单一实现供两处推送共用"
         },
         "M01": {
             "acceptance": [

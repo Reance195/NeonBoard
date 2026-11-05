@@ -271,24 +271,6 @@
             "updatedAt": 1793891347
         },
         {
-            "code": "DX-49",
-            "completedAt": 0,
-            "createdAt": 1793825191,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-49",
-            "note": "触发证据：ZCode 会话记忆 multitree-cwd-drift：R16-05 实测 Bash CWD 在锚点区与 worktree 间静默漂移，示例插件改动误写进锚点并 stage。pitfalls 2.13（从锚点区跑 worktree 脚本验的是旧版本）同族。\n\n## 目标\n检出漂移响亮失败：git-done 与 agent-init 入口校验调用方检出与脚本所属检出一致\n\n## 验收\n调用方 CWD 所在检出与脚本所属检出不一致时默认中止，打印两棵工作树路径与建议（git -C 或 cd），退出码非 0;提供显式放行参数用于有意交叉验证（如复现旧脚本行为），放行时输出显著告警;同区调用行为不变：worktree 内跑 git-done 真实合并一次 EXIT=0;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/git-done.ps1;scripts/agent-init.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 24576,
-            "priority": 2,
-            "stage": "DX",
-            "status": "doing",
-            "tags": [
-                "DX"
-            ],
-            "title": "检出漂移响亮失败：git-done 与 agent-init 入口校验调用方检出与脚本所属检出一致",
-            "updatedAt": 1793892551
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -2404,6 +2386,24 @@
             "updatedAt": 1792633483
         },
         {
+            "code": "DX-49",
+            "completedAt": 1793892650,
+            "createdAt": 1793825191,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-49",
+            "note": "触发证据：ZCode 会话记忆 multitree-cwd-drift：R16-05 实测 Bash CWD 在锚点区与 worktree 间静默漂移，示例插件改动误写进锚点并 stage。pitfalls 2.13（从锚点区跑 worktree 脚本验的是旧版本）同族。\n\n## 目标\n检出漂移响亮失败：git-done 与 agent-init 入口校验调用方检出与脚本所属检出一致\n\n## 验收\n调用方 CWD 所在检出与脚本所属检出不一致时默认中止，打印两棵工作树路径与建议（git -C 或 cd），退出码非 0;提供显式放行参数用于有意交叉验证（如复现旧脚本行为），放行时输出显著告警;同区调用行为不变：worktree 内跑 git-done 真实合并一次 EXIT=0;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/git-done.ps1;scripts/agent-init.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 24576,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "检出漂移响亮失败：git-done 与 agent-init 入口校验调用方检出与脚本所属检出一致",
+            "updatedAt": 1793892650
+        },
+        {
             "code": "R8-01",
             "completedAt": 1793257033,
             "createdAt": 1793213056,
@@ -3859,6 +3859,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T23:29:11",
+    "updated": "2026-11-05T23:30:50",
     "version": 3
 }

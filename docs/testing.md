@@ -64,8 +64,10 @@ ctest --test-dir build -C Release -N                        # 只列用例
 4. **安全断言要正向验证**：例如路径穿越不仅要 `install` 返回 false，还要断言目标目录外
    **确实没有**文件生成。
 5. **临时目录**：用 `QTemporaryDir`，不要污染仓库或用户数据目录。
-6. **中文用例数据**：MSVC 必须带 `/utf-8`（`neonboard_add_test` 已统一加），否则会按本地
-   代码页解析成乱码，表现为「断言莫名失败」。
+6. **中文用例数据**：MSVC 必须带 `/utf-8`，否则会按本地代码页解析成乱码，表现为「断言莫名
+   失败」。DX-53 起它由顶层 `CMakeLists.txt` 的目录级 `add_compile_options(/utf-8)` 统一
+   提供，本目录与 `tests/` 子目录的所有目标自动继承 —— 写新测试不用再管这件事，
+   但也不许再往子目录里加目标级声明（守卫见 `scripts/check_utf8_flag.py`）。
 
 ## CI 门禁顺序
 

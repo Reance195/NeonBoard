@@ -44,10 +44,10 @@ function(neonboard_add_test target)
     qt_add_executable(${target} ${target}.cpp ${ARGN})
     target_link_libraries(${target} PRIVATE Qt6::Test)
     target_include_directories(${target} PRIVATE ${NB_INCLUDE_DIRS})
-    if (MSVC)
-        # 源码含中文断言数据：不加 /utf-8 会被按本地代码页解析成乱码
-        target_compile_options(${target} PRIVATE /utf-8)
-    endif()
+    # DX-53：/utf-8 不在这里声明了 —— 顶层 CMakeLists.txt 的目录级
+    # add_compile_options(/utf-8) 已经覆盖本子目录的所有目标
+    # （测试源码含中文断言数据，不带 /utf-8 会被按本地代码页解析成乱码）。
+    # 守卫见 scripts/check_utf8_flag.py。
     add_test(NAME ${target} COMMAND ${target})
     # 单元测试必须快：超时即视为死锁/死循环，而不是无限挂住 CI。
     #

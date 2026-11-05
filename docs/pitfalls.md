@@ -930,6 +930,32 @@
   硬失败等于把成功状态判成故障；写预校验时先问一句：这条目失败之后，
   用户还有没有一条能自愈的路径？没有，就必须降级为跳过或告警。
 
+### 3.19 `/utf-8` 散落在各处：漏一个目标就静默按本地代码页解析中文
+
+- **现象**：仓库里的 `/utf-8` 曾散落在四处 —— 顶层 `CMakeLists.txt` 里三个
+  `target_compile_options`（NeonBoard / NeonBoardHost / neonboard-delta-tool），加上
+  `tests/CMakeLists.txt` 的 `neonboard_add_test` 一处。每加一个目标都得记得再写一遍，
+  漏写就静默回退：MSVC 按**本地代码页**（中文机器上是 CP936）解析源码里的中文字面量，
+  编译器一声不吭，症状是「断言莫名失败」/「中文常量乱码」，查起来毫无线索。
+- **为什么一直没出事**：因为覆盖是**搭便车**来的 —— `Qt6::Platform` 的
+  `INTERFACE_COMPILE_OPTIONS` 带 `-utf-8`（`Qt6Targets.cmake:64`），`Qt6::Core` 的
+  `INTERFACE_LINK_LIBRARIES` 又链了 `Qt6::Platform`，于是凡是链 `Qt6::Core` 的目标都白捡
+  了这个开关。那是 Qt 的行为，不是本仓库的约定：哪天多一个不链 Qt 的目标（纯 C 工具、
+  第三方库），或者 Qt 改掉这个选项，覆盖就静默消失，而**没有任何一处代码会报错**。
+- **解法（DX-53）**：收敛成顶层 `CMakeLists.txt` 唯一一处**目录级**
+  `add_compile_options(/utf-8)`，撤掉四处重复声明。目录级声明对本目录以及**此后**
+  `add_subdirectory()` 引入的子目录里所有目标生效，新增目标不用再写第二遍。
+  位置有讲究：必须落在所有 `add_subdirectory()` 之前，否则子目录拿不到目录属性。
+- **机器守卫**：`scripts/check_utf8_flag.py`，两层口径 ——
+  源码层查「只有一处、且是顶层目录级、且早于所有 `add_subdirectory`」；
+  构建层实测生成物（Ninja 的 `build.ninja` 按 obj 规则、VS 生成器的 `*.vcxproj` 按项目级
+  `ClCompile/AdditionalOptions`），确认**每一个**编译单元实际拿到的选项里都带 utf-8。
+  源码层合规不代表生成物真的带上了，两层都要跑。已接入 CI 与 `scripts/verify.ps1`。
+- **一般化**：**「靠人记的约定」和「结构性保证」要分开看。** 判断某项配置是否真的被
+  全覆盖，别看「现在有没有生效」，要看**它靠什么生效**：靠某个第三方库的顺带行为 =
+  随时可能消失；靠自己代码里的一处声明 + 一道机器守卫 = 可持续。
+  同理，验收要看**生成物**（实际发生的事），不能只看**源码**（声明的样子）。
+
 ---
 
 ## 四、界面验收与自动化

@@ -95,6 +95,18 @@ jobs:
           python scripts/check_script_hygiene.py
           if ($LASTEXITCODE -ne 0) { throw '脚本卫生检查未通过' }
 
+      - name: 编译口径守卫（/utf-8，DX-53）
+        shell: pwsh
+        run: |
+          # /utf-8 决定 MSVC 怎么解析源码里的中文。漏了它不会报错，只是按本地代码页
+          # （中文机器上是 CP936）读进去 —— 症状是「断言莫名失败」/中文常量乱码，
+          # 编译器一声不吭。DX-53 起它收敛为顶层目录级 add_compile_options 一处，
+          # 这里守住「不许再散落回目标级」，并让规则改动时用例跟着一起改。
+          python scripts/check_utf8_flag.py
+          if ($LASTEXITCODE -ne 0) { throw '编译口径守卫未通过：/utf-8 声明应只有顶层一处目录级 add_compile_options' }
+          python scripts/check_utf8_flag.py --selftest
+          if ($LASTEXITCODE -ne 0) { throw '编译口径守卫自测未通过：允许/拒绝用例与预期不符' }
+
       - name: 代登记审计自测（DX-06）
         shell: pwsh
         run: |
@@ -151,6 +163,16 @@ jobs:
 
       - name: 配置 CMake
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}" -DBUILD_TESTING=ON -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+
+      - name: 编译口径守卫（生成物实测，DX-53）
+        shell: pwsh
+        run: |
+          # 源码层合规不代表生成物真的带上了：目录属性位置不对、目标被覆盖、生成器
+          # 行为差异，都会让某个编译单元漏掉 /utf-8。CI 用的是 VS 生成器（本地默认
+          # Ninja），所以这里实测 *.vcxproj 里每个 ClCompile 配置都带 utf-8 ——
+          # 两条生成器路径各测各的，互不替代。
+          python scripts/check_utf8_flag.py --scan-build build
+          if ($LASTEXITCODE -ne 0) { throw '生成物里有编译单元没带 /utf-8' }
 
       - name: 编译 Release
         run: cmake --build build --config Release --parallel

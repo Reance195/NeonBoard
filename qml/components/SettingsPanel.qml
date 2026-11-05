@@ -155,6 +155,28 @@ Rectangle {
         return trimmed.length === 0 ? [] : trimmed.split(/\s+/)
     }
 
+    // 未归属卡数：函数调用不进依赖图，显式引用 revision 才会随归属变化刷新
+    readonly property int unassignedTasks: {
+        const rev = projectStore.revision
+        return projectStore.unassignedCount()
+    }
+
+    // 项目新增（R18-01）：createProject 对空名返回空串，据此提示而不是静默吞掉
+    function newProject() {
+        const name = newProjectField.text.trim()
+        if (name.length === 0) {
+            projectSettingsHint.text = "项目名不能为空"
+            return
+        }
+        const id = projectStore.createProject(name)
+        if (id.length > 0) {
+            newProjectField.text = ""
+            projectSettingsHint.text = "已创建「" + name + "」"
+        } else {
+            projectSettingsHint.text = "创建失败：「" + name + "」"
+        }
+    }
+
     // 导入来源：数据目录下已导出的文件 + 手动输入路径
     function refreshExports() {
         exportCombo.model = dataPort.listExports()
@@ -468,6 +490,165 @@ Rectangle {
                 Text {
                     Layout.fillWidth: true
                     text: "更新包下载后先校验 SHA-256 再安装；安装版走静默升级，便携版由自更新脚本在程序退出后替换文件并重新拉起。"
+                    color: Theme.muted
+                    font.pixelSize: Theme.fontMicro
+                    wrapMode: Text.WordWrap
+                }
+            }
+
+            // 项目（R18-01）：项目管理纯在视图侧 —— 新建 / 重命名 / 配色 / 删除项目。
+            // 卡片本体不碰：删除只清归属（ProjectStore.removeProject 语义），不级联删卡。
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 3
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Text {
+                        text: "项目"
+                        color: Theme.text
+                        font.pixelSize: Theme.fontBody
+                    }
+
+                    Text {
+                        text: panel.unassignedTasks + " 张卡未归属"
+                        color: Theme.muted
+                        font.pixelSize: Theme.fontMicro
+                    }
+
+                    Item { Layout.fillWidth: true }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    NeonField {
+                        id: newProjectField
+                        placeholderText: "新项目名，回车创建"
+                        onAccepted: panel.newProject()
+                    }
+
+                    DataButton {
+                        label: "添加"
+                        Layout.preferredWidth: 56
+                        onTriggered: panel.newProject()
+                    }
+                }
+
+                Repeater {
+                    model: {
+                        const rev = projectStore.revision
+                        return projectStore.projects()
+                    }
+
+                    Rectangle {
+                        id: projectRow
+                        required property var modelData
+
+                        Layout.fillWidth: true
+                        Layout.topMargin: 2
+                        implicitHeight: projectRowColumn.implicitHeight + 16
+                        radius: Theme.radiusControl
+                        color: Theme.card
+                        border.width: 1
+                        border.color: Theme.border
+
+                        ColumnLayout {
+                            id: projectRowColumn
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: 8
+                            spacing: 4
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                Rectangle {
+                                    width: 10
+                                    height: 10
+                                    radius: 5
+                                    color: projectRow.modelData.color.length > 0
+                                           ? projectRow.modelData.color : Theme.muted
+                                    opacity: projectRow.modelData.color.length > 0 ? 1 : 0.4
+                                }
+
+                                NeonField {
+                                    id: projectNameField
+                                    Layout.fillWidth: true
+                                    text: projectRow.modelData.name
+                                    onAccepted: {
+                                        const name = projectNameField.text.trim()
+                                        if (name.length > 0 && name !== projectRow.modelData.name)
+                                            projectStore.renameProject(projectRow.modelData.id, name)
+                                        else
+                                            projectNameField.text = projectRow.modelData.name
+                                    }
+                                }
+
+                                Text {
+                                    text: projectRow.modelData.taskCount + " 张卡"
+                                    color: Theme.muted
+                                    font.pixelSize: Theme.fontMicro
+                                }
+
+                                Text {
+                                    text: "删除"
+                                    color: Theme.magenta
+                                    font.pixelSize: Theme.fontMicro
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: projectStore.removeProject(projectRow.modelData.id)
+                                    }
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 6
+
+                                Text {
+                                    text: "颜色"
+                                    color: Theme.muted
+                                    font.pixelSize: Theme.fontMicro
+                                }
+
+                                Repeater {
+                                    model: ["", "#a78bfa", "#ff5ec4", "#59d6ff", "#3ddc97", "#ffb454"]
+                                    delegate: Rectangle {
+                                        required property var modelData
+                                        width: 14
+                                        height: 14
+                                        radius: 7
+                                        color: modelData.length > 0 ? modelData : "transparent"
+                                        border.width: 1
+                                        border.color: projectRow.modelData.color === modelData
+                                               ? Theme.text
+                                               : (modelData.length > 0 ? "transparent" : Theme.border)
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: projectStore.setProjectColor(projectRow.modelData.id, modelData)
+                                        }
+                                    }
+                                }
+
+                                Item { Layout.fillWidth: true }
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    id: projectSettingsHint
+                    Layout.fillWidth: true
+                    text: "项目只是卡片的分类层：重命名 / 删除不动卡片本体，删除只清归属（卡变未归属）。卡片归属在卡片详情抽屉里设置。"
                     color: Theme.muted
                     font.pixelSize: Theme.fontMicro
                     wrapMode: Text.WordWrap

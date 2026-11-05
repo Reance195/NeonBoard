@@ -9,6 +9,9 @@
 //   6. 删项目不级联删卡，只清归属
 //   7. 计数（项目卡片数 / 未归属数）与实际一致
 //   8. ensureProject 幂等
+//   9. 空名 / 纯空白拒绝建项目（R18-01 设置面板「新增」按钮的判据）
+//   10. 重命名往返 + 空名拒绝 + 不存在 id 拒绝（R18-01）
+//   11. 颜色往返 + 重置默认 + 不存在 id 拒绝（R18-01）
 
 #include "Database.h"
 #include "ProjectStore.h"
@@ -35,9 +38,13 @@ private slots:
     void removeProjectKeepsTasks();
     void countsReflectAssignments();
     void ensureProjectIsIdempotent();
+    void createProjectRejectsEmptyName();
+    void renameProjectRoundTrip();
+    void setProjectColorRoundTrip();
 
 private:
     int assignmentRows(const QString &taskId) const;
+    QVariantMap projectRow(const QString &id) const;
 
     QTemporaryDir m_dir;
     // 每个用例一个独立库文件：同一个临时目录复用同一路径会让上一个用例的项目
@@ -197,6 +204,68 @@ void TestProjectStore::ensureProjectIsIdempotent()
     // 首尾空白不该造出第二个同名项目
     QCOMPARE(m_projects->ensureProject(QStringLiteral("  NeonBoard  ")), first);
     QCOMPARE(m_projects->projects().size(), 1);
+}
+
+QVariantMap TestProjectStore::projectRow(const QString &id) const
+{
+    const auto list = m_projects->projects();
+    for (const auto &v : list) {
+        const QVariantMap row = v.toMap();
+        if (row.value(QStringLiteral("id")).toString() == id)
+            return row;
+    }
+    return {};
+}
+
+void TestProjectStore::createProjectRejectsEmptyName()
+{
+    // 空名 / 纯空白不建项目：返回空串，清单不变 —— 设置面板「新增」按钮就靠这个判据提示。
+    QVERIFY(m_projects->createProject(QString()).isEmpty());
+    QVERIFY(m_projects->createProject(QStringLiteral("   ")).isEmpty());
+    QCOMPARE(m_projects->projects().size(), 0);
+
+    // 拒绝路径没把库搞坏：正常名字照建
+    QVERIFY(!m_projects->createProject(QStringLiteral("正常项目")).isEmpty());
+    QCOMPARE(m_projects->projects().size(), 1);
+}
+
+void TestProjectStore::renameProjectRoundTrip()
+{
+    const QString id = m_projects->createProject(QStringLiteral("旧名"));
+    QVERIFY(!id.isEmpty());
+
+    QVERIFY(m_projects->renameProject(id, QStringLiteral("新名")));
+    QCOMPARE(projectRow(id).value(QStringLiteral("name")).toString(),
+             QStringLiteral("新名"));
+
+    // 首尾空白随重命名修剪落库，不留「 修剪名 」
+    QVERIFY(m_projects->renameProject(id, QStringLiteral("  修剪名  ")));
+    QCOMPARE(projectRow(id).value(QStringLiteral("name")).toString(),
+             QStringLiteral("修剪名"));
+
+    // 空名拒绝且原值不变；不存在的 id 拒绝
+    QVERIFY(!m_projects->renameProject(id, QStringLiteral("   ")));
+    QCOMPARE(projectRow(id).value(QStringLiteral("name")).toString(),
+             QStringLiteral("修剪名"));
+    QVERIFY(!m_projects->renameProject(QStringLiteral("no-such-id"), QStringLiteral("X")));
+}
+
+void TestProjectStore::setProjectColorRoundTrip()
+{
+    const QString id = m_projects->createProject(QStringLiteral("配色"));
+    QVERIFY(!id.isEmpty());
+
+    // 未传颜色 = 空串（列是 NOT NULL DEFAULT ''，QML 侧「默认色」判据就是空串）
+    QCOMPARE(projectRow(id).value(QStringLiteral("color")).toString(), QString());
+
+    QVERIFY(m_projects->setProjectColor(id, QStringLiteral("#ff5ec4")));
+    QCOMPARE(projectRow(id).value(QStringLiteral("color")).toString(),
+             QStringLiteral("#ff5ec4"));
+
+    // 再设回空串 = 恢复默认；不存在的 id 拒绝
+    QVERIFY(m_projects->setProjectColor(id, QString()));
+    QCOMPARE(projectRow(id).value(QStringLiteral("color")).toString(), QString());
+    QVERIFY(!m_projects->setProjectColor(QStringLiteral("no-such-id"), QStringLiteral("#fff")));
 }
 
 QTEST_MAIN(TestProjectStore)

@@ -3,12 +3,14 @@
 #include "BsdiffWrapper.h"
 
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QSaveFile>
 
 using DeltaInfo = DeltaUpdate::DeltaInfo;
 using FileChange = DeltaUpdate::FileChange;
@@ -309,6 +311,10 @@ bool DeltaUpdate::applyDelta(const QString &deltaDir, const QString &installDir,
             continue;
         const QString abs = installQDir.absoluteFilePath(toNative(change.path));
         if (!QFile::exists(abs)) {
+            // Deleted 的旧文件本就该不在：清理只要有一条落在增量清单里（或上一次
+            // 升级半途失败），硬失败会把这台机器从此所有增量都挡死。缺席即已清理。
+            if (change.type == ChangeType::Deleted)
+                continue;
             if (error)
                 *error = QStringLiteral("旧文件不存在，无法应用增量：%1").arg(change.path);
             return false;
@@ -327,6 +333,8 @@ bool DeltaUpdate::applyDelta(const QString &deltaDir, const QString &installDir,
         if (change.type != ChangeType::Modified && change.type != ChangeType::Deleted)
             continue;
         const QString src = installQDir.absoluteFilePath(toNative(change.path));
+        if (!QFile::exists(src))
+            continue; // 上面已放行的缺席条目：没有旧文件可备份
         const QString dst = backupDir + QLatin1String("/") + toNative(change.path);
         QDir().mkpath(QFileInfo(dst).absolutePath());
         if (!QFile::copy(src, dst)) {
@@ -367,7 +375,7 @@ bool DeltaUpdate::applyDelta(const QString &deltaDir, const QString &installDir,
             break;
         }
         case ChangeType::Deleted: {
-            if (!QFile::remove(dst)) {
+            if (QFile::exists(dst) && !QFile::remove(dst)) {
                 if (error)
                     *error = QStringLiteral("删除失败：%1").arg(change.path);
                 success = false;
@@ -398,6 +406,85 @@ bool DeltaUpdate::applyDelta(const QString &deltaDir, const QString &installDir,
     }
 
     QDir(backupDir).removeRecursively();
+    return true;
+}
+
+QStringList DeltaUpdate::loadObsoleteList(const QString &listPath)
+{
+    QFile file(listPath);
+    if (!file.open(QIODevice::ReadOnly))
+        return {}; // 清单缺席是正常状态（老增量包没带它），不是错误
+    const QString text = QString::fromUtf8(file.readAll());
+    file.close();
+
+    QStringList paths;
+    for (const QString &raw : text.split(QLatin1Char('\n'))) {
+        const QString line = raw.trimmed();
+        if (line.isEmpty() || line.startsWith(QLatin1Char('#'))
+            || line.startsWith(QLatin1Char(';')))
+            continue;
+        // 清单只允许安装目录内的相对路径：绝对路径与 .. 一律丢掉，
+        // 免得一份被改坏的清单把清理变成任意删除。
+        const QString normalized = toSlash(line);
+        if (QDir::isAbsolutePath(normalized) || normalized.contains(QLatin1String("..")))
+            continue;
+        paths.append(normalized);
+    }
+    return paths;
+}
+
+DeltaUpdate::ObsoleteCleanup DeltaUpdate::cleanupObsoleteFiles(const QString &installDir,
+                                                               const QStringList &paths)
+{
+    ObsoleteCleanup result;
+    QDir installQDir(installDir);
+    for (const QString &rel : paths) {
+        const QString abs = installQDir.absoluteFilePath(toNative(rel));
+        const QFileInfo info(abs);
+        if (info.isDir()) {
+            if (QDir(abs).removeRecursively())
+                ++result.deleted;
+            else
+                result.skipped.append(rel);
+        } else if (info.exists()) {
+            if (QFile::remove(abs))
+                ++result.deleted;
+            else
+                result.skipped.append(rel);
+        }
+        // 两者皆无 = 已经清理过，静默跳过
+    }
+    return result;
+}
+
+bool DeltaUpdate::writeInstallReceipt(const QString &installDir, const QString &version,
+                                      const QString &commit, const ObsoleteCleanup &cleanup,
+                                      QString *error)
+{
+    QJsonObject root;
+    root.insert(QStringLiteral("version"), version);
+    root.insert(QStringLiteral("writtenAt"),
+                QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
+    root.insert(QStringLiteral("commit"), commit);
+    root.insert(QStringLiteral("source"), QStringLiteral("delta"));
+    QJsonObject cleanupObj;
+    cleanupObj.insert(QStringLiteral("deleted"), cleanup.deleted);
+    cleanupObj.insert(QStringLiteral("skipped"), QJsonArray::fromStringList(cleanup.skipped));
+    root.insert(QStringLiteral("cleanup"), cleanupObj);
+
+    const QString path = QDir(installDir).absoluteFilePath(QStringLiteral("install-receipt.json"));
+    QSaveFile file(path); // 原子写：回执半途失败会被读成「上次更新未完成」，那是假信号
+    if (!file.open(QIODevice::WriteOnly)) {
+        if (error)
+            *error = QStringLiteral("无法写入安装回执：%1").arg(path);
+        return false;
+    }
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
+    if (!file.commit()) {
+        if (error)
+            *error = QStringLiteral("写入安装回执失败：%1").arg(file.errorString());
+        return false;
+    }
     return true;
 }
 
@@ -465,14 +552,77 @@ static bool toolBuild(int argc, char **argv)
     return true;
 }
 
+// cleanup 模式：与 UpdateManager::installDelta 用同一份清理实现，供发布侧与验收脚本
+// 对着一个假安装树跑一遍（弃用清单是否真的删干净、被占用的条目是否只跳过不失败）。
+static bool toolCleanup(int argc, char **argv)
+{
+    QString installDir, listPath, version, commit;
+    bool wantReceipt = false;
+    for (int i = 2; i < argc; ++i) {
+        const QString arg = QString::fromLocal8Bit(argv[i]);
+        auto next = [&](const char *name) -> QString {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "missing value for %s\n", name);
+                return QString();
+            }
+            return QString::fromLocal8Bit(argv[++i]);
+        };
+        if (arg == QLatin1String("--install"))
+            installDir = next("--install");
+        else if (arg == QLatin1String("--list"))
+            listPath = next("--list");
+        else if (arg == QLatin1String("--receipt"))
+            wantReceipt = true;
+        else if (arg == QLatin1String("--version"))
+            version = next("--version");
+        else if (arg == QLatin1String("--commit"))
+            commit = next("--commit");
+        else {
+            fprintf(stderr, "unknown arg: %s\n", arg.toLocal8Bit().constData());
+            return false;
+        }
+    }
+    if (installDir.isEmpty() || listPath.isEmpty()) {
+        fprintf(stderr, "usage: neonboard-delta-tool cleanup --install <dir> --list <obsolete-files.txt>"
+                        " [--receipt [--version X --commit Y]]\n");
+        return false;
+    }
+
+    const QStringList paths = DeltaUpdate::loadObsoleteList(listPath);
+    const DeltaUpdate::ObsoleteCleanup result =
+        DeltaUpdate::cleanupObsoleteFiles(installDir, paths);
+    for (const QString &skipped : result.skipped)
+        printf("cleanup-skip %s\n", skipped.toLocal8Bit().constData());
+    printf("cleanup-ok listed=%d deleted=%d skipped=%d\n",
+           static_cast<int>(paths.size()), result.deleted,
+           static_cast<int>(result.skipped.size()));
+
+    // --receipt：把清理结果连同版本落成安装回执，与 UpdateManager::downloadAndApplyDelta
+    // 走的同一条写盘路径（升级验收要能对着一个假安装树把它跑一遍）
+    if (wantReceipt) {
+        QString error;
+        if (!DeltaUpdate::writeInstallReceipt(
+                installDir, version.isEmpty() ? QStringLiteral("0.0.0-test") : version,
+                commit.isEmpty() ? QStringLiteral("unknown") : commit, result, &error)) {
+            fprintf(stderr, "receipt failed: %s\n", error.toLocal8Bit().constData());
+            return false;
+        }
+        printf("receipt-ok\n");
+    }
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     printf("delta-tool start argc=%d\n", argc);
     QCoreApplication app(argc, argv);
-    if (argc < 2 || QString::fromLocal8Bit(argv[1]) != QLatin1String("build")) {
-        fprintf(stderr, "usage: neonboard-delta-tool build --from <old> --to <new> --from-version X --to-version Y --out <dir>\n");
-        return 2;
-    }
-    return toolBuild(argc, argv) ? 0 : 1;
+    const QString mode = argc > 1 ? QString::fromLocal8Bit(argv[1]) : QString();
+    if (mode == QLatin1String("build"))
+        return toolBuild(argc, argv) ? 0 : 1;
+    if (mode == QLatin1String("cleanup"))
+        return toolCleanup(argc, argv) ? 0 : 1;
+    fprintf(stderr, "usage: neonboard-delta-tool build --from <old> --to <new> --from-version X --to-version Y --out <dir>\n"
+                    "       neonboard-delta-tool cleanup --install <dir> --list <obsolete-files.txt>\n");
+    return 2;
 }
 #endif // NEONBOARD_DELTA_TOOL_MAIN

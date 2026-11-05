@@ -39,41 +39,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional tasks:"; Flags: unchecked
 
-[InstallDelete]
-; 历史遗留：早期版本自带过一个 hello 示例插件，早已从仓库移除；升级时顺手清掉，
-; 免得老用户的 plugins/ 里一直躺着一个加载失败的目录。
-; 正常情况下不需要在这里逐项列插件 —— [Files] 是整目录覆盖，残留只会来自
-; 「新版本不再包含」的旧目录（如本条），新增插件不必改这里。
-Type: filesandordirs; Name: "{app}\plugins\hello"
-
-; 0.1.4 起（8e52812：windeployqt 只留 Basic 样式）不再打包 Qt 自带的其它控件样式，
-; 但 Inno 覆盖安装只写新包里的文件、不删新包里没有的文件 —— 2026-11-04 真机取证：
-; 覆盖装完 0.1.4 后，按已发布 delta-0.1.3-0.1.4 清单逐文件复核，Modified 2/2 与
-; Added 15/15 全对，Deleted 的 1136 条**一个都没少**（六套样式目录共 1126 个
-; qml/dll + root 级 10 个样式 dll）。功能上无害（应用只用 Basic），但每个从 0.1.3
-; 升上来的用户都会永久背着它们。下面这份清单就是那 1136 条的收敛形式：
-; 目录级 6 条覆盖 1126 个文件，文件级 10 条覆盖 root 的样式 dll。
-; **不要改成 Qt6QuickControls2*Style*.dll 这类通配** —— 0.1.4 仍在用的
-; Qt6QuickControls2BasicStyleImpl.dll 会被一并删掉，样式直接加载失败。
-Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\FluentWinUI3"
-Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\Material"
-Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\Fusion"
-Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\Universal"
-Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\Imagine"
-Type: filesandordirs; Name: "{app}\qml\QtQuick\Controls\Windows"
-Type: files; Name: "{app}\Qt6QuickControls2FluentWinUI3StyleImpl.dll"
-Type: files; Name: "{app}\Qt6QuickControls2Fusion.dll"
-Type: files; Name: "{app}\Qt6QuickControls2FusionStyleImpl.dll"
-Type: files; Name: "{app}\Qt6QuickControls2Imagine.dll"
-Type: files; Name: "{app}\Qt6QuickControls2ImagineStyleImpl.dll"
-Type: files; Name: "{app}\Qt6QuickControls2Material.dll"
-Type: files; Name: "{app}\Qt6QuickControls2MaterialStyleImpl.dll"
-Type: files; Name: "{app}\Qt6QuickControls2Universal.dll"
-Type: files; Name: "{app}\Qt6QuickControls2UniversalStyleImpl.dll"
-Type: files; Name: "{app}\Qt6QuickControls2WindowsStyleImpl.dll"
-
 [Files]
 Source: "..\dist\NeonBoard\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+; 弃用文件清单随包带到 {tmp}，由 [Code] 在 ssPostInstall 读它做清理（见 CleanObsoleteFiles）。
+; 唯一事实源是 installer/obsolete-files.txt —— 增量侧读同一份（scripts/build-delta.ps1 打进增量包）。
+Source: "obsolete-files.txt"; DestDir: "{tmp}"; Flags: ignoreversion deleteafterinstall
 
 [Icons]
 Name: "{group}\NeonBoard"; Filename: "{app}\{#MyAppHostName}"; Parameters: "--open"
@@ -110,6 +80,55 @@ end;
   v0.1.5 第一次发布就栽在这里（iss:117），而 iss 的 [Code] 段只有 ISCC 会编译，
   verify.ps1 不跑 ISCC、单测只 grep 文本，本地全绿也拦不住。
   所以这里一律走 TArrayOfString 的 LoadStringsFromFile / SaveStringsToFile。 }
+{ 弃用文件清理：清单是 installer/obsolete-files.txt（随包落到临时目录），与增量侧同一份。
+  为什么不能只靠 [InstallDelete] 写死在脚本里 —— 两处各写一遍必然漂，而增量路径
+  （自更新 bat）根本不跑安装器，0.1.3 一路增量升上来的用户会永久背着 1136 个文件。
+  语义与 C++ 侧 cleanupObsoleteFiles 一致：缺席即已清理，删不动（被占用）只跳过，
+  绝不因为清理失败而让一次成功的安装变成失败。 }
+procedure CleanObsoleteFiles;
+var
+  Lines: TArrayOfString;
+  ListPath, P, Full: String;
+  Deleted, Skipped, I: Integer;
+begin
+  ListPath := ExpandConstant('{tmp}\obsolete-files.txt');
+  if not LoadStringsFromFile(ListPath, Lines) then begin
+    Log('NeonBoard obsolete cleanup: list not readable, nothing to do');
+    Exit;
+  end;
+  Deleted := 0;
+  Skipped := 0;
+  for I := 0 to GetArrayLength(Lines) - 1 do begin
+    P := Trim(Lines[I]);
+    if (P = '') or (Copy(P, 1, 1) = '#') or (Copy(P, 1, 1) = ';') then
+      Continue;
+    { 清单只允许安装目录内的相对路径：绝对路径、盘符、含 .. 的一律丢掉 }
+    if (Pos(':', P) > 0) or (Pos('..', P) > 0) then begin
+      Log('NeonBoard obsolete cleanup: rejected unsafe path ' + P);
+      Continue;
+    end;
+    StringChange(P, '/', '\');
+    Full := ExpandConstant('{app}\' + P);
+    if DirExists(Full) then begin
+      if DelTree(Full, False, True, True) and RemoveDir(Full) then
+        Deleted := Deleted + 1
+      else begin
+        Skipped := Skipped + 1;
+        Log('NeonBoard obsolete cleanup: could not remove dir ' + Full);
+      end;
+    end else if FileExists(Full) then begin
+      if DeleteFile(Full) then
+        Deleted := Deleted + 1
+      else begin
+        Skipped := Skipped + 1;
+        Log('NeonBoard obsolete cleanup: could not remove file ' + Full);
+      end;
+    end;
+  end;
+  Log('NeonBoard obsolete cleanup: deleted=' + IntToStr(Deleted) +
+      ' skipped=' + IntToStr(Skipped));
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Lines: TArrayOfString;
@@ -121,6 +140,7 @@ var
 begin
   if CurStep <> ssPostInstall then
     Exit;
+  CleanObsoleteFiles;
   Commit := 'unknown';
   { BUILD-INFO.txt 由发布闸门第 5 条产出，行形如「commit    : <sha>」；文件缺席
     （CI 目前不把它打进安装目录）就留 unknown，回执照样能判版本。

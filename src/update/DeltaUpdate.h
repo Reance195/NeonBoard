@@ -3,6 +3,7 @@
 #include <QJsonObject>
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 /**
  * 混合增量升级（R5-06）：文件级 diff + bsdiff 二进制增量。
@@ -82,4 +83,35 @@ public:
 
     /** 序列化 delta.json */
     static QJsonObject serializeDeltaInfo(const DeltaInfo &info);
+
+    /**
+     * 弃用文件清单（installer/obsolete-files.txt，唯一事实源）：一行一个相对路径，
+     * 空行与以 '#' / ';' 起始的行忽略。清单缺席返回空列表 —— 老增量包没带它，
+     * 那是正常状态，不是错误。
+     */
+    static QStringList loadObsoleteList(const QString &listPath);
+
+    /** 一次弃用文件清理的结果：deleted 是删除条数，skipped 是没删动的路径 */
+    struct ObsoleteCleanup {
+        int deleted = 0;
+        QStringList skipped;
+    };
+
+    /**
+     * 尽力删除安装目录里的弃用路径（安装器侧由 [InstallDelete] 做同一件事）。
+     *
+     * 与 delta.json 的 Deleted 条目无关，走的是独立通道：缺席即视为已清理，被占用
+     * 或无权限只计入 skipped —— 本函数无失败返回，清理绝不能把一次成功的升级判成失败。
+     */
+    static ObsoleteCleanup cleanupObsoleteFiles(const QString &installDir,
+                                                const QStringList &paths);
+
+    /**
+     * 写安装回执 {installDir}/install-receipt.json —— 与安装包在 ssPostInstall 写的
+     * 同一份文件、同一组字段，source 标 "delta"，另附本次清理的 deleted/skipped。
+     * 启动时 UpdateManager 拿它的版本与自身版本比对，不符即报「上次更新未完成」。
+     */
+    static bool writeInstallReceipt(const QString &installDir, const QString &version,
+                                    const QString &commit, const ObsoleteCleanup &cleanup,
+                                    QString *error);
 };

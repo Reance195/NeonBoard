@@ -181,24 +181,6 @@
             "updatedAt": 1793893085
         },
         {
-            "code": "DX-57",
-            "completedAt": 0,
-            "createdAt": 1793896640,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-57",
-            "note": "触发证据：漂移三处实测：DX-55/48/49 状态机停在 dispatched 而台账 baseline 已 done——实施方直接 git-done 结卡，report/close 回路被普遍绕过（DX-55 是本会话自己绕的）；批次 B 六张曾搁浅 created（立卡分支随 approve 崩溃丢失），靠 agent-memrev 手工兜底，机制洞未封死（DX-45 后概率大降）。取号盲区实录：DX-55 机制首个无号 filing 当场撞队列内 DX-56——next_card_id 只读台账不看待批队列，占用集必须并入队列。derive_board_status 对台账做同构对账，nbflow 状态机是唯一没有对账器的事实源。\n\n## 目标\nnbflow 状态机对账：report/close 被绕过致僵尸态，created 断链与取号队列盲区一并收口\n\n## 验收\n新增对账子命令 reconcile：逐会话项按 git 事实核对——台账 baseline=done 或会话分支已并入 origin/main 的 dispatched/running 项对齐为 closed，台账无卡的 created 项提示可 requeue；只改程序状态，绝不写台账与工作树; created 态且台账无此卡时允许 requeue（created → requested 转移合法化，仅此事实条件），approve 可整批重立；台账已有卡或状态非 created → 拒绝并点名; 取号占用集并入待批队列与状态机会话：next_card_id 的 used 除台账外并入 REQUEST_DIR 全部请求单 card 字段与 state.json sessions 键（含 dry-run 留痕的会话，DX-56 即此形态），无号请求不再撞队列/会话内占号（本单 evidence 记录首次无号 filing 即撞 DX-56 的实录）; 自测覆盖：僵尸 dispatched 对齐 closed、created+台账无卡可 requeue、created+台账有卡拒绝、非 created 拒绝、取号避开队列占号; selftest 全绿，pwsh -File scripts/verify.ps1 -ScriptOnly 全过\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 29696,
-            "priority": 2,
-            "stage": "DX",
-            "status": "doing",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow 状态机对账：report/close 被绕过致僵尸态，created 断链与取号队列盲区一并收口",
-            "updatedAt": 1793897119
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -2622,6 +2604,24 @@
             "updatedAt": 1793252963
         },
         {
+            "code": "DX-57",
+            "completedAt": 1793897163,
+            "createdAt": 1793896640,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-57",
+            "note": "触发证据：漂移三处实测：DX-55/48/49 状态机停在 dispatched 而台账 baseline 已 done——实施方直接 git-done 结卡，report/close 回路被普遍绕过（DX-55 是本会话自己绕的）；批次 B 六张曾搁浅 created（立卡分支随 approve 崩溃丢失），靠 agent-memrev 手工兜底，机制洞未封死（DX-45 后概率大降）。取号盲区实录：DX-55 机制首个无号 filing 当场撞队列内 DX-56——next_card_id 只读台账不看待批队列，占用集必须并入队列。derive_board_status 对台账做同构对账，nbflow 状态机是唯一没有对账器的事实源。\n\n## 目标\nnbflow 状态机对账：report/close 被绕过致僵尸态，created 断链与取号队列盲区一并收口\n\n## 验收\n新增对账子命令 reconcile：逐会话项按 git 事实核对——台账 baseline=done 或会话分支已并入 origin/main 的 dispatched/running 项对齐为 closed，台账无卡的 created 项提示可 requeue；只改程序状态，绝不写台账与工作树; created 态且台账无此卡时允许 requeue（created → requested 转移合法化，仅此事实条件），approve 可整批重立；台账已有卡或状态非 created → 拒绝并点名; 取号占用集并入待批队列与状态机会话：next_card_id 的 used 除台账外并入 REQUEST_DIR 全部请求单 card 字段与 state.json sessions 键（含 dry-run 留痕的会话，DX-56 即此形态），无号请求不再撞队列/会话内占号（本单 evidence 记录首次无号 filing 即撞 DX-56 的实录）; 自测覆盖：僵尸 dispatched 对齐 closed、created+台账无卡可 requeue、created+台账有卡拒绝、非 created 拒绝、取号避开队列占号; selftest 全绿，pwsh -File scripts/verify.ps1 -ScriptOnly 全过\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 29696,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow 状态机对账：report/close 被绕过致僵尸态，created 断链与取号队列盲区一并收口",
+            "updatedAt": 1793897163
+        },
+        {
             "code": "R11-05",
             "completedAt": 1793892936,
             "createdAt": 1793890841,
@@ -3895,6 +3895,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T00:45:19",
+    "updated": "2026-11-06T00:46:03",
     "version": 3
 }

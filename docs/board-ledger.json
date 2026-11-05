@@ -60,6 +60,7 @@
         "DX-59": "done",
         "DX-60": "todo",
         "DX-61": "todo",
+        "DX-62": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1369,6 +1370,21 @@
             ],
             "stage": "DX",
             "title": "nbflow 补 release 卡模式：允许「合并后验收」的回执与结卡通道"
+        },
+        "DX-62": {
+            "acceptance": [
+                "derive --baseline-check 能点名「交付提交已合入 main（含裸 #<短号> 标记）但全历史无 #<短号>=done 的卡」，DX-38/DX-44 在当前 main 上被点名，--selftest 增补用例|agent-init 领用上述卡时显式警告「交付疑似已在 main，防重做」，不静默放行|python scripts/derive_board_status.py --selftest 与 python scripts/nbflow.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿|DX-38/DX-44 经人工确认通道补结落地（本批次执行），baseline 归位 done"
+            ],
+            "depends": [],
+            "id": "DX-62",
+            "note": "触发证据：DX-38/DX-44 交付提交已在 origin/main 全历史但无 #=done 标记（2026-11-06 核实：git log origin/main --format=%B grep 零命中）。DX-59 同症但 git-done 收尾已补结（aea0572），反证收尾只救有标记的卡\n\n## 目标\n交付合并但未投 done 标记的卡永久滞留且可被重复领用（DX-38/DX-44 实录）\n\n## 验收\nderive --baseline-check 能点名「交付提交已合入 main（含裸 #<短号> 标记）但全历史无 #<短号>=done 的卡」，DX-38/DX-44 在当前 main 上被点名，--selftest 增补用例|agent-init 领用上述卡时显式警告「交付疑似已在 main，防重做」，不静默放行|python scripts/derive_board_status.py --selftest 与 python scripts/nbflow.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿|DX-38/DX-44 经人工确认通道补结落地（本批次执行），baseline 归位 done\n\n## 边界\nscripts/derive_board_status.py;scripts/agent-init.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/derive_board_status.py",
+                "scripts/agent-init.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "交付合并但未投 done 标记的卡永久滞留且可被重复领用（DX-38/DX-44 实录）"
         },
         "M01": {
             "acceptance": [

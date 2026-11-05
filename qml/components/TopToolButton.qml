@@ -19,7 +19,7 @@ Rectangle {
 
     signal clicked()
 
-    implicitWidth: label.implicitWidth + 22
+    implicitWidth: label.implicitWidth + Theme.spacingMd * 2
     implicitHeight: 26
     // Rectangle 的 width 默认是 0，不显式给宽度按钮就是隐形的
     width: implicitWidth
@@ -27,13 +27,13 @@ Rectangle {
     radius: Theme.radiusControl
 
     color: mouse.containsMouse
-           ? Qt.rgba(accent.r, accent.g, accent.b, emphasis ? 0.32 : 0.22)
-           : Qt.rgba(accent.r, accent.g, accent.b, emphasis ? 0.20 : 0.10)
+           ? Theme.alpha(accent, emphasis ? 0.32 : 0.22)
+           : Theme.alpha(accent, emphasis ? 0.20 : 0.10)
 
     border.width: 1
     border.color: (mouse.containsMouse || emphasis)
                   ? Theme.borderStrong
-                  : Qt.rgba(accent.r, accent.g, accent.b, 0.32)
+                  : Theme.alpha(accent, 0.32)
 
     Behavior on color {
         ColorAnimation { duration: Motion.fast }
@@ -47,7 +47,7 @@ Rectangle {
         anchors.centerIn: parent
         text: btn.text
         color: (mouse.containsMouse || btn.emphasis) ? btn.accent : Theme.text
-        font.pixelSize: 11
+        font.pixelSize: Theme.fontCaption
         font.bold: true
     }
 

@@ -544,6 +544,37 @@ ApplicationWindow {
         boardColumns.project = projectId
     }
 
+    // 筛选把看板清空时的统一空态（R11-07）。
+    // 两条判据同时成立才显示：有筛选条件 + 可见任务数为 0 ——
+    // 少了后一条，新用户空空如也的看板会被误报成「筛选没结果」。
+    readonly property bool filterActive: searchField.text.length > 0
+                                        || stageFilter.length > 0
+                                        || projectFilter.length > 0
+    readonly property bool filteredEmpty: filterActive
+                                           && boardColumns.todoCount === 0
+                                           && boardColumns.doingCount === 0
+                                           && boardColumns.doneCount === 0
+    readonly property string emptyStateTitle: {
+        if (searchField.text.length > 0)
+            return "没有匹配「" + searchField.text + "」的任务"
+        if (stageFilter.length > 0)
+            return "该阶段暂无任务"
+        return "这个范围里还没有任务"
+    }
+    readonly property string emptyStateSubtitle: {
+        if (searchField.text.length > 0)
+            return "换个关键词，或清除筛选查看全部任务"
+        if (stageFilter.length > 0)
+            return "切回「全部」看看其它阶段，或新建一张卡片"
+        return "切回全局视图，或新建一张卡片"
+    }
+    // 一键清除筛选：搜索词、里程碑、项目范围三处一起复位
+    function clearFilters() {
+        searchField.text = ""
+        window.setStageFilter("")
+        window.setProjectFilter("")
+    }
+
     function refreshStageData() {
         // 阶段顺序由 projectMap 给出（读路线图 §9 的行序，只读一份 md、不跑 git）；
         // 模型层保持零依赖，测试里也能直接传一组顺序进来断言。
@@ -1025,7 +1056,7 @@ MouseArea {
                     Text {
                         text: "工作台"
                         color: Theme.text
-                        font.pixelSize: 20
+                        font.pixelSize: Theme.fontDisplay
                         font.bold: true
                     }
 
@@ -1310,14 +1341,14 @@ MouseArea {
                         Text {
                             text: "工作台"
                             color: Theme.text
-                            font.pixelSize: 18
+                            font.pixelSize: Theme.fontDisplay
                             font.bold: true
                         }
 
                         Text {
                             text: "专注当下，逐项推进"
                             color: Theme.muted
-                            font.pixelSize: 10
+                            font.pixelSize: Theme.fontCaption
                         }
                     }
 
@@ -1469,7 +1500,7 @@ MouseArea {
                             placeholderText: "搜索任务"
                             placeholderTextColor: Theme.muted
                             color: Theme.text
-                            font.pixelSize: 12
+                            font.pixelSize: Theme.fontBody
                             background: null
                             onTextChanged: boardColumns.search = text
                             Keys.onEscapePressed: text = ""
@@ -1520,97 +1551,115 @@ MouseArea {
                     }
                 }
 
-                RowLayout {
-                    id: boardRow
+                // 看板区：外面套一层 Item —— 空态要浮在看板正中间，
+                // 而布局里的子项不允许用 anchors.centerIn。
+                Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.leftMargin: 20
                     Layout.rightMargin: 20
                     Layout.bottomMargin: 20
-                    spacing: 12
 
-                    // 列由数据库驱动：加列 / 改名 / 调序只改 board_column，
-                    // 界面按 order_key 顺序自动出列，不再写死三列。
-                    Repeater {
-                        id: columnRepeater
-                        model: boardColumns
+                    RowLayout {
+                        id: boardRow
+                        anchors.fill: parent
+                        spacing: 12
 
-                        delegate: BoardColumn {
-                            required property string boardColumnId
-                            required property string boardColumnTitle
-                            required property string boardColumnStatus
-                            required property var boardColumnModel
-                            required property int boardColumnIndex
+                        // 列由数据库驱动：加列 / 改名 / 调序只改 board_column，
+                        // 界面按 order_key 顺序自动出列，不再写死三列。
+                        Repeater {
+                            id: columnRepeater
+                            model: boardColumns
 
-                            columnId: boardColumnId
-                            columnIndex: boardColumnIndex
-                            title: boardColumnTitle
-                            status: boardColumnStatus
-                            taskModel: boardColumnModel
-                            // 三态沿用原有配色：待办青、进行中紫、已办结洋红
-                            accent: boardColumnStatus === "done" ? Theme.magenta
-                                  : boardColumnStatus === "doing" ? Theme.violet
-                                  : Theme.cyan
-                            searchQuery: searchField.text
-                            stageFilter: window.stageFilter
-                            projectFilter: window.projectFilter
-                            dragSpace: root
-                            dropTarget: window.dragOverColumnId === boardColumnId
-                            onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
-                            // Ctrl+←/→：把选中卡搬到相邻列（落位规则与拖拽同一套）
-                            onCardMoveRequested: function(taskId, delta) {
-                                window.moveCardAcrossColumns(taskId, delta)
+                            delegate: BoardColumn {
+                                required property string boardColumnId
+                                required property string boardColumnTitle
+                                required property string boardColumnStatus
+                                required property var boardColumnModel
+                                required property int boardColumnIndex
+
+                                columnId: boardColumnId
+                                columnIndex: boardColumnIndex
+                                title: boardColumnTitle
+                                status: boardColumnStatus
+                                taskModel: boardColumnModel
+                                // 三态沿用原有配色：待办青、进行中紫、已办结洋红
+                                accent: boardColumnStatus === "done" ? Theme.magenta
+                                      : boardColumnStatus === "doing" ? Theme.violet
+                                      : Theme.cyan
+                                searchQuery: searchField.text
+                                stageFilter: window.stageFilter
+                                projectFilter: window.projectFilter
+                                dragSpace: root
+                                dropTarget: window.dragOverColumnId === boardColumnId
+                                onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
+                                // Ctrl+←/→：把选中卡搬到相邻列（落位规则与拖拽同一套）
+                                onCardMoveRequested: function(taskId, delta) {
+                                    window.moveCardAcrossColumns(taskId, delta)
+                                }
+                                // 双击 / 回车 / 无障碍「按下」都走详情抽屉（R8-03）：
+                                // 先让人看清楚再决定改什么，编辑器从抽屉里一键进入
+                                onEditRequested: function(taskId) { window.openCardDetail(taskId) }
+                                onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
+                                onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
+                                onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
+                                onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
+                                onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
+                                onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
+                                onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
                             }
-                            // 双击 / 回车 / 无障碍「按下」都走详情抽屉（R8-03）：
-                            // 先让人看清楚再决定改什么，编辑器从抽屉里一键进入
-                            onEditRequested: function(taskId) { window.openCardDetail(taskId) }
-                            onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
-                            onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
-                            onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
-                            onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
-                            onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
-                            onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
-                            onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
+                        }
+
+                        // 列管理入口：列由数据库驱动，加列 / 改名 / 调序都在这里
+                        Rectangle {
+                            Layout.preferredWidth: 46
+                            Layout.fillHeight: true
+                            radius: 16
+                            color: addColumnMouse.containsMouse ? Theme.cardHover : Theme.card
+                            border.width: 1
+                            border.color: addColumnMouse.containsMouse ? Theme.borderStrong : Theme.border
+
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 4
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "＋"
+                                    color: addColumnMouse.containsMouse ? Theme.cyan : Theme.muted
+                                    font.pixelSize: 18
+                                }
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "列"
+                                    color: Theme.muted
+                                    font.pixelSize: 10
+                                }
+                            }
+
+                            MouseArea {
+                                id: addColumnMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: {
+                                    window.closeAllPanels()
+                                    columnManager.open = true
+                                }
+                            }
                         }
                     }
 
-                    // 列管理入口：列由数据库驱动，加列 / 改名 / 调序都在这里
-                    Rectangle {
-                        Layout.preferredWidth: 46
-                        Layout.fillHeight: true
-                        radius: 16
-                        color: addColumnMouse.containsMouse ? Theme.cardHover : Theme.card
-                        border.width: 1
-                        border.color: addColumnMouse.containsMouse ? Theme.borderStrong : Theme.border
-
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: 4
-
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: "＋"
-                                color: addColumnMouse.containsMouse ? Theme.cyan : Theme.muted
-                                font.pixelSize: 18
-                            }
-
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: "列"
-                                color: Theme.muted
-                                font.pixelSize: 10
-                            }
-                        }
-
-                        MouseArea {
-                            id: addColumnMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: {
-                                window.closeAllPanels()
-                                columnManager.open = true
-                            }
-                        }
+                    // 筛选把看板清空时：给出统一空态与一键清除出口（R11-07）
+                    EmptyState {
+                        anchors.centerIn: boardRow
+                        width: Math.min(360, boardRow.width - Theme.spacingXl * 2)
+                        visible: window.filteredEmpty
+                        icon: "⌕"
+                        title: window.emptyStateTitle
+                        subtitle: window.emptyStateSubtitle
+                        actionText: "清除筛选"
+                        onActionTriggered: window.clearFilters()
                     }
                 }
 

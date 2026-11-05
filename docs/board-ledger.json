@@ -3793,13 +3793,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-54": {
-            "agent": "agent-dx54",
-            "branch": "fix/deps-probe-tree-bucket",
-            "claimedAt": 1793851338,
-            "head": "7166f6ecd25a834fa1674068d50a272cc4a68acf"
-        }
-    },
+    "claims": {},
     "version": 1
 }

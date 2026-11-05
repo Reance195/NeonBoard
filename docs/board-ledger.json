@@ -3915,6 +3915,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-49": {
+            "agent": "agent-memrev",
+            "branch": "fix/checkout-drift-guard",
+            "claimedAt": 1793891805,
+            "head": "466ddfd32d577b78e92d45a4c1786a952f9fa596"
+        }
+    },
     "version": 1
 }

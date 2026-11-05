@@ -23,6 +23,7 @@
       pwsh -File scripts/git-done.ps1 -SkipClaimCheck      # 已废弃：不再能放行代码改动
       pwsh -File scripts/git-done.ps1 -SkipAnchorSync      # 合并后不快进锚点区
       pwsh -File scripts/git-done.ps1 -Close DX-32,DX-33   # 人工确认结卡（卡必须是本分支领用的）
+      pwsh -File scripts/git-done.ps1 -AllowCrossTree      # 跨区调用显式放行（DX-49 检出漂移守卫）
 #>
 [CmdletBinding()]
 param(
@@ -38,7 +39,10 @@ param(
     # -Close 是「我知道，按完成处理」的显式确认；只接受本分支领用过的卡。
     [string]$Close = '',
     [string]$MainBranch = 'main',
-    [string]$Worktree = ''
+    [string]$Worktree = '',
+    # 检出漂移守卫（DX-49）：调用方 CWD 与脚本所属检出是同一仓库的不同工作树时默认中止；
+    # 有意的跨区调用（复现旧脚本行为 / 跨区验证）用它显式放行并打显著告警
+    [switch]$AllowCrossTree
 )
 
 $ErrorActionPreference = 'Stop'
@@ -434,6 +438,50 @@ if ($PSScriptRoot) {
     }
 }
 $repoRoot = if ($scriptRepoRoot) { $scriptRepoRoot } else { (Invoke-Git rev-parse --show-toplevel).Trim() }
+
+# ---------- 检出漂移守卫（DX-49）----------
+# 多会话并行时，终端 / Bash 工具的 CWD 会在锚点区与各 worktree 之间静默漂移：调用方以为
+# 站在树 A，脚本却按自身路径作用于树 B（§7.3 的定位设计），两棵树不一致时此前没有任何
+# 声音 —— R16-05 实测把示例插件改动误写进锚点区并 stage（pitfalls 1.25）。入口把话说破：
+# 同一仓库的不同工作树 → 默认中止并给两条出路；不在检出里 / 属于别的仓库没有漂移信号，不拦。
+function Get-NbCommonDir {
+    param([string]$RepoPath)
+    $p = ([string](& git -C $RepoPath rev-parse --path-format=absolute --git-common-dir 2>$null)).Trim()
+    if (-not $p) {
+        $p = ([string](& git -C $RepoPath rev-parse --git-common-dir 2>$null)).Trim()
+        if (-not $p) { return $null }
+        if (-not [System.IO.Path]::IsPathRooted($p)) { $p = Join-Path $RepoPath $p }
+    }
+    return ($p -replace '/', '\')
+}
+function Test-CheckoutDrift {
+    param([string]$ScriptTree, [switch]$Allowed)
+
+    if (-not $ScriptTree) { return }                          # 脚本不在检出内（异常布局），无从比对
+    $callerTop = ([string](& git rev-parse --show-toplevel 2>$null)).Trim()
+    if (-not $callerTop) { return }                           # 调用方不在任何 git 检出里，无漂移信号
+    $callerTop = (Resolve-Path -LiteralPath $callerTop).Path -replace '/', '\'
+    $scriptTop = (Resolve-Path -LiteralPath $ScriptTree).Path -replace '/', '\'
+    if ($callerTop -ieq $scriptTop) { return }                # 同区调用，正常
+    $callerCommon = Get-NbCommonDir $callerTop
+    $scriptCommon = Get-NbCommonDir $scriptTop
+    if (-not $callerCommon -or -not $scriptCommon -or $callerCommon -ine $scriptCommon) { return }
+    if ($Allowed) {
+        Write-Host '⚠ 检出漂移放行（-AllowCrossTree）：请确认这是有意的跨区调用（DX-49）。' -ForegroundColor Yellow
+        Write-Host ("  调用方检出   : {0}" -f $callerTop) -ForegroundColor Yellow
+        Write-Host ("  脚本所属检出 : {0}" -f $scriptTop) -ForegroundColor Yellow
+        return
+    }
+    Write-Host '✗ 调用方检出与脚本所属检出不一致，已中止（DX-49 检出漂移守卫）。' -ForegroundColor Red
+    Write-Host ("  调用方 CWD 所在检出  : {0}" -f $callerTop)
+    Write-Host ("  脚本按自身路径作用于 : {0}" -f $scriptTop)
+    Write-Host '  多会话下 CWD 会静默漂移，跨区误操作会写错工作树。两条出路：' -ForegroundColor Yellow
+    Write-Host ('    1) 先切到目标检出再跑：  cd "' + $scriptTop + '"') -ForegroundColor Yellow
+    Write-Host '    2) 确属有意跨区（复现旧脚本 / 跨区验证）：加 -AllowCrossTree 放行' -ForegroundColor Yellow
+    exit 5
+}
+Test-CheckoutDrift -ScriptTree $scriptRepoRoot -Allowed:$AllowCrossTree
+
 Set-Location -LiteralPath $repoRoot
 Write-Host "仓库目录：$repoRoot" -ForegroundColor DarkGray
 

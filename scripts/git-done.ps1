@@ -888,6 +888,11 @@ if ($Mode -eq 'remote') {
     if ($closeList.Count -gt 0) {
         $ccArgs += @('--close-explicit', ($closeList -join ','))
     }
+    # 结果真相（DX-58）：closed 只记「推送已落地」的，回滚挂起的进 closePending——
+    # DX-57 实测回执凭派生器输出记意图，补推撞 non-ff 回滚后仍虚报 closed，
+    # baseline 悬空期间卡可被重新领用（pitfalls 1.14 风险回归）。
+    $ccLanded = @()
+    $ccPending = @()
     $ccRes = Invoke-Cmd -File 'python' -CmdArgs $ccArgs
     $closedCodes = @($ccRes.Output | Where-Object { $_ -and $_ -match '^\S+$' })
     $explicitClosed = @($closedCodes | Where-Object { $closeList -contains $_ })
@@ -918,18 +923,38 @@ if ($Mode -eq 'remote') {
         if ($ccCommit.Code -ne 0) {
             Write-Host '· 结卡：提交失败，baseline 留待下次合并再结' -ForegroundColor Yellow
             $ccCommit.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+            $ccPending = @($closedCodes)
             Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/board-ledger.json') | Out-Null
         } else {
+            # 补推撞 non-ff（主线被并行会话推进）时自动恢复：重取 → 变基到 origin/main →
+            # 重推，上限 2 次；结卡提交只碰台账 baseline 行，变基冲突概率低，仍失败才回滚
+            # 挂起（DX-58：DX-57 实测一次竞态就丢了结卡且回执虚报）。
             $ccPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
+            $ccRetry = 0
+            while ($ccPush.Code -ne 0 -and $ccRetry -lt 2) {
+                $ccRetry++
+                Write-Host ("· 结卡：补推撞 non-ff（第 {0} 次），重取主线变基后重试" -f $ccRetry) -ForegroundColor Yellow
+                Invoke-NetGit @('fetch', 'origin', '--prune') | Out-Null
+                $ccRebase = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
+                if ($ccRebase.Code -ne 0) {
+                    Write-Host '· 结卡：变基冲突，放弃重试' -ForegroundColor Yellow
+                    Invoke-GitQuiet @('rebase', '--abort') | Out-Null
+                    break
+                }
+                $ccPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
+            }
             if ($ccPush.Code -eq 0) {
+                $ccLanded = @($closedCodes)
                 if ($DryRun) {
                     Write-Host '✓ [dry-run] 结卡：本地已提交（未推送）' -ForegroundColor Green
                 } else {
                     Write-Host ('✓ 结卡：{0} 的 baseline 已补为 done 并推上 {1}' -f ($closedCodes -join '、'), $MainBranch) -ForegroundColor Green
                 }
             } else {
-                Write-Host '· 结卡：补推失败（离线 / 主线被推进），本地回滚，留待下次合并再结' -ForegroundColor Yellow
+                Write-Host '· 结卡：补推失败（离线 / 主线被推进 / 变基冲突），本地回滚——结卡挂起，待下次合并再结' -ForegroundColor Yellow
+                Invoke-GitQuiet @('rebase', '--abort') | Out-Null
                 Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
+                $ccPending = @($closedCodes)
             }
         }
     }
@@ -938,10 +963,13 @@ if ($Mode -eq 'remote') {
     # --close-cards 只处理「已经写了 =done 标记」的卡；没写的卡一张都不结，而原先收尾
     # 在这种情况下连一行提示都没有 —— 干完活、合并、全绿，卡还挂在 todo，下次有人接着领
     # 一遍重做。程序判不了 acceptance 满不满足，但「领了没结」是两份名单的差集，能判。
-    $missedCodes = @($claimedCodes | Where-Object { $closedCodes -notcontains $_ })
+    $missedCodes = @($claimedCodes | Where-Object { $ccLanded -notcontains $_ -and $ccPending -notcontains $_ })
     if ($claimedCodes.Count -gt 0) {
         Write-Host ''
-        if ($missedCodes.Count -eq 0) {
+        if ($ccPending.Count -gt 0) {
+            Write-Host ("· 结单对账：本次领用 {0} 张、已结 {1} 张、挂起 {2} 张（{3}）——挂起的 baseline 未落，待下次合并再结" -f `
+                $claimedCodes.Count, $ccLanded.Count, $ccPending.Count, ($ccPending -join '、')) -ForegroundColor Yellow
+        } elseif ($missedCodes.Count -eq 0) {
             Write-Host ("✓ 结单对账：本次领用的 {0} 张已全部结掉（{1}）" -f `
                 $claimedCodes.Count, ($claimedCodes -join '、')) -ForegroundColor Green
         } else {
@@ -1059,8 +1087,9 @@ if ($Mode -eq 'remote') {
             mergedInto     = "origin/$MainBranch"
             head           = $headSha
             claimed        = @($claimedCodes)
-            closed         = @($closedCodes)
-            closedExplicit = @($explicitClosed)
+            closed         = @($ccLanded)
+            closePending   = @($ccPending)
+            closedExplicit = @($explicitClosed | Where-Object { $ccLanded -contains $_ })
             missed         = @($missedCodes)
             closeMode      = $closeMode
         }

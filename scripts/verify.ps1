@@ -201,7 +201,8 @@ sys.exit(1 if bad else 0)
 # 完整走一遍：不触网、不动远端、结束回滚，退出码即「这次收尾能不能过」的预演答案。
 if ($GitDoneDryRun) {
     Step '收尾时序演练（git-done -DryRun）'
-    $branch = ([string](& git rev-parse --abbrev-ref HEAD 2>$null)).Trim()
+    $rawBranch = & git rev-parse --abbrev-ref HEAD 2>$null
+    $branch = if ($rawBranch) { ([string]$rawBranch).Trim() } else { '' }
     if (-not $branch -or $branch -eq 'HEAD') { Fail '当前处于分离 HEAD，没有可演练的分支；请切到功能分支后重跑' }
     if ($branch -eq 'main') { Fail 'main 上没有可演练的收尾；请切到待合并的功能分支后重跑' }
     Write-Host ("· 演练对象：分支 {0}（fetch/push 打桩，结束回滚）" -f $branch)

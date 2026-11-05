@@ -100,7 +100,8 @@ function Invoke-NetGit {
 function Assert-DryCloseStep {
     param([string]$Step)
     if (-not $DryRun) { return }
-    $ref = ([string](& git symbolic-ref -q --short HEAD 2>$null)).Trim()
+    $rawSym = & git symbolic-ref -q --short HEAD 2>$null
+    $ref = if ($rawSym) { ([string]$rawSym).Trim() } else { '' }
     if ($ref) {
         Write-Host ("✗ dry-run 断言失败：{0} 发生在命名分支 {1} 上（DX-26 要求收尾提交在分离 HEAD）" -f $Step, $ref) -ForegroundColor Red
         exit 7
@@ -487,9 +488,11 @@ $repoRoot = if ($scriptRepoRoot) { $scriptRepoRoot } else { (Invoke-Git rev-pars
 # 同一仓库的不同工作树 → 默认中止并给两条出路；不在检出里 / 属于别的仓库没有漂移信号，不拦。
 function Get-NbCommonDir {
     param([string]$RepoPath)
-    $p = ([string](& git -C $RepoPath rev-parse --path-format=absolute --git-common-dir 2>$null)).Trim()
+    $raw = & git -C $RepoPath rev-parse --path-format=absolute --git-common-dir 2>$null
+    $p = if ($raw) { ([string]$raw).Trim() } else { '' }
     if (-not $p) {
-        $p = ([string](& git -C $RepoPath rev-parse --git-common-dir 2>$null)).Trim()
+        $raw = & git -C $RepoPath rev-parse --git-common-dir 2>$null
+        $p = if ($raw) { ([string]$raw).Trim() } else { '' }
         if (-not $p) { return $null }
         if (-not [System.IO.Path]::IsPathRooted($p)) { $p = Join-Path $RepoPath $p }
     }
@@ -499,7 +502,8 @@ function Test-CheckoutDrift {
     param([string]$ScriptTree, [switch]$Allowed)
 
     if (-not $ScriptTree) { return }                          # 脚本不在检出内（异常布局），无从比对
-    $callerTop = ([string](& git rev-parse --show-toplevel 2>$null)).Trim()
+    $rawTop = & git rev-parse --show-toplevel 2>$null
+    $callerTop = if ($rawTop) { ([string]$rawTop).Trim() } else { '' }
     if (-not $callerTop) { return }                           # 调用方不在任何 git 检出里，无漂移信号
     $callerTop = (Resolve-Path -LiteralPath $callerTop).Path -replace '/', '\'
     $scriptTop = (Resolve-Path -LiteralPath $ScriptTree).Path -replace '/', '\'
@@ -698,7 +702,8 @@ if ($Mode -eq 'remote') {
         Invoke-Git branch -D $tmp | Out-Null
     }
 
-    $script:dryEntryRef = ([string](& git symbolic-ref -q --short HEAD 2>$null)).Trim()
+    $rawSym = & git symbolic-ref -q --short HEAD 2>$null
+    $script:dryEntryRef = if ($rawSym) { ([string]$rawSym).Trim() } else { '' }
     if ($DryRun -and -not $script:dryEntryRef) { Write-Host '· [dry-run] 进入时已在分离 HEAD，结束时无可回滚' -ForegroundColor DarkCyan }
     Write-Host "· 基于 origin/$MainBranch 创建临时分支 $tmp" -ForegroundColor DarkGray
     Invoke-Git switch -c $tmp "origin/$MainBranch" | Out-Null

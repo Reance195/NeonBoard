@@ -393,10 +393,21 @@ def cmd_authorize(ctx: Ctx, state: dict, args) -> int:
 
 
 def cmd_request(ctx: Ctx, state: dict, args) -> int:
-    card = args.card.upper()
-    if not CARD_ID_RE.match(card):
-        err("✗ 卡号不合规：%s" % card)
-        return 1
+    # 编号自动分配（DX-55）：--card 省略时按 stage 命名空间从台账取下一个空号；
+    # 显式给号时也查台账占用——请求阶段就拦，别等 approve 才炸。
+    stage = (args.stage or "DX").upper()
+    used = ledger_card_ids()
+    if args.card:
+        card = args.card.upper()
+        if not CARD_ID_RE.match(card):
+            err("✗ 卡号不合规：%s" % card)
+            return 1
+        if card in used:
+            err("✗ 卡号已被台账占用：%s（省略 --card 由程序取号，或换号）" % card)
+            return 1
+    else:
+        card = next_card_id(used, stage)
+        out("  · 程序取号：%s（%s 命名空间）" % (card, stage))
     if find_request(card):
         err("✗ 已有 %s 的请求单：%s（驳回或换号）" % (card, find_request(card)))
         return 1
@@ -458,6 +469,7 @@ def cmd_approve(ctx: Ctx, state: dict, args) -> int:
     out("  · 会话授权：%s / %s" % (auth["by"], auth["batch"]))
 
     reqs: list[tuple[str, Path, dict]] = []
+    allocated: set[str] = set()
     for card in cards:
         p = find_request(card)
         cached = state["sessions"].get(card, {}).get("requestText", "")
@@ -473,6 +485,22 @@ def cmd_approve(ctx: Ctx, state: dict, args) -> int:
         if req.get("state") in ("approved", "rejected"):
             err("✗ %s 已 %s，不能重复批准" % (card, req["state"]))
             return 1
+        # 撞号改配（DX-55）：建议号已被台账（或本批先到的卡）占用时，按 stage
+        # 命名空间改配下一个空号；会话键、请求单 card:、台账 note 全部跟着新号走。
+        used = ledger_card_ids() | allocated
+        suggested = (req.get("card") or card).upper()
+        if suggested in used:
+            new_id = next_card_id(used, req.get("stage") or "DX")
+            out("  · 建议号 %s 已被占用，自动改配 %s" % (suggested, new_id))
+            req["evidence"] = ((req.get("evidence") or "").rstrip("；;") +
+                               "；原建议号 %s 已占用，程序改配 %s" % (suggested, new_id))
+            req["suggestedId"] = new_id
+            req["card"] = new_id
+            sess = state["sessions"].pop(card, None)
+            if sess:
+                state["sessions"][new_id] = sess
+            card = new_id
+        allocated.add(card)
         reqs.append((card, p, req))
         transition(ctx, state, card, "accepted")
 
@@ -559,6 +587,19 @@ def _read_card(card: str) -> dict:
     if code != 0 or not text.strip():
         text = (REPO / "docs" / "board-ledger.json").read_text(encoding="utf-8")
     return json.loads(text).get("cards", {}).get(card, {})
+
+
+def ledger_card_ids() -> set[str]:
+    """origin/main 台账的全部卡号；离线退回工作区副本，再退空集（DX-55 取号用）。"""
+    code, text = run(["git", "-C", str(REPO), "show", "origin/main:docs/board-ledger.json"],
+                     capture=True, quiet=True)
+    if code != 0 or not text.strip():
+        p = REPO / "docs" / "board-ledger.json"
+        text = p.read_text(encoding="utf-8") if p.exists() else ""
+    try:
+        return set(json.loads(text).get("cards", {}))
+    except ValueError:
+        return set()
 
 
 def handoff_path(worktree: str) -> Path:
@@ -966,11 +1007,25 @@ def next_conflict_card(state: dict) -> str:
     return pick_conflict_card(used)
 
 
-def pick_conflict_card(used: set[str]) -> str:
-    """纯函数：从已占用卡号里挑下一个 DX-n，便于自测，不碰 git。"""
+def next_card_id(used: set[str], stage: str = CONFLICT_STAGE) -> str:
+    """纯函数：按 stage 命名空间从已占用卡号里挑下一个空号，便于自测，不碰 git（DX-55）。
+
+    命名空间：DX / R<阶段> / MOD 用 <前缀>-nn，M 用 Mnn；未知 stage 兜底 DX。
+    """
+    s = (stage or CONFLICT_STAGE).upper()
+    if s == "M":
+        pat, fmt = r"^M(\d+)$", "M{:02d}"
+    elif re.match(r"^(?:DX|MOD|R\d+)$", s):
+        pat, fmt = r"^%s-(\d+)$" % s, "%s-{:02d}" % s
+    else:
+        pat, fmt = r"^DX-(\d+)$", "DX-{:02d}"
     nums = [int(m.group(1)) for c in used
-            for m in [re.match(r"^%s-(\d+)$" % CONFLICT_PREFIX, c)] if m]
-    return "%s-%02d" % (CONFLICT_PREFIX, max(nums) + 1 if nums else 1)
+            for m in [re.match(pat, c)] if m]
+    return fmt.format(max(nums) + 1 if nums else 1)
+
+
+def pick_conflict_card(used: set[str]) -> str:
+    return next_card_id(used, CONFLICT_STAGE)
 
 
 def conflict_ticket_body(card: str, branch: str, info: dict,
@@ -1244,6 +1299,16 @@ def selftest() -> int:
               and split_multi(tparsed["scope"]) == ["docs/**", "scripts/**"])
         check("冲突卡号避开已占用",
               pick_conflict_card({"DX-01", "DX-03", "DX-25", "FLOW-01"}) == "DX-26")
+        check("取号按 stage 命名空间（DX/R/M/MOD）",
+              next_card_id({"DX-07"}, "DX") == "DX-08"
+              and next_card_id({"R11-04", "R11-07"}, "R11") == "R11-08"
+              and next_card_id({"M01", "M19"}, "M") == "M20"
+              and next_card_id({"MOD-02", "MOD-05"}, "MOD") == "MOD-06"
+              and next_card_id(set(), "DX") == "DX-01")
+        check("未知 stage 兜底 DX 命名空间",
+              next_card_id({"DX-01"}, "ZZ") == "DX-02")
+        check("撞号改配顺延且避开已占",
+              next_card_id({"DX-55", "DX-56"}, "DX") == "DX-57")
         check("slug 只留安全字符", _slug("feature/Foo Bar~x") == "feature-foo-bar-x")
         old_dir = REQUEST_DIR
         globals()["REQUEST_DIR"] = Path(td) / "card-requests"
@@ -1295,7 +1360,8 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--ttl-hours", type=int, default=24)
 
     r = sub.add_parser("request", parents=[common], help="agent 提交立卡请求")
-    r.add_argument("--card", required=True)
+    r.add_argument("--card", default="",
+                   help="省略则由程序按 --stage 命名空间取下一个空号（DX-55）")
     r.add_argument("--stage", required=True)
     r.add_argument("--title", required=True)
     r.add_argument("--scope", required=True, help="分号分隔的路径 glob")

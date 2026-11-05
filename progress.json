@@ -263,12 +263,12 @@
             "orderKey": 32768,
             "priority": 2,
             "stage": "DX",
-            "status": "todo",
+            "status": "doing",
             "tags": [
                 "DX"
             ],
             "title": "nbflow 编号自动分配：request/approve 按类型命名空间取号，人不再报号",
-            "updatedAt": 1793891347
+            "updatedAt": 1793892671
         },
         {
             "code": "R0-01",
@@ -3859,6 +3859,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T23:30:50",
+    "updated": "2026-11-05T23:31:11",
     "version": 3
 }

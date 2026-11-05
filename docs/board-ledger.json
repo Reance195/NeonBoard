@@ -2308,7 +2308,9 @@
                 "qml/Main.qml",
                 "README.md",
                 "docs/iteration-roadmap.md",
-                "CMakeLists.txt"
+                "CMakeLists.txt",
+                "qml/components/AddColumnButton.qml",
+                "scripts/check_module_deps.py"
             ],
             "stage": "R11",
             "title": "空态与细节反馈：空列表有引导，筛选有回声"

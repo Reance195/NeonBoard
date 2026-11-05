@@ -271,24 +271,6 @@
             "updatedAt": 1793906980
         },
         {
-            "code": "DX-84",
-            "completedAt": 0,
-            "createdAt": 1793907453,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-84",
-            "note": "触发证据：本会话（DX-70/DX-72 交付日）实测台账三种 acceptance 形态并存：DX-72/DX-74/DX-81 为正常数组（请求单用半角分号，split_multi 能拆）；DX-70/DX-73/DX-82/DX-83 为全角分号连接的单串（split_multi 只认半角，漏拆），逐条验收被迫整串一票；DX-62 为竖线单串（DX-70 已在 report 侧兼容）。病根在立卡入口没统一拆分口径，report 侧的 DX-70 兼容只覆盖竖线一种\n\n## 目标\n台账 acceptance 单串多子项三形态并存：拆分收口单一实现，立卡落数组、存量兼容展开、清单校验拦截\n\n## 验收\n拆分收口单一实现：新建 scripts/acceptance_split.py 提供引号感知拆分（半角; 全角；竖线| 三形态，引号内分隔符不切），split_multi 与 flatten_acceptance 改为调用它，request_to_manifest 立卡落数组、cmd_report 与 parse_results 对存量单串兼容展开且序号映射与逐条核验按子项走|board-apply 校验新增：清单单条 acceptance 含引号外子项分隔符且可拆出两条以上时拦截，手工 JSON 清单与请求单两条入口都覆盖，报错给出拆分建议|selftest 增补三形态拆分、引号保留、幂等、拦截正反例，python scripts/nbflow.py --selftest 与 python scripts/board-apply.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/nbflow.py;scripts/board-apply.py;scripts/acceptance_split.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 58368,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "台账 acceptance 单串多子项三形态并存：拆分收口单一实现，立卡落数组、存量兼容展开、清单校验拦截",
-            "updatedAt": 1793907453
-        },
-        {
             "code": "DX-85",
             "completedAt": 0,
             "createdAt": 1793907967,
@@ -3755,6 +3737,24 @@
             "updatedAt": 1792855060
         },
         {
+            "code": "DX-84",
+            "completedAt": 1793908094,
+            "createdAt": 1793907453,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-84",
+            "note": "触发证据：本会话（DX-70/DX-72 交付日）实测台账三种 acceptance 形态并存：DX-72/DX-74/DX-81 为正常数组（请求单用半角分号，split_multi 能拆）；DX-70/DX-73/DX-82/DX-83 为全角分号连接的单串（split_multi 只认半角，漏拆），逐条验收被迫整串一票；DX-62 为竖线单串（DX-70 已在 report 侧兼容）。病根在立卡入口没统一拆分口径，report 侧的 DX-70 兼容只覆盖竖线一种\n\n## 目标\n台账 acceptance 单串多子项三形态并存：拆分收口单一实现，立卡落数组、存量兼容展开、清单校验拦截\n\n## 验收\n拆分收口单一实现：新建 scripts/acceptance_split.py 提供引号感知拆分（半角; 全角；竖线| 三形态，引号内分隔符不切），split_multi 与 flatten_acceptance 改为调用它，request_to_manifest 立卡落数组、cmd_report 与 parse_results 对存量单串兼容展开且序号映射与逐条核验按子项走|board-apply 校验新增：清单单条 acceptance 含引号外子项分隔符且可拆出两条以上时拦截，手工 JSON 清单与请求单两条入口都覆盖，报错给出拆分建议|selftest 增补三形态拆分、引号保留、幂等、拦截正反例，python scripts/nbflow.py --selftest 与 python scripts/board-apply.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/nbflow.py;scripts/board-apply.py;scripts/acceptance_split.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 58368,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "台账 acceptance 单串多子项三形态并存：拆分收口单一实现，立卡落数组、存量兼容展开、清单校验拦截",
+            "updatedAt": 1793908094
+        },
+        {
             "completedAt": 1792855060,
             "createdAt": 1792721607,
             "deleted": false,
@@ -4453,6 +4453,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T03:46:07",
+    "updated": "2026-11-06T03:48:14",
     "version": 3
 }

@@ -181,6 +181,42 @@
             "updatedAt": 1793901942
         },
         {
+            "code": "DX-70",
+            "completedAt": 0,
+            "createdAt": 1793903068,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-70",
+            "note": "触发证据：本会话（DX-62 交付日 2026-11-06）实测两次被拒：--result 证据含「95bb295（c69cc7f 父提交）」形态的等号时 rsplit 取错分割点，报「结果只能是 pass/fail/defer」；DX-62 卡 acceptance 为单串四子项（竖线连接），序号 2 被拒「超出 acceptance 范围（共 1 条）」，被迫按单条回报。修复方向是完善方案：分割点定位与子项拆分都在 parse_results 单一实现内做，配 selftest 回归，不是调用方绕行\n\n## 目标\nnbflow report 结果解析对证据含等号不健壮，竖线分隔的存量 acceptance 序号映射失灵\n\n## 验收\nparse_results 对证据含等号的结果不再误切：按「结果词 pass/fail/defer 紧随其后」定位分割点，selftest 增补证据含等号与键含等号两例；单条 acceptance 内含竖线分隔的存量卡（DX-62 形态）先拆子项再做序号映射，逐子项回报互不冲突；python scripts/nbflow.py --selftest 全过，report 与 approve 既有流程回归不变\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 40960,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow report 结果解析对证据含等号不健壮，竖线分隔的存量 acceptance 序号映射失灵",
+            "updatedAt": 1793903068
+        },
+        {
+            "code": "DX-71",
+            "completedAt": 0,
+            "createdAt": 1793903068,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-71",
+            "note": "触发证据：本会话（DX-62 交付日 2026-11-06）实测：开区后并行会话把立卡 DX-69（67cb00c）推上主线，本分支基点停在 aff2dfd，verify -ScriptOnly 的台账分档报「卡片结构有变化（1 删除）：DX-69」并要求全量验收 —— 分支只是基点旧，无人删卡；靠手工 rebase 解决，诊断约十分钟。多代理并行（AGENTS.md 七）下这个场景会反复出现，报错应直接给出可执行的出路\n\n## 目标\n分支基点落后主线时台账分档误报删卡：按 origin/main 增量归因并提示 rebase\n\n## 验收\n对账前取 merge-base(origin/main, HEAD)：卡片结构差异若能被 origin/main 相对基点新增的立卡提交完整解释，降级为「台账基点落后于 origin/main（并行立卡 <短号>），先 rebase」的提示，不按删卡处理、不要求全量验收；反例不破：分支自身 diff 删除的主线现存卡仍按删卡红灯，与分支无关的真改契约仍要求全量；python scripts/check_board_diff.py --selftest 覆盖基点落后与真删卡两场景，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/check_board_diff.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 41984,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "分支基点落后主线时台账分档误报删卡：按 origin/main 增量归因并提示 rebase",
+            "updatedAt": 1793903068
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4111,6 +4147,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T02:20:51",
+    "updated": "2026-11-06T02:24:28",
     "version": 3
 }

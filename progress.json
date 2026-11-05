@@ -307,6 +307,24 @@
             "updatedAt": 1793909572
         },
         {
+            "code": "DX-92",
+            "completedAt": 0,
+            "createdAt": 1793910088,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-92",
+            "note": "触发证据：2026-11-06 实录：维护者会话在锚点本地立卡 DX-74「git-done 收尾补推 3→1」（75cd573，合并提交 45e1e93 停在锚点未推送）；另一会话 nbflow approve 以 origin/main 台账取号，DX-74 被另一任务「剩余脚本裸 git 取值清理」（6505441）占用——同一卡号挂了两个不同任务，锚点 main 与 origin/main 分叉（领先 3 提交 / 落后 80+）。当前占用集 = ledger(origin/main) | 活队列 | 在途会话，本地 main 的台账不在内；锚点区只要有未推的立卡，下一次任何会话取号就会重演撞号。孤儿任务内容已按 DX-88 保全重立；锚点残留 3 个本地提交建议维护者 reset 对齐 origin/main，但撞号判据必须补上才治本。\n\n## 目标\nnbflow 取号占用集只看 origin/main 台账：锚点本地未推的立卡不进占用集，同号被两个不同任务重复登记\n\n## 验收\n取号与 approve 撞号改配的占用集并入本地 main 台账（git show main:docs/board-ledger.json 与 origin/main 并集，单一实现在 ledger_card_ids()，next_conflict_card 同源），本地 main 已登记而 origin/main 未见的卡号立即被拒或改配;selftest 覆盖本地 main 独有卡号被占用集命中（纯函数口径，既有断言回归不破）;docs/pitfalls.md 记条目（DX-88 撞号实录：锚点 75cd573 与主线 6505441 两个不同任务共用 DX-74）;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 61440,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow 取号占用集只看 origin/main 台账：锚点本地未推的立卡不进占用集，同号被两个不同任务重复登记",
+            "updatedAt": 1793910088
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4561,6 +4579,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T04:12:52",
+    "updated": "2026-11-06T04:21:28",
     "version": 3
 }

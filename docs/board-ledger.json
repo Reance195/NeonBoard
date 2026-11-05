@@ -52,6 +52,7 @@
         "DX-50": "todo",
         "DX-51": "todo",
         "DX-52": "done",
+        "DX-53": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -169,8 +170,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-53": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -1211,6 +1211,30 @@
             ],
             "stage": "DX",
             "title": "DX Ninja 依赖跟踪失效：sccache 改写 /showIncludes 前缀，改公共头文件不重编 → 陈旧 obj → 堆损坏"
+        },
+        "DX-53": {
+            "acceptance": [
+                "源码层只剩一处 /utf-8 声明：顶层 CMakeLists.txt 的目录级 add_compile_options(/utf-8)；三处目标级与测试 helper 内的重复声明全部撤掉（python scripts/check_utf8_flag.py 退出码 0）",
+                "该声明位于所有 add_subdirectory() 之前 —— 否则 tests/ 子目录不继承；守卫脚本强制校验这一条",
+                "构建层实测：Ninja 生成物 build.ninja 里全部 obj 编译规则的 FLAGS 都带 utf-8；VS 生成器（CI 用的生成器）下 *.vcxproj 的 ClCompile 项同样都带",
+                "守卫脚本有可执行自测：python scripts/check_utf8_flag.py --selftest 全过，并接入 CI 与 scripts/verify.ps1",
+                "docs/testing.md 里「neonboard_add_test 已统一加 /utf-8」改为顶层口径",
+                "pwsh -File scripts/verify.ps1 全量通过；ctest 全绿；NeonBoard.exe --selftest 退出码 0"
+            ],
+            "depends": [],
+            "id": "DX-53",
+            "note": "起因：/utf-8 声明散落四处 —— 顶层 CMakeLists.txt 里三处 target_compile_options（NeonBoard / NeonBoardHost / neonboard-delta-tool）+ tests/CMakeLists.txt 的 neonboard_add_test 一处。每加一个目标都得记得再写一遍，漏写就静默按本地代码页解析中文源码（症状是「断言莫名失败」/中文常量乱码）。\n\n实测现状：生成的 build.ninja 里 412/412 个 obj 编译规则的 FLAGS 都带 utf-8 —— 但其中「-utf-8」是**搭便车**来的：Qt6::Platform 的 INTERFACE_COMPILE_OPTIONS（Qt6Targets.cmake:64）带 -utf-8，而 Qt6::Core 的 INTERFACE_LINK_LIBRARIES 链了 Qt6::Platform，于是凡是链 Qt6::Core 的目标都自动带上。也就是说现有覆盖依赖「每个目标都链 Qt6::Core」与「Qt 哪天别改这个选项」两个外部前提，不是我方约定；一旦有不链 Qt 的目标（纯 C 工具、第三方库），覆盖就静默消失，而源码里的中文会按本地代码页解析。\n\n目标：把 /utf-8 收敛成顶层 CMakeLists.txt 里唯一一处目录级 add_compile_options（置于所有 add_subdirectory 之前，保证 tests/ 子目录继承），撤掉四处重复声明，使覆盖成为结构性保证而非约定；再加机器守卫 scripts/check_utf8_flag.py（源码层 + 构建层双口径 + 可执行自测），防止将来又散落回去。",
+            "scope": [
+                "CMakeLists.txt",
+                "tests/CMakeLists.txt",
+                "scripts/check_utf8_flag.py",
+                "scripts/verify.ps1",
+                ".github/workflows/ci.yml",
+                "docs/testing.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "DX /utf-8 编译口径收敛：顶层一处声明，新增目标自动继承（消除四处散落）"
         },
         "M01": {
             "acceptance": [
@@ -3743,32 +3767,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-53": {
-            "acceptance": [
-                "源码层只剩一处 /utf-8 声明：顶层 CMakeLists.txt 的目录级 add_compile_options(/utf-8)；三处目标级与测试 helper 内的重复声明全部撤掉（python scripts/check_utf8_flag.py 退出码 0）",
-                "该声明位于所有 add_subdirectory() 之前 —— 否则 tests/ 子目录不继承；守卫脚本强制校验这一条",
-                "构建层实测：Ninja 生成物 build.ninja 里全部 obj 编译规则的 FLAGS 都带 utf-8；VS 生成器（CI 用的生成器）下 *.vcxproj 的 ClCompile 项同样都带",
-                "守卫脚本有可执行自测：python scripts/check_utf8_flag.py --selftest 全过，并接入 CI 与 scripts/verify.ps1",
-                "docs/testing.md 里「neonboard_add_test 已统一加 /utf-8」改为顶层口径",
-                "pwsh -File scripts/verify.ps1 全量通过；ctest 全绿；NeonBoard.exe --selftest 退出码 0"
-            ],
-            "depends": [],
-            "id": "DX-53",
-            "note": "起因：/utf-8 声明散落四处 —— 顶层 CMakeLists.txt 里三处 target_compile_options（NeonBoard / NeonBoardHost / neonboard-delta-tool）+ tests/CMakeLists.txt 的 neonboard_add_test 一处。每加一个目标都得记得再写一遍，漏写就静默按本地代码页解析中文源码（症状是「断言莫名失败」/中文常量乱码）。\n\n实测现状：生成的 build.ninja 里 412/412 个 obj 编译规则的 FLAGS 都带 utf-8 —— 但其中「-utf-8」是**搭便车**来的：Qt6::Platform 的 INTERFACE_COMPILE_OPTIONS（Qt6Targets.cmake:64）带 -utf-8，而 Qt6::Core 的 INTERFACE_LINK_LIBRARIES 链了 Qt6::Platform，于是凡是链 Qt6::Core 的目标都自动带上。也就是说现有覆盖依赖「每个目标都链 Qt6::Core」与「Qt 哪天别改这个选项」两个外部前提，不是我方约定；一旦有不链 Qt 的目标（纯 C 工具、第三方库），覆盖就静默消失，而源码里的中文会按本地代码页解析。\n\n目标：把 /utf-8 收敛成顶层 CMakeLists.txt 里唯一一处目录级 add_compile_options（置于所有 add_subdirectory 之前，保证 tests/ 子目录继承），撤掉四处重复声明，使覆盖成为结构性保证而非约定；再加机器守卫 scripts/check_utf8_flag.py（源码层 + 构建层双口径 + 可执行自测），防止将来又散落回去。",
-            "scope": [
-                "CMakeLists.txt",
-                "tests/CMakeLists.txt",
-                "scripts/check_utf8_flag.py",
-                "scripts/verify.ps1",
-                ".github/workflows/ci.yml",
-                "docs/testing.md",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "title": "DX /utf-8 编译口径收敛：顶层一处声明，新增目标自动继承（消除四处散落）"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-53": {
+            "agent": "agent-dx53",
+            "branch": "fix/utf8-top-level",
+            "claimedAt": 1793850052,
+            "head": "9591088bd4879214b6a8cdd945ce7d2fa002da15"
+        }
+    },
     "version": 1
 }

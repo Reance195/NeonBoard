@@ -683,8 +683,34 @@ def ledger_doc() -> dict | None:
 
 
 def ledger_card_ids() -> set[str]:
-    """origin/main 台账的全部卡号；离线退回工作区副本，再退空集（DX-55 取号用）。"""
-    return set((ledger_doc() or {}).get("cards", {}))
+    """origin/main 台账的全部卡号；离线退回工作区副本，再退空集（DX-55 取号用）。
+
+    DX-92：并入本地 main（锚点检出）的台账——锚点可能有未推送的立卡（DX-88 实录：
+    45e1e93 停在锚点，origin/main 的 DX-74 却被另一任务占用），只看 origin/main 会把
+    同一卡号配给两个不同任务。并集是保守方向：多拒一个号，换号即可。
+    """
+    return ledger_ids_from_docs(ledger_doc(), local_main_doc())
+
+
+def local_main_doc() -> dict | None:
+    """本地 main（锚点检出）的台账原文；取不到退 None（DX-92）。"""
+    code, text = run(["git", "-C", str(REPO), "show", "main:docs/board-ledger.json"],
+                     capture=True, quiet=True)
+    if code != 0 or not text.strip():
+        return None
+    try:
+        return json.loads(text)
+    except ValueError:
+        return None
+
+
+def ledger_ids_from_docs(*docs: dict | None) -> set[str]:
+    """纯函数：若干份台账文档的卡号并集（DX-92 自测口径）。"""
+    ids: set[str] = set()
+    for d in docs:
+        if d:
+            ids |= set(d.get("cards", {}))
+    return ids
 
 
 def queued_card_ids() -> set[str]:
@@ -810,18 +836,19 @@ def duplicate_hits(title: str, known: list[tuple[str, str]],
 
 
 def known_titles(exclude: str = "") -> list[tuple[str, str]]:
-    """查重语料：台账 cards + 活队列 + 归档请求单（DX-51 的重复痛点就停在已交付卡里）。
+    """查重语料：台账 cards（origin/main + 本地 main，DX-92）+ 活队列 + 归档请求单
+    （DX-51 的重复痛点就停在已交付卡里）。
 
     同卡号在队列与归档各有一份时按卡号去重，台账版本优先。
     """
-    doc = ledger_doc() or {}
     corpus: list[tuple[str, str]] = []
     seen: set[str] = set()
-    for cid, c in (doc.get("cards") or {}).items():
-        t = (c or {}).get("title") or ""
-        if cid != exclude and t:
-            corpus.append((cid, t))
-            seen.add(cid)
+    for doc in (ledger_doc(), local_main_doc()):
+        for cid, c in ((doc or {}).get("cards") or {}).items():
+            t = (c or {}).get("title") or ""
+            if cid != exclude and t and cid not in seen:
+                corpus.append((cid, t))
+                seen.add(cid)
     for d in (REQUEST_DIR, ARCHIVE_REQUEST_DIR):
         if not d.is_dir():
             continue
@@ -1285,14 +1312,7 @@ def anchor_probe(ctx: Ctx, simulate: bool = False) -> dict:
 
 def next_conflict_card(state: dict) -> str:
     """冲突工单沿用 §9 已有的 DX 阶段与编号，自动避开已占用号。"""
-    used = set(state.get("sessions", {}))
-    code, text = run(["git", "-C", str(REPO), "show", "origin/main:docs/board-ledger.json"],
-                     capture=True, quiet=True)
-    if code == 0 and text.strip():
-        try:
-            used |= set(json.loads(text).get("cards", {}))
-        except ValueError:
-            pass
+    used = set(state.get("sessions", {})) | ledger_card_ids()
     if REQUEST_DIR.is_dir():
         for p in REQUEST_DIR.glob("*.md"):
             try:
@@ -1936,6 +1956,21 @@ def selftest() -> int:
             globals()["ledger_doc"] = old_doc73
             globals()["claim_refs"] = old_refs73
             globals()["recover_claim_context"] = old_rec73
+
+        # DX-92：取号占用集并入本地 main 台账（锚点未推立卡不进占用集就会撞号）
+        check("台账卡号并集（纯函数）",
+              ledger_ids_from_docs({"cards": {"DX-1": {}, "DX-2": {}}},
+                                   {"cards": {"DX-2": {}, "DX-3": {}}}) == {"DX-1", "DX-2", "DX-3"}
+              and ledger_ids_from_docs(None, None) == set())
+        old_doc92, old_main92 = ledger_doc, local_main_doc
+        globals()["ledger_doc"] = lambda: {"cards": {"DX-74": {}, "DX-88": {}}}
+        globals()["local_main_doc"] = lambda: {"cards": {"DX-74": {}, "DX-75": {}}}
+        try:
+            check("ledger_card_ids 含本地 main 独有卡号（DX-75 在 origin/main 缺席也占用）",
+                  ledger_card_ids() == {"DX-74", "DX-75", "DX-88"})
+        finally:
+            globals()["ledger_doc"] = old_doc92
+            globals()["local_main_doc"] = old_main92
 
     failed = [n for n, ok in cases if not ok]
     for name, ok in cases:

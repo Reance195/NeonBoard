@@ -489,6 +489,24 @@
   类动作（开区、出包、立卡合回主线）定位脚本时一律按锚点/目标检出，绝不按调用方 REPO**——
   调用方 REPO 只适合「作用于调用方自己」的动作（verify、report 的验证）。
 
+### 1.33 取号占用集只看 origin/main 台账：锚点未推的立卡挡不住同号再分配（DX-92）
+
+- **现象**（2026-11-06 DX-88 实录）：维护者会话在锚点本地立卡 DX-74「git-done 收尾补推 3→1」
+  （`75cd573`，合并提交 `45e1e93` 停在锚点未推送）；另一会话 nbflow approve 以 origin/main 台账
+  取号，DX-74 被另一任务「剩余脚本裸 git 取值清理」（`6505441`）占用——同一卡号挂了两个不同任务，
+  锚点 main 与 origin/main 分叉（领先 3 提交 / 落后 80+）。
+- **根因**：取号占用集 = `ledger(origin/main) | 活队列 | 在途会话`，本地 main（锚点检出）的台账
+  不在内。锚点区只要有未推送的立卡，任何会话的下一次取号都会把同号配给新任务。孤儿任务内容
+  事后按 DX-88 保全重立，但**撞号判据不补，锚点再有未推立卡就重演**。
+- **解法（DX-92）**：`ledger_card_ids()` 收口为 origin/main 与本地 main 的卡号**并集**
+  （`ledger_ids_from_docs` 纯函数 + `local_main_doc()` 读 `git show main:docs/board-ledger.json`，
+  取不到退 None）；`next_conflict_card` 的自带取号与 `known_titles` 查重语料同源消费（Z5：
+  单一实现），本地 main 独有卡立即被拒 / 改配。并集是保守方向——多拒一个号，换号即可。
+- **预防**：selftest 断言并集含本地 main 独有卡号（纯函数 + 全局注入双台账）；实机口径 = 锚点
+  main 领先 origin/main 且台账有本地独有卡时，`nbflow request` 不得取到该号。判据写法上记一条：
+  **凡是「从台账推导的占用/查重集合」，来源必须枚举全部本地可见的 main 引用（origin/main +
+  main），只写一个来源就是把分叉检出当不存在**。
+
 ---
 
 ## 二、脚本与编码（PowerShell / Python）

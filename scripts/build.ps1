@@ -315,11 +315,27 @@ function Get-NbShowIncludesPrefix {
     $objPath = Join-Path $ProbeRoot 'nb_showincludes_probe.obj'
     $logPath = Join-Path $ProbeRoot 'probe.log'
 
-    # 探针源码固定不变：sccache 命中缓存时回放的就是同一条输出，测到的前缀与真实编译一致，
-    # 同时不会每次构建都往缓存里塞一条用不上的新条目。
+    # 探针源码里嵌入「随目录变化」的标识（DX-54）。
+    #
+    # 为什么必须这样：sccache 的 key 按**内容**寻址 —— 源文件路径、头文件路径都不参与
+    # （实测：在 A 目录编译过的探针源码，在 B 目录编译**逐字相同**的源码会命中同一条
+    # 缓存）。于是「探针源码逐字固定」= 「key 逐字相同」= **必然命中缓存** → 命中时
+    # sccache 回放的是当初编译那棵树的 /showIncludes 输出，里面的头文件路径属于**别的
+    # 工作区** → 探针按「当前工作区的头文件路径」定位前缀，对不上 → 返回空 → 前缀
+    # 实测静默失效 → 退回 CMake 自探测（记的是干净 cl.exe 的前缀，与 Ninja 经 sccache
+    # 实际看到的对不上）→ 依赖条目全空 → 改公共头文件不重编 → 陈旧 obj → 堆损坏。
+    # DX-52 就是在「首次、缓存未命中」的工作区里验证的，所以没暴露。
+    #
+    # 标识让**预处理结果**随工作区而不同 → key 不同 → 必然 miss → 真实编译 → 日志里
+    # 是当前工作区的路径。
+    # 必须用**字符串字面量**：注释会被预处理器删掉，预处理结果不变，key 也就不变。
+    $treeToken = ($ProbeRoot -replace '\\', '/')
     try {
         Set-Content -LiteralPath $headerPath -Value "#pragma once`nint nb_probe();`n" -Encoding UTF8
-        Set-Content -LiteralPath $sourcePath -Value "#include `"$headerName`"`nint nb_probe() { return 0; }`n" -Encoding UTF8
+        Set-Content -LiteralPath $sourcePath -Value (
+            "#include `"$headerName`"`n" +
+            "static const char nb_probe_tree[] = `"$treeToken`";`n" +
+            "int nb_probe() { return nb_probe_tree[0]; }`n") -Encoding UTF8
     } catch {
         return $null
     }
@@ -594,7 +610,23 @@ if ($useNinja) {
         Write-Detail ("依赖前缀: " + (($probePrefix | ForEach-Object { '{0:X2}' -f $_ }) -join ' '))
         Write-Detail ("前缀哈希: " + $prefixHash.Substring(0, 16) + "…（启动器: " + $(if ($launcherPath) { Split-Path -Leaf $launcherPath } else { '无' }) + "）")
     } else {
-        Write-Host '· 未能实测 /showIncludes 前缀，退回 CMake 自探测 —— 依赖条目可能仍为空，见 docs/pitfalls.md §3.16' -ForegroundColor Yellow
+        # DX-54：探针失败**不再静默降级**。
+        # 以前这里只打一行黄字警告就继续 —— 产出一个依赖条目全空的构建：编译器不报错、
+        # Ninja 不报错、构建照样「成功」，直到某天「改公共头文件不重编 → 陈旧 obj →
+        # 类布局不一致 → 堆损坏」才暴露，而那时现场早已没了。
+        # 宁可停下：依赖条目空着的构建不该被当成成功的构建交出去。
+        $probeLogPath = Join-Path $probeRoot 'probe.log'
+        Write-Host ''
+        Write-Host '✗ 未能实测 /showIncludes 前缀，构建中止。' -ForegroundColor Red
+        Write-Host '  Ninja 靠编译器吐出的 /showIncludes 行建立头文件依赖，前缀对不上就一个'
+        Write-Host '  依赖都解析不出来（每个 obj 的 #deps 都是 0）—— 改公共头文件不重编，'
+        Write-Host '  陈旧 obj 会被链进新代码（类布局不一致 → 堆损坏）。'
+        Write-Host ''
+        Write-Host '  继续构建等于造一个「看起来成功、实际埋雷」的构建，所以这里硬失败而不是降级。'
+        Write-Host ("  探针日志（如有）：" + $probeLogPath)
+        Write-Host '  排查方向：docs/pitfalls.md §3.16（根因）与 §3.20（探针被 sccache 缓存污染）。'
+        Write-Host '  常见原因：cl.exe 不在 PATH；探针输出被拦；sccache 回放了别的工作区的路径。'
+        throw '未能实测 /showIncludes 前缀：Ninja 的依赖条目会全空，构建中止（见 docs/pitfalls.md §3.16 / §3.20）'
     }
 }
 
@@ -697,6 +729,34 @@ if ($Target) {
 $swBuild = [System.Diagnostics.Stopwatch]::StartNew()
 Invoke-Native -Exe $cmake -Label '构建' -Arguments $buildArgs
 $swBuild.Stop()
+
+# ---- DX-54：构建后自检 Ninja 的依赖条目 ----
+# 「构建成功」不等于「依赖跟踪是好的」：/showIncludes 前缀没对上时 Ninja 一个依赖都
+# 解析不出来，每个 obj 的 #deps 都是 0 —— 改公共头文件不会重编，陈旧 obj 被链进
+# 新代码，类布局不一致 → 堆损坏。这种失败是**静默**的：编译器不报错、Ninja 不报错、
+# 构建照样「成功」，等到几天后以堆损坏的形式冒出来时现场已经没了。
+# 所以在这里实测一次（判定逻辑在 scripts/check_ninja_deps.py，唯一实现）。
+#
+# 只在 Ninja 下做：MSBuild 自己扫依赖，不读 msvc_deps_prefix，没有这个坑。
+# 也跳过指定 -Target 的构建：只编一个目标时其余 obj 本来就没有依赖数据，会误报。
+if ($useNinja -and -not $Target) {
+    $depsScript = Join-Path $repoRoot 'scripts\check_ninja_deps.py'
+    if ((Test-Path -LiteralPath $depsScript) -and (Get-Command python -ErrorAction SilentlyContinue)) {
+        Write-Step '依赖条目自检（Ninja）'
+        & python $depsScript --build-dir $buildPath --repo-root $repoRoot --ninja $ninja
+        $depsCode = $LASTEXITCODE
+        if ($depsCode -eq 1) {
+            throw ('Ninja 的依赖条目自检未通过：依赖条目全空，或指向别的 worktree —— ' +
+                '这个构建不能交出去（改公共头文件不重编 → 陈旧 obj → 堆损坏）。' +
+                '见 docs/pitfalls.md §3.16 / §3.20。')
+        }
+        if ($depsCode -eq 2) {
+            Write-Host '· 跳过：依赖条目自检无法完成（找不到 ninja 或没有依赖数据）' -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host '· 跳过：未找到 scripts/check_ninja_deps.py 或 python' -ForegroundColor DarkGray
+    }
+}
 
 # exe 路径：Ninja 单配置直接落在 build/ 根；VS 多配置在 build/<Config>/ 下
 $exeName = if ($Target) { "$Target.exe" } else { 'NeonBoard.exe' }

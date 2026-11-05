@@ -40,6 +40,8 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 # 应用落盘路径的唯一口径（Get-NbLogFile / Get-NbBoardDb），不要在本文件里再拼一次
 . (Join-Path $PSScriptRoot 'nb-paths.ps1')
+# git 符号引用取值的唯一口径（DX-63）：空输出 / 多行 / 分离 HEAD 的空值语义只写一遍
+. (Join-Path $PSScriptRoot 'git-helpers.ps1')
 
 function Step([string]$name) {
     Write-Host ''
@@ -129,6 +131,12 @@ if ($ScriptOnly) {
     & python (Join-Path $repoRoot 'scripts\check_script_hygiene.py')
     if ($LASTEXITCODE -ne 0) { Fail '脚本卫生检查未通过' }
 
+    Step 'git 取值封装自测（git-helpers -SelfTest，DX-63）'
+    # 空值安全封装是 agent-init / git-done / verify 共同依赖的单一实现，
+    # 它的四态自测必须随轻档验收一起跑，坏一处三个脚本同时瞎。
+    & pwsh -NoProfile -File (Join-Path $repoRoot 'scripts\git-helpers.ps1') -SelfTest
+    if ($LASTEXITCODE -ne 0) { Fail 'git-helpers 自测未通过' }
+
     Step '编译口径守卫（/utf-8，DX-53）'
     # /utf-8 决定 MSVC 怎么解析源码里的中文：漏了不会报错，只是按本地代码页读进去
     # （症状是「断言莫名失败」/中文常量乱码）。DX-53 起它收敛为顶层目录级
@@ -201,8 +209,7 @@ sys.exit(1 if bad else 0)
 # 完整走一遍：不触网、不动远端、结束回滚，退出码即「这次收尾能不能过」的预演答案。
 if ($GitDoneDryRun) {
     Step '收尾时序演练（git-done -DryRun）'
-    $rawBranch = & git rev-parse --abbrev-ref HEAD 2>$null
-    $branch = if ($rawBranch) { ([string]$rawBranch).Trim() } else { '' }
+    $branch = Get-NbBranch
     if (-not $branch -or $branch -eq 'HEAD') { Fail '当前处于分离 HEAD，没有可演练的分支；请切到功能分支后重跑' }
     if ($branch -eq 'main') { Fail 'main 上没有可演练的收尾；请切到待合并的功能分支后重跑' }
     Write-Host ("· 演练对象：分支 {0}（fetch/push 打桩，结束回滚）" -f $branch)
@@ -399,7 +406,7 @@ if ((Test-Path $deriveScript) -and (Get-Command python -ErrorAction SilentlyCont
     & python $deriveScript --repo $repoRoot --check
     $deriveCode = $LASTEXITCODE
     if ($deriveCode -ne 0) {
-        $onMain = ((git rev-parse --abbrev-ref HEAD).Trim() -eq 'main')
+        $onMain = ((Get-NbBranch) -eq 'main')
         $hint = 'python scripts/derive_board_status.py --write'
         if ($onMain) {
             Fail "看板状态与 git 历史/台账不一致（退出码 $deriveCode），请先跑 $hint 并提交"

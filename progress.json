@@ -73,24 +73,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-63",
-            "completedAt": 0,
-            "createdAt": 1793901108,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-63",
-            "note": "触发证据：同一空值崩 bug 三次出现：DX-49 两文件、DX-50 两文件（演练自抓）、DX-59 一文件。Z6：踩第三次必须成闸门，此后该 bug 类别物理上写不出来。\n\n## 目标\ngit 输出取值收口单一实现：git-helpers.ps1 空值安全封装加卫生闸门禁裸模式\n\n## 验收\nscripts/git-helpers.ps1 提供 Get-NbSymRef / Get-NbToplevel / Get-NbCommonDir / Get-NbBranch 空值安全封装，附带 selftest 覆盖空输出/多行/分离 HEAD/非仓库目录四态;agent-init / git-done / verify 的漂移守卫与符号引用取值全部换用封装函数;check_script_hygiene 新增规则：裸 ([string](& git 取值模式只允许出现在 git-helpers.ps1，反向探针验证;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/git-helpers.ps1;scripts/agent-init.ps1;scripts/git-done.ps1;scripts/verify.ps1;scripts/check_script_hygiene.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 34816,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "git 输出取值收口单一实现：git-helpers.ps1 空值安全封装加卫生闸门禁裸模式",
-            "updatedAt": 1793901108
-        },
-        {
             "code": "DX-71",
             "completedAt": 0,
             "createdAt": 1793903068,
@@ -3050,6 +3032,24 @@
             "updatedAt": 1793901108
         },
         {
+            "code": "DX-63",
+            "completedAt": 1793905191,
+            "createdAt": 1793901108,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-63",
+            "note": "触发证据：同一空值崩 bug 三次出现：DX-49 两文件、DX-50 两文件（演练自抓）、DX-59 一文件。Z6：踩第三次必须成闸门，此后该 bug 类别物理上写不出来。\n\n## 目标\ngit 输出取值收口单一实现：git-helpers.ps1 空值安全封装加卫生闸门禁裸模式\n\n## 验收\nscripts/git-helpers.ps1 提供 Get-NbSymRef / Get-NbToplevel / Get-NbCommonDir / Get-NbBranch 空值安全封装，附带 selftest 覆盖空输出/多行/分离 HEAD/非仓库目录四态;agent-init / git-done / verify 的漂移守卫与符号引用取值全部换用封装函数;check_script_hygiene 新增规则：裸 ([string](& git 取值模式只允许出现在 git-helpers.ps1，反向探针验证;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/git-helpers.ps1;scripts/agent-init.ps1;scripts/git-done.ps1;scripts/verify.ps1;scripts/check_script_hygiene.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 34816,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git 输出取值收口单一实现：git-helpers.ps1 空值安全封装加卫生闸门禁裸模式",
+            "updatedAt": 1793905191
+        },
+        {
             "completedAt": 1792719894,
             "createdAt": 1792719894,
             "deleted": false,
@@ -4237,6 +4237,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T02:57:46",
+    "updated": "2026-11-06T02:59:51",
     "version": 3
 }

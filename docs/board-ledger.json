@@ -51,6 +51,7 @@
         "DX-49": "todo",
         "DX-50": "todo",
         "DX-51": "todo",
+        "DX-52": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1187,6 +1188,28 @@
             ],
             "stage": "DX",
             "title": "堵流程豁免洗白：agent-init 领用前脏树即拒，流程 scope 触及代码路径时豁免失效"
+        },
+        "DX-52": {
+            "acceptance": [
+                "CMake 记录的前缀 == 实际编译链路实测的前缀：build/CMakeFiles/rules.ninja 里的 msvc_deps_prefix 与构建脚本探测到的字节逐字节一致",
+                "Ninja 依赖条目不再为空：ninja -t deps 中所有 obj 的 #deps > 0，且列出实际 include 的头文件",
+                "改公共头文件触发重编：改一个被多处引用的头文件后重新构建，对应源文件确实被重编（构建日志出现该源文件名），不再留下陈旧 obj",
+                "sccache 保留：默认构建仍走 sccache 启动器，缓存命中不退化（构建反馈回路里 Cache hits 仍增长）",
+                "前缀变化即重配：探测到的前缀与上次配置用的不一致时，构建脚本强制重新配置，且旧 obj 因编译命令行变化而全部重编（不留陈旧 obj）",
+                "无 sccache 路径同样成立：-NoCache 构建下依赖条目同样非空",
+                "pwsh -File scripts/verify.ps1 全量通过；NeonBoard.exe --selftest 退出码 0",
+                "docs/pitfalls.md 记一条：sccache 会改写 MSVC 本地化的 /showIncludes 前缀，而 CMake 自探测绕开启动器 → Ninja 依赖条目全空（症状是「改头文件不重编」）"
+            ],
+            "depends": [],
+            "id": "DX-52",
+            "note": "起因（2026-11-05，维护者本会话报障）：Ninja 构建下**改公共头文件不触发重编**，于是旧 obj 被链进新代码 —— 类布局不一致 → 堆损坏。崩溃点误导性地报在 QImage::~QImage，根因却跟图像毫无关系。\n\n【实测证据（仓库 build/ 现场）】ninja -t deps 显示 **412/412 个 obj 全是 #deps 0** —— Ninja 一个依赖条目都没解析出来。build/CMakeFiles/rules.ninja 里 `deps = msvc` 与 `/showIncludes` 都在（121 处），配置本身没错。\n\n【根因：三层叠加，缺一不可】\n1. CMake 的编译器探测**绕开启动器**：`CMAKE_DETERMINE_MSVC_SHOWINCLUDES_PREFIX` 直接调 cl.exe，不走 CMAKE_<LANG>_COMPILER_LAUNCHER。所以 CMake 记下的是「干净 cl.exe」的前缀。\n2. sccache 0.18.0 **无条件改写本地化前缀**：编译器输出经 sccache 后，前缀字节变成 `D7 A2 EF BF BD 3A 20 EF BF BD 3A 20 20`（含 U+FFFD），两种控制台代码页下完全一样 —— 本地化的「注意: 包含文件:  」被拆成乱码。CMake 记的干净前缀永远对不上 Ninja 实际看到的。\n3. **代码页漂移**是第二个独立故障：仓库 build/ 是在 CP 936 下配置的（记的是干净 GBK 前缀），后来在 CP 65001 下编译 —— 即使没有 sccache 也对不上。\n\n【反证（仓库外最小工程逐条实测，全部无效）】\n- 「没开 /showIncludes」：错，配置里开关是打开的；\n- `/utf-8`：**不改变**诊断输出编码（两种代码页下输出字节完全相同）；\n- `CMAKE_NINJA_CMCLDEPS=ON`：无效 —— CMake 4.4 对 MSVC 不生成 /sourceDependencies；\n- `CL_SHOWINCLUDES_PREFIX` 环境变量：对 sccache 无效；\n- `VSLANG=1033`（切英文输出）：无效 —— 本机没装英文语言包，仍输出中文前缀；\n- 把 launcher 提前到 project() 之前：无效 —— 探测仍绕开 launcher。\n\n【做法：探测 launcher 实际输出的前缀，显式告诉 CMake】\n构建脚本用**同一条编译链路**（含 sccache 启动器）跑一次探针编译，取 include 行里「已知完整路径」之前的原始字节作为前缀，再把它交给 CMake —— 让 **CMake 记录值 == Ninja 实际看到的值**。前缀按字节经文件传递（不走命令行），避开 GBK 前缀不是合法 UTF-8 的坑；CMakeLists 在 project() 之后覆盖 CMAKE_CXX_CL_SHOWINCLUDES_PREFIX / CMAKE_CL_SHOWINCLUDES_PREFIX（它们是普通变量，必须在 project() 之后覆盖才生效）。\n前缀一旦变化就强制重新配置，并让编译命令行带上前缀哈希 —— 否则旧 obj 不会被重编，陈旧 obj 的隐患原样留着。\n\n【边界】不改用 /sourceDependencies（CMake 4.4 对 MSVC 不支持）、不要求装英文语言包、**不禁用 sccache**（保住缓存命中率的收益）。",
+            "scope": [
+                "scripts/build.ps1",
+                "CMakeLists.txt",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "DX Ninja 依赖跟踪失效：sccache 改写 /showIncludes 前缀，改公共头文件不重编 → 陈旧 obj → 堆损坏"
         },
         "M01": {
             "acceptance": [

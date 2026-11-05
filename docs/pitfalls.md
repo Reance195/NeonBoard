@@ -444,6 +444,30 @@
   全局 `.gitconfig` 的 `http.proxy` 优先级更高，要用
   `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.proxy GIT_CONFIG_VALUE_0=<死端口>` 一次性覆写。
 
+### 1.31 投影重建不消费服务端领用占位：已领用卡被重建成 created，report/close 全被拒（DX-73）
+
+- **现象**（2026-11-06 DX-66 实录）：`nbflow dispatch` 回执明确输出
+  「DX-66: created → dispatched」，`refs/claims/DX-66` 已推上 origin（`a91f544`），
+  分支带两条领用提交；随后 `nbflow status` 却显示 created、state.json 无 DX-66 条目，
+  report 被拒「DX-66 不在可执行态（当前：created）」，只能绕过 nbflow 走 git-done 裸收尾。
+- **根因**：投影重建（DX-65）只吃两样事实——台账 `baseline` 与会话 `head` 是否并入
+  `origin/main`——**服务端 `refs/claims/*` 这个领用唯一硬门反而不在事实集里**。
+  state.json 是并行会话共享的读改写文件（DX-66 的条目丢失即并发覆盖），条目一丢，
+  补影就把已领用卡当成「从没人动过」重建成 created；report/close 只认 dispatched 及之后，
+  回路就此断头。补影漏掉的不是边角数据，是**闸门自己认的事实源**。
+- **解法（DX-73）**：重建消费占位，三条路径：
+  ① 补影时占位仍在的卡直接重建为 `dispatched`（`claim_refs()`：`ls-remote origin refs/claims/*`，
+  离线退本地镜像并声明可能含孤儿）；② 会话滞留 created 但占位仍在 → 对账升回 dispatched
+  （`reconcile_plan` 新规则）；③ 升级/补影同时尽力恢复领用现场——扫**锚点区**（git common dir
+  父目录，不是 REPO：`.worktrees` 只在锚点存在，从 linked worktree 里跑 nbflow 按 REPO 扫必扫空）
+  各 worktree 的 handoff.json 恢复 branch/worktree/agent/sessionId，扫不到再看「占位指向的提交
+  未并入 main 且仍被某分支包含」取分支名。已并入 main 的领用现场**不猜**——之后从 main 新切的
+  分支都「包含」它，恢复出来的分支名会指错人。
+- **预防**：selftest 固化四条断言（占位仍在的缺会话卡重建 dispatched + 恢复现场 / 无占位仍补影
+  created / 滞留 created 升回 dispatched / 纯函数无占位不动）；实机口径 = 删 state.json 后
+  `nbflow status`，已领用卡必须带完整现场回来。判据写法上记一条：**凡闸门认的事实源，投影重建
+  就必须消费；新增事实源（如未来的占位字段）时先过一遍 reconcile 三条路径**。
+
 ---
 
 ## 二、脚本与编码（PowerShell / Python）

@@ -1684,6 +1684,44 @@
             "stage": "DX",
             "title": "git-done 主推送撞 non-ff 无自动重试且把检出留在临时分支：DX-58 的重试收口为单一实现供两处推送共用"
         },
+        "DX-79": {
+            "acceptance": [
+                "新增第三判据（单一实现放 release-claims.py，git-done 只调用不复制）：origin refs/claims/<短号> 指向的卡在主线 baseline=done 且无任何本地/远端分支引用该占位提交时，判定为孤儿并释放",
+                "占位不可达（离线）时保守跳过并告警，不得误删活跃占位；活跃卡（baseline 非 done 或分支仍在）一律保留，防双领门不受影响",
+                "实测：手工制造一条孤儿占位后跑收尾，该 ref 从 origin 消失；活跃占位（如做卡时的 DX-63/71/72）原样保留",
+                "python scripts/release-claims.py 自测覆盖孤儿判定三分类（祖先命中/台账登记命中/孤儿），CI 每次跑"
+            ],
+            "author": "agent-dx66 session (ZCode, 2026-11-06)",
+            "depends": [],
+            "evidence": "2026-11-06 实测：origin 现存 10 条孤儿占位（DX-38/41/44/46/50/51/58/59/62/67），对应卡 baseline 全部 done，却无人清理。git-done 的 Invoke-ClaimRefCleanup 判据①「占位指向的提交已是 origin/main 祖先」对 rebase 重写过的分支恒假（领用提交被重写，旧 sha 成孤儿）；判据②「台账 claims 中登记的分支本地与远端均已不存在」对根本没有台账登记的孤儿 ref 无从谈起——两类交集之外的占位（有占位、无登记、sha 非祖先）永远滞留，且与本地孤儿 ref 的清理口径（本地孤儿应删除）不对称",
+            "id": "DX-79",
+            "note": "立卡通道说明：nbflow approve 两次竞态（DX-72 board-apply 未落盘 + 状态机视图互相矛盾）后改走宪章代登记；nbflow 请求单 frontmatter 的 acceptance 字段只落最后一条，多验收项丢失，属 nbflow 侧待修缺陷（与 DX-80 同域）。",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/release-claims.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "孤儿 refs/claims 永久滞留：释放判据只覆盖「台账有登记」与「sha 是 main 祖先」两类，孤儿占位三不管"
+        },
+        "DX-80": {
+            "acceptance": [
+                "approve 未显式传 --batch 时，批次标签默认取本次 filing 上下文（如「<日期> <卡号单卡/组合>」），绝不继承被消费授权行的 batch 字段；--authorize/--batch 显式传参时行为不变（DX-70/71 验证过的第⓪条路径保持可用）",
+                "approve 执行前回显将写入提交体的「授权：」「批次：」两行原文，复用会话级授权时显著提示「批次标签为本次立卡上下文，非授权登记批次」",
+                "自测覆盖：不传参默认标签正确、显式传参不变、复用授权行时提示出现；既有 authorize 注册/消费/过期流程回归不变"
+            ],
+            "author": "agent-dx66 session (ZCode, 2026-11-06)",
+            "depends": [],
+            "evidence": "两次实录：2026-11-06 立卡 DX-63~67 时 approve 复用「结卡兜底批次」授权行，五张卡批次归属全错；同日立卡 DX-73 又错挂成并行会话的「DX-62 交付后发现项批次（DX-70、DX-71）」。根因：approve 不传 --batch 时继承被消费授权行的 batch 字段——那是授权登记时的批次名，不是本次立卡所属批次；授权共享是设计行为，标签继承不是。目前只靠人记忆「approve 后 git show 核对提交体」兜底（Z6：同一坑第二次出现就该有机器判据），且勘误要在台账里再开一次 chore 提交，成本高",
+            "id": "DX-80",
+            "note": "第三次实录补记（立卡后当天）：并行会话立卡 DX-81 未传显式 --batch，消费了本会话显式注册的授权行，DX-81 提交体批次错挂为「DX-79、DX-80」批次。另：request 多验收项只落最后一条（见 DX-79 note），建议随本卡一并修。",
+            "scope": [
+                "scripts/nbflow.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "nbflow approve 复用共享授权行时批次标签跟着错挂：无机器判据，两次实录（DX-63~67、DX-73）"
+        },
         "DX-81": {
             "acceptance": [
                 "漂移项可被本分支自身新增的 claims 登记（相对 base 的 claims diff 且派生状态为 doing）解释时降为提示（合入由 git-done 收敛），其余漂移维持非零退出",

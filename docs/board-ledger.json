@@ -73,6 +73,9 @@
         "DX-72": "todo",
         "DX-73": "todo",
         "DX-74": "todo",
+        "DX-75": "todo",
+        "DX-76": "todo",
+        "DX-77": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1609,6 +1612,57 @@
             ],
             "stage": "DX",
             "title": "剩余脚本的裸 git 取值清理：wrapper 捕获与手工首行模式并入 git-helpers 单一口径"
+        },
+        "DX-75": {
+            "acceptance": [
+                "dispatch 网络失败（fail-closed）的状态转移合法：blocked 作为一等状态进转移表，或失败回滚保持 created，不再出现「写 blocked 又报非法状态转移（允许：abandoned, dispatched, requested）」的自相矛盾输出",
+                "blocked 态有明确出路：status 对 blocked 卡打印下一步指令（重跑 dispatch 或 abandon），恢复后能正常领用",
+                "python scripts/nbflow.py --selftest 覆盖该转移场景并通过"
+            ],
+            "depends": [],
+            "id": "DX-75",
+            "note": "触发证据：本会话 dispatch DX-71 时 origin 抖动实测：nbflow 打出「非法状态转移：DX-71 created → blocked（允许：abandoned, dispatched, requested）」——状态机自己写不被自己允许的状态；blocked 无恢复指令，reconcile 报「无需动作」，只能重跑 dispatch 碰运气恢复\n\n## 目标\nnbflow 网络失败写 blocked 却报非法状态转移：blocked 进转移表并配恢复路径\n\n## 验收\ndispatch 网络失败（fail-closed）的状态转移合法：blocked 作为一等状态进转移表，或失败回滚保持 created，不再出现「写 blocked 又报非法状态转移（允许：abandoned, dispatched, requested）」的自相矛盾输出;blocked 态有明确出路：status 对 blocked 卡打印下一步指令（重跑 dispatch 或 abandon），恢复后能正常领用;python scripts/nbflow.py --selftest 覆盖该转移场景并通过\n\n## 边界\nscripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/nbflow.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "nbflow 网络失败写 blocked 却报非法状态转移：blocked 进转移表并配恢复路径"
+        },
+        "DX-76": {
+            "acceptance": [
+                "巡检判据进 check_claim_refs.py 单一实现：refs/claims/<短号> 指向 origin/main 祖先且台账 baseline 已 done → 点名「应释放」，--selftest 覆盖正反例（活跃 claim 不报）",
+                "CI（board.yml）跑该巡检：存量僵尸被点名，补清后转绿",
+                "存量补清：按巡检结果逐个 git push origin --delete refs/claims/<短号>，释放清单留痕进卡片 note",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "depends": [],
+            "id": "DX-76",
+            "note": "触发证据：2026-11-06 实测 origin 存活 17 个 refs/claims/*，其中 DX-38/41/44/46/50/51/58/59/62/67 十张卡 baseline 已 done 仍占位（§7.2.1 要求合并后释放）；git-done 的 Invoke-ClaimRefCleanup 存在但存量失效且无巡检判据，坏了无人知\n\n## 目标\n已 done 卡的服务端 claim ref 存量未释放：补清并加巡检判据\n\n## 验收\n巡检判据进 check_claim_refs.py 单一实现：refs/claims/<短号> 指向 origin/main 祖先且台账 baseline 已 done → 点名「应释放」，--selftest 覆盖正反例（活跃 claim 不报）;CI（board.yml）跑该巡检：存量僵尸被点名，补清后转绿;存量补清：按巡检结果逐个 git push origin --delete refs/claims/<短号>，释放清单留痕进卡片 note;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/check_claim_refs.py;.github/workflows/board.yml;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/check_claim_refs.py",
+                ".github/workflows/board.yml",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "已 done 卡的服务端 claim ref 存量未释放：补清并加巡检判据"
+        },
+        "DX-77": {
+            "acceptance": [
+                "chcp 936 控制台下 pwsh -File scripts/verify.ps1 -ScriptOnly 与 python -I scripts/nbflow.py status 的中文输出可读（无 mojibake），方案沿 DX-60 口径（入口自切 CP 65001 或 Python stdout reconfigure UTF-8），能抽公共实现就抽、不复制三份",
+                "python scripts/nbflow.py --selftest 与 check_script_hygiene 均通过（不引入 BOM/编码卫生回归）",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "depends": [],
+            "id": "DX-77",
+            "note": "触发证据：本会话实测（chcp 936 控制台）：verify.ps1 尾行输出「閫€鍑虹爜: 0」、nbflow status 授权整段 mojibake；同类已三次：DX-46 修 board-apply.py、DX-60 修 build.ps1，均只治单文件（Z6：该收口所有入口了）\n\n## 目标\nDX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码\n\n## 验收\nchcp 936 控制台下 pwsh -File scripts/verify.ps1 -ScriptOnly 与 python -I scripts/nbflow.py status 的中文输出可读（无 mojibake），方案沿 DX-60 口径（入口自切 CP 65001 或 Python stdout reconfigure UTF-8），能抽公共实现就抽、不复制三份;python scripts/nbflow.py --selftest 与 check_script_hygiene 均通过（不引入 BOM/编码卫生回归）;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/verify.ps1;scripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/verify.ps1",
+                "scripts/nbflow.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "DX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码"
         },
         "M01": {
             "acceptance": [

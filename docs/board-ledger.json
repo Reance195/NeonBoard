@@ -3744,13 +3744,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-52": {
-            "agent": "agent-dx52",
-            "branch": "fix/ninja-deps-tracking",
-            "claimedAt": 1793844938,
-            "head": "b6a7ebb9e663af8a258ed60ca1e849c49b46312e"
-        }
-    },
+    "claims": {},
     "version": 1
 }

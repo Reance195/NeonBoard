@@ -199,24 +199,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-54",
-            "completedAt": 0,
-            "createdAt": 1793851317,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-54",
-            "note": "起因（2026-11-05 实施 DX-53 时实测发现）：DX-52 的 /showIncludes 前缀探针（scripts/build.ps1 的 Get-NbShowIncludesPrefix）在**第二个及以后的工作区**里静默失效 —— 也就是 DX-52 要根治的那个坑（改公共头文件不重编 → 陈旧 obj → 类布局不一致 → 堆损坏）在 main 分支上原样复发。\n\n证据链：\n1) DX-53 工作区的 build/.nb-deps-probe/probe.log 里回放的是**另一个工作区**的路径（E:\\projects\\NeonBoard\\.worktrees\\agent-dx52\\...，该工作区早已回收）；\n2) showincludes-prefix.bin **没有生成**，rules.ninja 记的是 CMake 自探测的干净 GBK 前缀，而不是经 sccache 改写后的前缀；\n3) ninja -t deps 实测 **418/418 个 obj 的 #deps 全为 0**；\n4) build.ps1 只打印一行黄字警告就继续构建 —— 产出了一个依赖条目全空的构建，没有任何环节拦下它；\n5) 独立复现：在 A 目录编译探针源码后，在 B 目录编译**逐字相同**的源码，sccache 命中并回放 **A 目录**的路径。\n\n根因：探针源码是**逐字固定**的 → 预处理结果逐字相同 → sccache 的 key 按内容寻址（源文件与头文件路径都不参与）→ **必然命中缓存** → 命中时回放的是当初编译那棵树的 /showIncludes 输出 → 探针按「当前工作区的头文件路径」去定位前缀，路径对不上 → 返回空 → 退回 CMake 自探测。DX-52 当时是在「首次、缓存未命中」的工作区里验证的，所以没暴露。\n\n注意这是 DX-52 自己的思路漏了一处：它给**主构建**加了按源码树分桶的身份头（/FI），却把**探针自己**漏在外面了。\n\n目标：① 让探针的预处理结果按源码树分桶（源码里嵌入随目录变化的标识 —— 注意注释会被预处理器删掉，必须用字符串字面量），同树内仍命中缓存且回放的仍是本树路径，换树必为真实编译；② 探针失败不再静默降级 —— 宁可构建失败，也不能产出一个依赖条目全空的构建；③ 判定逻辑只有一处实现（scripts/check_ninja_deps.py），构建后自检 ninja -t deps，把「依赖条目全空 / 指向别的 worktree」当场拦下。",
-            "orderKey": 28672,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 前缀探针被 sccache 缓存污染：第二个工作区里 Ninja 依赖条目又全空",
-            "updatedAt": 1793851317
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -2515,6 +2497,24 @@
             "updatedAt": 1793851075
         },
         {
+            "code": "DX-54",
+            "completedAt": 1793852255,
+            "createdAt": 1793851317,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-54",
+            "note": "起因（2026-11-05 实施 DX-53 时实测发现）：DX-52 的 /showIncludes 前缀探针（scripts/build.ps1 的 Get-NbShowIncludesPrefix）在**第二个及以后的工作区**里静默失效 —— 也就是 DX-52 要根治的那个坑（改公共头文件不重编 → 陈旧 obj → 类布局不一致 → 堆损坏）在 main 分支上原样复发。\n\n证据链：\n1) DX-53 工作区的 build/.nb-deps-probe/probe.log 里回放的是**另一个工作区**的路径（E:\\projects\\NeonBoard\\.worktrees\\agent-dx52\\...，该工作区早已回收）；\n2) showincludes-prefix.bin **没有生成**，rules.ninja 记的是 CMake 自探测的干净 GBK 前缀，而不是经 sccache 改写后的前缀；\n3) ninja -t deps 实测 **418/418 个 obj 的 #deps 全为 0**；\n4) build.ps1 只打印一行黄字警告就继续构建 —— 产出了一个依赖条目全空的构建，没有任何环节拦下它；\n5) 独立复现：在 A 目录编译探针源码后，在 B 目录编译**逐字相同**的源码，sccache 命中并回放 **A 目录**的路径。\n\n根因：探针源码是**逐字固定**的 → 预处理结果逐字相同 → sccache 的 key 按内容寻址（源文件与头文件路径都不参与）→ **必然命中缓存** → 命中时回放的是当初编译那棵树的 /showIncludes 输出 → 探针按「当前工作区的头文件路径」去定位前缀，路径对不上 → 返回空 → 退回 CMake 自探测。DX-52 当时是在「首次、缓存未命中」的工作区里验证的，所以没暴露。\n\n注意这是 DX-52 自己的思路漏了一处：它给**主构建**加了按源码树分桶的身份头（/FI），却把**探针自己**漏在外面了。\n\n目标：① 让探针的预处理结果按源码树分桶（源码里嵌入随目录变化的标识 —— 注意注释会被预处理器删掉，必须用字符串字面量），同树内仍命中缓存且回放的仍是本树路径，换树必为真实编译；② 探针失败不再静默降级 —— 宁可构建失败，也不能产出一个依赖条目全空的构建；③ 判定逻辑只有一处实现（scripts/check_ninja_deps.py），构建后自检 ninja -t deps，把「依赖条目全空 / 指向别的 worktree」当场拦下。",
+            "orderKey": 28672,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 前缀探针被 sccache 缓存污染：第二个工作区里 Ninja 依赖条目又全空",
+            "updatedAt": 1793852255
+        },
+        {
             "code": "R8-05",
             "completedAt": 1793251716,
             "createdAt": 1793213056,
@@ -3769,6 +3769,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T12:01:57",
+    "updated": "2026-11-05T12:17:35",
     "version": 3
 }

@@ -4620,6 +4620,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-89": {
+            "agent": "agent-dx89",
+            "branch": "fix/nbflow-dispatch-anchor",
+            "claimedAt": 1793909208,
+            "head": "175534fafb7915e9d71ff82a39362e528a3a82a5"
+        }
+    },
     "version": 1
 }

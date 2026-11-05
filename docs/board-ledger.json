@@ -4058,13 +4058,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-61": {
-            "agent": "agent-dx61",
-            "branch": "fix/nbflow-defer-acceptance",
-            "claimedAt": 1793900031,
-            "head": "d7570aa0a4aa42f5014c0b72bbf6b42c8e791093"
-        }
-    },
+    "claims": {},
     "version": 1
 }

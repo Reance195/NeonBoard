@@ -220,6 +220,7 @@ set_source_files_properties(qml/components/TopToolButton.qml PROPERTIES QT_RESOU
 set_source_files_properties(qml/components/TaskCard.qml PROPERTIES QT_RESOURCE_ALIAS "TaskCard.qml")
 set_source_files_properties(qml/components/BoardColumn.qml PROPERTIES QT_RESOURCE_ALIAS "BoardColumn.qml")
 set_source_files_properties(qml/components/EmptyState.qml PROPERTIES QT_RESOURCE_ALIAS "EmptyState.qml")
+set_source_files_properties(qml/components/AddColumnButton.qml PROPERTIES QT_RESOURCE_ALIAS "AddColumnButton.qml")
 set_source_files_properties(qml/components/ColumnManager.qml PROPERTIES QT_RESOURCE_ALIAS "ColumnManager.qml")
 set_source_files_properties(qml/components/ThemePicker.qml PROPERTIES QT_RESOURCE_ALIAS "ThemePicker.qml")
 set_source_files_properties(qml/components/SettingsPanel.qml PROPERTIES QT_RESOURCE_ALIAS "SettingsPanel.qml")
@@ -257,6 +258,7 @@ qt_add_qml_module(NeonBoard
         qml/components/TaskCard.qml
         qml/components/BoardColumn.qml
         qml/components/EmptyState.qml
+        qml/components/AddColumnButton.qml
         qml/components/ColumnManager.qml
         qml/components/ThemePicker.qml
         qml/components/SettingsPanel.qml

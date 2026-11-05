@@ -2224,7 +2224,7 @@
                 "R11-05"
             ],
             "id": "R11-04",
-            "note": "起因（2026-11-05 维护者授权批次）：看板是每天要看十几小时的一屏，当前卡片与背景对比偏弱、正文 10 px 与标题 13 px 层级太近、列内间距是散落的写死数字。目标：卡片标题/辅助信息字号阶梯拉开（正文最小 11 px）、圆角与内边距改走 Theme 令牌、列内间距与卡片间距统一取自 spacing 档位、顶栏统计带与阶段条的分隔线只取令牌不再写 rgba 字面量。边界：只动 qml/components 四个文件，不改数据结构与交互语义，不删任何现有徽章。依赖 R11-05 的令牌先行。",
+            "note": "【交付（2026-11-05，R11-04 已结）】\n\n起因：看板是每天要看十几小时的一屏。卡片底色与背景对比弱、正文 10 px 与标题 13 px 层级太近、\n列内间距是散落的写死数字，顶栏与阶段条里还直接写着 rgba。\n\n做法：① TaskCard：圆角走 Theme.radiusCard，标题 13 → 15 px（Theme.fontTitle），\n八类徽章文字 10 → 11 px（Theme.fontCaption），徽章圆角 5 → 8 px 成胶囊，\n动作按钮圆角 6 → 8 px；② BoardColumn：列面板圆角 16 → 12 px 与其它面板对齐，\n列标题 14 → 15 px、计数 10 → 11 px，列内外边距与卡片间距统一取 Theme.spacing；\n③ TopStatBar / StageBar：颜色全部改走 Theme 令牌（含 Theme.alpha），字号收进 typography 阶梯；\n④ 四个文件内不再出现 Qt.rgba 与颜色字面量。\n\n验收（逐条打勾）：\n1. TaskCard 无 font.pixelSize: 10 ✅（rg 无匹配）\n2. TaskCard 圆角取 Theme.radiusCard ✅\n3. BoardColumn 间距取 Theme.spacing，且无写死的 spacing 数字 ✅\n4. TopStatBar / StageBar 无 #RRGGBB 与 Qt.rgba ✅\n5. 八类徽章（项目 / 父卡 / 领用 / 标签 / 重复 / 到期 / 成本 / 执行态）一个没删 ✅\n6. pwsh -File scripts/verify.ps1 全过 ✅\n\n一般化：字号与间距要成「阶梯」而不是「每个组件挑一个」—— 只要允许随手挑，\n层级就会慢慢退化成巧合。\n\n已完成 1 / 待做 0",
             "scope": [
                 "qml/components/TaskCard.qml",
                 "qml/components/BoardColumn.qml",
@@ -2245,7 +2245,7 @@
             ],
             "depends": [],
             "id": "R11-05",
-            "note": "起因（2026-11-05 维护者授权批次）：看板主体与二级界面各写各的间距与字号，辉光与描边强度偏高，多卡同屏时信息被光吃掉。目标：(1) 在 qml/theme/Theme.qml 补齐 spacing / typography 两组令牌，并提升卡片底色不透明度（card / cardHover）让卡片从背景里立起来；(2) 收敛辉光与描边强度（borderStrong / glow / accentSoft），保留赛博霓虹但降噪；(3) 在 qml/theme/Motion.qml 补 glow 强度档与 reduced 降级档；(4) qml/NeonBackground.qml 与 shaders/neon.frag 只做保守参数调整，不改场景结构。边界：不动 src/**、不动数据库、不加依赖；辉光只降不升。",
+            "note": "【交付（2026-11-05，R11-05 已结）】\n\n起因：看板主体与二级界面各写各的间距与字号；辉光与描边强度偏高（Theme.glow 0.35 / borderStrong 0.40），\n多卡同屏时光把正文吃掉；卡片底色 Theme.card 不透明度只有 0.72，卡片几乎溶进背景。\n\n做法：① Theme.qml 补齐 spacing（4/8/12/16/24）与 typography（10/11/13/15/18）两组令牌，\n并新增 Theme.alpha(color, a) 作为半透明派生的唯一入口；② 卡片底色 0.72 → 0.88、\n悬停 0.82 → 0.96、输入框 0.70 → 0.78；③ 辉光 0.35 → 0.26、强描边 0.40 → 0.30、\n柔光 0.22 → 0.18（只降不升）；④ Motion.qml 新增 glowScale（减弱动效 ×0.35、低画质 ×0.6），\nTheme 的 glow / glowSoft 与着色器统一乘它；⑤ shaders/neon.frag 的网格亮度 0.70 → 0.52、\n鼠标辉光 0.22 → 0.16，并接入 uGlow。\n\n验收（逐条打勾）：\n1. spacing / typography 两组令牌就位 ✅（rg 'property int spacing|property int font' Theme.qml 命中）\n2. 卡片底色 alpha >= 0.85、悬停 >= 0.9 ✅（实测 0.88 / 0.96）\n3. 辉光 alpha <= 0.28、强描边 <= 0.32 ✅（实测 0.26 / 0.30）\n4. Motion.glowScale 存在且随 reduced / lowSpec 收敛 ✅\n5. 6 套内置预设键名未变（neon / violet / sunset / abyss / forest / mono）✅\n6. pwsh -File scripts/verify.ps1 全过：37/37 ctest、--selftest 与 --smoke 退出码 0、模块守门通过 ✅\n\n一般化：光这类「氛围」元素必须有一个全局强度入口 —— 否则每处 rgba 各写各的，\n迟早有人把辉光加回来，而没人说得清是哪一处。\n\n已完成 1 / 待做 0",
             "scope": [
                 "qml/theme/Theme.qml",
                 "qml/theme/Motion.qml",
@@ -2267,7 +2267,7 @@
                 "R11-05"
             ],
             "id": "R11-06",
-            "note": "起因（2026-11-05 维护者授权批次）：设置 / 插件 / 命令面板 / 卡片详情等二级界面各自写死颜色与圆角，和看板主体的令牌体系脱节 —— 换主题时它们不跟着变。目标：这些面板的底色、描边、圆角、字号统一取自 Theme 令牌；面板标题层级一致；清掉硬编码颜色字面量。边界：不动交互与数据流，不改插件与市场逻辑。依赖 R11-05 的令牌先行。",
+            "note": "【交付（2026-11-05，R11-06 已结）】\n\n起因：13 个二级界面（设置 / 插件 / 插件库 / 命令面板 / 卡片详情 / 外观 / 主题 / 市场 /\n预览 / 全景 / 引导 / 热力图 / 列管理）各自写死 rgba 底色、随手挑圆角（2 / 3 / 7 / 9 / 14 / 16）\n与字号（9 ~ 20）。后果：换主题时它们不跟着走，六套预设之间也不齐。\n\n做法：① 半透明派生统一走 Theme.alpha(color, a)；纯黑遮罩改用 Theme.bg、\n白色提亮改用 Theme.text（都随主题走）；② 圆角收进三档阶梯（面板 12 / 卡片 10 / 控件 8）；\n③ 字号收进 typography 阶梯（display 18 / title 15 / body 13 / caption 11 / micro 10），\n绝大多数是等价替换，不改变既有观感；④ 全景面板写死的 #04121f（霓虹芯片上的深色墨迹）\n与 #000000 遮罩改用 Theme.bg。\n\n验收（逐条打勾）：\n1. 13 个文件无 #RRGGBB ✅\n2. SettingsPanel / CommandPalette / CardDetailPanel 无写死 radius ✅（13 个文件全部清零）\n3. CommandPalette / CardDetailPanel 无 color: Qt.rgba ✅（13 个文件全部清零）\n4. 面板颜色改由 Theme 令牌驱动 ✅\n5. pwsh -File scripts/verify.ps1 全过 ✅\n\n已完成 1 / 待做 0",
             "scope": [
                 "qml/components/SettingsPanel.qml",
                 "qml/components/PluginPanel.qml",
@@ -2299,7 +2299,7 @@
                 "R11-05"
             ],
             "id": "R11-07",
-            "note": "起因（2026-11-05 维护者授权批次）：空列只有一行灰字，搜索无结果 / 概览无数据也没有对应反馈，用户不知道是该继续输入还是该换条件。目标：新增 qml/components/EmptyState.qml 统一空态组件（图标 + 主文案 + 副文案 + 可选行动按钮），在主界面搜索无结果、录入框空态、统计芯片与工具按钮细节处复用；把「已完成 X / 待做 Y」写回需求卡 note，并同步 README 与路线图的界面描述。边界：不改数据流与筛选逻辑，只改「没有内容时给人看什么」。",
+            "note": "【交付（2026-11-05，R11-07 已结）】\n\n起因：空态是散的 —— 空列一句灰字、搜索无结果没有反馈、概览无数据也没有说法，\n用户不知道该继续输入还是该换条件。\n\n做法：① 新增 qml/components/EmptyState.qml：图标 + 主文案 + 副文案 + 行动按钮四段结构，\n并自带筛选态判据（query / stageFiltered / projectFiltered / visibleCount → filteredEmpty），\n主界面只把条件递进来；② 主界面接入：搜索 / 里程碑 / 项目筛选把看板清空时\n（两条判据同时成立，避免空看板被误报成「筛选没结果」）浮出空态，\n并给「清除筛选」一键复位三处条件；③ 顺带把主界面标题、搜索框、统计芯片、工具按钮、\n新建弹窗的字号与间距收进 typography / spacing 阶梯；④ 新增 QML 组件必须登记进构建清单\n（qt_add_qml_module 的 QML_FILES + QT_RESOURCE_ALIAS），已同步 CMakeLists.txt。\n\n连带：qml/Main.qml 触及模块守门的 4260 行上限（棘轮：只许减不许增），于是把「＋ 列」按钮\n拆成 qml/components/AddColumnButton.qml —— Main.qml 净减到 4243 行，\n拆分本身也让看板区多了一个有自己位置的组件。\n\n验收（逐条打勾）：\n1. EmptyState.qml 四段结构齐备 ✅\n2. 主界面引用 EmptyState ✅\n3. Main.qml 无颜色字面量 ✅\n4. TaskComposer / StatChip / TopToolButton 的 Theme 令牌引用达标 ✅\n5. README.md 与 docs/iteration-roadmap.md 写回本批交付与 §9.12 ✅\n6. pwsh -File scripts/verify.ps1 全过：37/37 ctest、--selftest 与 --smoke 退出码 0、模块守门通过 ✅\n\n已完成 1 / 待做 0",
             "scope": [
                 "qml/components/EmptyState.qml",
                 "qml/components/TaskComposer.qml",

@@ -199,6 +199,24 @@
             "updatedAt": 1793825191
         },
         {
+            "code": "DX-53",
+            "completedAt": 0,
+            "createdAt": 1793850003,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-53",
+            "note": "起因：/utf-8 声明散落四处 —— 顶层 CMakeLists.txt 里三处 target_compile_options（NeonBoard / NeonBoardHost / neonboard-delta-tool）+ tests/CMakeLists.txt 的 neonboard_add_test 一处。每加一个目标都得记得再写一遍，漏写就静默按本地代码页解析中文源码（症状是「断言莫名失败」/中文常量乱码）。\n\n实测现状：生成的 build.ninja 里 412/412 个 obj 编译规则的 FLAGS 都带 utf-8 —— 但其中「-utf-8」是**搭便车**来的：Qt6::Platform 的 INTERFACE_COMPILE_OPTIONS（Qt6Targets.cmake:64）带 -utf-8，而 Qt6::Core 的 INTERFACE_LINK_LIBRARIES 链了 Qt6::Platform，于是凡是链 Qt6::Core 的目标都自动带上。也就是说现有覆盖依赖「每个目标都链 Qt6::Core」与「Qt 哪天别改这个选项」两个外部前提，不是我方约定；一旦有不链 Qt 的目标（纯 C 工具、第三方库），覆盖就静默消失，而源码里的中文会按本地代码页解析。\n\n目标：把 /utf-8 收敛成顶层 CMakeLists.txt 里唯一一处目录级 add_compile_options（置于所有 add_subdirectory 之前，保证 tests/ 子目录继承），撤掉四处重复声明，使覆盖成为结构性保证而非约定；再加机器守卫 scripts/check_utf8_flag.py（源码层 + 构建层双口径 + 可执行自测），防止将来又散落回去。",
+            "orderKey": 28672,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX /utf-8 编译口径收敛：顶层一处声明，新增目标自动继承（消除四处散落）",
+            "updatedAt": 1793850003
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3733,6 +3751,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T11:02:46",
+    "updated": "2026-11-05T11:40:03",
     "version": 3
 }

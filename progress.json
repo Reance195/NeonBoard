@@ -271,6 +271,24 @@
             "updatedAt": 1793908740
         },
         {
+            "code": "DX-89",
+            "completedAt": 0,
+            "createdAt": 1793909176,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-89",
+            "note": "触发证据：2026-11-06 DX-73 交付实录：close 从 worktree 里探测到台账冲突，自动建工单 DX-85 并 approve 合回主线成功；随后 cmd_dispatch 以 root=REPO（= 调用者 linked worktree）调 agent-init.ps1，触发 §7.10 自动原地模式（脚本所属检出是 linked worktree → 自动 -InPlace），撞「检出里已有他人 in-place 环境（NEONBOARD_AGENT_ID=agent-dx73）」守卫 exit 3，DX-85 派发失败；其 created→blocked 转移又被状态机拒绝（DX-75 病灶当场复现），工单卡死 created。与 DX-49 的区别：DX-49 治「检出与脚本不一致要响亮失败」，本卡治「nbflow 主动选错建区脚本位置」——调用方没漂移，是程序把建区动作指到了错误检出。从锚点手工重跑 dispatch 可恢复，但冲突工单自动派发链（close → raise_conflict_ticket → dispatch）从 worktree 跑必挂——领卡语义是「在锚点建 .worktrees/<agent>」，建区脚本定位必须与调用位置无关。\n\n## 目标\nnbflow dispatch 把 agent-init 指向调用者检出：领卡误入原地模式，冲突工单自动派发恒被 in-place 守卫拒\n\n## 验收\ncmd_dispatch 的 agent-init 调用以锚点区（git common dir 父目录）定位脚本：从 linked worktree 里跑 nbflow dispatch --dry-run，打印的命令行指向锚点的 agent-init.ps1，从锚点跑 dispatch 行为不变（锚点=REPO 等价）;raise_conflict_ticket → cmd_dispatch 同一实现受益，不复制第二份 root 判定（Z5）;python scripts/nbflow.py --selftest 全过，新增纯函数断言锁定「建区脚本 root=锚点」口径;docs/pitfalls.md 记一条：按调用者检出定位「建新区脚本」会让 §7.10 自动原地模式反噬派发链;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 59392,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow dispatch 把 agent-init 指向调用者检出：领卡误入原地模式，冲突工单自动派发恒被 in-place 守卫拒",
+            "updatedAt": 1793909176
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4507,6 +4525,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T03:59:00",
+    "updated": "2026-11-06T04:06:16",
     "version": 3
 }

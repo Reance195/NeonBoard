@@ -10,7 +10,7 @@ Rectangle {
     visible: false
     anchors.fill: parent
     z: 140
-    color: Qt.rgba(0, 0, 0, 0.55)
+    color: Theme.alpha(Theme.bg, 0.55)
 
     // 最近操作的 agent，构建日志显示它的
     property string logAgentId: ""
@@ -34,7 +34,7 @@ Rectangle {
         anchors.centerIn: parent
         width: Math.min(780, parent.width - 40)
         height: Math.min(640, parent.height - 32)
-        radius: 14
+        radius: Theme.radiusPanel
         color: Theme.panelSolid
         border.width: 1
         border.color: Theme.border
@@ -53,14 +53,14 @@ Rectangle {
                 Text {
                     text: "预览中心"
                     color: Theme.text
-                    font.pixelSize: 15
+                    font.pixelSize: Theme.fontTitle
                     font.bold: true
                 }
 
                 Text {
                     text: "PREVIEW CENTER"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     font.letterSpacing: 1.2
                 }
 
@@ -69,7 +69,7 @@ Rectangle {
                 Text {
                     text: "刷新"
                     color: refreshMouse.containsMouse ? Theme.cyan : Theme.text
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                     MouseArea {
                         id: refreshMouse
                         anchors.fill: parent
@@ -81,7 +81,7 @@ Rectangle {
                 Text {
                     text: "✕"
                     color: closeMouse.containsMouse ? Theme.text : Theme.muted
-                    font.pixelSize: 14
+                    font.pixelSize: Theme.fontTitle
                     MouseArea {
                         id: closeMouse
                         anchors.fill: parent
@@ -103,7 +103,7 @@ Rectangle {
                       ? "各 agent 工作区的构建与预览实例。预览实例走独立沙箱，不影响本机真实数据。"
                       : "未定位到仓库根目录：请设置环境变量 NEONBOARD_REPO_ROOT 指向仓库根目录后重启。"
                 color: Theme.muted
-                font.pixelSize: 10
+                font.pixelSize: Theme.fontMicro
                 wrapMode: Text.WordWrap
             }
 
@@ -114,7 +114,7 @@ Rectangle {
                 Layout.minimumHeight: 120
                 // 内容不足时收缩到实际高度，避免大片空白
                 Layout.maximumHeight: agentList.contentHeight + 16
-                radius: 10
+                radius: Theme.radiusCard
                 color: Theme.panel
                 border.width: 1
                 border.color: Theme.border
@@ -137,7 +137,7 @@ Rectangle {
                         required property var modelData
                         width: agentList.width
                         height: 64
-                        radius: 8
+                        radius: Theme.radiusControl
                         color: Theme.card
                         border.width: 1
                         border.color: Theme.border
@@ -158,13 +158,13 @@ Rectangle {
                                     Text {
                                         text: modelData.id
                                         color: Theme.text
-                                        font.pixelSize: 13
+                                        font.pixelSize: Theme.fontBody
                                         font.bold: true
                                     }
 
                                     Rectangle {
                                         visible: modelData.current
-                                        radius: 4
+                                        radius: Theme.radiusControl
                                         color: Theme.accentSoft
                                         border.width: 1
                                         border.color: Theme.border
@@ -176,13 +176,13 @@ Rectangle {
                                             anchors.centerIn: parent
                                             text: "当前实例"
                                             color: Theme.cyan
-                                            font.pixelSize: 9
+                                            font.pixelSize: Theme.fontMicro
                                         }
                                     }
 
                                     Rectangle {
                                         visible: modelData.dirty
-                                        radius: 4
+                                        radius: Theme.radiusControl
                                         color: "transparent"
                                         border.width: 1
                                         border.color: Theme.warning
@@ -194,7 +194,7 @@ Rectangle {
                                             anchors.centerIn: parent
                                             text: "有未提交改动"
                                             color: Theme.warning
-                                            font.pixelSize: 9
+                                            font.pixelSize: Theme.fontMicro
                                         }
                                     }
                                 }
@@ -204,7 +204,7 @@ Rectangle {
                                     text: (modelData.detached ? "(游离 HEAD) " : "") + modelData.branch
                                           + (modelData.head ? "  ·  " + modelData.head : "")
                                     color: Theme.muted
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                     elide: Text.ElideRight
                                 }
 
@@ -212,7 +212,7 @@ Rectangle {
                                     Layout.fillWidth: true
                                     text: modelData.subject
                                     color: Theme.muted
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                     elide: Text.ElideRight
                                 }
                             }
@@ -228,7 +228,7 @@ Rectangle {
                                     id: builtText
                                     text: modelData.built ? "已构建 " + modelData.builtAt : "未构建"
                                     color: modelData.built ? Theme.success : Theme.muted
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                     wrapMode: Text.NoWrap
                                 }
 
@@ -236,7 +236,7 @@ Rectangle {
                                     id: runText
                                     text: modelData.running ? "运行中  pid " + modelData.pid : "未运行"
                                     color: modelData.running ? Theme.cyan : Theme.muted
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                     wrapMode: Text.NoWrap
                                 }
                             }
@@ -249,7 +249,7 @@ Rectangle {
                                 Text {
                                     text: "构建"
                                     color: buildMouse.containsMouse ? Theme.cyan : Theme.text
-                                    font.pixelSize: 11
+                                    font.pixelSize: Theme.fontCaption
                                     MouseArea {
                                         id: buildMouse
                                         anchors.fill: parent
@@ -265,7 +265,7 @@ Rectangle {
                                     text: "启动"
                                     color: startMouse.containsMouse ? Theme.cyan
                                            : (modelData.built ? Theme.text : Theme.muted)
-                                    font.pixelSize: 11
+                                    font.pixelSize: Theme.fontCaption
                                     MouseArea {
                                         id: startMouse
                                         anchors.fill: parent
@@ -281,7 +281,7 @@ Rectangle {
                                     text: "停止"
                                     color: stopMouse.containsMouse ? Theme.danger
                                            : (modelData.running ? Theme.text : Theme.muted)
-                                    font.pixelSize: 11
+                                    font.pixelSize: Theme.fontCaption
                                     MouseArea {
                                         id: stopMouse
                                         anchors.fill: parent
@@ -296,7 +296,7 @@ Rectangle {
                                 Text {
                                     text: "出包"
                                     color: packageMouse.containsMouse ? Theme.cyan : Theme.text
-                                    font.pixelSize: 11
+                                    font.pixelSize: Theme.fontCaption
                                     MouseArea {
                                         id: packageMouse
                                         anchors.fill: parent
@@ -319,7 +319,7 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 110
                 visible: logArea.text.length > 0
-                radius: 10
+                radius: Theme.radiusCard
                 color: Theme.panel
                 border.width: 1
                 border.color: Theme.border
@@ -345,7 +345,7 @@ Rectangle {
                                 ? previewHub.buildLog(previewPanel.logAgentId) : ""
                         }
                         color: Theme.muted
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fontMicro
                         font.family: "Consolas"
                     }
                 }
@@ -372,14 +372,14 @@ Rectangle {
                         return "打包队列：" + parts.join("   ")
                     }
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     elide: Text.ElideRight
                 }
 
                 Text {
                     text: "清除已完成"
                     color: clearPackageMouse.containsMouse ? Theme.cyan : Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     MouseArea {
                         id: clearPackageMouse
                         anchors.fill: parent
@@ -396,7 +396,7 @@ Rectangle {
                 Layout.fillWidth: true
                 text: previewHub.statusText
                 color: Theme.muted
-                font.pixelSize: 10
+                font.pixelSize: Theme.fontMicro
                 elide: Text.ElideRight
             }
         }

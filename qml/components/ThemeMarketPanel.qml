@@ -32,9 +32,9 @@ Dialog {
 
     background: Rectangle {
         color: Theme.panelSolid
-        radius: 16
+        radius: Theme.radiusPanel
         border.width: 1
-        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+        border.color: Theme.alpha(Theme.cyan, 0.32)
     }
 
     // 目录变了（装 / 卸 / 刷新完）就重算一次；QML 这边只做展示，不自己猜状态
@@ -57,7 +57,7 @@ Dialog {
             Text {
                 text: "主题市场"
                 color: Theme.text
-                font.pixelSize: 16
+                font.pixelSize: Theme.fontTitle
                 font.bold: true
             }
 
@@ -65,17 +65,17 @@ Dialog {
                 visible: themeMarket.offline
                 height: 18
                 width: offlineLabel.implicitWidth + 14
-                radius: 9
-                color: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.16)
+                radius: Theme.radiusCard
+                color: Theme.alpha(Theme.warning, 0.16)
                 border.width: 1
-                border.color: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.40)
+                border.color: Theme.alpha(Theme.warning, 0.40)
 
                 Text {
                     id: offlineLabel
                     anchors.centerIn: parent
                     text: "离线 · 只显示已内置的目录"
                     color: Theme.warning
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                 }
             }
 
@@ -84,7 +84,7 @@ Dialog {
             Text {
                 text: "已安装 " + themeMarket.installedCount() + " 个"
                 color: Theme.muted
-                font.pixelSize: 10
+                font.pixelSize: Theme.fontMicro
             }
         }
 
@@ -96,7 +96,7 @@ Dialog {
             text: root.notice
             color: root.notice.indexOf("失败") >= 0 || root.notice.indexOf("不是") >= 0
                    ? Theme.warning : Theme.success
-            font.pixelSize: 10
+            font.pixelSize: Theme.fontMicro
             wrapMode: Text.WordWrap
         }
 
@@ -129,7 +129,7 @@ Dialog {
 
                         Layout.fillWidth: true
                         Layout.preferredHeight: 52
-                        radius: 10
+                        radius: Theme.radiusCard
                         color: rowMouse.containsMouse ? Theme.cardHover : Theme.card
                         border.width: 1
                         border.color: modelData.installed ? Theme.borderStrong : Theme.border
@@ -146,10 +146,10 @@ Dialog {
                                 delegate: Rectangle {
                                     width: 9
                                     height: 9
-                                    radius: 4.5
+                                    radius: Theme.radiusControl
                                     color: modelData
                                     border.width: 1
-                                    border.color: Qt.rgba(1, 1, 1, 0.15)
+                                    border.color: Theme.alpha(Theme.text, 0.15)
                                 }
                             }
                         }
@@ -168,7 +168,7 @@ Dialog {
                                 Text {
                                     text: row.modelData.name
                                     color: Theme.text
-                                    font.pixelSize: 12
+                                    font.pixelSize: Theme.fontBody
                                     font.bold: true
                                 }
 
@@ -176,7 +176,7 @@ Dialog {
                                     visible: row.modelData.installed
                                     text: "已安装"
                                     color: Theme.cyan
-                                    font.pixelSize: 9
+                                    font.pixelSize: Theme.fontMicro
                                 }
                             }
 
@@ -185,7 +185,7 @@ Dialog {
                                 text: row.modelData.desc.length > 0 ? row.modelData.desc
                                                                     : row.modelData.key
                                 color: Theme.muted
-                                font.pixelSize: 9
+                                font.pixelSize: Theme.fontMicro
                                 elide: Text.ElideRight
                             }
                         }
@@ -197,20 +197,20 @@ Dialog {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 56
                             height: 24
-                            radius: 7
+                            radius: Theme.radiusControl
                             color: row.modelData.installed
-                                   ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.14)
-                                   : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                                   ? Theme.alpha(Theme.danger, 0.14)
+                                   : Theme.alpha(Theme.cyan, 0.20)
                             border.width: 1
                             border.color: row.modelData.installed
-                                          ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.40)
-                                          : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.45)
+                                          ? Theme.alpha(Theme.danger, 0.40)
+                                          : Theme.alpha(Theme.cyan, 0.45)
 
                             Text {
                                 anchors.centerIn: parent
                                 text: row.modelData.installed ? "卸载" : "安装"
                                 color: row.modelData.installed ? Theme.danger : Theme.cyan
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                             }
 
                             MouseArea {
@@ -261,7 +261,7 @@ Dialog {
                 padding: 0
                 onClicked: Qt.openUrlExternally("file:///" + themePacks.ensureDir())
                 background: Rectangle {
-                    radius: 8
+                    radius: Theme.radiusControl
                     color: Theme.input
                     border.width: 1
                     border.color: Theme.border
@@ -269,7 +269,7 @@ Dialog {
                 contentItem: Text {
                     text: "打开主题目录"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -284,7 +284,7 @@ Dialog {
                 padding: 0
                 onClicked: root.close()
                 background: Rectangle {
-                    radius: 8
+                    radius: Theme.radiusControl
                     color: Theme.input
                     border.width: 1
                     border.color: Theme.border
@@ -292,7 +292,7 @@ Dialog {
                 contentItem: Text {
                     text: "关闭"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }

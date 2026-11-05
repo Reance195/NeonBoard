@@ -308,22 +308,22 @@ Dialog {
 
     background: Rectangle {
         color: Theme.panelSolid
-        radius: 16
+        radius: Theme.radiusPanel
         border.width: 1
-        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+        border.color: Theme.alpha(Theme.cyan, 0.32)
     }
 
     // 抽屉里的输入框统一长这样：省得每个字段各写一遍 background 而写歪
     component Field: TextField {
         Layout.fillWidth: true
         color: Theme.text
-        font.pixelSize: 12
+        font.pixelSize: Theme.fontBody
         placeholderTextColor: Theme.muted
         background: Rectangle {
             color: Theme.elevated
-            radius: 8
+            radius: Theme.radiusControl
             border.width: 1
-            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+            border.color: Theme.alpha(Theme.cyan, 0.20)
         }
     }
 
@@ -354,10 +354,10 @@ Dialog {
                 spacing: 8
 
                 Rectangle {
-                    radius: 8
+                    radius: Theme.radiusControl
                     width: 44
                     height: 22
-                    color: Qt.rgba(root.statusTint.r, root.statusTint.g, root.statusTint.b, 0.24)
+                    color: Theme.alpha(root.statusTint, 0.24)
                     border.width: 1
                     border.color: root.statusTint
 
@@ -365,31 +365,31 @@ Dialog {
                         anchors.centerIn: parent
                         text: root.statusLabel(root.snapshot.status)
                         color: root.statusTint
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                     }
                 }
 
                 Rectangle {
-                    radius: 8
+                    radius: Theme.radiusControl
                     width: 40
                     height: 22
                     visible: !root.editing
-                    color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.22)
+                    color: Theme.alpha(Theme.violet, 0.22)
                     border.width: 1
-                    border.color: Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.45)
+                    border.color: Theme.alpha(Theme.violet, 0.45)
 
                     Text {
                         anchors.centerIn: parent
                         text: root.priorityLabel(root.snapshot.priority)
                         color: Theme.violet
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                     }
                 }
 
                 Text {
                     text: root.editing ? "编辑卡片" : "卡片详情"
                     color: Theme.muted
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fontBody
                 }
 
                 Item { Layout.fillWidth: true }
@@ -402,7 +402,7 @@ Dialog {
                     padding: 0
                     onClicked: root.beginEdit()
                     background: Rectangle {
-                        radius: 8
+                        radius: Theme.radiusControl
                         color: Theme.input
                         border.width: 1
                         border.color: Theme.border
@@ -410,7 +410,7 @@ Dialog {
                     contentItem: Text {
                         text: "编辑"
                         color: Theme.muted
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -427,7 +427,7 @@ Dialog {
                         root.close()
                     }
                     background: Rectangle {
-                        radius: 8
+                        radius: Theme.radiusControl
                         color: Theme.input
                         border.width: 1
                         border.color: Theme.border
@@ -435,7 +435,7 @@ Dialog {
                     contentItem: Text {
                         text: "关闭"
                         color: Theme.muted
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -448,7 +448,7 @@ Dialog {
                 visible: !root.editing
                 text: root.snapshot.title || "（无标题）"
                 color: Theme.text
-                font.pixelSize: 20
+                font.pixelSize: Theme.fontDisplay
                 font.bold: true
                 wrapMode: Text.Wrap
             }
@@ -457,7 +457,7 @@ Dialog {
                 visible: root.editing
                 text: root.draftTitle
                 placeholderText: "标题（不能为空）"
-                font.pixelSize: 15
+                font.pixelSize: Theme.fontTitle
                 onTextChanged: root.draftTitle = text
             }
 
@@ -466,7 +466,7 @@ Dialog {
                 visible: root.editing && String(root.draftTitle).trim().length === 0
                 text: "标题不能为空，否则保存会被拒绝"
                 color: Theme.warning
-                font.pixelSize: 11
+                font.pixelSize: Theme.fontCaption
             }
 
             // 标签：看的时候是胶囊，改的时候是逗号分隔的输入框
@@ -478,19 +478,19 @@ Dialog {
                 Repeater {
                     model: root.tagList()
                     delegate: Rectangle {
-                        radius: 7
+                        radius: Theme.radiusControl
                         width: tagText.width + 16
                         height: 20
-                        color: Qt.rgba(Theme.magenta.r, Theme.magenta.g, Theme.magenta.b, 0.16)
+                        color: Theme.alpha(Theme.magenta, 0.16)
                         border.width: 1
-                        border.color: Qt.rgba(Theme.magenta.r, Theme.magenta.g, Theme.magenta.b, 0.36)
+                        border.color: Theme.alpha(Theme.magenta, 0.36)
 
                         Text {
                             id: tagText
                             anchors.centerIn: parent
                             text: "#" + modelData
                             color: Theme.magenta
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.fontCaption
                         }
                     }
                 }
@@ -499,7 +499,7 @@ Dialog {
                     visible: root.tagList().length === 0
                     text: "无标签"
                     color: Theme.muted
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
             }
 
@@ -519,7 +519,7 @@ Dialog {
                 Text {
                     text: "优先级"
                     color: Theme.muted
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fontBody
                 }
 
                 Repeater {
@@ -527,20 +527,20 @@ Dialog {
                     delegate: Rectangle {
                         width: 46
                         height: 26
-                        radius: 7
+                        radius: Theme.radiusControl
                         color: root.draftPriority === modelData[1]
-                               ? Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.30)
+                               ? Theme.alpha(Theme.violet, 0.30)
                                : Theme.input
                         border.width: 1
                         border.color: root.draftPriority === modelData[1]
-                                      ? Qt.rgba(Theme.violet.r, Theme.violet.g, Theme.violet.b, 0.60)
+                                      ? Theme.alpha(Theme.violet, 0.60)
                                       : Theme.border
 
                         Text {
                             anchors.centerIn: parent
                             text: modelData[0]
                             color: root.draftPriority === modelData[1] ? Theme.text : Theme.muted
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.fontCaption
                         }
 
                         MouseArea {
@@ -568,7 +568,7 @@ Dialog {
                         Layout.preferredWidth: 1
                         text: modelData.label + "：" + modelData.value
                         color: Theme.muted
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                         font.family: modelData.mono ? "Consolas" : Qt.application.font.family
                         elide: Text.ElideRight
                     }
@@ -587,7 +587,7 @@ Dialog {
                     Text {
                         text: "到期"
                         color: Theme.muted
-                        font.pixelSize: 12
+                        font.pixelSize: Theme.fontBody
                         Layout.preferredWidth: 32
                     }
                     Field {
@@ -603,7 +603,7 @@ Dialog {
                     Text {
                         text: "提醒"
                         color: Theme.muted
-                        font.pixelSize: 12
+                        font.pixelSize: Theme.fontBody
                         Layout.preferredWidth: 32
                     }
                     Field {
@@ -619,7 +619,7 @@ Dialog {
                     Text {
                         text: "重复"
                         color: Theme.muted
-                        font.pixelSize: 12
+                        font.pixelSize: Theme.fontBody
                         Layout.preferredWidth: 32
                     }
 
@@ -628,9 +628,9 @@ Dialog {
                         delegate: Rectangle {
                             width: 44
                             height: 26
-                            radius: 7
+                            radius: Theme.radiusControl
                             color: root.draftRrule === modelData[1]
-                                   ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+                                   ? Theme.alpha(Theme.cyan, 0.32)
                                    : Theme.input
                             border.width: 1
                             border.color: root.draftRrule === modelData[1] ? Theme.cyan : Theme.border
@@ -639,7 +639,7 @@ Dialog {
                                 anchors.centerIn: parent
                                 text: modelData[0]
                                 color: root.draftRrule === modelData[1] ? Theme.text : Theme.muted
-                                font.pixelSize: 11
+                                font.pixelSize: Theme.fontCaption
                             }
 
                             MouseArea {
@@ -671,7 +671,7 @@ Dialog {
                 Text {
                     text: "备注"
                     color: Theme.text
-                    font.pixelSize: 14
+                    font.pixelSize: Theme.fontTitle
                     font.bold: true
                 }
 
@@ -679,7 +679,7 @@ Dialog {
                     visible: root.editing
                     text: "支持 Markdown"
                     color: Theme.muted
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
 
                 Item { Layout.fillWidth: true }
@@ -688,7 +688,7 @@ Dialog {
                     visible: root.editing && root.draftDirty
                     text: "有未保存的改动"
                     color: Theme.warning
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
             }
 
@@ -697,7 +697,7 @@ Dialog {
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.max(120, Math.min(260, noteView.contentHeight + 20))
                 visible: !root.editing
-                radius: 10
+                radius: Theme.radiusCard
                 color: Theme.input
                 border.width: 1
                 border.color: Theme.border
@@ -717,7 +717,7 @@ Dialog {
                         text: (root.snapshot.note && root.snapshot.note.length > 0)
                               ? root.snapshot.note : "还没有备注。点右上角「编辑」开始写，支持 Markdown。"
                         color: root.snapshot.note && root.snapshot.note.length > 0 ? Theme.text : Theme.muted
-                        font.pixelSize: 12
+                        font.pixelSize: Theme.fontBody
                         wrapMode: Text.Wrap
                         textFormat: Text.MarkdownText
                         onLinkActivated: function(link) { Qt.openUrlExternally(link) }
@@ -736,13 +736,13 @@ Dialog {
                 placeholderText: "支持 Markdown：# 标题 / - 列表 / **加粗** / `代码`"
                 placeholderTextColor: Theme.muted
                 color: Theme.text
-                font.pixelSize: 12
+                font.pixelSize: Theme.fontBody
                 wrapMode: TextArea.Wrap
                 background: Rectangle {
                     color: Theme.elevated
-                    radius: 10
+                    radius: Theme.radiusCard
                     border.width: 1
-                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
+                    border.color: Theme.alpha(Theme.cyan, 0.20)
                 }
             }
 
@@ -790,14 +790,14 @@ Dialog {
                     Text {
                         text: "子任务"
                         color: Theme.text
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fontBody
                         font.bold: true
                     }
 
                     Text {
                         text: root.subtaskStats.done + " / " + root.subtaskStats.total + " 已完成"
                         color: Theme.muted
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                     }
 
                     Item { Layout.fillWidth: true }
@@ -813,7 +813,7 @@ Dialog {
                         Rectangle {
                             width: 6
                             height: 6
-                            radius: 3
+                            radius: Theme.radiusControl
                             color: modelData.status === "done" ? Theme.success
                                  : modelData.status === "doing" ? Theme.cyan : Theme.muted
                             opacity: modelData.status === "done" ? 0.9 : 0.6
@@ -823,7 +823,7 @@ Dialog {
                             Layout.fillWidth: true
                             text: modelData.title
                             color: modelData.status === "done" ? Theme.muted : Theme.text
-                            font.pixelSize: 12
+                            font.pixelSize: Theme.fontBody
                             font.strikeout: modelData.status === "done"
                             elide: Text.ElideRight
                         }
@@ -831,7 +831,7 @@ Dialog {
                         Text {
                             text: root.statusLabel(modelData.status)
                             color: Theme.muted
-                            font.pixelSize: 10
+                            font.pixelSize: Theme.fontMicro
                         }
                     }
                 }
@@ -852,14 +852,14 @@ Dialog {
                     Text {
                         text: "时间线"
                         color: Theme.text
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fontBody
                         font.bold: true
                     }
 
                     Text {
                         text: "最近 " + root.events.length + " 条"
                         color: Theme.muted
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                     }
 
                     Item { Layout.fillWidth: true }
@@ -875,14 +875,14 @@ Dialog {
                         Rectangle {
                             width: 5
                             height: 5
-                            radius: 2.5
+                            radius: Theme.radiusControl
                             color: root.eventColor(modelData.kind)
                         }
 
                         Text {
                             text: modelData.label
                             color: root.eventColor(modelData.kind)
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.fontCaption
                             Layout.preferredWidth: 32
                         }
 
@@ -890,7 +890,7 @@ Dialog {
                             Layout.fillWidth: true
                             text: modelData.detail.length > 0 ? modelData.detail : " "
                             color: Theme.muted
-                            font.pixelSize: 11
+                            font.pixelSize: Theme.fontCaption
                             elide: Text.ElideRight
                         }
 
@@ -898,7 +898,7 @@ Dialog {
                             text: root.eventTime(modelData.at)
                             color: Theme.muted
                             opacity: 0.8
-                            font.pixelSize: 10
+                            font.pixelSize: Theme.fontMicro
                             font.family: "Consolas"
                         }
                     }
@@ -924,7 +924,7 @@ Dialog {
                     root.openEditor(id)
                 }
                 background: Rectangle {
-                    radius: 8
+                    radius: Theme.radiusControl
                     color: Theme.input
                     border.width: 1
                     border.color: Theme.border
@@ -932,7 +932,7 @@ Dialog {
                 contentItem: Text {
                     text: "打开编辑器"
                     color: Theme.muted
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -948,7 +948,7 @@ Dialog {
                 padding: 0
                 onClicked: root.cancelEdit()
                 background: Rectangle {
-                    radius: 8
+                    radius: Theme.radiusControl
                     color: Theme.input
                     border.width: 1
                     border.color: Theme.border
@@ -956,7 +956,7 @@ Dialog {
                 contentItem: Text {
                     text: "取消"
                     color: Theme.muted
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -971,9 +971,9 @@ Dialog {
                 enabled: root.draftDirty
                 onClicked: root.saveAll()
                 background: Rectangle {
-                    radius: 8
+                    radius: Theme.radiusControl
                     color: root.draftDirty
-                           ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
+                           ? Theme.alpha(Theme.cyan, 0.32)
                            : Theme.input
                     border.width: 1
                     border.color: root.draftDirty ? Theme.cyan : Theme.border
@@ -981,7 +981,7 @@ Dialog {
                 contentItem: Text {
                     text: "保存"
                     color: root.draftDirty ? Theme.text : Theme.muted
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }

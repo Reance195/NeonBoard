@@ -49,7 +49,7 @@ Rectangle {
         }
     ]
 
-    color: Qt.rgba(0, 0, 0, 0.72)
+    color: Theme.alpha(Theme.bg, 0.72)
     visible: false
 
     MouseArea {
@@ -63,10 +63,10 @@ Rectangle {
         anchors.centerIn: parent
         width: Math.min(480, root.width - 64)
         height: content.implicitHeight + 48
-        radius: 16
+        radius: Theme.radiusPanel
         color: Theme.panelSolid
         border.width: 1
-        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.42)
+        border.color: Theme.alpha(Theme.cyan, 0.42)
 
         ColumnLayout {
             id: content
@@ -83,7 +83,7 @@ Rectangle {
                 Text {
                     text: "NEONBOARD"
                     color: Theme.cyan
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     font.letterSpacing: 3
                     font.bold: true
                 }
@@ -96,8 +96,8 @@ Rectangle {
                     delegate: Rectangle {
                         width: 22
                         height: 4
-                        radius: 2
-                        color: index <= root.step ? Theme.cyan : Qt.rgba(1, 1, 1, 0.14)
+                        radius: Theme.radiusControl
+                        color: index <= root.step ? Theme.cyan : Theme.alpha(Theme.text, 0.14)
                     }
                 }
             }
@@ -106,7 +106,7 @@ Rectangle {
                 Layout.fillWidth: true
                 text: root.steps[root.step].title
                 color: Theme.text
-                font.pixelSize: 20
+                font.pixelSize: Theme.fontDisplay
                 font.bold: true
             }
 
@@ -114,7 +114,7 @@ Rectangle {
                 Layout.fillWidth: true
                 text: root.steps[root.step].body
                 color: Theme.muted
-                font.pixelSize: 12
+                font.pixelSize: Theme.fontBody
                 lineHeight: 1.45
                 wrapMode: Text.WordWrap
             }
@@ -122,7 +122,7 @@ Rectangle {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 34
-                radius: 8
+                radius: Theme.radiusControl
                 color: Theme.input
                 border.width: 1
                 border.color: Theme.border
@@ -131,7 +131,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: root.steps[root.step].keys
                     color: Theme.accent2
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                     font.family: "Consolas"
                 }
             }
@@ -150,7 +150,7 @@ Rectangle {
 
                         Layout.fillWidth: true
                         Layout.preferredHeight: 28
-                        radius: 7
+                        radius: Theme.radiusControl
                         color: tplMouse.containsMouse ? Theme.cardHover : Theme.input
                         border.width: 1
                         border.color: Theme.border
@@ -160,7 +160,7 @@ Rectangle {
                             width: parent.width - 12
                             text: modelData.split("：")[0]
                             color: Theme.muted
-                            font.pixelSize: 10
+                            font.pixelSize: Theme.fontMicro
                             elide: Text.ElideRight
                             horizontalAlignment: Text.AlignHCenter
                         }
@@ -178,7 +178,7 @@ Rectangle {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 32
-                radius: 8
+                radius: Theme.radiusControl
                 visible: root.step === 0 && root.canSeed
                 color: seedMouse.containsMouse ? Theme.cardHover : Theme.card
                 border.width: 1
@@ -188,7 +188,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: "载入三张示例卡（可随时删除）"
                     color: Theme.cyan
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
 
                 MouseArea {
@@ -211,8 +211,8 @@ Rectangle {
                 Rectangle {
                     width: 72
                     height: 30
-                    radius: 8
-                    color: skipMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent"
+                    radius: Theme.radiusControl
+                    color: skipMouse.containsMouse ? Theme.alpha(Theme.text, 0.06) : "transparent"
                     border.width: 1
                     border.color: Theme.border
 
@@ -220,7 +220,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: "跳过"
                         color: Theme.muted
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                     }
 
                     MouseArea {
@@ -236,7 +236,7 @@ Rectangle {
                 Rectangle {
                     width: 72
                     height: 30
-                    radius: 8
+                    radius: Theme.radiusControl
                     visible: root.step > 0
                     color: prevMouse.containsMouse ? Theme.cardHover : Theme.card
                     border.width: 1
@@ -246,7 +246,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: "上一步"
                         color: Theme.muted
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                     }
 
                     MouseArea {
@@ -260,8 +260,8 @@ Rectangle {
                 Rectangle {
                     width: 92
                     height: 30
-                    radius: 8
-                    color: nextMouse.containsMouse ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.26)
+                    radius: Theme.radiusControl
+                    color: nextMouse.containsMouse ? Theme.alpha(Theme.cyan, 0.26)
                                                    : Theme.accentSoft
                     border.width: 1
                     border.color: Theme.borderStrong
@@ -270,7 +270,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: root.step === root.steps.length - 1 ? "开始使用" : "下一步"
                         color: Theme.cyan
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                         font.bold: true
                     }
 

@@ -10,7 +10,7 @@ Rectangle {
     visible: false
     anchors.fill: parent
     z: 140
-    color: Qt.rgba(0, 0, 0, 0.55)
+    color: Theme.alpha(Theme.bg, 0.55)
 
     // 安装/更新完成后请求宿主弹出权限授权框
     signal permissionRequested(string pluginId)
@@ -66,7 +66,7 @@ Rectangle {
         anchors.centerIn: parent
         width: Math.min(580, parent.width - 48)
         height: Math.min(660, parent.height - 48)
-        radius: 14
+        radius: Theme.radiusPanel
         color: Theme.panelSolid
         border.width: 1
         border.color: Theme.border
@@ -85,14 +85,14 @@ Rectangle {
                 Text {
                     text: "插件库"
                     color: Theme.text
-                    font.pixelSize: 15
+                    font.pixelSize: Theme.fontTitle
                     font.bold: true
                 }
 
                 Text {
                     text: "PLUGIN LIBRARY"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     font.letterSpacing: 1.2
                 }
 
@@ -101,7 +101,7 @@ Rectangle {
                 Text {
                     text: pluginLibrary.marketStatus
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     elide: Text.ElideRight
                     Layout.maximumWidth: 220
                 }
@@ -109,7 +109,7 @@ Rectangle {
                 Text {
                     text: "✕"
                     color: libraryMouse.containsMouse ? Theme.text : Theme.muted
-                    font.pixelSize: 14
+                    font.pixelSize: Theme.fontTitle
                     MouseArea {
                         id: libraryMouse
                         anchors.fill: parent
@@ -133,13 +133,13 @@ Rectangle {
                 Text {
                     text: "市场源"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 Text {
                     text: pluginLibrary.marketSources.length + " 个"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 Item { Layout.fillWidth: true }
@@ -147,7 +147,7 @@ Rectangle {
                 Text {
                     text: "刷新市场"
                     color: marketMouse.containsMouse ? Theme.cyan : Theme.text
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                     MouseArea {
                         id: marketMouse
                         anchors.fill: parent
@@ -175,7 +175,7 @@ Rectangle {
                         delegate: Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 26
-                            radius: 6
+                            radius: Theme.radiusControl
                             color: Theme.card
                             border.width: 1
                             border.color: Theme.border
@@ -189,7 +189,7 @@ Rectangle {
                                 Rectangle {
                                     width: 6
                                     height: 6
-                                    radius: 3
+                                    radius: Theme.radiusControl
                                     color: modelData.enabled ? Theme.success : Theme.muted
                                 }
 
@@ -197,20 +197,20 @@ Rectangle {
                                     Layout.fillWidth: true
                                     text: modelData.name + "  " + modelData.spec
                                     color: modelData.enabled ? Theme.text : Theme.muted
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                     elide: Text.ElideRight
                                 }
 
                                 Text {
                                     text: libraryPanel.sourceStatusText(modelData.spec)
                                     color: Theme.muted
-                                    font.pixelSize: 9
+                                    font.pixelSize: Theme.fontMicro
                                 }
 
                                 Text {
                                     text: "↑"
                                     color: srcUpMouse.containsMouse ? Theme.cyan : Theme.muted
-                                    font.pixelSize: 11
+                                    font.pixelSize: Theme.fontCaption
                                     MouseArea {
                                         id: srcUpMouse
                                         anchors.fill: parent
@@ -222,7 +222,7 @@ Rectangle {
                                 Text {
                                     text: "↓"
                                     color: srcDownMouse.containsMouse ? Theme.cyan : Theme.muted
-                                    font.pixelSize: 11
+                                    font.pixelSize: Theme.fontCaption
                                     MouseArea {
                                         id: srcDownMouse
                                         anchors.fill: parent
@@ -234,7 +234,7 @@ Rectangle {
                                 Text {
                                     text: modelData.enabled ? "停用" : "启用"
                                     color: srcToggleMouse.containsMouse ? Theme.cyan : Theme.muted
-                                    font.pixelSize: 10
+                                    font.pixelSize: Theme.fontMicro
                                     MouseArea {
                                         id: srcToggleMouse
                                         anchors.fill: parent
@@ -246,7 +246,7 @@ Rectangle {
                                 Text {
                                     text: "✕"
                                     color: srcDelMouse.containsMouse ? Theme.danger : Theme.muted
-                                    font.pixelSize: 11
+                                    font.pixelSize: Theme.fontCaption
                                     MouseArea {
                                         id: srcDelMouse
                                         anchors.fill: parent
@@ -272,11 +272,11 @@ Rectangle {
                     text: ""
                     placeholderText: "owner/repo 或 https://host/path/market.json"
                     color: Theme.text
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     selectByMouse: true
                     background: Rectangle {
                         color: Theme.input
-                        radius: 6
+                        radius: Theme.radiusControl
                         border.width: 1
                         border.color: Theme.border
                     }
@@ -286,7 +286,7 @@ Rectangle {
                 Text {
                     text: "添加源"
                     color: addSourceMouse.containsMouse ? Theme.cyan : Theme.text
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                     MouseArea {
                         id: addSourceMouse
                         anchors.fill: parent
@@ -304,7 +304,7 @@ Rectangle {
                 Text {
                     text: "链接安装"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 TextField {
@@ -314,11 +314,11 @@ Rectangle {
                     text: ""
                     placeholderText: "https://host/plugin.neon（可加 #sha256=...）"
                     color: Theme.text
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                     selectByMouse: true
                     background: Rectangle {
                         color: Theme.input
-                        radius: 6
+                        radius: Theme.radiusControl
                         border.width: 1
                         border.color: Theme.border
                     }
@@ -328,7 +328,7 @@ Rectangle {
                 Text {
                     text: "安装"
                     color: directInstallMouse.containsMouse ? Theme.cyan : Theme.text
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                     MouseArea {
                         id: directInstallMouse
                         anchors.fill: parent
@@ -356,7 +356,7 @@ Rectangle {
                             Layout.fillWidth: true
                             // R15-02：行高随依赖说明行数伸缩（固定 58 会截断多行依赖）
                             Layout.preferredHeight: entryBody.implicitHeight + 16
-                            radius: 8
+                            radius: Theme.radiusControl
                             color: Theme.card
                             border.width: 1
                             border.color: Theme.border
@@ -374,14 +374,14 @@ Rectangle {
                                     Text {
                                         text: modelData.name
                                         color: Theme.text
-                                        font.pixelSize: 12
+                                        font.pixelSize: Theme.fontBody
                                         font.bold: true
                                     }
 
                                     Text {
                                         text: modelData.version || "0.0.0"
                                         color: Theme.muted
-                                        font.pixelSize: 10
+                                        font.pixelSize: Theme.fontMicro
                                     }
 
                                     // 类别徽章（R15-02）：manifest / 市场索引的 category
@@ -389,27 +389,27 @@ Rectangle {
                                         visible: (modelData.category || "").length > 0
                                         width: categoryText.width + 10
                                         height: 15
-                                        radius: 7
-                                        color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.14)
+                                        radius: Theme.radiusControl
+                                        color: Theme.alpha(Theme.cyan, 0.14)
                                         border.width: 1
-                                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.4)
+                                        border.color: Theme.alpha(Theme.cyan, 0.4)
 
                                         Text {
                                             id: categoryText
                                             anchors.centerIn: parent
                                             text: modelData.category || ""
                                             color: Theme.cyan
-                                            font.pixelSize: 9
+                                            font.pixelSize: Theme.fontMicro
                                         }
                                     }
 
                                     Rectangle {
                                         width: badgeText.width + 10
                                         height: 15
-                                        radius: 7
-                                        color: Qt.rgba(badgeColor.r, badgeColor.g, badgeColor.b, 0.16)
+                                        radius: Theme.radiusControl
+                                        color: Theme.alpha(badgeColor, 0.16)
                                         border.width: 1
-                                        border.color: Qt.rgba(badgeColor.r, badgeColor.g, badgeColor.b, 0.4)
+                                        border.color: Theme.alpha(badgeColor, 0.4)
 
                                         property color badgeColor: {
                                             if (!modelData.installed)
@@ -443,7 +443,7 @@ Rectangle {
                                                 return "可安装"
                                             }
                                             color: badgeText.parent.badgeColor
-                                            font.pixelSize: 9
+                                            font.pixelSize: Theme.fontMicro
                                         }
                                     }
 
@@ -453,7 +453,7 @@ Rectangle {
                                         visible: modelData.origin === "market"
                                         text: "市场"
                                         color: Theme.muted
-                                        font.pixelSize: 9
+                                        font.pixelSize: Theme.fontMicro
                                     }
                                 }
 
@@ -465,7 +465,7 @@ Rectangle {
                                         visible: modelData.installed && modelData.status === "ok" && modelData.enabled
                                         text: "打开"
                                         color: openMouse.containsMouse ? Theme.cyan : Theme.text
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.fontCaption
                                         MouseArea {
                                             id: openMouse
                                             anchors.fill: parent
@@ -478,7 +478,7 @@ Rectangle {
                                         visible: modelData.installed
                                         text: modelData.enabled ? "禁用" : "启用"
                                         color: toggleMouse.containsMouse ? Theme.cyan : Theme.text
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.fontCaption
                                         MouseArea {
                                             id: toggleMouse
                                             anchors.fill: parent
@@ -491,7 +491,7 @@ Rectangle {
                                         visible: modelData.installed
                                         text: "卸载"
                                         color: uninstallMouse.containsMouse ? Theme.danger : Theme.text
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.fontCaption
                                         MouseArea {
                                             id: uninstallMouse
                                             anchors.fill: parent
@@ -504,7 +504,7 @@ Rectangle {
                                         visible: !modelData.installed
                                         text: "安装"
                                         color: installMouse.containsMouse ? Theme.cyan : Theme.text
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.fontCaption
                                         MouseArea {
                                             id: installMouse
                                             anchors.fill: parent
@@ -520,7 +520,7 @@ Rectangle {
                                         visible: modelData.installed && modelData.hasMarket
                                         text: "更新"
                                         color: updateMouse.containsMouse ? Theme.cyan : Theme.text
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.fontCaption
                                         MouseArea {
                                             id: updateMouse
                                             anchors.fill: parent
@@ -537,7 +537,7 @@ Rectangle {
                                     Text {
                                         text: modelData.error || ""
                                         color: Theme.danger
-                                        font.pixelSize: 9
+                                        font.pixelSize: Theme.fontMicro
                                         elide: Text.ElideRight
                                         Layout.maximumWidth: 200
                                     }
@@ -548,7 +548,7 @@ Rectangle {
                                     visible: modelData.dependencies && modelData.dependencies.length > 0
                                     text: "依赖：" + (modelData.dependencies || []).join("；")
                                     color: Theme.muted
-                                    font.pixelSize: 9
+                                    font.pixelSize: Theme.fontMicro
                                     wrapMode: Text.WordWrap
                                     Layout.fillWidth: true
                                 }
@@ -560,7 +560,7 @@ Rectangle {
                         visible: pluginLibrary.entries.length === 0
                         text: "插件库为空"
                         color: Theme.muted
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fontCaption
                     }
                 }
             }
@@ -570,7 +570,7 @@ Rectangle {
                 Layout.fillWidth: true
                 text: pluginLibrary.statusText
                 color: Theme.muted
-                font.pixelSize: 10
+                font.pixelSize: Theme.fontMicro
                 elide: Text.ElideRight
             }
         }

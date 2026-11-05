@@ -28,7 +28,7 @@ Item {
     Rectangle {
         id: panelContent
         anchors.fill: parent
-        radius: 14
+        radius: Theme.radiusPanel
         color: Theme.panelSolid
         border.width: 1
         border.color: Theme.border
@@ -46,7 +46,7 @@ Item {
                 Layout.fillWidth: true
                 text: "外观  APPEARANCE"
                 color: Theme.muted
-                font.pixelSize: 9
+                font.pixelSize: Theme.fontMicro
                 font.letterSpacing: 1.4
             }
 
@@ -65,8 +65,8 @@ Item {
 
                         Layout.fillWidth: true
                         Layout.preferredHeight: 40
-                        radius: 9
-                        color: rowMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
+                        radius: Theme.radiusCard
+                        color: rowMouse.containsMouse ? Theme.alpha(Theme.text, 0.05) : "transparent"
                         border.width: 1
                         border.color: Theme.presetIndex === index ? Theme.borderStrong : "transparent"
 
@@ -106,10 +106,10 @@ Item {
                                 delegate: Rectangle {
                                     width: 9
                                     height: 9
-                                    radius: 4.5
+                                    radius: Theme.radiusControl
                                     color: modelData
                                     border.width: 1
-                                    border.color: Qt.rgba(1, 1, 1, 0.15)
+                                    border.color: Theme.alpha(Theme.text, 0.15)
                                 }
                             }
                         }
@@ -123,14 +123,14 @@ Item {
                             Text {
                                 text: presetRow.modelData.name
                                 color: Theme.text
-                                font.pixelSize: 12
+                                font.pixelSize: Theme.fontBody
                                 font.bold: true
                             }
 
                             Text {
                                 text: presetRow.modelData.desc
                                 color: Theme.muted
-                                font.pixelSize: 9
+                                font.pixelSize: Theme.fontMicro
                             }
                         }
 
@@ -141,7 +141,7 @@ Item {
                             text: "✓"
                             visible: Theme.presetIndex === index
                             color: Theme.cyan
-                            font.pixelSize: 13
+                            font.pixelSize: Theme.fontBody
                             font.bold: true
                         }
 
@@ -172,7 +172,7 @@ Item {
                           ? ("外部主题包 " + themePacks.count + " 个")
                           : "支持外部主题包"
                     color: Theme.muted
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 Item { Layout.fillWidth: true }
@@ -180,18 +180,18 @@ Item {
                 Rectangle {
                     Layout.preferredWidth: 58
                     Layout.preferredHeight: 18
-                    radius: 9
+                    radius: Theme.radiusCard
                     color: dirMouse.containsMouse
-                           ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.20)
-                           : Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.10)
+                           ? Theme.alpha(Theme.cyan, 0.20)
+                           : Theme.alpha(Theme.cyan, 0.10)
                     border.width: 1
-                    border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.30)
+                    border.color: Theme.alpha(Theme.cyan, 0.30)
 
                     Text {
                         anchors.centerIn: parent
                         text: "打开目录"
                         color: Theme.cyan
-                        font.pixelSize: 9
+                        font.pixelSize: Theme.fontMicro
                     }
 
                     MouseArea {
@@ -215,7 +215,7 @@ Item {
                     return "有 " + list.length + " 个包没装上：" + first.file + "（" + first.reason + "）"
                 }
                 color: Theme.warning
-                font.pixelSize: 9
+                font.pixelSize: Theme.fontMicro
                 wrapMode: Text.WordWrap
             }
 
@@ -234,7 +234,7 @@ Item {
                     Layout.alignment: Qt.AlignVCenter
                     text: "画质"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 Item { Layout.fillWidth: true }
@@ -252,7 +252,7 @@ Item {
 
                             width: 34
                             height: 22
-                            radius: 6
+                            radius: Theme.radiusControl
                             color: Theme.quality === index ? Theme.accentSoft : "transparent"
                             border.width: 1
                             border.color: Theme.quality === index ? Theme.borderStrong : Theme.border
@@ -265,7 +265,7 @@ Item {
                                 anchors.centerIn: parent
                                 text: modelData
                                 color: Theme.quality === index ? Theme.cyan : Theme.muted
-                                font.pixelSize: 10
+                                font.pixelSize: Theme.fontMicro
                             }
 
                             MouseArea {
@@ -287,7 +287,7 @@ Item {
                     Layout.alignment: Qt.AlignVCenter
                     text: "减弱动效"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 Item { Layout.fillWidth: true }
@@ -297,7 +297,7 @@ Item {
                     Layout.alignment: Qt.AlignVCenter
                     width: 38
                     height: 20
-                    radius: 10
+                    radius: Theme.radiusCard
                     color: Motion.reduced ? Theme.accentSoft : Theme.input
                     border.width: 1
                     border.color: Motion.reduced ? Theme.borderStrong : Theme.border
@@ -310,7 +310,7 @@ Item {
                         id: knob
                         width: 14
                         height: 14
-                        radius: 7
+                        radius: Theme.radiusControl
                         y: 3
                         x: Motion.reduced ? parent.width - width - 3 : 3
                         color: Motion.reduced ? Theme.cyan : Theme.muted

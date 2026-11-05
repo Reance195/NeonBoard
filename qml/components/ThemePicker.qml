@@ -28,10 +28,10 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         width: 34
         height: 30
-        radius: 8
+        radius: Theme.radiusControl
         color: picker.open
                ? Theme.accentSoft
-               : (triggerMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
+               : (triggerMouse.containsMouse ? Theme.alpha(Theme.text, 0.06) : "transparent")
         border.width: 1
         border.color: picker.open ? Theme.borderStrong : "transparent"
 
@@ -52,7 +52,7 @@ Item {
                 delegate: Rectangle {
                     width: 5
                     height: 5
-                    radius: 2.5
+                    radius: Theme.radiusControl
                     color: modelData
                 }
             }

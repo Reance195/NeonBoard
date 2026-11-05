@@ -9,7 +9,7 @@ Rectangle {
     id: panel
 
     visible: false
-    radius: 14
+    radius: Theme.radiusPanel
     color: Theme.panelSolid
     border.width: 1
     border.color: Theme.border
@@ -27,9 +27,9 @@ Rectangle {
 
         width: badgeText.implicitWidth + 12
         height: 16
-        radius: 8
-        color: good ? Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.14)
-                    : Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.14)
+        radius: Theme.radiusControl
+        color: good ? Theme.alpha(Theme.success, 0.14)
+                    : Theme.alpha(Theme.warning, 0.14)
         border.width: 1
         border.color: good ? Theme.success : Theme.warning
 
@@ -38,7 +38,7 @@ Rectangle {
             anchors.centerIn: parent
             text: parent.label
             color: parent.good ? Theme.success : Theme.warning
-            font.pixelSize: 9
+            font.pixelSize: Theme.fontMicro
         }
     }
 
@@ -51,7 +51,7 @@ Rectangle {
         Text {
             text: k
             color: Theme.muted
-            font.pixelSize: 10
+            font.pixelSize: Theme.fontMicro
             Layout.preferredWidth: 64
         }
 
@@ -59,7 +59,7 @@ Rectangle {
             Layout.fillWidth: true
             text: v
             color: Theme.text
-            font.pixelSize: 10
+            font.pixelSize: Theme.fontMicro
             font.family: "Consolas"
             wrapMode: Text.WrapAnywhere
             selectByMouse: true
@@ -89,7 +89,7 @@ Rectangle {
             Text {
                 text: card.profile ? (card.profile.displayName || card.plugin.name) : ""
                 color: Theme.text
-                font.pixelSize: 13
+                font.pixelSize: Theme.fontBody
                 font.bold: true
             }
 
@@ -102,7 +102,7 @@ Rectangle {
             Layout.fillWidth: true
             text: card.plugin && card.plugin.description ? card.plugin.description : ""
             color: Theme.muted
-            font.pixelSize: 10
+            font.pixelSize: Theme.fontMicro
             wrapMode: Text.WordWrap
         }
 
@@ -128,7 +128,7 @@ Rectangle {
                   ? "已获「声明 Agent」权限：声明的 profile 会出现在执行器与卡片派活的 agent 列表里，来源标为 plugin。"
                   : "尚未获得「声明 Agent」权限：声明被静默忽略（权限决定拉起哪个进程，不是提示项）。请到插件授权里开启后再试。"
             color: card.granted ? Theme.muted : Theme.warning
-            font.pixelSize: 10
+            font.pixelSize: Theme.fontMicro
             wrapMode: Text.WordWrap
         }
 
@@ -136,7 +136,7 @@ Rectangle {
             Layout.fillWidth: true
             text: "本页由宿主按 plugin.json 渲染，参数以 manifest 为唯一事实源；机台装法与实测边界见 docs/agent-profile.md。"
             color: Theme.muted
-            font.pixelSize: 9
+            font.pixelSize: Theme.fontMicro
             wrapMode: Text.WordWrap
         }
 
@@ -191,7 +191,7 @@ Rectangle {
             Rectangle {
                 width: 6
                 height: 6
-                radius: 3
+                radius: Theme.radiusControl
                 color: Theme.cyan
             }
 
@@ -199,7 +199,7 @@ Rectangle {
                 id: title
                 text: pluginLoader.plugins.length > 0 ? pluginLoader.plugins[0].name : "插件"
                 color: Theme.text
-                font.pixelSize: 12
+                font.pixelSize: Theme.fontBody
                 font.bold: true
             }
 
@@ -208,21 +208,21 @@ Rectangle {
             Text {
                 text: "PLUGIN"
                 color: Theme.muted
-                font.pixelSize: 9
+                font.pixelSize: Theme.fontMicro
                 font.letterSpacing: 1.5
             }
 
             Rectangle {
                 width: 40
                 height: 20
-                radius: 6
-                color: openDirMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                radius: Theme.radiusControl
+                color: openDirMouse.containsMouse ? Theme.alpha(Theme.text, 0.08) : "transparent"
 
                 Text {
                     anchors.centerIn: parent
                     text: "目录"
                     color: Theme.muted
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 MouseArea {
@@ -237,14 +237,14 @@ Rectangle {
             Rectangle {
                 width: 20
                 height: 20
-                radius: 6
-                color: closeMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                radius: Theme.radiusControl
+                color: closeMouse.containsMouse ? Theme.alpha(Theme.text, 0.08) : "transparent"
 
                 Text {
                     anchors.centerIn: parent
                     text: "✕"
                     color: Theme.muted
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fontCaption
                 }
 
                 MouseArea {
@@ -281,7 +281,7 @@ Rectangle {
                      && pluginLoader.plugins[0].status !== "ok"
             text: pluginLoader.plugins.length > 0 ? pluginLoader.plugins[0].error : ""
             color: Theme.magenta
-            font.pixelSize: 10
+            font.pixelSize: Theme.fontMicro
             wrapMode: Text.WordWrap
         }
     }

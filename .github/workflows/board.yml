@@ -88,6 +88,13 @@ jobs:
         with:
           python-version: '3.x'
 
+      # DX-76：僵尸 claim 占位巡检。判定单一实现在 scripts/check_claim_refs.py
+      # （classify_claim，与 git-done 收尾的自动释放共用同一份），这里只点名与拦截：
+      # main tip 红说明收尾的释放没跑到（离线 / 撞车 / 脚本失败），按输出补跑即可。
+      # CI 只读不代删（permissions: contents: read，本 workflow 不该有推送能力）。
+      - name: 领用占位巡检（僵尸 claim ref 点名）
+        run: python scripts/check_claim_refs.py --audit-zombies
+
       # main push 与 PR 同一把尺子：以前 main 走「回写自愈」、PR 走「校验阻塞」，
       # 两条路给不同结论，正是双写者模式的产物。
       - name: 校验

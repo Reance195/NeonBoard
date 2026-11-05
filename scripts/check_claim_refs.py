@@ -14,6 +14,13 @@
 少领一张仍被拒，多领合法。台账 claims 本身就是按短号存的字典，同分支多条登记指向同一个
 分支即可；派生器 / release-claims 已按短号遍历，无需改动。
 
+**僵尸占位巡检（DX-76，`--audit-zombies`）**：git-done 的释放判据够不着两类历史残留——
+① 占位提交虽是 origin/main 祖先、但那次收尾没跑到清理；② 分支合并前被 rebase 重写，
+占位仍指向重写前的提交（既不是 main 祖先，台账 claims 投影又已被 release-claims 清空，
+判据 2 恒打不中）。巡检按台账 baseline 全量扫描 refs/claims/*，对「卡已 done 且占位再无
+在办用途」的点名叫「应释放」；离线（服务端不可达）保守跳过并告警。释放判据的单一实现
+在本文件（`classify_claim`），git-done 收尾的自动释放与 CI 巡检共用同一份判定。
+
 另有一条**方向校验（只告警）**：同一张卡的实现提交若早于它的领用提交，说明是「先写代码
 后补领用」，两道闸门都查不出这种倒置。这里给出提示但不阻断 —— 历史分支可能确实需要补领。
 
@@ -23,18 +30,30 @@
     python scripts/check_claim_refs.py --base origin/main --head HEAD
 
 退出码：0 通过 / 1 未领用或占位不匹配 / 2 用法或仓库错误。
+
+巡检模式（DX-76）：
+
+    python scripts/check_claim_refs.py --audit-zombies
+
+退出码：0 干净或保守跳过（离线）/ 1 存在应释放的僵尸占位 / 2 用法或仓库错误。
 """
 
 import argparse
+import json
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 CODE = r"(?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+)"
 CLAIM_MESSAGE = re.compile(r"^chore\(claim\):\s*领取\s*#(%s)\s*实施任务$" % CODE)
 CARD_IN_SUBJECT = re.compile(r"#(%s)" % CODE)
 # 流程提交不算「实现」：领用 / 快照同步由脚本产生，天然晚于或早于实现都无意义。
 PROCESS_SUBJECT = re.compile(r"^(?:chore\((?:claim|roadmap|board)\)|merge:)")
+
+# 台账固定在仓库根（按脚本自身路径定位，与 release-claims.py 同口径）——
+# CI 检出的就是 origin/main tip 的台账，本地跑的是当前分支的副本；done 判定两边一致。
+LEDGER = Path(__file__).resolve().parent.parent / "docs" / "board-ledger.json"
 
 
 def git(*args):
@@ -99,6 +118,106 @@ def direction_warnings(entries):
     return warnings
 
 
+def classify_claim(baseline, is_ancestor_of_main, referenced_refs):
+    """僵尸占位判定（DX-76，释放判据的单一实现）。
+
+    baseline             : 台账 baseline 值（'done' / 'todo' / …；台账无登记时为 None）
+    is_ancestor_of_main  : 占位提交是否 origin/main 祖先（工作已合入主线）
+    referenced_refs      : 仍包含占位提交的分支引用名列表（refs/heads/* + refs/remotes/origin/*）
+
+    返回 (verdict, detail)，verdict ∈ {'zombie', 'keep', 'skip'}：
+    - zombie：卡已 done 且占位再无在办用途（判据 A：已合入主线；判据 B：rebase 重写后
+              占位指向的提交已不被任何分支引用）。done 卡不允许重新领用，占位的存在
+              只剩两个用途——给在办分支的领用闸门放行、防双领；都不成立即应释放。
+    - keep  ：卡未 done（可能仍在办），或虽 done 但仍被分支引用（多卡分支里活跃卡
+              还要靠它过闸门，删了会把别人的 CI 打红）。
+    - skip  ：台账无此卡，无法判定——保守跳过并告警，绝不误删。
+    """
+    if baseline is None:
+        return ("skip", "台账无此卡的 baseline 登记，保守跳过")
+    if "done" not in str(baseline).lower():
+        return ("keep", "卡未 done（baseline=%s），占位可能仍服务在办工作" % baseline)
+    if is_ancestor_of_main:
+        return ("zombie", "指向提交已是 origin/main 祖先且卡已 done（判据 A）")
+    if not referenced_refs:
+        return ("zombie",
+                "卡已 done 且占位提交不被任何本地/远端分支引用"
+                "（判据 B：分支 rebase 重写后典型残留）")
+    return ("keep", "虽 done 但仍被 %d 个分支引用，在办分支的闸门还要用它放行"
+            % len(referenced_refs))
+
+
+def _git_lines(*args):
+    run = git(*args)
+    if run.returncode != 0:
+        return None
+    return [line.strip() for line in run.stdout.splitlines() if line.strip()]
+
+
+def audit_zombies():
+    """DX-76 巡检：全量扫描服务端 refs/claims/*，点名「应释放」的僵尸占位。
+
+    占位清单以 ls-remote 的服务端实态为准（§7.2.1：服务端 ref 是唯一事实源），
+    本地镜像可能滞后于他人已做的释放；对象不可达（离线）保守跳过整轮并告警。
+    退出码：0 干净（或保守跳过）/ 1 存在僵尸（CI 红，按提示补清）/ 2 仓库错误。
+    """
+    server = _git_lines("ls-remote", "origin", "refs/claims/*")
+    if server is None:
+        sys.stderr.write("[巡检] origin 不可达（离线？），本轮保守跳过，不计僵尸。\n")
+        return 0
+    if not server:
+        print("[巡检] 服务端无任何 refs/claims/*，干净。")
+        return 0
+    # 对象可达性：先把服务端占位镜像到本地，merge-base / for-each-ref 才有对象可用。
+    git("fetch", "origin", "+refs/claims/*:refs/claims/*")
+
+    main_sha_run = git("rev-parse", "--verify", "-q", "origin/main")
+    if main_sha_run.returncode != 0:
+        sys.stderr.write("[巡检] origin/main 不可解析，本轮保守跳过，不计僵尸。\n")
+        return 0
+
+    try:
+        baseline = json.loads(LEDGER.read_text(encoding="utf-8")).get("baseline") or {}
+    except (OSError, ValueError) as exc:
+        sys.stderr.write("[巡检] 台账不可读（%s），本轮保守跳过，不计僵尸。\n" % exc)
+        return 0
+
+    zombies, skips = [], []
+    for line in server:
+        sha, _, ref = line.partition("\t")
+        sha, ref = sha.strip(), ref.strip()
+        code = ref[len("refs/claims/"):]
+        if not code:
+            continue
+        exists = git("cat-file", "-e", "%s^{commit}" % sha)
+        if exists.returncode != 0:
+            skips.append("%s：占位提交 %s 本地不可达，无法判定，保守跳过" % (ref, sha[:7]))
+            continue
+        ancestor = git("merge-base", "--is-ancestor", sha, "origin/main")
+        contained = _git_lines(
+            "for-each-ref", "--format=%(refname)", "--contains", sha,
+            "refs/heads", "refs/remotes") or []
+        verdict, detail = classify_claim(
+            baseline.get(code), ancestor.returncode == 0, contained)
+        if verdict == "zombie":
+            zombies.append((ref, sha, code, detail))
+        elif verdict == "skip":
+            skips.append("%s：%s" % (ref, detail))
+
+    for line in skips:
+        sys.stderr.write("[巡检] 跳过：%s\n" % line)
+    if not zombies:
+        print("[巡检] 僵尸占位巡检通过：%d 条服务端占位均无可释放项。" % len(server))
+        return 0
+    sys.stderr.write("[巡检] 发现 %d 条应释放的僵尸占位（卡已 done、占位再无在办用途）：\n"
+                     % len(zombies))
+    for ref, sha, code, detail in zombies:
+        sys.stderr.write("  - %s @ %s：%s\n" % (ref, sha[:7], detail))
+        sys.stderr.write("    释放：git push origin --delete %s\n" % ref)
+    sys.stderr.write("[巡检] 补清后重跑本巡检应转绿；收尾侧由 git-done 自动释放（单一实现见 classify_claim）。\n")
+    return 1
+
+
 def selftest():
     """一分支多卡判定的可执行自测（DX-03）：纯函数不碰 git，任何环境可跑。
 
@@ -158,6 +277,28 @@ def selftest():
     )
     case("一分支两卡 ⇒ 需要校验 2 个 claim ref（不是「只允许一张」）", len(two) == 2, str(two))
 
+    # ---- 僵尸占位判定（DX-76：classify_claim 单一实现）----
+    v, _ = classify_claim("done", True, [])
+    case("判据 A：卡已 done + 占位是 main 祖先 → 应释放", v == "zombie", v)
+
+    v, _ = classify_claim("done", False, [])
+    case("判据 B：卡已 done + 占位无任何分支引用（rebase 重写残留）→ 应释放", v == "zombie", v)
+
+    v, detail = classify_claim("done", False, ["refs/heads/fix/other-work"])
+    case("卡 done 但仍被在办分支引用 → 保留（闸门还要放行）", v == "keep", detail)
+
+    v, _ = classify_claim("done", True, ["refs/remotes/origin/main"])
+    case("祖先是 main 自身引用不算「仍被在办分支引用」→ 判据 A 优先释放", v == "zombie", v)
+
+    v, _ = classify_claim("todo", False, [])
+    case("卡未 done（todo）→ 保留", v == "keep", v)
+
+    v, _ = classify_claim(None, False, [])
+    case("台账无此卡 → 跳过不误删", v == "skip", v)
+
+    v, _ = classify_claim("DX-84 done", True, [])
+    case("baseline 带前缀的 done 写法同样识别", v == "zombie", v)
+
     failures = [(n, d) for n, ok, d in cases if not ok]
     for name, ok, detail in cases:
         if ok:
@@ -178,6 +319,8 @@ def main():
     parser.add_argument("--ref-prefix", default="refs/claims/", help="claim ref 前缀")
     parser.add_argument("--selftest", action="store_true",
                         help="只跑一分支多卡判定的自测（不读仓库）")
+    parser.add_argument("--audit-zombies", action="store_true",
+                        help="DX-76 巡检：全量扫描服务端 claim 占位，点名应释放的僵尸（不校验分支）")
     args = parser.parse_args()
 
     # Windows 管道下 stdout 默认走 ANSI 代码页，打印 ✓ / ✗ 与中文直接 GBK 崩
@@ -190,6 +333,8 @@ def main():
 
     if args.selftest:
         return selftest()
+    if args.audit_zombies:
+        return audit_zombies()
 
     log = git("log", "--format=%H%x09%s", "%s..%s" % (args.base, args.head))
     if log.returncode != 0:

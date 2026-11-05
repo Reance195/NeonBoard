@@ -821,6 +821,31 @@
   是闸门对象。直接放宽阈值（跳过检查）会把真漂移一起放走，直接维持红灯则把
   正常流程逼成手工补丁——两个看似矛盾的诉求，分开归因后同时成立。
 
+### 2.23 git 取值的空值崩溃三连：同一写法在三个脚本里各埋一颗雷
+
+- **现象**（三次同型）：DX-49 漂移守卫两处、DX-50 演练自抓两处、DX-59 agent-init
+  空引用一处 —— 全是「`& git <取值>` 无输出时对空引用调 `.Trim()`」或「`[string](& git …)`
+  把错误吞成空串继续往下跑」。每次修都只修现场那一行，下一个脚本再写一次再炸一次。
+- **根因**：PowerShell 里 `& git` 无输出时是 `$null`，对 `$null` 调方法当场崩；先
+  `[string]` 强转则把「git 失败」静默折成空串 —— 两种写法一个崩得太响、一个错得太静，
+  共同点是**空值语义每个调用点各写一遍**。`Get-NbCommonDir` 甚至在 agent-init 与
+  git-done 里整函数逐字重复（Z5 破戒），修 DX-59 时要改两处就是现报应。
+- **修复（DX-63）**：① 取值收口单一实现 `scripts/git-helpers.ps1`
+  （`Get-NbGitLine` 核心 + `Get-NbSymRef` / `Get-NbBranch` / `Get-NbToplevel` /
+  `Get-NbCommonDir` 四个语义封装，空输出返回空串、多行取首行、非仓库返回空/null，
+  行为与被删的两份本地实现逐字一致）；② agent-init / git-done / verify 的漂移守卫
+  与符号引用取值全部换用封装，两份重复的 `Get-NbCommonDir` 删除；③
+  `check_script_hygiene.py` 规则 E：裸 `[string](& git …)` 模式只允许出现在
+  git-helpers.ps1，反向探针自测（`--selftest`）钉死；④ 封装自带 `-SelfTest`
+  四态自测（空输出 / 多行 / 分离 HEAD / 非仓库目录），并接进 `verify.ps1 -ScriptOnly`。
+- **判据**：`pwsh -File scripts/git-helpers.ps1 -SelfTest` 退出码 0；
+  `python scripts/check_script_hygiene.py --selftest` 通过；
+  `pwsh -File scripts/git-done.ps1 -DryRun -Branch <功能分支>` 全绿（dry-run 断言
+  走的就是新封装）。
+- **一般化**：**同一类 bug 出现第三次，收口的不该只是现场那行，而是「这类写法本身」**。
+  修一行是止血，把空值语义收成单一封装 + 用卫生闸门禁掉裸写法才是止血带 —— 否则
+  第四颗雷照埋。判据要落在「模式被禁」而不是「这几行改好了」，后者防不住下一个文件。
+
 ---
 
 ## 三、构建与 Qt / QML

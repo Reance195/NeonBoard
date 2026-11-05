@@ -51,6 +51,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# git 符号引用取值走单一封装（DX-63）：空输出 / 多行 / 分离 HEAD 的空值语义只写一遍，
+# 裸 `[string](& git ...)` 模式已被 check_script_hygiene 规则 E 禁止。
+. (Join-Path $PSScriptRoot 'git-helpers.ps1')
+
 # 宪章 §7.3：原生命令会往 stderr 写进度（git 的 "Switched to a new branch"、worktree/branch
 # 的删除提示、fetch 的计数），在 $ErrorActionPreference='Stop' 下 `2>&1` 会把这些行升级成
 # 终止性错误 —— 命令其实成功了也能把脚本拦腰打断（本次就卡在「创建临时分支」那一步，
@@ -100,8 +104,7 @@ function Invoke-NetGit {
 function Assert-DryCloseStep {
     param([string]$Step)
     if (-not $DryRun) { return }
-    $rawSym = & git symbolic-ref -q --short HEAD 2>$null
-    $ref = if ($rawSym) { ([string]$rawSym).Trim() } else { '' }
+    $ref = Get-NbSymRef
     if ($ref) {
         Write-Host ("✗ dry-run 断言失败：{0} 发生在命名分支 {1} 上（DX-26 要求收尾提交在分离 HEAD）" -f $Step, $ref) -ForegroundColor Red
         exit 7
@@ -193,10 +196,8 @@ function Get-AnchorRootClaim {
     param([string]$Anchor)
     # 一律按锚点路径解析，不按调用方 CWD：git-done 通常在 agent worktree 里跑，
     # CWD 解析出来的虽然也是同一份共享 common dir，但依赖调用位置本身就是不稳的源头。
-    $dirRes = Invoke-GitQuiet @('-C', $Anchor, 'rev-parse', '--path-format=absolute', '--git-common-dir')
-    if ($dirRes.Code -ne 0) { return $null }
-    $dir = ($dirRes.Output | Select-Object -First 1).ToString().Trim()
-    if ($dir -notmatch '^[A-Za-z]:[\\/]' -and $dir -notmatch '^/') { $dir = Join-Path $Anchor $dir }
+    $dir = Get-NbCommonDir -RepoPath $Anchor
+    if (-not $dir) { return $null }
     $file = Join-Path $dir 'agent-workspace.json'
     if (-not (Test-Path -LiteralPath $file)) { return $null }
     try {
@@ -293,8 +294,7 @@ function Sync-AnchorWorktree {
     }
     if (-not (Test-Path -LiteralPath $anchor)) { return }
 
-    $branchRes = Invoke-GitQuiet @('-C', $anchor, 'symbolic-ref', '--quiet', '--short', 'HEAD')
-    $anchorBranch = if ($branchRes.Code -eq 0) { ($branchRes.Output | Select-Object -First 1).ToString().Trim() } else { '' }
+    $anchorBranch = Get-NbSymRef -Cwd $anchor
     if ($anchorBranch -ne $Main) {
         if ($anchorBranch) {
             Write-Host ("· 锚点同步：锚点区当前分支是 '{0}'，跳过" -f $anchorBranch) -ForegroundColor DarkGray
@@ -479,31 +479,19 @@ if ($PSScriptRoot) {
         $scriptRepoRoot = (Resolve-Path -LiteralPath $candidate).Path
     }
 }
-$repoRoot = if ($scriptRepoRoot) { $scriptRepoRoot } else { (Invoke-Git rev-parse --show-toplevel).Trim() }
+$repoRoot = if ($scriptRepoRoot) { $scriptRepoRoot } else { Get-NbToplevel }
 
 # ---------- 检出漂移守卫（DX-49）----------
 # 多会话并行时，终端 / Bash 工具的 CWD 会在锚点区与各 worktree 之间静默漂移：调用方以为
 # 站在树 A，脚本却按自身路径作用于树 B（§7.3 的定位设计），两棵树不一致时此前没有任何
 # 声音 —— R16-05 实测把示例插件改动误写进锚点区并 stage（pitfalls 1.25）。入口把话说破：
 # 同一仓库的不同工作树 → 默认中止并给两条出路；不在检出里 / 属于别的仓库没有漂移信号，不拦。
-function Get-NbCommonDir {
-    param([string]$RepoPath)
-    $raw = & git -C $RepoPath rev-parse --path-format=absolute --git-common-dir 2>$null
-    $p = if ($raw) { ([string]$raw).Trim() } else { '' }
-    if (-not $p) {
-        $raw = & git -C $RepoPath rev-parse --git-common-dir 2>$null
-        $p = if ($raw) { ([string]$raw).Trim() } else { '' }
-        if (-not $p) { return $null }
-        if (-not [System.IO.Path]::IsPathRooted($p)) { $p = Join-Path $RepoPath $p }
-    }
-    return ($p -replace '/', '\')
-}
+# （Get-NbCommonDir 已收口到 scripts/git-helpers.ps1，DX-63。）
 function Test-CheckoutDrift {
     param([string]$ScriptTree, [switch]$Allowed)
 
     if (-not $ScriptTree) { return }                          # 脚本不在检出内（异常布局），无从比对
-    $rawTop = & git rev-parse --show-toplevel 2>$null
-    $callerTop = if ($rawTop) { ([string]$rawTop).Trim() } else { '' }
+    $callerTop = Get-NbToplevel
     if (-not $callerTop) { return }                           # 调用方不在任何 git 检出里，无漂移信号
     $callerTop = (Resolve-Path -LiteralPath $callerTop).Path -replace '/', '\'
     $scriptTop = (Resolve-Path -LiteralPath $ScriptTree).Path -replace '/', '\'
@@ -576,7 +564,7 @@ if ($snapshotLines.Count -gt 0) {
 
 # ---- 2. 确认要合并的分支 ----
 if (-not $Branch) {
-    $Branch = (Invoke-Git rev-parse --abbrev-ref HEAD).Trim()
+    $Branch = Get-NbBranch
 }
 if ($Branch -eq $MainBranch) {
     Write-Host "`n✗ 当前分支就是主分支 '$MainBranch'，没有可合并的内容" -ForegroundColor Red
@@ -640,8 +628,7 @@ if ($Mode -eq 'remote') {
     # `switch --detach`，于是锚点区被永久留在分离 HEAD —— 下一次收尾 Sync-AnchorWorktree
     # 读到的分支名是空串，判成「锚点区不在 main」直接跳过，本地 main 从此永远落后远端一步。
     # 先记住起点与「当前根是不是锚点」，收尾按它归位。
-    $pristineRes = Invoke-GitQuiet @('symbolic-ref', '--quiet', '--short', 'HEAD')
-    $pristineBranch = if ($pristineRes.Code -eq 0) { ($pristineRes.Output | Select-Object -First 1).ToString().Trim() } else { '' }
+    $pristineBranch = Get-NbSymRef
     $anchorRoot = Get-AnchorWorktree
     $atAnchor = $false
     if ($anchorRoot) {
@@ -702,8 +689,7 @@ if ($Mode -eq 'remote') {
         Invoke-Git branch -D $tmp | Out-Null
     }
 
-    $rawSym = & git symbolic-ref -q --short HEAD 2>$null
-    $script:dryEntryRef = if ($rawSym) { ([string]$rawSym).Trim() } else { '' }
+    $script:dryEntryRef = Get-NbSymRef
     if ($DryRun -and -not $script:dryEntryRef) { Write-Host '· [dry-run] 进入时已在分离 HEAD，结束时无可回滚' -ForegroundColor DarkCyan }
     Write-Host "· 基于 origin/$MainBranch 创建临时分支 $tmp" -ForegroundColor DarkGray
     Invoke-Git switch -c $tmp "origin/$MainBranch" | Out-Null

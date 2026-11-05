@@ -65,6 +65,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# git 符号引用取值走单一封装（DX-63）：空输出 / 多行 / 分离 HEAD 的空值语义只写一遍，
+# 裸 `[string](& git ...)` 模式已被 check_script_hygiene 规则 E 禁止。
+. (Join-Path $PSScriptRoot 'git-helpers.ps1')
+
 # 仓库根按**脚本自身路径**定位：新工作区永远开在「脚本所属仓库」下，
 # 避免在别的目录里误开 worktree
 $scriptRepoRoot = $null
@@ -77,9 +81,8 @@ if ($PSScriptRoot) {
 if ($scriptRepoRoot) {
     $repoRoot = $scriptRepoRoot
 } else {
-    $repoRoot = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)
+    $repoRoot = Get-NbToplevel
     if (-not $repoRoot) { throw '当前目录不是 Git 仓库' }
-    $repoRoot = $repoRoot.Trim()
 }
 
 # ---------- 检出漂移守卫（DX-49）----------
@@ -87,25 +90,13 @@ if ($scriptRepoRoot) {
 # 站在树 A，脚本却按自身路径作用于树 B（§7.3 的定位设计），两棵树不一致时此前没有任何
 # 声音 —— R16-05 实测把示例插件改动误写进锚点区并 stage（pitfalls 1.25）。入口把话说破：
 # 同一仓库的不同工作树 → 默认中止并给两条出路；不在检出里 / 属于别的仓库没有漂移信号，不拦。
-function Get-NbCommonDir {
-    param([string]$RepoPath)
-    $raw = & git -C $RepoPath rev-parse --path-format=absolute --git-common-dir 2>$null
-    $p = if ($raw) { ([string]$raw).Trim() } else { '' }
-    if (-not $p) {
-        $raw = & git -C $RepoPath rev-parse --git-common-dir 2>$null
-        $p = if ($raw) { ([string]$raw).Trim() } else { '' }
-        if (-not $p) { return $null }
-        if (-not [System.IO.Path]::IsPathRooted($p)) { $p = Join-Path $RepoPath $p }
-    }
-    return ($p -replace '/', '\')
-}
+# （Get-NbCommonDir 已收口到 scripts/git-helpers.ps1，DX-63。）
 function Test-CheckoutDrift {
     param([string]$ScriptTree, [switch]$Allowed)
 
     if (-not $ScriptTree) { return }                          # 脚本不在检出内（异常布局），无从比对
-    $rawTop = & git rev-parse --show-toplevel 2>$null
-    if (-not $rawTop) { return }                              # 调用方不在任何 git 检出里，无漂移信号
-    $callerTop = ([string]$rawTop).Trim()
+    $callerTop = Get-NbToplevel
+    if (-not $callerTop) { return }                           # 调用方不在任何 git 检出里，无漂移信号
     $callerTop = (Resolve-Path -LiteralPath $callerTop).Path -replace '/', '\'
     $scriptTop = (Resolve-Path -LiteralPath $ScriptTree).Path -replace '/', '\'
     if ($callerTop -ieq $scriptTop) { return }                # 同区调用，正常
@@ -164,8 +155,8 @@ function Show-StaleWorktree {
     param([string]$Path)
 
     Write-Host ("✗ 工作区已存在：{0}" -f $Path) -ForegroundColor Red
-    $headBranch = ([string](& git -C $Path rev-parse --abbrev-ref HEAD 2>$null)).Trim()
-    $headCommit = ([string](& git -C $Path rev-parse --short HEAD 2>$null)).Trim()
+    $headBranch = Get-NbBranch -Cwd $Path
+    $headCommit = Get-NbGitLine -Cwd $Path -GitArgs @('rev-parse', '--short', 'HEAD')
     Write-Host ("  分支 {0}   HEAD {1}" -f $headBranch, $headCommit) -ForegroundColor DarkGray
 
     $dirty = @(& git -C $Path status --porcelain 2>$null)
@@ -199,7 +190,7 @@ function Show-StaleBranch {
     param([string]$Name)
 
     Write-Host ("✗ 分支已存在：{0}（worktree add -b 会因重名失败）" -f $Name) -ForegroundColor Red
-    $headCommit = ([string](& git -C $repoRoot rev-parse --short $Name 2>$null)).Trim()
+    $headCommit = Get-NbGitLine -Cwd $repoRoot -GitArgs @('rev-parse', '--short', $Name)
     Write-Host ("  HEAD {0}" -f $headCommit) -ForegroundColor DarkGray
     $ahead = Get-CommitCount -Path $repoRoot -RevArgs @("origin/main..$Name")
     Write-Host ("  相对 origin/main：{0} 个提交未合入" -f $ahead) -ForegroundColor DarkGray
@@ -260,8 +251,9 @@ $gitDir = ''
 $commonDir = ''
 Push-Location $repoRoot
 try {
-    $gitDir = (Resolve-Path -LiteralPath (& git rev-parse --git-dir).Trim()).Path
-    $commonDir = (Resolve-Path -LiteralPath (& git rev-parse --git-common-dir).Trim()).Path
+    $gitDirRaw = Get-NbGitLine -GitArgs @('rev-parse', '--git-dir')
+    if ($gitDirRaw) { $gitDir = (Resolve-Path -LiteralPath $gitDirRaw).Path }
+    $commonDir = Get-NbCommonDir -RepoPath $repoRoot
 } finally {
     Pop-Location
 }
@@ -450,7 +442,10 @@ function Invoke-TxnRollback {
 if ($InPlace) {
     # 已经有隔离目录了（WorkBuddy Worktree Task / 手工 worktree）：改用它，不再嵌套。
     $worktree = $repoRoot
-    $currentBranch = (& git -C $worktree rev-parse --abbrev-ref HEAD).Trim()
+    $currentBranch = Get-NbBranch -Cwd $worktree
+    if (-not $currentBranch -or $currentBranch -eq 'HEAD') {
+        throw '当前检出处于分离 HEAD，取不到原分支名，无法原地初始化（DX-63）'
+    }
     if (-not $Branch -or $Branch -eq "feature/$Agent") { $Branch = $currentBranch }
     if ($Branch -ne $currentBranch) {
         Write-Host ("  分支请求 {0} ≠ 当前检出 {1}：保留原分支，不擅自切换别人的工作区" -f $Branch, $currentBranch) -ForegroundColor Yellow
@@ -783,7 +778,7 @@ foreach ($path in $nested) {
         $selfUnpushed = $cnt
         continue
     }
-    $refName = (& git -C $path symbolic-ref --quiet --short HEAD 2>$null | Select-Object -First 1)
+    $refName = Get-NbSymRef -Cwd $path
     if (-not $refName) { $refName = '(detached)' }
     $orphans += [pscustomobject]@{ Path = $path; Branch = ($refName | Out-String).Trim(); Count = $cnt }
 }

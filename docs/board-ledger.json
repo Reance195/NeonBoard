@@ -4308,6 +4308,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-63": {
+            "agent": "agent-dx63",
+            "branch": "refactor/git-helpers-nullsafe",
+            "claimedAt": 1793904508,
+            "head": "42aef4b7d2d886f9c39545ad38afc2a7cff03982"
+        }
+    },
     "version": 1
 }

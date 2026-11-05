@@ -468,6 +468,24 @@ function Invoke-ClaimRefCleanup {
             Release-ClaimRef $ref
         }
     }
+    # DX-90：rebase 重写占位（判据 1 打不中）+ 台账投影已清空（判据 2 打不中）的死角，
+    # 收口到 check_claim_refs.py 的僵尸判定（classify_claim 单一实现，按占位提交的引用
+    # 实态评估，不依赖分支已删），这里只调用不复制判据。脚本内部对离线 / 台账不可达
+    # 保守跳过，退出码恒 0，失败不会阻断收尾；巡检（CI）兜底点名漏网的。
+    if ($DryRun) {
+        Write-Host '  [dry-run] 桩：check_claim_refs.py --release-zombies（演练不动占位）' -ForegroundColor DarkCyan
+        return
+    }
+    $relRes = Invoke-Cmd -File 'python' -CmdArgs @((Join-Path $repoRoot 'scripts\check_claim_refs.py'), '--release-zombies')
+    # 释放的短号走 stdout 单词行（与 release-claims 同约定），按此提取回显；
+    # 判定 / 跳过细节走 stderr，已被封装捕获，不在这里复述。
+    $relCodes = @($relRes.Output | Where-Object { $_ -and $_ -match '^\S+$' })
+    if ($relCodes.Count -gt 0) {
+        Write-Host ('✓ 僵尸占位释放：{0}（本地与服务端均已清，清单随本行留痕）' -f ($relCodes -join '、')) -ForegroundColor Green
+    }
+    if ($relRes.Code -ne 0) {
+        Write-Host ('· 僵尸占位释放：脚本失败（退出码 {0}），留待下次收尾或 CI 巡检点名' -f $relRes.Code) -ForegroundColor Yellow
+    }
 }
 
 # 仓库根按**脚本自身路径**定位（脚本在 <repo>/scripts/ 下），不按当前工作目录 ——

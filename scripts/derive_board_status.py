@@ -230,6 +230,32 @@ def collect_delivery_signals(commits, known_codes):
     return ever_done, bare
 
 
+def collect_delivery_evidence(commits, known_codes):
+    """DX-91 结卡证据：非流程提交里引用过的短号集合（subject 或 body 都算）。
+
+    为什么 body 也算：状态标记本来就认 body（DX-31，全历史有提交把 #code=done 写在
+    body，其中 7 张卡的派生状态只有那一处）——交付证据若只认 subject，这批合法交付
+    会被误拦。闸门要拦的是「零提交引用」的机械假结（DX-79 实录），不是散文引用；
+    流程提交（chore(claim)/chore(board)）排除 —— 结卡提交自己写的 #code=done
+    不能给自己当证据。
+    """
+    evidenced = set()
+    for _sha, subject, body in commits:
+        if ADMIN_SUBJECT.match(subject):
+            continue
+        for text in (subject, body):
+            for match in MARKER.finditer(text):
+                code = match.group(1).upper()
+                if code in known_codes:
+                    evidenced.add(code)
+    return evidenced
+
+
+def close_evidence_problems(candidates, evidenced):
+    """DX-91：候选结卡里缺交付证据的短号（纯函数，便于自测）。"""
+    return sorted(code for code in candidates if code not in evidenced)
+
+
 def stuck_cards(cards, baseline, ever_done, bare_merged):
     """滞留卡判定（DX-62）—— 纯函数，不碰磁盘。
 
@@ -687,6 +713,30 @@ def selftest():
     cases.append(("交付信号：=todo 既不是 done 也不是裸标记",
                   d17 == set() and b17 == set()))
 
+    # ⑰ 结卡证据闸门（DX-91）：复刻 DX-79 虚假结卡实录 —— 全历史只有立卡 / 结卡
+    #    两类流程提交引用了短号，非流程实现提交为零，不得结。
+    known17 = {"DX-79", "DX-76", "DX-90"}
+    hist17 = [
+        ("a", "chore(board): 立卡 DX-79 DX-90（nbflow 竞态改走宪章代登记）",
+         "授权：维护者会话指令\n批次：2026-11-06 过程立卡批次\nDX-79：孤儿占位三不管"),
+        ("b", "fix(gate): 巡检判据进领用闸门 #DX-76=done",
+         "pitfalls 2.24 收录 #DX-79 的现场记录（body 交叉引用算证据，见 collect_delivery_evidence）"),
+        ("c", "chore(board): 结卡 #DX-79=done #DX-90=done", ""),
+    ]
+    ev17 = collect_delivery_evidence(hist17, known17)
+    cases.append(("证据：非流程实现提交的 subject 引用算证据",
+                  "DX-76" in ev17))
+    cases.append(("证据：body 交叉引用算证据（DX-31 口径，body 标记是合法交付位）",
+                  "DX-79" in ev17))
+    cases.append(("证据：只有流程提交引用 → 不算证据（DX-79 立卡/结卡双双排除）",
+                  "DX-90" not in ev17))
+    problems = close_evidence_problems({"DX-79", "DX-90"}, ev17)
+    cases.append(("闸门：候选缺证据 → 点名拒绝", problems == ["DX-90"]))
+    cases.append(("闸门：候选有证据 → 放行",
+                  close_evidence_problems({"DX-76"}, ev17) == []))
+    cases.append(("闸门：全流程引用的假结（复刻 DX-79 原始形态）→ 拒",
+                  close_evidence_problems({"DX-90"}, set()) == ["DX-90"]))
+
     failed = [name for name, ok in cases if not ok]
     for name, ok in cases:
         print("  %s %s" % ("✓" if ok else "✗", name))
@@ -887,6 +937,28 @@ def main():
                 forced.add(code)
 
         changed = []
+        # DX-91 结卡证据闸门：#短号=done 标记谁都能写（写标记与验卡是同一人），
+        # DX-79 虚假结卡实录 —— baseline=done 而全主线无非流程提交引用过它，acceptance
+        # 一项都没交付。在唯一写者处 fail-closed：候选结卡的短号必须至少被一条非流程
+        # 提交引用过（subject/body 均算，口径见 collect_delivery_evidence）；
+        # 缺证据的卡整轮拒绝落盘（退出码 2，git-done 按派生器失败回滚、留待人工补），
+        # 宁可多跑一次，也不让假 done 关掉防重复领用的门。
+        # --close-explicit（DX-33）不经此门：人工确认通道本来就是给「无标记可读」的卡
+        # 留的，证据闸门对它重复设卡会让补结永远走不通。
+        candidates = {
+            code for code in cards
+            if ((derived.get(code) or "").lower() == "done"
+                and (baseline.get(code) or "").lower() != "done")
+        }
+        evidenced = collect_delivery_evidence(git_log(root), set(cards.keys()))
+        unevidenced = close_evidence_problems(candidates, evidenced)
+        if unevidenced:
+            for code in unevidenced:
+                sys.stderr.write(
+                    "[结卡] %s：主线无非流程提交引用 #%s（交付证据缺失），拒绝结卡 —— "
+                    "实现提交需按约定引用短号；本次不落盘，补引用后重跑收尾即可\n"
+                    % (code, code))
+            return 2
         baseline_out = close_cards(cards, baseline, derived, forced)[0]
         for code in sorted(cards):
             before = (baseline.get(code) or "").lower()

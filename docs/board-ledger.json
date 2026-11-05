@@ -3936,13 +3936,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-48": {
-            "agent": "agent-memrev",
-            "branch": "fix/release-gate2-guidance",
-            "claimedAt": 1793893164,
-            "head": "0ecad4cc2327ed73f9013d7442425fe7f83c5874"
-        }
-    },
+    "claims": {},
     "version": 1
 }

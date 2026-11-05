@@ -4504,11 +4504,11 @@
         }
     },
     "claims": {
-        "DX-72": {
-            "agent": "agent-dx72",
-            "branch": "fix/nbflow-approve-guard",
-            "claimedAt": 1793904771,
-            "head": "f4b338e109cb6e1defc861f40c518036755ab4c6"
+        "DX-73": {
+            "agent": "agent-dx73",
+            "branch": "fix/nbflow-rebuild-claims",
+            "claimedAt": 1793907359,
+            "head": "170e61215b73af68a1afff58c8d81e5cabc6b8e5"
         }
     },
     "version": 1

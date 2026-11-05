@@ -4222,13 +4222,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-65": {
-            "agent": "agent-dx65",
-            "branch": "refactor/nbflow-projection",
-            "claimedAt": 1793903608,
-            "head": "8b67320090ee416ce1345a0a7ef5d3c19bd2b314"
-        }
-    },
+    "claims": {},
     "version": 1
 }

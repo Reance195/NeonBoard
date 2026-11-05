@@ -181,6 +181,114 @@
             "updatedAt": 1793899147
         },
         {
+            "code": "DX-62",
+            "completedAt": 0,
+            "createdAt": 1793900804,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-62",
+            "note": "触发证据：DX-38/DX-44 交付提交已在 origin/main 全历史但无 #=done 标记（2026-11-06 核实：git log origin/main --format=%B grep 零命中）。DX-59 同症但 git-done 收尾已补结（aea0572），反证收尾只救有标记的卡\n\n## 目标\n交付合并但未投 done 标记的卡永久滞留且可被重复领用（DX-38/DX-44 实录）\n\n## 验收\nderive --baseline-check 能点名「交付提交已合入 main（含裸 #<短号> 标记）但全历史无 #<短号>=done 的卡」，DX-38/DX-44 在当前 main 上被点名，--selftest 增补用例|agent-init 领用上述卡时显式警告「交付疑似已在 main，防重做」，不静默放行|python scripts/derive_board_status.py --selftest 与 python scripts/nbflow.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿|DX-38/DX-44 经人工确认通道补结落地（本批次执行），baseline 归位 done\n\n## 边界\nscripts/derive_board_status.py;scripts/agent-init.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 32768,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "交付合并但未投 done 标记的卡永久滞留且可被重复领用（DX-38/DX-44 实录）",
+            "updatedAt": 1793900804
+        },
+        {
+            "code": "DX-63",
+            "completedAt": 0,
+            "createdAt": 1793900804,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-63",
+            "note": "触发证据：同一空值崩 bug 三次出现：DX-49 两文件、DX-50 两文件（演练自抓）、DX-59 一文件。Z6：踩第三次必须成闸门，此后该 bug 类别物理上写不出来。\n\n## 目标\ngit 输出取值收口单一实现：git-helpers.ps1 空值安全封装加卫生闸门禁裸模式\n\n## 验收\nscripts/git-helpers.ps1 提供 Get-NbSymRef / Get-NbToplevel / Get-NbCommonDir / Get-NbBranch 空值安全封装，附带 selftest 覆盖空输出/多行/分离 HEAD/非仓库目录四态;agent-init / git-done / verify 的漂移守卫与符号引用取值全部换用封装函数;check_script_hygiene 新增规则：裸 ([string](& git 取值模式只允许出现在 git-helpers.ps1，反向探针验证;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/git-helpers.ps1;scripts/agent-init.ps1;scripts/git-done.ps1;scripts/verify.ps1;scripts/check_script_hygiene.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 33792,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "git 输出取值收口单一实现：git-helpers.ps1 空值安全封装加卫生闸门禁裸模式",
+            "updatedAt": 1793900804
+        },
+        {
+            "code": "DX-64",
+            "completedAt": 0,
+            "createdAt": 1793900804,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-64",
+            "note": "触发证据：带 =done 标记的分支 verify 必然误报快照滞后，每卡收尾前都要手工 derive --write 补快照（本会话三次）；progress.json rebase 冲突手工舞步（取主线为底加重算）跳了三轮。两个正确设计在中间态相撞：判据要收紧的是归因不是松紧。\n\n## 目标\n分支级验收按合入后一致性归因：本分支标记解释的快照漂移降为提示\n\n## 验收\n漂移项能被本分支自身 #卡=done 标记完整解释时降为提示（附合入时由 git-done 收敛），其余漂移维持非零退出;反例不破：与分支无关的真漂移仍红灯，中间态演练口径不动;merge-resolve.ps1 对 progress.json 冲突自动按取 origin/main 版本、合并后 derive 收敛处理并留痕;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/check_board_diff.py;scripts/merge-resolve.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 34816,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "分支级验收按合入后一致性归因：本分支标记解释的快照漂移降为提示",
+            "updatedAt": 1793900804
+        },
+        {
+            "code": "DX-65",
+            "completedAt": 0,
+            "createdAt": 1793900804,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-65",
+            "note": "触发证据：dry-run 推进真实状态机（本会话实测：预演 6 卡后真跑被非法状态转移拒，只能手工拨 state.json）；dispatch 失败路径缺 created→blocked 二次报错；DX-57 已交付 reconcile/requeue 手动命令，本卡升为隐式前置并把 dry-run 纯化。\n\n## 目标\nnbflow 状态机投影化：reconcile 前置到每个子命令，dry-run 转移只在内存演算\n\n## 验收\n每个子命令入口隐式执行 reconcile（从 refs/claims/分支存在性/台账/git 标记重算状态），status 结论恒等于事实源现算结果;dry-run 的状态转移只在内存演算不落盘：dry-run 后紧跟真跑不被非法状态转移拒;删除 state.json 后所有子命令照常工作（投影可重建）;自测覆盖断链重算、dry-run 纯化、既有流程回归\n\n## 边界\nscripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 35840,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow 状态机投影化：reconcile 前置到每个子命令，dry-run 转移只在内存演算",
+            "updatedAt": 1793900804
+        },
+        {
+            "code": "DX-66",
+            "completedAt": 0,
+            "createdAt": 1793900804,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-66",
+            "note": "触发证据：本会话 502 打断 dispatch 两次，残留 worktree 目录与半初始化状态需手工诊断清理；pitfalls 5.1 只有重试纪律没有程序化兜底。\n\n## 目标\nagent-init 开区事务化：网络预检前置加失败自动回滚已建工作区\n\n## 验收\n写动作（worktree add / 占用登记）前先做带退避的 ls-remote 预检（3 次），网络故障在第一行报错而非半途;任一步失败时已创建的 worktree/分支/占用登记自动回滚并打印回滚清单，退出码非 0，失败即无残留;断网模拟实测：退出后 git worktree list / 分支表 / agent-workspace.json 三处零残留;正常开区-领用-收尾端到端不变;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/agent-init.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 36864,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "agent-init 开区事务化：网络预检前置加失败自动回滚已建工作区",
+            "updatedAt": 1793900804
+        },
+        {
+            "code": "DX-67",
+            "completedAt": 0,
+            "createdAt": 1793900804,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-67",
+            "note": "触发证据：DX-51 弃卡教训：立卡只查了号段占用（DX-55 已修）没查痛点重叠，与已交付的 DX-40 重复。提示在写单那一刻出现比事后人肉发现便宜一个数量级；查重是提示不是闸门。\n\n## 目标\nnbflow request 加语义查重：title 关键词命中现有卡时要求显式确认\n\n## 验收\nrequest 写单前对 title 做关键词提取，扫台账 cards 与 docs/card-requests/ 现有请求，输出疑似重复清单;命中时要求 --ack-duplicate 显式放行，未放行即拒绝且退出码非 0;approve 时重跑查重并展示给维护者（提示不阻断）;自测覆盖命中/不命中/ack 放行，既有 request/approve 流程回归不变\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 37888,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow request 加语义查重：title 关键词命中现有卡时要求显式确认",
+            "updatedAt": 1793900804
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3965,8 +4073,26 @@
             ],
             "title": "R5 安装器清理上一版残留：全量覆盖安装不删弃用文件，0.1.3 用户永久背着 1136 个死文件",
             "updatedAt": 1793809026
+        },
+        {
+            "code": "DX-68",
+            "completedAt": 1793900804,
+            "createdAt": 1793900804,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-68",
+            "note": "触发证据：reason=merge-conflict branch=chore/board-2026-11-06 behind= files=docs/board-ledger.json docs/board-ledger.json: <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06 / <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06\n\n## 来源\n由 nbflow 自动建单：程序先合并一次，遇到冲突/阻塞不自行解决，交回 agent 合并后上交。\n\n## 冲突证据\n- 触发：merge-conflict\n- 分支：chore/board-2026-11-06（ours 329a099 / theirs 46a2c4c）\n- 冲突/脏项文件：docs/board-ledger.json\n- 诊断：docs/board-ledger.json: <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06 / <<<<<<< HEAD / ======= / >>>>>>> chore/board-2026-11-06\n\n\n## 目标\n由 agent 在自己的 worktree 里完成合并、消除冲突标记，再合回主线并结卡上交。\n\n## 步骤\n1. dot-source .agent-env.ps1，先看 NB_SCOPE / NB_ACCEPTANCE\n2. git fetch origin; git merge --no-ff chore/board-2026-11-06（或基于最新 origin/main 重建合并）\n3. 台账冲突用 scripts/merge_board.py / scripts/merge-resolve.ps1 辅助，禁止留冲突标记\n4. 提交信息带 #DX-68=done，合并体写四段（变更/验收/影响/卡片）\n5. 跑 verify.ps1，再用 nbflow report 逐条填证据，最后 nbflow close 上交\n\n## 验收\n冲突文件无 <<<<<<< 标记; git merge --no-ff chore/board-2026-11-06 完成; pwsh -File scripts/verify.ps1 -ScriptOnly 通过; 合并结果用 merge 提交合回 origin/main; 工单 note 记录冲突文件与解决方式\n\n## 边界\ndocs/board-ledger.json\n\n## 交接\n原卡保持原状态（可重跑 close）；本工单 cleaned 后再重跑原卡的 close。",
+            "orderKey": 100352,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "合并冲突：chore/board-2026-11-06 与 origin/main（程序自动建单）",
+            "updatedAt": 1793900804
         }
     ],
-    "updated": "2026-11-06T01:21:09",
+    "updated": "2026-11-06T01:46:44",
     "version": 3
 }

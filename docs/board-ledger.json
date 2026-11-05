@@ -3954,13 +3954,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-50": {
-            "agent": "agent-memrev",
-            "branch": "feature/gitdone-dryrun",
-            "claimedAt": 1793896300,
-            "head": "ec8e2a7e5105cab47bd8d318eb76b1ade58781b1"
-        }
-    },
+    "claims": {},
     "version": 1
 }

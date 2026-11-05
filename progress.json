@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-36",
-            "completedAt": 0,
-            "createdAt": 1793816382,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-36",
-            "note": "发布流水线不该当编译器用。v0.1.5 两次发布失败都是 iss 的编译期错误：run 41870082136 报 iss:117 Column 71 Type mismatch（Unicode Inno 6 的文件读写API 参数是 AnsiString），run 41877631595 报 iss:126 Column 26 Syntax error（Pascal 注释到第一个右花括号即结束，注释文本里写 Inno 常量让后半句被当代码）。iss 的 [Code] 段只有 ISCC 会编译，而 verify.ps1 从不跑 ISCC、tst_updatemanager 只 grep 文本，所以本地全绿、构建 job 全绿，直到打 tag 出包才炸，各耗 11~19 分钟与一封失败邮件。本机已装 Inno Setup 6.7.3，同样的错误 2 秒就能复现。",
-            "orderKey": 12288,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 安装器脚本没有编译闸门：iss 的 [Code] 段只有 ISCC 会编译，两次发布都栽在编译期错误",
-            "updatedAt": 1793816382
-        },
-        {
             "code": "DX-37",
             "completedAt": 0,
             "createdAt": 1793816382,
@@ -1685,6 +1667,24 @@
             ],
             "title": "PluginEventBus + PluginRuntime：事件总线与后台运行时",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "DX-36",
+            "completedAt": 1793905693,
+            "createdAt": 1793816382,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-36",
+            "note": "发布流水线不该当编译器用。v0.1.5 两次发布失败都是 iss 的编译期错误：run 41870082136 报 iss:117 Column 71 Type mismatch（Unicode Inno 6 的文件读写API 参数是 AnsiString），run 41877631595 报 iss:126 Column 26 Syntax error（Pascal 注释到第一个右花括号即结束，注释文本里写 Inno 常量让后半句被当代码）。iss 的 [Code] 段只有 ISCC 会编译，而 verify.ps1 从不跑 ISCC、tst_updatemanager 只 grep 文本，所以本地全绿、构建 job 全绿，直到打 tag 出包才炸，各耗 11~19 分钟与一封失败邮件。本机已装 Inno Setup 6.7.3，同样的错误 2 秒就能复现。",
+            "orderKey": 12288,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 安装器脚本没有编译闸门：iss 的 [Code] 段只有 ISCC 会编译，两次发布都栽在编译期错误",
+            "updatedAt": 1793905693
         },
         {
             "code": "R7-02",
@@ -4255,6 +4255,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T03:01:16",
+    "updated": "2026-11-06T03:08:13",
     "version": 3
 }

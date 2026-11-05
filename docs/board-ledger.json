@@ -3721,13 +3721,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-38": {
-            "agent": "agent-dx38",
-            "branch": "fix/delta-obsolete-cleanup-receipt",
-            "claimedAt": 1793824802,
-            "head": "9ad6fe82914a1eb1243bccd694a89d837009211a"
-        }
-    },
+    "claims": {},
     "version": 1
 }

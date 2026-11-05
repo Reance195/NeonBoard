@@ -57,6 +57,7 @@
         "DX-55": "done",
         "DX-57": "done",
         "DX-58": "todo",
+        "DX-59": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1316,6 +1317,21 @@
             ],
             "stage": "DX",
             "title": "git-done 结卡补推撞 non-ff 静默回滚后回执仍虚报 closed，baseline 悬空可重领"
+        },
+        "DX-59": {
+            "acceptance": [
+                "调用方 CWD 不在 git 仓库（如 TEMP 目录）时调用 agent-init：不再出现 PS 空值崩溃（InvokeMethodOnNull），走「无漂移信号」路径进入后续既有校验",
+                "常规路径回归：从锚点区调 worktree 的 agent-init 仍 exit 5，同区调用守卫静默",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 通过"
+            ],
+            "depends": [],
+            "id": "DX-59",
+            "note": "触发证据：DX-50 实施时发现同构缺陷：([string](& git ...)).Trim() 在 git 无输出时对空值调方法（分离 HEAD 下 symbolic-ref -q 无输出即崩，实测复现）。DX-49 交付的 Test-CheckoutDrift 与 Get-NbCommonDir 存在相同写法，调用方 CWD 不在 git 仓库时 agent-init 直接崩溃而非走「无漂移信号」路径。DX-50 已修 git-done 与 verify 侧（99b4e48），agent-init 侧不在其 scope，经维护者授权（2026-11-06 会话）另立小卡。\n\n## 目标\nagent-init 漂移守卫空值崩溃：git 无输出时对空引用调 Trim\n\n## 验收\n调用方 CWD 不在 git 仓库（如 TEMP 目录）时调用 agent-init：不再出现 PS 空值崩溃（InvokeMethodOnNull），走「无漂移信号」路径进入后续既有校验;常规路径回归：从锚点区调 worktree 的 agent-init 仍 exit 5，同区调用守卫静默;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/agent-init.ps1\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/agent-init.ps1"
+            ],
+            "stage": "DX",
+            "title": "agent-init 漂移守卫空值崩溃：git 无输出时对空引用调 Trim"
         },
         "M01": {
             "acceptance": [

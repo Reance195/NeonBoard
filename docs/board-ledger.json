@@ -3769,13 +3769,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-53": {
-            "agent": "agent-dx53",
-            "branch": "fix/utf8-top-level",
-            "claimedAt": 1793850052,
-            "head": "9591088bd4879214b6a8cdd945ce7d2fa002da15"
-        }
-    },
+    "claims": {},
     "version": 1
 }

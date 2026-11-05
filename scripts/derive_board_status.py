@@ -34,6 +34,9 @@
   python scripts/derive_board_status.py --baseline-check
       只报「git 已交付但台账 baseline 仍非 done」与「cards 有卡但 baseline 无条目」，
       只报不改、恒退 0（baseline 归维护者，agent 不得自行结卡）。
+  python scripts/derive_board_status.py --stuck-codes
+      只输出滞留卡短号（一行一个）：交付提交已合入主干但全历史无 #<短号>=done 的卡
+      （DX-62）。供 agent-init 领用前告警，配 --ledger-ref 读主线台账。
 """
 import argparse
 import json
@@ -50,6 +53,9 @@ MARKER = re.compile(r"#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)(?:=(todo|doing|d
 # 领用提交的主题（agent-init.ps1 生成）。结单对账靠它区分「这条分支领了哪些卡」。
 CLAIM_SUBJECT = re.compile(
     r"^chore\(claim\):\s*领取\s*#((?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+))\s*实施任务$")
+# 流程管理类提交（领用 / 登记 / 立卡 / 补 scope）。它们的裸 #<短号> 是流程痕迹不是交付
+# —— 滞留判定（DX-62）必须排除，否则每张被领过的卡都会被误报「交付疑似已在 main」。
+ADMIN_SUBJECT = re.compile(r"^chore\((?:claim|board)\):")
 # 路线图短号格式：R0-01 / R1-03 / M01 这类。写错这类短号属于真错误，必须拦下；
 # 其余短号（例如 plan-hook 用的 #T12）不属于看板台账范畴，只提示不拦截。
 ROADMAP_CODE = re.compile(r"^(?:[A-Za-z]{1,4}\d*-\d+|M\d+)$")
@@ -77,10 +83,11 @@ def write_json_atomic(path, data):
     os.replace(tmp, path)
 
 
-def git_log(root):
-    """按时间正序返回 [(sha, subject, body)]。"""
+def git_log(root, ref=None):
+    """按时间正序返回 [(sha, subject, body)]；ref 缺省扫 HEAD 全历史。"""
     out = subprocess.run(
-        ["git", "-C", root, "log", "--reverse", "--format=%x1e%H%x1f%s%x1f%b"],
+        ["git", "-C", root, "log", "--reverse", "--format=%x1e%H%x1f%s%x1f%b",
+         ref or "HEAD"],
         capture_output=True,
         check=False,
     )
@@ -179,6 +186,71 @@ def derive_status(root, known_codes):
         unknown |= u
         warnings |= w
     return derived, unknown, warnings
+
+
+def scan_delivery_commit(subject, body, known_codes):
+    """单条提交的交付信号（DX-62）：返回 (done_codes, bare_codes)。
+
+    done_codes：这条提交里出现过的 `#<短号>=done`。subject 与 body 都认 ——
+    与 derive 的状态标记口径一致（DX-31：全历史有提交把标记写在 body）。
+    bare_codes：出现过的裸 `#<短号>`（无 =状态）。**只认 subject**：body 是散文，
+    正文里的 `#DX-38` 交叉引用会被当成「交付痕迹」误报滞留，DX-31 同源教训。
+
+    领用 / 立卡等流程提交的排除在 collect_delivery_signals 里做，这里不重复判。
+    """
+    done_codes = set()
+    bare_codes = set()
+    for text, is_subject in ((subject, True), (body, False)):
+        for match in MARKER.finditer(text):
+            code = match.group(1).upper()
+            if code not in known_codes:
+                continue
+            status = (match.group(2) or "").lower()
+            if status == "done":
+                done_codes.add(code)
+            elif not status and is_subject:
+                bare_codes.add(code)
+    return done_codes, bare_codes
+
+
+def collect_delivery_signals(commits, known_codes):
+    """聚合一批提交的交付信号。返回 (ever_done, bare_codes)。
+
+    ever_done：出现过 `#<短号>=done` 的卡（含后来被显式重开的 —— 重开是显式动作，
+    不算滞留）。bare_codes：出现裸 `#<短号>` 的非流程提交（ADMIN_SUBJECT 排除）。
+    「已合入 main」这半边判定由调用方决定喂哪段历史（git_log(root, main_ref)）。
+    """
+    ever_done = set()
+    bare = set()
+    for _sha, subject, body in commits:
+        done_codes, bare_codes = scan_delivery_commit(subject, body, known_codes)
+        ever_done |= done_codes
+        if not ADMIN_SUBJECT.match(subject):
+            bare |= bare_codes
+    return ever_done, bare
+
+
+def stuck_cards(cards, baseline, ever_done, bare_merged):
+    """滞留卡判定（DX-62）—— 纯函数，不碰磁盘。
+
+    交付提交已合入主干（提交信息含裸 #<短号>，非流程提交）但全历史从未出现
+    #<短号>=done、baseline 仍未结的卡：--close-cards 永远读不到它的 done 标记，
+    这张卡就永久滞留在 todo/doing，且防重复领用的门（baseline=done）永远不关 ——
+    任何人都能把已交付的卡再领一遍重做（DX-38/DX-44 实录）。
+
+    返回 [(code, baseline 原值)]，按短号排序。缺 baseline 条目的卡同样算滞留
+    （领用门按 todo 处理，等于没关）。
+    """
+    stuck = []
+    for code in sorted(cards):
+        current = (baseline.get(code) or "").lower()
+        if current == "done":
+            continue
+        if code in ever_done:
+            continue
+        if code in bare_merged:
+            stuck.append((code, baseline.get(code) or "(无条目)"))
+    return stuck
 
 
 def resolve_main_ref(root, requested=None):
@@ -424,6 +496,35 @@ def replay_closed(codes, exe, emit=None):
                 pass
 
 
+def read_ledger(root, ledger_rel, ledger_ref=None):
+    """读台账：给了 ledger_ref 就从该 git 引用读（如 origin/main），否则读工作区文件。
+
+    领用门与 claim-card 的重开门同口径：判定「卡是不是已交付」只认主线那份台账，
+    工作区副本可能停在旧状态。失败返回 None 并已写 stderr。
+    """
+    if ledger_ref:
+        # git show 的 rev:path 语法只认正斜杠：Windows 上 --ledger 默认值经 os.path.join
+        # 拼出反斜杠，git 会报「exists on disk, but not in '<ref>'」—— 统一归一。
+        out = subprocess.run(
+            ["git", "-C", root, "show", "%s:%s" % (ledger_ref, ledger_rel.replace(os.sep, "/"))],
+            capture_output=True, check=False,
+        )
+        if out.returncode != 0:
+            sys.stderr.write("从 %s 读台账失败：%s\n"
+                             % (ledger_ref, out.stderr.decode("utf-8", "replace")))
+            return None
+        try:
+            return json.loads(out.stdout.decode("utf-8"))
+        except ValueError as exc:
+            sys.stderr.write("%s 里的台账不是合法 JSON：%s\n" % (ledger_ref, exc))
+            return None
+    path = os.path.join(root, ledger_rel)
+    if not os.path.isfile(path):
+        sys.stderr.write("找不到台账文件：%s\n" % path)
+        return None
+    return read_json(path)
+
+
 def selftest():
     """--close-cards 的可执行自测（DX-07 验收项）：四种情形一次跑完。"""
     cards = {"A-1": {}, "B-2": {}, "C-3": {}, "D-4": {}}
@@ -543,9 +644,48 @@ def selftest():
     finally:
         subprocess.call = saved_call  # type: ignore[attr-defined]
     new_path = (captured.get("env") or {}).get("PATH", "")
-    head = new_path.split(os.pathsep)[0] if new_path else ""
+    head = new_path.split(os.path.pathsep)[0] if new_path else ""
     cases.append(("replay_closed 默认走 _run_emit_default，前置 exe 目录到 PATH",
                   rc3 == 0 and n3 == 1 and head == os.path.dirname(fake_exe)))
+
+    # ⑭ 滞留卡判定（DX-62）：复刻 DX-38/DX-44 的真实历史形态 —— 交付提交带裸 #短号、
+    #    领用/立卡流程提交也带裸 #短号、全历史无 #=done。点名交付、排除流程痕迹。
+    known14 = {"DX-38", "DX-44", "DX-62"}
+    hist14 = [
+        ("a", "chore(claim): 领取 #DX-38 实施任务", ""),
+        ("b", "chore(claim): 登记 #DX-38 领用到台账", ""),
+        ("c", "chore(board): 补 DX-38 scope 清单路径 #DX-38", ""),
+        ("d", "fix(update): 增量路径清理弃用文件并写安装回执 #DX-38", ""),
+        ("e", "fix(ci): board 校验只认 main tip 的 run #DX-44",
+         "pitfalls 里引用了 #DX-62 的现场记录（body 交叉引用不是交付）"),
+    ]
+    ever14, bare14 = collect_delivery_signals(hist14, known14)
+    cases.append(("滞留判定：裸标记只认 subject，流程提交与 body 交叉引用都排除",
+                  bare14 == {"DX-38", "DX-44"}))
+    cases.append(("滞留判定：全历史无 #=done → ever_done 为空", ever14 == set()))
+    s14 = stuck_cards({"DX-38": {}, "DX-44": {}, "DX-62": {}},
+                      {"DX-38": "todo", "DX-44": "todo", "DX-62": "doing"},
+                      ever14, bare14)
+    cases.append(("滞留判定：交付已合入但无 done 标记 → 点名滞留（doing 也算）",
+                  s14 == [("DX-38", "todo"), ("DX-44", "todo")]))
+
+    # ⑮ 滞留判定的反例：补结 / 重开 / 未实施都不该被点名
+    cases.append(("滞留判定：baseline 已 done（人工补结后）→ 不再点名",
+                  stuck_cards({"DX-38": {}}, {"DX-38": "done"}, set(), {"DX-38"}) == []))
+    cases.append(("滞留判定：全历史有过 #=done（哪怕后来重开）→ 不点名",
+                  stuck_cards({"A-1": {}}, {"A-1": "todo"}, {"A-1"}, {"A-1"}) == []))
+    cases.append(("滞留判定：没有裸交付标记（纯立卡未实施）→ 不点名",
+                  stuck_cards({"A-1": {}}, {"A-1": "todo"}, set(), set()) == []))
+    cases.append(("滞留判定：缺 baseline 条目且有裸交付标记 → 点名并记 (无条目)",
+                  stuck_cards({"A-1": {}}, {}, set(), {"A-1"}) == [("A-1", "(无条目)")]))
+
+    # ⑯ 单条提交的交付信号：状态标记与裸标记分开收
+    d16, b16 = scan_delivery_commit("fix(x): 修复 #A-1", "回滚了 #A-1=done 的部分", {"A-1"})
+    cases.append(("交付信号：subject 裸标记与 body done 标记都收",
+                  d16 == {"A-1"} and b16 == {"A-1"}))
+    d17, b17 = scan_delivery_commit("chore(x): 重开 #A-1=todo", "", {"A-1"})
+    cases.append(("交付信号：=todo 既不是 done 也不是裸标记",
+                  d17 == set() and b17 == set()))
 
     failed = [name for name, ok in cases if not ok]
     for name, ok in cases:
@@ -570,6 +710,11 @@ def main():
     parser.add_argument("--repo", default=repo_root(), help="仓库根目录")
     parser.add_argument("--snapshot", default="progress.json", help="快照相对路径")
     parser.add_argument("--ledger", default=os.path.join("docs", "board-ledger.json"), help="台账相对路径")
+    parser.add_argument(
+        "--ledger-ref", default=None,
+        help="从指定 git 引用读台账（如 origin/main），优先于 --ledger 文件；"
+             "领用前告警只认主线那份台账（与 claim-card 重开门同口径，DX-62）",
+    )
     # 互斥组改为非必填：--selftest 不读仓库，允许单独使用；
     # 缺少实际 mode 时由下方显式报错（保持原有「必须选一个模式」的口径）。
     mode = parser.add_mutually_exclusive_group(required=False)
@@ -578,6 +723,11 @@ def main():
     mode.add_argument(
         "--baseline-check", action="store_true",
         help="只报台账 baseline 与 git 交付标记的漂移，不写文件、不阻断（baseline 归维护者）",
+    )
+    mode.add_argument(
+        "--stuck-codes", action="store_true",
+        help="只输出滞留卡短号（一行一个）：交付提交已合入主干但全历史无 #<短号>=done（DX-62）；"
+             "供 agent-init 领用前告警，配 --ledger-ref 读主线台账",
     )
     mode.add_argument(
         "--close-cards", action="store_true",
@@ -625,9 +775,9 @@ def main():
         return selftest()
 
     if not any((args.check, args.write, args.baseline_check, args.close_cards,
-                args.emit_claimed, args.replay_closed)):
+                args.emit_claimed, args.replay_closed, args.stuck_codes)):
         parser.error("必须指定 --check / --write / --baseline-check / --close-cards / "
-                     "--emit-claimed / --replay-closed 之一")
+                     "--emit-claimed / --replay-closed / --stuck-codes 之一")
 
     root = os.path.abspath(args.repo)
 
@@ -663,6 +813,28 @@ def main():
                             if (v or "").lower() == "done")
         rc, _count = replay_closed(closed, exe=find_neonboard_exe(root))
         return rc
+
+    if args.stuck_codes:
+        # 滞留卡机器可读出口（DX-62）：与 --baseline-check 的滞留项同一套判定函数
+        # （stuck_cards，单一实现），只是输出格式不同 —— 一行一个短号，供
+        # agent-init 领用前告警解析。不依赖快照：领用发生在开区时刻，快照还没有。
+        ledger = read_ledger(root, args.ledger, args.ledger_ref)
+        if ledger is None:
+            return 2
+        cards = ledger.get("cards") or {}
+        baseline = ledger.get("baseline") or {}
+        if not cards:
+            sys.stderr.write("台账里没有任何卡片\n")
+            return 2
+        known = set(cards.keys())
+        main_ref = resolve_main_ref(root, args.main_ref)
+        ever_done, _ = collect_delivery_signals(git_log(root), known)
+        bare_merged = set()
+        if main_ref:
+            _, bare_merged = collect_delivery_signals(git_log(root, main_ref), known)
+        for code, _current in stuck_cards(cards, baseline, ever_done, bare_merged):
+            print(code)
+        return 0
 
     snapshot_path = os.path.join(root, args.snapshot)
 
@@ -750,17 +922,31 @@ def main():
             if current != "done":
                 drift.append((code, baseline.get(code) or "(无条目)"))
         missing = [code for code in sorted(cards) if code not in baseline]
+        # 滞留卡（DX-62）：交付提交已合入主干（裸 #<短号>）但全历史无 #<短号>=done。
+        # 这类卡 --close-cards 读不到 done 标记、永远结不掉，防重复领用的门也关不上，
+        # 上面的漂移探针等不到它归位 —— 必须单独点名，走人工确认通道补结。
+        ever_done, _ = collect_delivery_signals(git_log(root), set(cards.keys()))
+        main_ref = resolve_main_ref(root, args.main_ref)
+        bare_merged = set()
+        if main_ref:
+            _, bare_merged = collect_delivery_signals(git_log(root, main_ref), set(cards.keys()))
+        stuck = stuck_cards(cards, baseline, ever_done, bare_merged)
         for code, current in drift:
             print("[baseline] %s：git 历史里有 #%s=done，但 baseline 仍是 %s" % (code, code, current))
         for code in missing:
             print("[baseline] %s：cards 里有这张卡，baseline 却没有条目（领用门按 todo 处理）" % code)
-        if drift or missing:
+        for code, current in stuck:
+            print("[baseline] %s：交付提交已合入 %s（裸 #%s 标记），但全历史无 #%s=done，baseline 仍是 %s"
+                  " —— 已交付却永久滞留、可被重复领用（DX-62）"
+                  % (code, main_ref or "main", code, code, current))
+        if drift or missing or stuck:
             print(
-                "[baseline] 漂移 %d 项 / 缺项 %d 项 —— 应已被 git-done 收尾的 --close-cards 结掉；"
-                "仍漂说明那次结卡提交没成功（见 git-done 输出）" % (len(drift), len(missing))
+                "[baseline] 漂移 %d 项 / 缺项 %d 项 / 滞留 %d 项 —— 漂移/缺项应已被 git-done 收尾的"
+                " --close-cards 结掉；滞留卡没有 done 标记可读，需人工确认通道补结"
+                "（--close-cards --close-explicit）" % (len(drift), len(missing), len(stuck))
             )
         else:
-            print("[baseline] 漂移 0 项 / 缺项 0 项 —— 结卡自动化（DX-07）生效")
+            print("[baseline] 漂移 0 项 / 缺项 0 项 / 滞留 0 项 —— 结卡自动化（DX-07）与滞留探测（DX-62）生效")
         return 0
 
     for code in sorted(warnings):

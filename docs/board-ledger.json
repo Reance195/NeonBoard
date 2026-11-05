@@ -3915,6 +3915,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-55": {
+            "agent": "agent-dx55",
+            "branch": "fix/nbflow-auto-numbering",
+            "claimedAt": 1793892392,
+            "head": "7e2e3d525fd153137e517fe436227374a51bf477"
+        }
+    },
     "version": 1
 }

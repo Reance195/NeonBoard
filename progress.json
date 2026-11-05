@@ -109,42 +109,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-60",
-            "completedAt": 0,
-            "createdAt": 1793899147,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-60",
-            "note": "触发证据：R5-13（v0.1.6 发版）2026-11-06 实测：全新 worktree 验证死于 build.ps1:749 依赖自检，419/419 编译单元 #deps 全 0。根因链：GBK 控制台 cl 的 /showIncludes 重定向输出为 GBK → sccache 改写为 d7a2+U+FFFD 混合字节 → 探针如实落盘 showincludes-prefix.bin → CMakeLists 的 file(READ)（pip CMake 4.4.4）把非 UTF-8 字节打成 ASCII ? → build.ninja 的 msvc_deps_prefix 为「??: ?:  」匹配不到任何编译输出。chcp 65001 会话重建后该跳逐字节保真、闸门真实通过（sccache 全量命中重建约 4 分钟）。CI 不受影响（英文 locale）。\n\n## 目标\n依赖前缀机制中文 locale 适配：探针转码或 VSLANG=1033 固化进构建链\n\n## 验收\n中文 locale（GBK ANSI 代码页）机器上，新 worktree 不设 chcp 65001 直接跑 pwsh -File scripts/build.ps1 全量构建：依赖守卫通过（无空依赖条目）;探针捕获的前缀字节与 build.ninja 的 msvc_deps_prefix 逐字节一致（经 sccache 后不失真）;pwsh -File scripts/verify.ps1 全过（build.ps1 与 CMakeLists.txt 属代码路径，走全量档）;CI（英文 locale）构建与 ctest 不回归;docs/pitfalls.md §3.16/§3.20 增补「file(READ) 字节失真」层与机器判据\n\n## 边界\nscripts/build.ps1;CMakeLists.txt;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 30720,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "依赖前缀机制中文 locale 适配：探针转码或 VSLANG=1033 固化进构建链",
-            "updatedAt": 1793899147
-        },
-        {
-            "code": "DX-61",
-            "completedAt": 0,
-            "createdAt": 1793899147,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-61",
-            "note": "触发证据：R5-13（v0.1.6 发版）实测：cmd_report 的 check_report 强制每条验收 pass 才能进 reported，cmd_close 复核 allPass（nbflow.py:778），而发版卡验收 3/4/5（Release 资产/update.json/真机升级）结构性排在合并与打 tag 之后——全绿前提在合并前不可能满足。只能绕走 git-done -Close 完成结卡，nbflow 会话以 abandoned 对账（附完整缘由）。R5-10 先例同样是「合并时结卡、tag 后核验」，nbflow 模型未覆盖。\n\n## 目标\nnbflow 补 release 卡模式：允许「合并后验收」的回执与结卡通道\n\n## 验收\n发版类卡能通过 nbflow 完成 report→close：验收项可声明合并后核验时序，close 不再要求合并前全绿（或提供显式 release 通道）;回执与台账 note 保留「已核验/待核验」区分，待核验项不得混成 pass（防 Z9 口径被工具逼破）;python scripts/nbflow.py --selftest 全过，release 模式用例入自测;pwsh -File scripts/verify.ps1 -ScriptOnly 全过\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 31744,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow 补 release 卡模式：允许「合并后验收」的回执与结卡通道",
-            "updatedAt": 1793899147
-        },
-        {
             "code": "DX-62",
             "completedAt": 0,
             "createdAt": 1793900688,
@@ -165,7 +129,7 @@
         {
             "code": "DX-63",
             "completedAt": 0,
-            "createdAt": 1793900921,
+            "createdAt": 1793901108,
             "deleted": false,
             "dueAt": 0,
             "id": "DX-63",
@@ -178,12 +142,12 @@
                 "DX"
             ],
             "title": "git 输出取值收口单一实现：git-helpers.ps1 空值安全封装加卫生闸门禁裸模式",
-            "updatedAt": 1793900921
+            "updatedAt": 1793901108
         },
         {
             "code": "DX-64",
             "completedAt": 0,
-            "createdAt": 1793900921,
+            "createdAt": 1793901108,
             "deleted": false,
             "dueAt": 0,
             "id": "DX-64",
@@ -196,12 +160,12 @@
                 "DX"
             ],
             "title": "分支级验收按合入后一致性归因：本分支标记解释的快照漂移降为提示",
-            "updatedAt": 1793900921
+            "updatedAt": 1793901108
         },
         {
             "code": "DX-65",
             "completedAt": 0,
-            "createdAt": 1793900921,
+            "createdAt": 1793901108,
             "deleted": false,
             "dueAt": 0,
             "id": "DX-65",
@@ -214,12 +178,12 @@
                 "DX"
             ],
             "title": "nbflow 状态机投影化：reconcile 前置到每个子命令，dry-run 转移只在内存演算",
-            "updatedAt": 1793900921
+            "updatedAt": 1793901108
         },
         {
             "code": "DX-66",
             "completedAt": 0,
-            "createdAt": 1793900921,
+            "createdAt": 1793901108,
             "deleted": false,
             "dueAt": 0,
             "id": "DX-66",
@@ -232,12 +196,12 @@
                 "DX"
             ],
             "title": "agent-init 开区事务化：网络预检前置加失败自动回滚已建工作区",
-            "updatedAt": 1793900921
+            "updatedAt": 1793901108
         },
         {
             "code": "DX-67",
             "completedAt": 0,
-            "createdAt": 1793900921,
+            "createdAt": 1793901108,
             "deleted": false,
             "dueAt": 0,
             "id": "DX-67",
@@ -250,7 +214,7 @@
                 "DX"
             ],
             "title": "nbflow request 加语义查重：title 关键词命中现有卡时要求显式确认",
-            "updatedAt": 1793900921
+            "updatedAt": 1793901108
         },
         {
             "code": "R0-01",
@@ -2855,6 +2819,24 @@
             "updatedAt": 1792719894
         },
         {
+            "code": "DX-60",
+            "completedAt": 1793900898,
+            "createdAt": 1793899147,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-60",
+            "note": "触发证据：R5-13（v0.1.6 发版）2026-11-06 实测：全新 worktree 验证死于 build.ps1:749 依赖自检，419/419 编译单元 #deps 全 0。根因链：GBK 控制台 cl 的 /showIncludes 重定向输出为 GBK → sccache 改写为 d7a2+U+FFFD 混合字节 → 探针如实落盘 showincludes-prefix.bin → CMakeLists 的 file(READ)（pip CMake 4.4.4）把非 UTF-8 字节打成 ASCII ? → build.ninja 的 msvc_deps_prefix 为「??: ?:  」匹配不到任何编译输出。chcp 65001 会话重建后该跳逐字节保真、闸门真实通过（sccache 全量命中重建约 4 分钟）。CI 不受影响（英文 locale）。\n\n## 目标\n依赖前缀机制中文 locale 适配：探针转码或 VSLANG=1033 固化进构建链\n\n## 验收\n中文 locale（GBK ANSI 代码页）机器上，新 worktree 不设 chcp 65001 直接跑 pwsh -File scripts/build.ps1 全量构建：依赖守卫通过（无空依赖条目）;探针捕获的前缀字节与 build.ninja 的 msvc_deps_prefix 逐字节一致（经 sccache 后不失真）;pwsh -File scripts/verify.ps1 全过（build.ps1 与 CMakeLists.txt 属代码路径，走全量档）;CI（英文 locale）构建与 ctest 不回归;docs/pitfalls.md §3.16/§3.20 增补「file(READ) 字节失真」层与机器判据\n\n## 边界\nscripts/build.ps1;CMakeLists.txt;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 30720,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "依赖前缀机制中文 locale 适配：探针转码或 VSLANG=1033 固化进构建链",
+            "updatedAt": 1793900898
+        },
+        {
             "code": "R11-06",
             "completedAt": 1793892936,
             "createdAt": 1793890841,
@@ -2889,6 +2871,24 @@
             ],
             "title": "R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）",
             "updatedAt": 1793299560
+        },
+        {
+            "code": "DX-61",
+            "completedAt": 1793901072,
+            "createdAt": 1793899147,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-61",
+            "note": "触发证据：R5-13（v0.1.6 发版）实测：cmd_report 的 check_report 强制每条验收 pass 才能进 reported，cmd_close 复核 allPass（nbflow.py:778），而发版卡验收 3/4/5（Release 资产/update.json/真机升级）结构性排在合并与打 tag 之后——全绿前提在合并前不可能满足。只能绕走 git-done -Close 完成结卡，nbflow 会话以 abandoned 对账（附完整缘由）。R5-10 先例同样是「合并时结卡、tag 后核验」，nbflow 模型未覆盖。\n\n## 目标\nnbflow 补 release 卡模式：允许「合并后验收」的回执与结卡通道\n\n## 验收\n发版类卡能通过 nbflow 完成 report→close：验收项可声明合并后核验时序，close 不再要求合并前全绿（或提供显式 release 通道）;回执与台账 note 保留「已核验/待核验」区分，待核验项不得混成 pass（防 Z9 口径被工具逼破）;python scripts/nbflow.py --selftest 全过，release 模式用例入自测;pwsh -File scripts/verify.ps1 -ScriptOnly 全过\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 31744,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow 补 release 卡模式：允许「合并后验收」的回执与结卡通道",
+            "updatedAt": 1793901072
         },
         {
             "code": "R11-07",
@@ -2997,7 +2997,7 @@
         },
         {
             "code": "DX-68",
-            "completedAt": 1793900921,
+            "completedAt": 1793901108,
             "createdAt": 1793900688,
             "deleted": false,
             "dueAt": 0,
@@ -3011,7 +3011,7 @@
                 "DX"
             ],
             "title": "合并冲突：chore/board-2026-11-06 与 origin/main（程序自动建单）",
-            "updatedAt": 1793900921
+            "updatedAt": 1793901108
         },
         {
             "completedAt": 1792719894,
@@ -4093,6 +4093,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T01:48:41",
+    "updated": "2026-11-06T01:51:48",
     "version": 3
 }

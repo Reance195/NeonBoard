@@ -688,11 +688,14 @@ def parse_results(items: list[str], acceptance: list[str] | None = None) -> dict
 
     验收项可以照抄原文，也可以用序号 ``1=pass:证据`` 指向 acceptance[0]，
     避免长验收命令里的等号与转义把 agent 绕晕。
+    ``defer`` 表示「待合并后核验」（发版卡的 Release 资产 / update.json / 真机升级
+    这类结构性排在合并之后的验收项，DX-61）：必须给出非空理由，close 时会大声打印
+    并留痕，但不算失败 —— 把待核验混成 pass 才是这里要防的。
     """
     parsed: dict[str, dict] = {}
     for raw in items:
         if "=" not in raw:
-            raise ValueError("结果格式应为 <验收项或序号>=pass|fail:证据，收到 %r" % raw)
+            raise ValueError("结果格式应为 <验收项或序号>=pass|fail|defer:证据，收到 %r" % raw)
         key, tail = raw.rsplit("=", 1)
         key = key.strip()
         if key.isdigit():
@@ -704,20 +707,28 @@ def parse_results(items: list[str], acceptance: list[str] | None = None) -> dict
             result, evidence = tail.split(":", 1)
         else:
             result, evidence = tail, ""
-        if result.strip().lower() not in ("pass", "fail"):
-            raise ValueError("结果只能是 pass / fail：%r" % raw)
-        parsed[key] = {"result": result.strip().lower(), "evidence": evidence.strip()}
+        if result.strip().lower() not in ("pass", "fail", "defer"):
+            raise ValueError("结果只能是 pass / fail / defer：%r" % raw)
+        result = result.strip().lower()
+        evidence = evidence.strip()
+        if result == "defer" and not evidence:
+            raise ValueError("defer 必须给出待核验的理由（合并前核不了什么、由谁核）：%r" % raw)
+        parsed[key] = {"result": result, "evidence": evidence}
     return parsed
 
 
 def check_report(acceptance: list[str], results: dict, verify_exit: int,
                  unfinished: list[str]) -> list[str]:
-    """程序验收：逐条 acceptance 必须有结论，verify 必须为 0，未完成项必须为空。"""
+    """程序验收：逐条 acceptance 必须有结论，verify 必须为 0，未完成项必须为空。
+
+    结论取值 pass / fail / defer（DX-61）：fail 与缺结论照旧拦下；defer 是发版类卡
+    「待合并后核验」的合法结论，不算问题，但会带进回执，由 close 大声打印并留痕。
+    """
     problems: list[str] = []
     for item in acceptance:
         if item not in results:
             problems.append("缺验收结论：%s" % item)
-        elif results[item]["result"] != "pass":
+        elif results[item]["result"] == "fail":
             problems.append("验收未通过：%s（%s）" % (item, results[item]["evidence"]))
     for key in results:
         if key not in acceptance:
@@ -775,6 +786,8 @@ def cmd_report(ctx: Ctx, state: dict, args) -> int:
         "verifyCommand": "pwsh -File scripts/verify.ps1" + (" -ScriptOnly" if args.verify_mode == "script" else ""),
         "unfinished": [], "nextStep": args.next_step or "可进入 close",
         "allPass": True,
+        # DX-61：defer 不算失败，但要随回执带走，close 时大声打印并留痕
+        "deferred": sorted(k for k, v in results.items() if v.get("result") == "defer"),
     }
     rp = report_path(wt)
     if ctx.dry_run:
@@ -783,8 +796,12 @@ def cmd_report(ctx: Ctx, state: dict, args) -> int:
         rp.parent.mkdir(parents=True, exist_ok=True)
         rp.write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
         out("  · 执行回执：%s" % rp)
+    if rep["deferred"]:
+        out("  · ⚠ %d 项验收「待核验」（defer），结卡 ≠ 已核验：" % len(rep["deferred"]))
+        for k in rep["deferred"]:
+            out("      - %s：%s" % (k, results[k].get("evidence", "")))
     transition(ctx, state, card, "reported", report=str(rp),
-               nextStep=rep["nextStep"], allPass=True)
+               nextStep=rep["nextStep"], allPass=True, deferred=len(rep["deferred"]))
     return 0
 
 
@@ -796,6 +813,7 @@ def cmd_close(ctx: Ctx, state: dict, args) -> int:
         return 1
     wt = sess.get("worktree", "")
     rp = report_path(wt)
+    deferred: list[str] = []
     if not ctx.dry_run:
         if not rp.exists():
             err("✗ 找不到执行回执 %s" % rp)
@@ -804,6 +822,13 @@ def cmd_close(ctx: Ctx, state: dict, args) -> int:
         if not rep.get("allPass") or rep.get("verifyExitCode") != 0 or rep.get("unfinished"):
             err("✗ 回执未全绿，拒绝结卡")
             return 1
+        # DX-61：defer 项不拦 close（发版类卡的验收结构性排在合并后），但必须大声说出来
+        deferred = sorted(k for k, v in (rep.get("results") or {}).items()
+                          if v.get("result") == "defer")
+        if deferred:
+            out("  · ⚠ %d 项验收「待核验」（defer），结卡 ≠ 已核验：" % len(deferred))
+            for k in deferred:
+                out("      - %s：%s" % (k, (rep.get("results") or {}).get(k, {}).get("evidence", "")))
     branch = sess.get("branch", args.branch)
     if not branch:
         err("✗ 缺分支名（--branch）")
@@ -829,7 +854,12 @@ def cmd_close(ctx: Ctx, state: dict, args) -> int:
     if code != 0:
         err("✗ 合入 / 结卡 / 清理失败（退出码 %d）；状态保持 reported，可重跑" % code)
         return 2
-    transition(ctx, state, card, "closed")
+    if deferred:
+        transition(ctx, state, card, "closed",
+                   nextStep="已交付；%d 项验收 defer 待核验（见执行回执）" % len(deferred),
+                   deferCount=len(deferred))
+    else:
+        transition(ctx, state, card, "closed")
     transition(ctx, state, card, "cleaned", cleanedAt=now(),
                nextStep="已交付，工作区由 git-done 回收")
     out("%s %s 已结卡并清理" % ("[演练] 未执行 ·" if ctx.dry_run else "✓", card))
@@ -1341,6 +1371,16 @@ def selftest() -> int:
     check("序号可引用验收项",
           parse_results(["1=pass:证据"], acc) == {"ctest 全绿": {"result": "pass", "evidence": "证据"}})
     check("序号越界被拒", _raises(lambda: parse_results(["9=pass:证据"], acc)))
+
+    # DX-61：defer 结论 —— 待合并后核验的合法通道（必须有理由，不算失败）
+    defer_results = parse_results(
+        ["ctest 全绿=pass:ctest 4/4", "2=defer:推 tag 后由 release.yml 核验资产"], acc)
+    check("defer 解析且带理由",
+          defer_results["冒烟"] == {"result": "defer", "evidence": "推 tag 后由 release.yml 核验资产"})
+    check("defer 不算失败", not check_report(acc, defer_results, 0, []))
+    check("defer 缺理由被拒", _raises(lambda: parse_results(["冒烟=defer"], acc)))
+    check("defer 与 fail 混合仍拦 fail",
+          bool(check_report(acc, dict(defer_results, **{"ctest 全绿": {"result": "fail", "evidence": "红灯"}}), 0, [])))
 
     # 命令拼装：领卡与移交是一次 agent-init.ps1 -Card 调用
     argv = ps_script("agent-init.ps1", ["-Agent", "agent-a", "-Branch", "feature/x", "-Card", "FLOW-01"])

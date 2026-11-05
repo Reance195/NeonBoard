@@ -540,6 +540,15 @@ if ($Generator -eq 'VS') {
         $useNinja = $true
         Write-Step ("使用 Ninja 生成器：" + $ninja)
         Import-VcVarsIfNeeded
+        # ---- DX-60：Ninja 构建强制 UTF-8 控制台（CP 65001）----
+        # 依赖前缀按字节走「探针 → prefix.bin → CMakeLists 的 file(READ) → build.ninja」，
+        # 其中 file(READ) 一跳的行为随控制台代码页变：CP 936 下非 UTF-8 字节被写成 ASCII
+        # '?'（实测 msvc_deps_prefix 变成「??: ?:  」→ 依赖条目全 0），CP 65001 下逐字节
+        # 保真（2026-11-06 R5-13 发版实测，pitfalls §3.21）。cl 的重定向输出编码跟系统
+        # ANSI、不跟控制台 CP，所以切 65001 不改变编译输出字节，只让 CMake 这一跳保真。
+        # 副作用：宿主控制台代码页被留在 65001 —— 本仓库脚本与日志全按 UTF-8，这是更对的状态。
+        # 万一环境不允许切换，下面的前缀逐字节核对会当场拦下，不会静默放行。
+        chcp 65001 | Out-Null
         $ninjaDir = Split-Path -Parent $ninja
         if ($env:PATH -notlike "*$ninjaDir*") {
             $env:PATH = $ninjaDir + ';' + $env:PATH
@@ -624,7 +633,8 @@ if ($useNinja) {
         Write-Host ''
         Write-Host '  继续构建等于造一个「看起来成功、实际埋雷」的构建，所以这里硬失败而不是降级。'
         Write-Host ("  探针日志（如有）：" + $probeLogPath)
-        Write-Host '  排查方向：docs/pitfalls.md §3.16（根因）与 §3.20（探针被 sccache 缓存污染）。'
+        Write-Host '  排查方向：docs/pitfalls.md §3.16（根因）、§3.20（探针被 sccache 缓存污染）、'
+        Write-Host '  §3.21（前缀交接在 CP 936 下失真）。'
         Write-Host '  常见原因：cl.exe 不在 PATH；探针输出被拦；sccache 回放了别的工作区的路径。'
         throw '未能实测 /showIncludes 前缀：Ninja 的依赖条目会全空，构建中止（见 docs/pitfalls.md §3.16 / §3.20）'
     }
@@ -711,6 +721,46 @@ if ($needsConfigure) {
     Write-Step "复用已有 CMake 缓存（加 -Reconfigure 可强制重配）"
 }
 $swConfigure.Stop()
+
+# ---- DX-60：前缀交接逐字节核对（秒级闸门，别等全量编译完才由依赖守卫兜底）----
+# file(READ) 一跳在 CP 936 下会把非 UTF-8 前缀写成 '?'，configure 照样「成功」，
+# 症状要等整个构建跑完的依赖守卫才冒出来（新树一烧 20-30 分钟）。这里拿 rules.ninja
+# 里实际记录的 msvc_deps_prefix 与探针落盘的 prefix.bin 逐字节比对，不一致立即指名。
+# 判定是纯字节等值、没有语义，不算 check_ninja_deps.py 的第二份实现；后者仍是
+# 构建后依赖条目的唯一判据。
+if ($useNinja -and $prefixFile -and (Test-Path -LiteralPath $prefixFile)) {
+    $rulesNinja = Join-Path $buildPath 'CMakeFiles\rules.ninja'
+    if (Test-Path -LiteralPath $rulesNinja) {
+        # 按 Latin-1（28591）读：字节与字符一一对应，任何代码页都不会改写字节
+        $latin1 = [System.Text.Encoding]::GetEncoding(28591)
+        $rawText = $latin1.GetString([System.IO.File]::ReadAllBytes($rulesNinja))
+        $prefixMark = 'msvc_deps_prefix = '
+        $idx = $rawText.IndexOf($prefixMark, [System.StringComparison]::Ordinal)
+        $recorded = $null
+        if ($idx -ge 0) {
+            $start = $idx + $prefixMark.Length
+            $end = $start
+            while ($end -lt $rawText.Length -and $rawText[$end] -ne "`r" -and $rawText[$end] -ne "`n") { $end++ }
+            $recorded = $latin1.GetBytes($rawText.Substring($start, $end - $start))
+        }
+        $probePrefix = [System.IO.File]::ReadAllBytes($prefixFile)
+        $same = $false
+        if ($recorded -and $recorded.Length -eq $probePrefix.Length) {
+            $same = $true
+            for ($b = 0; $b -lt $probePrefix.Length; $b++) {
+                if ($recorded[$b] -ne $probePrefix[$b]) { $same = $false; break }
+            }
+        }
+        if (-not $same) {
+            $hexRecorded = if ($recorded) { ($recorded | ForEach-Object { '{0:X2}' -f $_ }) -join ' ' } else { '(rules.ninja 里没找到 msvc_deps_prefix)' }
+            $hexProbe = ($probePrefix | ForEach-Object { '{0:X2}' -f $_ }) -join ' '
+            throw ("Ninja 依赖前缀交接失真：build.ninja 记录的前缀与探针实测不一致。" +
+                "记录=[$hexRecorded] 实测=[$hexProbe]。" +
+                "典型根因：CP 936 控制台下 CMake 的 file(READ) 把非 UTF-8 前缀写成 '?'（pitfalls §3.21）。" +
+                "在 UTF-8（chcp 65001）会话里重跑；本脚本通常已自动切换，见到此报错说明切换未生效。")
+        }
+    }
+}
 
 Write-Step "构建 $Config"
 $buildArgs = @('--build', $buildPath)

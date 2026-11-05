@@ -948,7 +948,9 @@
   仍被在办分支引用，判据天然保留）。CI 侧 `board.yml` 新增巡检步骤（只点名拦截，无写权限不代删）；
   存量按巡检输出逐条 `git push origin --delete` 补清。收尾侧 DX-90 把同一判定接入
   `Invoke-ClaimRefCleanup`（`check_claim_refs.py --release-zombies`，不在 PS 复制判据），
-  rebase 重写占位在收尾时自动释放，不再靠巡检追着手工补。
+  rebase 重写占位在收尾时自动释放，不再靠巡检追着手工补。DX-95 补齐 remote 模式的第二次
+  清理调用：747 行那次跑在 close-cards 之前，本次合并自身的卡 baseline 还是 todo，
+  判据 B 必打不中（DX-90 交付当日实测 DX-76/90/91 三条滞留）——台账三步完成后必须再清一次。
 - **判据**：`python scripts/check_claim_refs.py --selftest`（含僵尸判定正反例）通过；
   `python scripts/check_claim_refs.py --audit-zombies` 对真实 origin 实跑，点名数与预期存量一致、
   补清后转绿（退出码 1 → 0）；`board.yml` 巡检步骤随 push 生效。

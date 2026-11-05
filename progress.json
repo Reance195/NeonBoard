@@ -109,24 +109,6 @@
             "updatedAt": 1793905066
         },
         {
-            "code": "DX-74",
-            "completedAt": 0,
-            "createdAt": 1793905276,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-74",
-            "note": "触发证据：DX-63 规则 E 落地时的全仓 dry-run 实测：agent-workspace.ps1:32/94、check-worktree-activity.ps1:96、dev-run.ps1:46/90、preview.ps1:28、release.ps1:43/137/138/142、merge-resolve.ps1:63/296/643 仍是同族裸取值写法，规则 E 现口径（仅强转捕获）盖不住它们。与 DX-63 的关系：同一收口方向的 scope 外残留（DX-63 按 Z11 未触碰这六个脚本），非重复立卡。\n\n## 目标\n剩余脚本的裸 git 取值清理：wrapper 捕获与手工首行模式并入 git-helpers 单一口径\n\n## 验收\n六个脚本的 Invoke-Git(Quiet) 四语义捕获与「& git ... | Select-Object -First 1」手工取值全部换用 git-helpers.ps1 封装;check_script_hygiene 规则 E 扩到 wrapper 捕获与手工首行两类模式（先用全仓 dry-run 校准零误伤再落闸）;每个改动脚本的既有干跑路径（-WhatIf / -DryRun / List 类只读动作）行为不回归;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/agent-workspace.ps1;scripts/check-worktree-activity.ps1;scripts/dev-run.ps1;scripts/preview.ps1;scripts/release.ps1;scripts/merge-resolve.ps1;scripts/check_script_hygiene.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 48128,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "剩余脚本的裸 git 取值清理：wrapper 捕获与手工首行模式并入 git-helpers 单一口径",
-            "updatedAt": 1793905276
-        },
-        {
             "code": "DX-75",
             "completedAt": 0,
             "createdAt": 1793905858,
@@ -3525,6 +3507,24 @@
             "updatedAt": 1792849210
         },
         {
+            "code": "DX-74",
+            "completedAt": 1793912103,
+            "createdAt": 1793905276,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-74",
+            "note": "触发证据：DX-63 规则 E 落地时的全仓 dry-run 实测：agent-workspace.ps1:32/94、check-worktree-activity.ps1:96、dev-run.ps1:46/90、preview.ps1:28、release.ps1:43/137/138/142、merge-resolve.ps1:63/296/643 仍是同族裸取值写法，规则 E 现口径（仅强转捕获）盖不住它们。与 DX-63 的关系：同一收口方向的 scope 外残留（DX-63 按 Z11 未触碰这六个脚本），非重复立卡。\n\n## 目标\n剩余脚本的裸 git 取值清理：wrapper 捕获与手工首行模式并入 git-helpers 单一口径\n\n## 验收\n六个脚本的 Invoke-Git(Quiet) 四语义捕获与「& git ... | Select-Object -First 1」手工取值全部换用 git-helpers.ps1 封装;check_script_hygiene 规则 E 扩到 wrapper 捕获与手工首行两类模式（先用全仓 dry-run 校准零误伤再落闸）;每个改动脚本的既有干跑路径（-WhatIf / -DryRun / List 类只读动作）行为不回归;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/agent-workspace.ps1;scripts/check-worktree-activity.ps1;scripts/dev-run.ps1;scripts/preview.ps1;scripts/release.ps1;scripts/merge-resolve.ps1;scripts/check_script_hygiene.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 48128,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "剩余脚本的裸 git 取值清理：wrapper 捕获与手工首行模式并入 git-helpers 单一口径",
+            "updatedAt": 1793912103
+        },
+        {
             "completedAt": 1792849808,
             "createdAt": 1792849311,
             "deleted": false,
@@ -4633,6 +4633,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T04:52:48",
+    "updated": "2026-11-06T04:55:03",
     "version": 3
 }

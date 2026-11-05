@@ -109,24 +109,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-50",
-            "completedAt": 0,
-            "createdAt": 1793825191,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-50",
-            "note": "触发证据：DX-20 到 DX-26 回归链：改收尾顺序时所有检查全绿、端到端才炸，一天误判两次。收尾顺序无自动化测试（pitfalls 2.15，要真 push 才跑得到）。\n\n## 目标\n收尾时序回归：git-done 加 dry-run 档，verify.ps1 断言三步提交时序\n\n## 验收\ngit-done 支持 dry-run 开关：fetch/push 打桩不触网，收尾三步（清理登记/结卡/快照）时序可完整走完并逐步输出所在检出与分支;dry-run 断言 DX-26 时序：三步提交前已 switch --detach、归位在所有 commit 之后、失败回滚清理暂存区;verify.ps1 增加该档并接入常规验收;真实收尾行为不变：一次真实 git-done 端到端 EXIT=0;pwsh -File scripts/verify.ps1 全量通过\n\n## 边界\nscripts/git-done.ps1;scripts/verify.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 25600,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "收尾时序回归：git-done 加 dry-run 档，verify.ps1 断言三步提交时序",
-            "updatedAt": 1793825191
-        },
-        {
             "code": "DX-51",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -2369,6 +2351,24 @@
             "updatedAt": 1792633483
         },
         {
+            "code": "DX-50",
+            "completedAt": 1793898022,
+            "createdAt": 1793825191,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-50",
+            "note": "触发证据：DX-20 到 DX-26 回归链：改收尾顺序时所有检查全绿、端到端才炸，一天误判两次。收尾顺序无自动化测试（pitfalls 2.15，要真 push 才跑得到）。\n\n## 目标\n收尾时序回归：git-done 加 dry-run 档，verify.ps1 断言三步提交时序\n\n## 验收\ngit-done 支持 dry-run 开关：fetch/push 打桩不触网，收尾三步（清理登记/结卡/快照）时序可完整走完并逐步输出所在检出与分支;dry-run 断言 DX-26 时序：三步提交前已 switch --detach、归位在所有 commit 之后、失败回滚清理暂存区;verify.ps1 增加该档并接入常规验收;真实收尾行为不变：一次真实 git-done 端到端 EXIT=0;pwsh -File scripts/verify.ps1 全量通过\n\n## 边界\nscripts/git-done.ps1;scripts/verify.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 25600,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "收尾时序回归：git-done 加 dry-run 档，verify.ps1 断言三步提交时序",
+            "updatedAt": 1793898022
+        },
+        {
             "code": "R8-03",
             "completedAt": 1793251716,
             "createdAt": 1793213056,
@@ -3895,6 +3895,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T00:52:12",
+    "updated": "2026-11-06T01:00:22",
     "version": 3
 }

@@ -35,9 +35,15 @@
         # 硬门：领用时会向服务端推 refs/claims/<code> 占位（非强推），
         # 同名 ref 已存在即被拒绝；领子卡前先 ls-remote 父卡占位。需联网。
 
-    出口码：2 = 分支名不合规（入口即拦，未创建任何目录）；3 = 锚点 / 占用冲突；
-            4 = 残留工作区或分支已存在（只诊断，不自动删）；
-            5 = 调用方检出与脚本所属检出不一致（DX-49 漂移守卫，-AllowCrossTree 显式放行）。
+    出口码：2 = 分支名不合规（入口即拦，未创建任何目录）；3 = 锚点 / 占用冲突（含领用被拒，
+            回滚后退出）；4 = 残留工作区或分支已存在（只诊断，不自动删）；
+            5 = 调用方检出与脚本所属检出不一致（DX-49 漂移守卫，-AllowCrossTree 显式放行）；
+            6 = 网络预检失败（DX-66，此时未创建任何产物）。
+
+    开区事务（DX-66）：从第一个写动作（worktree add / 占用登记 / 领用提交 / 服务端占位）起
+    跟踪本次创建的产物，任一步失败按清单自动回滚并逐项打印 —— 失败即无残留，重跑就是干净起点。
+    网络预检与领用前置探针排在所有写动作之前：网络故障 / 卡已被占在第一行报错，不再半途留现场
+    （2026-11-06 领 DX-69 被抢占实测：worktree / 分支 / 占用登记三处残留全靠手工清）。
 #>
 [CmdletBinding()]
 param(
@@ -295,10 +301,150 @@ if ($Card -and $Card.Trim() -ieq 'none') {
     $Card = ''
 }
 
+# ---------- 网络预检（DX-66）----------
+# 写动作一旦开始就要求「失败即无残留」，所以联网检查必须排在第一个写动作（worktree add /
+# 占用登记）之前：以前网络故障走到半途才炸 —— worktree 建好、占用登记写好、领用提交做了一半，
+# 一句 throw 把残局留给调用方。预探不带 --exit-code：探的是「连得上」，不是「ref 存在」；
+# 3 次带退避，全失败 exit 6，此刻什么都没建，恢复网络后重跑就是干净起点。
+# -NoFetch 且未领卡时全程不需要网络，跳过预检。
+$needsNetwork = ((-not $NoFetch) -or ($Card -and $Card.Trim().Length -gt 0))
+if ($needsNetwork) {
+    Write-Host '· 网络预检（origin 可达性，3 次退避）...' -ForegroundColor DarkGray
+    $preflightOk = $false
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        & git ls-remote origin refs/heads/main *> $null
+        if ($LASTEXITCODE -eq 0) { $preflightOk = $true; break }
+        if ($attempt -lt 3) {
+            Write-Host ("  第 {0} 次探测失败（退出码 {1}），{2}s 后重试 ..." -f $attempt, $LASTEXITCODE, (2 * $attempt)) -ForegroundColor Yellow
+            Start-Sleep -Seconds (2 * $attempt)
+        }
+    }
+    if (-not $preflightOk) {
+        Write-Host '✗ 网络预检失败：origin 不可达（已试 3 次）。' -ForegroundColor Red
+        Write-Host '  开区需要联网（fetch / 领用占位推送 refs/claims/*）。本次未创建任何产物，' -ForegroundColor Yellow
+        Write-Host '  恢复网络后重跑即可；离线的纯文档杂务可用「-NoFetch -Card none」开区。' -ForegroundColor Yellow
+        exit 6
+    }
+    Write-Host '· 网络预检通过' -ForegroundColor DarkGray
+}
+
 if (-not $NoFetch) {
     Write-Host '· 同步远端引用 ...' -ForegroundColor DarkGray
     & git -C $repoRoot fetch origin --prune
-    if ($LASTEXITCODE -ne 0) { throw "git fetch 失败：$LASTEXITCODE" }
+    if ($LASTEXITCODE -ne 0) {
+        # 预检刚过 fetch 又挂 = 瞬时抖动，同样的处理：未创建任何产物，干净退出
+        Write-Host '✗ git fetch 失败（预检已通过，属瞬时网络问题）。本次未创建任何产物，重跑即可。' -ForegroundColor Red
+        exit 6
+    }
+}
+
+# ---------- 领用前置探针（DX-66）----------
+# 服务端占位在别人手里时，以前要到「领用空提交做完 + claim-card 推送被拒」才知道 ——
+# worktree / 分支 / 占用登记早已建好，回滚全靠手工（2026-11-06 领 DX-69 实测三处残留）。
+# 现在在第一个写动作之前探一次：占位存在 → 直接拒绝（此时什么都没建，无需清理）；
+# 不可达 → 保守拒绝（fail-closed，§7.2.1：远端不可达时视为仍被占用）；
+# 探不到占位（exit 2）→ 放行。权威判定仍在 claim-card 的原子推送（竞态窗口的兜底走回滚）。
+# 只对新开 worktree 的领用做探针：原地模式（-InPlace 补领 / 重跑同一检出）的幂等判定
+# 在领用段内 —— 分支历史里已有自己的领用提交，前置探针会把重跑误判成双领。
+if ($Card -and -not $InPlace) {
+    $probeCode = $Card.TrimStart('#').ToUpperInvariant()
+    & git ls-remote --exit-code origin ("refs/claims/{0}" -f $probeCode) *> $null
+    $probeState = $LASTEXITCODE
+    if ($probeState -ne 2) {
+        if ($probeState -eq 0) {
+            Write-Host ("✗ 卡片 {0} 已被服务端占位（refs/claims/{0} 已存在），不能再领（防双领）。" -f $probeCode) -ForegroundColor Red
+            Write-Host '  占位由其它活动分支持有：等对方合并释放，或换别的卡。' -ForegroundColor Yellow
+        } else {
+            Write-Host ("✗ 无法确认卡片 {0} 的占位状态（ls-remote 退出码 {1}），保守拒绝（fail-closed）。" -f $probeCode, $probeState) -ForegroundColor Red
+            Write-Host '  领用需要联网确认占位；恢复网络后重跑。' -ForegroundColor Yellow
+        }
+        Write-Host '  此刻尚未创建任何工作区产物，无需清理。' -ForegroundColor DarkGray
+        exit 3
+    }
+}
+
+# ---------- 开区事务（DX-66）----------
+# 从第一个写动作起登记本次创建的产物，任一步失败调 Invoke-TxnRollback 按固定顺序回滚：
+# 提交 → 服务端占位 → 占用登记 → 工作区 → 分支。顺序不能按创建时间倒着来 ——
+# 分支要等 worktree 删完才能删（检出占用）。失败即无残留，重跑就是干净起点。
+$script:txnWorktree = ''       # 本次创建的 worktree 路径
+$script:txnBranch = ''         # 本次创建的分支
+$script:txnWsScope = ''        # 本次登记的占用（root / worktree:<agent>）
+$script:txnServerClaim = ''    # 本次可能推过的服务端占位（短号；回滚按 sha 归属判定后才删）
+$script:txnHeadSha = ''        # 领用空提交头，用于判定服务端占位是否属于本次运行
+$script:txnInPlaceCommits = 0  # 原地模式追加的领用提交数（非原地随 worktree 一起删）
+
+function Invoke-TxnRollback {
+    $touched = ($script:txnWorktree -or $script:txnBranch -or $script:txnWsScope -or
+                $script:txnServerClaim -or ($script:txnInPlaceCommits -gt 0))
+    if (-not $touched) { return }
+    Write-Host ''
+    Write-Host '✗ 开区失败，自动回滚本次已创建的产物（DX-66）：' -ForegroundColor Red
+    $undoFailed = $false
+
+    if ($script:txnInPlaceCommits -gt 0) {
+        & git -C $worktree reset --hard ("HEAD~{0}" -f $script:txnInPlaceCommits) *> $null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ("  ↩ 已回退原地领用提交 {0} 个" -f $script:txnInPlaceCommits) -ForegroundColor DarkGray
+        } else {
+            $undoFailed = $true
+            Write-Host ("  ✗ 原地提交回退失败，手工清理： git -C `"{0}`" reset --hard HEAD~{1}" -f $worktree, $script:txnInPlaceCommits) -ForegroundColor Yellow
+        }
+    }
+
+    if ($script:txnServerClaim) {
+        # 占位是否属于本次运行，看 sha：等于本次领用提交头 → 是本次孤儿占位，删掉让卡回到可领；
+        # 指向别的提交 → 别的会话的占位，一概不碰（回滚不是回收站，不能替别人放卡）。
+        $remoteLine = & git ls-remote origin ("refs/claims/{0}" -f $script:txnServerClaim) 2>$null | Select-Object -First 1
+        $remoteSha = if ($remoteLine) { (([string]$remoteLine).Trim() -split '\s+')[0] } else { '' }
+        if ($remoteSha -and $remoteSha -eq $script:txnHeadSha) {
+            & git push origin --delete ("refs/claims/{0}" -f $script:txnServerClaim) *> $null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host ("  ↩ 已释放本次的服务端占位 refs/claims/{0}" -f $script:txnServerClaim) -ForegroundColor DarkGray
+            } else {
+                $undoFailed = $true
+                Write-Host ("  ✗ 服务端占位释放失败（离线/被拒），恢复后手工清理： git push origin --delete refs/claims/{0}" -f $script:txnServerClaim) -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host ("  · 服务端占位 refs/claims/{0} 不属于本次运行（sha 不符或不存在），不代删" -f $script:txnServerClaim) -ForegroundColor DarkGray
+        }
+    }
+
+    if ($script:txnWsScope) {
+        $undoPwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+        $undoExe = if ($undoPwsh) { $undoPwsh.Source } else { 'powershell' }
+        & $undoExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'scripts\agent-workspace.ps1') -Action Release -Agent $Agent -Scope $script:txnWsScope *> $null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ("  ↩ 已释放占用登记 {0}" -f $script:txnWsScope) -ForegroundColor DarkGray
+        } else {
+            $undoFailed = $true
+            Write-Host ("  ✗ 占用登记释放失败，手工清理： pwsh -File scripts\agent-workspace.ps1 -Action Release -Agent {0} -Scope {1}" -f $Agent, $script:txnWsScope) -ForegroundColor Yellow
+        }
+    }
+
+    if ($script:txnWorktree) {
+        & git -C $repoRoot worktree remove --force $script:txnWorktree *> $null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ("  ↩ 已删除工作区 {0}" -f $script:txnWorktree) -ForegroundColor DarkGray
+        } else {
+            $undoFailed = $true
+            Write-Host ("  ✗ 工作区删除失败，手工清理： git worktree remove --force `"{0}`"" -f $script:txnWorktree) -ForegroundColor Yellow
+        }
+    }
+
+    if ($script:txnBranch) {
+        & git -C $repoRoot branch -D $script:txnBranch *> $null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ("  ↩ 已删除分支 {0}" -f $script:txnBranch) -ForegroundColor DarkGray
+        } else {
+            $undoFailed = $true
+            Write-Host ("  ✗ 分支删除失败，手工清理： git branch -D {0}" -f $script:txnBranch) -ForegroundColor Yellow
+        }
+    }
+
+    if ($undoFailed) {
+        Write-Host '  上面标 ✗ 的项清完之前，同名开区重跑会撞残留诊断（exit 4）。' -ForegroundColor Yellow
+    }
 }
 
 if ($InPlace) {
@@ -351,7 +497,15 @@ if ($InPlace) {
     Write-Host ("· 创建工作区 {0}" -f $worktree) -ForegroundColor Cyan
     Write-Host ("  分支 {0}  基线 {1}" -f $Branch, $Base) -ForegroundColor DarkGray
     & git -C $repoRoot worktree add $worktree -b $Branch $Base
-    if ($LASTEXITCODE -ne 0) { throw "git worktree add 失败：$LASTEXITCODE" }
+    if ($LASTEXITCODE -ne 0) {
+        # add 半途失败可能留下部分产物（目录或 -b 的分支），探到就清：失败即无残留
+        Write-Host ("✗ git worktree add 失败（退出码 {0}）" -f $LASTEXITCODE) -ForegroundColor Red
+        & git -C $repoRoot worktree remove --force $worktree *> $null
+        & git -C $repoRoot branch -D $Branch *> $null
+        exit 1
+    }
+    $script:txnWorktree = $worktree
+    $script:txnBranch = $Branch
 }
 
 $sandbox = Join-Path $worktree '.sandbox'
@@ -428,9 +582,11 @@ if (Test-Path -LiteralPath $wsScript) {
         Write-Host ("✗ 工作区占用登记被拒绝（{0}，退出码 {1}）" -f $claimScope, $claimCode) -ForegroundColor Red
         Write-Host '  已有会话在占用它。换一个 agent 名独立开区，或等对方释放：' -ForegroundColor Yellow
         Write-Host '  pwsh -File scripts/agent-workspace.ps1 -Action Status' -ForegroundColor Yellow
+        Invoke-TxnRollback
         exit 3
     }
     $workspaceClaimed = $true
+    $script:txnWsScope = $claimScope
 }
 
 # ---------- 领用登记（-Card <短号>） ----------
@@ -492,6 +648,7 @@ if ($Card) {
     if (-not $currentBranch -or $currentBranch.Trim().Length -eq 0) {
         Write-Host '[任务闸门] 检出处于 detached HEAD，禁止领用：会记下 branch="HEAD" 的僵尸登记，游离提交还会断开 claim 祖先（DX-42）。' -ForegroundColor Red
         Write-Host '  先 git switch -c <分支名>（或切到具名分支）再重跑。' -ForegroundColor Yellow
+        Invoke-TxnRollback
         exit 3
     }
 
@@ -504,6 +661,7 @@ if ($Card) {
         Write-Host '[任务闸门] 领用前工作区必须干净：领用提交走流程豁免，卷入的改动会失去短号凭证（DX-40）。' -ForegroundColor Red
         $dirty | Select-Object -First 10 | ForEach-Object { Write-Host ("  " + $_) -ForegroundColor Yellow }
         Write-Host '  先提交 / stash，或把工具产物目录补进 .gitignore 后重跑。' -ForegroundColor Yellow
+        Invoke-TxnRollback
         exit 3
     }
 
@@ -524,19 +682,23 @@ if ($Card) {
         }
     }
 
-    # 子卡领用需要读本地看板的父子边；数据目录口径统一走 nb-paths.ps1
-    . (Join-Path $repoRoot 'scripts\nb-paths.ps1')
-    $boardDb = Get-NbBoardDb
-
     Write-Host ("· 领用 {0}：登记 ↔ 看板卡转「进行中」" -f $code) -ForegroundColor Cyan
     Push-Location $worktree
     try {
+        # 子卡领用需要读本地看板的父子边；数据目录口径统一走 nb-paths.ps1
+        # （搬进 try：路径解析抛错同样算领用失败，走回滚而不是留半成品）
+        . (Join-Path $repoRoot 'scripts\nb-paths.ps1')
+        $boardDb = Get-NbBoardDb
+
         # 1) 空提交：给分支一个 head，也让 post-commit 钩子顺手投递一次
         & git commit --allow-empty -m ("chore(claim): 领取 #{0} 实施任务" -f $code) | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "领用空提交失败：$LASTEXITCODE" }
-        $headSha = (& git rev-parse HEAD | Select-Object -First 1)
+        $script:txnHeadSha = (& git rev-parse HEAD | Select-Object -First 1)
+        if ($InPlace) { $script:txnInPlaceCommits++ }
 
-        # 2) 校验 + 防双领 + 写本 worktree 台账副本
+        # 2) 校验 + 防双领 + 写本 worktree 台账副本。claim-card 先推服务端占位后做扫描，
+        #    失败时占位可能已推成（本次的孤儿）也可能没推 —— 回滚按 sha 归属判定，非本次推的不代删。
+        $script:txnServerClaim = $code
         $claimPy = Join-Path $repoRoot 'scripts\claim-card.py'
         if (-not (Test-Path -LiteralPath $claimPy)) { throw "找不到领用脚本：$claimPy" }
         & python $claimPy $worktree $code $Agent $Branch $boardDb
@@ -546,6 +708,11 @@ if ($Card) {
         & git add docs/board-ledger.json
         & git commit -m ("chore(claim): 登记 #{0} 领用到台账" -f $code) | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "领用登记提交失败：$LASTEXITCODE" }
+        if ($InPlace) { $script:txnInPlaceCommits++ }
+    } catch {
+        Write-Host ("✗ {0}" -f $_.Exception.Message) -ForegroundColor Red
+        Invoke-TxnRollback
+        exit 3
     } finally {
         Pop-Location
     }

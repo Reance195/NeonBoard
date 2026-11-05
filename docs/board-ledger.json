@@ -4222,6 +4222,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-70": {
+            "agent": "agent-dx70",
+            "branch": "fix/nbflow-report-parse",
+            "claimedAt": 1793904001,
+            "head": "437e31ca078f112a21b49248d554c575d7e2278b"
+        }
+    },
     "version": 1
 }

@@ -145,6 +145,60 @@
             "updatedAt": 1793903455
         },
         {
+            "code": "R18-01",
+            "completedAt": 0,
+            "createdAt": 1793904755,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R18-01",
+            "note": "起因：R10-01~R10-05 给了项目维度数据层与两级看板，但明确把「项目增删改界面」留作后续卡 —— QML 对 ProjectStore 的写 API 零引用，项目只能靠归类脚本创建，用户在面板里无法管理项目。目标：设置面板新增「项目」区（列表 / 带颜色新建 / 重命名 / 删除，全部复用现有 ProjectStore API，无新表）；卡片详情抽屉新增项目归属下拉（留空 = 未归属，复用 assignTask）。非目标：不做跨项目拖动（拖过去等于改归属，需另案）、不做项目级权限、不做项目级统计视图。",
+            "orderKey": 44032,
+            "priority": 2,
+            "stage": "R18",
+            "status": "todo",
+            "tags": [
+                "R18"
+            ],
+            "title": "项目管理界面：设置面板创建 / 重命名 / 删除项目，详情抽屉项目归属下拉",
+            "updatedAt": 1793904755
+        },
+        {
+            "code": "R18-02",
+            "completedAt": 0,
+            "createdAt": 1793904755,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R18-02",
+            "note": "起因：RoadmapSync 是单路径设计（NEONBOARD_ROADMAP > ini [roadmap]/path > 从 exe 向上探测），一个实例只能盯一份 progress.json，「把其他项目纳入面板监控」没有原生路径 —— 目前唯一做法是手动搭脚手架 + 环境变量双实例。目标：project 表加可空 repo_path 字段（不升 user_version、老库兼容）；ProjectStore 增加 repo_path 读写并在项目清单中返回；RoadmapSync 由单例升级为注册表形态 —— 每个绑定项目独立监听 <repo_path>/progress.json，导入幂等、导入的卡自动归属该项目（task_project）、写回（autoExport）按项目隔离；未绑定任何项目时全局路线图行为与现状完全一致。非目标：不把 git 标记派生（derive_board_status.py）搬进应用（那是仓库侧工具）；不做跨项目卡片合并与去重。",
+            "orderKey": 45056,
+            "priority": 2,
+            "stage": "R18",
+            "status": "todo",
+            "tags": [
+                "R18"
+            ],
+            "title": "项目 ↔ 仓库绑定：project 表加可空 repo_path，每个绑定项目独立监听自己的 progress.json",
+            "updatedAt": 1793904755
+        },
+        {
+            "code": "R18-03",
+            "completedAt": 0,
+            "createdAt": 1793904755,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R18-03",
+            "note": "起因：R18-02 只能监听已有 progress.json 的仓库，全新仓库要用户手工建台账/快照 —— 正是维护者要求消灭的手工搭脚手架。目标：设置面板的项目绑定流程中，目标仓库缺 docs/board-ledger.json + progress.json 时提供「生成脚手架」选项：在目标仓库生成最小 v3 快照（version=3, items=[]）与空台账（baseline / cards / claims 均为空对象），生成后自动完成绑定；目标仓库任一文件已存在时不触发接入、不覆盖、给出提示。fail-closed：相对路径、不存在的目录、非 git 目录一律拒绝。非目标：不往目标仓库复制 derive_board_status.py / git 钩子工具链，不改目标仓库的 .gitignore / 钩子 / git 配置。",
+            "orderKey": 46080,
+            "priority": 2,
+            "stage": "R18",
+            "status": "todo",
+            "tags": [
+                "R18"
+            ],
+            "title": "无台账仓库一键接入：绑定时生成 board-ledger/progress 脚手架，既有文件不覆盖",
+            "updatedAt": 1793904755
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4165,6 +4219,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T02:47:54",
+    "updated": "2026-11-06T02:52:35",
     "version": 3
 }

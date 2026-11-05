@@ -5285,6 +5285,13 @@
             "title": "R11 界面重排收尾 3/3：修 EmptyState 锚定缺陷（空态浮到窗口左上角）+ 订正核验记录的归因"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-77": {
+            "agent": "agent-dx77",
+            "branch": "fix/console-encoding-unify",
+            "claimedAt": 1793912386,
+            "head": "0eb69377a37ccc14b5e9b5dcd9447d072067e920"
+        }
+    },
     "version": 1
 }

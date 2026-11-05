@@ -92,6 +92,7 @@
         "DX-91": "todo",
         "DX-92": "done",
         "DX-93": "todo",
+        "DX-94": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1963,6 +1964,26 @@
             ],
             "stage": "DX",
             "title": "半删除的 worktree 尸体被当活检出复用：git -C 沿目录树落到锚点，锚点检出被静默切走"
+        },
+        "DX-94": {
+            "acceptance": [
+                "卡契约注入（NB_SCOPE/NB_ACCEPTANCE/NB_DEPENDS）数据源改为 origin/main 台账，与 stuck-codes 重开门判据同源",
+                "台账读取单一实现落 Python 侧（derive_board_status.py 新增契约输出子命令），agent-init 经落盘文件按字节读消费（规避 git show 管道 GBK 解码坑）",
+                "worktree 与 -InPlace 两条路径走同一契约源",
+                "复现实验归零：分叉锚点（本地 main 45e1e93 含旧 DX-74）下 agent-init -Card DX-74 注入的 scope/acceptance 与 origin/main 台账 DX-74 逐字一致，证据落卡片 note",
+                "docs/pitfalls.md 记条目：锚点检出台账是共享陈旧投影，读台账必须声明读哪一份并与领用判据同源",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "depends": [],
+            "id": "DX-94",
+            "note": "触发证据：2026-11-06 agent-dx74 领 DX-74（裸 git 取值清理）实录：.agent-env.ps1 注入的 NB_SCOPE（git-done/verify/pitfalls/AGENTS）与 NB_ACCEPTANCE 均为 DX-88 契约。根因 agent-init.ps1:528 ledgerPath=Join-Path repoRoot，而 repoRoot=scriptRepoRoot（:82，锚点）；锚点 main 停在分叉 45e1e93，其 DX-74 是改名前旧收尾补推卡（主线上已改配 DX-88）。领用重开门判据读 origin/main（derive --stuck-codes --ledger-ref origin/main），两处口径分裂；agent 不逐字核对就会拿错契约开工，check_scope 必拒、白干一轮。\n\n## 目标\nagent-init 卡契约注入读锚点本地台账：锚点过时/分叉即注入过期契约，与 origin/main 重开门判据口径分裂\n\n## 验收\n卡契约注入（NB_SCOPE/NB_ACCEPTANCE/NB_DEPENDS）数据源改为 origin/main 台账，与 stuck-codes 重开门判据同源；台账读取单一实现落 Python 侧（derive_board_status.py 新增契约输出子命令），agent-init 经落盘文件按字节读消费（规避 git show 管道 GBK 解码坑）;worktree 与 -InPlace 两条路径走同一契约源；复现实验归零：分叉锚点（本地 main 45e1e93 含旧 DX-74）下 agent-init -Card DX-74 注入的 scope/acceptance 与 origin/main 台账 DX-74 逐字一致，证据落卡片 note;docs/pitfalls.md 记条目：锚点检出台账是共享陈旧投影，读台账必须声明读哪一份并与领用判据同源;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/agent-init.ps1;scripts/derive_board_status.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/agent-init.ps1",
+                "scripts/derive_board_status.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "agent-init 卡契约注入读锚点本地台账：锚点过时/分叉即注入过期契约，与 origin/main 重开门判据口径分裂"
         },
         "M01": {
             "acceptance": [

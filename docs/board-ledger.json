@@ -4727,13 +4727,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-95": {
-            "agent": "agent-dx76",
-            "branch": "fix/claim-cleanup-post-close",
-            "claimedAt": 1793911848,
-            "head": "5fd7ab9cd189d2d884fe93edff0b57068da86553"
-        }
-    },
+    "claims": {},
     "version": 1
 }

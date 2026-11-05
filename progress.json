@@ -73,24 +73,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-62",
-            "completedAt": 0,
-            "createdAt": 1793900688,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-62",
-            "note": "触发证据：DX-38/DX-44 交付提交已在 origin/main 全历史但无 #=done 标记（2026-11-06 核实：git log origin/main --format=%B grep 零命中）。DX-59 同症但 git-done 收尾已补结（aea0572），反证收尾只救有标记的卡\n\n## 目标\n交付合并但未投 done 标记的卡永久滞留且可被重复领用（DX-38/DX-44 实录）\n\n## 验收\nderive --baseline-check 能点名「交付提交已合入 main（含裸 #<短号> 标记）但全历史无 #<短号>=done 的卡」，DX-38/DX-44 在当前 main 上被点名，--selftest 增补用例|agent-init 领用上述卡时显式警告「交付疑似已在 main，防重做」，不静默放行|python scripts/derive_board_status.py --selftest 与 python scripts/nbflow.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿|DX-38/DX-44 经人工确认通道补结落地（本批次执行），baseline 归位 done\n\n## 边界\nscripts/derive_board_status.py;scripts/agent-init.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 32768,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "交付合并但未投 done 标记的卡永久滞留且可被重复领用（DX-38/DX-44 实录）",
-            "updatedAt": 1793900688
-        },
-        {
             "code": "DX-63",
             "completedAt": 0,
             "createdAt": 1793901108,
@@ -2997,6 +2979,24 @@
             "updatedAt": 1793892936
         },
         {
+            "code": "DX-62",
+            "completedAt": 1793902851,
+            "createdAt": 1793900688,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-62",
+            "note": "触发证据：DX-38/DX-44 交付提交已在 origin/main 全历史但无 #=done 标记（2026-11-06 核实：git log origin/main --format=%B grep 零命中）。DX-59 同症但 git-done 收尾已补结（aea0572），反证收尾只救有标记的卡\n\n## 目标\n交付合并但未投 done 标记的卡永久滞留且可被重复领用（DX-38/DX-44 实录）\n\n## 验收\nderive --baseline-check 能点名「交付提交已合入 main（含裸 #<短号> 标记）但全历史无 #<短号>=done 的卡」，DX-38/DX-44 在当前 main 上被点名，--selftest 增补用例|agent-init 领用上述卡时显式警告「交付疑似已在 main，防重做」，不静默放行|python scripts/derive_board_status.py --selftest 与 python scripts/nbflow.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿|DX-38/DX-44 经人工确认通道补结落地（本批次执行），baseline 归位 done\n\n## 边界\nscripts/derive_board_status.py;scripts/agent-init.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 32768,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "交付合并但未投 done 标记的卡永久滞留且可被重复领用（DX-38/DX-44 实录）",
+            "updatedAt": 1793902851
+        },
+        {
             "completedAt": 1792719894,
             "createdAt": 1792719894,
             "deleted": false,
@@ -4111,6 +4111,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T02:05:42",
+    "updated": "2026-11-06T02:20:51",
     "version": 3
 }

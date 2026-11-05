@@ -72,6 +72,7 @@ REPO_ROOT = SCRIPT_DIR.parent
 
 sys.path.insert(0, str(SCRIPT_DIR))
 from check_scope import glob_to_regex, normalize_scope  # noqa: E402  唯一实现，不复制一份
+from acceptance_split import is_unsplit  # noqa: E402  拆分判据单一实现（DX-84）
 
 # 与 scripts/task_gate.py 的正则保持一致：前缀 ≤4 字母；无短横形态（M19）走第二分支。
 CARD_ID_RE = re.compile(r"(?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+)")
@@ -224,6 +225,13 @@ def validate(cards: dict, ledger: dict, repo: Path) -> tuple:
             if item in seen:
                 warn("acceptance.dup", cid, "验收项重复：%s" % item[:40])
             seen.add(item)
+            # DX-84：单串多子项（引号外含 ;/；/| ）一律拦截 —— 请求单入口已由
+            # request_to_manifest 拆成数组，走到这里的单串只可能是手工 JSON 清单。
+            if is_unsplit(str(item)):
+                block("acceptance.unsplit", cid,
+                      "acceptance 第 %d 条疑似未拆分的多子项单串（%s…），请按子项拆成数组，"
+                      "分隔符口径见 scripts/acceptance_split.py"
+                      % (len(seen), str(item)[:40]))
             if not re.search(r"[A-Za-z0-9/\\._-]", str(item)):
                 warn("acceptance.prose", cid, "验收项无可验证记号（命令/路径/数字）：%s" % str(item)[:40])
             elif len(str(item)) < 12:
@@ -669,6 +677,14 @@ def selftest() -> int:
         bl, _, _ = validate({"R2-02": dict(good, id="R2-02",
                                           scope=["nodir/Nope.cpp"])}, ledger, repo)
         check("missing_path", any(c == "scope.missing_path" for c, _, _ in bl), str(bl))
+
+        # DX-84：单串多子项拦截（手工 JSON 清单入口；请求单入口已被 request_to_manifest 拆好）
+        unsplit = dict(good, id="R2-03", acceptance=["自测全过；退出码 0"])
+        bl, _, _ = validate({"R2-03": unsplit}, ledger, repo)
+        check("acceptance.unsplit", any(c == "acceptance.unsplit" for c, _, _ in bl), str(bl))
+        quoted = dict(good, id="R2-04", acceptance=['ctest -R "a|b" 2/2 通过'])
+        bl, _, _ = validate({"R2-04": quoted}, ledger, repo)
+        check("acceptance 引号内分隔符不拦", not bl, str(bl))
 
         bl, wl, _ = validate({"R2-09": dict(good, id="R2-09",
                                            scope=["src/New.cpp"])}, ledger, repo)

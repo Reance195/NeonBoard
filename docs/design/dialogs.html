@@ -60,6 +60,22 @@
   .index tr.clickable { cursor: pointer; }
   .index tr.clickable:hover td { background: rgba(34,211,238,.07); }
 
+  /* 窄视口整体缩放（缩放系数由 --nb-scale 提供） */
+  body.nb-scaled .proto-bar,
+  body.nb-scaled .index,
+  body.nb-scaled .stage {
+    width: calc(1180px * var(--nb-scale, 1));
+  }
+
+  body.nb-scaled .proto-bar,
+  body.nb-scaled .index {
+    transform: scale(var(--nb-scale, 1));
+    transform-origin: top center;
+    width: 1180px;
+  }
+
+  body.nb-scaled .index { margin-bottom: calc((1180px - 100px) * (var(--nb-scale, 1) - 1)); }
+
   /* 演示台 */
   .stage {
     width: 1180px; margin: 0 auto;
@@ -235,6 +251,21 @@
 </div>
 
 <script>
+/* 窄视口自适应：1180 px 容器等比缩放 */
+function applyScale() {
+  const avail = window.innerWidth - 24;
+  const scale = Math.min(1, avail / 1180);
+  if (scale < 1) {
+    document.body.classList.add('nb-scaled');
+    document.documentElement.style.setProperty('--nb-scale', scale);
+  } else {
+    document.body.classList.remove('nb-scaled');
+    document.documentElement.style.setProperty('--nb-scale', 1);
+  }
+}
+applyScale();
+window.addEventListener('resize', applyScale);
+
 /* =========================================================
    1. 壳规格清单
    ========================================================= */
@@ -272,12 +303,14 @@ const SHELLS = [
     form: 'dialog',
     size: 'lg',
     title: '设置',
-    sub: '热键 · 数据 · 外观 · 执行',
+    sub: '热键 · 数据 · 外观 · 执行 · 插件',
     src: 'qml/components/SettingsPanel.qml',
     change: 'changed',
     note: '<b>现状</b>：520 × 560、<span class="k">Dialog</span>，内部有二级页面但切换逻辑写在同一个文件里（1338 行）。' +
           '<br><b>新壳</b>：720 px（lg 档），左侧 160 px 固定导航 + 右侧内容区；导航项不再靠滚动找。' +
-          '<br><b>顺带</b>：底部「取消 / 保存」常驻，不再随内容滚走。'
+          '<br><b>顺带</b>：底部「取消 / 保存」常驻，不再随内容滚走。' +
+          '<br><b>承接</b>：原侧栏插件库卡片的管理动作（目录 / 市场源 / 重新扫描）归到<b>设置 → 插件</b>；' +
+          '设置入口本身移到<b>标题栏右上角</b>的齿轮按钮，不再占侧栏一行。'
   },
   {
     id: 'appearance',
@@ -314,9 +347,10 @@ const SHELLS = [
     sub: '已装 8 · 可装 12',
     src: 'qml/components/PluginLibraryPanel.qml',
     change: 'changed',
-    note: '<b>现状</b>：580 × 660，自绘浮层。' +
+    note: '<b>现状</b>：580 × 660 自绘浮层。侧栏还常驻一块同内容的「插件库 8」清单 —— 同一份信息出现两处。' +
           '<br><b>新壳</b>：720 px（lg 档）。已装 / 可装分成左右两栏，列表头固定。' +
-          '<br><b>顺带</b>：底部操作条（刷新市场 / 重新扫描 / 打开目录）从列表里提到壳底部。'
+          '<br><b>顺带</b>：<b>侧栏那块常驻清单取消</b>，插件只在打开本面板时可见；' +
+          '底部操作条（刷新市场 / 重新扫描 / 打开目录）从列表里提到壳底部。'
   },
   {
     id: 'permission',
@@ -510,23 +544,14 @@ const BODIES = {
   settings: `
     <div style="display:flex;gap:0;flex:1;min-height:0">
       <div style="width:160px;flex:0 0 160px;border-right:1px solid var(--nb-divider);padding-right:12px;display:flex;flex-direction:column;gap:2px">
-        <div class="nb-listrow" style="background:var(--nb-accent-soft);color:var(--nb-cyan)">热键与自动化</div>
-        <div class="nb-listrow">数据与备份</div>
-        <div class="nb-listrow">外观与动效</div>
-        <div class="nb-listrow">任务执行</div>
-        <div class="nb-listrow">插件</div>
-        <div class="nb-listrow">关于</div>
+        <div class="nb-listrow" onclick="setSettingsPage('hotkey')" id="setNavHotkey" style="background:var(--nb-accent-soft);color:var(--nb-cyan)">热键与自动化</div>
+        <div class="nb-listrow" onclick="setSettingsPage('data')" id="setNavData">数据与备份</div>
+        <div class="nb-listrow" onclick="setSettingsPage('appearance')" id="setNavAppearance">外观与动效</div>
+        <div class="nb-listrow" onclick="setSettingsPage('exec')" id="setNavExec">任务执行</div>
+        <div class="nb-listrow" onclick="setSettingsPage('plugin')" id="setNavPlugin">插件<span class="nb-badge" style="margin-left:auto">8</span></div>
+        <div class="nb-listrow" onclick="setSettingsPage('about')" id="setNavAbout">关于</div>
       </div>
-      <div style="flex:1;min-width:0;padding-left:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto">
-        <div class="nb-group-title">全局热键</div>
-        <div class="nb-listrow">显示 / 隐藏窗口<span class="right">Ctrl+Shift+Space</span></div>
-        <div class="nb-listrow">呼出命令面板<span class="right">Ctrl+K</span></div>
-        <div class="nb-listrow">撤销上一步<span class="right">Ctrl+Z</span></div>
-        <div class="nb-listrow">开机自启<span class="right" style="margin-left:auto"></span><span class="nb-switch nb-switch--on" style="margin-left:auto"></span></div>
-        <div class="nb-group-title">提醒与提醒音</div>
-        <div class="nb-listrow">任务提醒<span class="right" style="margin-left:auto"></span><span class="nb-switch nb-switch--on" style="margin-left:auto"></span></div>
-        <div class="nb-listrow">窗口边缘辉光脉冲<span class="right" style="margin-left:auto"></span><span class="nb-switch nb-switch--on" style="margin-left:auto"></span></div>
-      </div>
+      <div style="flex:1;min-width:0;padding-left:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto" id="setContent"></div>
     </div>
   `,
 
@@ -601,6 +626,9 @@ const BODIES = {
         <div class="nb-listrow">Cline<span class="right">可装</span></div>
         <div class="nb-listrow">Roo Code<span class="right">可装</span></div>
       </div>
+    </div>
+    <div class="nb-note">
+      这里只管<b>浏览与安装</b>。插件目录、市场源、重新扫描与插件设置页在<b>设置 → 插件</b>。
     </div>
   `,
 
@@ -880,7 +908,90 @@ const BODIES = {
 };
 
 /* =========================================================
-   3. 渲染
+   3. 设置面板分页内容
+   ========================================================= */
+
+/* 「插件」页承接原侧栏插件库卡片的管理动作：浏览安装交给插件库面板，
+   扫描 / 目录 / 市场源这类「环境与来源」的管理归设置。 */
+const SETTINGS_PAGES = {
+  hotkey: `
+    <div class="nb-group-title">全局热键</div>
+    <div class="nb-listrow">显示 / 隐藏窗口<span class="right">Ctrl+Shift+Space</span></div>
+    <div class="nb-listrow">呼出命令面板<span class="right">Ctrl+K</span></div>
+    <div class="nb-listrow">新建任务<span class="right">Ctrl+N</span></div>
+    <div class="nb-listrow">撤销上一步<span class="right">Ctrl+Z</span></div>
+    <div class="nb-listrow">专注一轮<span class="right">Ctrl+Shift+F</span></div>
+    <div class="nb-listrow">打开设置<span class="right">Ctrl+,</span></div>
+    <div class="nb-group-title">开机与提醒</div>
+    <div class="nb-listrow">开机自启<span class="right" style="margin-left:auto"></span><span class="nb-switch nb-switch--on" style="margin-left:auto"></span></div>
+    <div class="nb-listrow">任务提醒<span class="right" style="margin-left:auto"></span><span class="nb-switch nb-switch--on" style="margin-left:auto"></span></div>
+    <div class="nb-listrow">窗口边缘辉光脉冲<span class="right" style="margin-left:auto"></span><span class="nb-switch nb-switch--on" style="margin-left:auto"></span></div>
+  `,
+  data: `
+    <div class="nb-group-title">数据文件</div>
+    <div class="nb-listrow">数据库<span class="right">%APPDATA%/com.lin/NeonBoard/board.db</span></div>
+    <div class="nb-listrow">插件目录<span class="right">…/plugins</span></div>
+    <div class="nb-group-title">导入导出与备份</div>
+    <div class="nb-listrow">导出（JSON / Markdown / Todo.txt）<span class="right">导出…</span></div>
+    <div class="nb-listrow">导入<span class="right">导入…</span></div>
+    <div class="nb-listrow">备份目录<span class="right">每天首次启动自动备份</span></div>
+  `,
+  appearance: `
+    <div class="nb-group-title">主题</div>
+    <div class="nb-listrow">主题预设<span class="right">霓虹青</span></div>
+    <div class="nb-listrow">画质<span class="right">中</span></div>
+    <div class="nb-listrow">减弱动效<span class="right" style="margin-left:auto"></span><span class="nb-switch" style="margin-left:auto"></span></div>
+    <div class="nb-note">完整的外观面板在标题栏的主题按钮里，那里的主题是色卡网格。</div>
+  `,
+  exec: `
+    <div class="nb-group-title">任务执行</div>
+    <div class="nb-listrow">启用任务派发器<span class="right" style="margin-left:auto"></span><span class="nb-switch" style="margin-left:auto"></span></div>
+    <div class="nb-note nb-note--warn">默认关闭。打开总开关后，卡片的执行定义与 agent 拉起才会生效。</div>
+    <div class="nb-group-title">默认执行参数</div>
+    <div class="nb-listrow">agent<span class="right">opencode</span></div>
+    <div class="nb-listrow">超时<span class="right">30 分钟</span></div>
+    <div class="nb-listrow">最大轮数<span class="right">1</span></div>
+  `,
+  plugin: `
+    <div class="nb-group-title">已装插件（8）</div>
+    <div class="nb-listrow">Agent 任务桥<span class="right">运行中</span></div>
+    <div class="nb-listrow">Claude Code<span class="right">运行中</span></div>
+    <div class="nb-listrow">Codex CLI<span class="right">已装</span></div>
+    <div class="nb-listrow">Cursor Agent<span class="right">已装</span></div>
+    <div class="nb-listrow">opencode<span class="right">已装</span></div>
+    <div class="nb-listrow">计划钩子<span class="right">运行中</span></div>
+    <div class="nb-group-title">插件来源与管理</div>
+    <div class="nb-listrow">插件目录<span class="right">…/plugins</span></div>
+    <div class="nb-listrow">插件市场源<span class="right">Gitee → GitHub 兜底</span></div>
+    <div class="nb-listrow">重新扫描插件<span class="right">重新扫描</span></div>
+    <div class="nb-listrow">浏览与安装<span class="right">打开插件库</span></div>
+    <div class="nb-note">浏览、安装、卸载走插件库面板；扫描目录、配置市场源、插件设置页在这里。</div>
+  `,
+  about: `
+    <div class="nb-group-title">关于</div>
+    <div class="nb-listrow">版本<span class="right">0.1.4</span></div>
+    <div class="nb-listrow">检查软件更新<span class="right">检查更新</span></div>
+    <div class="nb-listrow">SQLite 任务数<span class="right">552</span></div>
+  `
+};
+
+function setSettingsPage(page) {
+  const content = document.getElementById('setContent');
+  if (!content) return;
+  content.innerHTML = SETTINGS_PAGES[page] || '';
+  const ids = { hotkey: 'setNavHotkey', data: 'setNavData', appearance: 'setNavAppearance',
+                exec: 'setNavExec', plugin: 'setNavPlugin', about: 'setNavAbout' };
+  for (const k in ids) {
+    const el = document.getElementById(ids[k]);
+    if (!el) continue;
+    const on = (k === page);
+    el.style.background = on ? 'var(--nb-accent-soft)' : 'transparent';
+    el.style.color = on ? 'var(--nb-cyan)' : 'var(--nb-muted)';
+  }
+}
+
+/* =========================================================
+   4. 渲染
    ========================================================= */
 
 const SIZE_LABEL = { sm: 'sm · 440 px', md: 'md · 560 px', lg: 'lg · 720 px', drawer: 'drawer · 320 px' };
@@ -963,6 +1074,9 @@ function show(id) {
     `;
   }
   stage.appendChild(el);
+
+  // 设置面板：打开时默认落在「热键与自动化」，之后由左侧导航切换
+  if (s.id === 'settings') setSettingsPage('hotkey');
 
   document.getElementById('stageTitle').textContent = s.name;
   document.getElementById('stageMeta').textContent = s.src + ' · ' + FORM_LABEL[s.form] + ' · ' + SIZE_LABEL[s.size];

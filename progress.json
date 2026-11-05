@@ -271,6 +271,24 @@
             "updatedAt": 1793906980
         },
         {
+            "code": "DX-85",
+            "completedAt": 0,
+            "createdAt": 1793907967,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-85",
+            "note": "触发证据：reason=merge-conflict branch=fix/nbflow-rebuild-claims behind= files=docs/board-ledger.json docs/board-ledger.json: <<<<<<< HEAD / ======= / >>>>>>> fix/nbflow-rebuild-claims\n\n## 来源\n由 nbflow 自动建单：程序先合并一次，遇到冲突/阻塞不自行解决，交回 agent 合并后上交。\n\n## 冲突证据\n- 触发：merge-conflict\n- 分支：fix/nbflow-rebuild-claims（ours 0a618f3 / theirs 5ddb457）\n- 冲突/脏项文件：docs/board-ledger.json\n- 诊断：docs/board-ledger.json: <<<<<<< HEAD / ======= / >>>>>>> fix/nbflow-rebuild-claims\n\n\n## 目标\n由 agent 在自己的 worktree 里完成合并、消除冲突标记，再合回主线并结卡上交。\n\n## 步骤\n1. dot-source .agent-env.ps1，先看 NB_SCOPE / NB_ACCEPTANCE\n2. git fetch origin; git merge --no-ff fix/nbflow-rebuild-claims（或基于最新 origin/main 重建合并）\n3. 台账冲突用 scripts/merge_board.py / scripts/merge-resolve.ps1 辅助，禁止留冲突标记\n4. 提交信息带 #DX-85=done，合并体写四段（变更/验收/影响/卡片）\n5. 跑 verify.ps1，再用 nbflow report 逐条填证据，最后 nbflow close 上交\n\n## 验收\n冲突文件无 <<<<<<< 标记; git merge --no-ff fix/nbflow-rebuild-claims 完成; pwsh -File scripts/verify.ps1 -ScriptOnly 通过; 合并结果用 merge 提交合回 origin/main; 工单 note 记录冲突文件与解决方式\n\n## 边界\ndocs/board-ledger.json\n\n## 交接\n原卡保持原状态（可重跑 close）；本工单 cleaned 后再重跑原卡的 close。",
+            "orderKey": 59392,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "合并冲突：fix/nbflow-rebuild-claims 与 origin/main（程序自动建单）",
+            "updatedAt": 1793907967
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3719,6 +3737,24 @@
             "updatedAt": 1792855060
         },
         {
+            "code": "DX-84",
+            "completedAt": 1793908094,
+            "createdAt": 1793907453,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-84",
+            "note": "触发证据：本会话（DX-70/DX-72 交付日）实测台账三种 acceptance 形态并存：DX-72/DX-74/DX-81 为正常数组（请求单用半角分号，split_multi 能拆）；DX-70/DX-73/DX-82/DX-83 为全角分号连接的单串（split_multi 只认半角，漏拆），逐条验收被迫整串一票；DX-62 为竖线单串（DX-70 已在 report 侧兼容）。病根在立卡入口没统一拆分口径，report 侧的 DX-70 兼容只覆盖竖线一种\n\n## 目标\n台账 acceptance 单串多子项三形态并存：拆分收口单一实现，立卡落数组、存量兼容展开、清单校验拦截\n\n## 验收\n拆分收口单一实现：新建 scripts/acceptance_split.py 提供引号感知拆分（半角; 全角；竖线| 三形态，引号内分隔符不切），split_multi 与 flatten_acceptance 改为调用它，request_to_manifest 立卡落数组、cmd_report 与 parse_results 对存量单串兼容展开且序号映射与逐条核验按子项走|board-apply 校验新增：清单单条 acceptance 含引号外子项分隔符且可拆出两条以上时拦截，手工 JSON 清单与请求单两条入口都覆盖，报错给出拆分建议|selftest 增补三形态拆分、引号保留、幂等、拦截正反例，python scripts/nbflow.py --selftest 与 python scripts/board-apply.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/nbflow.py;scripts/board-apply.py;scripts/acceptance_split.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 58368,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "台账 acceptance 单串多子项三形态并存：拆分收口单一实现，立卡落数组、存量兼容展开、清单校验拦截",
+            "updatedAt": 1793908094
+        },
+        {
             "completedAt": 1792855060,
             "createdAt": 1792721607,
             "deleted": false,
@@ -4417,6 +4453,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T03:31:37",
+    "updated": "2026-11-06T03:48:14",
     "version": 3
 }

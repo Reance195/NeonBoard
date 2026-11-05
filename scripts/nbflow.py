@@ -98,6 +98,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))
+from acceptance_split import FIELD_SEPARATORS, flatten_entries, split_subitems  # noqa: E402  拆分规则单一实现（DX-84）
 
 
 def _git_common_dir() -> Path:
@@ -315,7 +317,8 @@ def render_request(req: dict) -> str:
 
 
 def split_multi(value: str) -> list[str]:
-    return [v.strip() for v in (value or "").split(";") if v.strip()]
+    """请求单多值字段拆分；口径与验收拆分同一实现（DX-84），但不含竖线 —— scope/depends 的 | 不是分隔符。"""
+    return split_subitems(value, FIELD_SEPARATORS)
 
 
 def request_path(card: str, slug: str = "") -> Path:
@@ -348,6 +351,9 @@ def request_to_manifest(req: dict) -> dict:
         "title": req.get("title", "").strip(),
         "note": "触发证据：%s\n\n%s" % (req.get("evidence", ""), req.get("_body", "")),
         "scope": split_multi(req.get("scope", "")),
+        # DX-84：立卡即结构化。创建侧只认 ;／；——与 board-apply 的 acceptance.unsplit
+        # 闸门同一口径（| 在文案里可能是正文，如「竖线| 三形态」，DX-84 自己实录被误切）；
+        # 请求单里要写含 | 的验收命令请加引号。report 侧对存量单串（含 DX-62 竖线）仍全形态兼容。
         "acceptance": split_multi(req.get("acceptance", "")),
         "depends": split_multi(req.get("depends", "")),
     }
@@ -893,31 +899,13 @@ _RESULT_SPLIT_RE = re.compile(r"=\s*(pass|fail|defer)\s*(?::|$)", re.IGNORECASE)
 
 
 def flatten_acceptance(entries: list[str]) -> list[str]:
-    """存量卡把多条验收写进一条竖线分隔的串（DX-62 形态）：拆成子项再映射序号。
+    """存量卡把多条验收写进一条串（DX-62 的竖线 / DX-73 起的全角分号形态）：拆成子项再映射序号。
 
-    引号内的 ``|`` 不是分隔符（``ctest -R "a|b"`` 这类正则参数），只在引号外切；
-    拆不出两个以上非空子项的原样保留，函数幂等（拆过的列表再进来不动）。
+    拆分规则唯一实现在 acceptance_split（DX-84）：引号内分隔符不切，
+    幂等（拆过的数组再进来不动）。report 侧对存量单串卡兼容展开，
+    立卡侧（request_to_manifest）同一规则直接落数组。
     """
-    flat: list[str] = []
-    for entry in entries:
-        pieces: list[str] = []
-        buf = []
-        quoted = ""
-        for ch in entry:
-            if quoted:
-                if ch == quoted:
-                    quoted = ""
-            elif ch in "\"'":
-                quoted = ch
-            elif ch == "|":
-                pieces.append("".join(buf))
-                buf = []
-                continue
-            buf.append(ch)
-        pieces.append("".join(buf))
-        stripped = [p.strip() for p in pieces if p.strip()]
-        flat.extend(stripped if len(stripped) > 1 else [entry])
-    return flat
+    return flatten_entries(entries)
 
 
 def parse_results(items: list[str], acceptance: list[str] | None = None) -> dict[str, dict]:
@@ -1612,6 +1600,18 @@ def selftest() -> int:
     parsed = parse_request(text)
     check("front matter 往返", parsed["card"] == "FLOW-01" and parsed["state"] == "requested")
     check("多值字段拆分", split_multi(parsed["scope"]) == ["scripts/**", "docs/**"])
+    # DX-84：拆分收口单一实现 —— 全角分号也拆，立卡落数组，存量单串兼容展开
+    check("多值字段拆分认全角分号", split_multi("a；b") == ["a", "b"])
+    check("多值字段拆分不切竖线", split_multi('ctest -R "a|b"') == ['ctest -R "a|b"'])
+    mreq = {"card": "DX-99", "stage": "DX", "title": "拆分数组化", "scope": "scripts/x.py",
+            "acceptance": "自测全过；python scripts/x.py 退出 0|退出码 0",
+            "evidence": "三形态", "_body": ""}
+    check("立卡 acceptance 落数组（创建侧只认 ;／；，字面 | 不切）",
+          request_to_manifest(mreq)["acceptance"]
+          == ["自测全过", "python scripts/x.py 退出 0|退出码 0"])
+    check("report 侧存量单串仍全形态兼容（DX-62 竖线）",
+          flatten_acceptance(["自测覆盖：删 state 后重建；已领用卡不退回 created|补结落地"])
+          == ["自测覆盖：删 state 后重建", "已领用卡不退回 created", "补结落地"])
     check("正文保留五段式", "## 验收" in parsed["_body"])
     check("批准回写不丢正文", parse_request(render_request(parsed))["_body"] == parsed["_body"])
     check("缺 front matter 被拒", _raises(lambda: parse_request("随便写点东西")))

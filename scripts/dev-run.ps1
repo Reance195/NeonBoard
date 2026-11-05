@@ -40,12 +40,13 @@ if ($PSScriptRoot) {
         $scriptRepoRoot = (Resolve-Path -LiteralPath $candidate).Path
     }
 }
+# git 取值统一走单一封装（DX-74：规则 E 扩到手工首行捕获后，本脚本不得再裸写）
+. (Join-Path $PSScriptRoot 'git-helpers.ps1')
 if ($scriptRepoRoot) {
     $repoRoot = $scriptRepoRoot
 } else {
-    $repoRoot = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)
+    $repoRoot = Get-NbToplevel
     if (-not $repoRoot) { throw '当前目录不是 Git 仓库' }
-    $repoRoot = $repoRoot.Trim()
 }
 
 # agent 身份：显式参数 > 环境变量 > 从 .worktrees/<agent> 路径推断
@@ -87,9 +88,9 @@ function Get-QtPrefixFromCache {
 
 # 锚点区根目录：linked worktree 的 git-dir 在 <锚点>/.git/worktrees/<名>，common dir 才是锚点本身。
 function Get-AnchorRoot {
-    $common = (& git rev-parse --path-format=absolute --git-common-dir 2>$null | Select-Object -First 1)
+    $common = Get-NbCommonDir -RepoPath (Get-Location).Path
     if (-not $common) { return '' }
-    $parent = Split-Path -Parent $common.Trim()
+    $parent = Split-Path -Parent $common
     if ($parent -and (Test-Path -LiteralPath $parent)) { return $parent }
     return ''
 }

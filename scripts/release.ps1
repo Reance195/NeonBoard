@@ -37,12 +37,13 @@ if ($PSScriptRoot) {
         $scriptRepoRoot = (Resolve-Path -LiteralPath $candidate).Path
     }
 }
+# git 取值统一走单一封装（DX-74：规则 E 扩到手工首行捕获后，本脚本不得再裸写）
+. (Join-Path $PSScriptRoot 'git-helpers.ps1')
 if ($scriptRepoRoot) {
     $repoRoot = $scriptRepoRoot
 } else {
-    $repoRoot = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)
+    $repoRoot = Get-NbToplevel
     if (-not $repoRoot) { throw '当前目录不是 Git 仓库' }
-    $repoRoot = $repoRoot.Trim()
 }
 
 $build = Join-Path $repoRoot 'build'
@@ -134,12 +135,12 @@ if ($LASTEXITCODE -ne 0) { throw '发布锁被占用，本次中止（另一个 
 try {
     # ---- 闸门 2：HEAD 必须等于 origin/main ----
     & git -C $repoRoot fetch origin --quiet
-    $head = (& git -C $repoRoot rev-parse HEAD).Trim()
-    $originMain = (& git -C $repoRoot rev-parse origin/main).Trim()
+    $head = Get-NbGitLine -Cwd $repoRoot -GitArgs @('rev-parse', 'HEAD')
+    $originMain = Get-NbGitLine -Cwd $repoRoot -GitArgs @('rev-parse', 'origin/main')
     if ($head -ne $originMain) {
         throw ("HEAD 与 origin/main 不一致，拒绝出包`n  HEAD        = {0}`n  origin/main = {1}`n`n出路（DX-48）：发版类提交（版本 bump / 清单同步）不要直接落在锚点 main ——`n  把本地独有提交落到独立分支，经 git-done 合回主线后重跑本脚本（完整步骤见 docs/git-workflow.md §三.5）：`n    git branch build/version-bump`n    pwsh -File scripts/git-done.ps1 -Branch build/version-bump`n    pwsh -File scripts/release.ps1`n  若只是落后于主线（无本地独有提交），git merge --ff-only origin/main 即可。" -f $head, $originMain)
     }
-    $branch = (& git -C $repoRoot rev-parse --abbrev-ref HEAD).Trim()
+    $branch = Get-NbBranch -Cwd $repoRoot
 
     # ---- 闸门 3：工作区干净 ----
     $status = & git -C $repoRoot status --porcelain

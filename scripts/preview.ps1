@@ -24,10 +24,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# git 取值统一走单一封装（DX-74：规则 E 扩到手工首行捕获后，本脚本不得再裸写）
+. (Join-Path $PSScriptRoot 'git-helpers.ps1')
+
 function Get-AnchorRoot {
-    $common = (& git rev-parse --path-format=absolute --git-common-dir 2>$null | Select-Object -First 1)
+    $common = Get-NbCommonDir -RepoPath (Get-Location).Path
     if (-not $common) { throw '当前目录不是 Git 仓库' }
-    $common = $common.Trim()
     # common dir 形如 <仓库根>/.git，锚点根就是它的上级目录
     if (Test-Path -LiteralPath (Join-Path $common '..')) {
         return (Resolve-Path -LiteralPath (Join-Path $common '..')).Path

@@ -28,10 +28,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# git 取值统一走单一封装（DX-74：规则 E 扩到手工首行捕获后，本脚本不得再裸写）
+. (Join-Path $PSScriptRoot 'git-helpers.ps1')
+
 function Get-StatePath {
-    $dir = (& git rev-parse --path-format=absolute --git-common-dir 2>$null | Select-Object -First 1)
+    $dir = Get-NbCommonDir -RepoPath (Get-Location).Path
     if (-not $dir) { throw '当前目录不是 Git 仓库，无法登记工作区占用' }
-    return (Join-Path $dir.Trim() 'agent-workspace.json')
+    return (Join-Path $dir 'agent-workspace.json')
 }
 
 function Read-State {
@@ -91,9 +94,9 @@ function Get-EntryAgeMinutes {
 }
 
 function Get-PreviewRuntime {
-    $dir = (& git rev-parse --path-format=absolute --git-common-dir 2>$null | Select-Object -First 1)
+    $dir = Get-NbCommonDir -RepoPath (Get-Location).Path
     if (-not $dir) { return $null }
-    $path = Join-Path $dir.Trim() 'preview-runtime.json'
+    $path = Join-Path $dir 'preview-runtime.json'
     if (-not (Test-Path -LiteralPath $path)) { return $null }
     try {
         $raw = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)

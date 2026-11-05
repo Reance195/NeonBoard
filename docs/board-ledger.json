@@ -3744,13 +3744,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-44": {
-            "agent": "agent-dx44",
-            "branch": "fix/board-check-main-tip-only",
-            "claimedAt": 1793844226,
-            "head": "dcf84f1b5abd163089d9df01a983f3984e5ae04f"
-        }
-    },
+    "claims": {},
     "version": 1
 }

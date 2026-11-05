@@ -86,6 +86,7 @@
         "DX-85": "done",
         "DX-86": "todo",
         "DX-87": "todo",
+        "DX-88": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1851,6 +1852,28 @@
             ],
             "stage": "DX",
             "title": "git-done 冲突中止后收尾待办不可见：结卡/清领用/快照悬空，依赖后续会话顺带补"
+        },
+        "DX-88": {
+            "acceptance": [
+                "git-done remote 模式收尾：合并推送（保留 fail-soft：单独先推）之后，清理登记/结卡/快照三步在本地生成提交并一次性 push origin HEAD:main，收尾补推 3 次降为 1 次，三步任一本地失败只告警不阻断已完成的合并推送",
+                "一次真实 git-done 端到端 EXIT=0，gh run list --workflow=board.yml --branch main --limit 6 中该批收尾 Board run ≤ 2（合并 + 收尾）且 0 个 failure（叠加已合入的 DX-44 沉降）",
+                "fail-soft 不回退：人为让结卡/快照本地失败的演练中，合并仍被推送、脚本只告警、main tip 的 Board run 按既有提示报红可补跑",
+                "scripts/verify.ps1 增加收尾补推次数断言（dry-run 下统计对 main 的 push 调用次数 ≤ 2 并打印所在检出/分支），接入常规验收，pwsh -File scripts/verify.ps1 全量通过",
+                "docs/pitfalls.md 补一条「多步收尾分次 push 是中间态 run 之源：合并补推 + 沉降双保险」，AGENTS.md §7.3 收尾流程同步 push 次数"
+            ],
+            "depends": [
+                "DX-44"
+            ],
+            "id": "DX-88",
+            "note": "触发证据：原 DX-74 立卡（75cd573，维护者会话 2026-11-06 在锚点本地批准，合并提交 45e1e93 未推上主线）与主线 DX-74（6505441，另一任务「剩余脚本裸 git 取值清理」）撞号：取号只看 origin/main 台账，锚点本地未推的立卡不进占用集。本卡按原请求单（78447d1 docs/card-requests/20261106-dx-74.md）内容改配新号重立；锚点残留 3 个本地提交（78447d1/75cd573/45e1e93）在新卡落地后即冗余，建议维护者 reset 对齐 origin/main。原触发证据：DX-44（job 首步沉降等待）已止血并实测 0 封失败邮件，但属时序补丁：job 时长与推送间隔仍靠 sleep 余量赛跑，且每批收尾 4 次 push 触发 4 个 Board run（3 个注定被取消），CI 抖动与 runner 占用被放大。根因：git-done 收尾把 清理登记/结卡/快照 各自单独 push origin HEAD:main（git-done.ps1 推送点 L726/L867/L932/L151）。\n\n## 目标\ngit-done 收尾补推 3→1：清理/结卡/快照合成单次 push，配合 DX-44 沉降降低 Board 中间态 run\n\n## 验收\ngit-done remote 模式收尾：合并推送（保留 fail-soft：单独先推）之后，清理登记/结卡/快照三步在本地生成提交并一次性 push origin HEAD:main，收尾补推 3 次降为 1 次，三步任一本地失败只告警不阻断已完成的合并推送;一次真实 git-done 端到端 EXIT=0，gh run list --workflow=board.yml --branch main --limit 6 中该批收尾 Board run ≤ 2（合并 + 收尾）且 0 个 failure（叠加已合入的 DX-44 沉降）;fail-soft 不回退：人为让结卡/快照本地失败的演练中，合并仍被推送、脚本只告警、main tip 的 Board run 按既有提示报红可补跑;scripts/verify.ps1 增加收尾补推次数断言（dry-run 下统计对 main 的 push 调用次数 ≤ 2 并打印所在检出/分支），接入常规验收，pwsh -File scripts/verify.ps1 全量通过;docs/pitfalls.md 补一条「多步收尾分次 push 是中间态 run 之源：合并补推 + 沉降双保险」，AGENTS.md §7.3 收尾流程同步 push 次数\n\n## 边界\nscripts/git-done.ps1;scripts/verify.ps1;docs/pitfalls.md;AGENTS.md\n\n## 输入\n基线 origin/main；依赖：DX-44\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/verify.ps1",
+                "docs/pitfalls.md",
+                "AGENTS.md"
+            ],
+            "stage": "DX",
+            "title": "git-done 收尾补推 3→1：清理/结卡/快照合成单次 push，配合 DX-44 沉降降低 Board 中间态 run"
         },
         "M01": {
             "acceptance": [

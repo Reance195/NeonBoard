@@ -4691,6 +4691,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-74": {
+            "agent": "agent-dx74",
+            "branch": "fix/dx74-git-helpers-unify",
+            "claimedAt": 1793910575,
+            "head": "ade2da22845e977a9077ed29789464e0ba607572"
+        }
+    },
     "version": 1
 }

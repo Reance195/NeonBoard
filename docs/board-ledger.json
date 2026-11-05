@@ -2307,7 +2307,8 @@
                 "qml/components/TopToolButton.qml",
                 "qml/Main.qml",
                 "README.md",
-                "docs/iteration-roadmap.md"
+                "docs/iteration-roadmap.md",
+                "CMakeLists.txt"
             ],
             "stage": "R11",
             "title": "空态与细节反馈：空列表有引导，筛选有回声"

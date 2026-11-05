@@ -93,6 +93,7 @@
         "DX-92": "done",
         "DX-93": "done",
         "DX-94": "todo",
+        "DX-95": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -1984,6 +1985,21 @@
             ],
             "stage": "DX",
             "title": "agent-init 卡契约注入读锚点本地台账：锚点过时/分叉即注入过期契约，与 origin/main 重开门判据口径分裂"
+        },
+        "DX-95": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
+                "python scripts/check_claim_refs.py --selftest / --audit-zombies 通过"
+            ],
+            "depends": [],
+            "id": "DX-95",
+            "note": "触发证据：2026-11-06 实测（DX-90 交付当日收尾）：git-done remote 模式合并 fix/claim-ref-zombie-sweep（rebase 过 2 次）后，DX-76/90/91 三条占位全部滞留 origin，需手工 --release-zombies 补清。根因：Invoke-ClaimRefCleanup 在 remote 模式只有 747 行一次调用，位于 release-claims（838）/close-cards（873）之前——此刻本次合并的卡 baseline 还是 todo，classify_claim 判 keep；1110 行 exit 0 结束，local 模式 1129 行的调用不在本次路径上。DX-90 验收写的「两次调用点都能命中」基于对调用点归属的误读（1111 行属 local 模式专属），该项实际未满足，本卡补齐\n\n## 目标\nremote 模式收尾在结卡前只清一次占位：本次合并自身的重写占位（baseline 此刻仍 todo）打不中判据 B，每次合并仍新增僵尸\n\n## 验收\npwsh -File scripts/verify.ps1 -ScriptOnly 全绿；python scripts/check_claim_refs.py --selftest / --audit-zombies 通过\n\n## 边界\nscripts/git-done.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "remote 模式收尾在结卡前只清一次占位：本次合并自身的重写占位（baseline 此刻仍 todo）打不中判据 B，每次合并仍新增僵尸"
         },
         "M01": {
             "acceptance": [

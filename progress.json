@@ -271,6 +271,24 @@
             "updatedAt": 1793890841
         },
         {
+            "code": "DX-55",
+            "completedAt": 0,
+            "createdAt": 1793891347,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-55",
+            "note": "触发证据：2026-11-05 撞号编年史（本卡前身 DX-52 弃单实录）：①agent 提 DX-41 已被占用→顺延 DX-43 ②DX-42 请求与另一会话立卡撞号→弃单重提 DX-44 ③本卡首提 DX-48 与并行批次撞号→DX-52 ④DX-52 又被并行会话的 sccache 卡占用（DX-45 修复期间），approve 的 board-apply 查重正确拒绝（exit 3）——闸门在拦，缺的是取号器。根因：cmd_request 强制人工报号（nbflow.py:369）不查占用；冲突工单取号纯函数（nbflow.py:936，含自测）未接线。号码只是元数据：approve 落盘前取号 + 快进推送兜底，撞号可安全自动改配。\n\n## 目标\nnbflow 编号自动分配：request/approve 按类型命名空间取号，人不再报号\n\n## 验收\nnbflow request 的 --card 改可选：省略时按 --stage 对应命名空间（DX-nn / R#-nn / Mnn / MOD-nn）从 origin/main 台账已占用号取 max+1，请求单不再需要人报号; nbflow approve 落盘前重查占用：suggestedId 已被占时自动改配下一个空号，回写请求单 card: 字段并在 chore(board) 提交体注明「原建议号 X 已占用，改配 Y」; 复用并推广现有冲突工单取号纯函数（nbflow.py:936），四种号格式共用一套逻辑，自测覆盖四种格式与撞号改配; 自测入口全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全过\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 32768,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow 编号自动分配：request/approve 按类型命名空间取号，人不再报号",
+            "updatedAt": 1793891347
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3841,6 +3859,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T23:00:41",
+    "updated": "2026-11-05T23:09:07",
     "version": 3
 }

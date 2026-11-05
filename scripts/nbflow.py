@@ -349,8 +349,10 @@ def request_to_manifest(req: dict) -> dict:
         "title": req.get("title", "").strip(),
         "note": "触发证据：%s\n\n%s" % (req.get("evidence", ""), req.get("_body", "")),
         "scope": split_multi(req.get("scope", "")),
-        # DX-84：立卡即结构化 —— 三形态分隔（;／；／|）在同一实现里拆成数组，台账不再新增单串卡
-        "acceptance": flatten_entries([req.get("acceptance", "")]),
+        # DX-84：立卡即结构化。创建侧只认 ;／；——与 board-apply 的 acceptance.unsplit
+        # 闸门同一口径（| 在文案里可能是正文，如「竖线| 三形态」，DX-84 自己实录被误切）；
+        # 请求单里要写含 | 的验收命令请加引号。report 侧对存量单串（含 DX-62 竖线）仍全形态兼容。
+        "acceptance": split_multi(req.get("acceptance", "")),
         "depends": split_multi(req.get("depends", "")),
     }
 
@@ -1513,12 +1515,12 @@ def selftest() -> int:
     mreq = {"card": "DX-99", "stage": "DX", "title": "拆分数组化", "scope": "scripts/x.py",
             "acceptance": "自测全过；python scripts/x.py 退出 0|退出码 0",
             "evidence": "三形态", "_body": ""}
-    check("立卡 acceptance 落数组",
+    check("立卡 acceptance 落数组（创建侧只认 ;／；，字面 | 不切）",
           request_to_manifest(mreq)["acceptance"]
-          == ["自测全过", "python scripts/x.py 退出 0", "退出码 0"])
-    check("存量单串兼容展开（DX-73 全角形态）",
-          flatten_acceptance(["自测覆盖：删 state 后重建；已领用卡不退回 created"])
-          == ["自测覆盖：删 state 后重建", "已领用卡不退回 created"])
+          == ["自测全过", "python scripts/x.py 退出 0|退出码 0"])
+    check("report 侧存量单串仍全形态兼容（DX-62 竖线）",
+          flatten_acceptance(["自测覆盖：删 state 后重建；已领用卡不退回 created|补结落地"])
+          == ["自测覆盖：删 state 后重建", "已领用卡不退回 created", "补结落地"])
     check("正文保留五段式", "## 验收" in parsed["_body"])
     check("批准回写不丢正文", parse_request(render_request(parsed))["_body"] == parsed["_body"])
     check("缺 front matter 被拒", _raises(lambda: parse_request("随便写点东西")))

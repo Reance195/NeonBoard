@@ -507,6 +507,23 @@ if ($Card) {
         exit 3
     }
 
+    # DX-62：滞留卡告警 —— 裸 #<短号> 交付提交已合入主线、全历史却无 #<短号>=done 的卡，
+    # 自动结卡永远读不到它的 done 标记，防重复领用的门也关不上（DX-38/DX-44 实录）。
+    # 判定单一实现在 derive_board_status.py（--stuck-codes），这里只取结果：命中即显式
+    # 警告，不静默放行；是否真的需要重做由人与维护者确认。台账按领用门同口径只认
+    # origin/main 那份；告警是 fail-soft —— 核对不了不拦领用，但必须可见。
+    $derivePy = Join-Path $repoRoot 'scripts\derive_board_status.py'
+    if (Test-Path -LiteralPath $derivePy) {
+        $stuckCodes = @(& python $derivePy --repo $repoRoot --ledger-ref origin/main --stuck-codes 2>$null |
+            ForEach-Object { "$_".Trim().ToUpperInvariant() } | Where-Object { $_ })
+        if ($LASTEXITCODE -eq 0 -and ($stuckCodes -contains $code)) {
+            Write-Host ("⚠ #{0} 交付疑似已在 main：裸 #{0} 标记的提交已合入主线，但全历史无 #{0}=done（DX-62）。" -f $code) -ForegroundColor Yellow
+            Write-Host '  这张卡大概率已交付、只是漏投 done 标记 —— 领用前先与维护者确认是否真的重做，别直接开写。' -ForegroundColor Yellow
+        } elseif ($LASTEXITCODE -ne 0) {
+            Write-Host ("· 滞留卡核对未完成（derive_board_status 退出码 {0}），本次跳过告警" -f $LASTEXITCODE) -ForegroundColor DarkGray
+        }
+    }
+
     # 子卡领用需要读本地看板的父子边；数据目录口径统一走 nb-paths.ps1
     . (Join-Path $repoRoot 'scripts\nb-paths.ps1')
     $boardDb = Get-NbBoardDb

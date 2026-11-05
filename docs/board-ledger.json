@@ -1812,6 +1812,44 @@
             "stage": "DX",
             "title": "合并冲突：fix/nbflow-rebuild-claims 与 origin/main（程序自动建单）"
         },
+        "DX-86": {
+            "acceptance": [
+                "request 对 --acceptance/--scope 等列表型参数兼容两种写法：重复传参按 append 聚合、单次传参按分号切分，两种写法等价不丢项",
+                "写单后回显验收项/边界条数并与入参对账，条数不符即报错退出（fail-closed），不再静默",
+                "自测覆盖：重复传参、分号单传、两者混合聚合一致；既有 request/approve 回归不变"
+            ],
+            "author": "agent-dx66 session (ZCode, 2026-11-06)",
+            "depends": [],
+            "evidence": "2026-11-06 立卡 DX-79/80 实录：--acceptance 重复传 4 次/3 次，请求单 frontmatter 各只剩最后一条；approve 落盘的卡也据此缺验收项（手工代登记时按原始命令补全才发现）。同日立卡 DX-86/87 又重复同款传法，请求单再次只剩最后一条——同一会话踩两遍，立卡人自己都拦不住。argparse 单值参数重复传默认取最后一值，help 写的「分号分隔」契约没有在传参层强制——两种合法写法之一静默丢数据且零告警，立卡定义不完整直接进审计链",
+            "id": "DX-86",
+            "note": "与 DX-84（已修）的关系：DX-84 收口的是数据层三形态并存（台账数组/单串展开/清单校验），本卡是输入层 argparse 吞参——吞参发生在任何校验之前，DX-84 的校验看不见被吞的项，两卡互补不重叠。",
+            "scope": [
+                "scripts/nbflow.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "nbflow request 同一 flag 传多次静默吞参：多验收项只落最后一条，请求单定义残缺"
+        },
+        "DX-87": {
+            "acceptance": [
+                "git-done 在合并/推送失败退出的所有路径上打印结构化收尾待办（待结短号、待清领用、快照未刷）并附 merge-resolve -Recover 与 derive --close-cards 现成命令，不静默中止",
+                "回执文件记 closePending 与悬空短号清单（DX-58 回执词汇扩展到冲突中止路径），后续任一 git-done 成功收尾后回执对账显示收敛",
+                "实测：制造合并冲突中止 → 待办清单与回执可见 → merge-resolve -Recover + 下次收尾后待办清零；正常收尾路径行为不变",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 通过"
+            ],
+            "author": "agent-dx66 session (ZCode, 2026-11-06)",
+            "depends": [],
+            "evidence": "2026-11-06 DX-66 收尾实录：git-done 在合并冲突处 exit 1，后置三步（结卡/清领用/刷快照）全部没跑，DX-66 的 baseline 悬空——最终是另一会话 approve 时的 git-done 顺带补上（595949e/216fc73）；若当天没有下一次成功收尾，防重复领用的门一直开着。merge-resolve.ps1 -Recover 已覆盖手工善后但不结卡（设计使然），回执只记推送事实（DX-58），冲突中止路径既无回执也无待办清单——「哪些卡等着结」只存在当事人脑子里，违反 Z4「fail-soft 但必须告警」",
+            "id": "DX-87",
+            "note": "补充实录：同日 nbflow approve 立卡 DX-86/87 又卡在 approved 且 board-apply 零产出（DX-72 已修但仍有 variant），批次文件用完即删无法手工补跑——立卡通道的 fail-soft 失败面同样需要本卡式的「待办可见性」。",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/merge-resolve.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "git-done 冲突中止后收尾待办不可见：结卡/清领用/快照悬空，依赖后续会话顺带补"
+        },
         "M01": {
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_pluginpackage --output-on-failure",

@@ -145,24 +145,6 @@
             "updatedAt": 1793901108
         },
         {
-            "code": "DX-67",
-            "completedAt": 0,
-            "createdAt": 1793901108,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-67",
-            "note": "触发证据：DX-51 弃卡教训：立卡只查了号段占用（DX-55 已修）没查痛点重叠，与已交付的 DX-40 重复。提示在写单那一刻出现比事后人肉发现便宜一个数量级；查重是提示不是闸门。\n\n## 目标\nnbflow request 加语义查重：title 关键词命中现有卡时要求显式确认\n\n## 验收\nrequest 写单前对 title 做关键词提取，扫台账 cards 与 docs/card-requests/ 现有请求，输出疑似重复清单;命中时要求 --ack-duplicate 显式放行，未放行即拒绝且退出码非 0;approve 时重跑查重并展示给维护者（提示不阻断）;自测覆盖命中/不命中/ack 放行，既有 request/approve 流程回归不变\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 38912,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow request 加语义查重：title 关键词命中现有卡时要求显式确认",
-            "updatedAt": 1793901108
-        },
-        {
             "code": "DX-70",
             "completedAt": 0,
             "createdAt": 1793903068,
@@ -3136,6 +3118,24 @@
             "updatedAt": 1792719894
         },
         {
+            "code": "DX-67",
+            "completedAt": 1793903572,
+            "createdAt": 1793901108,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-67",
+            "note": "触发证据：DX-51 弃卡教训：立卡只查了号段占用（DX-55 已修）没查痛点重叠，与已交付的 DX-40 重复。提示在写单那一刻出现比事后人肉发现便宜一个数量级；查重是提示不是闸门。\n\n## 目标\nnbflow request 加语义查重：title 关键词命中现有卡时要求显式确认\n\n## 验收\nrequest 写单前对 title 做关键词提取，扫台账 cards 与 docs/card-requests/ 现有请求，输出疑似重复清单;命中时要求 --ack-duplicate 显式放行，未放行即拒绝且退出码非 0;approve 时重跑查重并展示给维护者（提示不阻断）;自测覆盖命中/不命中/ack 放行，既有 request/approve 流程回归不变\n\n## 边界\nscripts/nbflow.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 38912,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow request 加语义查重：title 关键词命中现有卡时要求显式确认",
+            "updatedAt": 1793903572
+        },
+        {
             "code": "DX-69",
             "completedAt": 1793903226,
             "createdAt": 1793901942,
@@ -4165,6 +4165,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T02:30:55",
+    "updated": "2026-11-06T02:32:52",
     "version": 3
 }

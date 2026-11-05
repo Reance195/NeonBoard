@@ -181,6 +181,24 @@
             "updatedAt": 1793825191
         },
         {
+            "code": "R5-13",
+            "completedAt": 0,
+            "createdAt": 1793893085,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R5-13",
+            "note": "触发证据：v0.1.5（ca06757）以来主线积累 228 个提交（R6 任务执行、插件市场多源、主子任务、预览中心、R14 修复与 DX 收尾链），按发版惯例立卡递增版本号并走 CI 发布链路；参照 R5-10（v0.1.5 发版卡）。首张请求单因 dry-run 污染状态机已弃，本单为正式重提。\n\n## 目标\nv0.1.6 发版：版本号递增与发布验收\n\n## 验收\npwsh -File scripts/verify.ps1 全过（CMakeLists.txt 属代码路径，走全量档）;CMakeLists.txt 的 project(NeonBoard VERSION) 为 0.1.6，打 tag 后 release.yml 的「校验标签与源码版本一致」步骤通过;推 tag v0.1.6 后 GitHub Release v0.1.6 资产齐全：NeonBoard-Setup-0.1.6.exe / NeonBoard-0.1.6-portable.zip / delta.zip / update.json / BUILD-INFO.txt;update.json 的 artifacts 含 kind=delta 且 fromVersion=0.1.5，其 sha256 与 Release 正文的 delta-sha256 一致;维护者本机 0.1.5 → 0.1.6 真机升级一次成功（沿用 DX-38 对 0.1.5 的实测口径）\n\n## 边界\nCMakeLists.txt\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 28672,
+            "priority": 2,
+            "stage": "R5",
+            "status": "todo",
+            "tags": [
+                "R5"
+            ],
+            "title": "v0.1.6 发版：版本号递增与发布验收",
+            "updatedAt": 1793893085
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -3859,6 +3877,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-05T23:35:36",
+    "updated": "2026-11-05T23:38:05",
     "version": 3
 }

@@ -818,6 +818,14 @@ def selftest() -> int:
 # ---------------------------------------------------------------- 主流程
 
 def main() -> int:
+    # Windows 控制台默认 GBK，打印「✓ 已写入 …」会抛 UnicodeEncodeError 退出码非 0，
+    # nbflow 会把已成功的落盘误判成失败（DX-46）—— 与 derive_board_status.py 同一写法。
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     parser = argparse.ArgumentParser(description="建卡请求预演器（默认只读；--apply 落盘）")
     parser.add_argument("manifest", nargs="?", help="建卡请求清单（.md 或 .json）")
     parser.add_argument("--ledger", default=str(REPO_ROOT / "docs" / "board-ledger.json"))

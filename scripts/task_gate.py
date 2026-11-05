@@ -55,6 +55,15 @@ CARD = re.compile(r"#((?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+))")
 LEDGER = os.path.join("docs", "board-ledger.json")
 ZERO = "0" * 40
 
+# 流程提交允许触碰的唯一路径集（DX-51）：台账与路线图快照。DX-40 只把豁免收到
+# 「非代码路径」，但 scripts/*.py、docs/*.md 仍在杂务白名单里 —— 领用/立卡提交把它们
+# 卷进来照样两道闸门不可见（R16-05 的 032efd8 洗白通道只堵了一半）。流程提交的
+# 合法产物只有台账与快照本身，越面即失效。
+PROCESS_PATHS = (LEDGER.replace("\\", "/"), "progress.json")
+
+# 流程 scope 全集：含 board（立卡 / 结卡 / 清理登记），越面判定与 claim/roadmap 同口径。
+FLOW_SCOPES = PROCESS_SCOPES + ("board",)
+
 
 def git(*args):
     return subprocess.run(
@@ -111,13 +120,32 @@ def code_files(paths):
 
 def process_commit_exempt(kind, scope, paths):
     """流程提交（chore(claim) / chore(roadmap)）默认豁免短号校验 —— 豁免面只覆盖
-    非代码路径（DX-40）。
+    流程自身路径（DX-51）。
 
     agent-init 的领用提交走流程豁免：若不收口，脏树里的实现改动会被裸 git commit
     卷进领用提交，代码就这么失去短号凭证，commit-msg 与 pre-push 双闸门均不可见
-    （R16-05 的 032efd8 实测卷走 7 个文件）。收口规则：流程提交触及代码路径时
-    不再豁免，按普通代码提交校验。"""
-    return kind == "chore" and scope in PROCESS_SCOPES and not code_files(paths)
+    （R16-05 的 032efd8 实测卷走 7 个文件）。DX-40 先把豁免收到「非代码路径」，
+    但 scripts/*.py、docs/*.md 仍在杂务白名单里，卷进来照样两道闸门不可见；
+    DX-51 收口到流程自身路径：触及 PROCESS_PATHS 之外的任何文件（含杂务白名单）
+    都不再豁免，按普通提交校验。"""
+    return (
+        kind == "chore"
+        and scope in PROCESS_SCOPES
+        and all(p in PROCESS_PATHS for p in paths)
+    )
+
+
+def flow_scope_beyond_paths(kind, scope, paths):
+    """流程 scope（claim / roadmap / board）的提交触及流程路径之外的文件（DX-51）。
+
+    豁免失效后不能就此落进「非 HARD 类型 + 无代码路径 → 放行」的杂务兜底：
+    那等于换个入口继续洗白。流程提交越面时必须带短号并过 claim 校验，
+    与「卷入代码」同口径，commit-msg 与 pre-push 双闸门一致。"""
+    return (
+        kind == "chore"
+        and scope in FLOW_SCOPES
+        and not all(p in PROCESS_PATHS for p in paths)
+    )
 
 
 def read_ledger(src):
@@ -189,7 +217,8 @@ def cmd_message(args):
     staged = [normalize(x.strip()) for x in staged.stdout.splitlines() if x.strip()]
     touches_code = bool(code_files(staged))
 
-    # DX-40：流程豁免只覆盖非代码路径 —— 卷入代码的流程提交按普通代码提交校验
+    # DX-40 / DX-51：流程豁免只覆盖流程自身路径 —— 卷入其它文件（含杂务白名单）
+    # 的流程提交按普通提交校验
     if process_commit_exempt(kind, scope, staged):
         return 0
 
@@ -207,8 +236,11 @@ def cmd_message(args):
         except (OSError, ValueError):
             old = new = None
         if old is not None and new is not None and ledger_definition_changes(old, new):
+            # DX-51：混提交判定从「代码路径」收紧到「流程路径之外」—— 立卡提交
+            # 卷走 docs/、scripts/ 白名单文件同样洗白，一律要求拆开
+            beyond = [p for p in staged if p not in PROCESS_PATHS]
             problems = audit_problems(
-                kind, scope, message, code_files(staged),
+                kind, scope, message, beyond,
                 ledger_definition_changes(old, new),
             )
             if problems:
@@ -224,7 +256,10 @@ def cmd_message(args):
                 )
                 return 1
 
-    if not touches_code and kind not in HARD_TYPES:
+    # DX-51：流程 scope 越面（卷入台账/快照之外的文件）时不吃杂务兜底，
+    # 与触及代码同口径，必须带短号
+    if (not touches_code and kind not in HARD_TYPES
+            and not flow_scope_beyond_paths(kind, scope, staged)):
         return 0
 
     codes = extract_cards(message)
@@ -381,7 +416,8 @@ def audit_problems(kind, scope, message, code_paths, definition_changes):
     if code_paths:
         shown = "、".join(code_paths[:5]) + ("…" if len(code_paths) > 5 else "")
         problems.append(
-            "改任务定义的提交不得同时改动代码路径：%s（请拆成独立提交）" % shown)
+            "改任务定义的提交不得同时改动流程路径之外的文件：%s"
+            "（立卡与实现分开提交，杂务白名单路径也算夹带 —— DX-51）" % shown)
     return problems
 
 
@@ -453,10 +489,12 @@ def cmd_push(args):
             "diff-tree", "--no-commit-id", "--name-only", "-r", "--root", sha
         ).stdout
         paths = [normalize(p.strip()) for p in files.splitlines() if p.strip()]
-        # DX-40：流程豁免只覆盖非代码路径 —— 卷入代码的流程提交按普通代码提交校验
+        # DX-40 / DX-51：流程豁免只覆盖流程自身路径 —— 卷入其它文件（含杂务白名单）
+        # 的流程提交按普通提交校验
         if process_commit_exempt(kind, scope, paths):
             continue
-        if not code_files(paths):
+        # DX-51：流程 scope 越面时不吃「非代码路径 → 跳过」的杂务兜底
+        if not code_files(paths) and not flow_scope_beyond_paths(kind, scope, paths):
             continue
         codes = extract_cards(subject)
         if not codes:
@@ -674,6 +712,33 @@ def cmd_selftest(args):
     ]
     for name, ok in dx40:
         cases.append((name, True, [] if ok else ["process_commit_exempt 断言失败"]))
+
+    # ---- DX-51：流程豁免收口到流程自身路径（杂务白名单文件也算夹带）----
+    case(
+        "代登记夹带杂务白名单文件（docs/）→ 拦截（DX-51）",
+        False, "chore", "board",
+        "chore(board): 登记并顺手补文档\n\n授权：维护者\n批次：DX-07",
+        ["docs/pitfalls.md"], base, new_card,
+    )
+    dx51 = [
+        ("流程豁免：chore(board) 不走 claim/roadmap 豁免（走审计通道）",
+         process_commit_exempt("chore", "board", ["docs/board-ledger.json"]) is False),
+        ("豁免收口：chore(claim) 卷入白名单脚本 → 不豁免（DX-51）",
+         process_commit_exempt("chore", "claim",
+                               ["docs/board-ledger.json", "scripts/tool.py"]) is False),
+        ("豁免收口：chore(roadmap) 卷入白名单文档 → 不豁免（DX-51）",
+         process_commit_exempt("chore", "roadmap",
+                               ["progress.json", "docs/note.md"]) is False),
+        ("越面兜底：chore(claim) 卷入白名单脚本仍要短号（DX-51）",
+         flow_scope_beyond_paths("chore", "claim",
+                                 ["docs/board-ledger.json", "scripts/tool.py"]) is True),
+        ("越面兜底：chore(board) 只动台账不算越面",
+         flow_scope_beyond_paths("chore", "board", ["docs/board-ledger.json"]) is False),
+        ("越面兜底：非流程类型不受影响",
+         flow_scope_beyond_paths("feat", "x", ["docs/a.md"]) is False),
+    ]
+    for name, ok in dx51:
+        cases.append((name, True, [] if ok else ["flow 豁免收口断言失败"]))
 
     failures = []
     for name, expect_ok, problems in cases:

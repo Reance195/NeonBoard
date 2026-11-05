@@ -39,14 +39,14 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 10
-        anchors.rightMargin: 10
-        spacing: 8
+        anchors.leftMargin: Theme.spacingMd
+        anchors.rightMargin: Theme.spacingMd
+        spacing: Theme.spacingSm
 
         Text {
             text: "里程碑"
             color: Theme.muted
-            font.pixelSize: 10
+            font.pixelSize: Theme.fontMicro
             font.letterSpacing: 1.2
         }
 
@@ -63,7 +63,7 @@ Rectangle {
                 anchors.centerIn: parent
                 text: "全部"
                 color: bar.activeStage === "" ? Theme.accent : Theme.muted
-                font.pixelSize: 11
+                font.pixelSize: Theme.fontCaption
                 font.bold: true
             }
 
@@ -94,7 +94,7 @@ Rectangle {
                 Row {
                     id: chipsRow
                     y: 1
-                    spacing: 6
+                    spacing: Theme.spacingXs
 
                     Repeater {
                         model: bar.stages
@@ -113,12 +113,12 @@ Rectangle {
                             width: 78
                             height: 28
                             radius: Theme.radiusControl
-                            color: chip.active ? Qt.rgba(chip.accent.r, chip.accent.g, chip.accent.b, 0.16) : Theme.input
+                            color: chip.active ? Theme.alpha(chip.accent, 0.16) : Theme.input
                             border.width: 1
                             border.color: chip.active
                                           ? chip.accent
                                           : (chip.finished
-                                             ? Qt.rgba(chip.accent.r, chip.accent.g, chip.accent.b, 0.45)
+                                             ? Theme.alpha(chip.accent, 0.45)
                                              : Theme.border)
 
                             Behavior on color {
@@ -127,17 +127,17 @@ Rectangle {
 
                             Column {
                                 anchors.fill: parent
-                                anchors.margins: 5
-                                spacing: 2
+                                anchors.margins: Theme.spacingXs
+                                spacing: Theme.spacingXs
 
                                 RowLayout {
-                                    spacing: 3
+                                    spacing: Theme.spacingXs
                                     width: parent.width
 
                                     Text {
                                         text: chip.modelData.label
                                         color: chip.finished || chip.active ? chip.accent : Theme.text
-                                        font.pixelSize: 11
+                                        font.pixelSize: Theme.fontCaption
                                         font.bold: true
                                         elide: Text.ElideRight
                                         Layout.maximumWidth: 40
@@ -147,7 +147,7 @@ Rectangle {
                                         visible: chip.finished
                                         text: "✓"
                                         color: chip.accent
-                                        font.pixelSize: 10
+                                        font.pixelSize: Theme.fontMicro
                                         font.bold: true
                                     }
 
@@ -160,7 +160,7 @@ Rectangle {
                                     Text {
                                         text: chip.modelData.done + "/" + chip.modelData.total
                                         color: chip.finished ? chip.accent : Theme.muted
-                                        font.pixelSize: 10
+                                        font.pixelSize: Theme.fontMicro
                                         elide: Text.ElideRight
                                         Layout.minimumWidth: 0
                                         Layout.maximumWidth: 34
@@ -210,7 +210,7 @@ Rectangle {
                     orientation: Gradient.Horizontal
                     GradientStop {
                         position: 0.0
-                        color: Qt.rgba(Theme.panel.r, Theme.panel.g, Theme.panel.b, 0)
+                        color: "transparent"
                     }
                     GradientStop {
                         position: 1.0
@@ -232,20 +232,20 @@ Rectangle {
             RowLayout {
                 id: syncRow
                 anchors.fill: parent
-                spacing: 4
+                spacing: Theme.spacingXs
 
                 Text {
                     Layout.alignment: Qt.AlignVCenter
                     text: bar.syncOk ? "●" : "⚠"
                     color: bar.syncOk ? Theme.success : Theme.warning
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                 }
 
                 Text {
                     Layout.alignment: Qt.AlignVCenter
                     text: bar.syncText
                     color: bar.syncOk ? Theme.muted : Theme.warning
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                     elide: Text.ElideRight
                     Layout.maximumWidth: 160
                 }
@@ -261,7 +261,7 @@ Rectangle {
                 radius: 6
                 color: Theme.panelSolid
                 border.width: 1
-                border.color: bar.syncOk ? Theme.border : Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.45)
+                border.color: bar.syncOk ? Theme.border : Theme.alpha(Theme.warning, 0.45)
                 z: 10
 
                 Text {
@@ -271,7 +271,7 @@ Rectangle {
                     wrapMode: Text.WordWrap
                     horizontalAlignment: Text.AlignHCenter
                     color: Theme.text
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fontMicro
                     text: bar.syncOk
                           ? "路线图快照已与仓库同步"
                           : "路线图快照同步失败：看板状态可能与仓库不一致，稍后会自动重试"

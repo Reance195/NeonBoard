@@ -91,24 +91,6 @@
             "updatedAt": 1793901108
         },
         {
-            "code": "DX-64",
-            "completedAt": 0,
-            "createdAt": 1793901108,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-64",
-            "note": "触发证据：带 =done 标记的分支 verify 必然误报快照滞后，每卡收尾前都要手工 derive --write 补快照（本会话三次）；progress.json rebase 冲突手工舞步（取主线为底加重算）跳了三轮。两个正确设计在中间态相撞：判据要收紧的是归因不是松紧。\n\n## 目标\n分支级验收按合入后一致性归因：本分支标记解释的快照漂移降为提示\n\n## 验收\n漂移项能被本分支自身 #卡=done 标记完整解释时降为提示（附合入时由 git-done 收敛），其余漂移维持非零退出;反例不破：与分支无关的真漂移仍红灯，中间态演练口径不动;merge-resolve.ps1 对 progress.json 冲突自动按取 origin/main 版本、合并后 derive 收敛处理并留痕;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/check_board_diff.py;scripts/merge-resolve.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 35840,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "分支级验收按合入后一致性归因：本分支标记解释的快照漂移降为提示",
-            "updatedAt": 1793901108
-        },
-        {
             "code": "DX-66",
             "completedAt": 0,
             "createdAt": 1793901108,
@@ -3048,6 +3030,24 @@
             "updatedAt": 1792719894
         },
         {
+            "code": "DX-64",
+            "completedAt": 1793904474,
+            "createdAt": 1793901108,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-64",
+            "note": "触发证据：带 =done 标记的分支 verify 必然误报快照滞后，每卡收尾前都要手工 derive --write 补快照（本会话三次）；progress.json rebase 冲突手工舞步（取主线为底加重算）跳了三轮。两个正确设计在中间态相撞：判据要收紧的是归因不是松紧。\n\n## 目标\n分支级验收按合入后一致性归因：本分支标记解释的快照漂移降为提示\n\n## 验收\n漂移项能被本分支自身 #卡=done 标记完整解释时降为提示（附合入时由 git-done 收敛），其余漂移维持非零退出;反例不破：与分支无关的真漂移仍红灯，中间态演练口径不动;merge-resolve.ps1 对 progress.json 冲突自动按取 origin/main 版本、合并后 derive 收敛处理并留痕;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/check_board_diff.py;scripts/merge-resolve.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 35840,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "分支级验收按合入后一致性归因：本分支标记解释的快照漂移降为提示",
+            "updatedAt": 1793904474
+        },
+        {
             "completedAt": 1792719894,
             "createdAt": 1792719894,
             "deleted": false,
@@ -4165,6 +4165,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T02:45:22",
+    "updated": "2026-11-06T02:47:54",
     "version": 3
 }

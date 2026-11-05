@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="neon">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeonBoard 界面重排 · 弹窗壳原型</title>
+<link rel="stylesheet" href="prototype.css">
+<style>
+  body { padding: 24px 0 56px; min-height: 100vh; }
+
+  .proto-bar {
+    width: 1180px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .proto-bar h1 { font-size: 14px; margin: 0; font-weight: 700; }
+  .proto-bar .sub { font-size: 11px; color: #7C8BA1; }
+  .proto-bar .spacer { flex: 1; }
+
+  .proto-group {
+    display: flex; gap: 2px; padding: 2px;
+    border-radius: 8px; border: 1px solid rgba(34,211,238,.16);
+    background: rgba(255,255,255,.03);
+  }
+  .proto-group button {
+    padding: 5px 10px; border-radius: 6px; font-size: 11px; color: #7C8BA1;
+    transition: all .16s ease;
+  }
+  .proto-group button:hover { color: #E6F1FF; }
+  .proto-group button.on {
+    background: rgba(34,211,238,.2); color: #22D3EE; font-weight: 600;
+  }
+
+  /* 弹窗索引表 */
+  .index {
+    width: 1180px; margin: 0 auto 18px;
+    border-radius: 12px; border: 1px solid rgba(34,211,238,.14);
+    background: rgba(255,255,255,.02); padding: 14px 16px;
+  }
+  .index h2 { margin: 0 0 10px; font-size: 12px; color: #E6F1FF; letter-spacing: .5px; }
+  .index table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .index th, .index td {
+    text-align: left; padding: 5px 8px;
+    border-bottom: 1px solid rgba(255,255,255,.06); color: #A9B6C8;
+  }
+  .index th { color: #7C8BA1; font-weight: 600; font-size: 10px; letter-spacing: .8px; }
+  .index td b { color: #E6F1FF; }
+  .index .pill {
+    display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px;
+    background: rgba(34,211,238,.14); color: #22D3EE;
+  }
+  .index .pill--drawer { background: rgba(167,139,250,.16); color: #A78BFA; }
+  .index .pill--changed { background: rgba(251,113,133,.15); color: #FB7185; }
+  .index .pill--same { background: rgba(255,255,255,.07); color: #7C8BA1; }
+  .index tr:hover td { background: rgba(255,255,255,.03); }
+  .index tr.clickable { cursor: pointer; }
+  .index tr.clickable:hover td { background: rgba(34,211,238,.07); }
+
+  /* 演示台 */
+  .stage {
+    width: 1180px; margin: 0 auto;
+    border-radius: 12px; border: 1px solid rgba(34,211,238,.14);
+    background: rgba(255,255,255,.02); overflow: hidden;
+  }
+
+  .stage-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.07);
+  }
+  .stage-bar .title { font-size: 12px; color: #E6F1FF; font-weight: 600; }
+  .stage-bar .meta { font-size: 10px; color: #7C8BA1; }
+  .stage-bar .spacer { flex: 1; }
+
+  .stage-viewport {
+    position: relative;
+    height: 560px;
+    overflow: hidden;
+    background:
+      radial-gradient(700px 420px at 65% -10%, rgba(34,211,238,.08), transparent 70%),
+      repeating-linear-gradient(0deg, rgba(34,211,238,.035) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, rgba(34,211,238,.035) 0 1px, transparent 1px 28px),
+      #070810;
+  }
+
+  /* 舞台里的假看板底图，让弹窗有上下文 */
+  .stage-bg {
+    position: absolute; inset: 0; padding: 14px;
+    display: flex; gap: 10px; opacity: .5;
+  }
+  .stage-bg .col {
+    flex: 1; border-radius: 10px; border: 1px solid rgba(255,255,255,.06);
+    background: rgba(255,255,255,.02); padding: 8px;
+  }
+  .stage-bg .col h4 { margin: 0 0 8px; font-size: 10px; color: #5C6B80; }
+  .stage-bg .blk {
+    height: 44px; border-radius: 7px; margin-bottom: 7px;
+    background: rgba(255,255,255,.045);
+  }
+
+  /* 舞台里的弹窗 */
+  .stage-viewport .nb-dialog,
+  .stage-viewport .nb-drawer {
+    position: absolute;
+  }
+  .stage-viewport .nb-dialog {
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    max-height: calc(100% - 32px);
+    display: flex;
+  }
+  .stage-viewport .nb-dialog[data-open="0"] { display: none; }
+  .stage-viewport .nb-drawer { top: 0; right: 0; bottom: 0; display: flex; }
+
+  /* 规格注记 */
+  .spec-note {
+    padding: 10px 14px; border-top: 1px solid rgba(255,255,255,.07);
+    font-size: 10px; color: #7C8BA1; line-height: 1.7;
+  }
+  .spec-note b { color: #22D3EE; }
+  .spec-note .k {
+    color: #A78BFA; font-family: "Cascadia Code", Consolas, monospace;
+  }
+
+  /* 阶段条（设置面板用） */
+  .nb-tabs {
+    display: flex; gap: 2px; border-bottom: 1px solid var(--nb-divider);
+    margin: calc(var(--nb-space-md) * -1) calc(var(--nb-dialog-pad) * -1) 0;
+    padding: 0 var(--nb-dialog-pad);
+  }
+  .nb-tab {
+    padding: 9px 12px; font-size: var(--nb-font-caption); color: var(--nb-muted);
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .nb-tab.on { color: var(--nb-cyan); border-bottom-color: var(--nb-cyan); font-weight: 600; }
+
+  /* 命令面板专用 */
+  .nb-cmdlist { display: flex; flex-direction: column; gap: 1px; }
+  .nb-cmdrow {
+    display: flex; align-items: center; gap: 10px;
+    height: 38px; padding: 0 10px; border-radius: 7px;
+    font-size: var(--nb-font-body); color: var(--nb-text);
+  }
+  .nb-cmdrow:hover, .nb-cmdrow.on { background: var(--nb-accent-soft); }
+  .nb-cmdrow .cat {
+    font-size: 9px; color: var(--nb-muted); border: 1px solid var(--nb-border);
+    border-radius: 4px; padding: 1px 5px; flex: 0 0 auto;
+  }
+  .nb-cmdrow .sub { margin-left: auto; font-size: 10px; color: var(--nb-muted); }
+
+  /* 主题选择格 */
+  .nb-themegrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .nb-themecell {
+    border-radius: var(--nb-radius-control); border: 1px solid var(--nb-border);
+    padding: 9px; background: var(--nb-input);
+  }
+  .nb-themecell.on { border-color: var(--nb-cyan); background: var(--nb-accent-soft); }
+  .nb-themecell .sw { display: flex; gap: 4px; margin-bottom: 7px; }
+  .nb-themecell .sw i { width: 12px; height: 12px; border-radius: 3px; }
+  .nb-themecell .nm { font-size: var(--nb-font-caption); font-weight: 600; }
+  .nb-themecell .ds { font-size: 9px; color: var(--nb-muted); margin-top: 2px; }
+
+  /* 表格 */
+  .nb-table { width: 100%; border-collapse: collapse; font-size: var(--nb-font-caption); }
+  .nb-table th {
+    text-align: left; padding: 6px 8px; color: var(--nb-muted);
+    font-size: var(--nb-font-micro); letter-spacing: .8px;
+    border-bottom: 1px solid var(--nb-divider); font-weight: 600;
+  }
+  .nb-table td { padding: 7px 8px; border-bottom: 1px solid rgba(255,255,255,.05); color: var(--nb-text); }
+  .nb-table td.m { color: var(--nb-muted); }
+
+  /* 进度条 */
+  .nb-prog { height: 5px; border-radius: 3px; background: rgba(255,255,255,.07); overflow: hidden; }
+  .nb-prog i { display: block; height: 100%; border-radius: 3px; background: var(--nb-cyan); }
+
+  /* 日志 */
+  .nb-log {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 10px;
+    line-height: 1.7; color: var(--nb-muted);
+    background: rgba(0,0,0,.3); border: 1px solid var(--nb-border);
+    border-radius: var(--nb-radius-control); padding: 9px 11px;
+    max-height: 150px; overflow-y: auto;
+  }
+  .nb-log b { color: var(--nb-success); font-weight: 400; }
+  .nb-log .err { color: var(--nb-danger); }
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <h1>NeonBoard 界面重排 · 弹窗壳</h1>
+  <span class="sub">13 个二级界面 + 4 个执行弹窗，统一到同一套壳</span>
+  <span class="spacer"></span>
+  <div class="proto-group" id="themeGroup">
+    <button data-theme="neon" class="on">霓虹青</button>
+    <button data-theme="violet">赛博紫</button>
+    <button data-theme="sunset">落日橙</button>
+    <button data-theme="abyss">深海蓝</button>
+    <button data-theme="forest">森野绿</button>
+    <button data-theme="mono">极夜灰</button>
+  </div>
+</div>
+
+<!-- ============ 索引表 ============ -->
+<div class="index">
+  <h2>壳规格统一对照（点任意行在下方预览）</h2>
+  <table>
+    <thead>
+      <tr><th>界面</th><th>形态</th><th>宽度档</th><th>现状</th><th>新壳</th><th>主要变化</th></tr>
+    </thead>
+    <tbody id="indexBody"></tbody>
+  </table>
+</div>
+
+<!-- ============ 演示台 ============ -->
+<div class="stage">
+  <div class="stage-bar">
+    <span class="title" id="stageTitle">新建任务</span>
+    <span class="meta" id="stageMeta"></span>
+    <span class="spacer"></span>
+    <span class="meta">键盘：Esc 关闭 · 底部按钮右对齐 · 标题 18 px</span>
+  </div>
+  <div class="stage-viewport" id="stage">
+    <div class="stage-bg">
+      <div class="col"><h4>待办 359</h4><div class="blk"></div><div class="blk"></div><div class="blk"></div></div>
+      <div class="col"><h4>进行中 17</h4><div class="blk"></div><div class="blk"></div></div>
+      <div class="col"><h4>已完成 176</h4><div class="blk"></div><div class="blk"></div></div>
+    </div>
+    <!-- 各弹窗的 DOM 由脚本注入 -->
+  </div>
+  <div class="spec-note" id="stageNote"></div>
+</div>
+
+<script>
+/* =========================================================
+   1. 壳规格清单
+   ========================================================= */
+
+const SHELLS = [
+  {
+    id: 'composer',
+    name: '新建任务 TaskComposer',
+    form: 'dialog',
+    size: 'sm',
+    title: '新建任务',
+    sub: '选目标列 · 挂父卡 · 实时预览解析',
+    src: 'qml/components/TaskComposer.qml',
+    change: 'changed',
+    note: '<b>现状</b>：460 px、<span class="k">Dialog</span>、标题 18 px 但底部只有一个「取消」按钮，主操作「创建」在正文里当普通按钮（宽 68 px），与壳分离。' +
+          '<br><b>新壳</b>：440 px（sm 档）、标题行 + 副标题、底部统一「取消 / 创建」右对齐，主按钮用 accent 色。' +
+          '<br><b>顺带</b>：解析预览从正文挤进标题下方一行，说明文字降一级。'
+  },
+  {
+    id: 'command',
+    name: '命令面板 CommandPalette',
+    form: 'dialog',
+    size: 'lg',
+    title: '命令面板',
+    sub: '搜索命令、任务与主题',
+    src: 'qml/components/CommandPalette.qml',
+    change: 'changed',
+    note: '<b>现状</b>：660 × 430、自绘 <span class="k">Rectangle</span>，不是 <span class="k">Dialog</span>，Esc 与遮罩行为自己写。' +
+          '<br><b>新壳</b>：720 px（lg 档），输入框固定在头部下方不再随内容滚动，列表区独立滚动。' +
+          '<br><b>顺带</b>：命令分类（操作 / 面板 / 主题 / 任务）统一为左侧细标签，行高 38 px 与列表行一致。'
+  },
+  {
+    id: 'settings',
+    name: '设置 SettingsPanel',
+    form: 'dialog',
+    size: 'lg',
+    title: '设置',
+    sub: '热键 · 数据 · 外观 · 执行',
+    src: 'qml/components/SettingsPanel.qml',
+    change: 'changed',
+    note: '<b>现状</b>：520 × 560、<span class="k">Dialog</span>，内部有二级页面但切换逻辑写在同一个文件里（1338 行）。' +
+          '<br><b>新壳</b>：720 px（lg 档），左侧 160 px 固定导航 + 右侧内容区；导航项不再靠滚动找。' +
+          '<br><b>顺带</b>：底部「取消 / 保存」常驻，不再随内容滚走。'
+  },
+  {
+    id: 'appearance',
+    name: '外观 AppearancePanel',
+    form: 'drawer',
+    size: 'drawer',
+    title: '外观',
+    sub: '主题 · 画质 · 动效',
+    src: 'qml/components/AppearancePanel.qml',
+    change: 'changed',
+    note: '<b>现状</b>：300 px 宽、锚在标题栏下方的浮动面板，点外面关闭。' +
+          '<br><b>新壳</b>：320 px 右侧抽屉，全高。标题 / 副标题 / 关闭键三件套齐。' +
+          '<br><b>顺带</b>：主题预设改成 3 列色卡网格（现在是一列文字列表），6 套预设一眼可比。'
+  },
+  {
+    id: 'plugin',
+    name: '插件面板 PluginPanel',
+    form: 'drawer',
+    size: 'drawer',
+    title: '插件',
+    sub: '当前插件内容',
+    src: 'qml/components/PluginPanel.qml',
+    change: 'changed',
+    note: '<b>现状</b>：右下角 380 × 420 浮层，位置与「设置」「预览」等右抽屉不一致。' +
+          '<br><b>新壳</b>：320 px 右侧抽屉，与外观 / 全景 / 列管理同一位置。' +
+          '<br><b>顺带</b>：所有右抽屉统一「点遮罩关闭」，不再各自决定关不关。'
+  },
+  {
+    id: 'library',
+    name: '插件库 PluginLibraryPanel',
+    form: 'dialog',
+    size: 'lg',
+    title: '插件库',
+    sub: '已装 8 · 可装 12',
+    src: 'qml/components/PluginLibraryPanel.qml',
+    change: 'changed',
+    note: '<b>现状</b>：580 × 660，自绘浮层。' +
+          '<br><b>新壳</b>：720 px（lg 档）。已装 / 可装分成左右两栏，列表头固定。' +
+          '<br><b>顺带</b>：底部操作条（刷新市场 / 重新扫描 / 打开目录）从列表里提到壳底部。'
+  },
+  {
+    id: 'permission',
+    name: '权限授权 PluginPermissionDialog',
+    form: 'dialog',
+    size: 'sm',
+    title: '插件权限请求',
+    sub: '来源：计划钩子',
+    src: 'qml/components/PluginPermissionDialog.qml',
+    change: 'changed',
+    note: '<b>现状</b>：460 px 自绘浮层，<b>点遮罩等同拒绝</b>——误点一下就永久拒绝，没有撤销。' +
+          '<br><b>新壳</b>：440 px（sm 档），遮罩改为只关闭不表态，拒绝必须显式点「拒绝」。' +
+          '<br><b>顺带</b>：权限项逐条列出并带一行用途说明，不再只有名字。'
+  },
+  {
+    id: 'preview',
+    name: '预览中心 PreviewPanel',
+    form: 'dialog',
+    size: 'lg',
+    title: '预览中心',
+    sub: '各 agent 工作区 · 构建 · 启动 · 出包',
+    src: 'qml/components/PreviewPanel.qml',
+    change: 'same',
+    note: '<b>现状</b>：780 × 640 自绘浮层，是现有最宽的弹窗。' +
+          '<br><b>新壳</b>：720 px（lg 档）。宽度收到统一档位，省 60 px 给内容。' +
+          '<br><b>顺带</b>：工作区列表行加「未推送提交」提示位（§7.2.1 的回收判据），不再只在日志里。'
+  },
+  {
+    id: 'map',
+    name: '项目全景 ProjectMapPanel',
+    form: 'drawer',
+    size: 'drawer',
+    title: '项目全景',
+    sub: '里程碑进度 + 开发链路',
+    src: 'qml/components/ProjectMapPanel.qml',
+    change: 'changed',
+    note: '<b>现状</b>：560 px 右侧浮层，全屏遮罩但只占右侧一条。' +
+          '<br><b>新壳</b>：320 px 抽屉 —— 但内容量大，因此采用<b>抽屉 + 二级展开</b>：' +
+          '默认只列里程碑节点，点节点才在抽屉内展开链路详情。'
+  },
+  {
+    id: 'detail',
+    name: '卡片详情 CardDetailPanel',
+    form: 'dialog',
+    size: 'md',
+    title: '卡片详情',
+    sub: '拆解成插件',
+    src: 'qml/components/CardDetailPanel.qml',
+    change: 'changed',
+    note: '<b>现状</b>：620 px <span class="k">Dialog</span>，元信息平铺一条长列表，标题与备注之间没有分层。' +
+          '<br><b>新壳</b>：560 px（md 档），顶部标题区固定（标题 + 状态胶囊 + 标签行），' +
+          '下方分为「备注 / 元信息」两段，底部「取消 / 保存 / 编辑」三键右对齐。'
+  },
+  {
+    id: 'market',
+    name: '主题市场 ThemeMarketPanel',
+    form: 'dialog',
+    size: 'md',
+    title: '主题市场',
+    sub: '浏览 · 安装 · 卸载主题包',
+    src: 'qml/components/ThemeMarketPanel.qml',
+    change: 'same',
+    note: '<b>现状</b>：560 px <span class="k">Dialog</span>，结构已接近新壳。' +
+          '<br><b>新壳</b>：560 px（md 档），只需换壳：头 / 体 / 底三段式。' +
+          '<br><b>顺带</b>：离线态提示从正文提到副标题位，避免占用滚动区。'
+  },
+  {
+    id: 'columns',
+    name: '列管理 ColumnManager',
+    form: 'drawer',
+    size: 'drawer',
+    title: '列管理',
+    sub: '增删 · 改名 · 调序',
+    src: 'qml/components/ColumnManager.qml',
+    change: 'changed',
+    note: '<b>现状</b>：460 px 居中浮层，拖拽把手与按钮各写一套。' +
+          '<br><b>新壳</b>：320 px 抽屉。列条目统一为「拖把手 + 名称 + 计数 + 操作」，' +
+          '新增列入口固定在列表末尾。'
+  },
+  {
+    id: 'onboard',
+    name: '新手引导 OnboardingOverlay',
+    form: 'dialog',
+    size: 'md',
+    title: '欢迎使用 NeonBoard',
+    sub: '三步上手',
+    src: 'qml/components/OnboardingOverlay.qml',
+    change: 'changed',
+    note: '<b>现状</b>：480 px 居中浮层，三步内容与按钮挤在同一块，没有进度指示。' +
+          '<br><b>新壳</b>：560 px（md 档），副标题位放「第 1 / 3 步」进度，' +
+          '底部固定「跳过 / 下一步」。'
+  },
+  {
+    id: 'execconfirm',
+    name: '执行前确认 execConfirmDialog',
+    form: 'dialog',
+    size: 'md',
+    title: '执行前确认',
+    sub: '确认后将拉起 agent 进程',
+    src: 'qml/Main.qml:2843',
+    change: 'changed',
+    note: '<b>现状</b>：560 px <span class="k">Dialog</span>，命令行用 64 px 高的固定矩形显示，长命令看不全。' +
+          '<br><b>新壳</b>：560 px（md 档），命令行区改成自适应高度 + 等宽字体换行。' +
+          '<br><b>顺带</b>：「信任本目录」勾选项独立成行并带警告色，验收项清单改为可勾选列表。'
+  },
+  {
+    id: 'execpanel',
+    name: '执行面板 execPanelDialog',
+    form: 'dialog',
+    size: 'md',
+    title: '执行结果',
+    sub: '最近一次 run · 尝试 2',
+    src: 'qml/Main.qml:3112',
+    change: 'changed',
+    note: '<b>现状</b>：结论徽章 / 耗时 / 退出码 / 日志末尾 / 重试 / 标为已办结混在一个滚动区。' +
+          '<br><b>新壳</b>：560 px（md 档）。结论徽章提到标题行右侧（一眼看到成没成），' +
+          '日志独立区固定高度，「重试 / 标为已办结」进底部按钮条。'
+  },
+  {
+    id: 'nightbatch',
+    name: '夜间批量 nightBatchDialog',
+    form: 'dialog',
+    size: 'md',
+    title: '夜间批量执行',
+    sub: '勾选多张待办卡 → 一次入队',
+    src: 'qml/Main.qml:3408',
+    change: 'changed',
+    note: '<b>现状</b>：勾选清单与预计时长估算同区，信息密度高但没有分层。' +
+          '<br><b>新壳</b>：560 px（md 档）。清单与估算分区，' +
+          '底部固定「取消 / 入队（N 张）」，按钮上带数量。'
+  },
+  {
+    id: 'execqueue',
+    name: '执行队列 execQueueDialog',
+    form: 'dialog',
+    size: 'lg',
+    title: '执行队列',
+    sub: '排队中 / 在跑 · 可暂停 · 调序 · 跳过',
+    src: 'qml/Main.qml:3665',
+    change: 'changed',
+    note: '<b>现状</b>：队列项与并发指示混排，运行态与看板状态的概念边界不够清楚。' +
+          '<br><b>新壳</b>：720 px（lg 档）。表头固定（任务 / agent / 状态 / 耗时 / 操作），' +
+          '队列行高统一 40 px。'
+  }
+];
+
+/* =========================================================
+   2. 各弹窗的正文内容（按真实结构填充）
+   ========================================================= */
+
+const BODIES = {
+
+  composer: `
+    <div class="nb-field">
+      <div class="nb-label">任务标题</div>
+      <div class="nb-input nb-input--focus">明天 15:00 #工作 !3 交付验收报告</div>
+    </div>
+    <div class="nb-note" style="border-color:var(--nb-border)">
+      <span style="color:var(--nb-muted)">解析</span>
+      <span style="color:var(--nb-cyan)">◷ 明天 15:00</span>
+      <span style="color:var(--nb-violet)">!! 高</span>
+      <span style="color:var(--nb-cyan)">#工作</span>
+    </div>
+    <div class="nb-field">
+      <div class="nb-label">目标列</div>
+      <div class="nb-segctl">
+        <span class="on">待办</span><span>进行中</span><span>已办结</span>
+      </div>
+    </div>
+    <div class="nb-field">
+      <div class="nb-label">父卡（可选）</div>
+      <div class="nb-input"><span class="ph">（无父卡）</span></div>
+    </div>
+  `,
+
+  command: `
+    <div class="nb-input nb-input--focus" style="flex:0 0 auto">⌕ 输入命令或任务标题</div>
+    <div class="nb-cmdlist" style="flex:1;min-height:0;overflow-y:auto">
+      <div class="nb-cmdrow on"><span class="cat">操作</span>新建任务<span class="sub">选列 / 挂父卡 / 预览解析</span></div>
+      <div class="nb-cmdrow"><span class="cat">面板</span>打开插件库<span class="sub">已装 / 可装插件</span></div>
+      <div class="nb-cmdrow"><span class="cat">面板</span>打开项目全景图<span class="sub">里程碑进度 + 开发链路</span></div>
+      <div class="nb-cmdrow"><span class="cat">面板</span>打开执行队列<span class="sub">排队中 / 在跑的 run</span></div>
+      <div class="nb-cmdrow"><span class="cat">帮助</span>重看新手引导<span class="sub">三步说明</span></div>
+      <div class="nb-cmdrow"><span class="cat">视图</span>切换专注模式<span class="sub">开始 25 分钟专注</span></div>
+      <div class="nb-cmdrow"><span class="cat">主题</span>切换主题：赛博紫<span class="sub">夜幕下的电紫</span></div>
+      <div class="nb-cmdrow"><span class="cat">任务</span>跳转到：主题引擎 v1<span class="sub">进行中</span></div>
+      <div class="nb-cmdrow"><span class="cat">任务</span>卡片详情：主题引擎 v1<span class="sub">看备注与全部元信息</span></div>
+    </div>
+  `,
+
+  settings: `
+    <div style="display:flex;gap:0;flex:1;min-height:0">
+      <div style="width:160px;flex:0 0 160px;border-right:1px solid var(--nb-divider);padding-right:12px;display:flex;flex-direction:column;gap:2px">
+        <div class="nb-listrow" style="background:var(--nb-accent-soft);color:var(--nb-cyan)">热键与自动化</div>
+        <div class="nb-listrow">数据与备份</div>
+        <div class="nb-listrow">外观与动效</div>
+        <div class="nb-listrow">任务执行</div>
+        <div class="nb-listrow">插件</div>
+        <div class="nb-listrow">关于</div>
+      </div>
+      <div style="flex:1;min-width:0;padding-left:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+        <div class="nb-group-title">全局热键</div>
+        <div class="nb-listrow">显示 / 隐藏窗口<span class="right">Ctrl+Shift+Space</span></div>
+        <div class="nb-listrow">呼出命令面板<span class="right">Ctrl+K</span></div>
+        <div class="nb-listrow">撤销上一步<span class="right">Ctrl+Z</span></div>
+        <div class="nb-listrow">开机自启<span class="right" style="margin-left:auto"></span><span class="nb-switch nb-switch--on" style="margin-left:auto"></span></div>
+        <div class="nb-group-title">提醒与提醒音</div>
+        <div class="nb-listrow">任务提醒<span class="right" style="margin-left:auto"></span><span class="nb-switch nb-switch--on" style="margin-left:auto"></span></div>
+        <div class="nb-listrow">窗口边缘辉光脉冲<span class="right" style="margin-left:auto"></span><span class="nb-switch nb-switch--on" style="margin-left:auto"></span></div>
+      </div>
+    </div>
+  `,
+
+  appearance: `
+    <div class="nb-field">
+      <div class="nb-label">主题预设</div>
+      <div class="nb-themegrid">
+        <div class="nb-themecell on">
+          <div class="sw"><i style="background:#22D3EE"></i><i style="background:#F472B6"></i><i style="background:#A78BFA"></i></div>
+          <div class="nm">霓虹青</div><div class="ds">经典赛博青</div>
+        </div>
+        <div class="nb-themecell">
+          <div class="sw"><i style="background:#B794F6"></i><i style="background:#FF6FB5"></i><i style="background:#7C5CFF"></i></div>
+          <div class="nm">赛博紫</div><div class="ds">夜幕下的电紫</div>
+        </div>
+        <div class="nb-themecell">
+          <div class="sw"><i style="background:#FFB454"></i><i style="background:#FF6B6B"></i><i style="background:#FFD166"></i></div>
+          <div class="nm">落日橙</div><div class="ds">黄昏与余温</div>
+        </div>
+        <div class="nb-themecell">
+          <div class="sw"><i style="background:#38BDF8"></i><i style="background:#2DD4BF"></i><i style="background:#6366F1"></i></div>
+          <div class="nm">深海蓝</div><div class="ds">静谧的深水</div>
+        </div>
+        <div class="nb-themecell">
+          <div class="sw"><i style="background:#34D399"></i><i style="background:#FB7185"></i><i style="background:#A3E635"></i></div>
+          <div class="nm">森野绿</div><div class="ds">雨后的林间</div>
+        </div>
+        <div class="nb-themecell">
+          <div class="sw"><i style="background:#9CA3AF"></i><i style="background:#D1D5DB"></i><i style="background:#6B7280"></i></div>
+          <div class="nm">极夜灰</div><div class="ds">克制与专注</div>
+        </div>
+      </div>
+    </div>
+    <div class="nb-field">
+      <div class="nb-label">画质</div>
+      <div class="nb-segctl"><span>低</span><span class="on">中</span><span>高</span></div>
+    </div>
+    <div class="nb-listrow">减弱动效<span class="right" style="margin-left:auto"></span><span class="nb-switch" style="margin-left:auto"></span></div>
+  `,
+
+  plugin: `
+    <div class="nb-group-title">已装插件</div>
+    <div class="nb-listrow">计划钩子<span class="right">运行中</span></div>
+    <div class="nb-listrow">Agent 任务桥<span class="right">运行中</span></div>
+    <div class="nb-listrow">Claude Code<span class="right">已装</span></div>
+    <div class="nb-group-title">槽位</div>
+    <div class="nb-listrow">侧栏<span class="right">多表面示例</span></div>
+    <div class="nb-listrow">底部<span class="right">未占用</span></div>
+    <div class="nb-listrow">卡片内<span class="right">2 个</span></div>
+    <div class="nb-group-title">命令</div>
+    <div class="nb-listrow">检视任务定义<span class="right">Ctrl+Shift+T</span></div>
+  `,
+
+  library: `
+    <div style="display:flex;gap:14px;flex:1;min-height:0">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+        <div class="nb-group-title">已装（8）</div>
+        <div class="nb-listrow">Agent 任务桥<span class="right">已装</span></div>
+        <div class="nb-listrow">Claude Code<span class="right">已装</span></div>
+        <div class="nb-listrow">Codex CLI<span class="right">已装</span></div>
+        <div class="nb-listrow">Cursor Agent<span class="right">已装</span></div>
+        <div class="nb-listrow">opencode<span class="right">已装</span></div>
+        <div class="nb-listrow">计划钩子<span class="right">已装</span></div>
+        <div class="nb-listrow">Claude Code<span class="right">可装</span></div>
+        <div class="nb-listrow">Codex CLI<span class="right">可装</span></div>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+        <div class="nb-group-title">可装（12）</div>
+        <div class="nb-listrow">Gemini CLI<span class="right">可装</span></div>
+        <div class="nb-listrow">Aider<span class="right">可装</span></div>
+        <div class="nb-listrow">Continue<span class="right">可装</span></div>
+        <div class="nb-listrow">Cline<span class="right">可装</span></div>
+        <div class="nb-listrow">Roo Code<span class="right">可装</span></div>
+      </div>
+    </div>
+  `,
+
+  permission: `
+    <div class="nb-note nb-note--warn">
+      「计划钩子」请求以下权限。拒绝后该插件功能不可用。
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="nb-listrow" style="align-items:flex-start;padding:8px;border:1px solid var(--nb-border);border-radius:8px">
+        <span class="nb-check nb-check--on">✓</span>
+        <div style="flex:1">
+          <div style="font-weight:600">读取仓库元信息</div>
+          <div style="font-size:10px;color:var(--nb-muted);margin-top:2px">扫描分支与提交信息，用于识别任务短号</div>
+        </div>
+      </div>
+      <div class="nb-listrow" style="align-items:flex-start;padding:8px;border:1px solid var(--nb-border);border-radius:8px">
+        <span class="nb-check nb-check--on">✓</span>
+        <div style="flex:1">
+          <div style="font-weight:600">投递事件</div>
+          <div style="font-size:10px;color:var(--nb-muted);margin-top:2px">向宿主投递 task 状态变更事件</div>
+        </div>
+      </div>
+      <div class="nb-listrow" style="align-items:flex-start;padding:8px;border:1px solid var(--nb-border);border-radius:8px">
+        <span class="nb-check"></span>
+        <div style="flex:1">
+          <div style="font-weight:600">写入任务数据</div>
+          <div style="font-size:10px;color:var(--nb-muted);margin-top:2px">直接修改 board.db 中的任务字段</div>
+        </div>
+      </div>
+    </div>
+  `,
+
+  preview: `
+    <div class="nb-group-title">工作区</div>
+    <table class="nb-table">
+      <thead><tr><th>工作区</th><th>分支</th><th>状态</th><th>构建</th><th>操作</th></tr></thead>
+      <tbody>
+        <tr><td>agent-dx63</td><td class="m">refactor/git-helpers-nullsafe</td><td><span class="nb-badge nb-badge--warn">未推送 2</span></td><td class="m">已构建</td><td><button class="nb-btn nb-btn--sm">启动</button></td></tr>
+        <tr><td>agent-dx72</td><td class="m">fix/nbflow-approve-guard</td><td><span class="nb-badge nb-badge--danger">脏</span></td><td class="m">未构建</td><td><button class="nb-btn nb-btn--sm">构建</button></td></tr>
+        <tr><td>agent-dx70</td><td class="m">fix/board-diff-stale-base</td><td><span class="nb-badge nb-badge--warn">未推送 1</span></td><td class="m">已构建</td><td><button class="nb-btn nb-btn--sm">启动</button></td></tr>
+        <tr><td>agent-r18</td><td class="m">chore/board-r18-cards</td><td><span class="nb-badge nb-badge--ok">干净</span></td><td class="m">已构建</td><td><button class="nb-btn nb-btn--sm">启动</button></td></tr>
+      </tbody>
+    </table>
+    <div class="nb-note">
+      出包会构建并把产物放进 <b>dist/packages/&lt;agent&gt;/</b>，不碰正在使用的安装目录。多个出包任务按队列串行执行。
+    </div>
+  `,
+
+  map: `
+    <div class="nb-group-title">里程碑</div>
+    <div class="nb-listrow" style="flex-direction:column;align-items:stretch;gap:6px;padding:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-weight:600">R0 · 炫酷地基</span>
+        <span class="nb-badge nb-badge--ok" style="margin-left:auto">10/10</span>
+      </div>
+      <div class="nb-prog"><i style="width:100%;background:var(--nb-success)"></i></div>
+    </div>
+    <div class="nb-listrow" style="flex-direction:column;align-items:stretch;gap:6px;padding:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-weight:600">R1 · 日常底座</span>
+        <span class="nb-badge" style="margin-left:auto">9/12</span>
+      </div>
+      <div class="nb-prog"><i style="width:75%"></i></div>
+    </div>
+    <div class="nb-listrow" style="flex-direction:column;align-items:stretch;gap:6px;padding:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-weight:600">R2 · 记忆点</span>
+        <span class="nb-badge" style="margin-left:auto">7/11</span>
+      </div>
+      <div class="nb-prog"><i style="width:64%;background:var(--nb-violet)"></i></div>
+    </div>
+    <div class="nb-listrow" style="flex-direction:column;align-items:stretch;gap:6px;padding:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-weight:600">R3 · 生态</span>
+        <span class="nb-badge" style="margin-left:auto">4/9</span>
+      </div>
+      <div class="nb-prog"><i style="width:44%;background:var(--nb-magenta)"></i></div>
+    </div>
+    <div class="nb-note">点节点在抽屉内展开该阶段的开发链路。</div>
+  `,
+
+  detail: `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="nb-badge nb-badge--violet">进行中</span>
+      <span class="nb-tag">NeonBoard</span>
+      <span class="nb-tag nb-tag--violet">R7</span>
+      <span class="nb-tag nb-tag--danger">10-23</span>
+    </div>
+    <div class="nb-group-title">备注（Markdown）</div>
+    <div class="nb-textarea">
+把「拆解成插件」拆成三块：<br>
+· 运行时契约：manifest 声明<br>
+· 权限清单：按需授权<br>
+· 槽位：侧栏 / 底部 / 卡片内
+    </div>
+    <div class="nb-group-title">元信息</div>
+    <table class="nb-table">
+      <tbody>
+        <tr><td class="m" style="width:110px">优先级</td><td><span class="nb-badge nb-badge--warn">高</span></td></tr>
+        <tr><td class="m">创建</td><td class="m">2026-10-18 14:22</td></tr>
+        <tr><td class="m">提醒</td><td class="m">2026-10-23 09:00</td></tr>
+        <tr><td class="m">重复</td><td class="m">每周一</td></tr>
+        <tr><td class="m">父卡</td><td class="m">插件平台 2.0</td></tr>
+        <tr><td class="m">子任务</td><td class="m">2 / 3 完成</td></tr>
+      </tbody>
+    </table>
+  `,
+
+  market: `
+    <div class="nb-note nb-note--warn">离线中 · 显示本地缓存索引（上次同步 2026-11-05 21:04）</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="nb-listrow" style="padding:10px;border:1px solid var(--nb-border);border-radius:8px">
+        <div style="flex:1">
+          <div style="font-weight:600">深海蓝 · Deep Blue</div>
+          <div style="font-size:10px;color:var(--nb-muted);margin-top:2px">静谧的深水 · 8 令牌</div>
+        </div>
+        <span class="nb-badge">已装</span>
+        <button class="nb-btn nb-btn--sm">卸载</button>
+      </div>
+      <div class="nb-listrow" style="padding:10px;border:1px solid var(--nb-border);border-radius:8px">
+        <div style="flex:1">
+          <div style="font-weight:600">琥珀 · Amber</div>
+          <div style="font-size:10px;color:var(--nb-muted);margin-top:2px">落日余温 · 8 令牌</div>
+        </div>
+        <button class="nb-btn nb-btn--sm nb-btn--primary">安装</button>
+      </div>
+      <div class="nb-listrow" style="padding:10px;border:1px solid var(--nb-border);border-radius:8px">
+        <div style="flex:1">
+          <div style="font-weight:600">灰烬 · Ash</div>
+          <div style="font-size:10px;color:var(--nb-muted);margin-top:2px">极夜灰变体 · 8 令牌</div>
+        </div>
+        <button class="nb-btn nb-btn--sm nb-btn--primary">安装</button>
+      </div>
+    </div>
+  `,
+
+  columns: `
+    <div class="nb-group-title">看板列</div>
+    <div class="nb-listrow" style="gap:10px">
+      <span style="color:var(--nb-muted);cursor:grab">⠿</span>
+      <i class="nb-column-dot" style="background:#22D3EE"></i>
+      <span style="flex:1">待办</span>
+      <span class="nb-badge">359</span>
+      <button class="nb-btn nb-btn--sm">改名</button>
+    </div>
+    <div class="nb-listrow" style="gap:10px">
+      <span style="color:var(--nb-muted);cursor:grab">⠿</span>
+      <i class="nb-column-dot" style="background:#A78BFA"></i>
+      <span style="flex:1">进行中</span>
+      <span class="nb-badge">17</span>
+      <button class="nb-btn nb-btn--sm">改名</button>
+    </div>
+    <div class="nb-listrow" style="gap:10px">
+      <span style="color:var(--nb-muted);cursor:grab">⠿</span>
+      <i class="nb-column-dot" style="background:#F472B6"></i>
+      <span style="flex:1">已完成</span>
+      <span class="nb-badge">176</span>
+      <button class="nb-btn nb-btn--sm">改名</button>
+    </div>
+    <div class="nb-quickadd" style="margin:0">＋ 新增列</div>
+  `,
+
+  onboard: `
+    <div class="nb-note">
+      <b style="color:var(--nb-cyan)">第 1 / 3 步</b> · 快速录入<br>
+      直接在输入框里写 <b>明天 15:00 #工作 !3</b>，日期、标签、优先级会自动拆出来。
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="nb-listrow" style="padding:10px;border:1px solid var(--nb-border);border-radius:8px">
+        <span style="color:var(--nb-cyan)">▸</span>
+        <div style="flex:1">
+          <div style="font-weight:600">快速录入</div>
+          <div style="font-size:10px;color:var(--nb-muted);margin-top:2px">一句话记一条，解析自动完成</div>
+        </div>
+      </div>
+      <div class="nb-listrow" style="padding:10px;border:1px solid var(--nb-border);border-radius:8px;opacity:.55">
+        <span>▸</span>
+        <div style="flex:1">
+          <div style="font-weight:600">拖拽换列</div>
+          <div style="font-size:10px;color:var(--nb-muted);margin-top:2px">把卡拖到「进行中」标记开工</div>
+        </div>
+      </div>
+      <div class="nb-listrow" style="padding:10px;border:1px solid var(--nb-border);border-radius:8px;opacity:.55">
+        <span>▸</span>
+        <div style="flex:1">
+          <div style="font-weight:600">安装插件</div>
+          <div style="font-size:10px;color:var(--nb-muted);margin-top:2px">接入 agent，让任务自己跑起来</div>
+        </div>
+      </div>
+    </div>
+    <div class="nb-group-title">或者从模板开始</div>
+    <div style="display:flex;gap:8px">
+      <button class="nb-btn nb-btn--sm">周报</button>
+      <button class="nb-btn nb-btn--sm">会议记录</button>
+      <button class="nb-btn nb-btn--sm">Bug</button>
+    </div>
+  `,
+
+  execconfirm: `
+    <div class="nb-grid2" style="gap:10px 16px">
+      <div class="nb-field"><div class="nb-label">agent</div><div style="font-size:12px">Claude Code（claude-code）</div></div>
+      <div class="nb-field"><div class="nb-label">预计耗时</div><div style="font-size:12px">最多 30 分钟 · 1 轮</div></div>
+      <div class="nb-field" style="grid-column:1/-1">
+        <div class="nb-label">工作目录</div>
+        <div style="font-family:var(--nb-mono);font-size:11px;color:var(--nb-warning);word-break:break-all">E:/projects/NeonBoard</div>
+      </div>
+    </div>
+    <div class="nb-field">
+      <div class="nb-label">命令行（只读；执行时按 argv 传参，不经过 shell）</div>
+      <div class="nb-code">claude --permission-mode acceptEdits --allowedTools "Read,Edit,Bash(pwsh -File scripts/verify.ps1)" -p "&lt;prompt&gt;"</div>
+    </div>
+    <div class="nb-field">
+      <div class="nb-label">验收项</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div class="nb-listrow" style="padding:0 4px"><span class="nb-check nb-check--on">✓</span><span style="font-family:var(--nb-mono);font-size:11px">pwsh -File scripts/verify.ps1</span></div>
+        <div class="nb-listrow" style="padding:0 4px"><span class="nb-check nb-check--on">✓</span><span style="font-family:var(--nb-mono);font-size:11px">ctest --test-dir build -C Release</span></div>
+      </div>
+    </div>
+    <div class="nb-listrow" style="border:1px solid var(--nb-warning);border-radius:8px;padding:8px 10px;background:var(--nb-warning-soft)">
+      <span class="nb-check nb-check--on" style="border-color:var(--nb-warning);color:var(--nb-warning)">✓</span>
+      <span style="color:var(--nb-warning)">信任本目录（首次使用需勾选）</span>
+    </div>
+  `,
+
+  execpanel: `
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="nb-badge nb-badge--ok">验收通过</span>
+      <span class="nb-badge">退出码 0</span>
+      <span class="nb-badge">耗时 3m 12s</span>
+      <span class="nb-badge nb-badge--cyan">尝试 2</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--nb-muted)">2026-11-05 21:14</span>
+    </div>
+    <div class="nb-group-title">日志末尾</div>
+    <div class="nb-log">
+[21:12:04] <b>OK</b> ctest --test-dir build -C Release<br>
+[21:12:07] <b>OK</b> 13/13 tests passed<br>
+[21:12:09] <b>OK</b> pwsh -File scripts/verify.ps1 → 0<br>
+[21:12:11] <b>OK</b> acceptance: 2/2 passed<br>
+[21:12:12] run finished, verdict=passed
+    </div>
+    <div class="nb-note nb-note--ok">
+      验收命令全部通过。程序不会自动改看板列，也不会自动 push —— 「标为已办结」需你手动确认。
+    </div>
+  `,
+
+  nightbatch: `
+    <div class="nb-note">
+      勾选多张待办卡，一次入队。并发默认 1，队列在后台跑，次日看结果。
+    </div>
+    <div class="nb-group-title">待办卡（已选 3 张）</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div class="nb-listrow"><span class="nb-check nb-check--on">✓</span><span style="flex:1">DX 开发链路三处重复实现收敛</span><span class="right">~8 min</span></div>
+      <div class="nb-listrow"><span class="nb-check nb-check--on">✓</span><span style="flex:1">路线图进度上板：里程碑条打通</span><span class="right">~12 min</span></div>
+      <div class="nb-listrow"><span class="nb-check nb-check--on">✓</span><span style="flex:1">主题市场：安装包 SHA-256 校验</span><span class="right">~5 min</span></div>
+      <div class="nb-listrow"><span class="nb-check"></span><span style="flex:1;opacity:.6">托盘右键菜单霓虹化：分层窗口</span><span class="right">~20 min</span></div>
+    </div>
+    <div class="nb-grid2">
+      <div class="nb-field"><div class="nb-label">预计总时长</div><div style="font-size:15px;font-weight:700">约 25 分钟</div></div>
+      <div class="nb-field"><div class="nb-label">并发</div><div class="nb-segctl"><span class="on">1</span><span>2</span><span>3</span></div></div>
+    </div>
+  `,
+
+  execqueue: `
+    <table class="nb-table">
+      <thead><tr><th style="width:34px"></th><th>任务</th><th>agent</th><th>状态</th><th>耗时</th><th style="width:150px">操作</th></tr></thead>
+      <tbody>
+        <tr><td><span style="color:var(--nb-muted);cursor:grab">⠿</span></td><td>DX 开发链路三处重复实现收敛</td><td class="m">Claude Code</td><td><span class="nb-badge nb-badge--cyan">运行中</span></td><td class="m">2m 14s</td><td><button class="nb-btn nb-btn--sm">暂停</button> <button class="nb-btn nb-btn--sm">跳过</button></td></tr>
+        <tr><td><span style="color:var(--nb-muted);cursor:grab">⠿</span></td><td>路线图进度上板</td><td class="m">opencode</td><td><span class="nb-badge nb-badge--warn">排队中</span></td><td class="m">—</td><td><button class="nb-btn nb-btn--sm">上移</button> <button class="nb-btn nb-btn--sm">跳过</button></td></tr>
+        <tr><td><span style="color:var(--nb-muted);cursor:grab">⠿</span></td><td>主题市场 SHA-256 校验</td><td class="m">Codex CLI</td><td><span class="nb-badge nb-badge--warn">排队中</span></td><td class="m">—</td><td><button class="nb-btn nb-btn--sm">上移</button> <button class="nb-btn nb-btn--sm">跳过</button></td></tr>
+        <tr><td><span style="color:var(--nb-muted);cursor:grab">⠿</span></td><td>托盘菜单霓虹化</td><td class="m">Cursor Agent</td><td><span class="nb-badge">已完成</span></td><td class="m">18m 02s</td><td><span style="font-size:10px;color:var(--nb-muted)">验收通过</span></td></tr>
+      </tbody>
+    </table>
+    <div class="nb-note">
+      队列是<b>运行态</b>，不改卡片所在列 —— 调整顺序 / 跳过都不影响看板状态。
+    </div>
+  `
+};
+
+/* =========================================================
+   3. 渲染
+   ========================================================= */
+
+const SIZE_LABEL = { sm: 'sm · 440 px', md: 'md · 560 px', lg: 'lg · 720 px', drawer: 'drawer · 320 px' };
+const FORM_LABEL = { dialog: '居中弹窗', drawer: '右侧抽屉' };
+
+/* 每个界面的底部按钮条：统一右对齐，主操作用 accent */
+const FOOT = {
+  composer: '<div class="spacer"></div><button class="nb-btn">取消</button><button class="nb-btn nb-btn--primary">创建</button>',
+  settings: '<div class="spacer"></div><button class="nb-btn">取消</button><button class="nb-btn nb-btn--primary">保存</button>',
+  library: '<span style="font-size:10px;color:var(--nb-muted)">来源：Gitee → GitHub 自动回退</span><div class="spacer"></div><button class="nb-btn nb-btn--sm">刷新市场</button><button class="nb-btn nb-btn--sm">重新扫描</button><button class="nb-btn nb-btn--sm">打开目录</button>',
+  permission: '<div class="spacer"></div><button class="nb-btn">拒绝</button><button class="nb-btn nb-btn--primary">允许所选</button>',
+  preview: '<div class="spacer"></div><button class="nb-btn nb-btn--sm">刷新</button><button class="nb-btn nb-btn--primary nb-btn--sm">出包…</button>',
+  detail: '<div class="spacer"></div><button class="nb-btn">取消</button><button class="nb-btn">编辑</button><button class="nb-btn nb-btn--primary">保存</button>',
+  market: '<div class="spacer"></div><button class="nb-btn">关闭</button>',
+  columns: '<div class="spacer"></div><button class="nb-btn">取消</button><button class="nb-btn nb-btn--primary">完成</button>',
+  onboard: '<button class="nb-btn nb-btn--ghost">载入三张示例卡</button><div class="spacer"></div><button class="nb-btn nb-btn--ghost">跳过</button><button class="nb-btn nb-btn--primary">下一步</button>',
+  execconfirm: '<div class="spacer"></div><button class="nb-btn">取消</button><button class="nb-btn nb-btn--primary">确认执行</button>',
+  execpanel: '<button class="nb-btn nb-btn--sm">查看完整日志</button><div class="spacer"></div><button class="nb-btn">重试</button><button class="nb-btn nb-btn--primary">标为已办结</button>',
+  nightbatch: '<div class="spacer"></div><button class="nb-btn">取消</button><button class="nb-btn nb-btn--primary">入队（3 张）</button>',
+  execqueue: '<span style="font-size:10px;color:var(--nb-muted)">并发 1 · 运行 1 · 排队 2</span><div class="spacer"></div><button class="nb-btn nb-btn--sm">暂停全部</button><button class="nb-btn nb-btn--primary nb-btn--sm">恢复</button>'
+};
+
+function renderIndex() {
+  const body = document.getElementById('indexBody');
+  body.innerHTML = SHELLS.map(s => `
+    <tr class="clickable" data-id="${s.id}">
+      <td><b>${s.name}</b></td>
+      <td><span class="pill ${s.form === 'drawer' ? 'pill--drawer' : ''}">${FORM_LABEL[s.form]}</span></td>
+      <td><span class="pill pill--same">${SIZE_LABEL[s.size]}</span></td>
+      <td class="m">${s.src}</td>
+      <td><span class="pill ${s.change === 'changed' ? 'pill--changed' : 'pill--same'}">${s.change === 'changed' ? '需改' : '微调'}</span></td>
+      <td class="m">${s.sub}</td>
+    </tr>
+  `).join('');
+
+  body.addEventListener('click', function (e) {
+    const tr = e.target.closest('tr.clickable');
+    if (!tr) return;
+    show(tr.dataset.id);
+    document.querySelector('.stage').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+}
+
+function show(id) {
+  const s = SHELLS.find(x => x.id === id);
+  if (!s) return;
+  const stage = document.getElementById('stage');
+
+  // 清掉旧弹窗
+  stage.querySelectorAll('.nb-dialog, .nb-drawer').forEach(el => el.remove());
+
+  const content = BODIES[s.id] || '';
+  const foot = FOOT[s.id];
+
+  const el = document.createElement('div');
+  if (s.form === 'drawer') {
+    el.className = 'nb-drawer';
+    el.innerHTML = `
+      <div class="nb-dialog-head">
+        <div class="nb-dialog-heading">
+          <div class="nb-dialog-title">${s.title}</div>
+          <div class="nb-dialog-sub">${s.sub}</div>
+        </div>
+        <button class="nb-dialog-close">✕</button>
+      </div>
+      <div class="nb-dialog-body">${content}</div>
+    `;
+  } else {
+    el.className = 'nb-dialog nb-dialog--' + s.size;
+    el.innerHTML = `
+      <div class="nb-dialog-head">
+        <div class="nb-dialog-heading">
+          <div class="nb-dialog-title">${s.title}</div>
+          <div class="nb-dialog-sub">${s.sub}</div>
+        </div>
+        <button class="nb-dialog-close">✕</button>
+      </div>
+      <div class="nb-dialog-body">${content}</div>
+      ${foot ? `<div class="nb-dialog-foot">${foot}</div>` : ''}
+    `;
+  }
+  stage.appendChild(el);
+
+  document.getElementById('stageTitle').textContent = s.name;
+  document.getElementById('stageMeta').textContent = s.src + ' · ' + FORM_LABEL[s.form] + ' · ' + SIZE_LABEL[s.size];
+  document.getElementById('stageNote').innerHTML = s.note;
+}
+
+/* 主题切换 */
+document.getElementById('themeGroup').addEventListener('click', function (e) {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  [...this.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b === btn));
+  document.documentElement.setAttribute('data-theme', btn.dataset.theme);
+});
+
+renderIndex();
+show('composer');
+</script>
+
+</body>
+</html>

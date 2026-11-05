@@ -490,6 +490,36 @@ def _board_worktree(ctx: Ctx, batch_slug: str) -> Path:
     return REPO / ".worktrees" / ("_nbflow-board-" + batch_slug)
 
 
+def worktree_alive(wt: Path, common: Path) -> bool:
+    """目录存在 ≠ 检出可用（DX-93）：半删除的 worktree 尸体没有 .git 指针，在里面跑
+    ``git -C`` 会沿目录树向上落到别的仓库——实测把锚点检出从 main 静默切走。复用前
+    必须验：脚本在、注册可达、且注册指向本仓库的 common dir。"""
+    if not (wt / "scripts" / "board-apply.py").is_file():
+        return False
+    code, text = run(["git", "-C", str(wt), "rev-parse", "--git-common-dir"],
+                     capture=True, quiet=True)
+    if code != 0 or not text.strip():
+        return False
+    p = Path(text.strip().splitlines()[0])
+    if not p.is_absolute():
+        p = (wt / p).resolve()
+    try:
+        return p.samefile(common)
+    except OSError:
+        return False
+
+
+def discard_corpse_worktree(ctx: Ctx, wt: Path) -> bool:
+    """验活失败后的清理：prune 注销残 ref + 删目录；删不掉（被占用）返回 False，
+    调用方必须中止（fail-closed），绝不带着尸体继续（DX-93）。"""
+    run(["git", "-C", str(REPO), "worktree", "prune"], quiet=True)
+    try:
+        shutil.rmtree(wt)
+    except OSError:
+        pass
+    return not wt.exists()
+
+
 def board_apply_outcome(code: int) -> str:
     """board-apply 退出码归类（DX-72）：ok=已落盘；noop=台账已有所需卡，无需变更；fail=其余一律失败。
 
@@ -600,6 +630,11 @@ def cmd_approve(ctx: Ctx, state: dict, args) -> int:
         branch = "chore/board-" + slug
         wt = _board_worktree(ctx, slug)
         if not ctx.dry_run:
+            if wt.exists() and not worktree_alive(wt, ctx.common):
+                # DX-93：目录在但不是活检出（半删除尸体）——先清干净，绝不带着尸体跑
+                if not discard_corpse_worktree(ctx, wt):
+                    err("✗ 尸体目录删不掉（被占用），请手工删除后重跑 approve：%s" % wt)
+                    return block_batch("尸体目录删不掉（被占用）：%s" % wt)
             if not wt.exists():
                 code, _ = run(["git", "-C", str(REPO), "worktree", "add", "-b", branch,
                                str(wt), "origin/main"], check=False)
@@ -1213,6 +1248,9 @@ def probe_merge(ctx: Ctx, branch: str, simulate: bool = False) -> dict:
         return info
     wt = REPO / ".worktrees" / ("_nbflow-probe-" + _slug(branch))
     try:
+        if wt.exists() and not worktree_alive(wt, ctx.common):
+            # DX-93：尸体探测区先清干净；清不掉会让下面的 add 失败走 probe-setup-failed
+            discard_corpse_worktree(ctx, wt)
         if wt.exists():
             run(["git", "-C", str(REPO), "worktree", "remove", "--force", str(wt)], quiet=True)
         code, _ = run(["git", "-C", str(REPO), "worktree", "add", "--detach",
@@ -1971,6 +2009,17 @@ def selftest() -> int:
         finally:
             globals()["ledger_doc"] = old_doc92
             globals()["local_main_doc"] = old_main92
+
+        # DX-93：目录存在 ≠ 检出可用（尸体里的 git -C 会落到别的仓库）
+        corpse = Path(td) / "corpse-wt"
+        (corpse / "scripts").mkdir(parents=True)
+        (corpse / "scripts" / "board-apply.py").write_text("# placeholder\n", encoding="utf-8")
+        check("尸体判死：脚本在但目录不是注册 worktree（git 解析失败）",
+              worktree_alive(corpse, Path(td)) is False)
+        noscript = Path(td) / "noscript-wt"
+        noscript.mkdir()
+        check("尸体判死：缺 scripts/board-apply.py（纯 os 判定先行）",
+              worktree_alive(noscript, Path(td)) is False)
 
     failed = [n for n, ok in cases if not ok]
     for name, ok in cases:

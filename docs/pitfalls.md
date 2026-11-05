@@ -507,6 +507,25 @@
   **凡是「从台账推导的占用/查重集合」，来源必须枚举全部本地可见的 main 引用（origin/main +
   main），只写一个来源就是把分叉检出当不存在**。
 
+### 1.34 半删除的 worktree 尸体被当活检出复用：git -C 沿目录树落到锚点，锚点检出被静默切走（DX-93）
+
+- **现象**（2026-11-06 实录两段）：①DX-89 收尾 `git worktree remove` 撞 Permission denied，git
+  注销了 worktree 但目录半删除（文件残缺、`.git` 指针指向已清理的管理目录）；②随后 DX-92 的
+  approve 走「目录存在即复用」路径，在尸体里跑 `git -C <尸体> checkout -B`——git 沿目录树向上
+  搜索落到**锚点 .git**，把锚点检出从 main 静默切到 `chore/board-2026-11-06`（当日两次，均手工
+  切回，锚点未推提交未受损）；board-apply 也因尸体 scripts 残缺报 can't open file 而失败。
+- **根因**：cmd_approve 复用立卡 worktree 只判 `wt.exists()`——**目录存在 ≠ 检出可用**。
+  半删除尸体没有 `.git` 指针，`git -C <尸体>` 不报错、沿目录树向上找最近的 `.git`，命中的是
+  锚点仓库：后续命令全部落在锚点上执行。broken 检出是跨仓库误操作入口，正撞 §7.1 要防的事故面。
+- **解法（DX-93）**：`worktree_alive()` 三重验活（scripts/board-apply.py 在 → `git -C wt
+  rev-parse --git-common-dir` 可达 → 注册指向**本仓库** common dir）；验活失败走
+  `discard_corpse_worktree()`（prune 注销 + 删目录），删不掉（被占用）**fail-closed 中止并点名
+  路径**，绝不带着尸体继续。approve 的复用路径与 probe_merge 的探测区复用同源消费同一 helper。
+- **预防**：selftest 两条负例（缺脚本判死 / 目录非注册 worktree 判死）；实机口径 = 造一具尸体
+  （删 worktree 管理目录留壳）后重跑 approve，必须看到「尸体目录删不掉/已清理重建」而不是继续
+  在壳里跑。判据写法上记一条：**任何 `git -C <dir>` 之前，先确认 <dir> 是本仓库注册的 worktree
+  （注册可达且 common dir 对得上）——`-C` 从不保证你站在你以为的仓库里**。
+
 ---
 
 ## 二、脚本与编码（PowerShell / Python）

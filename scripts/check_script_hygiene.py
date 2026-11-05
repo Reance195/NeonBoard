@@ -20,11 +20,12 @@ verify.ps1 读不到沙箱日志，根因都是「规则在多处各写一遍」
   D. `.github/workflows/*.yml` 一个都不许出现 `--no-verify`。与 B 分开写不是多余：B 管的是
      「谁被允许绕过」，D 管的是「流水线里根本不该有绕过」。拆成两条，是逼以后想开口子的人
      至少动两次手（改白名单 + 删这条断言），每次都得重新想一遍为什么要开。
-  E. git 取值的裸 `[string](& git ...)` 强转捕获只允许出现在 scripts/git-helpers.ps1
-     （DX-63）：同型空值崩溃三次（DX-49 两处 / DX-50 两处 / DX-59 一处）后，符号引用取值
-     收口为该文件的 Get-NbGitLine / Get-NbSymRef / Get-NbToplevel / Get-NbCommonDir /
-     Get-NbBranch 单一实现，其余脚本点源使用。git 无输出时强转拿到空串继续跑、错误被吞，
-     是三次崩溃的共同起点。
+  E. git 单值取值只允许出现在单一实现 scripts/git-helpers.ps1（DX-63 立闸，DX-74 扩面）：
+     E1 裸 `[string](& git ...)` 强转捕获（DX-63）；E2 「& git ... | Select-Object -First 1」
+     手工首行捕获（DX-74）；E3 wrapper 值捕获「(...).Output | Select-Object -First 1」
+     （DX-74）。同型空值崩溃多次（DX-49 两处 / DX-50 两处 / DX-59 一处）后，取值收口为
+     Get-NbGitLine / Get-NbSymRef / Get-NbToplevel / Get-NbCommonDir / Get-NbBranch，
+     其余脚本点源使用。git 无输出时拿到空值继续跑、错误被吞，是各次崩溃的共同起点。
 
 用法：python scripts/check_script_hygiene.py [仓库根目录]
       python scripts/check_script_hygiene.py --selftest   # 反向探针（不依赖真仓库）
@@ -45,9 +46,25 @@ NO_VERIFY_RE = re.compile(r"git\s+commit\s+--no-verify")
 # 那是把「谁被允许绕过闸门」这条判断从宪章挪进脚本常量，等于自动放行。
 NO_VERIFY_ALLOW = frozenset()
 UTF8_BOM = b"\xef\xbb\xbf"
-# 规则 E（DX-63）：裸 git 取值强转捕获，只允许在单一实现 git-helpers.ps1 里。
+# 规则 E（DX-63 立闸，DX-74 扩面）：git 单值取值只许走单一实现 git-helpers.ps1。
 GIT_CAPTURE_RE = re.compile(r"\[string\]\s*\(\s*&?\s*git\b")
+# E2（DX-74）：手工首行 —— `& git ...` 与 `| Select-Object -First 1` 同一行；
+# [^|]* 卡在第一根管道上，`| Where-Object ... | Select-Object -First 1` 这类集合过滤不误伤。
+GIT_FIRSTLINE_RE = re.compile(r"&\s*git\b[^|]*\|\s*Select-Object\s+-First\s+1\b")
+# E3（DX-74）：wrapper 值捕获 —— Invoke-Git(Quiet) 结果的 .Output 被掐首行当单值用
+# （(Invoke-Git ...).Output 与 $var.Output 两种形态全盖）。全仓校准（DX-74）：
+# .Output 只在 git wrapper 上出现，别处无同名属性，零误伤。
+GIT_WRAPPER_CAPTURE_RE = re.compile(r"\.Output\s*\|\s*Select-Object\s+-First\s+1\b")
 GIT_HELPER_ALLOW = {"scripts/git-helpers.ps1"}
+# E2/E3 的存量豁免（棘轮，随卡清空）：两个文件的同类模式各有在办卡承诺收口——
+#   scripts/agent-init.ps1 → DX-94（卡契约注入改读 origin/main 时一并迁移这 6 处）；
+#   scripts/git-done.ps1   → DX-88（收尾推送段重写时一并迁移这 2 处）。
+# 除此之外零豁免：新文件、新写法一律判 E；动这两个文件时必须顺手清掉对应条目与本注释。
+# E1（强转捕获）不进豁免面：两文件当前 E1 零命中，保持最紧口径。
+GIT_CAPTURE_PENDING_ALLOW = {
+    "scripts/agent-init.ps1",
+    "scripts/git-done.ps1",
+}
 # 本文件要靠这两个字面量才能发现违规，所以它不在自己的射程内。
 SELF = "scripts/check_script_hygiene.py"
 
@@ -101,13 +118,17 @@ def find_problems(root: Path) -> tuple[list[str], dict]:
                 elif name not in NO_VERIFY_ALLOW:
                     problems.append("B 越权的钩子豁免：%s:%d → %s" % (name, lineno, line.strip()))
                     problems.append("   当前零豁免（AGENTS.md §11.2 第 7 条）；确需开口子，先改宪章再改本文件的 NO_VERIFY_ALLOW")
-            if GIT_CAPTURE_RE.search(line):
-                hits["git_capture"].append((name, lineno, line.strip()))
-                if name not in GIT_HELPER_ALLOW:
-                    # 规则 E（DX-63）：裸 git 取值强转捕获只许在单一实现里
-                    problems.append("E git 取值绕过单一封装：%s:%d → %s" % (name, lineno, line.strip()))
-                    problems.append("   改为点源 scripts/git-helpers.ps1，用 Get-NbGitLine / Get-NbSymRef / "
-                                    "Get-NbToplevel / Get-NbCommonDir / Get-NbBranch")
+            for ereg in (GIT_CAPTURE_RE, GIT_FIRSTLINE_RE, GIT_WRAPPER_CAPTURE_RE):
+                if ereg.search(line):
+                    hits["git_capture"].append((name, lineno, line.strip()))
+                    if name not in GIT_HELPER_ALLOW and (
+                        ereg is GIT_CAPTURE_RE or name not in GIT_CAPTURE_PENDING_ALLOW
+                    ):
+                        # 规则 E（DX-63 立闸，DX-74 扩面）：git 单值取值只许在单一实现里
+                        problems.append("E git 取值绕过单一封装：%s:%d → %s" % (name, lineno, line.strip()))
+                        problems.append("   改为点源 scripts/git-helpers.ps1，用 Get-NbGitLine / Get-NbSymRef / "
+                                        "Get-NbToplevel / Get-NbCommonDir / Get-NbBranch")
+                    break
     return problems, hits
 
 
@@ -126,18 +147,36 @@ def selftest() -> int:
         # 单一实现自身：含同样字面量（本文件靠它才能发现违规），必须放行
         helper = root / "scripts" / "git-helpers.ps1"
         helper.write_bytes(UTF8_BOM + "function F { ([string](& git rev-parse HEAD)).Trim() }\n".encode("utf-8"))
-        # 违规样本：同样的写法出现在别的脚本
+        # 违规样本：E1 强转 / E2 手工首行 / E3 wrapper 值捕获，三类都要被抓
         bad = root / "scripts" / "bad.ps1"
-        bad_bytes = UTF8_BOM + "$x = [string](& git symbolic-ref -q --short HEAD 2>$null)\n".encode("utf-8")
+        bad_bytes = UTF8_BOM + (
+            "$x = [string](& git symbolic-ref -q --short HEAD 2>$null)\n"
+            "$d = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)\n"
+            "$h = (Invoke-Git rev-parse 'HEAD').Output | Select-Object -First 1\n"
+            "# 非 git 的集合过滤不算：Select-String ... | Select-Object -First 1\n"
+        ).encode("utf-8")
         bad.write_bytes(bad_bytes)
         problems, hits = find_problems(root)
         check("规则 E 抓到违规脚本", any(p.startswith("E ") and "bad.ps1" in p for p in problems))
+        check("E1 强转捕获被抓", any("bad.ps1:1" in p for p in problems))
+        check("E2 手工首行被抓", any("bad.ps1:2" in p for p in problems))
+        check("E3 wrapper 值捕获被抓", any("bad.ps1:3" in p for p in problems))
+        check("非 git 的 -First 1 不误伤", not any("bad.ps1:4" in p for p in problems))
         check("单一实现自身被放行", not any(p.startswith("E ") and "git-helpers.ps1" in p for p in problems))
         check("违规行被点名", any("bad.ps1:1" in p for p in problems))
         # 干净样本：走封装函数，全绿
         bad.write_bytes(UTF8_BOM + "$x = Get-NbSymRef\n".encode("utf-8"))
         problems, hits = find_problems(root)
         check("干净样本放行", not problems and hits["bom_ok"] == 2)
+        # 存量豁免面（棘轮）：E2/E3 在豁免文件放行，E1 仍被抓
+        pending = root / "scripts" / "agent-init.ps1"
+        pending.write_bytes(UTF8_BOM + (
+            "$d = (& git rev-parse --show-toplevel 2>$null | Select-Object -First 1)\n"
+            "$x = [string](& git rev-parse HEAD)\n"
+        ).encode("utf-8"))
+        problems, hits = find_problems(root)
+        check("豁免文件 E2 放行", not any(p.startswith("E ") and "agent-init.ps1:1" in p for p in problems))
+        check("豁免文件 E1 仍被抓", any(p.startswith("E ") and "agent-init.ps1:2" in p for p in problems))
 
     if fails:
         print("自测失败 %d 项：%s" % (len(fails), "；".join(fails)))
@@ -174,8 +213,9 @@ def main() -> int:
     nv = ", ".join("%s:%d" % (n, l) for n, l, _ in hits["no_verify"]) or "零命中"
     gc = ", ".join("%s:%d" % (n, l) for n, l, _ in hits["git_capture"]) or "零命中"
     wf = sum(1 for n, _, _ in hits["no_verify"] if n.startswith(".github/workflows/"))
-    print("[脚本卫生] 通过：数据目录口径 %s；--no-verify %s（流水线 %d 处）；裸 git 强转捕获 %s（仅限 git-helpers.ps1）；"
-          "带 BOM 的 .ps1 共 %d 个" % (dd, nv, wf, gc, hits["bom_ok"]))
+    print("[脚本卫生] 通过：数据目录口径 %s；--no-verify %s（流水线 %d 处）；裸 git 取值捕获 %s"
+          "（仅限 git-helpers.ps1 与在办卡豁免面）；带 BOM 的 .ps1 共 %d 个"
+          % (dd, nv, wf, gc, hits["bom_ok"]))
     return 0
 
 

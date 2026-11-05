@@ -43,6 +43,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# git 取值统一走单一封装（DX-74：规则 E 扩到手工首行捕获后，本脚本不得再裸写）
+. (Join-Path $PSScriptRoot 'git-helpers.ps1')
+
 # 定位仓库根目录（脚本自身在 scripts/ 下，上级即仓库根）
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 if (-not (Test-Path (Join-Path $RepoRoot '.git'))) {
@@ -93,7 +96,7 @@ if ($Audit) {
     # 「主区」不能拿 $RepoRoot 代替：本脚本自己就住在某个 worktree 里时，
     # $RepoRoot 是那个工作区的根，主区判断（以及 .worktrees/ 的拼法）会全错。
     # 主区 = git common dir 的父目录，与脚本所在位置无关。
-    $commonDir = & git -C $RepoRoot rev-parse --git-common-dir 2>$null
+    $commonDir = Get-NbGitLine -Cwd $RepoRoot -GitArgs @('rev-parse', '--git-common-dir')
     if ($LASTEXITCODE -ne 0 -or -not $commonDir) {
         Write-Error "git rev-parse --git-common-dir 失败"
         exit 2
@@ -139,17 +142,17 @@ if ($Audit) {
         $regKey = "worktree:$leaf"
         $entry = $registry[$regKey]
 
-        $branchName = (& git -C $path symbolic-ref --short HEAD 2>$null)
+        $branchName = Get-NbSymRef -Cwd $path
         $detached = ($LASTEXITCODE -ne 0) -or (-not $branchName)
         if ($detached) {
-            $shortHead = (& git -C $path rev-parse --short HEAD 2>$null)
+            $shortHead = Get-NbGitLine -Cwd $path -GitArgs @('rev-parse', '--short', 'HEAD')
             $branchLabel = "detached @$shortHead"
         } else {
             $branchLabel = $branchName
         }
 
         $unpushed = 0
-        $revOut = & git -C $path rev-list --count HEAD --not --remotes=origin 2>$null
+        $revOut = Get-NbGitLine -Cwd $path -GitArgs @('rev-list', '--count', 'HEAD', '--not', '--remotes=origin')
         if ($LASTEXITCODE -eq 0 -and $revOut) { $unpushed = [int]$revOut }
 
         $dirty = 0
@@ -235,7 +238,7 @@ foreach ($wt in $Worktrees) {
     }
     
     # 获取最后提交的时间戳
-    $LastCommitTimestamp = & git -C $wtPath log -1 --format=%ct 2>$null
+    $LastCommitTimestamp = Get-NbGitLine -Cwd $wtPath -GitArgs @('log', '-1', '--format=%ct')
     if ($LASTEXITCODE -ne 0 -or -not $LastCommitTimestamp) {
         # 没有提交记录的 worktree，跳过
         continue

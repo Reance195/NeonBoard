@@ -984,6 +984,34 @@
   唯一写者（fail-closed 阻断落盘），而不是 CI 事后报红（红完 baseline 已经错了，防重领的
   门已经关上了）。
 
+### 2.26 规则 E 只禁强转捕获：同族裸取值还剩两种写法闸门看不见（DX-74）
+
+- **现象**：DX-63 落规则 E 后全仓 dry-run 实测（DX-74 触发证据），同族裸 git 取值在
+  六个脚本里还有 17 处绕过单一封装：`(& git … | Select-Object -First 1)` 手工首行
+  （agent-workspace / dev-run / preview / release / agent-init）、
+  `(Invoke-Git …).Output | Select-Object -First 1` wrapper 值捕获（merge-resolve /
+  git-done）、以及 `(& git …).Trim()` 直捕获（release）。规则 E 现口径只认
+  `[string](& git …)` 强转，这三类一个都抓不到 —— 封装收口了，雷还在埋。
+- **根因**：闸门跟着「上一次事故的现场写法」走，而不是跟着「事故类别」走。
+  空值崩溃的共同起点是「git 单值取值没走空值安全封装」，强转只是这个类别里
+  恰好先炸出来的那一种；按写法枚举禁令，永远比写法进化慢一步。
+- **修复（DX-74）**：① 规则 E 扩到两类新模式——E2 手工首行（`& git` 与
+  `| Select-Object -First 1` 同行，`[^|]*` 卡第一根管道避免把集合过滤误伤）、
+  E3 wrapper 值捕获（`.Output | Select-Object -First 1`，全仓校准 `.Output` 只在
+  git wrapper 上出现）；② 六个脚本（agent-workspace / check-worktree-activity /
+  dev-run / preview / release / merge-resolve）的 17 处同族取值全部迁入
+  git-helpers 封装，动作类 `Invoke-Git` 调用（看退出码）保留；③ 扩闸前先全仓
+  dry-run 校准：迁移后剩余命中恰好 8 处，全部落在两张在办卡的 scope 文件里
+  （agent-init 6 处归 DX-94、git-done 2 处归 DX-88），进 `GIT_CAPTURE_PENDING_ALLOW`
+  豁免面（棘轮，随卡清空）；E1 强转捕获不进豁免，保持最紧口径。
+- **判据**：`python scripts/check_script_hygiene.py --selftest` 覆盖
+  E1/E2/E3 三类违规被抓、非 git 的 `Select-Object -First 1` 不误伤、豁免文件
+  E2 放行且 E1 仍拒；主扫描退出码 0（除豁免面外零命中）；
+  `pwsh -File scripts/git-helpers.ps1 -SelfTest` 通过。
+- **一般化**：**给「写法」立禁令之前，先把「类别」的边界写清楚**。规则扩面前必须
+  全仓校准零误伤，校准剩下的存量不能假装不存在——要么迁掉，要么点名进有主豁免面
+  （写明哪张卡负责清空），两头都不沾的扩闸是给未来埋假绿灯。
+
 ---
 
 ## 三、构建与 Qt / QML

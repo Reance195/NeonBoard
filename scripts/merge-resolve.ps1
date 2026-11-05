@@ -39,6 +39,9 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
 
+# git 单值取值统一走单一封装（DX-74）；Invoke-Git 保留给「看退出码/看动作成败」的调用
+. (Join-Path $PSScriptRoot 'git-helpers.ps1')
+
 if (-not $MainBranch) { $MainBranch = 'main' }
 
 $script:failures = New-Object System.Collections.Generic.List[string]
@@ -60,9 +63,7 @@ function Test-InMerge {
 }
 
 function Get-BranchName {
-    $r = Invoke-Git symbolic-ref '--quiet' '--short' 'HEAD'
-    if ($r.Code -ne 0) { return '' }
-    return ($r.Output | Select-Object -First 1).ToString().Trim()
+    return (Get-NbSymRef)
 }
 
 function Get-AbsGitPath([string]$p) {
@@ -74,10 +75,10 @@ function Get-AbsGitPath([string]$p) {
 function Test-AtAnchor {
     # 锚点区 = 主工作区。worktree 里 --git-dir 指向 .git/worktrees/<名>，
     # --git-common-dir 指向共享的 .git；两者相等即主区。
-    $d = (Invoke-Git rev-parse '--git-dir').Output | Select-Object -First 1
-    $c = (Invoke-Git rev-parse '--git-common-dir').Output | Select-Object -First 1
+    $d = Get-NbGitLine -GitArgs @('rev-parse', '--git-dir')
+    $c = Get-NbGitLine -GitArgs @('rev-parse', '--git-common-dir')
     if (-not $d -or -not $c) { return $false }
-    return ((Get-AbsGitPath $d.ToString().Trim()) -eq (Get-AbsGitPath $c.ToString().Trim()))
+    return ((Get-AbsGitPath $d) -eq (Get-AbsGitPath $c))
 }
 
 function Invoke-CommitAndPush {
@@ -283,12 +284,12 @@ function Invoke-RecoverStage {
         Add-Failure 'detached HEAD'
     }
     if (Test-AtAnchor) {
-        $head = (Invoke-Git rev-parse 'HEAD').Output | Select-Object -First 1
-        $origin = (Invoke-Git rev-parse "origin/$MainBranch").Output | Select-Object -First 1
-        if ($head -and $origin -and ($head.ToString().Trim() -eq $origin.ToString().Trim())) {
+        $head = Get-NbGitLine -GitArgs @('rev-parse', 'HEAD')
+        $origin = Get-NbGitLine -GitArgs @('rev-parse', "origin/$MainBranch")
+        if ($head -and $origin -and ($head -eq $origin)) {
             Write-Host '  ✓ 锚点区 HEAD 与 origin 一致' -ForegroundColor Green
         } else {
-            Write-Host ("  · 锚点区 HEAD {0} ≠ origin {1}" -f "$head".Trim(), "$origin".Trim()) -ForegroundColor Yellow
+            Write-Host ("  · 锚点区 HEAD {0} ≠ origin {1}" -f $head, $origin) -ForegroundColor Yellow
             Add-Failure '锚点区与远端不一致'
         }
     }

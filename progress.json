@@ -55,42 +55,6 @@
             "updatedAt": 1793822375
         },
         {
-            "code": "DX-46",
-            "completedAt": 0,
-            "createdAt": 1793823087,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-46",
-            "note": "触发证据：本会话 nbflow approve 时：board-apply.py 已经把 ledger 与 baseline 写完并落 commit（91a2a15），最后一步 print('✓ 已写入 %s...') 在 Windows 默认 GBK 控制台抛 UnicodeEncodeError: 'gbk' codec can't encode character '\\u2713'，进程退出码非 0，nbflow 判为失败。同批派生器 derive_board_status.py main() 开头已经 sys.stdout/stderr.reconfigure(encoding='utf-8', errors='replace')，board-apply.py 漏了。当前绕开：调用方加 PYTHONIOENCODING=utf-8 前缀。\n\n## 目标\nboard-apply.py 未 reconfigure UTF-8，GBK 控制台打 ✓ 抛 UnicodeEncodeError 让 nbflow 误判失败\n\n## 验收\npython scripts/board-apply.py <manifest> --commit --authorize --batch 不设 PYTHONIOENCODING 直接在 GBK 控制台跑，中文与 ✓/✗ 正常打印、退出码正确；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿；nbflow approve 调用 board-apply 时不再需要外部设 env 兜住\n\n## 边界\nscripts/board-apply.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 20480,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "board-apply.py 未 reconfigure UTF-8，GBK 控制台打 ✓ 抛 UnicodeEncodeError 让 nbflow 误判失败",
-            "updatedAt": 1793823087
-        },
-        {
-            "code": "DX-51",
-            "completedAt": 0,
-            "createdAt": 1793825191,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-51",
-            "note": "触发证据：ZCode 会话记忆 agent-init-inplace-launder-dirty-tree：R16-05 的 032efd8 实测，无关实现改动被卷进领用提交，task_gate 对 chore(claim) 整体豁免，commit-msg 与 pre-push 双闸门均不可见。\n\n## 目标\n堵流程豁免洗白：agent-init 领用前脏树即拒，流程 scope 触及代码路径时豁免失效\n\n## 验收\n领用提交前工作区存在未提交改动（staged 或 tracked 修改）即拒绝领用并给出处置指引（先提交或 stash），退出码明确;task_gate 对 chore(claim)/chore(board) 等流程 scope 的豁免在 diff 触及非台账、非流程路径时失效，commit-msg 与 pre-push 双闸门口径一致;python scripts/task_gate.py selftest 新增用例全过（脏树拒、豁免失效、纯流程提交仍放行）;干净树领用端到端不变：-Card 正常开区、提交、git-done 收尾全绿;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/agent-init.ps1;scripts/task_gate.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 26624,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "堵流程豁免洗白：agent-init 领用前脏树即拒，流程 scope 触及代码路径时豁免失效",
-            "updatedAt": 1793825191
-        },
-        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -2202,6 +2166,24 @@
             "updatedAt": 1792687537
         },
         {
+            "code": "DX-46",
+            "completedAt": 1793901508,
+            "createdAt": 1793823087,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-46",
+            "note": "触发证据：本会话 nbflow approve 时：board-apply.py 已经把 ledger 与 baseline 写完并落 commit（91a2a15），最后一步 print('✓ 已写入 %s...') 在 Windows 默认 GBK 控制台抛 UnicodeEncodeError: 'gbk' codec can't encode character '\\u2713'，进程退出码非 0，nbflow 判为失败。同批派生器 derive_board_status.py main() 开头已经 sys.stdout/stderr.reconfigure(encoding='utf-8', errors='replace')，board-apply.py 漏了。当前绕开：调用方加 PYTHONIOENCODING=utf-8 前缀。\n\n## 目标\nboard-apply.py 未 reconfigure UTF-8，GBK 控制台打 ✓ 抛 UnicodeEncodeError 让 nbflow 误判失败\n\n## 验收\npython scripts/board-apply.py <manifest> --commit --authorize --batch 不设 PYTHONIOENCODING 直接在 GBK 控制台跑，中文与 ✓/✗ 正常打印、退出码正确；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿；nbflow approve 调用 board-apply 时不再需要外部设 env 兜住\n\n## 边界\nscripts/board-apply.py\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 20480,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "board-apply.py 未 reconfigure UTF-8，GBK 控制台打 ✓ 抛 UnicodeEncodeError 让 nbflow 误判失败",
+            "updatedAt": 1793901508
+        },
+        {
             "code": "DX-47",
             "completedAt": 1793828049,
             "createdAt": 1793823087,
@@ -2512,6 +2494,24 @@
             ],
             "title": "端到端验收：12 条用例",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "DX-51",
+            "completedAt": 1793901508,
+            "createdAt": 1793825191,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-51",
+            "note": "触发证据：ZCode 会话记忆 agent-init-inplace-launder-dirty-tree：R16-05 的 032efd8 实测，无关实现改动被卷进领用提交，task_gate 对 chore(claim) 整体豁免，commit-msg 与 pre-push 双闸门均不可见。\n\n## 目标\n堵流程豁免洗白：agent-init 领用前脏树即拒，流程 scope 触及代码路径时豁免失效\n\n## 验收\n领用提交前工作区存在未提交改动（staged 或 tracked 修改）即拒绝领用并给出处置指引（先提交或 stash），退出码明确;task_gate 对 chore(claim)/chore(board) 等流程 scope 的豁免在 diff 触及非台账、非流程路径时失效，commit-msg 与 pre-push 双闸门口径一致;python scripts/task_gate.py selftest 新增用例全过（脏树拒、豁免失效、纯流程提交仍放行）;干净树领用端到端不变：-Card 正常开区、提交、git-done 收尾全绿;pwsh -File scripts/verify.ps1 -ScriptOnly 通过\n\n## 边界\nscripts/agent-init.ps1;scripts/task_gate.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 26624,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "堵流程豁免洗白：agent-init 领用前脏树即拒，流程 scope 触及代码路径时豁免失效",
+            "updatedAt": 1793901508
         },
         {
             "code": "R8-04",
@@ -4093,6 +4093,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T01:51:48",
+    "updated": "2026-11-06T01:58:28",
     "version": 3
 }

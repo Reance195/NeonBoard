@@ -867,6 +867,12 @@ void Scene::drawProgress(QPainter &painter, Layers &layers, const QRectF &frame,
         const qreal cell = layers.digitAdvance;
         const qreal ascent = layers.digitAscent;
         const qreal baseline = track.top() + 4.0;
+        // 数字图集是**设备像素**图（renderDigitAtlas 内部 scale(dpr) 后按 dpr 放大），
+        // 第 i 格在设备像素里位于 [i·cell·dpr, (i+1)·cell·dpr)。
+        // 源矩形必须按设备像素取：拿逻辑像素去采样，dpr>1 时会横向错位半格、
+        // 纵向只截到图集 2/3 高度，百分比就碎成一片（dpr=1.0 恰好抵消，故只在高 DPI 复现）。
+        const qreal cellPx = cell * layers.dpr;
+        const qreal atlasHeight = layers.digitAtlas.height();
         painter.save();
         painter.setOpacity(painter.opacity() * 0.90);
         for (int i = 0; i < percent.size(); ++i) {
@@ -874,9 +880,10 @@ void Scene::drawProgress(QPainter &painter, Layers &layers, const QRectF &frame,
             const int index = ch == QLatin1Char('%') ? 10 : ch.digitValue();
             if (index < 0)
                 continue;
-            const QRectF source(index * cell, 0.0, cell, layers.digitAtlas.height() / layers.dpr);
+            const QRectF source(index * cellPx, 0.0, cellPx, atlasHeight);
+            // 目标矩形仍是逻辑坐标（画笔自带 dpr 变换，落到设备像素正好 1:1）。
             const QRectF target(track.right() + 14.0 + i * cell, baseline - ascent,
-                                cell, layers.digitAtlas.height() / layers.dpr);
+                                cell, atlasHeight / layers.dpr);
             painter.drawImage(target, layers.digitAtlas, source);
         }
         painter.restore();

@@ -4237,13 +4237,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-66": {
-            "agent": "agent-dx66",
-            "branch": "fix/agent-init-transactional-open",
-            "claimedAt": 1793902726,
-            "head": "a91f5443507900afc14be4ae0b308c760e694a35"
-        }
-    },
+    "claims": {},
     "version": 1
 }

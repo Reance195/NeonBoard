@@ -5423,6 +5423,13 @@
             "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9"
         }
     },
-    "claims": {},
+    "claims": {
+        "R19-1": {
+            "agent": "agent-r19",
+            "branch": "feature/workflow-retro-step",
+            "claimedAt": 1793977827,
+            "head": "caaad1213663ab4d0c8003014deb3f19bcbf7ce7"
+        }
+    },
     "version": 1
 }

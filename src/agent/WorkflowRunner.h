@@ -115,6 +115,9 @@ private:
         bool failed = false;
         bool cancelled = false;
         QString failMessage;
+        // 失败链仍要复盘（R19-01）：非 retro 步失败时先记下原因、跳去跑 retro，
+        // retro 结束后再按这个原因收口 —— 链的 failed 结论不变（fail-soft 只对 retro 自身）。
+        QString pendingFailReason;
     };
 
     void markFailed(Chain &chain, const QString &message);

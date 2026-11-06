@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 
 // 设置面板：按需加载。
@@ -175,6 +176,31 @@ Rectangle {
         } else {
             projectSettingsHint.text = "创建失败：「" + name + "」"
         }
+    }
+
+    // 仓库绑定（R18-02 / R18-03）：目录选择 → fail-closed 路径校验 →
+    // 确认对话框（无台账的仓库提供生成脚手架的开关，默认勾上）。
+    // 目录选择走 QML FolderDialog（QtQuick.Dialogs），不引入 QtWidgets 依赖。
+    property string bindProjectId: ""
+
+    function bindProjectRepo(projectId) {
+        panel.bindProjectId = projectId
+        repoFolderDialog.open()
+    }
+
+    function onRepoPicked(path) {
+        if (path.length === 0)
+            return
+        const invalid = projectStore.validateRepoPath(path)
+        if (invalid.length > 0) {
+            projectSettingsHint.text = invalid
+            return
+        }
+        repoBindDialog.projectId = panel.bindProjectId
+        repoBindDialog.repoPath = path
+        repoBindDialog.scaffoldNeeded = !projectStore.repoHasScaffold(path)
+        repoBindDialog.errorText = ""
+        repoBindDialog.open()
     }
 
     // 导入来源：数据目录下已导出的文件 + 手动输入路径
@@ -640,6 +666,45 @@ Rectangle {
                                 }
 
                                 Item { Layout.fillWidth: true }
+                            }
+
+                            // 仓库绑定（R18-02）：绑定后该项目的卡写回 <仓库>/progress.json，
+                            // 面板每 15 秒轮询该文件；解绑后卡保留、家文件回落到全局快照
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 6
+
+                                Text {
+                                    text: "仓库"
+                                    color: Theme.muted
+                                    font.pixelSize: Theme.fontMicro
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: projectRow.modelData.repoPath.length > 0
+                                           ? projectRow.modelData.repoPath : "未绑定（卡写回全局快照）"
+                                    color: Theme.muted
+                                    font.pixelSize: Theme.fontMicro
+                                    elide: Text.ElideMiddle
+                                }
+
+                                Text {
+                                    text: projectRow.modelData.repoPath.length > 0 ? "解绑" : "绑定…"
+                                    color: projectRow.modelData.repoPath.length > 0 ? Theme.magenta : Theme.cyan
+                                    font.pixelSize: Theme.fontMicro
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (projectRow.modelData.repoPath.length > 0)
+                                                projectStore.setRepoPath(projectRow.modelData.id, "")
+                                            else
+                                                panel.bindProjectRepo(projectRow.modelData.id)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1511,6 +1576,112 @@ Rectangle {
                         }
                         execSettingsHint.text = "已保存 " + id
                         profileEditor.close()
+                    }
+                }
+            }
+        }
+    }
+
+    // 目录选择器（R18-02）：QML 原生 FolderDialog，避免引入 QtWidgets 依赖
+    FolderDialog {
+        id: repoFolderDialog
+        title: "选择要绑定的项目仓库目录"
+        onAccepted: panel.onRepoPicked(selectedFolder)
+    }
+
+    // 仓库绑定对话框（R18-02 / R18-03）：确认路径 + 无台账仓库的脚手架开关；
+    // 放根层，避免被滚动区裁剪
+    Dialog {
+        id: repoBindDialog
+        parent: panel
+        anchors.centerIn: parent
+        modal: true
+        focus: true
+        padding: 18
+        width: Math.min(480, panel.width - 60)
+        closePolicy: Popup.CloseOnEscape
+        property string projectId: ""
+        property string repoPath: ""
+        property bool scaffoldNeeded: false
+        property string errorText: ""
+
+        onOpened: scaffoldCheck.checked = true
+
+        background: Rectangle {
+            color: Theme.panelSolid
+            radius: Theme.radiusPanel
+            border.width: 1
+            border.color: Theme.alpha(Theme.cyan, 0.35)
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 8
+
+            Text {
+                text: "绑定仓库"
+                color: Theme.text
+                font.pixelSize: Theme.fontTitle
+                font.bold: true
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: repoBindDialog.repoPath
+                color: Theme.muted
+                font.pixelSize: Theme.fontMicro
+                wrapMode: Text.WordWrap
+            }
+
+            CheckBox {
+                id: scaffoldCheck
+                Layout.fillWidth: true
+                visible: repoBindDialog.scaffoldNeeded
+                text: "该仓库还没有台账文件，生成脚手架（progress.json + docs/board-ledger.json，既有文件不覆盖）"
+                checked: true
+                color: Theme.cyan
+                font.pixelSize: Theme.fontCaption
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: repoBindDialog.errorText.length > 0
+                text: repoBindDialog.errorText
+                color: Theme.danger
+                font.pixelSize: Theme.fontMicro
+                wrapMode: Text.WordWrap
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 4
+                spacing: 8
+
+                Item { Layout.fillWidth: true }
+
+                DataButton {
+                    label: "取消"
+                    Layout.preferredWidth: 72
+                    onTriggered: repoBindDialog.close()
+                }
+
+                DataButton {
+                    label: "绑定"
+                    Layout.preferredWidth: 72
+                    onTriggered: {
+                        const path = repoBindDialog.repoPath
+                        if (repoBindDialog.scaffoldNeeded && scaffoldCheck.checked) {
+                            const scaffoldError = projectStore.scaffoldRepo(path)
+                            if (scaffoldError.length > 0) {
+                                repoBindDialog.errorText = scaffoldError
+                                return
+                            }
+                        }
+                        if (projectStore.setRepoPath(repoBindDialog.projectId, path)) {
+                            projectSettingsHint.text = "已绑定仓库：" + path
+                            repoBindDialog.close()
+                        } else {
+                            repoBindDialog.errorText = "绑定失败：路径未通过校验"
+                        }
                     }
                 }
             }

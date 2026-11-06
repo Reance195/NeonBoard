@@ -171,6 +171,7 @@ qt_add_executable(NeonBoard
     thirdparty/bzip2/randtable.c
     thirdparty/bzip2/compress.c
     thirdparty/bzip2/decompress.c
+    src/board/RepoScaffolder.h src/board/RepoScaffolder.cpp
     resources/neonboard.rc
 )
 

@@ -106,6 +106,16 @@ void TestProjectStore::schemaCreatedWithoutBumpingVersion()
         QVERIFY(exists.next());
         QCOMPARE(exists.value(0).toInt(), 1);
     }
+
+    // R18-02：project 表的 repo_path 列由 ensureColumn 补入，同样不升版本号
+    QSqlQuery column(db);
+    QVERIFY(column.exec(QStringLiteral("PRAGMA table_info(project)")));
+    bool hasRepoPath = false;
+    while (column.next()) {
+        if (column.value(1).toString() == QStringLiteral("repo_path"))
+            hasRepoPath = true;
+    }
+    QVERIFY(hasRepoPath);
 }
 
 void TestProjectStore::assignAndReadBack()

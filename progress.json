@@ -217,24 +217,6 @@
             "updatedAt": 1793935667
         },
         {
-            "code": "DX-109",
-            "completedAt": 0,
-            "createdAt": 1793974532,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-109",
-            "note": "",
-            "orderKey": 72704,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "单次推送下 branch -d 恒拒：分支删除判据换锚点，收尾不再残留已合并分支",
-            "updatedAt": 1793974532
-        },
-        {
             "code": "R19-1",
             "completedAt": 0,
             "createdAt": 1793977718,
@@ -4454,6 +4436,24 @@
             "updatedAt": 1792982914
         },
         {
+            "code": "DX-109",
+            "completedAt": 1793978677,
+            "createdAt": 1793974532,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-109",
+            "note": "",
+            "orderKey": 72704,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "单次推送下 branch -d 恒拒：分支删除判据换锚点，收尾不再残留已合并分支",
+            "updatedAt": 1793978677
+        },
+        {
             "completedAt": 1792982914,
             "createdAt": 1792981705,
             "deleted": false,
@@ -4993,6 +4993,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:15:22",
+    "updated": "2026-11-06T23:24:37",
     "version": 3
 }

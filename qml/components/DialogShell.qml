@@ -188,6 +188,8 @@ Dialog {
                     id: navLoader
                     Layout.preferredWidth: 160
                     Layout.fillHeight: true
+                    // 导航列同样离壳边 dialogPadding，否则条目贴着边框
+                    Layout.leftMargin: Theme.dialogPadding
                     visible: shell.navRail !== null
                     sourceComponent: shell.navRail
                 }
@@ -210,9 +212,11 @@ Dialog {
 
                     ColumnLayout {
                         id: bodyColumn
-                        x: 0
+                        // 四边留 dialogPadding：迁移前各弹窗靠 Dialog.padding 兜住内边距，
+                        // 迁壳后 Dialog.padding 归零，这里不补回来内容就贴到壳边框上。
+                        x: Theme.dialogPadding
                         y: Theme.dialogPadding
-                        width: bodyFlick.width
+                        width: Math.max(0, bodyFlick.width - Theme.dialogPadding * 2)
                         spacing: Theme.spacingMd
                     }
                 }

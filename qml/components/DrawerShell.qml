@@ -171,6 +171,8 @@ Item {
                     id: navLoader
                     Layout.preferredWidth: 160
                     Layout.fillHeight: true
+                    // 导航列同样离面板边 dialogPadding
+                    Layout.leftMargin: Theme.dialogPadding
                     visible: drawer.navRail !== null
                     sourceComponent: drawer.navRail
                 }
@@ -193,9 +195,11 @@ Item {
 
                     ColumnLayout {
                         id: bodyColumn
-                        x: 0
+                        // 四边留 dialogPadding：与 DialogShell 同一口径，
+                        // 否则抽屉正文会贴着面板右边框。
+                        x: Theme.dialogPadding
                         y: Theme.dialogPadding
-                        width: bodyFlick.width
+                        width: Math.max(0, bodyFlick.width - Theme.dialogPadding * 2)
                         spacing: Theme.spacingMd
                     }
                 }

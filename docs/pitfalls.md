@@ -578,6 +578,25 @@
   补三态（有凭证放行 / 无凭证拒 / 凭证与内容不符拒），回执路径要进流程合法路径集，
   否则立卡提交会栽在自己的越面判定上。
 
+### 1.36 单次推送下 `branch -d` 恒拒：分支删除判据还锚在 origin/main（DX-109）
+
+- **现象**（2026-11-06 DX-106 收尾实录）：每次 `git-done.ps1` 收尾都打印
+  `error: the branch 'fix/...' is not fully merged`，并留下 `（分支可能仍被某个 worktree 占用…）`
+  提示；合并早就成功，分支却要手工 `git branch -D` 补删。DX-106 每批收尾都复现一次。
+- **根因**：DX-106 把 worktree 回收与分支删除都挪到推送**之前**（`release-claims` 要靠
+  「分支已删」判台账登记失效），worktree 回收的安全判据已经换成「提交已全部进本次合并」，
+  **分支删除那半边没跟着换**：`git branch -d` 的安全判据是「已合并到 upstream」，而功能分支
+  由 `agent-init` 建成时跟踪 `origin/main`；推送前 `origin/main` 还没含本次合并，判据恒假，
+  git 必然拒删。DX-106 的 worktree 判据换对了，同一个时序变化下的另一处判据却漏了。
+- **解法（DX-109）**：`git-done.ps1` 新增 `Remove-MergedBranch`，判据与 worktree 回收同锚点
+  ——`git rev-list --count <分支> --not <本次合并提交>` 为 0 才删；确认已收纳后用 `-D`
+  （`-d` 会再跑一遍同一套 upstream 检查，照样误拒）。remote 与 local 两个模式共用这一个
+  实现；`-KeepBranch` / `-DryRun` 的分支保留路径不受影响。分支若在合并后被别处推进
+  （计数 > 0）或被其它 worktree 占用，仍然保留并点名，不盲删。
+- **预防**：改「防丢」类判据时，先列出**所有**依赖同一时序前提的删除/回收动作，逐个问
+  「它的判据锚在哪」——DX-106 换了 worktree 那一处，漏掉分支这一处，症状就一直挂着。
+  验收要拿产物说话：正常收尾后 `git branch --list <分支>` 必须为空，而不是只看脚本没报错。
+
 ---
 
 ## 二、脚本与编码（PowerShell / Python）

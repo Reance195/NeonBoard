@@ -316,18 +316,40 @@ def main(argv=None):
             occupied = local_occupied | ls_registrations(root)
             for attempt in range(1, REGISTER_RETRY + 1):
                 code = next_code(occupied, stage)
-                head = run(["git", "rev-parse", "HEAD"], root).stdout.strip()
+                # 占位 sha 必须是**唯一的 off-main 空提交**（commit-tree 直造，不走钩子）：
+                # ref 尖端不在任何主线历史里，任何人的 HEAD 都不可能是它的后代 ——
+                # 异 sha 重推必因 non-fast-forward 被拒，plain push 即严格的
+                # 「仅创建」test-and-set，不依赖 force-with-lease 语义。
+                # （v1 指向 HEAD 是洞：同主线的后代提交可快进顶掉占位 —— DX-104。）
+                base_tree = run(["git", "rev-parse", "HEAD^{tree}"],
+                                root).stdout.strip()
+                stamp = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+                res_msg = ("立卡占位 %s\n\nform: %s\nauthorizedBy: %s\nat: %s\n"
+                           % (code, rel_to(root, form_path),
+                              args.authorized_by.strip(), stamp))
+                res_sha = run(["git", "commit-tree", base_tree, "-p", "HEAD",
+                               "-m", res_msg], root).stdout.strip()
+                if not res_sha:
+                    die("无法创建占位提交（commit-tree 失败）", 5)
                 push = run(["git", "push", "origin",
-                            "HEAD:%s%s" % (REGISTRATION_REF_PREFIX, code)], root)
+                            "%s:%s%s" % (res_sha, REGISTRATION_REF_PREFIX, code)],
+                           root)
                 if push.returncode == 0:
                     reservation = {"ref": REGISTRATION_REF_PREFIX + code,
-                                   "sha": head}
-                    print("[立卡程序] 服务端占位成功：%s（HEAD %s）"
-                          % (reservation["ref"], head[:7]))
+                                   "sha": res_sha}
+                    print("[立卡程序] 服务端占位成功：%s（%s）"
+                          % (reservation["ref"], res_sha[:7]))
                     break
-                print("[立卡程序] %s 占位被拒（号被并发机器抢走），换号重试 %d/%d"
-                      % (code, attempt, REGISTER_RETRY))
-                occupied = local_occupied | ls_registrations(root)
+                err = (push.stderr or push.stdout or "").strip()
+                if "[rejected]" in err:
+                    # 仅创建语义下，[rejected] 只可能是「ref 已存在」（异 sha 必非快进）
+                    print("[立卡程序] %s 占位被拒（号被并发机器抢走），换号重试 %d/%d"
+                          % (code, attempt, REGISTER_RETRY))
+                    occupied = local_occupied | ls_registrations(root)
+                    continue
+                # 撞号以外的失败（网络 / 钩子）fail-fast 并照实报错，
+                # 不再吞掉真实原因误报成撞号（DX-104 第二处修正）
+                die("占位推送失败：%s\n%s" % (code, err or "<无输出>"), 5)
             if reservation is None:
                 die("连续 %d 次占位被拒：跨机竞争异常或远端异常，请稍后重试"
                     % REGISTER_RETRY, 5)

@@ -3432,7 +3432,7 @@
             ],
             "evidence": "规格 docs/design/ui-relayout-spec.md §3.4 落位表 execQueueDialog 行写「lg 720；表头固定；队列行高统一 40 px」。R11-10 只迁了壳（lg 720 已落地），表头与行高两条子项没做：现状 qml/Main.qml:3697 队列行 delegate 写死 height: 56、qml/Main.qml:3672 容器按 rows.length * 62 + 16 预留、列表上方只有一条分隔线没有表头行，规格与实现不一致。",
             "id": "R11-11",
-            "note": "",
+            "note": "已交付（2026-11-06，提交 db77d4d）：执行队列补规格 §3.4 落位表剩的两条子项 —— 表头固定（任务 / 状态 / 操作三列，列宽与数据行逐列对齐；表头放在 ListView 之外，列表滚动时不动） + 队列行高统一 40 px（行间距 0、行下细线分隔）。状态标签从副信息提为独立列，耗时 / 角色 / agent / 错误仍留在副信息行，信息不丢。实测（临时埋点，跑完已回滚）：入队 3 条时行高 40、表头行高 18；grep \"height: 56\" 命中 0、\"rows.length * 62\" 命中 0、\"rows.length * 40\" 命中 1。待做：无。",
             "scope": [
                 "qml/Main.qml",
                 "README.md",
@@ -3456,11 +3456,12 @@
             ],
             "evidence": "R11 三批（R11-8 / R11-9 / R11-10）落地后有三处只走代码没跑真实流程：①权限弹窗「误点遮罩后仍能再次触发权限请求」是本轮唯一的语义变更（规格 §3.5），实现上三条关闭路径都汇到 PluginPermissionDialog 的 onClosed → pluginRuntime.releasePermissionPrompt，但从未实测过；②规格第 2 批验收写「17 个界面逐个打开，头 / 底位置一致，Esc 与关闭键行为一致」，实际只程序化打开过 5 个（设置 / 外观 / 插件库 / 执行队列 / 新建任务），其余 12 个没验；③PreviewHub 的 unpushed 从 git status 的「# branch.ab +N」解析，只在干净仓库上跑过（恒为 0），非零路径未验证。本机无 Orca CLI、拿不到 GUI 截图，核验靠程序化埋点 + 应用日志取证。",
             "id": "R11-12",
-            "note": "",
+            "note": "已交付（2026-11-06，提交 7440933）：R11 规格全量核验，结论与实测值落 docs/design/ui-relayout-verify.md。①17 个界面逐个打开（真实入口、带真实参数），量到形态 / 壳宽（440 / 560 / 720 / 抽屉 320）/ 头底固定 / 关闭行为，17 行齐全；②权限弹窗三条关闭路径端到端实测：受权限门控的能力被拒后仍能再次触发弹窗，遮罩 / 关闭键 / Esc 三条路径关闭后权限仍未授权且再次触发都会再弹（走 PluginHost.storageSet → PluginContext::require → 宿主 permissionRequested 全链路）；③未推送提交数实测 0 / 2 / 4 / -1 四种取值，有 upstream 领先时显示数字、无 upstream 的分离头为 -1 且不渲染徽章。核验抓出并修掉一个既有缺陷：qml/components/PluginPanel.qml 给 Text 赋 selectByMouse（Text 无此属性），QML 报错使整个插件面板加载失败、抽屉打不开（由 R16-04 引入，非 R11 引入），改用只读 TextEdit 后恢复；该修复需扩 scope，已按 DX-10 单独走一条 chore(board) 契约变更（37da984），契约与实现分开提交。待做：无（遗留见核验文档第五节：Main.qml:1621 的 EmptyState 锚点告警是既有、不在范围内；Esc 未做真实按键注入，依据壳内 closePolicy 与组件内 Keys.onEscapePressed 的代码路径；视觉观感需人工确认）。",
             "scope": [
                 "qml/Main.qml",
                 "qml/components/PluginPermissionDialog.qml",
                 "qml/components/PreviewPanel.qml",
+                "qml/components/PluginPanel.qml",
                 "src/board/PreviewHub.cpp",
                 "src/board/PreviewHub.h",
                 "docs/design/ui-relayout-verify.md",
@@ -5202,6 +5203,19 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R11-11": {
+            "agent": "agent-ui4",
+            "branch": "feature/r11-closeout",
+            "claimedAt": 1793973771,
+            "head": "e62c17222285357d824fe59e4bf62d1e54407ab7"
+        },
+        "R11-12": {
+            "agent": "agent-ui4",
+            "branch": "feature/r11-closeout",
+            "claimedAt": 1793973801,
+            "head": "e7b84522d5f7066f906953dd02e192364887a42a"
+        }
+    },
     "version": 1
 }

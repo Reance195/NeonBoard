@@ -26,6 +26,10 @@ verify.ps1 读不到沙箱日志，根因都是「规则在多处各写一遍」
      （DX-74）。同型空值崩溃多次（DX-49 两处 / DX-50 两处 / DX-59 一处）后，取值收口为
      Get-NbGitLine / Get-NbSymRef / Get-NbToplevel / Get-NbCommonDir / Get-NbBranch，
      其余脚本点源使用。git 无输出时拿到空值继续跑、错误被吞，是各次崩溃的共同起点。
+  F. 控制台 UTF-8 编码设置只活一份（scripts/nb-console.ps1，DX-77/DX-83）：四个捕获
+     python/git 输出的入口脚本（build / git-done / agent-init / verify）必须点源并调用
+     Set-NbUtf8Console。CP 936 控制台下漏接的入口必现 mojibake（DX-77 实测 verify.ps1
+     「閫€鍑虹爜」/ nbflow status 授权段；DX-83 实测 claim-card 输出捕获后乱码落地）。
 
 用法：python scripts/check_script_hygiene.py [仓库根目录]
       python scripts/check_script_hygiene.py --selftest   # 反向探针（不依赖真仓库）
@@ -67,6 +71,16 @@ GIT_CAPTURE_PENDING_ALLOW = {
 }
 # 本文件要靠这两个字面量才能发现违规，所以它不在自己的射程内。
 SELF = "scripts/check_script_hygiene.py"
+# 规则 F（DX-77/DX-83）：控制台 UTF-8 编码设置只许在 scripts/nb-console.ps1 活一份，
+# 四个捕获 python/git 输出的入口必须点源并调用封装——漏接的入口在 CP 936 控制台必现 mojibake。
+CONSOLE_DOTSOURCE_RE = re.compile(r"Join-Path\s+\S+\s+'nb-console\.ps1'")
+CONSOLE_CALL_RE = re.compile(r"\bSet-NbUtf8Console\b")
+CONSOLE_WRAPPER_REQUIRE = {
+    "scripts/build.ps1",
+    "scripts/git-done.ps1",
+    "scripts/agent-init.ps1",
+    "scripts/verify.ps1",
+}
 
 SCAN_GLOBS = ["scripts/*.ps1", "scripts/*.py", ".github/workflows/*.yml"]
 # 注释行不算「使用」：# 开头（PS/Python）与 YAML 里的 # 开头
@@ -90,8 +104,11 @@ def scan_files(root: Path):
 def find_problems(root: Path) -> tuple[list[str], dict]:
     """扫一遍仓库，返回 (问题清单, 命中统计)。main 与 --selftest 共用这一份扫描。"""
     problems: list[str] = []
-    hits = {"data_dir": [], "no_verify": [], "bom_ok": 0, "git_capture": []}
+    hits = {"data_dir": [], "no_verify": [], "bom_ok": 0, "git_capture": [], "console_ok": 0}
+    console_use: dict[str, set[str]] = {}
+    scanned: set[str] = set()
     for name, path in scan_files(root):
+        scanned.add(name)
         # 规则 C：.ps1 缺 BOM 直接判失败（读原始字节 —— 文本解码会把 BOM 吃掉，看不出）
         if name.endswith(".ps1"):
             if path.read_bytes()[:3] != UTF8_BOM:
@@ -129,6 +146,24 @@ def find_problems(root: Path) -> tuple[list[str], dict]:
                         problems.append("   改为点源 scripts/git-helpers.ps1，用 Get-NbGitLine / Get-NbSymRef / "
                                         "Get-NbToplevel / Get-NbCommonDir / Get-NbBranch")
                     break
+            if name in CONSOLE_WRAPPER_REQUIRE:
+                if CONSOLE_DOTSOURCE_RE.search(line):
+                    console_use.setdefault(name, set()).add("dotsource")
+                if CONSOLE_CALL_RE.search(line):
+                    console_use.setdefault(name, set()).add("call")
+    # 规则 F（DX-77/DX-83）：存在却没接封装的入口即拒；文件不存在不代管（删了的脚本无从谈起）
+    for name in sorted(CONSOLE_WRAPPER_REQUIRE & scanned):
+        got = console_use.get(name, set())
+        missing = []
+        if "dotsource" not in got:
+            missing.append("点源 scripts/nb-console.ps1")
+        if "call" not in got:
+            missing.append("调用 Set-NbUtf8Console")
+        if missing:
+            problems.append("F 入口脚本缺 UTF-8 控制台封装：%s（缺 %s）" % (name, " + ".join(missing)))
+            problems.append("   编码三跳（chcp 65001 + [Console]::Output/InputEncoding）的单一实现在 scripts/nb-console.ps1")
+        else:
+            hits["console_ok"] += 1
     return problems, hits
 
 
@@ -178,6 +213,21 @@ def selftest() -> int:
         check("豁免文件 E2 放行", not any(p.startswith("E ") and "agent-init.ps1:1" in p for p in problems))
         check("豁免文件 E1 仍被抓", any(p.startswith("E ") and "agent-init.ps1:2" in p for p in problems))
 
+        # 规则 F（DX-77/DX-83）：存在的入口缺封装调用被抓；点源 + 调用齐备则放行。
+        # 只有部分入口存在时，缺席的不代管（真实仓库四个入口都在，全量核对）。
+        entry = root / "scripts" / "verify.ps1"
+        entry.write_bytes(UTF8_BOM + "Write-Host 'no wrapper'\n".encode("utf-8"))
+        problems, hits = find_problems(root)
+        check("规则 F 抓到缺封装的入口", any(p.startswith("F ") and "verify.ps1" in p for p in problems))
+        check("规则 F 点名缺什么", any("Set-NbUtf8Console" in p for p in problems))
+        entry.write_bytes(UTF8_BOM + (
+            ". (Join-Path $PSScriptRoot 'nb-console.ps1')\n"
+            "Set-NbUtf8Console\n"
+        ).encode("utf-8"))
+        problems, hits = find_problems(root)
+        check("接入封装的入口放行", not any(p.startswith("F ") and "verify.ps1" in p for p in problems))
+        check("规则 F 计数正确", hits["console_ok"] == 1)
+
     if fails:
         print("自测失败 %d 项：%s" % (len(fails), "；".join(fails)))
         return 1
@@ -214,8 +264,8 @@ def main() -> int:
     gc = ", ".join("%s:%d" % (n, l) for n, l, _ in hits["git_capture"]) or "零命中"
     wf = sum(1 for n, _, _ in hits["no_verify"] if n.startswith(".github/workflows/"))
     print("[脚本卫生] 通过：数据目录口径 %s；--no-verify %s（流水线 %d 处）；裸 git 取值捕获 %s"
-          "（仅限 git-helpers.ps1 与在办卡豁免面）；带 BOM 的 .ps1 共 %d 个"
-          % (dd, nv, wf, gc, hits["bom_ok"]))
+          "（仅限 git-helpers.ps1 与在办卡豁免面）；带 BOM 的 .ps1 共 %d 个；UTF-8 控制台封装 %d/%d"
+          % (dd, nv, wf, gc, hits["bom_ok"], hits["console_ok"], len(CONSOLE_WRAPPER_REQUIRE)))
     return 0
 
 

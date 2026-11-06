@@ -42,6 +42,9 @@ Set-Location $repoRoot
 . (Join-Path $PSScriptRoot 'nb-paths.ps1')
 # git 符号引用取值的唯一口径（DX-63）：空输出 / 多行 / 分离 HEAD 的空值语义只写一遍
 . (Join-Path $PSScriptRoot 'git-helpers.ps1')
+# 控制台 UTF-8 编码唯一口径（DX-77/DX-83）：中文输出可读、捕获 python 子进程输出不按 GBK 解码
+. (Join-Path $PSScriptRoot 'nb-console.ps1')
+Set-NbUtf8Console
 
 function Step([string]$name) {
     Write-Host ''

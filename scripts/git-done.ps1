@@ -55,6 +55,11 @@ $ErrorActionPreference = 'Stop'
 # 裸 `[string](& git ...)` 模式已被 check_script_hygiene 规则 E 禁止。
 . (Join-Path $PSScriptRoot 'git-helpers.ps1')
 
+# 控制台 UTF-8 编码唯一口径（DX-77/DX-83）：收尾捕获 python 子进程（derive/board-apply）的
+# UTF-8 输出不再按 GBK 解码转发（§2.6/§2.20 同类的收口）
+. (Join-Path $PSScriptRoot 'nb-console.ps1')
+Set-NbUtf8Console
+
 # 宪章 §7.3：原生命令会往 stderr 写进度（git 的 "Switched to a new branch"、worktree/branch
 # 的删除提示、fetch 的计数），在 $ErrorActionPreference='Stop' 下 `2>&1` 会把这些行升级成
 # 终止性错误 —— 命令其实成功了也能把脚本拦腰打断（本次就卡在「创建临时分支」那一步，

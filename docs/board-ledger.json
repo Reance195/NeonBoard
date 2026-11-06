@@ -5577,13 +5577,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-115": {
-            "agent": "agent-dx115b",
-            "branch": "fix/dx115-approve-retire",
-            "claimedAt": 1793987075,
-            "head": "19ccef326ebf41a668c32d7da8d3d03cf1852ac7"
-        }
-    },
+    "claims": {},
     "version": 1
 }

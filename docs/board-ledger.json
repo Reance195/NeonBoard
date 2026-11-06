@@ -5557,6 +5557,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-78": {
+            "agent": "agent-dx78",
+            "branch": "fix/dx78-gitdone-retry",
+            "claimedAt": 1793981293,
+            "head": "76e61798397a3d2f7ccae65ff5e88f8fc046e182"
+        }
+    },
     "version": 1
 }

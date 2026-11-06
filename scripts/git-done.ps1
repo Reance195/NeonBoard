@@ -40,6 +40,12 @@ param(
     # -Close 是「我知道，按完成处理」的显式确认；只接受本分支领用过的卡。
     [string]$Close = '',
     [string]$MainBranch = 'main',
+    # 推送打桩（DX-78 自测）：前 N 次 Push-Main 注入拒绝，第 N+1 次起走真推送。
+    # 仅测试用（-SelfTest 的两个场景靠它制造 non-ff / 连续拒绝）；对真 origin 误传会
+    # 假装推不上去，每次注入都在输出里点名。
+    [int]$StubPushFailures = 0,
+    # 自测（DX-78 acc3）：临时仓 + 打桩跑通「首拒重试落地 / 连拒退出码非 0」两个负例。
+    [switch]$SelfTest,
     [string]$Worktree = '',
     # 检出漂移守卫（DX-49）：调用方 CWD 与脚本所属检出是同一仓库的不同工作树时默认中止；
     # 有意的跨区调用（复现旧脚本行为 / 跨区验证）用它显式放行并打显著告警
@@ -50,6 +56,13 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# git-helpers.ps1 点源时其 param([switch]$SelfTest) 会在**当前作用域**重绑同名变量，
+# 把本脚本刚绑定的 -SelfTest 冲成 $false（PS 点源共享作用域，DX-78 实测：自测分支
+# 永远进不去）。入口先把真值存进 $script: 作用域再用；点源一个带 param 的脚本时，
+# 同名参数就是一次静默覆写——同名即冲突，参数命名要避开或先取值。
+$script:gitDoneSelfTest = $SelfTest
+$script:gitDoneStubPushFailures = $StubPushFailures
 
 # git 符号引用取值走单一封装（DX-63）：空输出 / 多行 / 分离 HEAD 的空值语义只写一遍，
 # 裸 `[string](& git ...)` 模式已被 check_script_hygiene 规则 E 禁止。
@@ -188,9 +201,39 @@ function Invoke-NetGit {
 
 # 对 main 的唯一推送点（DX-106）：合并提交与三步收尾提交全部落本地后**一次**推上 main，
 # Board 每批收尾只建 1 个 run 且落点必为自洽 tip。fail-soft 回退（收尾提交整体回滚后
-# 单独推合并）与主路径共用这里 —— 任何路径上对 main 的推送语句只有这一处。
+# 单独推合并）收口在同一条管道。-StubPushFailures（DX-78 自测）在前 N 次注入拒绝。
 function Push-Main {
+    if ($script:gitDoneStubPushFailures -gt 0) {
+        if ($null -eq $script:pushCalls) { $script:pushCalls = 0 }
+        $script:pushCalls += 1
+        if ($script:pushCalls -le $script:gitDoneStubPushFailures) {
+            Write-Host ("  [stub] 注入推送拒绝（第 {0}/{1} 次，-StubPushFailures）" -f $script:pushCalls, $script:gitDoneStubPushFailures) -ForegroundColor DarkCyan
+            return [pscustomobject]@{ Code = 1; Output = @("[stub] 注入拒绝（第 $script:pushCalls 次）") }
+        }
+    }
     return Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
+}
+
+# 对 main 推送的非快进自动重试（DX-78 单一实现，收口口径沿 DX-58）：
+# 推送被拒 → fetch 重取主线 → 变基到新 origin/main → 重推，上限 3 次；
+# 变基冲突即放弃重试（现场处置由调用方裁决）。全仓只此一份重试实现——
+# 再出现第二处「撞 non-ff 退出/重试」的推送步骤，就把它改成调用本函数。
+function Invoke-MainPushWithRetry {
+    param([int]$MaxAttempts = 3)
+    for ($i = 1; $i -le $MaxAttempts; $i++) {
+        $p = Push-Main
+        if ($p.Code -eq 0) { return [pscustomobject]@{ Ok = $true; Attempts = $i } }
+        if ($i -ge $MaxAttempts) { return [pscustomobject]@{ Ok = $false; Attempts = $i } }
+        Write-Host ("· 推送被拒（第 {0} 次）：重取主线变基后重试" -f $i) -ForegroundColor Yellow
+        Invoke-NetGit @('fetch', 'origin', '--prune') | Out-Null
+        $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
+        if ($rb.Code -ne 0) {
+            Write-Host '· 推送重试：变基冲突，放弃重试' -ForegroundColor Yellow
+            Invoke-GitQuiet @('rebase', '--abort') | Out-Null
+            return [pscustomobject]@{ Ok = $false; Attempts = $i }
+        }
+    }
+    return [pscustomobject]@{ Ok = $false; Attempts = $MaxAttempts }
 }
 
 # 收尾时序断言（DX-50）：三步自动提交（claims 清理 / 结卡 / 快照）必须发生在分离 HEAD 上 ——
@@ -665,6 +708,101 @@ function Test-CheckoutDrift {
     Write-Host '    2) 确属有意跨区（复现旧脚本 / 跨区验证）：加 -AllowCrossTree 放行' -ForegroundColor Yellow
     exit 5
 }
+# ---------- 自测（DX-78 acc3 负测）----------
+# 在临时仓里用 -StubPushFailures 跑完整 remote 收尾链：
+#   A 首拒重试落地：推送第 1 次注入拒绝、重试成功 —— 断言退出码 0、合并已上 origin、检出归位不在 merge/*；
+#   B 连续拒绝：3 次重试全被拒、fail-soft 回滚后补推仍被拒 —— 断言退出码非 0、检出不在 merge/*。
+# 不触真 origin、不仓库外留文件。依赖 git / pwsh / python（claim 闸门的 task_gate.py）。
+if ($script:gitDoneSelfTest) {
+    $ErrorActionPreference = 'Stop'
+    $script:stFails = @()
+    foreach ($dep in 'python', 'pwsh') {
+        if (-not (Get-Command $dep -ErrorAction SilentlyContinue)) {
+            Write-Host "✗ git-done selftest 依赖 $dep（claim 闸门 / 子进程收尾链）" -ForegroundColor Red
+            exit 2
+        }
+    }
+
+    function Invoke-In([string]$Repo, [string[]]$GitArgs) {
+        $r = Invoke-Cmd -File 'git' -CmdArgs (@('-C', $Repo) + $GitArgs)
+        if ($r.Code -ne 0) {
+            throw ("git -C {0} {1} 失败（{2}）：{3}" -f $Repo, ($GitArgs -join ' '), $r.Code, ($r.Output -join "`n"))
+        }
+        # 逗号保住数组不被 return 摊平：单行输出摊成标量后 [0] 会取到首字符（DX-78 自测踩过）
+        return ,$r.Output
+    }
+    function Assert-St([string]$Name, [bool]$Cond) {
+        if (-not $Cond) { $script:stFails += $Name }
+        if ($Cond) { Write-Host ("  ok   " + $Name) -ForegroundColor DarkGray }
+        else { Write-Host ("  FAIL " + $Name) -ForegroundColor Red }
+    }
+    function New-StWorkRepo([string]$Work, [string]$OriginPath) {
+        $r0 = Invoke-Cmd -File 'git' -CmdArgs @('-c', 'init.defaultBranch=main', 'init', '-q', $Work)
+        if ($r0.Code -ne 0) { throw ("init 失败：" + ($r0.Output -join "`n")) }
+        Invoke-In $Work @('config', 'user.name', 'selftest') | Out-Null
+        Invoke-In $Work @('config', 'user.email', 'selftest@local') | Out-Null
+        Invoke-In $Work @('remote', 'add', 'origin', $OriginPath) | Out-Null
+        # git-done 按脚本自身路径定位仓库：整份 scripts/ 拷进临时检出并随种子提交入库，
+        # 收尾才作用于临时仓；入库也保证子进程收尾时工作区是干净的（step 1 闸门）
+        $dstScripts = Join-Path $Work 'scripts'
+        New-Item -ItemType Directory -Path $dstScripts -Force | Out-Null
+        Copy-Item -Path (Join-Path $PSScriptRoot '*') -Destination $dstScripts -Recurse -Force
+        Set-Content -LiteralPath (Join-Path $Work 'README.md') -Value '# selftest seed' -Encoding utf8
+        Invoke-In $Work @('add', '-A') | Out-Null
+        Invoke-In $Work @('commit', '-q', '-m', 'chore: seed scripts + readme') | Out-Null
+        Invoke-In $Work @('push', '-q', 'origin', 'main') | Out-Null
+    }
+
+    $tmpRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("nb-gitdone-st-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    New-Item -ItemType Directory -Path $tmpRoot | Out-Null
+    try {
+        # ---- 场景 A：首拒重试落地 ----
+        $originA = Join-Path $tmpRoot 'a-origin.git'
+        Invoke-Cmd -File 'git' -CmdArgs @('init', '-q', '--bare', $originA) | Out-Null
+        $workA = Join-Path $tmpRoot 'a-work'
+        New-StWorkRepo -Work $workA -OriginPath $originA
+        Invoke-In $workA @('switch', '-c', 'fix/selftest-a') | Out-Null
+        Add-Content -LiteralPath (Join-Path $workA 'README.md') -Value 'feature line a' -Encoding utf8
+        Invoke-In $workA @('commit', '-q', '-am', 'docs: feature a') | Out-Null
+        $resA = Invoke-Cmd -File 'pwsh' -CmdArgs @('-NoProfile', '-File', (Join-Path $workA 'scripts\git-done.ps1'), '-Branch', 'fix/selftest-a', '-StubPushFailures', '1')
+        $outA = $resA.Output -join "`n"
+        Assert-St 'A：退出码 0' ($resA.Code -eq 0)
+        Assert-St 'A：注入拒绝可见' ($outA -match '注入推送拒绝')
+        Assert-St 'A：自动重试发生' ($outA -match '重取主线变基后重试')
+        if ($resA.Code -eq 0) {
+            $bareTip = (Invoke-In $originA @('rev-parse', 'main'))[0]
+            $workTip = (Invoke-In $workA @('rev-parse', 'HEAD'))[0]
+            Assert-St 'A：合并已上 origin（bare main = 检出 HEAD）' ("$bareTip".Trim() -eq "$workTip".Trim())
+        }
+        $curA = (Invoke-In $workA @('branch', '--show-current'))[0]
+        Assert-St "A：检出已归位（$curA，不在 merge/*）" ("$curA" -eq 'main')
+
+        # ---- 场景 B：连续拒绝 ----
+        $originB = Join-Path $tmpRoot 'b-origin.git'
+        Invoke-Cmd -File 'git' -CmdArgs @('init', '-q', '--bare', $originB) | Out-Null
+        $workB = Join-Path $tmpRoot 'b-work'
+        New-StWorkRepo -Work $workB -OriginPath $originB
+        Invoke-In $workB @('switch', '-c', 'fix/selftest-b') | Out-Null
+        Add-Content -LiteralPath (Join-Path $workB 'README.md') -Value 'feature line b' -Encoding utf8
+        Invoke-In $workB @('commit', '-q', '-am', 'docs: feature b') | Out-Null
+        $resB = Invoke-Cmd -File 'pwsh' -CmdArgs @('-NoProfile', '-File', (Join-Path $workB 'scripts\git-done.ps1'), '-Branch', 'fix/selftest-b', '-StubPushFailures', '99')
+        $outB = $resB.Output -join "`n"
+        Assert-St 'B：退出码非 0' ($resB.Code -ne 0)
+        Assert-St 'B：重试耗尽给出补推指引' ($outB -match '推送未落地')
+        $curB = (Invoke-In $workB @('branch', '--show-current'))[0]
+        Assert-St "B：检出不在 merge/*（$curB）" ("$curB" -notlike 'merge/*')
+    } finally {
+        if (Test-Path -LiteralPath $tmpRoot) { Remove-Item -Recurse -Force $tmpRoot -ErrorAction SilentlyContinue }
+    }
+    if ($script:stFails.Count -gt 0) {
+        $script:stFails | ForEach-Object { Write-Host ("  ✗ " + $_) -ForegroundColor Red }
+        Write-Host ("✗ git-done selftest 失败 {0} 项" -f $script:stFails.Count) -ForegroundColor Red
+        exit 1
+    }
+    Write-Host '✓ git-done selftest 通过：首拒重试落地 / 连拒退出码非 0 且检出归位'
+    exit 0
+}
+
 Test-CheckoutDrift -ScriptTree $scriptRepoRoot -Allowed:$AllowCrossTree
 
 Set-Location -LiteralPath $repoRoot
@@ -854,7 +992,19 @@ if ($Mode -eq 'remote') {
     & git rev-parse --verify -q $tmp | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "· 清理残留临时分支 $tmp" -ForegroundColor DarkGray
-        Invoke-Git branch -D $tmp | Out-Null
+        # DX-78 acc2：先脱离自家检出占用 —— 上一次运行可能把本检出留在 merge/* 上（旧版
+        # 冲突退出行为 / 手工中断），branch -D 对被检出的分支必然拒绝，重跑就走不通了。
+        if ((Get-NbSymRef) -eq $tmp) {
+            Invoke-GitQuiet @('switch', '--detach') | Out-Null
+            Write-Host ("  · 检出正停在 {0} 上，已先脱离（DX-78）" -f $tmp) -ForegroundColor DarkGray
+        }
+        $delTmp = Invoke-GitQuiet @('branch', '-D', $tmp)
+        if ($delTmp.Code -ne 0) {
+            # 别的检出占用等删不掉的情形：不在此处中止 —— 下一步 switch -c 会给出明确
+            # 诊断并走 Restore-ConflictScene，这里降级为提示即可。
+            Write-Host "  · 临时分支删除失败（可能被其它检出占用），继续：" -ForegroundColor Yellow
+            $delTmp.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+        }
     }
 
     $script:dryEntryRef = Get-NbSymRef
@@ -1125,21 +1275,13 @@ if ($Mode -eq 'remote') {
     # DX-44 的 cancel-in-progress 与沉降等待降级为纯双保险。
     # 撞 non-ff 时重取变基重试（上限 3 次，DX-58 重试收口保留）；仍失败则整体回滚
     # 收尾提交到 $closeoutBase，**单独推送合并**（fail-soft 重排：交付不被收尾拖住）。
-    $finalOk = $false
-    for ($i = 1; $i -le 3; $i++) {
-        $finalPush = Push-Main
-        if ($finalPush.Code -eq 0) { $finalOk = $true; break }
-        if ($i -eq 3) { break }
-        Write-Host ("· 推送被拒（第 {0} 次）：重取主线变基后重试" -f $i) -ForegroundColor Yellow
-        Invoke-NetGit @('fetch', 'origin', '--prune') | Out-Null
-        $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
-        if ($rb.Code -ne 0) {
-            Write-Host '· 推送重试：变基冲突，放弃重试' -ForegroundColor Yellow
-            Invoke-GitQuiet @('rebase', '--abort') | Out-Null
-            break
-        }
-    }
+    $mainPushLanded = $false
+    # 撞 non-ff 自动恢复重试（DX-78 单一实现 Invoke-MainPushWithRetry，上限 3 次）；
+    # 仍失败则整体回滚收尾提交到 $closeoutBase，**单独推送合并**（fail-soft 重排：交付不被收尾拖住）。
+    $finalPush = Invoke-MainPushWithRetry
+    $finalOk = $finalPush.Ok
     if ($finalOk) {
+        $mainPushLanded = $true
         $ccLanded = @($closedCodes)
         if ($DryRun) {
             Write-Host '✓ [dry-run] 合并+收尾单次推送：桩成功（未触网）' -ForegroundColor Green
@@ -1156,6 +1298,7 @@ if ($Mode -eq 'remote') {
         $ccPending = @($closedCodes)
         $mergePush = Push-Main
         if ($mergePush.Code -eq 0) {
+            $mainPushLanded = $true
             Write-Host '✓ 合并已单独推上 origin/main；收尾提交已回滚，留待下次合并' -ForegroundColor Yellow
         } else {
             Write-Host '· 合并也未能推送：全部留在本地，下次合并继续' -ForegroundColor Yellow
@@ -1319,6 +1462,17 @@ if ($Mode -eq 'remote') {
     } catch {
         Write-Host ("· 回执写入跳过：{0}" -f $_.Exception.Message) -ForegroundColor DarkGray
     }
+
+    if (-not $mainPushLanded) {
+        # DX-78 acc3：连续拒绝 / 离线时交付没有落地，不能以 0 告终 —— 否则调用方
+        # （nbflow / 收尾链）会把「没推上去」当成功。合并提交仍完整保留在本地临时分支上，
+        # 恢复后一条命令即可补推（重试循环已把它变基到最新 origin/main，必为快进）。
+        Write-Host "`n✗ 推送未落地：合并提交保留在本地分支 $tmp 上，恢复后补推：" -ForegroundColor Red
+        Write-Host "   git push origin $tmp`:$MainBranch" -ForegroundColor Yellow
+        exit 1
+    }
+
+
 
     # ---- DX-120：自身 worktree 的延后回收 ----
     # 单次推送已落地、结单对账与回执都完成后，才轮到删自己脚下的检出：

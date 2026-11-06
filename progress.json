@@ -253,6 +253,24 @@
             "updatedAt": 1793979770
         },
         {
+            "code": "DX-113",
+            "completedAt": 0,
+            "createdAt": 1793980098,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-113",
+            "note": "",
+            "orderKey": 77824,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "交付说明 note 提交被判「改契约」：full 档与 -ScriptOnly 验收口径分裂，agent 只能挑时态自证",
+            "updatedAt": 1793980098
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5047,6 +5065,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:44:26",
+    "updated": "2026-11-06T23:48:18",
     "version": 3
 }

@@ -1,13 +1,13 @@
 {
     "items": [
         {
-            "code": "DX-37",
+            "code": "DX-82",
             "completedAt": 0,
-            "createdAt": 1793816382,
+            "createdAt": 1793906980,
             "deleted": false,
             "dueAt": 0,
-            "id": "DX-37",
-            "note": "实测 run 41877631595：构建 Release 8m36s，占全流程 11m19s 的约 76%；装 Qt 1m14s、CMake configure 40s、其余步骤合计约 10s。对照 v0.1.4 成功那轮（run 41831538511）总时长 17m52s，多出的 6~7 分钟花在增量包生成、下载上一版、清单与上传。代价不只是慢：iss 每轮错误的排查被放大到 11~19 分钟（见 DX-36），再叠加 runner 排队 —— 本轮 17:26:55Z 起 queued 约 11 分钟才开始跑，runner=- 且同时有 5 个 run 排队，而 GitHub 状态页全绿，人只能干等。",
+            "id": "DX-82",
+            "note": "触发证据：DX-62 交付日实测：分支 rebase 到最新主线后，derive 与 verify 每次都提示「领用 DX-62 的分支已推进或重写，旧登记过期，请重新领用」；但按提示重跑 agent-init -InPlace -Card DX-62 会被幂等门跳过（分支历史已有同短号领用提交且服务端占位仍在）——提示不可执行。且 rebase 是 §7.3 合并前的常规动作（并行推主线竞态下本次就发生了），每次 rebase 后每次 derive 都刷一遍噪声\n\n## 目标\nrebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用\n\n## 验收\nderive claims_doing 区分两种过期：head 非分支 tip 祖先但分支历史仍有本短号 chore(claim) 领用提交（复用 CLAIM_SUBJECT 同一正则）时归因为 rebase，提示「登记随 rebase 过期（预期），服务端占位为准、合并闸门按同主题回退放行」，不再出现「请重新领用」；分支重写丢失领用提交的场景维持原提示（反例不破）；agent-init 幂等跳过分支补一行「本地登记 head 已随 rebase 过期（预期，服务端占位为准）」；docs 补记 rebase 后 refs/claims 指向重写前提交属预期（Ruleset 禁强推不重推）与闸门放行口径；分类逻辑抽纯函数入 selftest，python scripts/derive_board_status.py --selftest 与 pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/derive_board_status.py;scripts/agent-init.ps1;docs/pitfalls.md;docs/git-workflow.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
             "orderKey": 13312,
             "priority": 2,
             "stage": "DX",
@@ -15,17 +15,17 @@
             "tags": [
                 "DX"
             ],
-            "title": "DX 发布构建零缓存：冷编译占掉四分之三墙钟，放大每次出包失败的排查代价",
-            "updatedAt": 1793816382
+            "title": "rebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用",
+            "updatedAt": 1793906980
         },
         {
-            "code": "DX-43",
+            "code": "DX-117",
             "completedAt": 0,
-            "createdAt": 1793822375,
+            "createdAt": 1793981830,
             "deleted": false,
             "dueAt": 0,
-            "id": "DX-43",
-            "note": "起因：每立一张卡，维护者须手工走完「临时分支 → 临时检出（agent 工作区禁改 cards）→ 手编 ledger JSON → 手写 chore(board) 授权/批次 → git-done 合并推送 → 清理」全套仪式（DX-40 即此流程），agent 侧还要等卡、领卡、再开区；需求队列 docs/card-requests/ 已有雏形但无人消费，请求积压。目标：scripts/card-approve.ps1 一键完成「受理队列请求/显式参数 → 查重 → 临时 worktree 立卡（授权/批次注入提交体）→ git-done 合并推送 → 回收 →（可选 -Claim）接 agent-init 领用开区」，维护者只需在会话中批准；宪章仅要求授权行不可省（位置不是凭证），仪式全部可自动化。看板 UI 需求面板/批准按钮为第二阶段，另立卡走全量验收。",
+            "id": "DX-117",
+            "note": "",
             "orderKey": 18432,
             "priority": 2,
             "stage": "DX",
@@ -33,26 +33,44 @@
             "tags": [
                 "DX"
             ],
-            "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用",
-            "updatedAt": 1793822375
+            "title": "一分支多卡时 check_scope 整体跳过：按多卡 scope 并集校验，补上范围闸门空窗",
+            "updatedAt": 1793981830
         },
         {
-            "code": "R0-12",
+            "code": "DX-110",
             "completedAt": 0,
-            "createdAt": 1793825191,
+            "createdAt": 1793979017,
             "deleted": false,
             "dueAt": 0,
-            "id": "R0-12",
-            "note": "触发证据：pitfalls 7.6 与 R0-11 诊断定案：CI 冷启动 6010ms 中 CPU 仅 702ms，88% 墙钟在等 35 个 DLL 与 7 套 QML 样式的冷 I/O，秒级收益在打包侧（deploy 只随 Basic + CMake DELAYLOAD 链接）。R0-11 已结卡，治本改动不在其 scope，经维护者批准另立新卡。\n\n## 目标\n发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头\n\n## 验收\npwsh -File scripts/deploy.ps1 出包成功，dist 的 qml 样式目录仅剩 Basic（Fusion/Imagine/Material/Universal/FluentWinUI3/Windows 不再随包）;python scripts/check_dist.py --dir dist/NeonBoard 通过;dist NeonBoard NeonBoard.exe --selftest 退出码 0 且 --smoke 退出码 0;冷启动对比：BOOT loaded 分段与 startupCpuMs 记录进卡片 note，CPU 口径不回归;pwsh -File scripts/verify.ps1 全量通过\n\n## 边界\nscripts/deploy.ps1;CMakeLists.txt;scripts/check_dist.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "id": "DX-110",
+            "note": "",
             "orderKey": 27648,
             "priority": 2,
-            "stage": "R0",
+            "stage": "DX",
             "status": "todo",
             "tags": [
-                "R0"
+                "DX"
             ],
-            "title": "发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头",
-            "updatedAt": 1793825191
+            "title": "锚点快进永久跳过：立卡 roadmap 行收进立卡提交，锚点同步脏文件判据与分类修正",
+            "updatedAt": 1793979017
+        },
+        {
+            "code": "DX-121",
+            "completedAt": 0,
+            "createdAt": 1793981220,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-121",
+            "note": "",
+            "orderKey": 52224,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡半落地：回执/占位在而台账卡片被并发冲突抹去，回执闸门只查单向",
+            "updatedAt": 1793981220
         },
         {
             "code": "DX-78",
@@ -62,7 +80,7 @@
             "dueAt": 0,
             "id": "DX-78",
             "note": "触发证据：2026-11-06 会话两次实录（DX-64 交付时）：主推送撞 non-ff 只打印恢复步骤退出（git-done.ps1:721-733），人工重跑；残留临时分支 merge/fix-board-diff-attribution 被自家 worktree 占住，branch -D 失败 throw（git-done.ps1:700-703），需先 switch 走再重跑。同型失败在结卡补推已有自动重试（DX-58，git-done.ps1:929-945），主推送这一步被漏掉——同类别只修一处必复发的实例。查重命中 DX-63 系「单一实现」措辞重叠，本卡是推送重试主题，非重复。\n\n## 目标\ngit-done 主推送撞 non-ff 无自动重试且把检出留在临时分支：DX-58 的重试收口为单一实现供两处推送共用\n\n## 验收\n主合并推送撞 non-ff 时自动恢复重试（fetch → 基于新 origin/main 重建 --no-ff 合并 → 重推，上限 2 次），与结卡补推共用同一份抽出的重试实现（Z5：不复制第二份）;推送重试耗尽后检出切回进入时的分支再退出（dryEntryRef 已有记录），不再停在 merge/<slug>；「清理残留临时分支」的 branch -D 前先脱离自家检出占用，保证重跑永远走通;负测：打桩让 push 首次拒绝、二次成功，断言自动重试后合并落地且检出已归位；连续拒绝时退出码非 0 且 git branch --show-current 不在 merge/* 上;dry-run 演练口径不回归（pwsh -File scripts/git-done.ps1 -DryRun 全绿）;docs/pitfalls.md 记一条：同一失败类别在两处推送步骤只修一处（DX-58）必复发，收口时抽单一实现\n\n## 边界\nscripts/git-done.ps1;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 52224,
+            "orderKey": 56320,
             "priority": 2,
             "stage": "DX",
             "status": "todo",
@@ -71,24 +89,6 @@
             ],
             "title": "git-done 主推送撞 non-ff 无自动重试且把检出留在临时分支：DX-58 的重试收口为单一实现供两处推送共用",
             "updatedAt": 1793906024
-        },
-        {
-            "code": "DX-82",
-            "completedAt": 0,
-            "createdAt": 1793906980,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-82",
-            "note": "触发证据：DX-62 交付日实测：分支 rebase 到最新主线后，derive 与 verify 每次都提示「领用 DX-62 的分支已推进或重写，旧登记过期，请重新领用」；但按提示重跑 agent-init -InPlace -Card DX-62 会被幂等门跳过（分支历史已有同短号领用提交且服务端占位仍在）——提示不可执行。且 rebase 是 §7.3 合并前的常规动作（并行推主线竞态下本次就发生了），每次 rebase 后每次 derive 都刷一遍噪声\n\n## 目标\nrebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用\n\n## 验收\nderive claims_doing 区分两种过期：head 非分支 tip 祖先但分支历史仍有本短号 chore(claim) 领用提交（复用 CLAIM_SUBJECT 同一正则）时归因为 rebase，提示「登记随 rebase 过期（预期），服务端占位为准、合并闸门按同主题回退放行」，不再出现「请重新领用」；分支重写丢失领用提交的场景维持原提示（反例不破）；agent-init 幂等跳过分支补一行「本地登记 head 已随 rebase 过期（预期，服务端占位为准）」；docs 补记 rebase 后 refs/claims 指向重写前提交属预期（Ruleset 禁强推不重推）与闸门放行口径；分类逻辑抽纯函数入 selftest，python scripts/derive_board_status.py --selftest 与 pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/derive_board_status.py;scripts/agent-init.ps1;docs/pitfalls.md;docs/git-workflow.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 56320,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "rebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用",
-            "updatedAt": 1793906980
         },
         {
             "code": "DX-88",
@@ -109,168 +109,6 @@
             "updatedAt": 1793908740
         },
         {
-            "code": "DX-100",
-            "completedAt": 0,
-            "createdAt": 1793935664,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-100",
-            "note": "",
-            "orderKey": 64512,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "立卡入口单一事实源：文档、旧工具注释与预演输出对齐 DX-98 新流程",
-            "updatedAt": 1793935664
-        },
-        {
-            "code": "DX-101",
-            "completedAt": 0,
-            "createdAt": 1793935666,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-101",
-            "note": "",
-            "orderKey": 65536,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "收尾与验收输出保真：合并提交四段、锚点跳过提示、红绿一致",
-            "updatedAt": 1793935666
-        },
-        {
-            "code": "DX-102",
-            "completedAt": 0,
-            "createdAt": 1793935667,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-102",
-            "note": "",
-            "orderKey": 66560,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "交互回归判据与 GUI 实机验收通道沉淀",
-            "updatedAt": 1793935667
-        },
-        {
-            "code": "DX-110",
-            "completedAt": 0,
-            "createdAt": 1793979017,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-110",
-            "note": "",
-            "orderKey": 74752,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "锚点快进永久跳过：立卡 roadmap 行收进立卡提交，锚点同步脏文件判据与分类修正",
-            "updatedAt": 1793979017
-        },
-        {
-            "code": "DX-114",
-            "completedAt": 0,
-            "createdAt": 1793979770,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-114",
-            "note": "",
-            "orderKey": 76800,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow selftest 探针越界读真仓库：占用集与 claim_refs 让语料卡号与生产事实撞车，并行环境下恒假红",
-            "updatedAt": 1793979770
-        },
-        {
-            "code": "DX-113",
-            "completedAt": 0,
-            "createdAt": 1793980098,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-113",
-            "note": "",
-            "orderKey": 77824,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "交付说明 note 提交被判「改契约」：full 档与 -ScriptOnly 验收口径分裂，agent 只能挑时态自证",
-            "updatedAt": 1793980098
-        },
-        {
-            "code": "DX-115",
-            "completedAt": 0,
-            "createdAt": 1793980234,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-115",
-            "note": "",
-            "orderKey": 78848,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移",
-            "updatedAt": 1793980234
-        },
-        {
-            "code": "DX-111",
-            "completedAt": 0,
-            "createdAt": 1793980354,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-111",
-            "note": "",
-            "orderKey": 79872,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用",
-            "updatedAt": 1793980354
-        },
-        {
-            "code": "DX-112",
-            "completedAt": 0,
-            "createdAt": 1793980354,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-112",
-            "note": "",
-            "orderKey": 80896,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现",
-            "updatedAt": 1793980354
-        },
-        {
             "code": "DX-116",
             "completedAt": 0,
             "createdAt": 1793980568,
@@ -278,7 +116,7 @@
             "dueAt": 0,
             "id": "DX-116",
             "note": "",
-            "orderKey": 81920,
+            "orderKey": 64512,
             "priority": 2,
             "stage": "DX",
             "status": "todo",
@@ -289,42 +127,6 @@
             "updatedAt": 1793980568
         },
         {
-            "code": "DX-119",
-            "completedAt": 0,
-            "createdAt": 1793980819,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-119",
-            "note": "",
-            "orderKey": 82944,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9",
-            "updatedAt": 1793980819
-        },
-        {
-            "code": "DX-121",
-            "completedAt": 0,
-            "createdAt": 1793981220,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-121",
-            "note": "",
-            "orderKey": 83968,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "立卡半落地：回执/占位在而台账卡片被并发冲突抹去，回执闸门只查单向",
-            "updatedAt": 1793981220
-        },
-        {
             "code": "DX-120",
             "completedAt": 0,
             "createdAt": 1793981301,
@@ -332,7 +134,7 @@
             "dueAt": 0,
             "id": "DX-120",
             "note": "",
-            "orderKey": 84992,
+            "orderKey": 65536,
             "priority": 2,
             "stage": "DX",
             "status": "todo",
@@ -343,22 +145,40 @@
             "updatedAt": 1793981301
         },
         {
-            "code": "DX-117",
+            "code": "DX-101",
             "completedAt": 0,
-            "createdAt": 1793981830,
+            "createdAt": 1793935666,
             "deleted": false,
             "dueAt": 0,
-            "id": "DX-117",
+            "id": "DX-101",
             "note": "",
-            "orderKey": 86016,
+            "orderKey": 66560,
             "priority": 2,
             "stage": "DX",
             "status": "todo",
             "tags": [
                 "DX"
             ],
-            "title": "一分支多卡时 check_scope 整体跳过：按多卡 scope 并集校验，补上范围闸门空窗",
-            "updatedAt": 1793981830
+            "title": "收尾与验收输出保真：合并提交四段、锚点跳过提示、红绿一致",
+            "updatedAt": 1793935666
+        },
+        {
+            "code": "DX-113",
+            "completedAt": 0,
+            "createdAt": 1793980098,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-113",
+            "note": "",
+            "orderKey": 74752,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "交付说明 note 提交被判「改契约」：full 档与 -ScriptOnly 验收口径分裂，agent 只能挑时态自证",
+            "updatedAt": 1793980098
         },
         {
             "code": "DX-122",
@@ -368,7 +188,7 @@
             "dueAt": 0,
             "id": "DX-122",
             "note": "",
-            "orderKey": 87040,
+            "orderKey": 76800,
             "priority": 2,
             "stage": "DX",
             "status": "todo",
@@ -377,6 +197,186 @@
             ],
             "title": "DX 启动告警零容忍：把枚举式 pattern 换成按形态识别，规则收成一份",
             "updatedAt": 1793982202
+        },
+        {
+            "code": "DX-100",
+            "completedAt": 0,
+            "createdAt": 1793935664,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-100",
+            "note": "",
+            "orderKey": 77824,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡入口单一事实源：文档、旧工具注释与预演输出对齐 DX-98 新流程",
+            "updatedAt": 1793935664
+        },
+        {
+            "code": "DX-111",
+            "completedAt": 0,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-111",
+            "note": "",
+            "orderKey": 78848,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用",
+            "updatedAt": 1793980354
+        },
+        {
+            "code": "DX-115",
+            "completedAt": 0,
+            "createdAt": 1793980234,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-115",
+            "note": "",
+            "orderKey": 79872,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移",
+            "updatedAt": 1793980234
+        },
+        {
+            "code": "DX-119",
+            "completedAt": 0,
+            "createdAt": 1793980819,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-119",
+            "note": "",
+            "orderKey": 80896,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9",
+            "updatedAt": 1793980819
+        },
+        {
+            "code": "DX-114",
+            "completedAt": 0,
+            "createdAt": 1793979770,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-114",
+            "note": "",
+            "orderKey": 81920,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow selftest 探针越界读真仓库：占用集与 claim_refs 让语料卡号与生产事实撞车，并行环境下恒假红",
+            "updatedAt": 1793979770
+        },
+        {
+            "code": "DX-112",
+            "completedAt": 0,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-112",
+            "note": "",
+            "orderKey": 82944,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现",
+            "updatedAt": 1793980354
+        },
+        {
+            "code": "DX-43",
+            "completedAt": 0,
+            "createdAt": 1793822375,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-43",
+            "note": "起因：每立一张卡，维护者须手工走完「临时分支 → 临时检出（agent 工作区禁改 cards）→ 手编 ledger JSON → 手写 chore(board) 授权/批次 → git-done 合并推送 → 清理」全套仪式（DX-40 即此流程），agent 侧还要等卡、领卡、再开区；需求队列 docs/card-requests/ 已有雏形但无人消费，请求积压。目标：scripts/card-approve.ps1 一键完成「受理队列请求/显式参数 → 查重 → 临时 worktree 立卡（授权/批次注入提交体）→ git-done 合并推送 → 回收 →（可选 -Claim）接 agent-init 领用开区」，维护者只需在会话中批准；宪章仅要求授权行不可省（位置不是凭证），仪式全部可自动化。看板 UI 需求面板/批准按钮为第二阶段，另立卡走全量验收。",
+            "orderKey": 83968,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用",
+            "updatedAt": 1793822375
+        },
+        {
+            "code": "DX-37",
+            "completedAt": 0,
+            "createdAt": 1793816382,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-37",
+            "note": "实测 run 41877631595：构建 Release 8m36s，占全流程 11m19s 的约 76%；装 Qt 1m14s、CMake configure 40s、其余步骤合计约 10s。对照 v0.1.4 成功那轮（run 41831538511）总时长 17m52s，多出的 6~7 分钟花在增量包生成、下载上一版、清单与上传。代价不只是慢：iss 每轮错误的排查被放大到 11~19 分钟（见 DX-36），再叠加 runner 排队 —— 本轮 17:26:55Z 起 queued 约 11 分钟才开始跑，runner=- 且同时有 5 个 run 排队，而 GitHub 状态页全绿，人只能干等。",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 发布构建零缓存：冷编译占掉四分之三墙钟，放大每次出包失败的排查代价",
+            "updatedAt": 1793816382
+        },
+        {
+            "code": "R0-12",
+            "completedAt": 0,
+            "createdAt": 1793825191,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R0-12",
+            "note": "触发证据：pitfalls 7.6 与 R0-11 诊断定案：CI 冷启动 6010ms 中 CPU 仅 702ms，88% 墙钟在等 35 个 DLL 与 7 套 QML 样式的冷 I/O，秒级收益在打包侧（deploy 只随 Basic + CMake DELAYLOAD 链接）。R0-11 已结卡，治本改动不在其 scope，经维护者批准另立新卡。\n\n## 目标\n发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头\n\n## 验收\npwsh -File scripts/deploy.ps1 出包成功，dist 的 qml 样式目录仅剩 Basic（Fusion/Imagine/Material/Universal/FluentWinUI3/Windows 不再随包）;python scripts/check_dist.py --dir dist/NeonBoard 通过;dist NeonBoard NeonBoard.exe --selftest 退出码 0 且 --smoke 退出码 0;冷启动对比：BOOT loaded 分段与 startupCpuMs 记录进卡片 note，CPU 口径不回归;pwsh -File scripts/verify.ps1 全量通过\n\n## 边界\nscripts/deploy.ps1;CMakeLists.txt;scripts/check_dist.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 86016,
+            "priority": 2,
+            "stage": "R0",
+            "status": "todo",
+            "tags": [
+                "R0"
+            ],
+            "title": "发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头",
+            "updatedAt": 1793825191
+        },
+        {
+            "code": "DX-102",
+            "completedAt": 0,
+            "createdAt": 1793935667,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-102",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "交互回归判据与 GUI 实机验收通道沉淀",
+            "updatedAt": 1793935667
         },
         {
             "code": "R0-01",

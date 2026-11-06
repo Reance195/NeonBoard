@@ -382,6 +382,15 @@ def ledger_definition_changes(old, new):
                 "改动 baseline %s（%s → %s）"
                 % (code, old_base.get(code, "<无>"), new_base.get(code, "<无>"))
             )
+    # numbering.mode 是发号治理配置（DX-105）：把它改弱（remote→local）等价于
+    # 拆掉服务端占位这层闸门，必须与改契约同等审计，不给「改配置绕占位」留后门。
+    old_numbering = (old or {}).get("numbering") or {}
+    new_numbering = (new or {}).get("numbering") or {}
+    if old_numbering != new_numbering:
+        problems.append(
+            "改动立卡发号配置 numbering（%s → %s）"
+            % (old_numbering or "<无>", new_numbering or "<无>")
+        )
     return problems
 
 
@@ -844,6 +853,22 @@ def cmd_selftest(args):
     ]
     for name, ok in dx97_paths:
         cases.append((name, True, [] if ok else ["process_paths_ok 断言失败"]))
+
+    # ---- DX-105：numbering.mode 是任务定义，改动必须走审计通道 ----
+    num_old = {"cards": {}, "baseline": {}, "numbering": {"mode": "remote"}}
+    num_new = {"cards": {}, "baseline": {}, "numbering": {"mode": "local"}}
+    num_delta = ledger_definition_changes(num_old, num_new)
+    dx105 = [
+        ("numbering 计入任务定义：无审计行 → 拦截（DX-105）",
+         audit_problems("chore", "board",
+                        "chore(board): 切本地发号", [], num_delta) != []),
+        ("numbering 计入任务定义：带审计行 → 放行（DX-105）",
+         audit_problems("chore", "board",
+                        "chore(board): 切本地发号\n\n授权：维护者\n批次：DX-105",
+                        [], num_delta) == []),
+    ]
+    for name, ok in dx105:
+        cases.append((name, True, [] if ok else ["numbering 审计断言失败"]))
 
     failures = []
     for name, expect_ok, problems in cases:

@@ -116,6 +116,16 @@ def next_code(existing, stage):
     return "%s-%d" % (stage, (max(nums) + 1) if nums else 1)
 
 
+def resolve_mode(cli_value, ledger_value):
+    """发号模式解析：CLI --mode 单次覆盖 > 台账 numbering.mode > 默认 remote。
+
+    remote = 服务端占位（跨机安全）；local = 仅本地锁+台账（单机/离线项目，
+    零网络动作，跨机并发不受保护）。返回 None 表示配置非法。
+    """
+    mode = (cli_value or ledger_value or "remote").lower()
+    return mode if mode in ("remote", "local") else None
+
+
 def build_card(meta, code):
     return {
         "acceptance": split_list(meta["acceptance"]),
@@ -230,6 +240,11 @@ def selftest():
     second = next_code(occupied, "DX")
     check("换号重试：被拒后跳过被占号", first == "DX-99" and second == "DX-100")
 
+    # resolve_mode：优先级与非法值（DX-105）
+    check("模式解析：CLI 覆盖台账", resolve_mode("local", "remote") == "local")
+    check("模式解析：台账缺省回退 remote", resolve_mode(None, None) == "remote")
+    check("模式解析：非法值返回 None", resolve_mode(None, "yolo") is None)
+
     failures = [n for n, ok in checks if not ok]
     for name, ok in checks:
         print("  %s %s" % ("✓" if ok else "✗", name))
@@ -254,6 +269,9 @@ def main(argv=None):
                     help="stage 是陌生取值时放行（check_board_diff 会要求全量验收）")
     ap.add_argument("--offline", action="store_true",
                     help="跳过服务端占位与远端占用集（离线应急）：号为暂定，推送落地前必须重验")
+    ap.add_argument("--mode", choices=("remote", "local"),
+                    help="发号模式：remote=服务端占位（默认）/ local=仅本地锁+台账"
+                         "（单机/离线项目）。省略则读台账 numbering.mode，再缺省 remote")
     ap.add_argument("--selftest", action="store_true",
                     help="跑内置纯函数断言（占位集解析 / 发号换号），不依赖仓库状态")
     args = ap.parse_args(argv)
@@ -276,6 +294,9 @@ def main(argv=None):
 
     ledger = json.loads((root / LEDGER_REL).read_text(encoding="utf-8"))
     cards, baseline = ledger_view(ledger)
+    mode = resolve_mode(args.mode, (ledger.get("numbering") or {}).get("mode"))
+    if mode is None:
+        die("numbering.mode 取值非法（只接受 remote|local），请修正台账或 --mode", 2)
     known_stages = {c.get("stage") for c in cards.values() if c.get("stage")}
     if stage not in known_stages and not args.allow_new_stage:
         die("stage '%s' 是陌生取值（现有：%s）。确认 roadmap 有对应行后加 --allow-new-stage。"
@@ -284,7 +305,7 @@ def main(argv=None):
     if args.dry_run:
         code = next_code(set(cards) | set(baseline), stage)
         card = build_card(meta, code)
-        print("[立卡程序] dry-run：将发号 %s" % code)
+        print("[立卡程序] dry-run（mode=%s）：将发号 %s" % (mode, code))
         print(json.dumps(card, ensure_ascii=False, indent=2))
         return 0
 
@@ -308,9 +329,13 @@ def main(argv=None):
         cards, baseline = ledger_view(ledger)
         local_occupied = set(cards) | set(baseline)
         reservation = None
-        if args.offline:
-            print("[立卡程序] ⚠ --offline：跳过服务端占位，卡号为暂定，"
-                  "推送落地前必须对 origin 重验")
+        if mode == "local" or args.offline:
+            if mode == "local" and not args.offline:
+                print("[立卡程序] 本地发号模式（numbering.mode=local）：零网络动作，"
+                      "号为暂定 —— 跨机并发不受保护，推共享远端前必须对台账重验")
+            else:
+                print("[立卡程序] ⚠ --offline：跳过服务端占位，卡号为暂定，"
+                      "推送落地前必须对 origin 重验")
             code = next_code(local_occupied, stage)
         else:
             occupied = local_occupied | ls_registrations(root)
@@ -369,6 +394,7 @@ def main(argv=None):
             "form": rel_to(root, form_path),
             "registeredAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "tool": "scripts/register_board_cards.py",
+            "mode": mode,
             "reservation": reservation,
         }
 

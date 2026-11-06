@@ -1,0 +1,13 @@
+{
+  "card": "DX-112",
+  "sha256": "8ecbae8602198e4a4df898f3052a24a799db4156ca615e5c09e576cd2cf63716",
+  "authorizedBy": "维护者 2026-11-06 会话指令：该立卡的立卡（对 agent-flowguard 会话移交事项）",
+  "form": "docs/card-requests/20261106-dx-worktree-recovery-trace.md",
+  "registeredAt": "2026-11-06T15:32:30+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-112",
+    "sha": "59bb7a59b0d6da5d8e844bb3d04138cf07d4f697"
+  }
+}

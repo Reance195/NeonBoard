@@ -1,0 +1,12 @@
+{
+  "card": "DX-104",
+  "sha256": "2001b31712ee46afcdea77714839f32202672ed130d13d81d3aea776a8104b5d",
+  "authorizedBy": "维护者 13706 会话授权占位防顶掉修复（DX-104）",
+  "form": "docs/card-requests/20261106-dx-104.md",
+  "registeredAt": "2026-11-06T03:57:25+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "reservation": {
+    "ref": "refs/registrations/DX-104",
+    "sha": "9b022b63cb65924f283ad12c965ed0ae959e1bd8"
+  }
+}

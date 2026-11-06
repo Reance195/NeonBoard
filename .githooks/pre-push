@@ -96,8 +96,11 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 
   # 领用占位 refs/claims/<短号> 是服务端占用 ref（agent-init 领用时推送），
   # 不是分支推送，不受「必须合并进 main」限制。
+  # 立卡占位 refs/registrations/<短号>（DX-104）同理：它指向唯一的 off-main
+  # 空提交（刻意不在主线历史），按「必须已合并」判定必被拒 —— 这里必须豁免。
   case "$remote_ref" in
     refs/claims/*) continue ;;
+    refs/registrations/*) continue ;;
   esac
 
   # 发布标签 refs/tags/* 是 release.yml 的触发器，不是分支推送，同样不受

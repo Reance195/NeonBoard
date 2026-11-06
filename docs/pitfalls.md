@@ -1102,6 +1102,32 @@
   先问「这时检出在哪、有哪些临时产物」；只给手工指引等于把现场留给用户。
   回滚动作必须按「先解状态、再切走、最后删引用」排序，且只许用不吞改动的命令。
 
+### 2.28 锚点检出台账是共享陈旧投影：领卡注入的契约与重开门判据口径分裂（DX-94）
+
+- **现象**（2026-11-06 agent-dx74 领 DX-74 实录）：`.agent-env.ps1` 注入的 `NB_SCOPE`
+  （`git-done/verify/pitfalls/AGENTS`）与 `NB_ACCEPTANCE` 全是 DX-88 的契约。锚点区本地
+  `main` 停在分叉提交 `45e1e93`，那份台账里的 DX-74 是改名前旧收尾补推卡，主线上早已
+  改配成 DX-88。agent 不逐字核对就拿着错契约开工，`check_scope` 必拒、白干一轮。
+- **根因**：同一份台账被两个读者按不同口径读 —— `agent-init.ps1` 的契约注入（旧实现
+  `$ledgerPath = Join-Path $repoRoot 'docs\board-ledger.json'`）读**检出本地文件**，
+  而「拒绝重新领用」的 `--stuck-codes` 判据读 `--ledger-ref origin/main`。`$repoRoot`
+  又是按脚本自身路径推出来的锚点根，锚点一旦分叉，注入的就是过期投影。
+  「位置不是凭证」在这里反过来：**不声明读哪一份台账，读到的就是随手那一份**。
+- **解法（DX-94）**：台账读取收口进 `derive_board_status.py`（新增
+  `--contract <短号> --out <文件>`，只认 `--ledger-ref`，默认 `origin/main`），
+  `agent-init.ps1` 改为调用它并把结果**落盘后按字节读**
+  （`[System.IO.File]::ReadAllText(..., UTF8)`），绕开 PowerShell 捕获 Python stdout
+  按控制台代码页 GBK 解码的坑（2.6 / 2.20 / DX-83）。worktree 开区与 `-InPlace`
+  原地两条路径共用同一段注入代码，同源；读不到契约宁可显式告警跳过，也**不回落
+  本地台账** —— 分叉副本正是要根治的陈旧源。
+- **判据**：`python scripts/derive_board_status.py --selftest` 的「契约源」用例在临时 git
+  仓库里造「ref 台账真值 + 工作区台账 SENTINEL」分叉，断言 `--ledger-ref` 读 ref、
+  不读工作区；实测把工作区 `docs/board-ledger.json` 的 DX-94 三字段改成 SENTINEL 后
+  重跑 `agent-init.ps1 -InPlace -Card DX-94`，`.agent-env.ps1` 的 `NB_SCOPE` /
+  `NB_ACCEPTANCE` 与 `origin/main` 台账逐字一致、不含 SENTINEL。
+- **一般化**：**读共享状态必须声明读哪一份**，尤其当另一条判据已经钉死某一份时 ——
+  口径分裂不会报错，只会让人按过期定义干活。文件在磁盘上不等于它是事实源。
+
 ---
 
 ## 三、构建与 Qt / QML

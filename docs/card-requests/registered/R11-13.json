@@ -1,0 +1,13 @@
+{
+  "card": "R11-13",
+  "sha256": "d3d19bec24c930e9ec1173e7f7fb3736cf02ccf9ff6798836a70c9a78ea578b5",
+  "authorizedBy": "维护者 13706 会话 2026-11-06 授权立卡 R11-13：修复 EmptyState 锚定缺陷并订正 ui-relayout-verify.md 的归因说明",
+  "form": "docs/card-requests/20261106-ui-relayout-13.md",
+  "registeredAt": "2026-11-06T15:23:34+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R11-13",
+    "sha": "036b3e146c836dd96a24f29a8ac15ddb773e3682"
+  }
+}

@@ -5202,13 +5202,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-81": {
-            "agent": "agent-dx81",
-            "branch": "fix/dx81-claims-doing-attribution",
-            "claimedAt": 1793975876,
-            "head": "5920d8252bfc5cdb9653cf83f79d5b49e9269dfa"
-        }
-    },
+    "claims": {},
     "version": 1
 }

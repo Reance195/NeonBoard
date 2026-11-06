@@ -787,6 +787,28 @@
   物理隔离（专用段位），是从根上消灭这类撞车的另一半。
 
 ---
+### 1.45 同一职责出现两个程序，闸门只认其一：另一个不迁移也不退役就是下一次暗失败（DX-115）
+
+- **现象**（2026-11-06 DX-114 立卡实录）：nbflow request → approve 走到 board-apply 落盘，
+  fresh origin/main 检出的 chore worktree 里 git commit 被 commit-msg 拒（退出码 9）：
+  「新增卡 DX-112 无立卡回执：手工改台账立卡通道已关闭（DX-97）」。approve 两连拒后整批
+  退回 blocked，调用方只见退出码不见原因——DX-98（f99e483）落地当天，nbflow 的立卡通道
+  整体静默死亡。
+- **根因**：DX-98 把 register_board_cards.py 定为立卡唯一入口并给 commit-msg 加了回执
+  闸门，但 nbflow/board-apply 这条**旧立卡程序**既没迁移去产回执，也没显式退役——两个
+  程序实现同一职责，闸门只认识其中一个（Z5 现实版：第二个写者不是被删掉，而是被闸门
+  隔空打死，死状还是暗的）。
+- **解法（DX-115）**：按宪章既定裁决显式退役——cmd_approve 顶部直接返回退役通知
+  （APPROVE_RETIRE_NOTICE：唯一入口 register_board_cards.py、请求单迁移、两段式提交、
+  退出码 9），删除 148 行死代码；模块 docstring 与 argparse help 同步「谁是唯一入口、
+  另一个的角色」；request（查重）/status/dispatch/report/close 不受影响，会话状态不变。
+- **判据**：`python scripts/nbflow.py approve --cards <任意>` 打印 recipe 且退出码 9、
+  状态机无变更；`python scripts/nbflow.py --selftest` 断言通知含唯一入口与迁移指引；实跑演练见本卡合并提交。
+- **一般化**：**新闸门落地时，枚举所有实现同一职责的旧通道，逐一「迁移或退役」，**
+  留第三种状态（不迁移不退役）就是把暗失败留给下一个调用方。闸门拒得到的地方，错误
+  信息要能指到唯一入口；闸门够不着的地方（工具内部），要在工具自己的入口拦。
+
+---
 ## 二、脚本与编码（PowerShell / Python）
 
 ### 2.1 `.ps1` 少了 UTF-8 BOM，整份脚本报「批处理式」语法错

@@ -12,7 +12,8 @@ claim-card.py、agent-init.ps1、git-done.ps1、release-claims.py 里，靠人�
     request   agent 提交立卡请求 → docs/card-requests/<日期>-<slug>.md（状态 requested）；
               写单前按标题关键词查重，命中现有卡/请求须 --ack-duplicate 放行（DX-67）
     authorize 维护者给一次「会话级批量授权」，本会话后续 approve 自动复用
-    approve   程序受理 + 整理成五段式清单 + 20 项预演 + 落盘立卡（+ 合回主线）
+    approve   【已退役，DX-115】立卡唯一入口是 register_board_cards.py（宪章条款 6，
+              DX-98 回执闸门）；调用即打印迁移 recipe 并退出码 9，会话状态不变
     dispatch  领卡与建分支移交是**一步**：一次 agent-init.ps1 -Card 调用 + handoff.json
     report    agent 反馈结构化执行回执，程序逐条核 acceptance 与 verify 退出码
     close     先试合并一次，无冲突才 git-done.ps1 合入 / 结卡 / 回收工作区
@@ -549,154 +550,23 @@ def _mark_created(ctx: Ctx, state: dict, card: str, p: Path, auth: dict, branch:
     transition(ctx, state, card, "created", boardBranch=branch)
 
 
+# DX-115：approve 的立卡通道退役。DX-98 起 task_gate 要求新增卡必须带程序回执
+# （docs/card-requests/registered/<短号>.json），而 board-apply 不产回执——经此通道的
+# 立卡提交会被 commit-msg 拒（退出码 9 暗失败，DX-114 立卡时实录两次）。宪章条款 6 已把
+# register_board_cards.py 定为唯一入口，这里显式退役并给出可执行的 recipe，
+# 不再让调用方撞闸门猜原因。request / dedup / 授权机器不涉及回执，继续可用。
+APPROVE_RETIRE_NOTICE = """✗ nbflow approve 的立卡通道已退役（DX-115）：DX-98 的回执闸门要求新增卡带程序回执，
+  而 board-apply 不产回执，经此通道的立卡提交会被 commit-msg 拒（退出码 9 暗失败）。
+  立卡唯一入口（宪章条款 6，DX-98）：
+    1) 把活队列请求单复制进仓库：cp <.git/neonboard-flow/requests/<单>.md> docs/card-requests/<同名>.md
+    2) python scripts/register_board_cards.py --form docs/card-requests/<单>.md --authorized-by "<授权原文>"
+    3) 按工具打印的两段式指引提交（docs(board) 收录 + chore(board) 立卡），git-done 合入
+  request（查重）/ status / dispatch / report / close 等子命令不受影响；本次会话状态未变更。"""
+
+
 def cmd_approve(ctx: Ctx, state: dict, args) -> int:
-    cards = [c.strip().upper() for c in (args.cards or "").split(",") if c.strip()]
-    if args.all:
-        cards = [c for c, s in state["sessions"].items() if s["state"] in ("requested", "accepted")]
-    if not cards:
-        err("✗ 没有待批准的请求（--cards A,B 或 --all）")
-        return 3
-    auth = authorization(state, args.authorize, args.batch, args.ttl_hours)
-    out("  · 会话授权：%s / %s" % (auth["by"], auth["batch"]))
-
-    reqs: list[tuple[str, Path, dict]] = []
-    allocated: set[str] = set()
-    batch_ids = set(cards)
-    for card in cards:
-        p = find_request(card)
-        cached = state["sessions"].get(card, {}).get("requestText", "")
-        if p:
-            req = parse_request(p.read_text(encoding="utf-8"))
-        elif cached:
-            # 演练时请求单不落盘，程序状态里留一份等价文本，保证整条链路仍可串起来
-            p = REQUEST_DIR / (card.lower() + ".md")
-            req = parse_request(cached)
-        else:
-            err("✗ 找不到 %s 的请求单" % card)
-            return 4
-        if req.get("state") in ("approved", "rejected"):
-            err("✗ %s 已 %s，不能重复批准" % (card, req["state"]))
-            return 1
-        # 撞号改配（DX-55）：建议号已被台账（或本批先到的卡）占用时，按 stage
-        # 命名空间改配下一个空号；会话键、请求单 card:、台账 note 全部跟着新号走。
-        # 占用集含台账 + 活队列 + 在途会话（DX-57），扣除本批自身的号防自撞。
-        used = (ledger_card_ids() | queued_card_ids()
-                | set(state["sessions"]) | allocated) - batch_ids
-        suggested = (req.get("card") or card).upper()
-        if suggested in used:
-            new_id = next_card_id(used, req.get("stage") or "DX")
-            out("  · 建议号 %s 已被占用，自动改配 %s" % (suggested, new_id))
-            req["evidence"] = ((req.get("evidence") or "").rstrip("；;") +
-                               "；原建议号 %s 已占用，程序改配 %s" % (suggested, new_id))
-            req["suggestedId"] = new_id
-            req["card"] = new_id
-            sess = state["sessions"].pop(card, None)
-            if sess:
-                state["sessions"][new_id] = sess
-            card = new_id
-        allocated.add(card)
-        reqs.append((card, p, req))
-        # 查重提示（DX-67）：approve 时重跑一遍，展示给维护者，不阻断
-        for cid, t, shared in duplicate_hits(req.get("title") or "",
-                                             known_titles(exclude=card))[:5]:
-            out("  · 查重提示：%s 与 %s 相似（共同：%s）——确认非重复再批"
-                % (card, cid, "、".join(shared)))
-        transition(ctx, state, card, "accepted")
-
-    manifests = []
-    for card, _p, req in reqs:
-        manifests.append(request_to_manifest(req))
-    path, temps = _write_manifest(manifests, ctx.dry_run)
-
-    def block_batch(reason: str) -> int:
-        # DX-72：落盘失败整批退回 blocked（blocked→accepted 可重试），
-        # approved 只在台账真正落盘后才进入，会话不再卡死在中间态。
-        for card, _p, _req in reqs:
-            transition(ctx, state, card, "blocked", nextStep=reason + "；排查后重跑 approve")
-        return 2
-
-    try:
-        # ① 预演：20 项校验由 board-apply.py 负责，程序不重复实现
-        code, _ = run(py_script("board-apply.py", [path, "--diff"]), dry=ctx.dry_run)
-        if board_apply_outcome(code) == "fail":
-            err("✗ 预演未通过（退出码 %d），整批不落盘" % code)
-            return block_batch("预演未通过（退出码 %d）" % code)
-        if board_apply_outcome(code) == "noop":
-            # 清单里的卡台账全都有了（重复批准 / 并行会话已立卡 / 断链重试）：
-            # board-apply 判定无需变更，跳过落盘与合并直接进 created（DX-72）
-            out("  · 卡片已在台账，无需再立卡")
-            for card, p, _req in reqs:
-                _mark_created(ctx, state, card, p, auth, "")
-            out("✓ 已在台账，跳过落盘与合并：%s" % ", ".join(cards))
-            return 0
-        # ② 落盘：专用立卡 worktree，不改调用者检出；提交体带授权/批次两行
-        slug = re.sub(r"[^a-z0-9]+", "-", auth["batch"].lower()).strip("-")[:40] or "batch"
-        branch = "chore/board-" + slug
-        wt = _board_worktree(ctx, slug)
-        if not ctx.dry_run:
-            if wt.exists() and not worktree_alive(wt, ctx.common):
-                # DX-93：目录在但不是活检出（半删除尸体）——先清干净，绝不带着尸体跑
-                if not discard_corpse_worktree(ctx, wt):
-                    err("✗ 尸体目录删不掉（被占用），请手工删除后重跑 approve：%s" % wt)
-                    return block_batch("尸体目录删不掉（被占用）：%s" % wt)
-            if not wt.exists():
-                code, _ = run(["git", "-C", str(REPO), "worktree", "add", "-b", branch,
-                               str(wt), "origin/main"], check=False)
-                if code != 0:
-                    err("✗ 建立立卡工作区失败（%s 已存在？先手工回收）" % wt)
-                    return block_batch("建立立卡工作区失败（%s 已存在？）" % wt)
-            else:
-                run(["git", "-C", str(wt), "checkout", "-B", branch, "origin/main"], check=True)
-        code, _ = run([sys.executable, str(wt / "scripts" / "board-apply.py"), path,
-                       "--commit", "--authorize", auth["by"], "--batch", auth["batch"]],
-                      cwd=wt, dry=ctx.dry_run)
-        outcome = board_apply_outcome(code)
-        if outcome == "fail":
-            err("✗ 立卡失败（退出码 %d）；未改主线" % code)
-            return block_batch("立卡失败（退出码 %d）" % code)
-        for card, p, _req in reqs:
-            _mark_created(ctx, state, card, p, auth, branch)
-        if outcome == "noop":
-            # 预演与落盘之间被并行会话抢先落盘：台账已有所需卡，无需再合并（DX-72）
-            out("  · 并行会话已落盘同批卡，跳过合并")
-            out("✓ 已在台账：%s" % ", ".join(cards))
-            return 0
-        if args.no_merge:
-            out("  · --no-merge：立卡分支 %s 已留在 %s，未合回主线" % (branch, wt))
-            return 0
-        if not getattr(args, "no_probe", False):
-            probe = probe_merge(ctx, branch)
-            if not probe["ok"]:
-                out("  · 先合并一次发现冲突：%s"
-                    % (", ".join(probe["conflicts"][:5]) or probe["reason"]))
-                _ticket, tcode = raise_conflict_ticket(ctx, state, branch=branch, info=probe,
-                                                       agent=getattr(args, "conflict_agent", CONFLICT_AGENT))
-                return 5 if tcode == 0 else tcode
-        # ③ 合回主线：git-done 在立卡工作区自己的检出里跑（DX-45）。
-        #    旧实现先 git push -u origin <立卡分支>——被 pre-push 规则 1 拒
-        #    （分支尚未合并进 main，禁止推送），立卡分支永远推不上去，
-        #    approve 只能手工 git-done 兜底。git-done 本就从不推工作分支：
-        #    它从分支所在检出跑（root=wt，repo 定位到 wt），remote 模式
-        #    基于 origin/main 建临时合并分支 --no-ff 合并 + 快进推 origin/main + 删分支。
-        if not ctx.dry_run:
-            code, _ = run(ps_script("git-done.ps1", ["-Branch", branch], root=wt), cwd=wt,
-                          dry=ctx.dry_run)
-            if code != 0:
-                err("✗ 合回主线失败（可能与其他会话撞车，重新同步后重跑 close/approve）；分支仍在 %s" % wt)
-                return 2
-            code, _ = run(["git", "-C", str(REPO), "worktree", "remove", str(wt)], check=False)
-            if code != 0:
-                # 主线已合入，工作区回收失败（目录被占用等）只提示，不算失败
-                out("  · 立卡工作区回收失败，不影响已合入的主线：%s" % wt)
-        out("%s 立卡完成并合回主线：%s"
-            % ("[演练] 未落盘 ·" if ctx.dry_run else "✓", ", ".join(cards)))
-        return 0
-    finally:
-        for t in temps:
-            try:
-                os.unlink(t)
-            except OSError:
-                pass
+    err(APPROVE_RETIRE_NOTICE)
+    return 9
 
 
 def _read_card(card: str) -> dict:
@@ -1728,6 +1598,11 @@ def selftest() -> int:
     check("DX-75 场景：created→blocked→dispatched 重跑走通",
           stw["sessions"]["FLOW-01"]["state"] == "dispatched"
           and stw["sessions"]["FLOW-01"]["nextStep"] == "排查 agent-init 失败原因后重跑 dispatch")
+    # DX-115：approve 立卡通道退役 —— 通知必须指到唯一入口、迁移 recipe 与退出码
+    check("approve 退役通知含 register_board_cards.py 指引与退出码（DX-115）",
+          "register_board_cards.py" in APPROVE_RETIRE_NOTICE
+          and "docs/card-requests" in APPROVE_RETIRE_NOTICE
+          and "退出码 9" in APPROVE_RETIRE_NOTICE)
 
     st = blank_state()
     rec = authorization(st, "维护者 2026-11-04 会话", "FLOW-01~04", 24)
@@ -2110,7 +1985,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--ack-duplicate", action="store_true",
                    help="查重命中时显式放行（DX-67：提示不阻断，放行必须显式）")
 
-    ap = sub.add_parser("approve", parents=[common], help="受理 + 整理 + 预演 + 立卡（+ 合回主线）")
+    ap = sub.add_parser("approve", parents=[common], help="【已退役，DX-115】立卡走 register_board_cards.py（宪章条款 6）；调用即打印迁移 recipe 退出 9")
     ap.add_argument("--cards", default="", help="逗号分隔的卡号")
     ap.add_argument("--all", action="store_true", help="批准全部 requested/accepted")
     ap.add_argument("--authorize", default="", help="不传则复用会话级授权")

@@ -1,0 +1,13 @@
+{
+  "card": "DX-117",
+  "sha256": "ee8c97e983e0c9852b194156f9b041dbbf3aa46446e875d087c56d8d2f02d0aa",
+  "authorizedBy": "维护者 2026-11-06 会话指令：确认无主卡并领卡干活，干活过程中发现问题即立卡（所有立卡都授权，前提是完善方案而非临时方案）",
+  "form": "docs/card-requests/20261106-dx-115.md",
+  "registeredAt": "2026-11-06T15:56:46+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-117",
+    "sha": "0df12e9d61cce2c9e4755a6c17a6f6e723bd45de"
+  }
+}

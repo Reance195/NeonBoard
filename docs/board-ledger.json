@@ -95,6 +95,7 @@
         "DX-94": "todo",
         "DX-95": "done",
         "DX-96": "todo",
+        "DX-97": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -2011,7 +2012,9 @@
                 "docs/pitfalls.md 补一条「多步收尾分次 push 是中间态 run 之源：合并补推 + 沉降双保险」；AGENTS.md §7.3 收尾流程同步 push 次数"
             ],
             "author": "maintainer-session-2026-11-06",
-            "depends": ["DX-44"],
+            "depends": [
+                "DX-44"
+            ],
             "evidence": "DX-44（job 首步沉降等待）已止血并实测 0 封失败邮件，但属时序补丁：job 时长与推送间隔仍靠 sleep 余量赛跑，且每批收尾 4 次 push 触发 4 个 Board run（3 个注定被取消），CI 抖动与 runner 占用被放大。根因：git-done 收尾把 清理登记/结卡/快照 各自单独 push origin HEAD:main（git-done.ps1 推送点 L726/L867/L932/L151）。治本：合并推送后把这三步在本地生成提交、一次性 push（收尾补推 3→1），叠加 DX-44 沉降使 Board run 4→2、0 failure。A2b（合并+收尾全合成 1 次 push、零中间态 run）列二期，需重排 fail-soft 语义。注：本卡曾以 DX-74 立卡但推送未及落地，卡号被并发会话占用，遂重立为 DX-96。",
             "id": "DX-96",
             "note": "",
@@ -2023,6 +2026,22 @@
             ],
             "stage": "DX",
             "title": "git-done 收尾补推 3→1：清理/结卡/快照合成单次 push，配合 DX-44 沉降降低 Board 中间态 run"
+        },
+        "DX-97": {
+            "acceptance": [
+                "qml/components/TaskCard.qml 的 inner 声明 z: 1：rg -n 'z: 1' qml/components/TaskCard.qml 命中，且该值小于光扫层 z: 4 与键盘指示条 z: 10（rg -n 'z: 4' 与 rg -n 'z: 10' 两处层级不变）",
+                "Qt 6.8.3 qmltestrunner 最小复现（两兄弟 MouseArea 层叠）：内容层 z 取 1 后点 22x22 按钮，按钮 MouseArea 收到 1 次 click 且整卡 MouseArea 收到 0 次，点卡片空白区整卡 MouseArea 仍收到 1 次，cardMouse.containsMouse 为 true",
+                "沙箱实机（NEONBOARD_DATA_DIR 指向新目录）：悬停卡片后点 ✓ 卡转入已办结列，点 ✕ 卡片消失且 Ctrl+Z 可撤销，双击仍进详情抽屉，卡片仍可拖拽跨列",
+                "pwsh -File scripts/verify.ps1 全过（build + ctest + --selftest + --smoke），--smoke 日志无 QML 错误"
+            ],
+            "depends": [],
+            "id": "DX-97",
+            "note": "起因（2026-11-06 维护者反馈截图）：卡片右上角 ✓ / ✕ / ▶ 悬停能显示，点击却没有任何效果。根因在 qml/components/TaskCard.qml 的层叠：actions 在 inner 内，虽然自己写了 z: 3，但 z 只在同一父级内比较；inner 与覆盖全卡的 cardMouse 同为 card 的直接子项且 z 均为 0，cardMouse 声明在 inner 之后，于是它压在最上层，把按钮 MouseArea 的 press 全吃掉，只触发 selectionRequested() 选中卡片。信号链本身（completeRequested / restoreRequested / deleteRequested → BoardColumn → Main.qml → taskUndo.moveTask / deleteTaskWithUndo）与键盘 Space / Delete 都正常。Qt 6.8.3 qmltestrunner 最小复现实测：默认结构点按钮，按钮收到 0 次 click，整卡 MouseArea 收到 1 次。目标：让 actions 的点击落在按钮 MouseArea 上，同时保留整卡 hover 渐显、双击编辑、拖拽与选中语义。边界：只改 qml/components/TaskCard.qml 的层级声明，不改按钮信号链、不动数据结构、不引入新依赖与新测试基建。",
+            "scope": [
+                "qml/components/TaskCard.qml"
+            ],
+            "stage": "DX",
+            "title": "卡片快捷动作按钮点击失效：整卡 MouseArea 吞掉 press"
         },
         "M01": {
             "acceptance": [

@@ -3337,6 +3337,8 @@
                 "qml/components/PluginPermissionDialog.qml",
                 "qml/Main.qml",
                 "qml/components/ThemePicker.qml",
+                "src/plugin/PluginRuntime.h",
+                "src/plugin/PluginRuntime.cpp",
                 "README.md",
                 "docs/iteration-roadmap.md"
             ],

@@ -2229,7 +2229,7 @@
             ],
             "depends": [],
             "id": "DX-94",
-            "note": "触发证据：2026-11-06 agent-dx74 领 DX-74（裸 git 取值清理）实录：.agent-env.ps1 注入的 NB_SCOPE（git-done/verify/pitfalls/AGENTS）与 NB_ACCEPTANCE 均为 DX-88 契约。根因 agent-init.ps1:528 ledgerPath=Join-Path repoRoot，而 repoRoot=scriptRepoRoot（:82，锚点）；锚点 main 停在分叉 45e1e93，其 DX-74 是改名前旧收尾补推卡（主线上已改配 DX-88）。领用重开门判据读 origin/main（derive --stuck-codes --ledger-ref origin/main），两处口径分裂；agent 不逐字核对就会拿错契约开工，check_scope 必拒、白干一轮。\n\n## 目标\nagent-init 卡契约注入读锚点本地台账：锚点过时/分叉即注入过期契约，与 origin/main 重开门判据口径分裂\n\n## 验收\n卡契约注入（NB_SCOPE/NB_ACCEPTANCE/NB_DEPENDS）数据源改为 origin/main 台账，与 stuck-codes 重开门判据同源；台账读取单一实现落 Python 侧（derive_board_status.py 新增契约输出子命令），agent-init 经落盘文件按字节读消费（规避 git show 管道 GBK 解码坑）;worktree 与 -InPlace 两条路径走同一契约源；复现实验归零：分叉锚点（本地 main 45e1e93 含旧 DX-74）下 agent-init -Card DX-74 注入的 scope/acceptance 与 origin/main 台账 DX-74 逐字一致，证据落卡片 note;docs/pitfalls.md 记条目：锚点检出台账是共享陈旧投影，读台账必须声明读哪一份并与领用判据同源;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/agent-init.ps1;scripts/derive_board_status.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "note": "触发证据：2026-11-06 agent-dx74 领 DX-74（裸 git 取值清理）实录：.agent-env.ps1 注入的 NB_SCOPE（git-done/verify/pitfalls/AGENTS）与 NB_ACCEPTANCE 均为 DX-88 契约。根因 agent-init.ps1:528 ledgerPath=Join-Path repoRoot，而 repoRoot=scriptRepoRoot（:82，锚点）；锚点 main 停在分叉 45e1e93，其 DX-74 是改名前旧收尾补推卡（主线上已改配 DX-88）。领用重开门判据读 origin/main（derive --stuck-codes --ledger-ref origin/main），两处口径分裂；agent 不逐字核对就会拿错契约开工，check_scope 必拒、白干一轮。\n\n## 目标\nagent-init 卡契约注入读锚点本地台账：锚点过时/分叉即注入过期契约，与 origin/main 重开门判据口径分裂\n\n## 验收\n卡契约注入（NB_SCOPE/NB_ACCEPTANCE/NB_DEPENDS）数据源改为 origin/main 台账，与 stuck-codes 重开门判据同源；台账读取单一实现落 Python 侧（derive_board_status.py 新增契约输出子命令），agent-init 经落盘文件按字节读消费（规避 git show 管道 GBK 解码坑）;worktree 与 -InPlace 两条路径走同一契约源；复现实验归零：分叉锚点（本地 main 45e1e93 含旧 DX-74）下 agent-init -Card DX-74 注入的 scope/acceptance 与 origin/main 台账 DX-74 逐字一致，证据落卡片 note;docs/pitfalls.md 记条目：锚点检出台账是共享陈旧投影，读台账必须声明读哪一份并与领用判据同源;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/agent-init.ps1;scripts/derive_board_status.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）\n\n## 交付（2026-11-06 · agent-dx94 / fix/agent-init-contract-origin-main）\n`derive_board_status.py` 新增 `--contract <短号> --out <文件>`：只认 `--ledger-ref`（默认 `origin/main`），\n`extract_contract` 纯函数投影 scope/acceptance/depends；`agent-init.ps1` 的 NB_SCOPE / NB_ACCEPTANCE /\nNB_DEPENDS 注入改调该子命令，结果落盘后按 UTF-8 字节读（`[System.IO.File]::ReadAllText`），\n不再读检出本地台账、不经 PS 管道解码；worktree 开区与 -InPlace 共用同一段代码。\n读不到契约显式告警跳过，不回落本地陈旧副本。`docs/pitfalls.md` §2.28 收录现象/根因/解法/一般化。\n\n复现实验（本会话实测，等价替代原验收第 4 条）：原场景「锚点 main 分叉 45e1e93 + 领 DX-74」\n已不存在（DX-74 已结卡、锚点与主线同点）。改为在 agent-dx94 工作区把本地\n`docs/board-ledger.json` 的 DX-94 三字段改成 SENTINEL/... 后重跑\n`agent-init.ps1 -Agent agent-dx94 -Card DX-94 -InPlace`：`.agent-env.ps1` 注入的\nNB_SCOPE = `scripts/agent-init.ps1;scripts/derive_board_status.py;docs/pitfalls.md`，\nNB_ACCEPTANCE 与 origin/main 台账 435 字符逐字一致，全文件不含 SENTINEL；本地台账随后还原。\n临时 git 仓库「ref 台账真值 + 工作区台账 SENTINEL」分叉实验固化为 `derive --selftest` 契约源 3 例。\n\n验收：`derive_board_status.py --selftest` 48 例全过（新增 7 例）；`verify.ps1 -ScriptOnly` EXIT=0\n（快照漂移 todo→done 由本分支 #DX-94=done 标记解释，合入收尾由 git-done 收敛）；\n`task_gate.py selftest` 34 例、`check_claim_refs.py --selftest` 14 例、\n`check_board_diff.py --selftest` 全过。已完成 6 / 待做 0。",
             "scope": [
                 "scripts/agent-init.ps1",
                 "scripts/derive_board_status.py",
@@ -5241,6 +5241,12 @@
             "branch": "fix/dx107-108-conflict-cleanup",
             "claimedAt": 1793977444,
             "head": "59fa22adcb74a7d987bc81c74745c68576ec656e"
+        },
+        "DX-94": {
+            "agent": "agent-dx94",
+            "branch": "fix/agent-init-contract-origin-main",
+            "claimedAt": 1793976149,
+            "head": "d0073b02d6a516c7aa68e1493e840e0e3b4fd688"
         }
     },
     "version": 1

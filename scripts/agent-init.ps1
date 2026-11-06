@@ -534,19 +534,45 @@ function Format-PsSingleQuoted {
 }
 
 if ($Card -and $Card -ne 'none') {
-    $ledgerPath = Join-Path $repoRoot 'docs\board-ledger.json'
-    if (Test-Path $ledgerPath) {
-        # 必须显式指定 utf8：Windows PowerShell 5.1 会把无 BOM 的 UTF-8 当 GBK 读，
-        # 中文的尾字节能吞掉紧随其后的 JSON 引号，台账一长就炸在 ConvertFrom-Json。
-        try { $ledger = (Get-Content -LiteralPath $ledgerPath -Raw -Encoding utf8 | ConvertFrom-Json) } catch { $ledger = $null }
-        $cardCode = $Card.TrimStart('#').ToUpperInvariant()
-        $cardData = $ledger.cards.$cardCode
-        if ($cardData) {
-            $envLines += "`$env:NB_CARD = '$cardCode'"
-            if ($cardData.scope)      { $envLines += ("`$env:NB_SCOPE = '" + (Format-PsSingleQuoted (($cardData.scope) -join ';')) + "'") }
-            if ($cardData.acceptance) { $envLines += ("`$env:NB_ACCEPTANCE = '" + (Format-PsSingleQuoted (($cardData.acceptance) -join ';')) + "'") }
-            if ($cardData.depends)    { $envLines += ("`$env:NB_DEPENDS = '" + (Format-PsSingleQuoted (($cardData.depends) -join ';')) + "'") }
+    # 卡契约的唯一数据源是 origin/main 台账（DX-94）：与领用重开门判据同源。
+    # 旧实现读 $repoRoot 下的本地台账副本 —— 锚点检出停在分叉的 main 时会注入过期
+    # 契约（agent-dx74 领 DX-74 拿到 DX-88 契约），check_scope 必拒、白干一轮。
+    # 台账读取收口在 derive_board_status.py（--contract），结果落盘再按字节读：
+    # PowerShell 捕获 Python 子进程 stdout 会按控制台代码页（GBK）解码中文（DX-83 同源），
+    # 落盘文件绕开管道。worktree 与 -InPlace 两条路径共用这段代码，同源。
+    $cardCode = $Card.TrimStart('#').ToUpperInvariant()
+    $contractPy = Join-Path $repoRoot 'scripts\derive_board_status.py'
+    $contractPath = Join-Path ([System.IO.Path]::GetTempPath()) `
+        ("nb-contract-{0}.json" -f [guid]::NewGuid().ToString('N'))
+    $contract = $null
+    try {
+        if (Test-Path -LiteralPath $contractPy) {
+            $null = & python $contractPy --repo $repoRoot --ledger-ref origin/main `
+                --contract $cardCode --out $contractPath 2>$null
+            $contractRc = $LASTEXITCODE
+            if ($contractRc -eq 0 -and (Test-Path -LiteralPath $contractPath)) {
+                # 按字节读：显式 UTF-8，不经 PS 管道解码
+                $contract = [System.IO.File]::ReadAllText(
+                    $contractPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+            } else {
+                Write-Host ("· 无法从 origin/main 读取 #{0} 契约（退出码 {1}），跳过 NB_* 注入" -f $cardCode, $contractRc) -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host ("· 契约源脚本缺失（{0}），跳过 NB_* 注入" -f $contractPy) -ForegroundColor Yellow
         }
+    } catch {
+        Write-Host ("· 读取 #{0} 契约失败：{1}；跳过 NB_* 注入" -f $cardCode, $_.Exception.Message) -ForegroundColor Yellow
+    } finally {
+        if (Test-Path -LiteralPath $contractPath) {
+            Remove-Item -LiteralPath $contractPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+    # 不回落到本地台账：分叉副本正是本卡要根治的陈旧源，宁可少注入也不注入错契约。
+    if ($contract) {
+        $envLines += "`$env:NB_CARD = '$cardCode'"
+        if ($contract.scope)      { $envLines += ("`$env:NB_SCOPE = '" + (Format-PsSingleQuoted (($contract.scope) -join ';')) + "'") }
+        if ($contract.acceptance) { $envLines += ("`$env:NB_ACCEPTANCE = '" + (Format-PsSingleQuoted (($contract.acceptance) -join ';')) + "'") }
+        if ($contract.depends)    { $envLines += ("`$env:NB_DEPENDS = '" + (Format-PsSingleQuoted (($contract.depends) -join ';')) + "'") }
     }
 }
 $envContent = ($envLines -join "`n")

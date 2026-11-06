@@ -1,0 +1,8 @@
+{
+  "card": "DX-100",
+  "sha256": "50a3f688bc08c7724f243104b280745b4d65c4e4e67dae5e52c12e4184641ac0",
+  "authorizedBy": "维护者 2026-11-06 本会话「把碰到过的问题，全部整理一下，立卡」授权代登记",
+  "form": "docs/card-requests/20261106-card-entry-single-source.md",
+  "registeredAt": "2026-11-06T03:27:44+00:00",
+  "tool": "scripts/register_board_cards.py"
+}

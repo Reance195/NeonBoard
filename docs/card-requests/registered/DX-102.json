@@ -1,0 +1,8 @@
+{
+  "card": "DX-102",
+  "sha256": "4093cefe09e3b56f212ac2ef79d4bc9ab419062afdae56667af281af9015f84e",
+  "authorizedBy": "维护者 2026-11-06 本会话「把碰到过的问题，全部整理一下，立卡」授权代登记",
+  "form": "docs/card-requests/20261106-interaction-regression.md",
+  "registeredAt": "2026-11-06T03:27:46+00:00",
+  "tool": "scripts/register_board_cards.py"
+}

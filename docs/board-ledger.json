@@ -457,11 +457,15 @@
                 "board-apply.py 的 --commit 在无回执时明确报错并指向新入口，或降级为只读预演且 rg 断言不再有写台账分支",
                 "board-apply.py --diff 的预演输出不再出现既有卡的行删除（纯增量文本判定）",
                 "脚本头注释中立卡程序化的卡号统一为 DX-98（rg 断言无 DX-97 误标）",
-                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
+                "python scripts/register_board_cards.py --selftest 覆盖新增判据：验收项含「回归用例/新增用例/补用例/新增脚本」且引用的 scripts/*.ps1 或 scripts/*.py 不在本卡 scope 内时，立卡被拒并点名该路径（退出码非 0）",
+                "纯验证命令（如 pwsh -File scripts/verify.ps1 -ScriptOnly 全绿）引用 scope 外脚本时不拦，selftest 断言零误伤",
+                "对 docs/board-ledger.json 全部在办卡回放新判据，命中清单打印出来，存量命中只告警不硬拦（棘轮，命中项要么修表单要么点名进有主豁免面）",
+                "docs/task-card.md 补一条「验收项提到的文件若在 scope 外，须写明是只读验证工具还是本卡产物」的写法约定（rg 断言）"
             ],
             "author": "maintainer-session-2026-11-06",
             "depends": [],
-            "evidence": "2026-11-06 本会话照 docs/task-card.md 的立卡流程准备走 board-apply.py --commit，随后发现 AGENTS.md 条款 6 已被 DX-98 收口为 register_board_cards.py 唯一入口，commit-msg 对无回执的新增卡直接拒；同一天 board-apply.py --diff 的纯增量预演夹带既有卡 DX-96 的 depends 数组从 1 行重排为 3 行；register_board_cards.py 的 docstring 把立卡程序化标成 DX-97（实为 DX-98 的交付，DX-97 是卡片按钮修复）。",
+            "evidence": "2026-11-06 本会话照 docs/task-card.md 的立卡流程准备走 board-apply.py --commit，随后发现 AGENTS.md 条款 6 已被 DX-98 收口为 register_board_cards.py 唯一入口，commit-msg 对无回执的新增卡直接拒；同一天 board-apply.py --diff 的纯增量预演夹带既有卡 DX-96 的 depends 数组从 1 行重排为 3 行；register_board_cards.py 的 docstring 把立卡程序化标成 DX-97（实为 DX-98 的交付，DX-97 是卡片按钮修复）。 2026-11-06 补充（合并自 20261106-acceptance-scope-crosscheck.md 草案，维护者指令「合并草案进 DX-100」）：DX-107 的 scope 不含 scripts/verify.ps1，acceptance 第 3 条却写「verify.ps1 -GitDoneDryRun 在冲突分支上演练不再留现场（回归用例）」，暗示要改 scope 外文件；实施 agent 按 Z11 自行判为「实跑命令作回归」、未按 Z12 上报歧义。根因：DX-98 换立卡入口后 register_board_cards.py 的 parse_form 只校验 6 个 REQUIRED_META 与五段式章节，board-apply.py 的 20 项语义校验未随之迁移；R10-02 同类事故只作为反面案例写进 AGENTS.md 条款 6，没有机器判据。",
             "id": "DX-100",
             "note": "",
             "scope": [

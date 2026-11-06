@@ -199,24 +199,6 @@
             "updatedAt": 1793911047
         },
         {
-            "code": "DX-96",
-            "completedAt": 0,
-            "createdAt": 1793928256,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-96",
-            "note": "",
-            "orderKey": 62464,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "git-done 收尾补推 3→1：清理/结卡/快照合成单次 push，配合 DX-44 沉降降低 Board 中间态 run",
-            "updatedAt": 1793928256
-        },
-        {
             "code": "DX-99",
             "completedAt": 0,
             "createdAt": 1793935663,
@@ -4080,6 +4062,24 @@
             "updatedAt": 1793911968
         },
         {
+            "code": "DX-96",
+            "completedAt": 1793953804,
+            "createdAt": 1793928256,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-96",
+            "note": "",
+            "orderKey": 62464,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 收尾补推 3→1：清理/结卡/快照合成单次 push，配合 DX-44 沉降降低 Board 中间态 run",
+            "updatedAt": 1793953804
+        },
+        {
             "code": "DX-97",
             "completedAt": 1793932964,
             "createdAt": 1793930802,
@@ -4813,6 +4813,6 @@
             "updatedAt": 1793934590
         }
     ],
-    "updated": "2026-11-06T13:13:47",
+    "updated": "2026-11-06T16:30:04",
     "version": 3
 }

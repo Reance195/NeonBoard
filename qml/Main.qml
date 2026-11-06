@@ -70,6 +70,9 @@ ApplicationWindow {
     property int focusRemaining: 0
     property bool focusPaused: false
 
+    // R11-8：活跃热力横幅默认收起（回顾性数据不该常驻吃掉顶区），点「展开」再铺开
+    property bool heatmapCollapsed: true
+
     // 首启动引导：仅在「从未完成引导」且看板为空时自动出现
     property bool onboardVisible: false
     // 「重看新手引导」开出来的：不受自动判定影响，关掉即止
@@ -980,18 +983,62 @@ MouseArea {
                 anchors.right: windowButtons.left
                 anchors.rightMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
+                // R11-8：设置入口从侧栏迁到标题栏右上角齿轮（Ctrl+, 不变）
+                onSettingsRequested: window.openSettings()
             }
 
             // R11-02：标题栏按钮统一走 TopToolButton —— 原先「全景」「＋ 新建」
             // 是同一套样式各抄一遍（圆角 / 边框 alpha / 悬浮底色硬编码），改主题不跟随。
             TopToolButton {
                 id: mapButton
-                anchors.right: themePicker.left
+                anchors.right: focusButton.left
                 anchors.rightMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
                 text: "全景"
                 description: "打开项目全景面板"
                 onClicked: window.openProjectMap()
+            }
+
+            // R11-8：专注按钮从主区顶栏迁到标题栏 —— 它是全局动作（压暗背景 + 倒计时环），
+            // 与设置、全景同级，而不是看板区专属。主区顶栏因此只剩「标题 + 副标题 + 统计带」。
+            Rectangle {
+                id: focusButton
+                anchors.right: themePicker.left
+                anchors.rightMargin: 6
+                anchors.verticalCenter: parent.verticalCenter
+                width: 52
+                height: 26
+                radius: Theme.radiusControl
+                color: focusBtnMouse.containsMouse || window.focusMode
+                       ? Theme.accentSoft
+                       : Theme.input
+                border.width: 1
+                border.color: window.focusMode
+                              ? Qt.rgba(Theme.magenta.r, Theme.magenta.g, Theme.magenta.b, 0.45)
+                              : Theme.border
+
+                Text {
+                    anchors.centerIn: parent
+                    text: window.focusMode ? "专注中" : "专注"
+                    color: window.focusMode ? Theme.magenta : Theme.accent
+                    font.pixelSize: 11
+                }
+
+                MouseArea {
+                    id: focusBtnMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (window.focusMode)
+                            window.toggleFocusPause()
+                        else
+                            focusMenu.open()
+                    }
+                }
+
+                Accessible.role: Accessible.Button
+                Accessible.name: "专注模式"
             }
 
             TopToolButton {
@@ -1015,7 +1062,8 @@ MouseArea {
 
             Rectangle {
                 // 窄屏时侧栏按比例收缩，保证三列看板不被挤出可视区
-                Layout.preferredWidth: Math.min(220, Math.max(170, window.width * 0.24))
+                // R11-8：插件库常驻卡片移除后侧栏只剩导航 + 槽位 + 状态行，220 → 200
+                Layout.preferredWidth: Math.min(200, Math.max(160, window.width * 0.24))
                 Layout.fillHeight: true
                 color: Theme.panel
                 border.width: 0
@@ -1025,40 +1073,28 @@ MouseArea {
                     anchors.margins: 16
                     spacing: 8
 
-                    Text {
-                        text: "工作台"
-                        color: Theme.text
-                        font.pixelSize: Theme.fontDisplay
-                        font.bold: true
-                    }
-
-                    Text {
-                        text: "PERSONAL WORKBENCH"
-                        color: Theme.muted
-                        font.pixelSize: 9
-                        font.letterSpacing: 1.4
-                    }
-
-                    Item { Layout.preferredHeight: 8 }
-
+                    // R11-8：侧栏顶部直接是导航 —— 原先这里有一块「工作台 / PERSONAL
+                    // WORKBENCH」标题，与主区顶栏的「工作台」重复且零信息量（约 60 px）。
                     Repeater {
                         // 「队列」所有实例都有（队列是本机运行态，沙箱实例同样要能看自己的队列）；
                         // 「预览」只在主线实例出现：agent 沙箱实例里再嵌套预览入口只会混淆。
+                        // R11-8：设置移出侧栏，改标题栏右上角齿轮按钮 —— 它是低频全局操作，
+                        // 占侧栏一整行不划算；导航下标相应前移一位（插件 1 / 队列 2 / 预览 3）。
                         model: previewHub.hostInstance
-                               ? ["看板", "插件", "设置", "队列", "预览"]
-                               : ["看板", "插件", "设置", "队列"]
+                               ? ["看板", "插件", "队列", "预览"]
+                               : ["看板", "插件", "队列"]
 
                         delegate: Rectangle {
                             Layout.fillWidth: true
                             height: 34
                             radius: 8
-                            color: (index === 0 || (index === 3 && window.execQueueOpen)
-                                    || (index === 4 && window.previewOpen))
+                            color: (index === 0 || (index === 2 && window.execQueueOpen)
+                                    || (index === 3 && window.previewOpen))
                                    ? Theme.accentSoft
                                    : (navMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04)
                                                              : "transparent")
-                            border.width: (index === 0 || (index === 3 && window.execQueueOpen)
-                                           || (index === 4 && window.previewOpen)) ? 1 : 0
+                            border.width: (index === 0 || (index === 2 && window.execQueueOpen)
+                                           || (index === 3 && window.previewOpen)) ? 1 : 0
                             border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22)
 
                             Text {
@@ -1066,8 +1102,8 @@ MouseArea {
                                 anchors.leftMargin: 10
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: modelData
-                                color: (index === 0 || (index === 3 && window.execQueueOpen)
-                                        || (index === 4 && window.previewOpen))
+                                color: (index === 0 || (index === 2 && window.execQueueOpen)
+                                        || (index === 3 && window.previewOpen))
                                        ? Theme.cyan : Theme.muted
                                 font.pixelSize: 13
                             }
@@ -1077,7 +1113,7 @@ MouseArea {
                                 anchors.right: parent.right
                                 anchors.rightMargin: 8
                                 anchors.verticalCenter: parent.verticalCenter
-                                visible: index === 3 && (scheduler.queueLength + scheduler.running) > 0
+                                visible: index === 2 && (scheduler.queueLength + scheduler.running) > 0
                                 height: 16
                                 width: queueCountText.implicitWidth + 10
                                 radius: 5
@@ -1100,10 +1136,8 @@ MouseArea {
                                     if (index === 1) {
                                         window.openPluginLibrary()
                                     } else if (index === 2) {
-                                        window.openSettings()
-                                    } else if (index === 3) {
                                         window.openExecQueue()
-                                    } else if (index === 4) {
+                                    } else if (index === 3) {
                                         window.openPreview()
                                     }
                                 }
@@ -1119,160 +1153,10 @@ MouseArea {
                         Layout.topMargin: 4
                     }
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 210
-                        radius: 12
-                        color: Theme.panel
-                        border.width: 1
-                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.12)
-
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            spacing: 6
-
-                            RowLayout {
-                                Layout.fillWidth: true
-
-                                Text {
-                                    text: "插件库"
-                                    color: Theme.text
-                                    font.pixelSize: 11
-                                    font.bold: true
-                                }
-
-                                Item { Layout.fillWidth: true }
-
-                                Text {
-                                    text: pluginLibrary.entries.length
-                                    color: Theme.muted
-                                    font.pixelSize: 10
-                                }
-                            }
-
-                            ListView {
-                                id: libraryList
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                clip: true
-                                spacing: 2
-                                model: pluginLibrary.entries
-
-                                delegate: Rectangle {
-                                    width: libraryList.width
-                                    height: 24
-                                    radius: 6
-                                    color: libraryRowMouse.containsMouse
-                                           ? Qt.rgba(1, 1, 1, 0.05)
-                                           : "transparent"
-
-                                    Text {
-                                        anchors.left: parent.left
-                                        anchors.leftMargin: 4
-                                        anchors.right: libraryTag.left
-                                        anchors.rightMargin: 4
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: modelData.name
-                                        color: modelData.installed ? Theme.text : Theme.accent2
-                                        font.pixelSize: 11
-                                        elide: Text.ElideRight
-                                    }
-
-                                    Text {
-                                        id: libraryTag
-                                        anchors.right: parent.right
-                                        anchors.rightMargin: 4
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: modelData.installed
-                                              ? (modelData.enabled ? "已装" : "禁用")
-                                              : "可装"
-                                        color: Theme.muted
-                                        font.pixelSize: 9
-                                    }
-
-                                    MouseArea {
-                                        id: libraryRowMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: {
-                                            if (modelData.installed)
-                                                window.openPluginById(modelData.id)
-                                            else
-                                                pluginLibrary.install(modelData.id)
-                                        }
-                                    }
-                                }
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: visible ? implicitHeight : 0
-                                visible: pluginLibrary.entries.length === 0
-                                text: "插件库为空"
-                                color: Theme.muted
-                                font.pixelSize: 10
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 10
-
-                                Text {
-                                    text: "刷新市场"
-                                    color: marketBtnMouse.containsMouse ? Theme.cyan : Theme.muted
-                                    font.pixelSize: 9
-                                    MouseArea {
-                                        id: marketBtnMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: pluginMarket.refresh()
-                                    }
-                                }
-
-                                Text {
-                                    text: "重新扫描"
-                                    color: rescanBtnMouse.containsMouse ? Theme.cyan : Theme.muted
-                                    font.pixelSize: 9
-                                    MouseArea {
-                                        id: rescanBtnMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: {
-                                            pluginRuntime.reload()
-                                            pluginLibrary.refresh()
-                                        }
-                                    }
-                                }
-
-                                Text {
-                                    text: "打开目录"
-                                    color: dirBtnMouse.containsMouse ? Theme.cyan : Theme.muted
-                                    font.pixelSize: 9
-                                    MouseArea {
-                                        id: dirBtnMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: pluginLibrary.openPluginDir()
-                                    }
-                                }
-
-                                Item { Layout.fillWidth: true }
-
-                                Text {
-                                    text: "详情"
-                                    color: detailBtnMouse.containsMouse ? Theme.cyan : Theme.text
-                                    font.pixelSize: 9
-                                    MouseArea {
-                                        id: detailBtnMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: window.openPluginLibrary()
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // R11-8：侧栏不再常驻插件库卡片 —— 这块「插件库 8 + 已装列表 +
+                    // 刷新市场 / 重新扫描 / 打开目录 / 详情」与「插件」导航点开的插件库
+                    // 面板是同一份信息出现两处。浏览 / 安装 / 卸载归插件库面板，
+                    // 插件目录 / 市场源 / 重新扫描归设置 → 插件（见 R11-9）。
 
                     Text {
                         text: "SQLite · " + database.taskCount + " 条任务"
@@ -1294,7 +1178,8 @@ MouseArea {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 8
+                // R11-8：8 → 6，顶区（标题行 / 工具行 / 横幅）三段各省 2 px
+                spacing: 6
 
                 // R11-01：顶区信息层级重排。
                 // 原先这里是一行 48 px 高的「大标题 + 三块统计盒」，顶区垂直占用近 190 px，
@@ -1302,7 +1187,7 @@ MouseArea {
                 // 整行高度从 48 px 降到 28 px —— 省下的高度直接还给三列看板。
                 RowLayout {
                     Layout.fillWidth: true
-                    Layout.topMargin: 12
+                    Layout.topMargin: 8
                     Layout.leftMargin: 20
                     Layout.rightMargin: 20
                     spacing: 12
@@ -1334,47 +1219,14 @@ MouseArea {
                         doneToday: taskStore.doneTodayCount
                         overdue: taskStats.overdueCount
                     }
-
-                    // 专注按钮：与标题栏按钮同一套控件语言（圆角 / 高度 / 边框层级）
-                    Rectangle {
-                        Layout.preferredWidth: 64
-                        Layout.preferredHeight: 28
-                        radius: Theme.radiusControl
-                        color: focusBtnMouse.containsMouse || window.focusMode
-                               ? Theme.accentSoft
-                               : Theme.input
-                        border.width: 1
-                        border.color: window.focusMode
-                                      ? Qt.rgba(Theme.magenta.r, Theme.magenta.g, Theme.magenta.b, 0.45)
-                                      : Theme.border
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: window.focusMode ? "专注中" : "专注"
-                            color: window.focusMode ? Theme.magenta : Theme.accent
-                            font.pixelSize: 11
-                        }
-
-                        MouseArea {
-                            id: focusBtnMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (window.focusMode)
-                                    window.toggleFocusPause()
-                                else
-                                    focusMenu.open()
-                            }
-                        }
-                    }
                 }
 
+                // R11-8：专注按钮迁到标题栏后，时长菜单跟着从标题栏下方弹出
                 Popup {
                     id: focusMenu
                     parent: window.contentItem
-                    x: Math.max(20, window.width - width - 40)
-                    y: 96
+                    x: Math.max(20, focusButton.mapToItem(window.contentItem, focusButton.width, 0).x - width)
+                    y: titleBar.height + 6
                     width: 160
                     padding: 8
                     modal: false
@@ -1432,9 +1284,13 @@ MouseArea {
                     }
                 }
 
-                // 项目范围与搜索占一行：项目 chip 需要横向空间，若与阶段条同排，
-                // 阶段条会被压到 0 宽（R10-05 实测：三个项目 chip + 搜索框 + 阶段条
-                // 在 980 px 内容宽度里放不下，只剩「全部」一个胶囊）。
+                // R11-8：工具行三合一 —— 项目切换 / 里程碑条 / 搜索框并成一行，
+                // 顶区竖直占用因此从 264 px 收到 147 px（热力图收起态）。
+                //
+                // R10-05 的教训仍然成立：阶段条不能被挤成 0 宽（那次实测三个项目 chip
+                // + 搜索框 + 阶段条在 980 px 里放不下，只剩「全部」一个胶囊）。这里的做法是
+                // 给三者都留下限宽度，阶段条拿剩余空间、窄窗口下横向滚动（R11-03 的
+                // Flickable），而不是被压扁变形。
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.leftMargin: 20
@@ -1442,21 +1298,35 @@ MouseArea {
                     spacing: 12
 
                     // 两级看板的第一级：项目范围（全局 / 单项目）。
-                    // 「看谁的事」比「看到哪一步」更外层，所以它排在上、阶段条排在下。
+                    // 「看谁的事」比「看到哪一步」更外层，所以它排在最左。
                     ProjectSwitcher {
                         id: projectSwitcher
                         // 宽度由内容决定（R10-05）：写死 230 会把第三个项目裁掉。
                         // 上限由组件自己的 maxWidth 兜底，项目再多也是滚动而不是挤压别的控件。
-                        Layout.maximumWidth: projectSwitcher.maxWidth
-                        Layout.preferredHeight: 40
+                        // R11-8：与阶段条同排后上限收窄到 320，给阶段条留出可用的宽度。
+                        Layout.maximumWidth: Math.min(projectSwitcher.maxWidth, 320)
+                        Layout.minimumWidth: 140
+                        Layout.preferredHeight: 36
                         activeProject: window.projectFilter
                         onProjectSelected: function(projectId) { window.setProjectFilter(projectId) }
                     }
 
-                    Item { Layout.fillWidth: true }
+                    // 阶段条：横向滚动（13 个阶段），拿整行剩余宽度
+                    StageBar {
+                        id: stageBar
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 120
+                        Layout.preferredHeight: 36
+                        stages: window.stageList
+                        activeStage: window.stageFilter
+                        syncText: window.roadmapSyncText
+                        syncOk: window.roadmapSyncOk
+                        onStageSelected: function(stage) { window.setStageFilter(stage) }
+                    }
 
                     Rectangle {
-                        Layout.preferredWidth: 300
+                        Layout.preferredWidth: 232
+                        Layout.minimumWidth: 120
                         Layout.preferredHeight: 28
                         Layout.alignment: Qt.AlignVCenter
                         radius: Theme.radiusControl
@@ -1477,49 +1347,45 @@ MouseArea {
                             onTextChanged: boardColumns.search = text
                             Keys.onEscapePressed: text = ""
                         }
+
+                        // Ctrl K 提示：命令面板的入口此前完全不可见
+                        Text {
+                            anchors.right: parent.right
+                            anchors.rightMargin: 8
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: !searchField.activeFocus && searchField.text.length === 0
+                            text: "Ctrl K"
+                            color: Theme.muted
+                            font.pixelSize: Theme.fontMicro
+                        }
                     }
                 }
 
-                // 阶段条独占一行：它天生就该横向滚动（13 个阶段），给它整行宽度，
-                // 而不是和项目/搜索抢那点剩余空间。
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: 20
-                    Layout.rightMargin: 20
-
-                    StageBar {
-                        id: stageBar
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 40
-                        stages: window.stageList
-                        activeStage: window.stageFilter
-                        syncText: window.roadmapSyncText
-                        syncOk: window.roadmapSyncOk
-                        onStageSelected: function(stage) { window.setStageFilter(stage) }
-                    }
-                }
-
-                // 统计横幅：热力图 + 连续天数 + 周吞吐（数据来自 taskStats，只读任务表）
+                // 活跃横幅：热力图 + 连续天数 + 周吞吐（数据来自 taskStats，只读任务表）
                 // R11-01：高度 84 → 72（热力格 8 → 7 px，横幅内边距 9 → 6），
                 // 顶区总高度由此再省 12 px 给看板。
+                // R11-8：可收起 —— 回顾性数据默认收起成 26 px 摘要条，想看时点「展开」。
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.leftMargin: 20
                     Layout.rightMargin: 20
-                    Layout.preferredHeight: 72
+                    Layout.preferredHeight: heatmapCollapsed ? 26 : 72
                     radius: Theme.radiusPanel
                     color: Theme.panel
                     border.width: 1
                     border.color: Theme.hairline
 
                     ActivityHeatmap {
+                        id: heatmap
                         anchors.fill: parent
-                        anchors.margins: 6
+                        anchors.margins: heatmapCollapsed ? 4 : 6
+                        collapsed: heatmapCollapsed
                         cells: taskStats.heatmap
                         weekly: taskStats.weekly
                         streak: taskStats.streakDays
                         totalDone: taskStats.totalDone
                         bestDay: taskStats.bestDay
+                        onToggleRequested: heatmapCollapsed = !heatmapCollapsed
                     }
                 }
 

@@ -1,0 +1,12 @@
+{
+  "card": "DX-105",
+  "sha256": "ba4ec8caf7ce1f99751ea1e05dec1e5e38b9e4b3be704da118b6bed8a49ca193",
+  "authorizedBy": "维护者 13706 会话授权发号模式可配置（DX-105）",
+  "form": "docs/card-requests/20261106-dx-105.md",
+  "registeredAt": "2026-11-06T05:09:25+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "reservation": {
+    "ref": "refs/registrations/DX-105",
+    "sha": "e9de6fb3991225cd3c014bf6a1900445678f2015"
+  }
+}

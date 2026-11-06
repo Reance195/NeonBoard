@@ -55,24 +55,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-75",
-            "completedAt": 0,
-            "createdAt": 1793905858,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-75",
-            "note": "触发证据：本会话 dispatch DX-71 时 origin 抖动实测：nbflow 打出「非法状态转移：DX-71 created → blocked（允许：abandoned, dispatched, requested）」——状态机自己写不被自己允许的状态；blocked 无恢复指令，reconcile 报「无需动作」，只能重跑 dispatch 碰运气恢复\n\n## 目标\nnbflow 网络失败写 blocked 却报非法状态转移：blocked 进转移表并配恢复路径\n\n## 验收\ndispatch 网络失败（fail-closed）的状态转移合法：blocked 作为一等状态进转移表，或失败回滚保持 created，不再出现「写 blocked 又报非法状态转移（允许：abandoned, dispatched, requested）」的自相矛盾输出;blocked 态有明确出路：status 对 blocked 卡打印下一步指令（重跑 dispatch 或 abandon），恢复后能正常领用;python scripts/nbflow.py --selftest 覆盖该转移场景并通过\n\n## 边界\nscripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 49152,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow 网络失败写 blocked 却报非法状态转移：blocked 进转移表并配恢复路径",
-            "updatedAt": 1793905858
-        },
-        {
             "code": "DX-78",
             "completedAt": 0,
             "createdAt": 1793906024,
@@ -3687,6 +3669,24 @@
             "updatedAt": 1793912103
         },
         {
+            "code": "DX-75",
+            "completedAt": 1793981128,
+            "createdAt": 1793905858,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-75",
+            "note": "触发证据：本会话 dispatch DX-71 时 origin 抖动实测：nbflow 打出「非法状态转移：DX-71 created → blocked（允许：abandoned, dispatched, requested）」——状态机自己写不被自己允许的状态；blocked 无恢复指令，reconcile 报「无需动作」，只能重跑 dispatch 碰运气恢复\n\n## 目标\nnbflow 网络失败写 blocked 却报非法状态转移：blocked 进转移表并配恢复路径\n\n## 验收\ndispatch 网络失败（fail-closed）的状态转移合法：blocked 作为一等状态进转移表，或失败回滚保持 created，不再出现「写 blocked 又报非法状态转移（允许：abandoned, dispatched, requested）」的自相矛盾输出;blocked 态有明确出路：status 对 blocked 卡打印下一步指令（重跑 dispatch 或 abandon），恢复后能正常领用;python scripts/nbflow.py --selftest 覆盖该转移场景并通过\n\n## 边界\nscripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 49152,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow 网络失败写 blocked 却报非法状态转移：blocked 进转移表并配恢复路径",
+            "updatedAt": 1793981128
+        },
+        {
             "completedAt": 1792849808,
             "createdAt": 1792849311,
             "deleted": false,
@@ -5155,6 +5155,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-07T00:00:19",
+    "updated": "2026-11-07T00:05:28",
     "version": 3
 }

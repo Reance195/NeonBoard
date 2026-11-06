@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "DX-124",
+            "completedAt": 0,
+            "createdAt": 1793987882,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-124",
+            "note": "",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "结卡证据闸门整轮连坐：一张无证据候选卡拒结全批，--close-explicit 人工通道也被击穿",
+            "updatedAt": 1793987903
+        },
+        {
             "code": "DX-117",
             "completedAt": 0,
             "createdAt": 1793981830,
@@ -233,24 +251,6 @@
             ],
             "title": "交互回归判据与 GUI 实机验收通道沉淀",
             "updatedAt": 1793935667
-        },
-        {
-            "code": "DX-124",
-            "completedAt": 0,
-            "createdAt": 1793987882,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-124",
-            "note": "",
-            "orderKey": 1024,
-            "priority": 2,
-            "stage": "DX",
-            "status": "doing",
-            "tags": [
-                "DX"
-            ],
-            "title": "结卡证据闸门整轮连坐：一张无证据候选卡拒结全批，--close-explicit 人工通道也被击穿",
-            "updatedAt": 1793987882
         },
         {
             "code": "R0-01",
@@ -5299,6 +5299,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T01:58:02",
+    "updated": "2026-11-07T01:58:23",
     "version": 3
 }

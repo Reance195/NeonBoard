@@ -235,12 +235,12 @@
             "updatedAt": 1793977718
         },
         {
-            "code": "DX-114",
+            "code": "DX-110",
             "completedAt": 0,
-            "createdAt": 1793979486,
+            "createdAt": 1793979017,
             "deleted": false,
             "dueAt": 0,
-            "id": "DX-114",
+            "id": "DX-110",
             "note": "",
             "orderKey": 74752,
             "priority": 2,
@@ -249,8 +249,26 @@
             "tags": [
                 "DX"
             ],
-            "title": "nbflow selftest 探针越界读真仓库：占用集与 claim_refs 让语料卡号与生产事实撞车，并行环境下恒假红",
-            "updatedAt": 1793979486
+            "title": "锚点快进永久跳过：立卡 roadmap 行收进立卡提交，锚点同步脏文件判据与分类修正",
+            "updatedAt": 1793979017
+        },
+        {
+            "code": "R11-13",
+            "completedAt": 0,
+            "createdAt": 1793979389,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-13",
+            "note": "",
+            "orderKey": 75776,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排收尾 3/3：修 EmptyState 锚定缺陷（空态浮到窗口左上角）+ 订正核验记录的归因",
+            "updatedAt": 1793979389
         },
         {
             "code": "R0-01",
@@ -5011,6 +5029,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:38:06",
+    "updated": "2026-11-06T23:36:29",
     "version": 3
 }

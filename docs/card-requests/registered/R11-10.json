@@ -1,0 +1,13 @@
+{
+  "card": "R11-10",
+  "sha256": "da7c0c551cf2f3d60974e0bd897aa21f21434ee78c94059263c8881e78271d12",
+  "authorizedBy": "维护者 13706 2026-11-06 会话「立卡开干吧」",
+  "form": "docs/card-requests/20261106-ui-relayout-10.md",
+  "registeredAt": "2026-11-06T09:53:27+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R11-10",
+    "sha": "84a7c6ff9d8bb428d9a035de3d7051c36f0561e3"
+  }
+}

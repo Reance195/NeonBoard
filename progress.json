@@ -289,6 +289,60 @@
             "updatedAt": 1793957895
         },
         {
+            "code": "R11-8",
+            "completedAt": 0,
+            "createdAt": 1793958785,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-8",
+            "note": "",
+            "orderKey": 68608,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排 1/3：主界面竖直重排（顶区 264 → 128 px）",
+            "updatedAt": 1793958785
+        },
+        {
+            "code": "R11-9",
+            "completedAt": 0,
+            "createdAt": 1793958800,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-9",
+            "note": "",
+            "orderKey": 69632,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排 2/3：统一弹窗壳（DialogShell / DrawerShell 落地 + 8 个 Dialog 迁移）",
+            "updatedAt": 1793958800
+        },
+        {
+            "code": "R11-10",
+            "completedAt": 0,
+            "createdAt": 1793958808,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-10",
+            "note": "",
+            "orderKey": 70656,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排 3/3：9 个自绘浮层迁移到统一壳 + 权限弹窗遮罩行为修正",
+            "updatedAt": 1793958808
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4831,6 +4885,6 @@
             "updatedAt": 1793934590
         }
     ],
-    "updated": "2026-11-06T17:38:15",
+    "updated": "2026-11-06T17:53:28",
     "version": 3
 }

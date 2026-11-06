@@ -230,7 +230,10 @@
         "R9-03": "done",
         "R9-04": "done",
         "R9-05": "done",
-        "DX-106": "todo"
+        "DX-106": "todo",
+        "R11-8": "todo",
+        "R11-9": "todo",
+        "R11-10": "todo"
     },
     "cards": {
         "DX-01": {
@@ -4980,6 +4983,93 @@
             ],
             "stage": "DX",
             "title": "收尾零中间态：合并+收尾合成单次 push（A2b），fail-soft 语义重排"
+        },
+        "R11-8": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "qml/Main.qml 顶区合并为单一工具行加可收起热力图条，热力图收起时顶区竖直占用 ≤ 150 px",
+                "qml/Main.qml 侧栏宽 200 px 且导航项不含「设置」，设置入口改为标题栏右上角齿轮按钮（Accessible.name 含「设置」）；qml/Main.qml 侧栏不再有插件库常驻卡片，插件信息只留在插件库面板与设置面板",
+                "qml/components/ActivityHeatmap.qml 暴露 collapsed 属性且默认收起",
+                "qml/components/TaskCard.qml 不含调试串（grep「槽位」命中 0）；qml/components/ThemePicker.qml 的齿轮按钮改为打开设置面板而非外观面板",
+                "README.md 的界面描述与实现一致（设置入口位置、侧栏宽度、顶区结构）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [],
+            "evidence": "docs/design/ui-relayout-spec.md §1.1 与 §2（原型 docs/design/index.html 竖直预算视图）；现状顶区竖直占用 264 px（标题栏 40 + 标题统计行 40 + 项目行 48 + 阶段行 48 + 热力图 80），760 px 窗口下看板只剩 476 px；侧栏常驻「工作台」标题块、「设置」导航项与插件库卡片，使插件信息在侧栏与插件库面板两处重复。",
+            "id": "R11-8",
+            "note": "",
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/ActivityHeatmap.qml",
+                "qml/components/TaskCard.qml",
+                "qml/components/ThemePicker.qml",
+                "README.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排 1/3：主界面竖直重排（顶区 264 → 128 px）"
+        },
+        "R11-9": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "新增 qml/components/DialogShell.qml（头固定 / 体滚动 / 底固定）与 qml/components/DrawerShell.qml（右侧抽屉），尺寸档 sm 440 / md 560 / lg 720 / drawer 320 全部按 Math.min(档位, 窗口宽 - 80) 收敛",
+                "qml/theme/Theme.qml 补齐 7 个弹窗令牌（dialogSm 440 / dialogMd 560 / dialogLg 720 / dialogPad 20 / scrim 0.62 / drawer 320 / shadow）",
+                "TaskComposer / SettingsPanel / CardDetailPanel / ThemeMarketPanel 与 Main.qml 内联 Dialog 全部改用 DialogShell，头与底位置一致且底部按钮右对齐",
+                "qml/components/SettingsPanel.qml 拆出左侧分页导航，插件目录 / 市场源 / 重新扫描归「插件」分页，6 个分页均可切换",
+                "qml/Main.qml 行数 ≤ 4260（check_module_deps 行数守卫）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "R11-08"
+            ],
+            "evidence": "docs/design/ui-relayout-spec.md §3 与 §4.2（原型 docs/design/dialogs.html）；现状 17 个弹窗无统一壳：4 个真 Dialog（TaskComposer / SettingsPanel / CardDetailPanel / ThemeMarketPanel）与 4 个 Main.qml 内联 Dialog 各自写头写底，头底随内容滚走；13 个二级界面面板各自写死 rgba 底色与圆角，与 Theme 令牌阶梯脱钩。",
+            "id": "R11-9",
+            "note": "",
+            "scope": [
+                "qml/components/DialogShell.qml",
+                "qml/components/DrawerShell.qml",
+                "qml/theme/Theme.qml",
+                "qml/components/SettingsPanel.qml",
+                "qml/components/TaskComposer.qml",
+                "qml/components/CardDetailPanel.qml",
+                "qml/components/ThemeMarketPanel.qml",
+                "qml/Main.qml",
+                "README.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排 2/3：统一弹窗壳（DialogShell / DrawerShell 落地 + 8 个 Dialog 迁移）"
+        },
+        "R11-10": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "9 个自绘浮层全部改用 DialogShell 或 DrawerShell，位置收敛为居中弹窗或右侧抽屉两种形态，头 / 体 / 底结构一致",
+                "qml/components/PluginPermissionDialog.qml 的遮罩点击只关闭不表态，拒绝必须点显式「拒绝」按钮",
+                "qml/components/PluginPermissionDialog.qml 遮罩关闭后插件仍能再次触发权限请求（拒绝路径显式可达，无不可撤销的误操作）",
+                "README.md 的界面描述与实现一致（浮层位置与权限弹窗行为）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "R11-09"
+            ],
+            "evidence": "docs/design/ui-relayout-spec.md §3.4 与 §3.5（原型 docs/design/dialogs.html）；现状 9 个自绘 Rectangle 浮层（CommandPalette / AppearancePanel / PluginPanel / PluginLibraryPanel / PreviewPanel / ProjectMapPanel / ColumnManager / OnboardingOverlay / PluginPermissionDialog）位置各不相同 —— 插件面板锚右下角、外观面板锚标题栏下方、项目全景锚右侧；PluginPermissionDialog.qml:44-52 的遮罩点击等同「拒绝」，误点窗口外空白即永久拒绝该插件的权限请求且无撤销入口。",
+            "id": "R11-10",
+            "note": "",
+            "scope": [
+                "qml/components/CommandPalette.qml",
+                "qml/components/AppearancePanel.qml",
+                "qml/components/PluginPanel.qml",
+                "qml/components/PluginLibraryPanel.qml",
+                "qml/components/PreviewPanel.qml",
+                "qml/components/ProjectMapPanel.qml",
+                "qml/components/ColumnManager.qml",
+                "qml/components/OnboardingOverlay.qml",
+                "qml/components/PluginPermissionDialog.qml",
+                "README.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排 3/3：9 个自绘浮层迁移到统一壳 + 权限弹窗遮罩行为修正"
         }
     },
     "claims": {},

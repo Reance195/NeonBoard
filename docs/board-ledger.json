@@ -10,7 +10,19 @@
         "DX-08": "done",
         "DX-09": "done",
         "DX-10": "done",
+        "DX-100": "todo",
+        "DX-101": "todo",
+        "DX-102": "todo",
+        "DX-103": "done",
+        "DX-104": "done",
+        "DX-105": "done",
+        "DX-106": "done",
+        "DX-107": "done",
+        "DX-108": "done",
+        "DX-109": "done",
         "DX-11": "done",
+        "DX-110": "todo",
+        "DX-114": "todo",
         "DX-12": "done",
         "DX-13": "done",
         "DX-14": "done",
@@ -75,13 +87,13 @@
         "DX-74": "done",
         "DX-75": "todo",
         "DX-76": "done",
-        "DX-77": "todo",
+        "DX-77": "done",
         "DX-78": "todo",
         "DX-79": "done",
         "DX-80": "done",
-        "DX-81": "todo",
+        "DX-81": "done",
         "DX-82": "todo",
-        "DX-83": "todo",
+        "DX-83": "done",
         "DX-84": "done",
         "DX-85": "done",
         "DX-86": "done",
@@ -92,8 +104,12 @@
         "DX-91": "done",
         "DX-92": "done",
         "DX-93": "done",
-        "DX-94": "todo",
+        "DX-94": "done",
         "DX-95": "done",
+        "DX-96": "done",
+        "DX-97": "done",
+        "DX-98": "done",
+        "DX-99": "done",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -146,6 +162,12 @@
         "R11-05": "done",
         "R11-06": "done",
         "R11-07": "done",
+        "R11-10": "done",
+        "R11-11": "done",
+        "R11-12": "done",
+        "R11-13": "todo",
+        "R11-8": "done",
+        "R11-9": "done",
         "R12-01": "done",
         "R13-01": "done",
         "R14-01": "done",
@@ -161,9 +183,10 @@
         "R16-04": "done",
         "R16-05": "done",
         "R17-01": "done",
-        "R18-01": "todo",
-        "R18-02": "todo",
-        "R18-03": "todo",
+        "R18-01": "done",
+        "R18-02": "done",
+        "R18-03": "done",
+        "R19-1": "todo",
         "R2-01": "done",
         "R2-02": "done",
         "R3-01": "done",
@@ -219,7 +242,13 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "DX-113": "todo",
+        "DX-115": "todo",
+        "DX-111": "todo",
+        "DX-112": "todo",
+        "DX-116": "todo",
+        "DX-119": "todo"
     },
     "cards": {
         "DX-01": {
@@ -432,6 +461,238 @@
             "stage": "DX",
             "title": "任务契约纳入审计：scope / acceptance 变更必须留痕"
         },
+        "DX-100": {
+            "acceptance": [
+                "docs/task-card.md 的立卡流程示例改为 register_board_cards.py --form 且不再出现 --commit 的旧写法（rg 断言）",
+                "board-apply.py 的 --commit 在无回执时明确报错并指向新入口，或降级为只读预演且 rg 断言不再有写台账分支",
+                "board-apply.py --diff 的预演输出不再出现既有卡的行删除（纯增量文本判定）",
+                "脚本头注释中立卡程序化的卡号统一为 DX-98（rg 断言无 DX-97 误标）",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
+                "python scripts/register_board_cards.py --selftest 覆盖新增判据：验收项含「回归用例/新增用例/补用例/新增脚本」且引用的 scripts/*.ps1 或 scripts/*.py 不在本卡 scope 内时，立卡被拒并点名该路径（退出码非 0）",
+                "纯验证命令（如 pwsh -File scripts/verify.ps1 -ScriptOnly 全绿）引用 scope 外脚本时不拦，selftest 断言零误伤",
+                "对 docs/board-ledger.json 全部在办卡回放新判据，命中清单打印出来，存量命中只告警不硬拦（棘轮，命中项要么修表单要么点名进有主豁免面）",
+                "docs/task-card.md 补一条「验收项提到的文件若在 scope 外，须写明是只读验证工具还是本卡产物」的写法约定（rg 断言）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [],
+            "evidence": "2026-11-06 本会话照 docs/task-card.md 的立卡流程准备走 board-apply.py --commit，随后发现 AGENTS.md 条款 6 已被 DX-98 收口为 register_board_cards.py 唯一入口，commit-msg 对无回执的新增卡直接拒；同一天 board-apply.py --diff 的纯增量预演夹带既有卡 DX-96 的 depends 数组从 1 行重排为 3 行；register_board_cards.py 的 docstring 把立卡程序化标成 DX-97（实为 DX-98 的交付，DX-97 是卡片按钮修复）。 2026-11-06 补充（合并自 20261106-acceptance-scope-crosscheck.md 草案，维护者指令「合并草案进 DX-100」）：DX-107 的 scope 不含 scripts/verify.ps1，acceptance 第 3 条却写「verify.ps1 -GitDoneDryRun 在冲突分支上演练不再留现场（回归用例）」，暗示要改 scope 外文件；实施 agent 按 Z11 自行判为「实跑命令作回归」、未按 Z12 上报歧义。根因：DX-98 换立卡入口后 register_board_cards.py 的 parse_form 只校验 6 个 REQUIRED_META 与五段式章节，board-apply.py 的 20 项语义校验未随之迁移；R10-02 同类事故只作为反面案例写进 AGENTS.md 条款 6，没有机器判据。",
+            "id": "DX-100",
+            "note": "",
+            "scope": [
+                "docs/task-card.md",
+                "scripts/board-apply.py",
+                "scripts/register_board_cards.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "立卡入口单一事实源：文档、旧工具注释与预演输出对齐 DX-98 新流程"
+        },
+        "DX-101": {
+            "acceptance": [
+                "git-done -DryRun 生成的合并提交 body 含 变更：/验收：/影响：/卡片： 四行（rg 断言）",
+                "锚点快进被跳过时输出含 git merge --ff-only origin/main 与落后提交数（rg 断言）",
+                "verify.ps1 对本分支领用造成的预期快照落后输出明确说明且不再出现「退出码 1」字样的误导红字",
+                "一次真实 git-done 端到端 EXIT=0 且合并提交正文四段非空",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [],
+            "evidence": "2026-11-06 本会话 git-done 生成的合并提交 fbf6e9b 的提交体只有标题 merge: 合入 fix/card-action-click，正文全空，与 docs/task-card.md 要求的变更/验收/影响/卡片四段不符；同一次收尾因锚点区 4 项未提交改动跳过快进，只打印一行跳过提示，本地 main 随后落后 origin/main 20 个提交且无后续指引；verify.ps1 在看板一致性段打印「! 看板快照落后于派生结果（退出码 1）」后仍输出「✓ 验收通过」并退 0，红字与绿灯矛盾。",
+            "id": "DX-101",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/verify.ps1",
+                "scripts/check_board_diff.py"
+            ],
+            "stage": "DX",
+            "title": "收尾与验收输出保真：合并提交四段、锚点跳过提示、红绿一致"
+        },
+        "DX-102": {
+            "acceptance": [
+                "静态检查能扫出 sweepBand.sweepAnimation.restart() 这类 id 点号访问并给出文件与行号（脚本自测断言）",
+                "静态检查能报出 anchors.fill 的 MouseArea 声明在内容层之后且 z 相同的层叠隐患（脚本自测断言）",
+                "qmltestrunner 用例覆盖按钮点击/整卡点击/双击/拖拽并由 ctest 调度且全绿",
+                "GUI 验收工具在目标窗口无法置前时安全中止而不是把合成键鼠发到别的窗口",
+                "pwsh -File scripts/verify.ps1 全过"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [],
+            "evidence": "2026-11-06 本会话为验证 TaskCard 修复临时写了 qmltestrunner 最小复现（10 例全过，含按钮点击/整卡点击/双击/拖拽与 id 点号访问语义）与 PowerShell UIA 合成输入脚本，用完即删，仓库内没有留下回归判据；computer-use skill 依赖的 orca CLI 在本机不存在，手写 GUI 自动化时 SetForegroundWindow 首次失效、窗口非前台导致 hover 与点击全落空，直到 SwitchToThisWindow 加 Alt 键技巧才激活成功，期间合成键鼠有发到别的前台窗口的风险。两处 QML 陷阱（id 点号访问、MouseArea 层叠）都可静态判定。",
+            "id": "DX-102",
+            "note": "",
+            "scope": [
+                "scripts/check_qml_pitfalls.py",
+                "scripts/gui-uia-verify.ps1",
+                "tests/qml/tst_taskcard_actions.qml",
+                "tests/CMakeLists.txt",
+                ".github/workflows/ci.yml",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "交互回归判据与 GUI 实机验收通道沉淀"
+        },
+        "DX-103": {
+            "acceptance": [
+                "立卡发号含服务端占位：工具在本地锁内向 origin 推 refs/registrations/<短号>（新建 ref 的推送是原子 test-and-set），推成即占号，被拒即刷新占用集（本地台账 ∪ origin 台账 ∪ 占位全集）换号重试（上限 5 次），占位永久留痕即机器可校验的发号审计链",
+                "离线 fail-closed：ls-remote 不可达时不发号（exit 5），显式 --offline 才降级为暂定号并写入回执提示推送前重验",
+                "回执含 reservation.ref/sha，origin 上可查 refs/registrations/DX-99",
+                "--selftest 覆盖占位集解析/发号避开已占号/换号收敛（6 例），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
+                "端到端：本卡即经新程序立卡（DX-99，首个服务端占位真实创建），#DX-99=done 合并后 derive --check 绿、Board run 绿"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "DX-98"
+            ],
+            "evidence": "DX-98 的回执闸门只消除了「无凭证」，发号的跨机竞态仍在：文件锁只覆盖本机 worktree，跨机并发时卡号仍要等 commit 落到 origin/main 才真正归属（1.33/1.35 的同源残余）。仓库已有现成原子原语——领用占位 refs/claims/<短号> 的推送（双领被拒），把同一机制搬到发号即可闭环。",
+            "id": "DX-103",
+            "note": "",
+            "scope": [
+                "scripts/register_board_cards.py",
+                "AGENTS.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "发号跨机闭环：refs/registrations 服务端占位（原子 test-and-set）+ 换号重试"
+        },
+        "DX-104": {
+            "acceptance": [
+                "占位 sha 改为工具用 commit-tree 直造的唯一 off-main 空提交（免钩子，parent=HEAD，微秒时间戳保证唯一）：ref 尖端不在任何主线历史里，任何人的 HEAD 都不可能是它的后代，异 sha 重推必因 non-fast-forward 被拒，plain push 即严格仅创建，不依赖 force-with-lease 语义",
+                "回执 reservation.sha 记录该占位提交",
+                "--selftest 6 例仍全绿，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
+                "pre-push 钩子对 refs/registrations/* 豁免「必须已合并 main」判定（与 refs/claims 同类：服务端占用 ref 非分支推送），占位推送直达 origin",
+                "端到端：本卡即经修复版程序立卡（DX-104），origin 占位 refs/registrations/DX-104 指向 off-main 唯一提交，#DX-104=done 合并后 derive --check 绿"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "DX-103"
+            ],
+            "evidence": "DX-103 的占位指向注册时的 HEAD（主线历史提交）。实测发现洞：另一机器的 HEAD 只要是该提交在主线上的后代，plain push 即可快进顶掉占位而不被拒（本会话验证时占位 ref 被 HEAD 从 5298db1 快进到 ac10c63）——test-and-set 的「已存在必拒」失效，跨机竞态窗口重新打开。",
+            "id": "DX-104",
+            "note": "",
+            "scope": [
+                "scripts/register_board_cards.py",
+                ".githooks/pre-push",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "占位防顶掉：refs/registrations 指向唯一 off-main 空提交，异 sha 重推必 non-FF 被拒"
+        },
+        "DX-105": {
+            "acceptance": [
+                "台账新增顶层 numbering.mode（remote=默认，服务端占位跨机安全；local=仅本地锁+台账，无网络动作，适合单机/离线项目，跨机并发不受保护须文档写明）",
+                "优先级 CLI --mode 单次覆盖 > 台账 numbering.mode > 默认 remote；回执记录实际 mode",
+                "local 模式实测零网络调用（无 ls-remote / 无占位推送），remote 模式行为与 DX-103/104 完全一致",
+                "task_gate 把 numbering 变更计入任务定义（改它必须 chore(board) + 授权/批次），selftest 补放行/拦截两例",
+                "register --selftest 覆盖模式解析优先级（CLI>台账>默认、非法值拒绝），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
+                "端到端：本卡经程序立卡合并后 derive --check 绿、Board run 绿"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "DX-104"
+            ],
+            "evidence": "DX-103/104 的服务端占位是跨机安全的最强口径，但不是所有项目都需要：单机/离线项目（甚至没有 origin 的纯本地仓库）每次立卡都被 ls-remote fail-closed 拦死，不合理。发号强度应随项目协作形态可配，且配置本身必须进审计——否则「改配置绕过占位」就是新的洗白通道。",
+            "id": "DX-105",
+            "note": "",
+            "scope": [
+                "scripts/register_board_cards.py",
+                "scripts/task_gate.py",
+                "AGENTS.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "发号模式可配置：numbering.mode（remote 服务端占位 / local 仅本地）+ CLI 覆盖"
+        },
+        "DX-106": {
+            "acceptance": [
+                "git-done 对 main 恰 1 次 push：合并+清理/结卡/快照全部本地提交后一次推（verify 推送点断言改为恰 1），Board 每批收尾恰 1 个 run 且落点必为自洽 tip",
+                "fail-soft 重排有明确机制：收尾步骤失败时合并交付不被永久阻塞（如失败即先单独推合并再终止并告警），PATH 垫片注入演练复用 DX-96 技巧留档",
+                "non-ff 撞车重试保留且集中，变基冲突整体回滚不留半套",
+                "真实端到端 + fail-soft 演练全绿，derive --check 绿",
+                "AGENTS.md §7.3/§11.2-8 与 pitfalls 1.26 口径同步，DX-44 沉降按实测降级为纯双保险或移除"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "DX-96"
+            ],
+            "evidence": "DX-44 沉降是时序启发式（job 首步 sleep 30s），「job 比推送间隔久」靠余量维持：DX-96 演练实测手工锚点操作两推间隔 54s 已超 job ~40s，中间 run 先跑完按 failure 结算、无法再取消——漏发窗口缩到每批 1 次（仅合并）但未归零。唯一结构性归零途径是合并+清理/结卡/快照全合成一次 push：GitHub 只对 push 事件建 run，一次 push 仅在最终 tip 建 1 个 run，天然自洽、零中间态、不依赖任何时序余量。代价：合并交付与收尾耦合，DX-96 的「结卡失败不挡合并交付」fail-soft 语义必须重排并有替代机制。",
+            "id": "DX-106",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/verify.ps1",
+                "docs/pitfalls.md",
+                "AGENTS.md"
+            ],
+            "stage": "DX",
+            "title": "收尾零中间态：合并+收尾合成单次 push（A2b），fail-soft 语义重排"
+        },
+        "DX-107": {
+            "acceptance": [
+                "dry-run 撞合并冲突：退出前 abort 合并、删 merge/* 临时分支、切回进入时检出，工作区恢复干净",
+                "真实模式撞合并冲突：同样不残留 merge/* 临时分支与冲突态，且不吞掉用户未提交改动",
+                "verify.ps1 -GitDoneDryRun 在冲突分支上演练不再留现场（回归用例）",
+                "pitfalls 补现象/根因/解法条目",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-c",
+            "depends": [
+                "DX-106"
+            ],
+            "evidence": "DX-106 收尾实测两次撞 progress.json 合并冲突：git-done 冲突路径直接 exit 1，现场残留 merge/<slug> 临时分支与未合并冲突态，worktree 变脏、后续命令全部撞墙；dry-run 更矛盾——头部文档承诺「结束切回原分支、演练提交全部丢弃」，冲突退出同样不兑现，本次实测留下 merge/chore-board-dx-106-zip-push 残留需手工 merge --abort + branch -D。",
+            "id": "DX-107",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "合并冲突退出不回滚现场：冲突路径清理临时分支与冲突态，dry-run 承诺的回滚真正兑现"
+        },
+        "DX-108": {
+            "acceptance": [
+                "git-done 合并撞冲突且冲突文件仅为纯派生物（progress.json，可含 docs/board-ledger.json）时，自动完成「取主线版→完成合并→derive --write 重算→随收尾提交」，不要求人工介入",
+                "冲突含非派生文件（代码/其它文档）时行为不变：仍中止并给人工解决指引",
+                "dry-run 演练与真实收尾各验证一次冲突自动善后路径",
+                "pitfalls 补现象/根因/解法条目",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-c",
+            "depends": [
+                "DX-107"
+            ],
+            "evidence": "DX-106 收尾实测两次撞 progress.json 合并冲突，每次都要手工五步（merge --abort → 切回分支 → 合主线 → --ours 取版 → derive --write 重算 → 提交）才能继续收尾，步骤全靠人记且无任何脚本兜底。快照是派生产物（AGENTS §11.2：内容恒由 derive --write 按派生结果重算），内容冲突不存在需要人脑的语义合并——正确解恒为「任取一侧后重算」。DX-27 对台账同类问题已给出「本可语义合并」的剖析，快照侧因派生器幂等而更简单，可先行收口进 git-done 合并冲突路径。",
+            "id": "DX-108",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "progress.json 合并冲突派生善后：冲突文件为纯派生物时自动重算，五步人工善后收口进 git-done"
+        },
+        "DX-109": {
+            "acceptance": [
+                "分支删除改判「分支提交已全部进合并提交」（与 worktree 回收同锚点）或推送落地后补删，正常收尾后本地不再残留已合并分支",
+                "-KeepBranch 与 -DryRun 行为不变：保留分支的路径不受影响",
+                "真实收尾端到端一次，验证收尾完成后 git branch 清单无本次分支残留",
+                "pitfalls 补现象/根因/解法条目",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-c",
+            "depends": [
+                "DX-106"
+            ],
+            "evidence": "DX-106 把 worktree 回收挪到推送之前（单次推送时序），回收安全判据换成了「已进本次合并」，但分支删除那半边没跟上：branch -d 的安全判据是「已合并到 upstream（refs/remotes/origin/main）」，推送前恒假，git 拒删并留「not fully merged」提示——DX-106 实测每次收尾都在本地残留一支已合并分支，需手工 branch -d 清理。",
+            "id": "DX-109",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "单次推送下 branch -d 恒拒：分支删除判据换锚点，收尾不再残留已合并分支"
+        },
         "DX-11": {
             "acceptance": [
                 "scripts/dev-run.ps1 带 -Wait -AppArgs --selftest 运行时，在只有 build\\NeonBoard.exe（无 dist）的情况下返回 0，不再报「dist\\NeonBoard 与 build\\Release 均不存在」",
@@ -450,6 +711,48 @@
             ],
             "stage": "DX",
             "title": "开发启动链路：dev-run 认 Ninja 布局并自带 Qt 运行时"
+        },
+        "DX-110": {
+            "acceptance": [
+                "register_board_cards.py 在 stage 有陌生取值需要 roadmap 行时，把该行并入立卡提交（docs 路径豁免闸门），不再要求立卡会话在检出工作区手工补行——新立含新 stage 的卡跑通一次端到端：立卡提交含 roadmap 行、锚点不再因它留脏",
+                "Sync-AnchorWorktree 跳过原因精确分类：本地提交 / 已跟踪文件脏（逐个点名文件）/ 未跟踪冲突三种口径分开报，不再一律报「本地提交 / 未跟踪文件冲突」",
+                "Sync-AnchorWorktree 对「仅 iteration-roadmap.md 脏」的场景按 progress.json 同款 stash/还原/主线优先口径处理（工具产物与其它文件仍跳过不碰）",
+                "pitfalls 补根因链与实录",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-c",
+            "depends": [
+                "DX-108"
+            ],
+            "evidence": "2026-11-06 实测：锚点区 docs/iteration-roadmap.md 因 R19 行长期处于未提交修改态，git-done 锚点快进被连续跳过，本地 main 严格落后 origin/main（origin/main..main 为空但落后一串收尾提交）。根因链三条叠加：① 立卡工具对陌生 stage 强制「roadmap 有对应行」，却没有任何受控通道落这行——立卡会话（agent-r19，R19-1）把它写进锚点工作区，而锚点 pre-commit 禁 main 提交，该行永远无法入库；② Sync-AnchorWorktree 只 stash/还原 progress.json（git-done.ps1:383），遇其它已跟踪文件脏即整体放弃快进；③ 跳过原因分类（git-done.ps1:426）把「已跟踪文件本地修改、本地零提交」误报为「本地提交 / 未跟踪文件冲突」，误导排查（当日两个会话先后被带偏）。",
+            "id": "DX-110",
+            "note": "",
+            "scope": [
+                "scripts/register_board_cards.py",
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md",
+                "AGENTS.md"
+            ],
+            "stage": "DX",
+            "title": "锚点快进永久跳过：立卡 roadmap 行收进立卡提交，锚点同步脏文件判据与分类修正"
+        },
+        "DX-114": {
+            "acceptance": [
+                "三处越界探针全部收进语料边界：查重探针 stub 占用集事实源（ledger_card_ids/queued_card_ids/会话）或改用与生产号段隔离的自测卡段（如 TST-xx），投影补影探针 stub claim_refs 为空——断言不再依赖真仓库的台账/refs/活队列状态",
+                "验证口径改为环境无关：在本仓库真实环境（含并行会话的活队列/refs/claims/台账状态）跑 python scripts/nbflow.py --selftest 退出码 0，且在无 git 的临时目录同样退出码 0",
+                "docs/pitfalls.md 记条目：自测探针声称『不碰真仓库』就必须枚举并 stub 每一个外部事实读取，测试语料号段与生产号段必须隔离"
+            ],
+            "author": "agent-dx75",
+            "depends": [],
+            "evidence": "2026-11-06 agent-dx75 跑 DX-75 验收实录：nbflow --selftest 3 项失败（查重命中 ack 放行→请求单落盘 / 无命中直通 / 投影：台账未结卡缺会话补影）。分离变量实测：origin/main 版代码在同一 worktree 环境同样失败这 3 项（代码无罪），在无 git 临时目录全绿（环境致病）。机理：①查重探针用 cmd_request 走真实占用集（DX-92 并集读真台账∪活队列），语料卡号 DX-71/72/73 与真实已立卡撞车被『号已占用』拒收；②投影探针 stub 了 ledger_doc 却 stub 不了 claim_refs()，语料卡 DX-83 命中真实 refs/claims/DX-83（并行会话 fix/console-encoding-unify 的真实占位），会话被重建为 dispatched 而非 created。探针注释自称『语料全部注入，不碰真仓库』，与实际读取面不符。",
+            "id": "DX-114",
+            "note": "",
+            "scope": [
+                "scripts/nbflow.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "nbflow selftest 探针越界读真仓库：占用集与 claim_refs 让语料卡号与生产事实撞车，并行环境下恒假红"
         },
         "DX-12": {
             "acceptance": [
@@ -1746,7 +2049,7 @@
             ],
             "depends": [],
             "id": "DX-81",
-            "note": "触发证据：DX-64 把归因集合限定为「本分支 #卡=done 标记」（check_board_diff.py drift_explained 只吃 done 集合），但领卡（agent-init claims 登记 / nbflow dispatch）同样让派生状态变 doing 而快照留 todo——漂移同样由本分支自身动作解释、同样在合入时由 git-done 收敛，却仍红灯。本会话实录两次：DX-65、DX-36 领用后第一次 -ScriptOnly 均红于「todo → doing」，各手工 derive --write 一次；DX-67/DX-63 靠先提交 done 标记再 verify 绕开。归因判据应覆盖本分支自身动作的全体来源（done 标记 + claims 登记），不是只有最早踩坑的那一种。查重命中的 DX-64 已交付且验收只覆盖 done 半边，本卡是归因集合扩展非重复；DX-13/41/62 为 done/标记 词面噪声\n\n## 目标\n领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯\n\n## 验收\n漂移项可被本分支自身新增的 claims 登记（相对 base 的 claims diff 且派生状态为 doing）解释时降为提示（合入由 git-done 收敛），其余漂移维持非零退出;DX-64 的 done 标记归因口径回归不破（反例：与分支无关的真漂移仍红灯）;自测覆盖 claims 解释命中 / 无 claims 的 doing 漂移仍红 / done 与 claims 混合归因，verify -ScriptOnly 通过\n\n## 边界\nscripts/check_board_diff.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "note": "触发证据：DX-64 把归因集合限定为「本分支 #卡=done 标记」（check_board_diff.py drift_explained 只吃 done 集合），但领卡（agent-init claims 登记 / nbflow dispatch）同样让派生状态变 doing 而快照留 todo——漂移同样由本分支自身动作解释、同样在合入时由 git-done 收敛，却仍红灯。本会话实录两次：DX-65、DX-36 领用后第一次 -ScriptOnly 均红于「todo → doing」，各手工 derive --write 一次；DX-67/DX-63 靠先提交 done 标记再 verify 绕开。归因判据应覆盖本分支自身动作的全体来源（done 标记 + claims 登记），不是只有最早踩坑的那一种。查重命中的 DX-64 已交付且验收只覆盖 done 半边，本卡是归因集合扩展非重复；DX-13/41/62 为 done/标记 词面噪声\n\n## 目标\n领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯\n\n## 验收\n漂移项可被本分支自身新增的 claims 登记（相对 base 的 claims diff 且派生状态为 doing）解释时降为提示（合入由 git-done 收敛），其余漂移维持非零退出;DX-64 的 done 标记归因口径回归不破（反例：与分支无关的真漂移仍红灯）;自测覆盖 claims 解释命中 / 无 claims 的 doing 漂移仍红 / done 与 claims 混合归因，verify -ScriptOnly 通过\n\n## 边界\nscripts/check_board_diff.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）\n\n## 交付（2026-11-06 · agent-dx81 / fix/dx81-claims-doing-attribution）\n`check_board_diff.py` 归因证据从单一 `#卡=done` 扩为两路：本分支 `base..HEAD` 的 done 标记 ∪ 本分支相对 base 新增、且派生状态为 doing 的 claims（复用 `derive_status` / `claims_doing` / `status_of`，不复制判定；任一环节取不到即返回空集，维持红灯）。两路都解释不了的漂移仍非零；CI 在 main 上 `base..HEAD` 为空，口径不变。`--selftest` 新增 claims 命中 / 无 claims 反例 / done+claims 混合归因断言；`docs/pitfalls.md` 2.22 补口。实测：`python scripts/check_board_diff.py --base origin/main` EXIT=0（输出 `claims doing：DX-81` 提示）；`pwsh -File scripts/verify.ps1 -ScriptOnly` EXIT=0。",
             "scope": [
                 "scripts/check_board_diff.py",
                 "docs/pitfalls.md"
@@ -1977,7 +2280,7 @@
             ],
             "depends": [],
             "id": "DX-94",
-            "note": "触发证据：2026-11-06 agent-dx74 领 DX-74（裸 git 取值清理）实录：.agent-env.ps1 注入的 NB_SCOPE（git-done/verify/pitfalls/AGENTS）与 NB_ACCEPTANCE 均为 DX-88 契约。根因 agent-init.ps1:528 ledgerPath=Join-Path repoRoot，而 repoRoot=scriptRepoRoot（:82，锚点）；锚点 main 停在分叉 45e1e93，其 DX-74 是改名前旧收尾补推卡（主线上已改配 DX-88）。领用重开门判据读 origin/main（derive --stuck-codes --ledger-ref origin/main），两处口径分裂；agent 不逐字核对就会拿错契约开工，check_scope 必拒、白干一轮。\n\n## 目标\nagent-init 卡契约注入读锚点本地台账：锚点过时/分叉即注入过期契约，与 origin/main 重开门判据口径分裂\n\n## 验收\n卡契约注入（NB_SCOPE/NB_ACCEPTANCE/NB_DEPENDS）数据源改为 origin/main 台账，与 stuck-codes 重开门判据同源；台账读取单一实现落 Python 侧（derive_board_status.py 新增契约输出子命令），agent-init 经落盘文件按字节读消费（规避 git show 管道 GBK 解码坑）;worktree 与 -InPlace 两条路径走同一契约源；复现实验归零：分叉锚点（本地 main 45e1e93 含旧 DX-74）下 agent-init -Card DX-74 注入的 scope/acceptance 与 origin/main 台账 DX-74 逐字一致，证据落卡片 note;docs/pitfalls.md 记条目：锚点检出台账是共享陈旧投影，读台账必须声明读哪一份并与领用判据同源;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/agent-init.ps1;scripts/derive_board_status.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "note": "触发证据：2026-11-06 agent-dx74 领 DX-74（裸 git 取值清理）实录：.agent-env.ps1 注入的 NB_SCOPE（git-done/verify/pitfalls/AGENTS）与 NB_ACCEPTANCE 均为 DX-88 契约。根因 agent-init.ps1:528 ledgerPath=Join-Path repoRoot，而 repoRoot=scriptRepoRoot（:82，锚点）；锚点 main 停在分叉 45e1e93，其 DX-74 是改名前旧收尾补推卡（主线上已改配 DX-88）。领用重开门判据读 origin/main（derive --stuck-codes --ledger-ref origin/main），两处口径分裂；agent 不逐字核对就会拿错契约开工，check_scope 必拒、白干一轮。\n\n## 目标\nagent-init 卡契约注入读锚点本地台账：锚点过时/分叉即注入过期契约，与 origin/main 重开门判据口径分裂\n\n## 验收\n卡契约注入（NB_SCOPE/NB_ACCEPTANCE/NB_DEPENDS）数据源改为 origin/main 台账，与 stuck-codes 重开门判据同源；台账读取单一实现落 Python 侧（derive_board_status.py 新增契约输出子命令），agent-init 经落盘文件按字节读消费（规避 git show 管道 GBK 解码坑）;worktree 与 -InPlace 两条路径走同一契约源；复现实验归零：分叉锚点（本地 main 45e1e93 含旧 DX-74）下 agent-init -Card DX-74 注入的 scope/acceptance 与 origin/main 台账 DX-74 逐字一致，证据落卡片 note;docs/pitfalls.md 记条目：锚点检出台账是共享陈旧投影，读台账必须声明读哪一份并与领用判据同源;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/agent-init.ps1;scripts/derive_board_status.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）\n\n## 交付（2026-11-06 · agent-dx94 / fix/agent-init-contract-origin-main）\n`derive_board_status.py` 新增 `--contract <短号> --out <文件>`：只认 `--ledger-ref`（默认 `origin/main`），\n`extract_contract` 纯函数投影 scope/acceptance/depends；`agent-init.ps1` 的 NB_SCOPE / NB_ACCEPTANCE /\nNB_DEPENDS 注入改调该子命令，结果落盘后按 UTF-8 字节读（`[System.IO.File]::ReadAllText`），\n不再读检出本地台账、不经 PS 管道解码；worktree 开区与 -InPlace 共用同一段代码。\n读不到契约显式告警跳过，不回落本地陈旧副本。`docs/pitfalls.md` §2.28 收录现象/根因/解法/一般化。\n\n复现实验（本会话实测，等价替代原验收第 4 条）：原场景「锚点 main 分叉 45e1e93 + 领 DX-74」\n已不存在（DX-74 已结卡、锚点与主线同点）。改为在 agent-dx94 工作区把本地\n`docs/board-ledger.json` 的 DX-94 三字段改成 SENTINEL/... 后重跑\n`agent-init.ps1 -Agent agent-dx94 -Card DX-94 -InPlace`：`.agent-env.ps1` 注入的\nNB_SCOPE = `scripts/agent-init.ps1;scripts/derive_board_status.py;docs/pitfalls.md`，\nNB_ACCEPTANCE 与 origin/main 台账 435 字符逐字一致，全文件不含 SENTINEL；本地台账随后还原。\n临时 git 仓库「ref 台账真值 + 工作区台账 SENTINEL」分叉实验固化为 `derive --selftest` 契约源 3 例。\n\n验收：`derive_board_status.py --selftest` 48 例全过（新增 7 例）；`verify.ps1 -ScriptOnly` EXIT=0\n（快照漂移 todo→done 由本分支 #DX-94=done 标记解释，合入收尾由 git-done 收敛）；\n`task_gate.py selftest` 34 例、`check_claim_refs.py --selftest` 14 例、\n`check_board_diff.py --selftest` 全过。已完成 6 / 待做 0。",
             "scope": [
                 "scripts/agent-init.ps1",
                 "scripts/derive_board_status.py",
@@ -2000,6 +2303,88 @@
             ],
             "stage": "DX",
             "title": "remote 模式收尾在结卡前只清一次占位：本次合并自身的重写占位（baseline 此刻仍 todo）打不中判据 B，每次合并仍新增僵尸"
+        },
+        "DX-96": {
+            "acceptance": [
+                "git-done remote 模式收尾：合并推送（保留 fail-soft：单独先推）之后，清理登记/结卡/快照三步在本地生成提交并一次性 push origin HEAD:main，收尾补推由 3 次降为 1 次；三步任一本地失败只告警不阻断已完成的合并推送",
+                "一次真实 git-done 端到端 EXIT=0；gh run list --workflow=board.yml --branch main --limit 6 中该批收尾 Board run ≤ 2（合并 + 收尾），且 0 个 failure（叠加已合入的 DX-44 沉降）",
+                "fail-soft 不回退：人为让结卡/快照本地失败的演练中，合并仍被推送、脚本只告警、main tip 的 Board run 按既有提示报红可补跑",
+                "scripts/verify.ps1 增加收尾补推次数断言（dry-run 下统计对 main 的 push 调用次数 ≤ 2 并打印所在检出/分支），接入常规验收；pwsh -File scripts/verify.ps1 全量通过",
+                "docs/pitfalls.md 补一条「多步收尾分次 push 是中间态 run 之源：合并补推 + 沉降双保险」；AGENTS.md §7.3 收尾流程同步 push 次数"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "DX-44"
+            ],
+            "evidence": "DX-44（job 首步沉降等待）已止血并实测 0 封失败邮件，但属时序补丁：job 时长与推送间隔仍靠 sleep 余量赛跑，且每批收尾 4 次 push 触发 4 个 Board run（3 个注定被取消），CI 抖动与 runner 占用被放大。根因：git-done 收尾把 清理登记/结卡/快照 各自单独 push origin HEAD:main（git-done.ps1 推送点 L726/L867/L932/L151）。治本：合并推送后把这三步在本地生成提交、一次性 push（收尾补推 3→1），叠加 DX-44 沉降使 Board run 4→2、0 failure。A2b（合并+收尾全合成 1 次 push、零中间态 run）列二期，需重排 fail-soft 语义。注：本卡曾以 DX-74 立卡但推送未及落地，卡号被并发会话占用，遂重立为 DX-96。",
+            "id": "DX-96",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/verify.ps1",
+                "docs/pitfalls.md",
+                "AGENTS.md"
+            ],
+            "stage": "DX",
+            "title": "git-done 收尾补推 3→1：清理/结卡/快照合成单次 push，配合 DX-44 沉降降低 Board 中间态 run"
+        },
+        "DX-97": {
+            "acceptance": [
+                "qml/components/TaskCard.qml 的 inner 声明 z: 1：rg -n 'z: 1' qml/components/TaskCard.qml 命中，且该值小于光扫层 z: 4 与键盘指示条 z: 10（rg -n 'z: 4' 与 rg -n 'z: 10' 两处层级不变）",
+                "Qt 6.8.3 qmltestrunner 最小复现（两兄弟 MouseArea 层叠）：内容层 z 取 1 后点 22x22 按钮，按钮 MouseArea 收到 1 次 click 且整卡 MouseArea 收到 0 次，点卡片空白区整卡 MouseArea 仍收到 1 次，cardMouse.containsMouse 为 true",
+                "沙箱实机（NEONBOARD_DATA_DIR 指向新目录）：悬停卡片后点 ✓ 卡转入已办结列，点 ✕ 卡片消失且 Ctrl+Z 可撤销，双击仍进详情抽屉，卡片仍可拖拽跨列",
+                "pwsh -File scripts/verify.ps1 全过（build + ctest + --selftest + --smoke），--smoke 日志无 QML 错误"
+            ],
+            "depends": [],
+            "id": "DX-97",
+            "note": "起因（2026-11-06 维护者反馈截图）：卡片右上角 ✓ / ✕ / ▶ 悬停能显示，点击却没有任何效果。根因在 qml/components/TaskCard.qml 的层叠：actions 在 inner 内，虽然自己写了 z: 3，但 z 只在同一父级内比较；inner 与覆盖全卡的 cardMouse 同为 card 的直接子项且 z 均为 0，cardMouse 声明在 inner 之后，于是它压在最上层，把按钮 MouseArea 的 press 全吃掉，只触发 selectionRequested() 选中卡片。信号链本身（completeRequested / restoreRequested / deleteRequested → BoardColumn → Main.qml → taskUndo.moveTask / deleteTaskWithUndo）与键盘 Space / Delete 都正常。Qt 6.8.3 qmltestrunner 最小复现实测：默认结构点按钮，按钮收到 0 次 click，整卡 MouseArea 收到 1 次。目标：让 actions 的点击落在按钮 MouseArea 上，同时保留整卡 hover 渐显、双击编辑、拖拽与选中语义。边界：只改 qml/components/TaskCard.qml 的层级声明，不改按钮信号链、不动数据结构、不引入新依赖与新测试基建。 已完成 4 / 待做 0 —— 实际修复两处：① inner 加 z: 1（低于光扫 z: 4、选中条 z: 10），让 actions 的 press 落到按钮 MouseArea；② 实机日志 qrc:/qt/qml/NeonBoard/TaskCard.qml:236 暴露第二处根因：playSweep 里 sweepBand.sweepAnimation.restart() 是 id 的点号访问，恒为 undefined，抛 TypeError 后 card.busy 永久为 true 把卡片锁死，改为直接 id sweepAnimation.restart()。逐条验收：① rg 断言 inner z: 1 且光扫 / 选中条层级不变 ✅；② Qt 6.8.3 qmltestrunner 最小复现 10 例全过（按钮点击 1 次 / 整卡 0 次、卡片空白区点击、双击、拖拽，以及 id 点号访问抛错与直接 id 可用）✅；③ 沙箱实机（NEONBOARD_DATA_DIR 隔离 + UIA 定位）：hover 出现三颗按钮，点 ✓ 卡片进已办结列，点 ✕ 卡片消失，Ctrl+Z 撤销回来，双击出「编辑 / 关闭 / 打开编辑器」详情抽屉，拖拽跨列待办→进行中 ✅；④ pwsh -File scripts/verify.ps1 全过（编译 8.3 s / ctest 37 项 / --selftest / --smoke / 模块守卫 / 看板一致性）✅。路线图 §9.3 DX 段无本卡专属验收项，按卡片 acceptance 逐条核对。影响：仅 qml/components/TaskCard.qml 6 行，信号链与数据结构未动。遗留（不在本卡 scope）：scripts/agent-init.ps1 生成 .agent-env.ps1 时不转义验收项里的单引号，含单引号的 acceptance 会让 dot-source 语法报错；本次只在本 worktree 本地转义修复（未入库），脚本修复留后续卡。",
+            "scope": [
+                "qml/components/TaskCard.qml"
+            ],
+            "stage": "DX",
+            "title": "卡片快捷动作按钮点击失效：整卡 MouseArea 吞掉 press"
+        },
+        "DX-98": {
+            "acceptance": [
+                "立卡只能通过 python scripts/register_board_cards.py --form … --authorized-by … 完成：五段式表单校验、git 通用目录跨 worktree 锁内发号 max+1、生成含卡片规范 JSON sha256 的回执 docs/card-requests/registered/<短号>.json，写盘后 derive --write/--check 自校验",
+                "手工通道关闭：commit-msg 阶段新增卡无回执或哈希不符即拒绝（task_gate），git-done 自动结卡通道（仅 baseline、自动来源）不受影响",
+                "task_gate.py --selftest 覆盖回执三态（有回执通过/缺回执拒绝/哈希篡改拒绝），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
+                "AGENTS.md 立卡条款改写为程序唯一入口并同步提交拆分指引，docs/pitfalls.md 收录 DX-74/96 卡号竞态证据",
+                "端到端：本卡即由程序立卡，实现分支提交 #DX-98=done 经 git-done 合并，收尾 Board run 绿"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [],
+            "evidence": "DX-74/DX-96 实测：立卡靠手工改 board-ledger.json，卡号=扫描时点 max+1、无预占机制，commit 落到 origin/main 前号都不算数；DX-74 被两个会话先后使用（本会话立卡未及推送，并发会话用同号立了另一张卡并已结卡）。授权链也只靠提交信息里的「授权：/批次：」两行自证，无机器可校验的凭证。",
+            "id": "DX-98",
+            "note": "",
+            "scope": [
+                "scripts/register_board_cards.py",
+                "scripts/task_gate.py",
+                "scripts/check_scope.py",
+                "scripts/verify.ps1",
+                "docs/pitfalls.md",
+                "AGENTS.md"
+            ],
+            "stage": "DX",
+            "title": "立卡程序化：register_board_cards.py 唯一入口 + 回执闸门关闭手工改台账通道"
+        },
+        "DX-99": {
+            "acceptance": [
+                "生成的 .agent-env.ps1 对含单引号的 acceptance 可被 PowerShell 7 正常 dot-source 且退出码 0",
+                "NB_ACCEPTANCE 与台账 acceptance 逐字一致（含单引号与中文），用 python 读台账与生成文件比对",
+                "PowerShell Parser 对含单引号/双引号/中文分号三类验收项生成的脚本解析无语法错误",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [],
+            "evidence": "2026-11-06 本会话领用 DX-97 后 dot-source .agent-env.ps1 实测 ParserError（第 11 行「表达式或语句中包含意外的标记 z:」），NB_CARD / NB_SCOPE / NB_ACCEPTANCE 全为空。根因是 scripts/agent-init.ps1 把 acceptance 用半角分号拼进单引号字符串却未转义单引号，而 DX-97 验收项含 rg -n 加引号的 z: 1。本次只在该 worktree 本地把单引号双写绕过，脚本本身未修。",
+            "id": "DX-99",
+            "note": "2026-11-06 交付：agent-init 生成 .agent-env.ps1 时对 NB_SCOPE / NB_ACCEPTANCE / NB_DEPENDS 统一经 Format-PsSingleQuoted 转义（单引号双写）。验证：临时仓库合成含单引号（rg 'z: 1'，与 DX-97 同形）、双引号、中文分号与环境变量的验收项，跑 agent-init 后生成的 .agent-env.ps1 经 PowerShell 7 Parser 0 错误、独立 pwsh dot-source 退出码 0、NB_ACCEPTANCE 与台账逐字一致（脚本比对）；真实 worktree 跑 pwsh -File scripts/verify.ps1 -ScriptOnly EXIT=0。",
+            "scope": [
+                "scripts/agent-init.ps1"
+            ],
+            "stage": "DX",
+            "title": "agent 契约注入转义：含单引号的验收项不再让 .agent-env.ps1 语法报错"
         },
         "M01": {
             "acceptance": [
@@ -3052,6 +3437,177 @@
             "stage": "R11",
             "title": "空态与细节反馈：空列表有引导，筛选有回声"
         },
+        "R11-10": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "9 个自绘浮层全部改用 DialogShell 或 DrawerShell，位置收敛为居中弹窗或右侧抽屉两种形态，头 / 体 / 底结构一致",
+                "qml/components/PluginPermissionDialog.qml 的遮罩点击只关闭不表态，拒绝必须点显式「拒绝」按钮",
+                "qml/components/PluginPermissionDialog.qml 遮罩关闭后插件仍能再次触发权限请求（拒绝路径显式可达，无不可撤销的误操作）",
+                "README.md 的界面描述与实现一致（浮层位置与权限弹窗行为）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "R11-09"
+            ],
+            "evidence": "docs/design/ui-relayout-spec.md §3.4 与 §3.5（原型 docs/design/dialogs.html）；现状 9 个自绘 Rectangle 浮层（CommandPalette / AppearancePanel / PluginPanel / PluginLibraryPanel / PreviewPanel / ProjectMapPanel / ColumnManager / OnboardingOverlay / PluginPermissionDialog）位置各不相同 —— 插件面板锚右下角、外观面板锚标题栏下方、项目全景锚右侧；PluginPermissionDialog.qml:44-52 的遮罩点击等同「拒绝」，误点窗口外空白即永久拒绝该插件的权限请求且无撤销入口。",
+            "id": "R11-10",
+            "note": "已交付（2026-11-06）：9 个自绘浮层全部改用 DialogShell 或 DrawerShell —— 命令面板 / 插件库 / 预览中心 / 新手引导 / 权限授权为居中弹窗（lg 720 / lg 720 / lg 720 / md 560 / sm 440），外观 / 插件面板 / 项目全景 / 列管理为右侧抽屉（320）；原先三处不一致的位置（插件面板锚右下角、外观面板锚标题栏下方、项目全景锚右侧）统一收敛，头 / 体 / 底结构一致。插件库按规格 §3.4 改成已装 / 可装左右两栏；外观面板主题预设改 3 列色卡网格；项目全景的二级内容在抽屉内展开（带返回出口）；列管理条目统一「拖把手 + 名称 + 计数 + 操作」。权限弹窗遮罩点击 / Esc / 关闭键改为只关闭不表态：后端新增 releasePermissionPrompt 清掉「已提示」标记，插件下次调用该能力仍会再次弹窗，拒绝必须点显式的「拒绝」按钮。预览中心补「未推送提交」提示位（数据取自 PreviewHub 新增的 unpushed 字段，从已有的 git status --porcelain=v2 --branch 输出里解析，不额外跑 git 进程）。README 已同步。待做：无。",
+            "scope": [
+                "qml/components/CommandPalette.qml",
+                "qml/components/AppearancePanel.qml",
+                "qml/components/PluginPanel.qml",
+                "qml/components/PluginLibraryPanel.qml",
+                "qml/components/PreviewPanel.qml",
+                "qml/components/ProjectMapPanel.qml",
+                "qml/components/ColumnManager.qml",
+                "qml/components/OnboardingOverlay.qml",
+                "qml/components/PluginPermissionDialog.qml",
+                "qml/Main.qml",
+                "qml/components/ThemePicker.qml",
+                "src/plugin/PluginRuntime.h",
+                "src/plugin/PluginRuntime.cpp",
+                "src/board/PreviewHub.h",
+                "src/board/PreviewHub.cpp",
+                "README.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排 3/3：9 个自绘浮层迁移到统一壳 + 权限弹窗遮罩行为修正"
+        },
+        "R11-11": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "qml/Main.qml 的 execQueueDialog 队列区有常驻表头行（列名固定在列表上方，列表滚动时表头不动）",
+                "qml/Main.qml 队列行 delegate 高度为 40（grep \"height: 40\" 在 execQueueDialog 段命中 1，grep \"height: 56\" 命中 0）",
+                "qml/Main.qml 队列容器高度按行数 × 40 预留（grep \"rows.length \\* 40\" 命中 1，grep \"rows.length \\* 62\" 命中 0）",
+                "README.md 与 docs/iteration-roadmap.md 的界面描述与实现一致（执行队列有固定表头、行高 40 px）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "R11-10"
+            ],
+            "evidence": "规格 docs/design/ui-relayout-spec.md §3.4 落位表 execQueueDialog 行写「lg 720；表头固定；队列行高统一 40 px」。R11-10 只迁了壳（lg 720 已落地），表头与行高两条子项没做：现状 qml/Main.qml:3697 队列行 delegate 写死 height: 56、qml/Main.qml:3672 容器按 rows.length * 62 + 16 预留、列表上方只有一条分隔线没有表头行，规格与实现不一致。",
+            "id": "R11-11",
+            "note": "已交付（2026-11-06，提交 db77d4d）：执行队列补规格 §3.4 落位表剩的两条子项 —— 表头固定（任务 / 状态 / 操作三列，列宽与数据行逐列对齐；表头放在 ListView 之外，列表滚动时不动） + 队列行高统一 40 px（行间距 0、行下细线分隔）。状态标签从副信息提为独立列，耗时 / 角色 / agent / 错误仍留在副信息行，信息不丢。实测（临时埋点，跑完已回滚）：入队 3 条时行高 40、表头行高 18；grep \"height: 56\" 命中 0、\"rows.length * 62\" 命中 0、\"rows.length * 40\" 命中 1。待做：无。",
+            "scope": [
+                "qml/Main.qml",
+                "README.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排收尾 1/2：执行队列补固定表头与 40 px 行高"
+        },
+        "R11-12": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "docs/design/ui-relayout-verify.md 存在且含 17 行界面核验记录（grep -c '^| [0-9][0-9] |' docs/design/ui-relayout-verify.md 输出 17），每行给出界面名 / 形态（居中弹窗或右侧抽屉）/ 壳宽 / 头固定 / 底固定 / 关闭行为",
+                "qml/components/PluginPermissionDialog.qml 的遮罩点击 / Esc / 右上角关闭键三条路径关闭后插件仍能再次触发权限请求（断言 pluginRuntime.missingPermissions(pluginId) 仍非空），三条路径各记一行进 ui-relayout-verify.md",
+                "未推送提交数在「有 upstream 且领先 N 个提交」时预览面板徽章显示 N、无 upstream 的仓库不显示徽章，两种情形记进 ui-relayout-verify.md",
+                "核验暴露的功能缺陷在本卡 scope 内修复，scope 外的缺陷如实写进 ui-relayout-verify.md 的「遗留问题」一节不掩盖",
+                "核验用的临时埋点不进交付物（git diff origin/main..HEAD -- qml/Main.qml 不含「临时埋点」字样）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "R11-10"
+            ],
+            "evidence": "R11 三批（R11-8 / R11-9 / R11-10）落地后有三处只走代码没跑真实流程：①权限弹窗「误点遮罩后仍能再次触发权限请求」是本轮唯一的语义变更（规格 §3.5），实现上三条关闭路径都汇到 PluginPermissionDialog 的 onClosed → pluginRuntime.releasePermissionPrompt，但从未实测过；②规格第 2 批验收写「17 个界面逐个打开，头 / 底位置一致，Esc 与关闭键行为一致」，实际只程序化打开过 5 个（设置 / 外观 / 插件库 / 执行队列 / 新建任务），其余 12 个没验；③PreviewHub 的 unpushed 从 git status 的「# branch.ab +N」解析，只在干净仓库上跑过（恒为 0），非零路径未验证。本机无 Orca CLI、拿不到 GUI 截图，核验靠程序化埋点 + 应用日志取证。",
+            "id": "R11-12",
+            "note": "已交付（2026-11-06，提交 7440933）：R11 规格全量核验，结论与实测值落 docs/design/ui-relayout-verify.md。①17 个界面逐个打开（真实入口、带真实参数），量到形态 / 壳宽（440 / 560 / 720 / 抽屉 320）/ 头底固定 / 关闭行为，17 行齐全；②权限弹窗三条关闭路径端到端实测：受权限门控的能力被拒后仍能再次触发弹窗，遮罩 / 关闭键 / Esc 三条路径关闭后权限仍未授权且再次触发都会再弹（走 PluginHost.storageSet → PluginContext::require → 宿主 permissionRequested 全链路）；③未推送提交数实测 0 / 2 / 4 / -1 四种取值，有 upstream 领先时显示数字、无 upstream 的分离头为 -1 且不渲染徽章。核验抓出并修掉一个既有缺陷：qml/components/PluginPanel.qml 给 Text 赋 selectByMouse（Text 无此属性），QML 报错使整个插件面板加载失败、抽屉打不开（由 R16-04 引入，非 R11 引入），改用只读 TextEdit 后恢复；该修复需扩 scope，已按 DX-10 单独走一条 chore(board) 契约变更（37da984），契约与实现分开提交。待做：无（遗留见核验文档第五节：Main.qml:1621 的 EmptyState 锚点告警是既有、不在范围内；Esc 未做真实按键注入，依据壳内 closePolicy 与组件内 Keys.onEscapePressed 的代码路径；视觉观感需人工确认）。",
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/PluginPermissionDialog.qml",
+                "qml/components/PreviewPanel.qml",
+                "qml/components/PluginPanel.qml",
+                "src/board/PreviewHub.cpp",
+                "src/board/PreviewHub.h",
+                "docs/design/ui-relayout-verify.md",
+                "README.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排收尾 2/2：规格全量核验（权限弹窗流程 / 17 个界面逐个 / 未推送提交数）"
+        },
+        "R11-13": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "启动应用后应用日志中「Cannot anchor to an item that isn't a parent or sibling」命中 0（当前主线实测命中 1，命令行与日志路径记进 docs/design/ui-relayout-verify.md 供复现）",
+                "qml/Main.qml 中 EmptyState 与 boardRow 同属 boardArea 容器（grep -c \"id: boardArea\" qml/Main.qml 命中 1，且 EmptyState 块落在该容器定义范围内），锚定目标变成合法兄弟节点",
+                "空态落点实测：把看板筛空后量到 EmptyState 的中心落在 boardRow 区域内、偏差 ≤ 2 px，实测数值记进 docs/design/ui-relayout-verify.md（临时埋点不进交付物：git diff origin/main..HEAD -- qml/Main.qml 不含「临时埋点」字样）",
+                "docs/design/ui-relayout-verify.md 的「遗留问题」一节对 EmptyState 的条目改为准确归因（R11-07 引入 / R11-8 未修 / 本卡已修），全文不再出现「origin/main 即有的告警，不是 R11 引入的」字样",
+                "docs/iteration-roadmap.md 补 R11-13 行且描述与实现一致"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "R11-12"
+            ],
+            "evidence": "复盘 R11-12 的核验记录时，发现 docs/design/ui-relayout-verify.md「遗留问题」一节把 Main.qml:1621 的 QML EmptyState 锚定告警归因为「origin/main 即有的告警，不是 R11 引入的，不在本轮范围内」—— 该归因经 git 溯源与实测证伪，且它是一个真实的界面缺陷，不是一行噪音。① 溯源：qml/components/EmptyState.qml 与 Main.qml 里唯一的 EmptyState 使用点均由 R11-07（9d92d45 feat(ui): 新增统一空态组件…#R11-07=done）引入，且引入时 anchors.centerIn: boardRow 就已非法（当时 boardRow 是空态兄弟节点 RowLayout 的子级）；R11-8（c98fbd0）把空态上移一层后仍然非法 —— 即缺陷在 R11 轮次内引入、从未生效过。② 结构：按括号配对解析 origin/main:qml/Main.qml，EmptyState 的父级是窗口主体 Rectangle（L924），boardRow 是它下面第三层 RowLayout（L1088 → L1210 → L1424），而 QML 只允许锚到父级或兄弟，这一锚必然失效。③ 实测：用当前主线代码启动应用，日志打出 Main.qml:1621:9: QML EmptyState: Cannot anchor to an item that isn't a parent or sibling.。④ 后果：一比一复现（同样的父子结构）量到空态落在 es.x=0 es.y=0，期望居中是 (220,240) —— 用户把看板筛空时，空态面板出现在窗口左上角，而不是代码注释写的「浮在看板正中间」。⑤ 验收未兑现：R11-12 的验收项原文有一条「核验暴露的功能缺陷在本卡 scope 内修复，scope 外的缺陷如实写进 ui-relayout-verify.md 的「遗留问题」一节不掩盖」，而 R11-12 的 scope 明确含 qml/Main.qml —— 该缺陷是核验暴露的、修复点在 scope 内，却被以「不是 R11 引入的」为由结卡，属这条验收项没有兑现。",
+            "id": "R11-13",
+            "note": "",
+            "scope": [
+                "qml/Main.qml",
+                "docs/design/ui-relayout-verify.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排收尾 3/3：修 EmptyState 锚定缺陷（空态浮到窗口左上角）+ 订正核验记录的归因"
+        },
+        "R11-8": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "qml/Main.qml 顶区合并为单一工具行加可收起热力图条，热力图收起时顶区竖直占用 ≤ 150 px",
+                "qml/Main.qml 侧栏宽 200 px 且导航项不含「设置」，设置入口改为标题栏右上角齿轮按钮（Accessible.name 含「设置」）；qml/Main.qml 侧栏不再有插件库常驻卡片，插件信息不再出现在侧栏（浏览 / 安装 / 卸载走插件库面板，插件目录 / 市场源 / 重新扫描归设置 → 插件，由 R11-9 落地）",
+                "qml/components/ActivityHeatmap.qml 暴露 collapsed 属性且默认收起",
+                "qml/components/TaskCard.qml 的元信息行不显示调试 id（grep「卡片槽位 ·」命中 0）；qml/components/ThemePicker.qml 的齿轮按钮改为打开设置面板而非外观面板",
+                "README.md 的界面描述与实现一致（设置入口位置、侧栏宽度、顶区结构）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [],
+            "evidence": "docs/design/ui-relayout-spec.md §1.1 与 §2（原型 docs/design/index.html 竖直预算视图）；现状顶区竖直占用 264 px（标题栏 40 + 标题统计行 40 + 项目行 48 + 阶段行 48 + 热力图 80），760 px 窗口下看板只剩 476 px；侧栏常驻「工作台」标题块、「设置」导航项与插件库卡片，使插件信息在侧栏与插件库面板两处重复。",
+            "id": "R11-8",
+            "note": "已交付（2026-11-06，提交 c98fbd0）：顶区合并为单一工具行（项目切换 / 里程碑条 / 搜索框合并，搜索框右侧带 Ctrl K 提示）；活跃热力横幅默认收起（展开态 54 px / 收起态 28 px 摘要条）；侧栏去掉「工作台」标题块、去掉「设置」导航项、删掉插件库常驻卡片，宽度 220 → 200；专注按钮迁到标题栏；设置入口改为标题栏右上角齿轮（Ctrl+, 不变）；卡片元信息去掉调试串。实测顶区竖直占用 145 px（≤ 150 达标），760 px 宽窗口下看板可视高度多出 100 px 以上。待做：无。",
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/ActivityHeatmap.qml",
+                "qml/components/TaskCard.qml",
+                "qml/components/ThemePicker.qml",
+                "README.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排 1/3：主界面竖直重排（顶区 264 → 128 px）"
+        },
+        "R11-9": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "新增 qml/components/DialogShell.qml（头固定 / 体滚动 / 底固定）与 qml/components/DrawerShell.qml（右侧抽屉），尺寸档 sm 440 / md 560 / lg 720 / drawer 320 全部按 Math.min(档位, 窗口宽 - 80) 收敛",
+                "qml/theme/Theme.qml 补齐 7 个弹窗令牌（dialogSm 440 / dialogMd 560 / dialogLg 720 / dialogPad 20 / scrim 0.62 / drawer 320 / shadow）",
+                "TaskComposer / SettingsPanel / CardDetailPanel / ThemeMarketPanel 与 Main.qml 内联 Dialog 全部改用 DialogShell，头与底位置一致且底部按钮右对齐",
+                "qml/components/SettingsPanel.qml 拆出左侧分页导航，插件目录 / 市场源 / 重新扫描归「插件」分页，6 个分页均可切换",
+                "qml/Main.qml 行数 ≤ 4260（check_module_deps 行数守卫）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "R11-08"
+            ],
+            "evidence": "docs/design/ui-relayout-spec.md §3 与 §4.2（原型 docs/design/dialogs.html）；现状 17 个弹窗无统一壳：4 个真 Dialog（TaskComposer / SettingsPanel / CardDetailPanel / ThemeMarketPanel）与 4 个 Main.qml 内联 Dialog 各自写头写底，头底随内容滚走；13 个二级界面面板各自写死 rgba 底色与圆角，与 Theme 令牌阶梯脱钩。",
+            "id": "R11-9",
+            "note": "已交付（2026-11-06）：新增 qml/components/DialogShell.qml（头固定 / 体滚动 / 底固定 + 右上角统一关闭键 + 底栏右对齐 + 头部右侧插槽 + 底栏说明）与 qml/components/DrawerShell.qml（右侧抽屉，自绘遮罩 + 点击穿透防护 + 底栏右槽）；Theme.qml 补 7 个令牌 —— 令牌名按规格 §4.2 写（dialogWidthSm 440 / dialogWidthMd 560 / dialogWidthLg 720 / drawerWidth 320 / dialogPadding 20 / scrimOpacity 0.62 / shadowDialog），与本卡验收里的简写名（dialogSm / dialogMd / dialogLg / dialogPad / scrim / drawer / shadow）是同一组 7 个值，只是命名口径不同；TaskComposer / CardDetailPanel / ThemeMarketPanel / SettingsPanel 与 Main.qml 的 4 个内联 Dialog 全部改用 DialogShell，头固定、底固定、底部按钮右对齐；SettingsPanel 拆出左侧 160 px 固定分页导航 + 6 个分页（热键与自动化 / 数据与备份 / 外观与动效 / 任务执行 / 插件 / 关于），插件目录 / 市场源 / 重新扫描归「插件」分页，「打开插件库」入口仍发 openLibraryRequested 信号。实测 qml/Main.qml 4034 行（≤ 4260 达标），verify.ps1 全过（ctest 39/39 + --selftest / --smoke 退出码 0）。待做：无。",
+            "scope": [
+                "qml/components/DialogShell.qml",
+                "qml/components/DrawerShell.qml",
+                "qml/theme/Theme.qml",
+                "qml/components/SettingsPanel.qml",
+                "qml/components/TaskComposer.qml",
+                "qml/components/CardDetailPanel.qml",
+                "qml/components/ThemeMarketPanel.qml",
+                "qml/Main.qml",
+                "CMakeLists.txt",
+                "README.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排 2/3：统一弹窗壳（DialogShell / DrawerShell 落地 + 8 个 Dialog 迁移）"
+        },
         "R12-01": {
             "acceptance": [
                 "pwsh -File scripts/verify.ps1 全过（build + ctest + selftest + smoke）",
@@ -3449,6 +4005,33 @@
             ],
             "stage": "R18",
             "title": "无台账仓库一键接入：绑定时生成 board-ledger/progress 脚手架，既有文件不覆盖"
+        },
+        "R19-1": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R \"tst_workflowpresets|tst_workflow\" --output-on-failure 通过，新增用例覆盖：TaskExec::isKnownRole 认识 retro、六条内置预设角色序在 qa 之后插入 retro（两处 presetSteps/builtinPresets 断言一致）、小规模裁剪可裁 retro 且 isProtectedRole 不含 retro",
+                "WorkflowRunner 用例：retro 步 prompt 含三段式交付物要求（问题清单/根因/程序化对策）、retro handoff 落盘 .neonboard/handoff/<task>/retro.md、链失败时 retro 仍执行且其失败只告警不改变链 failed 结论（fail-soft）",
+                "buildSummary 产出含「复盘结论」段并引用 retro handoff 路径（纯函数断言）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "pwsh -File scripts/verify.ps1 全量通过"
+            ],
+            "author": "agent-retro",
+            "depends": [
+                "R7-04"
+            ],
+            "evidence": "2026-11-06 维护者会话。现状：角色链（R7-03/04）所有预设到 qa / orchestrator 为止，链失败即 fail-fast 收口，orchestrator 的 summary 只有一句「回到 engineer 重跑」；执行过程中碰到的问题不落任何结构化产物，下次同类任务还会踩。维护者要求让 agent 干完活后自省、并把问题沉淀为程序化对策（对应 AGENTS.md Z6「踩坑两次沉淀成机器判据」）。",
+            "id": "R19-1",
+            "note": "",
+            "scope": [
+                "src/agent/WorkflowPresets.cpp",
+                "src/agent/WorkflowPresets.h",
+                "src/agent/WorkflowRunner.cpp",
+                "src/agent/WorkflowRunner.h",
+                "src/task/TaskExec.cpp",
+                "src/task/TaskExec.h",
+                "tests/"
+            ],
+            "stage": "R19",
+            "title": "workflow 新增 retro 复盘步骤：agent 干完活后自省并沉淀程序化对策"
         },
         "R2-01": {
             "acceptance": [
@@ -4725,6 +5308,119 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "DX-113": {
+            "acceptance": [
+                "check_board_diff.py 区分契约字段与交付说明：只改 cards[*].note 不判 full（维持 derive 档），改 stage/scope/acceptance 仍判 full（反例不破），分类逻辑抽纯函数进 --selftest",
+                "verify.ps1 -ScriptOnly 在「实现提交 + 交付说明提交」的最终分支态也 EXIT=0，端到端回归用例覆盖（造两提交分支跑轻档），不再靠挑时态",
+                "docs/task-card.md 与 AGENTS.md 写明交付说明的提交与验收档位口径（单独 docs(board) 提交、判哪一档、卡片验收项该写什么），消除 agent 自证空间",
+                "docs/pitfalls.md 记一条现象/根因/解法，点名 DX-94/DX-81/R11-11-12 三处同型",
+                "python scripts/check_board_diff.py --selftest 与 pwsh -File scripts/verify.ps1 -ScriptOnly 全绿，task_gate.py selftest 不回归"
+            ],
+            "author": "agent-dx94-retro / 维护者 2026-11-06 会话「立卡」批准",
+            "depends": [],
+            "evidence": "DX-94 交付实测：实现提交 8505f61（含 #DX-94=done）跑 check_board_diff.py --base origin/main 判 derive、-ScriptOnly EXIT=0；追加 docs(board): 补 DX-94 交付说明（540f9c9，仅改 cards[DX-94].note）后同一命令判 full、EXIT=2，verify.ps1 -ScriptOnly 直接 Fail「台账的 cards 结构有变化，-ScriptOnly 不足以验收」。为拿到轻档绿只能 detached 回实现提交跑，卡片 note 却只写「verify.ps1 -ScriptOnly EXIT=0」、未说明时态——验收口径不可机器复核。根因：check_board_diff.py:53 的 CARD_FIELDS 把 note 与 stage/title/scope/acceptance 同列，diff_cards 比整个 card dict，note 一变即判「改动既有卡片的契约」；但 note 是交付说明，不改 tst_projectmap 读的阶段/范围/roadmap 行，与契约字段不同权。同型非个例：DX-81（9ba62fd）、R11-11/12（1be772b）都把交付说明单独成 docs(board) 提交，靠各 agent 沿用惯例绕过，跑过哪一档无人可追溯。",
+            "id": "DX-113",
+            "note": "",
+            "scope": [
+                "scripts/check_board_diff.py",
+                "scripts/verify.ps1",
+                "docs/task-card.md",
+                "AGENTS.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "交付说明 note 提交被判「改契约」：full 档与 -ScriptOnly 验收口径分裂，agent 只能挑时态自证"
+        },
+        "DX-115": {
+            "acceptance": [
+                "nbflow approve 对新增卡的落盘步骤改走 register_board_cards.py（消费同一回执机制，Z5 单一写者），立卡提交含回执、commit-msg 放行；或按宪章显式退役 nbflow 立卡路径：request 保留（dedup/授权仍有效），approve 直接拒绝并打印 register_board_cards.py 指引，杜绝退出码 9 的暗失败",
+                "端到端实测任一方案：nbflow 侧发起一张演练请求，立卡最终合入 main 且 docs/card-requests/registered/ 出现对应回执",
+                "AGENTS.md 立卡条款与 nbflow 文档段同步实际口径（谁是唯一入口、另一个的角色）；pitfalls 记条目：同一职责出现两个程序时，闸门只认一个，另一个必须随闸门迁移或显式退役，不迁移不退役的第三个程序就是下一次的退出码 9"
+            ],
+            "author": "agent-dx75",
+            "depends": [
+                "DX-98"
+            ],
+            "evidence": "2026-11-06 agent-dx75 实录：nbflow request DX-112 → approve 两连拒，board-apply 在 fresh origin/main 检出的 chore worktree 里 git commit 被 commit-msg 拒（退出码 9）：『新增卡 DX-112 无立卡回执：手工改台账立卡通道已关闭（DX-97），只能用 register_board_cards.py』。DX-98（f99e483）落地后 task_gate 新增 receipt_problems 闸门，而 nbflow/board-apply 不产回执——两个立卡程序只被闸门认识一个，nbflow 的 request/dedup/授权机器全链变孤儿。DX-112 已 abandon 改走 register 正道（真实卡 DX-114 落地）。同一职责两个程序、闸门只认其一，另一个不迁移也不退役，Z5 现实版。",
+            "id": "DX-115",
+            "note": "",
+            "scope": [
+                "scripts/nbflow.py",
+                "AGENTS.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移"
+        },
+        "DX-111": {
+            "acceptance": [
+                "台账支持弃单终态（建议 baseline=abandoned，命名实现时定）：弃单卡 agent-init 拒领（退出码明确）、派生器 --check 不再对它报漂移、--close-cards 不误碰；弃单结案走 chore(board) 人工授权行通道（baseline-only），自动来源行不适用；task_gate selftest 增用例：弃单结案放行，冒充弃单改定义拒绝；存量弃单卡 DX-43、R0-12 经维护者确认后按新终态结案，提交体带授权与批次两行；python scripts/task_gate.py selftest 与 python scripts/derive_board_status.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-flowguard",
+            "depends": [],
+            "evidence": "DX-43 note 已记弃单（nbflow 让位）仍挂 todo 可被重领；R0-12 弃卡处置 2026-11-06 已获维护者批准但无通道执行；DX-62 同款「可被重复领用」风险的弃单变体——交付型漂移已有 DX-62 兜，弃单型滞留无人管",
+            "id": "DX-111",
+            "note": "",
+            "scope": [
+                "scripts/agent-init.ps1",
+                "scripts/derive_board_status.py",
+                "scripts/task_gate.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用"
+        },
+        "DX-112": {
+            "acceptance": [
+                "nbflow 立卡工作区回收失败（如 Permission denied）自动重试至少 2 次，仍失败落显式待回收记录（state.json 或 receipts），status 点名，不再只打一行「不影响主线」；agent-workspace.ps1 -Action Check 点名 .worktrees/ 下未注册目录与根下散落产物（dx61-verify.log 类），当前 main 上 agent-dx35、dx41、dx42、dx47-close、agent-memrev 全部被点名；点名只报告不删除（§7.10 回收由人拍板）；.gitignore 点名 .worktrees/*.log；python scripts/nbflow.py --selftest 全过（回收重试用例入自测），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-flowguard",
+            "depends": [],
+            "evidence": "2026-11-06 会话实录：nbflow approve 收尾 worktree remove Permission denied 静默降级，_nbflow-board-2026-11-06 目录与 chore/board-2026-11-06 分支残留；.worktrees/ 下 5 个未注册目录（agent-dx35/dx41/dx42/dx47-close/agent-memrev）与 dx61-verify*.log 靠人肉 ls 发现。与 DX-66（开区半途回滚）、DX-109（分支删除判据）互补，本卡只管回收侧追踪与体检点名",
+            "id": "DX-112",
+            "note": "",
+            "scope": [
+                "scripts/nbflow.py",
+                "scripts/agent-workspace.ps1",
+                ".gitignore",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现"
+        },
+        "DX-116": {
+            "acceptance": [
+                "Push-Main 全部重试耗尽且单独推合并也失败时，不打印「✓ 合并完成」，改为打印失败总结（留在本地的 head 与下次合并的恢复指引），退出码非 0；回执 head 字段只记已落地的提交，推送失败时 head 置空或标 pushed=false，mergedInto 不写 origin/main，杜绝回执虚报；负测：打桩让两次推送均拒，断言无「合并完成」行且回执 head 为空，推送成功路径不回归（现有验收仍绿）；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-flowguard",
+            "depends": [],
+            "evidence": "2026-11-06 会话实录：chore/board-dx111-dx112 的合并提交 c016431 推送撞 non-ff、重试变基冲突 abort 后，git-done 继续打印「✓ 合并完成：chore/board-dx111-dx112 → origin/main」（git-done.ps1:1252 无条件打印）且回执记录 head=c016431/mergedInto=origin/main，而 c016431 从未成为 origin/main 祖先（ls-remote 实证），假成功让收尾失败静默漂移。与 DX-78（重试与检出归位）、DX-58（closed 字段诚实性）互补，本卡管「总结行与 head 字段按推送事实」",
+            "id": "DX-116",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印"
+        },
+        "DX-119": {
+            "acceptance": [
+                "nbflow approve --cards 能在 DX-98 闸门下完成立卡（回执由 approve 链路生成并随提交落库），全程不再依赖绕过；board-apply 的 task_gate/钩子拒绝输出透传到 approve 的可见输出（无缓冲吞没），失败可诊断；预演 --diff 与落盘口径一致（预演过闸 = 落盘过闸）；python scripts/nbflow.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-flowguard",
+            "depends": [],
+            "evidence": "2026-11-06 会话实录：nbflow authorize/request 正常，approve 三连败——临时区里 board-apply --commit 的立卡提交被 commit-msg 钩子以「无立卡回执」拒绝（DX-98 的 f99e483 上线后），board-apply 把钩子 stderr 捕获后仅在自身退出路径打印，stdout 块缓冲把报错吞掉，nbflow 只见「立卡失败（退出码 9）」无法诊断；并行会话已全部改走 register_board_cards.py（DX-107~109 实录）。修法二选一：approve 内部改调 register_board_cards.py，或其立卡提交把回执一并生成入提交；无论哪种，board-apply 的钩子拒绝输出必须透传",
+            "id": "DX-119",
+            "note": "",
+            "scope": [
+                "scripts/nbflow.py",
+                "scripts/board-apply.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9"
         }
     },
     "claims": {

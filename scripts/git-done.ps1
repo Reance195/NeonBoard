@@ -55,6 +55,11 @@ $ErrorActionPreference = 'Stop'
 # 裸 `[string](& git ...)` 模式已被 check_script_hygiene 规则 E 禁止。
 . (Join-Path $PSScriptRoot 'git-helpers.ps1')
 
+# 控制台 UTF-8 编码唯一口径（DX-77/DX-83）：收尾捕获 python 子进程（derive/board-apply）的
+# UTF-8 输出不再按 GBK 解码转发（§2.6/§2.20 同类的收口）
+. (Join-Path $PSScriptRoot 'nb-console.ps1')
+Set-NbUtf8Console
+
 # 宪章 §7.3：原生命令会往 stderr 写进度（git 的 "Switched to a new branch"、worktree/branch
 # 的删除提示、fetch 的计数），在 $ErrorActionPreference='Stop' 下 `2>&1` 会把这些行升级成
 # 终止性错误 —— 命令其实成功了也能把脚本拦腰打断（本次就卡在「创建临时分支」那一步，
@@ -88,6 +93,88 @@ function Invoke-Git {
 # 失败不抛，由调用方按 Code 自行处置（探测类命令用这里）
 function Invoke-GitQuiet { param([string[]]$GitArgs) return Invoke-Cmd -File 'git' -CmdArgs $GitArgs }
 
+# 删除「提交已全部进本次合并」的分支（DX-109）：DX-106 的单次推送把删除挪到推送之前，
+# 而 `branch -d` 的安全判据是「已合并到 upstream（refs/remotes/origin/main）」—— 此刻
+# origin/main 还没含本次合并，判据恒假，git 必然以 "not fully merged" 拒删，每次收尾都
+# 残留一支已合并分支。判据改成与 worktree 回收同锚点：分支提交是否已全部进本次合并
+# （--no-ff 合并就是收纳证据）。确认后必须用 -D：-d 会再跑一遍同一套 upstream 检查，
+# 照样误拒。返回 $true = 已删除或本来就不存在；$false = 保留（未进本次合并 / 被占用）。
+function Remove-MergedBranch {
+    param([string]$Name, [string]$AnchorCommit)
+    $exists = Invoke-GitQuiet @('rev-parse', '--verify', '--quiet', "refs/heads/$Name")
+    if ($exists.Code -ne 0) {
+        Write-Host ("· 分支 {0} 已不存在，跳过删除" -f $Name) -ForegroundColor DarkGray
+        return $true
+    }
+    $ahead = -1
+    $aheadRes = Invoke-GitQuiet @('rev-list', '--count', $Name, '--not', $AnchorCommit)
+    if ($aheadRes.Code -eq 0) {
+        $first = $aheadRes.Output | Select-Object -First 1
+        if ($first) { [void][int]::TryParse($first.ToString().Trim(), [ref]$ahead) }
+    }
+    if ($aheadRes.Code -ne 0 -or $ahead -ne 0) {
+        if ($aheadRes.Code -ne 0) {
+            Write-Host ("· 保留分支 {0}：无法核对提交是否已全部进本次合并" -f $Name) -ForegroundColor Yellow
+            $aheadRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+        } else {
+            Write-Host ("· 保留分支 {0}：还有 {1} 个提交不在本次合并提交里" -f $Name, $ahead) -ForegroundColor Yellow
+        }
+        return $false
+    }
+    $delRes = Invoke-GitQuiet @('branch', '-D', $Name)
+    $delRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+    if ($delRes.Code -eq 0) { return $true }
+    Write-Host ("· 保留分支 {0}：可能仍被某个 worktree 占用（先 git worktree remove 再删）" -f $Name) -ForegroundColor Yellow
+    return $false
+}
+
+# 冲突退出回滚现场（DX-107）：合并撞冲突时，不把 merge/* 临时分支、未合并冲突态和
+# 「停在临时分支上的检出」留给下一条命令。所有动作都是非破坏性的 —— abort 用
+# `git merge --abort`（等价 reset --merge，保留用户未提交改动），归位用 switch，
+# 删分支用 branch -D；绝不 reset --hard / checkout -- .，用户的改动一律不碰。
+# 任一步失败只告警并给出手工命令，不做二次破坏；已成功的步骤逐条打印，便于对账。
+function Restore-ConflictScene {
+    param(
+        [string]$EntryRef,     # 进入时的符号引用；空串表示分离 HEAD
+        [string]$EntryHead,    # 进入时的 HEAD（EntryRef 为空时按它回分离 HEAD）
+        [string]$TempBranch    # 本次创建的 merge/* 临时分支；空串表示无（local 模式）
+    )
+    $mergeHead = Invoke-GitQuiet @('rev-parse', '-q', '--verify', 'MERGE_HEAD')
+    if ($mergeHead.Code -eq 0) {
+        $abort = Invoke-GitQuiet @('merge', '--abort')
+        if ($abort.Code -ne 0) {
+            $abort.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+            Write-Host '✗ git merge --abort 失败：冲突态仍在，未归位也未删临时分支，请手工：git merge --abort' -ForegroundColor Red
+            return
+        }
+        Write-Host '· 冲突现场：git merge --abort 已完成（未提交改动原样保留）' -ForegroundColor DarkGray
+    } else {
+        Write-Host '· 冲突现场：合并未真正开始（无 MERGE_HEAD），跳过 abort' -ForegroundColor DarkGray
+    }
+
+    $target = if ($EntryRef) { $EntryRef } else { $EntryHead }
+    $backArgs = if ($EntryRef) { @('switch', $EntryRef) } else { @('switch', '--detach', $EntryHead) }
+    $back = Invoke-GitQuiet -GitArgs $backArgs
+    if ($back.Code -ne 0) {
+        $back.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+        Write-Host ("· 警告：切回 {0} 失败（可能有未提交改动），请手工：git switch {1}" -f $target, ($backArgs -join ' ')) -ForegroundColor Yellow
+        return
+    }
+    Write-Host ("· 冲突现场：已切回 {0}" -f $target) -ForegroundColor DarkGray
+
+    if ($TempBranch) {
+        $exists = Invoke-GitQuiet @('rev-parse', '--verify', '--quiet', "refs/heads/$TempBranch")
+        if ($exists.Code -eq 0) {
+            $del = Invoke-GitQuiet @('branch', '-D', $TempBranch)
+            if ($del.Code -eq 0) {
+                Write-Host ("· 冲突现场：已删除临时分支 {0}" -f $TempBranch) -ForegroundColor DarkGray
+            } else {
+                Write-Host ("· 警告：临时分支 {0} 删除失败，请手工：git branch -D {0}" -f $TempBranch) -ForegroundColor Yellow
+            }
+        }
+    }
+}
+
 # 网络动作打桩（DX-50）：-DryRun 下 fetch / push 不执行、只留痕，返回成功形态让调用方
 # 走「成功」分支 —— 演练的是时序，不是网络。真实调用一律走 Invoke-GitQuiet。
 function Invoke-NetGit {
@@ -97,6 +184,13 @@ function Invoke-NetGit {
         return [pscustomobject]@{ Code = 0; Output = @('[dry-run] 桩') }
     }
     return Invoke-GitQuiet -GitArgs $GitArgs
+}
+
+# 对 main 的唯一推送点（DX-106）：合并提交与三步收尾提交全部落本地后**一次**推上 main，
+# Board 每批收尾只建 1 个 run 且落点必为自洽 tip。fail-soft 回退（收尾提交整体回滚后
+# 单独推合并）与主路径共用这里 —— 任何路径上对 main 的推送语句只有这一处。
+function Push-Main {
+    return Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
 }
 
 # 收尾时序断言（DX-50）：三步自动提交（claims 清理 / 结卡 / 快照）必须发生在分离 HEAD 上 ——
@@ -133,11 +227,11 @@ function Sync-BoardSnapshot {
         Write-Host '· 警告：派生器未能刷新快照（见上）。board.yml 只校验不回写（R14-01），这份落差只能等下次合并补' -ForegroundColor Yellow
         return $false
     }
-    # 无变化不落盘，绝不产生空提交
+    # 无变化不落盘，绝不产生空提交。返回值语义（DX-96）=「本次是否产生了待推提交」。
     $snapDirty = @((Invoke-Git status --porcelain -- progress.json) | Where-Object { $_ -match 'progress\.json$' })
     if ($snapDirty.Count -eq 0) {
         Write-Host '· 快照：派生结果与现有快照一致，无需提交' -ForegroundColor DarkGray
-        return $true
+        return $false
     }
     Assert-DryCloseStep -Step '快照提交'
     Invoke-GitQuiet @('add', 'progress.json') | Out-Null
@@ -150,34 +244,14 @@ function Sync-BoardSnapshot {
         Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'progress.json') | Out-Null
         return $false
     }
-    for ($i = 1; $i -le 3; $i++) {
-        $snapPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
-        if ($snapPush.Code -eq 0) {
-            if ($DryRun) {
-                Write-Host '✓ [dry-run] 快照：本地已提交（未推送）' -ForegroundColor Green
-            } else {
-                Write-Host ('✓ 快照：派生状态已同步并推上 {0}' -f $MainBranch) -ForegroundColor Green
-            }
-            return $true
-        }
-        if ($i -eq 3) {
-            Write-Host '· 警告：快照推送重试 3 次仍失败，本地回滚，留待下次合并' -ForegroundColor Yellow
-            Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
-            return $false
-        }
-        Write-Host ("   · 快照推送被拒（第 {0} 次）：拉取主线变基后重试" -f $i) -ForegroundColor DarkGray
-        Invoke-NetGit @('fetch', 'origin', $MainBranch) | Out-Null
-        $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
-        if ($rb.Code -ne 0) {
-            # 快照的唯一事实源就是派生结果，重叠提交丢弃即可，绝不手工解冲突
-            Invoke-GitQuiet @('rebase', '--abort') | Out-Null
-            Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
-            Write-Host '· 警告：快照与主线撞车且无法变基，回滚，留待下次合并' -ForegroundColor Yellow
-            return $false
-        }
-        Start-Sleep -Seconds 5
+    # DX-106：快照提交不再独自补推 —— 留在本地，随合并+收尾单次推送（重试与回滚集中在
+    # Push-Main 处，撞 non-ff 时整体变基或回滚到 $closeoutBase 后单独推合并）。
+    if ($DryRun) {
+        Write-Host '✓ [dry-run] 快照：本地已提交（未推送）' -ForegroundColor Green
+    } else {
+        Write-Host '✓ 快照：派生状态已提交（随收尾一次性补推）' -ForegroundColor Green
     }
-    return $false
+    return $true
 }
 
 # 主 worktree（锚点区）永远是 `git worktree list --porcelain` 的第一块。
@@ -647,6 +721,7 @@ if ($Mode -eq 'remote') {
     # 读到的分支名是空串，判成「锚点区不在 main」直接跳过，本地 main 从此永远落后远端一步。
     # 先记住起点与「当前根是不是锚点」，收尾按它归位。
     $pristineBranch = Get-NbSymRef
+    $pristineHead = (Invoke-Git rev-parse HEAD).Trim()
     $anchorRoot = Get-AnchorWorktree
     $atAnchor = $false
     if ($anchorRoot) {
@@ -710,48 +785,63 @@ if ($Mode -eq 'remote') {
     $script:dryEntryRef = Get-NbSymRef
     if ($DryRun -and -not $script:dryEntryRef) { Write-Host '· [dry-run] 进入时已在分离 HEAD，结束时无可回滚' -ForegroundColor DarkCyan }
     Write-Host "· 基于 origin/$MainBranch 创建临时分支 $tmp" -ForegroundColor DarkGray
-    Invoke-Git switch -c $tmp "origin/$MainBranch" | Out-Null
-
-    Write-Host "· 合并 $Branch（--no-ff，保留分支合并痕迹）" -ForegroundColor DarkGray
-    try {
-        Invoke-Git merge --no-ff $Branch -m "merge: 合入 $Branch" | Out-Null
-    } catch {
-        Write-Host "`n✗ 合并冲突，请手工解决后继续：" -ForegroundColor Yellow
-        Write-Host $_.Exception.Message -ForegroundColor Yellow
-        Write-Host "`n解决后：git add -A ; git commit ; git push origin HEAD:$MainBranch`n" -ForegroundColor Yellow
+    $switchRes = Invoke-GitQuiet @('switch', '-c', $tmp, "origin/$MainBranch")
+    $mergeRes = $null
+    if ($switchRes.Code -eq 0) {
+        Write-Host "· 合并 $Branch（--no-ff，保留分支合并痕迹）" -ForegroundColor DarkGray
+        $mergeRes = Invoke-GitQuiet @('merge', '--no-ff', $Branch, '-m', "merge: 合入 $Branch")
+    }
+    $inConflict = ($switchRes.Code -eq 0) -and
+        ((Invoke-GitQuiet @('rev-parse', '--verify', '--quiet', 'MERGE_HEAD')).Code -eq 0)
+    if ($switchRes.Code -ne 0 -or ($mergeRes -and $mergeRes.Code -ne 0 -and -not $inConflict)) {
+        # DX-107：失败退出前先回滚现场 —— 不留 merge/* 临时分支、不留冲突态、不停在临时分支上；
+        # dry-run 承诺的「切回原分支」同样在这里兑现。
+        Restore-ConflictScene -EntryRef $pristineBranch -EntryHead $pristineHead -TempBranch $tmp
+        Write-Host "`n✗ 合并失败（非冲突），现场已回滚：" -ForegroundColor Yellow
+        if ($switchRes.Code -ne 0) { $switchRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow } }
+        if ($mergeRes) { $mergeRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow } }
         exit 1
     }
-
-    Write-Host "· 快进推送 $tmp → origin/$MainBranch" -ForegroundColor DarkGray
-    if ($DryRun) {
-        Write-Host "  [dry-run] 桩：git push origin HEAD:$MainBranch（不触网）" -ForegroundColor DarkCyan
-    } else {
-        try {
-            Invoke-Git push origin "HEAD:$MainBranch" | Out-Null
-        } catch {
-            Write-Host "`n✗ 推送主分支失败（多半是别人刚推了新提交）：" -ForegroundColor Yellow
-            Write-Host $_.Exception.Message -ForegroundColor Yellow
-            Write-Host "`n恢复步骤：`n  git fetch origin`n  git switch -c merge/retry origin/$MainBranch`n  git merge --no-ff $Branch -m `"merge: 合入 $Branch`"`n  git push origin HEAD:$MainBranch`n" -ForegroundColor Yellow
+    if ($inConflict) {
+        $conflicted = @((Invoke-GitQuiet @('diff', '--name-only', '--diff-filter', 'U')).Output |
+            Where-Object { $_ -and $_.ToString().Trim() -ne '' })
+        # DX-108：progress.json 是纯派生产物（AGENTS §11.2——唯一写者是收尾的 derive --write），
+        # 内容冲突不存在需要人脑的语义合并，正确解恒为「任取一侧后由派生器整体重算」。
+        # 台账 docs/board-ledger.json 承载任务定义（加卡/改契约要授权），**不是**纯派生物，
+        # 含它的冲突不进本通道，仍走人工。这里的 --ours 也不是 §7.5 禁止的盲解：
+        # 取来的内容不作为最终结果，收尾的 Sync-BoardSnapshot（derive --write）必然整体重算。
+        # 实测背景：DX-106 交付当日三次撞 progress.json 冲突，每次手工五步善后全靠人记。
+        $nonDerived = @($conflicted | Where-Object { ($_ -replace '\\', '/') -ne 'progress.json' })
+        if ($conflicted.Count -gt 0 -and $nonDerived.Count -eq 0) {
+            foreach ($f in $conflicted) { [void](Invoke-GitQuiet @('checkout', '--ours', '--', $f)) }
+            [void](Invoke-GitQuiet (@('add', '--') + $conflicted))
+            $mcRes = Invoke-GitQuiet @('commit', '--no-edit')
+            if ($mcRes.Code -eq 0) {
+                Write-Host ("· 快照冲突自动善后（DX-108）：冲突仅 progress.json（纯派生物），取主线版完成合并，收尾派生器整体重算（{0}）" -f ($conflicted -join '、')) -ForegroundColor DarkGray
+            } else {
+                Write-Host "`n✗ 快照冲突自动善后失败（完成合并提交被拒），请手工解决：" -ForegroundColor Yellow
+                $mcRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow }
+                Write-Host "`n解决后：git add -A ; git commit ; git push origin HEAD:$MainBranch`n" -ForegroundColor Yellow
+                exit 1
+            }
+        } else {
+            # DX-107：含非派生文件的冲突转人工，退出前同样回滚现场（不留冲突态与临时分支）。
+            Restore-ConflictScene -EntryRef $pristineBranch -EntryHead $pristineHead -TempBranch $tmp
+            Write-Host "`n✗ 合并冲突（含非派生文件，不自动善后），现场已回滚，请手工解决后重跑收尾：" -ForegroundColor Yellow
+            $mergeRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow }
+            $conflicted | ForEach-Object { Write-Host ("   冲突文件：{0}" -f $_) -ForegroundColor Yellow }
+            Write-Host "`n解决后：git add -A ; git commit ; 重跑 pwsh -File scripts/git-done.ps1 -Branch $Branch`n" -ForegroundColor Yellow
             exit 1
         }
     }
 
-    $merged = (Invoke-Git rev-parse HEAD).Trim()
+    # DX-106：合并先落本地，不单独推送 —— 与三步收尾提交合成对 main 的**唯一一次**推送
+    # （收口在 Push-Main），Board 每批收尾只建 1 个 run 且落点必为自洽 tip。
+    $mergedCommit = (Invoke-Git rev-parse HEAD).Trim()
     if ($DryRun) {
-        Write-Host ("✓ [dry-run] 合并在本地完成（未推送 origin/{0}，合并提交 {1}）" -f $MainBranch, $merged.Substring(0, 7)) -ForegroundColor Green
+        Write-Host ("✓ [dry-run] 合并在本地完成（合并提交 {0}，将随收尾一次推送 origin/{1}）" -f $mergedCommit.Substring(0, 7), $MainBranch) -ForegroundColor Green
     } else {
-        Write-Host ("✓ 已推送到 origin/{0}（{1}）" -f $MainBranch, $merged.Substring(0, 7)) -ForegroundColor Green
-    }
-
-    # 合并收尾：释放已合入主线的认领占位（refs/claims/*），避免永久残留误拦重新认领。
-    Invoke-ClaimRefCleanup -Main $MainBranch
-
-    if ($DryRun) {
-        Write-Host '· [dry-run] 跳过锚点同步（演练不碰锚点区）' -ForegroundColor DarkCyan
-    } elseif (-not $SkipAnchorSync) {
-        Sync-AnchorWorktree -Main $MainBranch -CurrentRoot $repoRoot
-    } else {
-        Write-Host '· 已跳过锚点同步（-SkipAnchorSync）' -ForegroundColor Yellow
+        Write-Host ("✓ 合并在本地完成（合并提交 {0}，将随收尾一次推送 origin/{1}）" -f $mergedCommit.Substring(0, 7), $MainBranch) -ForegroundColor Green
     }
 
     # ---- 4. 清理：先回收 worktree（解除分支占用），再删分支 ----
@@ -782,13 +872,16 @@ if ($Mode -eq 'remote') {
             Write-Host "· 目标 worktree 就是当前目录，跳过回收（请在其它目录执行 git worktree remove）" -ForegroundColor Yellow
         } elseif (Test-Path -LiteralPath $abs) {
             # 安全检查：删掉别人正在办的工作区是事故。两道判据都不成立才回收 ——
-            #   1) 还有未推送提交（说明它不是「已合入的尾巴」）；
+            #   1) 有提交没进本次合并（说明它不是「已合入的尾巴」）；
             #   2) 还有未提交改动（含 untracked），删了就没了。
-            # 本次分支刚合并并推送过，它的提交此刻已是 origin/<main> 的祖先，判据自然为 0。
+            # DX-106：单次推送下回收发生在推送**之前**，origin 上还没有这些提交 ——
+            # 旧的「未推送提交」判据（--not --remotes=origin）在这里恒真，会把每个
+            # 工作区都判成不可回收、永远留僵尸。改判「分支提交是否已全部进本次合并」：
+            # 刚做的 --no-ff 合并就在 $mergedCommit 里，不在其中的提交才是真会丢的东西。
             $unsafe = ''
             if (-not $RemoveWorktree) {
                 $ahead = 0
-                $aheadRes = Invoke-GitQuiet @('-C', $abs, 'rev-list', '--count', 'HEAD', '--not', '--remotes=origin')
+                $aheadRes = Invoke-GitQuiet @('-C', $abs, 'rev-list', '--count', 'HEAD', '--not', $mergedCommit)
                 if ($aheadRes.Code -eq 0) {
                     $first = $aheadRes.Output | Select-Object -First 1
                     if ($first) { [void][int]::TryParse($first.ToString().Trim(), [ref]$ahead) }
@@ -798,7 +891,7 @@ if ($Mode -eq 'remote') {
                     $dirtyRes = Invoke-GitQuiet @('-C', $abs, 'status', '--porcelain')
                     $dirtyNum = @($dirtyRes.Output | Where-Object { $_ -and $_.ToString().Trim() -ne '' }).Count
                 }
-                if ($ahead -gt 0) { $unsafe = "还有 $ahead 个未推送提交" }
+                if ($ahead -gt 0) { $unsafe = "有 $ahead 个提交未进本次合并" }
                 elseif ($dirtyNum -gt 0) { $unsafe = "还有 $dirtyNum 项未提交改动" }
             }
             if ($unsafe) {
@@ -823,10 +916,10 @@ if ($Mode -eq 'remote') {
         Write-Host ("· [dry-run] 保留分支 {0}（演练不删）" -f $Branch) -ForegroundColor DarkCyan
     } elseif (-not $KeepBranch) {
         Write-Host ("· 删除分支 {0}" -f $Branch) -ForegroundColor DarkGray
-        $delRes = Invoke-GitQuiet @('branch', '-d', $Branch)
-        $delRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
-        if ($delRes.Code -ne 0) {
-            Write-Host "   （分支可能仍被某个 worktree 占用，先 git worktree remove 再删）" -ForegroundColor DarkGray
+        # DX-109：判据换锚点（见 Remove-MergedBranch）—— 单次推送下删除在推送之前，
+        # `branch -d` 的 upstream 判据必然误拒。
+        if (Remove-MergedBranch -Name $Branch -AnchorCommit $mergedCommit) {
+            Write-Host ("✓ 已删除分支 {0}" -f $Branch) -ForegroundColor DarkGray
         }
     }
 
@@ -848,6 +941,11 @@ if ($Mode -eq 'remote') {
     if ($DryRun) { Write-Host '  [dry-run] 三步收尾前已 switch --detach（DX-26 时序）' -ForegroundColor DarkCyan }
     Invoke-GitQuiet @('branch', '-d', $tmp) | Out-Null
 
+    # DX-106：收尾提交栈底 = 本次合并提交。单次推送失败需整体回滚时回到这里 ——
+    # 回滚只丢弃收尾提交，随后**单独推送合并**（fail-soft 交付不被收尾拖住）。
+    $closeoutBase = (Invoke-Git rev-parse HEAD).Trim()
+    $hasCloseoutCommit = $false
+
     # 台账过期领用登记清理：服务端占位与认领分支此刻都已没了，投影条目留着只会让
     # 派生器每次报「分支已不存在」的噪声，而且要等下任何人领卡才被顺带清 ——
     # 收尾闭环应该由「合并 + 删分支」这个动作自己完成（AGENTS.md §7.2.1 释放义务）。
@@ -868,16 +966,12 @@ if ($Mode -eq 'remote') {
             $rcCommit.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
             Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/board-ledger.json') | Out-Null
         } else {
-            $rcPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
-            if ($rcPush.Code -eq 0) {
-                if ($DryRun) {
-                    Write-Host '✓ [dry-run] 台账领用登记清理：本地已提交（未推送）' -ForegroundColor Green
-                } else {
-                    Write-Host ('✓ 台账领用登记清理：{0} 已删除并推上 {1}' -f ($goneCodes -join '、'), $MainBranch) -ForegroundColor Green
-                }
+            # DX-106：提交留在本地，随合并+收尾单次推送（重试集中在 Push-Main 处）。
+            $hasCloseoutCommit = $true
+            if ($DryRun) {
+                Write-Host '✓ [dry-run] 台账领用登记清理：本地已提交（未推送）' -ForegroundColor Green
             } else {
-                Write-Host '· 台账领用登记清理：补推失败（离线 / 主线被推进），本地回滚，留待下次合并再清' -ForegroundColor Yellow
-                Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
+                Write-Host ('✓ 台账领用登记清理：{0} 已提交（随收尾一次性补推）' -f ($goneCodes -join '、')) -ForegroundColor Green
             }
         }
     }
@@ -930,43 +1024,83 @@ if ($Mode -eq 'remote') {
             $ccPending = @($closedCodes)
             Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/board-ledger.json') | Out-Null
         } else {
-            # 补推撞 non-ff（主线被并行会话推进）时自动恢复：重取 → 变基到 origin/main →
-            # 重推，上限 2 次；结卡提交只碰台账 baseline 行，变基冲突概率低，仍失败才回滚
-            # 挂起（DX-58：DX-57 实测一次竞态就丢了结卡且回执虚报）。
-            $ccPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
-            $ccRetry = 0
-            while ($ccPush.Code -ne 0 -and $ccRetry -lt 2) {
-                $ccRetry++
-                Write-Host ("· 结卡：补推撞 non-ff（第 {0} 次），重取主线变基后重试" -f $ccRetry) -ForegroundColor Yellow
-                Invoke-NetGit @('fetch', 'origin', '--prune') | Out-Null
-                $ccRebase = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
-                if ($ccRebase.Code -ne 0) {
-                    Write-Host '· 结卡：变基冲突，放弃重试' -ForegroundColor Yellow
-                    Invoke-GitQuiet @('rebase', '--abort') | Out-Null
-                    break
-                }
-                $ccPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
-            }
-            if ($ccPush.Code -eq 0) {
-                $ccLanded = @($closedCodes)
-                if ($DryRun) {
-                    Write-Host '✓ [dry-run] 结卡：本地已提交（未推送）' -ForegroundColor Green
-                } else {
-                    Write-Host ('✓ 结卡：{0} 的 baseline 已补为 done 并推上 {1}' -f ($closedCodes -join '、'), $MainBranch) -ForegroundColor Green
-                }
+            # DX-106：结卡提交留在本地，随合并+收尾单次推送；是否 landed 由这次推送统一裁定
+            # （DX-58 口径不变：closed 只记「推送已落地」的，其余进 pending）。
+            $hasCloseoutCommit = $true
+            if ($DryRun) {
+                Write-Host '✓ [dry-run] 结卡：本地已提交（未推送）' -ForegroundColor Green
             } else {
-                Write-Host '· 结卡：补推失败（离线 / 主线被推进 / 变基冲突），本地回滚——结卡挂起，待下次合并再结' -ForegroundColor Yellow
-                Invoke-GitQuiet @('rebase', '--abort') | Out-Null
-                Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
-                $ccPending = @($closedCodes)
+                Write-Host ('✓ 结卡：{0} 的 baseline 已补为 done（随收尾一次性补推）' -f ($closedCodes -join '、')) -ForegroundColor Green
             }
         }
+    }
+
+    # 快照刷新闭环（DX-13）：结卡改的是 baseline，快照是派生产物，必须单独重算一次。
+    # 放在结卡之后 —— 先改台账再派生，才能把刚结掉的卡写进快照。
+    # DX-96：返回值 =「本次是否产生了待推提交」；是则计入收尾单次补推。
+    $snapPending = Sync-BoardSnapshot -RepoRoot $repoRoot -MainBranch $MainBranch
+    if ($snapPending) { $hasCloseoutCommit = $true }
+
+    # ---- 合并+收尾单次推送（DX-106，A2b）----
+    # 合并提交与清理登记 / 结卡 / 快照的提交全部落在本地后，对 main 只推**一次**：
+    # Board 每批收尾只建 1 个 run，落点必为自洽 tip —— 中间态在结构上不存在，
+    # DX-44 的 cancel-in-progress 与沉降等待降级为纯双保险。
+    # 撞 non-ff 时重取变基重试（上限 3 次，DX-58 重试收口保留）；仍失败则整体回滚
+    # 收尾提交到 $closeoutBase，**单独推送合并**（fail-soft 重排：交付不被收尾拖住）。
+    $finalOk = $false
+    for ($i = 1; $i -le 3; $i++) {
+        $finalPush = Push-Main
+        if ($finalPush.Code -eq 0) { $finalOk = $true; break }
+        if ($i -eq 3) { break }
+        Write-Host ("· 推送被拒（第 {0} 次）：重取主线变基后重试" -f $i) -ForegroundColor Yellow
+        Invoke-NetGit @('fetch', 'origin', '--prune') | Out-Null
+        $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
+        if ($rb.Code -ne 0) {
+            Write-Host '· 推送重试：变基冲突，放弃重试' -ForegroundColor Yellow
+            Invoke-GitQuiet @('rebase', '--abort') | Out-Null
+            break
+        }
+    }
+    if ($finalOk) {
+        $ccLanded = @($closedCodes)
+        if ($DryRun) {
+            Write-Host '✓ [dry-run] 合并+收尾单次推送：桩成功（未触网）' -ForegroundColor Green
+        } else {
+            Write-Host ('✓ 单次推送：合并与清理/结卡/快照已一起推上 {0}（落点自洽 tip）' -f $MainBranch) -ForegroundColor Green
+        }
+    } else {
+        if ($hasCloseoutCommit) {
+            Write-Host '· 单次推送失败（离线 / 主线被推进 / 变基冲突）：整体回滚收尾提交到合并点，改为单独推送合并（fail-soft 交付）' -ForegroundColor Yellow
+            Invoke-GitQuiet @('reset', '--hard', $closeoutBase) | Out-Null
+        } else {
+            Write-Host '· 单次推送失败（离线 / 主线被推进 / 变基冲突）：改为单独推送合并（fail-soft 交付）' -ForegroundColor Yellow
+        }
+        $ccPending = @($closedCodes)
+        $mergePush = Push-Main
+        if ($mergePush.Code -eq 0) {
+            Write-Host '✓ 合并已单独推上 origin/main；收尾提交已回滚，留待下次合并' -ForegroundColor Yellow
+        } else {
+            Write-Host '· 合并也未能推送：全部留在本地，下次合并继续' -ForegroundColor Yellow
+        }
+    }
+
+    # 合并收尾：释放已合入主线的认领占位（refs/claims/*），避免永久残留误拦重新认领。
+    # DX-106：单次推送落地后才释放 —— 此刻本次合并的 head 才成为 origin/main 的祖先。
+    Invoke-ClaimRefCleanup -Main $MainBranch
+
+    if ($DryRun) {
+        Write-Host '· [dry-run] 跳过锚点同步（演练不碰锚点区）' -ForegroundColor DarkCyan
+    } elseif (-not $SkipAnchorSync) {
+        Sync-AnchorWorktree -Main $MainBranch -CurrentRoot $repoRoot
+    } else {
+        Write-Host '· 已跳过锚点同步（-SkipAnchorSync）' -ForegroundColor Yellow
     }
 
     # ---- 结单对账（DX-33）----
     # --close-cards 只处理「已经写了 =done 标记」的卡；没写的卡一张都不结，而原先收尾
     # 在这种情况下连一行提示都没有 —— 干完活、合并、全绿，卡还挂在 todo，下次有人接着领
     # 一遍重做。程序判不了 acceptance 满不满足，但「领了没结」是两份名单的差集，能判。
+    # DX-96：挪到单次补推之后 —— landed/pending 此刻才有最终答案。
     $missedCodes = @($claimedCodes | Where-Object { $ccLanded -notcontains $_ -and $ccPending -notcontains $_ })
     if ($claimedCodes.Count -gt 0) {
         Write-Host ''
@@ -1001,11 +1135,6 @@ if ($Mode -eq 'remote') {
             Write-Host '    确实没做完：让卡留在 todo，下次接着领。' -ForegroundColor Yellow
         }
     }
-
-
-    # 快照刷新闭环（DX-13）：结卡改的是 baseline，快照是派生产物，必须单独重算一次。
-    # 放在结卡之后 —— 先改台账再派生，才能把刚结掉的卡写进快照。
-    Sync-BoardSnapshot -RepoRoot $repoRoot -MainBranch $MainBranch | Out-Null
 
     # DX-95：747 行的清理跑在 release-claims / close-cards 之前 —— 本次合并自身的卡那时
     # baseline 还是 todo，判据 B（done 且无分支引用）必然 keep，rebase 重写占位漏释
@@ -1119,16 +1248,21 @@ if ($Mode -eq 'remote') {
 }
 
 # ---- local 模式：传统流程（需要能 checkout main） ----
-Write-Host "`n· 切换主分支 $MainBranch ..." -ForegroundColor Cyan
-Invoke-Git switch $MainBranch | Out-Null
-
-Write-Host "· 合并 $Branch（--no-ff）..." -ForegroundColor Cyan
+$localEntryRef = Get-NbSymRef
+$localEntryHead = (Invoke-Git rev-parse HEAD).Trim()
 try {
+    Write-Host "`n· 切换主分支 $MainBranch ..." -ForegroundColor Cyan
+    Invoke-Git switch $MainBranch | Out-Null
+
+    Write-Host "· 合并 $Branch（--no-ff）..." -ForegroundColor Cyan
     Invoke-Git merge --no-ff $Branch -m "merge: 合入 $Branch" | Out-Null
 } catch {
-    Write-Host "`n✗ 合并冲突，请手工解决：" -ForegroundColor Yellow
-    Write-Host $_.Exception.Message -ForegroundColor Yellow
-    Write-Host "`n解决后：git add -A ; git commit ; git branch -d $Branch`n" -ForegroundColor Yellow
+    $mergeError = $_.Exception.Message
+    # DX-107：local 模式同样不留冲突态、不停在 main 上（详见 Restore-ConflictScene）。
+    Restore-ConflictScene -EntryRef $localEntryRef -EntryHead $localEntryHead -TempBranch ''
+    Write-Host "`n✗ 合并冲突，现场已回滚（合并已 abort、已切回进入时检出）：" -ForegroundColor Yellow
+    Write-Host $mergeError -ForegroundColor Yellow
+    Write-Host "`n解决冲突后重跑：pwsh -File scripts/git-done.ps1 -Mode local`n" -ForegroundColor Yellow
     exit 1
 }
 
@@ -1138,8 +1272,12 @@ Invoke-ClaimRefCleanup -Main $MainBranch
 
 if (-not $KeepBranch) {
     Write-Host "· 删除分支 $Branch" -ForegroundColor DarkGray
-    Invoke-Git branch -d $Branch | Out-Null
-    Write-Host "✓ 已删除分支 $Branch" -ForegroundColor DarkGray
+    # DX-109：local 模式的分支同样跟踪 origin/main、合入的却是本地 main —— 与 remote 同一
+    # 病根，判据统一换成「已全部进本次合并（这里就是本地合并结果）」。
+    $localMergedCommit = (Invoke-Git rev-parse HEAD).Trim()
+    if (Remove-MergedBranch -Name $Branch -AnchorCommit $localMergedCommit) {
+        Write-Host "✓ 已删除分支 $Branch" -ForegroundColor DarkGray
+    }
 }
 
 # 开发区占用收尾释放（DX-05）：与 remote 模式同一口径

@@ -2,20 +2,64 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// 插件面板：按需加载。
+// 插件抽屉（R11-11）：展示当前插件的内容。
+//
+// 形态改造：原来是「右下角 380 × 420 的小浮层」，位置与其它面板都不一样；
+// 现在统一为「主区右侧 320 px 抽屉」—— 头固定 / 体滚动 / 底固定、右上角统一
+// 关闭键，全部由 DrawerShell 提供，本组件只负责体里的内容。
+//
 // 插件 QML 只在用户点开某个插件时才实例化，首帧不再为它付出构造代价。
 // 注意：本根节点不设 width/height/anchors —— 尺寸与位置由 Main.qml 里的 Loader 决定。
-Rectangle {
+DrawerShell {
     id: panel
 
+    // 开合由 open() / close() 驱动（DrawerShell 是 Item，visible 会连带隐藏遮罩与面板）
     visible: false
-    radius: Theme.radiusPanel
-    color: Theme.panelSolid
-    border.width: 1
-    border.color: Theme.border
+
+    // 头部标题：默认取第一个插件名，openPlugin() 打开某个插件后换成它的名字
+    property string pluginTitle: ""
 
     // 当前打开的插件 id：关闭时清空，命令补投递也靠它定位
     property string currentPluginId: ""
+
+    titleText: pluginTitle.length > 0
+               ? pluginTitle
+               : (pluginLoader.plugins.length > 0 ? pluginLoader.plugins[0].name : "插件")
+    subtitleText: "当前插件内容"
+
+    // 底部固定：插件目录入口（原先塞在自绘头部里，现在归到底栏右侧）
+    footerAction: Component {
+        Rectangle {
+            width: 58
+            height: 24
+            radius: Theme.radiusControl
+            color: openDirMouse.containsMouse ? Theme.alpha(Theme.text, 0.08) : "transparent"
+
+            Text {
+                anchors.centerIn: parent
+                text: "目录"
+                color: Theme.muted
+                font.pixelSize: Theme.fontMicro
+            }
+
+            MouseArea {
+                id: openDirMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: pluginLoader.openPluginDir()
+            }
+
+            Accessible.role: Accessible.Button
+            Accessible.name: "打开插件目录"
+        }
+    }
+
+    // Esc 关闭：DrawerShell 不是 Popup，Esc 不会自动生效，得自己接
+    focus: visible
+    Keys.onEscapePressed: panel.close()
+    onVisibleChanged: if (visible) panel.forceActiveFocus()
+    Component.onCompleted: if (visible) panel.forceActiveFocus()
 
     // R16-04：agent profile 名片及其零件。内联组件不能嵌套声明，全部提升到根级。
     // 声明「agentProfiles 但无面板页」的插件由 ProfileCard 接管，数据单源于 manifest ——
@@ -55,14 +99,20 @@ Rectangle {
             Layout.preferredWidth: 64
         }
 
-        Text {
+        // 只读值用 TextEdit：R16-04 原本想用 selectByMouse 让路径 / 命令可复制，
+        // 但 Text 没有这个属性，QML 报「Cannot assign to non-existent property」
+        // 会让整个插件面板加载失败、抽屉打不开。TextEdit 才是能选中的那个控件。
+        TextEdit {
             Layout.fillWidth: true
             text: v
             color: Theme.text
             font.pixelSize: Theme.fontMicro
             font.family: "Consolas"
-            wrapMode: Text.WrapAnywhere
+            wrapMode: TextEdit.WrapAnywhere
+            readOnly: true
             selectByMouse: true
+            selectionColor: Theme.alpha(Theme.cyan, 0.35)
+            selectedTextColor: Theme.text
         }
     }
 
@@ -161,13 +211,13 @@ Rectangle {
         if (!plugin || plugin.status !== "ok")
             return
         if (!pluginHost.activate(plugin.id)) {
-            title.text = "插件激活失败"
+            pluginTitle = "插件激活失败"
             pluginContent.source = ""
             profileCard.visible = false
             return
         }
         currentPluginId = plugin.id
-        title.text = plugin.name
+        pluginTitle = plugin.name
         pluginContent.source = ""
         profileCard.visible = false
         if (plugin.mainUrl && plugin.mainUrl.length > 0) {
@@ -180,87 +230,44 @@ Rectangle {
         }
     }
 
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 12
-        spacing: 8
+    // ---------- 已装插件概况 ----------
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: 6
 
-        RowLayout {
-            Layout.fillWidth: true
-
-            Rectangle {
-                width: 6
-                height: 6
-                radius: Theme.radiusControl
-                color: Theme.cyan
-            }
-
-            Text {
-                id: title
-                text: pluginLoader.plugins.length > 0 ? pluginLoader.plugins[0].name : "插件"
-                color: Theme.text
-                font.pixelSize: Theme.fontBody
-                font.bold: true
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Text {
-                text: "PLUGIN"
-                color: Theme.muted
-                font.pixelSize: Theme.fontMicro
-                font.letterSpacing: 1.5
-            }
-
-            Rectangle {
-                width: 40
-                height: 20
-                radius: Theme.radiusControl
-                color: openDirMouse.containsMouse ? Theme.alpha(Theme.text, 0.08) : "transparent"
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "目录"
-                    color: Theme.muted
-                    font.pixelSize: Theme.fontMicro
-                }
-
-                MouseArea {
-                    id: openDirMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: pluginLoader.openPluginDir()
-                }
-            }
-
-            Rectangle {
-                width: 20
-                height: 20
-                radius: Theme.radiusControl
-                color: closeMouse.containsMouse ? Theme.alpha(Theme.text, 0.08) : "transparent"
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "✕"
-                    color: Theme.muted
-                    font.pixelSize: Theme.fontCaption
-                }
-
-                MouseArea {
-                    id: closeMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: panel.close()
-                }
-            }
+        Rectangle {
+            width: 6
+            height: 6
+            radius: Theme.radiusControl
+            color: Theme.cyan
         }
+
+        Text {
+            text: "已装插件 " + pluginLoader.plugins.length + " 个"
+            color: Theme.muted
+            font.pixelSize: Theme.fontMicro
+        }
+
+        Item { Layout.fillWidth: true }
+
+        Text {
+            text: "PLUGIN"
+            color: Theme.muted
+            font.pixelSize: Theme.fontMicro
+            font.letterSpacing: 1.5
+        }
+    }
+
+    // ---------- 插件内容区 ----------
+    // 插件自己的 QML 用 anchors.fill 铺满，所以这里必须给一块确定高度的区域，
+    // 不能让它塌成 0（壳的体是滚动列，没有「填满剩余高度」这一说）。
+    Item {
+        Layout.fillWidth: true
+        Layout.preferredHeight: Math.max(240, Math.min(520, panel.height - 200))
 
         Loader {
             id: pluginContent
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            anchors.fill: parent
 
             // 插件界面就绪后补投递排队中的命令（快捷键/命令面板触发的）
             onLoaded: {
@@ -272,17 +279,17 @@ Rectangle {
         ProfileCard {
             id: profileCard
             visible: false
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            anchors.fill: parent
         }
+    }
 
-        Text {
-            visible: pluginLoader.plugins.length > 0
-                     && pluginLoader.plugins[0].status !== "ok"
-            text: pluginLoader.plugins.length > 0 ? pluginLoader.plugins[0].error : ""
-            color: Theme.magenta
-            font.pixelSize: Theme.fontMicro
-            wrapMode: Text.WordWrap
-        }
+    // 插件装不上时的原因
+    Text {
+        visible: pluginLoader.plugins.length > 0
+                 && pluginLoader.plugins[0].status !== "ok"
+        text: pluginLoader.plugins.length > 0 ? pluginLoader.plugins[0].error : ""
+        color: Theme.magenta
+        font.pixelSize: Theme.fontMicro
+        wrapMode: Text.WordWrap
     }
 }

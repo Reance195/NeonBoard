@@ -70,6 +70,9 @@ ApplicationWindow {
     property int focusRemaining: 0
     property bool focusPaused: false
 
+    // R11-8：活跃热力横幅默认收起（回顾性数据不该常驻吃掉顶区），点「展开」再铺开
+    property bool heatmapCollapsed: true
+
     // 首启动引导：仅在「从未完成引导」且看板为空时自动出现
     property bool onboardVisible: false
     // 「重看新手引导」开出来的：不受自动判定影响，关掉即止
@@ -185,8 +188,11 @@ ApplicationWindow {
     }
 
     // 面板互斥：同一时刻只保留一个浮层，避免外观/插件/设置面板叠在一起
-    function closeAllPanels() {
-        themePicker.open = false
+    //
+    // R11-10：外观面板从标题栏下方的浮层改成主区右侧的抽屉，于是拆成两层：
+    //   closeOtherPanels —— 关掉除外观抽屉以外的浮层（打开外观抽屉时用）
+    //   closeAllPanels   —— 全关（含外观抽屉）
+    function closeOtherPanels() {
         // 面板可能在启动早期被调用：那时列管理面板还没实例化，不能直接解引用
         if (columnManager)
             columnManager.close()
@@ -205,6 +211,31 @@ ApplicationWindow {
             cardDetailLoader.item.close()
         if (themeMarketLoader.item)
             themeMarketLoader.item.close()
+    }
+
+    function closeAppearancePanel() {
+        themePicker.open = false
+        if (appearanceLoader.item)
+            appearanceLoader.item.visible = false
+    }
+
+    function closeAllPanels() {
+        closeOtherPanels()
+        closeAppearancePanel()
+    }
+
+    // 外观抽屉开合同步：标题栏的主题三点按钮发 appearanceRequested 过来，
+    // 这里按 themePicker.open 的值开合抽屉（抽屉自己关掉时也会走这里）。
+    function syncAppearancePanel() {
+        if (!themePicker.open) {
+            if (appearanceLoader.item)
+                appearanceLoader.item.visible = false
+            return
+        }
+        closeOtherPanels()
+        appearanceLoader.active = true
+        if (appearanceLoader.item)
+            appearanceLoader.item.visible = true
     }
 
     function openSettings() {
@@ -358,6 +389,7 @@ ApplicationWindow {
         requestActivate()
         closeAllPanels()
         themePicker.open = true
+        syncAppearancePanel()
     }
 
     // 打开主题市场（R8-02）：浏览 / 安装 / 卸载主题包
@@ -921,12 +953,12 @@ ApplicationWindow {
             focusMode: window.focusMode
         }
 
-        // 外观面板展开时，点击面板之外区域即关闭（z 低于标题栏，面板本体不受影响）
+        // 外观抽屉展开时，点击标题栏即关闭（抽屉本体在主区，不受这条影响）
         MouseArea {
             anchors.fill: parent
             z: 5
             visible: themePicker.open
-            onClicked: themePicker.close()
+            onClicked: window.closeAppearancePanel()
         }
 
         Rectangle {
@@ -980,18 +1012,65 @@ MouseArea {
                 anchors.right: windowButtons.left
                 anchors.rightMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
+                // R11-8：设置入口从侧栏迁到标题栏右上角齿轮（Ctrl+, 不变）
+                onSettingsRequested: window.openSettings()
+                // R11-10：外观面板从标题栏下方的浮层改成主区右侧抽屉，
+                // 主题三点按钮只发意图，实际开合由 Main.qml 同步抽屉状态
+                onAppearanceRequested: window.syncAppearancePanel()
             }
 
             // R11-02：标题栏按钮统一走 TopToolButton —— 原先「全景」「＋ 新建」
             // 是同一套样式各抄一遍（圆角 / 边框 alpha / 悬浮底色硬编码），改主题不跟随。
             TopToolButton {
                 id: mapButton
-                anchors.right: themePicker.left
+                anchors.right: focusButton.left
                 anchors.rightMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
                 text: "全景"
                 description: "打开项目全景面板"
                 onClicked: window.openProjectMap()
+            }
+
+            // R11-8：专注按钮从主区顶栏迁到标题栏 —— 它是全局动作（压暗背景 + 倒计时环），
+            // 与设置、全景同级，而不是看板区专属。主区顶栏因此只剩「标题 + 副标题 + 统计带」。
+            Rectangle {
+                id: focusButton
+                anchors.right: themePicker.left
+                anchors.rightMargin: 6
+                anchors.verticalCenter: parent.verticalCenter
+                width: 52
+                height: 26
+                radius: Theme.radiusControl
+                color: focusBtnMouse.containsMouse || window.focusMode
+                       ? Theme.accentSoft
+                       : Theme.input
+                border.width: 1
+                border.color: window.focusMode
+                              ? Qt.rgba(Theme.magenta.r, Theme.magenta.g, Theme.magenta.b, 0.45)
+                              : Theme.border
+
+                Text {
+                    anchors.centerIn: parent
+                    text: window.focusMode ? "专注中" : "专注"
+                    color: window.focusMode ? Theme.magenta : Theme.accent
+                    font.pixelSize: 11
+                }
+
+                MouseArea {
+                    id: focusBtnMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (window.focusMode)
+                            window.toggleFocusPause()
+                        else
+                            focusMenu.open()
+                    }
+                }
+
+                Accessible.role: Accessible.Button
+                Accessible.name: "专注模式"
             }
 
             TopToolButton {
@@ -1015,7 +1094,8 @@ MouseArea {
 
             Rectangle {
                 // 窄屏时侧栏按比例收缩，保证三列看板不被挤出可视区
-                Layout.preferredWidth: Math.min(220, Math.max(170, window.width * 0.24))
+                // R11-8：插件库常驻卡片移除后侧栏只剩导航 + 槽位 + 状态行，220 → 200
+                Layout.preferredWidth: Math.min(200, Math.max(160, window.width * 0.24))
                 Layout.fillHeight: true
                 color: Theme.panel
                 border.width: 0
@@ -1025,40 +1105,28 @@ MouseArea {
                     anchors.margins: 16
                     spacing: 8
 
-                    Text {
-                        text: "工作台"
-                        color: Theme.text
-                        font.pixelSize: Theme.fontDisplay
-                        font.bold: true
-                    }
-
-                    Text {
-                        text: "PERSONAL WORKBENCH"
-                        color: Theme.muted
-                        font.pixelSize: 9
-                        font.letterSpacing: 1.4
-                    }
-
-                    Item { Layout.preferredHeight: 8 }
-
+                    // R11-8：侧栏顶部直接是导航 —— 原先这里有一块「工作台 / PERSONAL
+                    // WORKBENCH」标题，与主区顶栏的「工作台」重复且零信息量（约 60 px）。
                     Repeater {
                         // 「队列」所有实例都有（队列是本机运行态，沙箱实例同样要能看自己的队列）；
                         // 「预览」只在主线实例出现：agent 沙箱实例里再嵌套预览入口只会混淆。
+                        // R11-8：设置移出侧栏，改标题栏右上角齿轮按钮 —— 它是低频全局操作，
+                        // 占侧栏一整行不划算；导航下标相应前移一位（插件 1 / 队列 2 / 预览 3）。
                         model: previewHub.hostInstance
-                               ? ["看板", "插件", "设置", "队列", "预览"]
-                               : ["看板", "插件", "设置", "队列"]
+                               ? ["看板", "插件", "队列", "预览"]
+                               : ["看板", "插件", "队列"]
 
                         delegate: Rectangle {
                             Layout.fillWidth: true
                             height: 34
                             radius: 8
-                            color: (index === 0 || (index === 3 && window.execQueueOpen)
-                                    || (index === 4 && window.previewOpen))
+                            color: (index === 0 || (index === 2 && window.execQueueOpen)
+                                    || (index === 3 && window.previewOpen))
                                    ? Theme.accentSoft
                                    : (navMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04)
                                                              : "transparent")
-                            border.width: (index === 0 || (index === 3 && window.execQueueOpen)
-                                           || (index === 4 && window.previewOpen)) ? 1 : 0
+                            border.width: (index === 0 || (index === 2 && window.execQueueOpen)
+                                           || (index === 3 && window.previewOpen)) ? 1 : 0
                             border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.22)
 
                             Text {
@@ -1066,8 +1134,8 @@ MouseArea {
                                 anchors.leftMargin: 10
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: modelData
-                                color: (index === 0 || (index === 3 && window.execQueueOpen)
-                                        || (index === 4 && window.previewOpen))
+                                color: (index === 0 || (index === 2 && window.execQueueOpen)
+                                        || (index === 3 && window.previewOpen))
                                        ? Theme.cyan : Theme.muted
                                 font.pixelSize: 13
                             }
@@ -1077,7 +1145,7 @@ MouseArea {
                                 anchors.right: parent.right
                                 anchors.rightMargin: 8
                                 anchors.verticalCenter: parent.verticalCenter
-                                visible: index === 3 && (scheduler.queueLength + scheduler.running) > 0
+                                visible: index === 2 && (scheduler.queueLength + scheduler.running) > 0
                                 height: 16
                                 width: queueCountText.implicitWidth + 10
                                 radius: 5
@@ -1100,10 +1168,8 @@ MouseArea {
                                     if (index === 1) {
                                         window.openPluginLibrary()
                                     } else if (index === 2) {
-                                        window.openSettings()
-                                    } else if (index === 3) {
                                         window.openExecQueue()
-                                    } else if (index === 4) {
+                                    } else if (index === 3) {
                                         window.openPreview()
                                     }
                                 }
@@ -1119,160 +1185,10 @@ MouseArea {
                         Layout.topMargin: 4
                     }
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 210
-                        radius: 12
-                        color: Theme.panel
-                        border.width: 1
-                        border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.12)
-
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            spacing: 6
-
-                            RowLayout {
-                                Layout.fillWidth: true
-
-                                Text {
-                                    text: "插件库"
-                                    color: Theme.text
-                                    font.pixelSize: 11
-                                    font.bold: true
-                                }
-
-                                Item { Layout.fillWidth: true }
-
-                                Text {
-                                    text: pluginLibrary.entries.length
-                                    color: Theme.muted
-                                    font.pixelSize: 10
-                                }
-                            }
-
-                            ListView {
-                                id: libraryList
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                clip: true
-                                spacing: 2
-                                model: pluginLibrary.entries
-
-                                delegate: Rectangle {
-                                    width: libraryList.width
-                                    height: 24
-                                    radius: 6
-                                    color: libraryRowMouse.containsMouse
-                                           ? Qt.rgba(1, 1, 1, 0.05)
-                                           : "transparent"
-
-                                    Text {
-                                        anchors.left: parent.left
-                                        anchors.leftMargin: 4
-                                        anchors.right: libraryTag.left
-                                        anchors.rightMargin: 4
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: modelData.name
-                                        color: modelData.installed ? Theme.text : Theme.accent2
-                                        font.pixelSize: 11
-                                        elide: Text.ElideRight
-                                    }
-
-                                    Text {
-                                        id: libraryTag
-                                        anchors.right: parent.right
-                                        anchors.rightMargin: 4
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: modelData.installed
-                                              ? (modelData.enabled ? "已装" : "禁用")
-                                              : "可装"
-                                        color: Theme.muted
-                                        font.pixelSize: 9
-                                    }
-
-                                    MouseArea {
-                                        id: libraryRowMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: {
-                                            if (modelData.installed)
-                                                window.openPluginById(modelData.id)
-                                            else
-                                                pluginLibrary.install(modelData.id)
-                                        }
-                                    }
-                                }
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: visible ? implicitHeight : 0
-                                visible: pluginLibrary.entries.length === 0
-                                text: "插件库为空"
-                                color: Theme.muted
-                                font.pixelSize: 10
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 10
-
-                                Text {
-                                    text: "刷新市场"
-                                    color: marketBtnMouse.containsMouse ? Theme.cyan : Theme.muted
-                                    font.pixelSize: 9
-                                    MouseArea {
-                                        id: marketBtnMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: pluginMarket.refresh()
-                                    }
-                                }
-
-                                Text {
-                                    text: "重新扫描"
-                                    color: rescanBtnMouse.containsMouse ? Theme.cyan : Theme.muted
-                                    font.pixelSize: 9
-                                    MouseArea {
-                                        id: rescanBtnMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: {
-                                            pluginRuntime.reload()
-                                            pluginLibrary.refresh()
-                                        }
-                                    }
-                                }
-
-                                Text {
-                                    text: "打开目录"
-                                    color: dirBtnMouse.containsMouse ? Theme.cyan : Theme.muted
-                                    font.pixelSize: 9
-                                    MouseArea {
-                                        id: dirBtnMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: pluginLibrary.openPluginDir()
-                                    }
-                                }
-
-                                Item { Layout.fillWidth: true }
-
-                                Text {
-                                    text: "详情"
-                                    color: detailBtnMouse.containsMouse ? Theme.cyan : Theme.text
-                                    font.pixelSize: 9
-                                    MouseArea {
-                                        id: detailBtnMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: window.openPluginLibrary()
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // R11-8：侧栏不再常驻插件库卡片 —— 这块「插件库 8 + 已装列表 +
+                    // 刷新市场 / 重新扫描 / 打开目录 / 详情」与「插件」导航点开的插件库
+                    // 面板是同一份信息出现两处。浏览 / 安装 / 卸载归插件库面板，
+                    // 插件目录 / 市场源 / 重新扫描归设置 → 插件（见 R11-9）。
 
                     Text {
                         text: "SQLite · " + database.taskCount + " 条任务"
@@ -1294,7 +1210,8 @@ MouseArea {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 8
+                // R11-8：8 → 6，顶区（标题行 / 工具行 / 横幅）三段各省 2 px
+                spacing: 6
 
                 // R11-01：顶区信息层级重排。
                 // 原先这里是一行 48 px 高的「大标题 + 三块统计盒」，顶区垂直占用近 190 px，
@@ -1302,7 +1219,7 @@ MouseArea {
                 // 整行高度从 48 px 降到 28 px —— 省下的高度直接还给三列看板。
                 RowLayout {
                     Layout.fillWidth: true
-                    Layout.topMargin: 12
+                    Layout.topMargin: 8
                     Layout.leftMargin: 20
                     Layout.rightMargin: 20
                     spacing: 12
@@ -1334,47 +1251,14 @@ MouseArea {
                         doneToday: taskStore.doneTodayCount
                         overdue: taskStats.overdueCount
                     }
-
-                    // 专注按钮：与标题栏按钮同一套控件语言（圆角 / 高度 / 边框层级）
-                    Rectangle {
-                        Layout.preferredWidth: 64
-                        Layout.preferredHeight: 28
-                        radius: Theme.radiusControl
-                        color: focusBtnMouse.containsMouse || window.focusMode
-                               ? Theme.accentSoft
-                               : Theme.input
-                        border.width: 1
-                        border.color: window.focusMode
-                                      ? Qt.rgba(Theme.magenta.r, Theme.magenta.g, Theme.magenta.b, 0.45)
-                                      : Theme.border
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: window.focusMode ? "专注中" : "专注"
-                            color: window.focusMode ? Theme.magenta : Theme.accent
-                            font.pixelSize: 11
-                        }
-
-                        MouseArea {
-                            id: focusBtnMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (window.focusMode)
-                                    window.toggleFocusPause()
-                                else
-                                    focusMenu.open()
-                            }
-                        }
-                    }
                 }
 
+                // R11-8：专注按钮迁到标题栏后，时长菜单跟着从标题栏下方弹出
                 Popup {
                     id: focusMenu
                     parent: window.contentItem
-                    x: Math.max(20, window.width - width - 40)
-                    y: 96
+                    x: Math.max(20, focusButton.mapToItem(window.contentItem, focusButton.width, 0).x - width)
+                    y: titleBar.height + 6
                     width: 160
                     padding: 8
                     modal: false
@@ -1432,9 +1316,13 @@ MouseArea {
                     }
                 }
 
-                // 项目范围与搜索占一行：项目 chip 需要横向空间，若与阶段条同排，
-                // 阶段条会被压到 0 宽（R10-05 实测：三个项目 chip + 搜索框 + 阶段条
-                // 在 980 px 内容宽度里放不下，只剩「全部」一个胶囊）。
+                // R11-8：工具行三合一 —— 项目切换 / 里程碑条 / 搜索框并成一行，
+                // 顶区竖直占用因此从 264 px 收到 147 px（热力图收起态）。
+                //
+                // R10-05 的教训仍然成立：阶段条不能被挤成 0 宽（那次实测三个项目 chip
+                // + 搜索框 + 阶段条在 980 px 里放不下，只剩「全部」一个胶囊）。这里的做法是
+                // 给三者都留下限宽度，阶段条拿剩余空间、窄窗口下横向滚动（R11-03 的
+                // Flickable），而不是被压扁变形。
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.leftMargin: 20
@@ -1442,21 +1330,35 @@ MouseArea {
                     spacing: 12
 
                     // 两级看板的第一级：项目范围（全局 / 单项目）。
-                    // 「看谁的事」比「看到哪一步」更外层，所以它排在上、阶段条排在下。
+                    // 「看谁的事」比「看到哪一步」更外层，所以它排在最左。
                     ProjectSwitcher {
                         id: projectSwitcher
                         // 宽度由内容决定（R10-05）：写死 230 会把第三个项目裁掉。
                         // 上限由组件自己的 maxWidth 兜底，项目再多也是滚动而不是挤压别的控件。
-                        Layout.maximumWidth: projectSwitcher.maxWidth
-                        Layout.preferredHeight: 40
+                        // R11-8：与阶段条同排后上限收窄到 320，给阶段条留出可用的宽度。
+                        Layout.maximumWidth: Math.min(projectSwitcher.maxWidth, 320)
+                        Layout.minimumWidth: 140
+                        Layout.preferredHeight: 36
                         activeProject: window.projectFilter
                         onProjectSelected: function(projectId) { window.setProjectFilter(projectId) }
                     }
 
-                    Item { Layout.fillWidth: true }
+                    // 阶段条：横向滚动（13 个阶段），拿整行剩余宽度
+                    StageBar {
+                        id: stageBar
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 120
+                        Layout.preferredHeight: 36
+                        stages: window.stageList
+                        activeStage: window.stageFilter
+                        syncText: window.roadmapSyncText
+                        syncOk: window.roadmapSyncOk
+                        onStageSelected: function(stage) { window.setStageFilter(stage) }
+                    }
 
                     Rectangle {
-                        Layout.preferredWidth: 300
+                        Layout.preferredWidth: 232
+                        Layout.minimumWidth: 120
                         Layout.preferredHeight: 28
                         Layout.alignment: Qt.AlignVCenter
                         radius: Theme.radiusControl
@@ -1477,49 +1379,45 @@ MouseArea {
                             onTextChanged: boardColumns.search = text
                             Keys.onEscapePressed: text = ""
                         }
+
+                        // Ctrl K 提示：命令面板的入口此前完全不可见
+                        Text {
+                            anchors.right: parent.right
+                            anchors.rightMargin: 8
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: !searchField.activeFocus && searchField.text.length === 0
+                            text: "Ctrl K"
+                            color: Theme.muted
+                            font.pixelSize: Theme.fontMicro
+                        }
                     }
                 }
 
-                // 阶段条独占一行：它天生就该横向滚动（13 个阶段），给它整行宽度，
-                // 而不是和项目/搜索抢那点剩余空间。
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: 20
-                    Layout.rightMargin: 20
-
-                    StageBar {
-                        id: stageBar
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 40
-                        stages: window.stageList
-                        activeStage: window.stageFilter
-                        syncText: window.roadmapSyncText
-                        syncOk: window.roadmapSyncOk
-                        onStageSelected: function(stage) { window.setStageFilter(stage) }
-                    }
-                }
-
-                // 统计横幅：热力图 + 连续天数 + 周吞吐（数据来自 taskStats，只读任务表）
+                // 活跃横幅：热力图 + 连续天数 + 周吞吐（数据来自 taskStats，只读任务表）
                 // R11-01：高度 84 → 72（热力格 8 → 7 px，横幅内边距 9 → 6），
                 // 顶区总高度由此再省 12 px 给看板。
+                // R11-8：可收起 —— 回顾性数据默认收起成 26 px 摘要条，想看时点「展开」。
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.leftMargin: 20
                     Layout.rightMargin: 20
-                    Layout.preferredHeight: 72
+                    Layout.preferredHeight: heatmapCollapsed ? 26 : 72
                     radius: Theme.radiusPanel
                     color: Theme.panel
                     border.width: 1
                     border.color: Theme.hairline
 
                     ActivityHeatmap {
+                        id: heatmap
                         anchors.fill: parent
-                        anchors.margins: 6
+                        anchors.margins: heatmapCollapsed ? 4 : 6
+                        collapsed: heatmapCollapsed
                         cells: taskStats.heatmap
                         weekly: taskStats.weekly
                         streak: taskStats.streakDays
                         totalDone: taskStats.totalDone
                         bestDay: taskStats.bestDay
+                        onToggleRequested: heatmapCollapsed = !heatmapCollapsed
                     }
                 }
 
@@ -1596,16 +1494,11 @@ MouseArea {
             }
         }
 
-        // 插件面板：按需加载。首次点开插件时才构造面板与插件内容
-        // 尺寸与定位由 Loader 负责（QQuickLoader 会把 Loader 的尺寸强加给被加载项）
+        // 插件面板：按需加载。R11-10：位置统一为右侧抽屉，
+        // 尺寸与定位由 DrawerShell 负责（Loader 只给承载区）。
         Loader {
             id: pluginPanelLoader
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.rightMargin: 24
-            anchors.bottomMargin: 24
-            width: Math.min(380, root.width - 48)
-            height: Math.min(420, root.height - 140)
+            anchors.fill: parent
             active: false
             source: "PluginPanel.qml"
             z: 100
@@ -1628,6 +1521,8 @@ MouseArea {
             z: 140
 
             onLoaded: {
+                // R11-09：弹窗壳要挂在窗口的 overlay 上，宿主窗口由这里注入
+                item.hostWindow = window
                 if (window.libraryPending) {
                     window.libraryPending = false
                     item.open()
@@ -1655,6 +1550,8 @@ MouseArea {
             z: 150
 
             onLoaded: {
+                // R11-09：弹窗壳要挂在窗口的 overlay 上，宿主窗口由这里注入
+                item.hostWindow = window
                 if (window.settingsPending) {
                     window.settingsPending = false
                     item.open()
@@ -1662,6 +1559,25 @@ MouseArea {
                 item.openLibraryRequested.connect(function() {
                     window.openPluginLibrary()
                 })
+            }
+        }
+
+        // 外观抽屉（R11-10）：原先由标题栏的 ThemePicker 内部 Loader 承载，
+        // 位置锚在标题栏下方；现在统一为主区右侧的抽屉。
+        // 开合由抽屉根的 visible 控制（AppearancePanel 用 visible 触发入场动画），
+        // 抽屉自己关掉时发 closeRequested，这里把 visible 收回去。
+        Loader {
+            id: appearanceLoader
+            anchors.fill: parent
+            active: false
+            source: "AppearancePanel.qml"
+            z: 155
+
+            onLoaded: {
+                item.closeRequested.connect(function() {
+                    window.closeAppearancePanel()
+                })
+                item.visible = themePicker.open
             }
         }
 
@@ -1674,6 +1590,8 @@ MouseArea {
             z: 145
 
             onLoaded: {
+                // R11-09：弹窗壳要挂在窗口的 overlay 上，宿主窗口由这里注入
+                item.hostWindow = window
                 if (window.previewPending) {
                     window.previewPending = false
                     item.open()
@@ -1712,9 +1630,10 @@ MouseArea {
         }
 
         // 首启动引导：录任务 → 拖列 → 装插件（可用「跳过」直接收尾）
+        // R11-10：改用 DialogShell 后是 Popup，不再铺满整块区域
         OnboardingOverlay {
             id: onboarding
-            anchors.fill: parent
+            hostWindow: window
             z: 500
             visible: window.onboardVisible
             // 已经有卡就不再提供「载入示例卡」：那是空板才需要的脚手架
@@ -1751,9 +1670,10 @@ MouseArea {
         }
 
         // 命令面板：Ctrl+K 呼出，按需构造
+        // R11-10：改用 DialogShell 后是 Popup，不再铺满整块区域
         CommandPalette {
             id: commandPalette
-            anchors.fill: parent
+            hostWindow: window
             commandProvider: window.buildCommands
             z: 400
         }
@@ -1769,6 +1689,8 @@ MouseArea {
             property string pendingPluginId: ""
 
             onLoaded: {
+                // R11-09：弹窗壳要挂在窗口的 overlay 上，宿主窗口由这里注入
+                item.hostWindow = window
                 if (pendingPluginId.length > 0) {
                     item.present(pendingPluginId)
                     pendingPluginId = ""
@@ -2840,15 +2762,20 @@ MouseArea {
 
     // 执行前确认（R6-03）：agent / cwd / 完整命令行 / 验收项 / 超时，
     // 首次使用某个 cwd 必须在勾选「信任本目录」后才能确认；进程启动在 R6-04 接入。
-    Dialog {
+    DialogShell {
         id: execConfirmDialog
-        parent: window.contentItem
-        anchors.centerIn: parent
-        modal: true
-        focus: true
-        padding: 20
-        width: Math.min(560, window.width - 80)
-        closePolicy: Popup.CloseOnEscape
+        hostWindow: window
+        titleText: "执行前确认"
+        sizeMode: "md"
+
+        secondaryText: "取消"
+        primaryText: "确认执行"
+        primaryEnabled: execConfirmDialog.cwdTrusted || execConfirmDialog.trustChecked
+        footerNote: "确认后在本机启动 agent；执行完最多留下本地改动，不自动推送。"
+
+        onSecondaryTriggered: execConfirmDialog.close()
+        onPrimaryTriggered: execConfirmDialog.confirmExec()
+        onCloseRequested: execConfirmDialog.close()
 
         property string taskId: ""
         property string agentId: ""
@@ -2862,22 +2789,9 @@ MouseArea {
         property bool trustChecked: false
         property string errorText: ""
 
-        background: Rectangle {
-            color: Theme.panelSolid
-            radius: 16
-            border.width: 1
-            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
-        }
-
-        contentItem: ColumnLayout {
+        ColumnLayout {
+            Layout.fillWidth: true
             spacing: 10
-
-            Text {
-                text: "执行前确认"
-                color: Theme.text
-                font.pixelSize: 18
-                font.bold: true
-            }
 
             GridLayout {
                 Layout.fillWidth: true
@@ -3059,49 +2973,28 @@ MouseArea {
                 font.pixelSize: 10
                 wrapMode: Text.WordWrap
             }
+        }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    Layout.fillWidth: true
-                    text: "确认后在本机启动 agent；执行完最多留下本地改动，不自动推送。"
-                    color: Theme.muted
-                    font.pixelSize: 9
-                    wrapMode: Text.WordWrap
-                }
-
-                Button {
-                    text: "取消"
-                    onClicked: execConfirmDialog.close()
-                }
-
-                Button {
-                    text: "确认执行"
-                    enabled: execConfirmDialog.cwdTrusted || execConfirmDialog.trustChecked
-                    onClicked: {
-                        if (!execConfirmDialog.cwdTrusted
-                                && !agentProfile.trustCwd(execConfirmDialog.cwd)) {
-                            execConfirmDialog.errorText =
-                                "无法信任该目录：请检查目录是否存在"
-                            return
-                        }
-                        // R6-06：真正拉起执行器。start 按执行定义取 agent/cwd/prompt，
-                        // 同卡已有活跃 run 会被 busy 拒绝（M1 不排队）。
-                        const r = taskRunner.start(execConfirmDialog.taskId)
-                        if (r && r.ok) {
-                            if (taskEditorLoader.item)
-                                taskEditorLoader.item.execNotice =
-                                    "已启动执行（run " + String(r.runId).substring(0, 8) + "…），结果见下方执行态"
-                            execConfirmDialog.close()
-                            window.openExecPanel(execConfirmDialog.taskId)
-                        } else {
-                            execConfirmDialog.errorText =
-                                (r && r.message) ? r.message : "执行启动失败"
-                        }
-                    }
-                }
+        // 主操作「确认执行」：壳底栏按钮走这里
+        function confirmExec() {
+            if (!execConfirmDialog.cwdTrusted
+                    && !agentProfile.trustCwd(execConfirmDialog.cwd)) {
+                execConfirmDialog.errorText =
+                    "无法信任该目录：请检查目录是否存在"
+                return
+            }
+            // R6-06：真正拉起执行器。start 按执行定义取 agent/cwd/prompt，
+            // 同卡已有活跃 run 会被 busy 拒绝（M1 不排队）。
+            const r = taskRunner.start(execConfirmDialog.taskId)
+            if (r && r.ok) {
+                if (taskEditorLoader.item)
+                    taskEditorLoader.item.execNotice =
+                        "已启动执行（run " + String(r.runId).substring(0, 8) + "…），结果见下方执行态"
+                execConfirmDialog.close()
+                window.openExecPanel(execConfirmDialog.taskId)
+            } else {
+                execConfirmDialog.errorText =
+                    (r && r.message) ? r.message : "执行启动失败"
             }
         }
     }
@@ -3109,15 +3002,82 @@ MouseArea {
     // 执行面板（R6-06）：run 终态回显 + 人工决策入口。
     // 硬约束：程序不自动改看板列、不自动 push ——「标为已办结」是人点了才走
     // taskUndo.moveTask 的既有完成路径（保留撤销）；重试 = 新建一条 run（attempt+1）。
-    Dialog {
+    DialogShell {
         id: execPanelDialog
-        parent: window.contentItem
-        anchors.centerIn: parent
-        modal: true
-        focus: true
-        padding: 20
-        width: Math.min(620, window.width - 80)
-        closePolicy: Popup.CloseOnEscape
+        hostWindow: window
+        titleText: "执行面板"
+        sizeMode: "md"
+
+        secondaryText: "重试"
+        primaryText: "标为已办结"
+        secondaryEnabled: execPanelDialog.summary.hasRun === true
+                         && execPanelDialog.summary.status !== "running"
+                         && execPanelDialog.summary.status !== "queued"
+        primaryEnabled: execPanelDialog.summary.hasRun === true
+                       && execPanelDialog.summary.status === "passed"
+
+        onSecondaryTriggered: execPanelDialog.retryRun()
+        onPrimaryTriggered: execPanelDialog.markDone()
+        onCloseRequested: execPanelDialog.close()
+
+        // 底栏左侧：看完整日志 / 跳到执行队列
+        footerExtra: Component {
+            RowLayout {
+                spacing: Theme.spacingSm
+
+                Button {
+                    text: "查看完整日志"
+                    enabled: (execPanelDialog.summary.logPath || "").length > 0
+                    onClicked: Qt.openUrlExternally("file:///" + execPanelDialog.summary.logPath)
+                }
+
+                // R7-02：从执行面板直接跳到队列（排队 / 在跑的都在这看）
+                Button {
+                    text: "执行队列"
+                    visible: execPanelDialog.summary.hasRun === true
+                    onClicked: {
+                        execPanelDialog.close()
+                        window.openExecQueue()
+                    }
+                }
+            }
+        }
+
+        // 头右侧：结论徽章（通过 / 失败或受阻 / 取消 / 执行中）
+        headerExtra: Component {
+            Rectangle {
+                visible: execPanelDialog.summary.hasRun === true
+                implicitWidth: execBadgeText.implicitWidth + 16
+                implicitHeight: 22
+                width: implicitWidth
+                height: implicitHeight
+                radius: 6
+                color: Theme.alpha(execBadgeText.color, 0.14)
+                border.width: 1
+                border.color: Theme.alpha(execBadgeText.color, 0.34)
+
+                Text {
+                    id: execBadgeText
+                    anchors.centerIn: parent
+                    text: {
+                        var s = execPanelDialog.summary.status || ""
+                        if (s === "passed") return "✔ 通过"
+                        if (s === "blocked") return "✘ 失败/受阻"
+                        if (s === "cancelled") return "○ 已取消"
+                        return "◌ 执行中"
+                    }
+                    color: {
+                        var s = execPanelDialog.summary.status || ""
+                        if (s === "passed") return Theme.success
+                        if (s === "blocked") return Theme.danger
+                        if (s === "cancelled") return Theme.muted
+                        return Theme.cyan
+                    }
+                    font.pixelSize: 11
+                    font.bold: true
+                }
+            }
+        }
 
         property string taskId: ""
         property var summary: ({})
@@ -3147,63 +3107,9 @@ MouseArea {
 
         onOpened: refresh()
 
-        background: Rectangle {
-            color: Theme.panelSolid
-            radius: 16
-            border.width: 1
-            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
-        }
-
-        contentItem: ColumnLayout {
+        ColumnLayout {
+            Layout.fillWidth: true
             spacing: 10
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "执行面板"
-                    color: Theme.text
-                    font.pixelSize: 18
-                    font.bold: true
-                }
-
-                Item { Layout.fillWidth: true }
-
-                // 结论徽章：通过 / 失败或受阻 / 取消 / 执行中
-                Rectangle {
-                    visible: execPanelDialog.summary.hasRun === true
-                    height: 22
-                    width: execBadgeText.implicitWidth + 16
-                    radius: 6
-                    color: Qt.rgba(execBadgeText.color.r, execBadgeText.color.g,
-                                   execBadgeText.color.b, 0.14)
-                    border.width: 1
-                    border.color: Qt.rgba(execBadgeText.color.r, execBadgeText.color.g,
-                                          execBadgeText.color.b, 0.34)
-
-                    Text {
-                        id: execBadgeText
-                        anchors.centerIn: parent
-                        text: {
-                            var s = execPanelDialog.summary.status || ""
-                            if (s === "passed") return "✔ 通过"
-                            if (s === "blocked") return "✘ 失败/受阻"
-                            if (s === "cancelled") return "○ 已取消"
-                            return "◌ 执行中"
-                        }
-                        color: {
-                            var s = execPanelDialog.summary.status || ""
-                            if (s === "passed") return Theme.success
-                            if (s === "blocked") return Theme.danger
-                            if (s === "cancelled") return Theme.muted
-                            return Theme.cyan
-                        }
-                        font.pixelSize: 11
-                        font.bold: true
-                    }
-                }
-            }
 
             Text {
                 Layout.fillWidth: true
@@ -3322,61 +3228,6 @@ MouseArea {
                 }
             }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Button {
-                    text: "查看完整日志"
-                    enabled: (execPanelDialog.summary.logPath || "").length > 0
-                    onClicked: Qt.openUrlExternally("file:///" + execPanelDialog.summary.logPath)
-                }
-
-                // R7-02：从执行面板直接跳到队列（排队 / 在跑的都在这看）
-                Button {
-                    text: "执行队列"
-                    visible: execPanelDialog.summary.hasRun === true
-                    onClicked: {
-                        execPanelDialog.close()
-                        window.openExecQueue()
-                    }
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Button {
-                    text: "重试"
-                    enabled: execPanelDialog.summary.hasRun === true
-                             && execPanelDialog.summary.status !== "running"
-                             && execPanelDialog.summary.status !== "queued"
-                    onClicked: {
-                        const r = taskRunner.start(execPanelDialog.taskId)
-                        if (r && r.ok) {
-                            execPanelDialog.refresh()
-                        } else {
-                            execNoticeText.text = (r && r.message) ? r.message : "重试启动失败"
-                        }
-                    }
-                }
-
-                Button {
-                    text: "标为已办结"
-                    enabled: execPanelDialog.summary.hasRun === true
-                             && execPanelDialog.summary.status === "passed"
-                    onClicked: {
-                        // 人点了才走既有完成路径（taskUndo，可 Ctrl+Z 撤销）；
-                        // 程序绝不自动改列。
-                        taskUndo.moveTask(execPanelDialog.taskId, "done", -1)
-                        execPanelDialog.close()
-                    }
-                }
-
-                Button {
-                    text: "关闭"
-                    onClicked: execPanelDialog.close()
-                }
-            }
-
             Text {
                 id: execNoticeText
                 Layout.fillWidth: true
@@ -3385,6 +3236,23 @@ MouseArea {
                 font.pixelSize: 10
                 wrapMode: Text.Wrap
             }
+        }
+
+        // 壳底栏的次操作「重试」
+        function retryRun() {
+            const r = taskRunner.start(execPanelDialog.taskId)
+            if (r && r.ok) {
+                execPanelDialog.refresh()
+            } else {
+                execNoticeText.text = (r && r.message) ? r.message : "重试启动失败"
+            }
+        }
+
+        // 壳底栏的主操作「标为已办结」：人点了才走既有完成路径（taskUndo，可 Ctrl+Z 撤销）；
+        // 程序绝不自动改列。
+        function markDone() {
+            taskUndo.moveTask(execPanelDialog.taskId, "done", -1)
+            execPanelDialog.close()
         }
 
         // run 结束 / 状态变化时刷新面板（面板开着才刷）
@@ -3405,15 +3273,34 @@ MouseArea {
     //   - 只用 Theme.xxx 令牌，不写死颜色。
     // 注：卡面 Ctrl/Shift 直接多选需要改 BoardColumn/TaskCard（不在本卡 scope），
     // 这里用「勾选清单」实现「勾选多卡 → 排队」。
-    Dialog {
+    DialogShell {
         id: nightBatchDialog
-        parent: window.contentItem
-        anchors.centerIn: parent
-        modal: true
-        focus: true
-        padding: 20
-        width: Math.min(680, window.width - 80)
-        closePolicy: Popup.CloseOnEscape
+        hostWindow: window
+        titleText: "夜间批量执行"
+        subtitleText: "NIGHT BATCH · 已选 " + nightBatchDialog.selectedIds().length + " 张"
+        sizeMode: "md"
+
+        secondaryText: "关闭"
+        primaryText: nightBatchDialog.selectedIds().length > 0
+                      ? "加入夜间队列（" + nightBatchDialog.selectedIds().length + " 张）"
+                      : "加入夜间队列"
+        primaryEnabled: nightBatchDialog.selectedIds().length > 0
+
+        onSecondaryTriggered: nightBatchDialog.close()
+        onPrimaryTriggered: nightBatchDialog.enqueueSelected()
+        onCloseRequested: nightBatchDialog.close()
+
+        // 底栏左侧：清空选择
+        footerExtra: Component {
+            Button {
+                text: "清空选择"
+                enabled: nightBatchDialog.selectedIds().length > 0
+                onClicked: {
+                    nightBatchDialog.selected = ({})
+                    nightBatchDialog.refreshEstimate()
+                }
+            }
+        }
 
         // id -> true 的选中集合；estimate 是 scheduler.nightBatchEstimate 的结果
         property var selected: ({})
@@ -3474,42 +3361,9 @@ MouseArea {
             refreshEstimate()
         }
 
-        background: Rectangle {
-            color: Theme.panelSolid
-            radius: 16
-            border.width: 1
-            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
-        }
-
-        contentItem: ColumnLayout {
+        ColumnLayout {
+            Layout.fillWidth: true
             spacing: 10
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "夜间批量执行"
-                    color: Theme.text
-                    font.pixelSize: 18
-                    font.bold: true
-                }
-
-                Text {
-                    text: "NIGHT BATCH"
-                    color: Theme.muted
-                    font.pixelSize: 10
-                    font.letterSpacing: 1.2
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Text {
-                    text: "已选 " + nightBatchDialog.selectedIds().length + " 张"
-                    color: Theme.cyan
-                    font.pixelSize: 11
-                }
-            }
 
             Text {
                 Layout.fillWidth: true
@@ -3615,43 +3469,19 @@ MouseArea {
                 font.pixelSize: 10
                 wrapMode: Text.Wrap
             }
+        }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Button {
-                    text: "清空选择"
-                    enabled: nightBatchDialog.selectedIds().length > 0
-                    onClicked: {
-                        nightBatchDialog.selected = ({})
-                        nightBatchDialog.refreshEstimate()
-                    }
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Button {
-                    text: "关闭"
-                    onClicked: nightBatchDialog.close()
-                }
-
-                Button {
-                    text: "加入夜间队列"
-                    enabled: nightBatchDialog.selectedIds().length > 0
-                    onClicked: {
-                        var res = scheduler.enqueueNightBatch(nightBatchDialog.selectedIds(), {})
-                        var queued = (res.queued || []).length
-                        var rejected = (res.rejected || []).length
-                        var msg = "已入队 " + queued + " 张"
-                        if (rejected > 0)
-                            msg += "，跳过 " + rejected + " 张（已在队列中或参数缺失）"
-                        nightBatchDialog.notice = msg + "。可在「执行队列」面板查看进度。"
-                        nightBatchDialog.selected = ({})
-                        nightBatchDialog.refreshEstimate()
-                    }
-                }
-            }
+        // 壳底栏的主操作「加入夜间队列」：入队后清空勾选并刷新估算
+        function enqueueSelected() {
+            var res = scheduler.enqueueNightBatch(nightBatchDialog.selectedIds(), {})
+            var queued = (res.queued || []).length
+            var rejected = (res.rejected || []).length
+            var msg = "已入队 " + queued + " 张"
+            if (rejected > 0)
+                msg += "，跳过 " + rejected + " 张（已在队列中或参数缺失）"
+            nightBatchDialog.notice = msg + "。可在「执行队列」面板查看进度。"
+            nightBatchDialog.selected = ({})
+            nightBatchDialog.refreshEstimate()
         }
     }
 
@@ -3662,15 +3492,54 @@ MouseArea {
     //     pause / resume / reorder / skip —— 界面不碰数据库、不碰进程。
     //   - 队列是运行态，不是看板状态：调序 / 跳过都不改卡片所在列（沿用 ADR-0002）。
     //   - 只用 Theme.xxx 令牌，不写死颜色（AGENTS.md §10.1）。
-    Dialog {
+    DialogShell {
         id: execQueueDialog
-        parent: window.contentItem
-        anchors.centerIn: parent
-        modal: true
-        focus: true
-        padding: 20
-        width: Math.min(760, window.width - 80)
-        closePolicy: Popup.CloseOnEscape
+        hostWindow: window
+        titleText: "执行队列"
+        subtitleText: "EXEC QUEUE"
+        sizeMode: "lg"
+
+        secondaryText: "关闭"
+        footerNote: "队列顺序只影响运行态，不改卡片所在列；跳过 / 失败都不会自动把卡标为已办结。"
+
+        onSecondaryTriggered: execQueueDialog.close()
+        onCloseRequested: execQueueDialog.close()
+
+        // 头右侧：暂停 / 恢复（只停派发，不杀在跑的 run）
+        headerExtra: Component {
+            Rectangle {
+                implicitWidth: 62
+                implicitHeight: 22
+                width: implicitWidth
+                height: implicitHeight
+                radius: 6
+                color: execQueueDialog.queuePaused
+                       ? Theme.alpha(Theme.warning, 0.18)
+                       : Theme.accentSoft
+                border.width: 1
+                border.color: execQueueDialog.queuePaused ? Theme.warning : Theme.borderStrong
+
+                Text {
+                    anchors.centerIn: parent
+                    text: execQueueDialog.queuePaused ? "▶ 恢复" : "⏸ 暂停"
+                    color: execQueueDialog.queuePaused ? Theme.warning : Theme.cyan
+                    font.pixelSize: 10
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (execQueueDialog.queuePaused)
+                            scheduler.resumeQueue()
+                        else
+                            scheduler.pauseQueue()
+                        execQueueDialog.refresh()
+                    }
+                }
+            }
+        }
 
         property var rows: []
         property int concurrencyCount: 1
@@ -3742,68 +3611,9 @@ MouseArea {
 
         onOpened: refresh()
 
-        background: Rectangle {
-            color: Theme.panelSolid
-            radius: 16
-            border.width: 1
-            border.color: Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
-        }
-
-        contentItem: ColumnLayout {
+        ColumnLayout {
+            Layout.fillWidth: true
             spacing: 10
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "执行队列"
-                    color: Theme.text
-                    font.pixelSize: 18
-                    font.bold: true
-                }
-
-                Text {
-                    text: "EXEC QUEUE"
-                    color: Theme.muted
-                    font.pixelSize: 10
-                    font.letterSpacing: 1.2
-                }
-
-                Item { Layout.fillWidth: true }
-
-                // 暂停 / 恢复：只停派发，不杀在跑的 run
-                Rectangle {
-                    width: 62
-                    height: 22
-                    radius: 6
-                    color: execQueueDialog.queuePaused
-                           ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.18)
-                           : Theme.accentSoft
-                    border.width: 1
-                    border.color: execQueueDialog.queuePaused ? Theme.warning : Theme.borderStrong
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: execQueueDialog.queuePaused ? "▶ 恢复" : "⏸ 暂停"
-                        color: execQueueDialog.queuePaused ? Theme.warning : Theme.cyan
-                        font.pixelSize: 10
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            if (execQueueDialog.queuePaused)
-                                scheduler.resumeQueue()
-                            else
-                                scheduler.pauseQueue()
-                            execQueueDialog.refresh()
-                        }
-                    }
-                }
-            }
 
             // 概览：并发 / 排队数 / 预计完成
             RowLayout {
@@ -3857,20 +3667,79 @@ MouseArea {
             }
 
             // 队列列表：waiting / dispatching / running
+            //
+            // 规格 §3.4 落位表 execQueueDialog 行：「表头固定；队列行高统一 40 px」。
+            // 表头放在 ListView 之外 —— 列表滚动时表头不动；行高 40 px、间距 0，
+            // 三列（任务 / 状态 / 操作）的列宽与表头逐列对齐，扫一眼就能对上。
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(320, execQueueDialog.rows.length * 62 + 16)
+                // 表头块（6 + 18 + 1 + 4）+ 列表视口（最多 320）+ 底留白与边框
+                Layout.preferredHeight: 43 + Math.min(320, execQueueDialog.rows.length * 40)
                 visible: execQueueDialog.rows.length > 0
                 radius: 10
                 color: Theme.panel
                 border.width: 1
                 border.color: Theme.border
 
+                // ---- 表头（固定，不随列表滚动）----
+                RowLayout {
+                    id: queueHeader
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    anchors.topMargin: 6
+                    height: 18
+                    spacing: 8
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "任务"
+                        color: Theme.muted
+                        font.pixelSize: 10
+                        font.letterSpacing: 1.0
+                    }
+
+                    Text {
+                        Layout.preferredWidth: 72
+                        horizontalAlignment: Text.AlignRight
+                        text: "状态"
+                        color: Theme.muted
+                        font.pixelSize: 10
+                    }
+
+                    Text {
+                        Layout.preferredWidth: 64
+                        horizontalAlignment: Text.AlignRight
+                        text: "操作"
+                        color: Theme.muted
+                        font.pixelSize: 10
+                    }
+                }
+
+                Rectangle {
+                    id: queueHeaderLine
+                    anchors.top: queueHeader.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    height: 1
+                    color: Theme.hairline
+                }
+
                 ListView {
                     id: execQueueList
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 6
+                    anchors.top: queueHeaderLine.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    anchors.bottomMargin: 8
+                    anchors.topMargin: 4
+                    spacing: 0
                     clip: true
                     model: execQueueDialog.rows
 
@@ -3884,20 +3753,27 @@ MouseArea {
                         required property var modelData
 
                         width: execQueueList.width
-                        height: 56
-                        radius: 8
+                        height: 40
                         color: (modelData.queueStatus || "") === "running"
                                ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.10)
-                               : Theme.card
-                        border.width: 1
-                        border.color: (modelData.queueStatus || "") === "running"
-                                      ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.42)
-                                      : Theme.border
+                               : "transparent"
+
+                        // 行分隔线（表格感：行贴着行，不再是圆角卡片）
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: 1
+                            color: Theme.hairline
+                        }
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: 10
-                            spacing: 10
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            anchors.topMargin: 3
+                            anchors.bottomMargin: 3
+                            spacing: 8
 
                             // 状态点：只有 running 才脉冲（脉冲语义 = 正在跑）
                             Rectangle {
@@ -3929,9 +3805,10 @@ MouseArea {
                                 }
                             }
 
+                            // 第一列：任务（标题 + 副信息），与表头「任务」列同宽
                             ColumnLayout {
                                 Layout.fillWidth: true
-                                spacing: 2
+                                spacing: 0
 
                                 Text {
                                     Layout.fillWidth: true
@@ -3945,7 +3822,7 @@ MouseArea {
                                 Text {
                                     Layout.fillWidth: true
                                     text: {
-                                        var parts = [execQueueDialog.stateLabel(modelData)]
+                                        var parts = []
                                         if ((modelData.queueStatus || "") === "running")
                                             parts.push("已运行 " + execQueueDialog.humanDuration(
                                                            execQueueDialog.runDuration(modelData)))
@@ -3963,60 +3840,78 @@ MouseArea {
                                 }
                             }
 
-                            // 调序 / 跳过：只对 waiting 生效（running 的不许被打断）
+                            // 第二列：状态（从副信息里提出来，与表头「状态」列对齐）
                             Text {
-                                visible: (modelData.queueStatus || "") === "waiting"
-                                text: "↑"
-                                color: upMouse.containsMouse ? Theme.cyan : Theme.muted
-                                font.pixelSize: 13
-                                MouseArea {
-                                    id: upMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (!scheduler.reorder(modelData.id, -1))
-                                            execQueueDialog.notice = "已经是最前面一条"
-                                        execQueueDialog.refresh()
-                                    }
-                                }
-                            }
-
-                            Text {
-                                visible: (modelData.queueStatus || "") === "waiting"
-                                text: "↓"
-                                color: downMouse.containsMouse ? Theme.cyan : Theme.muted
-                                font.pixelSize: 13
-                                MouseArea {
-                                    id: downMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (!scheduler.reorder(modelData.id, 1))
-                                            execQueueDialog.notice = "已经是最后面一条"
-                                        execQueueDialog.refresh()
-                                    }
-                                }
-                            }
-
-                            Text {
-                                visible: (modelData.queueStatus || "") === "waiting"
-                                text: "跳过"
-                                color: skipMouse.containsMouse ? Theme.danger : Theme.muted
+                                Layout.preferredWidth: 72
+                                horizontalAlignment: Text.AlignRight
+                                text: execQueueDialog.stateLabel(modelData)
+                                color: (modelData.queueStatus || "") === "running"
+                                       ? Theme.cyan : Theme.muted
                                 font.pixelSize: 10
-                                MouseArea {
-                                    id: skipMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (!scheduler.skip(modelData.id))
-                                            execQueueDialog.notice = "该条已不在等待状态"
-                                        else
-                                            execQueueDialog.notice =
-                                                "已跳过：" + (modelData.title || "")
-                                        execQueueDialog.refresh()
+                                elide: Text.ElideRight
+                            }
+
+                            // 第三列：操作（调序 / 跳过，只对 waiting 生效）
+                            RowLayout {
+                                Layout.preferredWidth: 64
+                                Layout.alignment: Qt.AlignRight
+                                spacing: 8
+
+                                // 调序 / 跳过：只对 waiting 生效（running 的不许被打断）
+                                Text {
+                                    visible: (modelData.queueStatus || "") === "waiting"
+                                    text: "↑"
+                                    color: upMouse.containsMouse ? Theme.cyan : Theme.muted
+                                    font.pixelSize: 13
+                                    MouseArea {
+                                        id: upMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (!scheduler.reorder(modelData.id, -1))
+                                                execQueueDialog.notice = "已经是最前面一条"
+                                            execQueueDialog.refresh()
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    visible: (modelData.queueStatus || "") === "waiting"
+                                    text: "↓"
+                                    color: downMouse.containsMouse ? Theme.cyan : Theme.muted
+                                    font.pixelSize: 13
+                                    MouseArea {
+                                        id: downMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (!scheduler.reorder(modelData.id, 1))
+                                                execQueueDialog.notice = "已经是最后面一条"
+                                            execQueueDialog.refresh()
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    visible: (modelData.queueStatus || "") === "waiting"
+                                    text: "跳过"
+                                    color: skipMouse.containsMouse ? Theme.danger : Theme.muted
+                                    font.pixelSize: 10
+                                    MouseArea {
+                                        id: skipMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (!scheduler.skip(modelData.id))
+                                                execQueueDialog.notice = "该条已不在等待状态"
+                                            else
+                                                execQueueDialog.notice =
+                                                    "已跳过：" + (modelData.title || "")
+                                            execQueueDialog.refresh()
+                                        }
                                     }
                                 }
                             }
@@ -4032,25 +3927,6 @@ MouseArea {
                 color: Theme.warning
                 font.pixelSize: 10
                 wrapMode: Text.Wrap
-            }
-
-            // 底部：说明 + 关闭
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    Layout.fillWidth: true
-                    text: "队列顺序只影响运行态，不改卡片所在列；跳过 / 失败都不会自动把卡标为已办结。"
-                    color: Theme.muted
-                    font.pixelSize: 10
-                    wrapMode: Text.WordWrap
-                }
-
-                Button {
-                    text: "关闭"
-                    onClicked: execQueueDialog.close()
-                }
             }
         }
 

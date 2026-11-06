@@ -1,0 +1,8 @@
+{
+  "card": "DX-101",
+  "sha256": "6459b2ba9d3feced49d084212a4bb7ea1c7b3c30d6356be0e64ab66a4d99d234",
+  "authorizedBy": "维护者 2026-11-06 本会话「把碰到过的问题，全部整理一下，立卡」授权代登记",
+  "form": "docs/card-requests/20261106-verify-output-fidelity.md",
+  "registeredAt": "2026-11-06T03:27:45+00:00",
+  "tool": "scripts/register_board_cards.py"
+}

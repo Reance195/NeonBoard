@@ -159,13 +159,29 @@ git branch -d feature/<简述>
 **动代码之前必须先持有任务卡，并完成服务端领用占位。** 顺序不可颠倒：
 
 1. 卡片由维护者在台账 `docs/board-ledger.json` 的 `cards` 里登记。
+   **立卡只能走程序**（DX-98）：`python scripts/register_board_cards.py --form <请求单> --authorized-by <授权来源>`；
+   手工改台账新增卡没有回执，commit-msg 阶段一律被拒。
    **agent 不得自行加卡、改卡的标题/阶段、改 `baseline`** —— 否则就是自授权，
    所有领用闸门都会退化成自证；agent 只能写 `claims` 领用登记与卡片 `note` 交付说明。
 
    > **例外：维护者可显式授权代登记。** 授权必须由维护者在会话中对**具体批次**明确下达。
+   > **立卡只能走程序（DX-98）**：`python scripts/register_board_cards.py --form <请求单> --authorized-by <授权来源>`。
+   > 工具负责：五段式表单校验、git 通用目录**跨 worktree 锁内发号**（`<stage>-<max+1>`；
+   > 手工「扫描时点 max+1」无预占机制，多会话并发必撞号 —— DX-74/96 实测）、生成含卡片
+   > 规范 JSON sha256 的**回执** `docs/card-requests/registered/<短号>.json`、写盘后
+   > `derive --write`/`--check` 自校验。发号含**服务端占位**（DX-99）：候选号先推
+   > `refs/registrations/<短号>` —— 新建 ref 的推送在 origin 是原子 test-and-set，
+   > 谁先推成谁占号，被拒即刷新占用集换号重试；占位永久留痕即机器可校验的发号审计链，
+   > 跨机并发窗口缩到一次原子推送（离线需显式 `--offline`，号为暂定须重验）。
+   > 发号强度按项目协作形态可配（DX-105）：台账顶层 `numbering.mode` —— `remote`
+   > （默认，服务端占位）/ `local`（仅本地锁+台账，零网络，适合单机/离线项目，
+   > 跨机并发不受保护）；CLI `--mode` 单次覆盖。改它属任务定义，必须 chore(board)+审计行。
+   > **手工改台账新增卡一律被拒**：`task_gate` 在
+   > commit-msg 阶段核对回执，无回执 / `card` 不符 / sha256 不符 / 缺 `authorizedBy` 即拒。
    > 代登记只允许追加卡片与对应的 `baseline`，不得改既有卡的 `id` / `title` / `stage`；
    > agent 不得以授权为名自行加卡，也不得通过临时 worktree、修改判定脚本或 `--no-verify` 绕过。
-   > 提交信息统一用 `chore(board): ...`，并在 body 记录授权来源与批次。
+   > 提交拆两段（工具运行完会打印完整指引）：`docs(board): 收录 <短号> 立卡请求单`（仅表单）
+   > + `chore(board): 立卡 <短号>`（台账+快照+回执，body 带 授权/批次 两行）。
    >
    > **判定凭「内容」而非「位置」**（DX-06 建立、DX-07 修正、DX-10 扩到卡片契约）：
    > 只要一次提交改了台账的**任务定义**（新增/删除卡、改 `id`/`title`/`stage`、
@@ -183,7 +199,8 @@ git branch -d feature/<简述>
    > 比对时忽略顺序与首尾空白（纯排版整理不触发）；自动结卡只改 `baseline`，**不给这条通道扩权**。
    >
    > 只改 `claims` 或卡片 `note` 不算代登记，无需凭证。判定逻辑只有一处实现
-   > （`scripts/task_gate.py` 的 `audit_problems`），自带 15 例（含自动结卡通道与不扩权）的可执行自测
+   > （`scripts/task_gate.py` 的 `audit_problems` + `receipt_problems`），自带 32 例
+   > （含自动结卡通道、不扩权与回执三态）的可执行自测
    > `python scripts/task_gate.py selftest`，CI 每次都跑。
    >
    > **为什么不再限定「只能在锚点区」**：锚点区检出停在 `main`、`pre-commit` 规则 1 禁止在
@@ -465,7 +482,12 @@ pwsh -File scripts/git-done.ps1 -Branch fix/stagebar-chip-overflow
 ```
 
 脚本内部流程：`git fetch origin` → 基于 `origin/main` 建临时分支 `merge/<slug>` →
-`git merge --no-ff <分支>` → `git push origin HEAD:main`（**快进推送**，不是强推）。
+`git merge --no-ff <分支>`，清理登记 / 结卡 / 快照全部本地提交后，对 main **只推一次**
+（DX-106 起，快进推送，不是强推；推送收口在 `Push-Main` 单一实现）。撞 non-ff 时变基重试，
+仍失败则整体回滚收尾提交、**单独推送合并**（fail-soft 交付不被收尾拖住）。
+合并撞冲突时（DX-108 起）：冲突文件仅为 `progress.json`（纯派生物）时**自动善后**——
+取主线版完成合并，收尾派生器整体重算，不要求人工介入；含其它文件（尤其台账，它承载
+任务定义）不进自动通道，现场自动回滚（DX-107）后转人工。
 合并前还会跑**领用闸门**：分支必须带服务端 `refs/claims/<短号>` 占位，否则拒绝合并；
 纯文档/杂务分支按 diff 路径自动豁免（`scripts/task_gate.py scope` 判定为 `exempt`）。
 `-SkipClaimCheck` 已废弃，保留参数只为兼容旧脚本，**不再能放行任何代码改动**。
@@ -828,12 +850,12 @@ agent **禁止手改**快照文件 —— 手改已造成过 v2 覆盖 v3 的事
    派生结果，唯一写者是 `git-done` 收尾的 `Sync-BoardSnapshot`（`derive --write`）—— 它是
    **fail-soft** 的：派生 / 提交 / 推送失败只告警，绝不阻断已经成功的合并。`board.yml` 只是
    校验器：`--check` 不一致就报红，不自愈、也没有推送权限。
-   **红灯只可能落在 `main` tip 的那一个 run 上（DX-44）**：一次收尾分步快进补推 3~4 个提交
-   （合并 / 清理登记 / 结卡 / 快照），前几个是注定短暂的中间态 —— 快照必须最后刷新，因为派生器
-   要读前几步写完的 git 事实。`board.yml` 的 `concurrency.cancel-in-progress: true` 让新推送
-   取消上一个在跑的 run；前提是 job 比推送间隔久，故 job 首步加 ~30s 沉降等待（实测推送间隔
-   6~13s），中间 run 在新推送到来时仍在 sleep 中被取消，于是中间态不再产生 failure run，
-   判据落点自动挪到 main tip。**main tip 红 = 收尾那几步真的失败了**（离线 / 撞车 / 脚本失败，
+   **红灯只可能落在 `main` tip 的那一个 run 上（DX-44；DX-106 起结构化归零）**：git-done 收尾对
+   main 只推**一次** —— 合并提交与清理登记/结卡/快照全部本地提交后合成单次推送（快照已在
+   推送前刷新完毕，推送落点天然自洽；撞 non-ff 变基重试，仍失败整体回滚收尾提交、单独推合并）。
+   每批收尾只建 1 个 run，中间态在结构上不存在。`board.yml` 的 `concurrency.cancel-in-progress: true`
+   与 job 首步 ~30s 沉降等待（DX-44）降级为**纯双保险**：单推送下已无中间 run 可言，保留只为
+   防未来重新出现多次推送时回归。**main tip 红 = 收尾那几步真的失败了**（离线 / 撞车 / 脚本失败，
    R14-01 那次三件收尾全部回滚、靠人肉补 `d064c12`），照提示补跑即可；
    `--check` 对中间态照样返回非零 —— 折叠的是「留不留红灯」，不是判据本身。
    历史包袱（写权为什么要收成一处）：双写者时期两边写同一个派生文件必然撞车 —— 谁先推谁赢、

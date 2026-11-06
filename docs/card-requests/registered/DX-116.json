@@ -1,0 +1,13 @@
+{
+  "card": "DX-116",
+  "sha256": "a2363d512c5b97fd4a39f1d6496fa55a9076dba9ae44fa3cdd99358b6712b798",
+  "authorizedBy": "维护者 2026-11-06 会话指令：该立卡的立卡（对 agent-flowguard 会话移交事项）",
+  "form": "docs/card-requests/20261106-dx-gitdone-receipt-honesty.md",
+  "registeredAt": "2026-11-06T15:56:07+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-116",
+    "sha": "8c55406c8654fc8e249473d09875dfc7677f9007"
+  }
+}

@@ -351,6 +351,26 @@
   把「job 比推送间隔久」重新坐实，中间 run 在新推送到来时仍 in-progress 被取消。
   校验逻辑、`--check` 的严格程度、`permissions: contents: read` 一字未动；
   main tip 红才等于收尾真的失败了（离线 / 撞车 / 脚本失败）。
+- **双保险的另一翼（DX-96）**：结构上把注定失败的中间态 run 从 3 个砍到 1 个 —— git-done
+  收尾的清理登记 / 结卡 / 快照不再各自补推，改为本地提交后**单次补推**（重试集中、失败
+  整体回滚到合并点，fail-soft 交付的合并不受波及）。沉降等待负责「取消得掉」，补推合并
+  负责「本来就少」；叠加后每批收尾固定恰好 2 个 run（合并 + 收尾），收尾 run 落点必为
+  自洽 tip。次数由 verify.ps1 的**静态推送点断言**守着（对 main 恰 2 处）—— 动态
+  dry-run 统计进不了常规验收：git-done 拒脏树，而验收恰在提交前跑，动态口径永远走不到。
+- **终局（DX-106，A2b）**：合并提交与清理登记 / 结卡 / 快照提交全部落本地后合成对 main 的
+  **唯一一次推送**（收口在 `Push-Main` 单一实现），每批收尾只建 1 个 run，中间态在结构上
+  **不存在**。撞 non-ff 变基重试（上限 3 次）保留且集中；仍失败则整体回滚收尾提交到合并点、
+  **单独推送合并**（fail-soft 重排：交付不被收尾拖住，原 DX-96 的「合并先推」语义由回退路径
+  承接）。DX-44 的 cancel-in-progress 与 ~30s 沉降等待降级为**纯双保险**（单推送下无中间
+  run 可言，保留只为防未来重新分多次推送时回归）；静态推送点断言改为「Push-Main 定义 1、
+  收口推送语句 1、游离推送语句 0」（每 run 恰 1 次；fail-soft 回退与主路径共用 Push-Main，
+  两路互斥）。
+- **DX-106 连带的时序调整（值得记住的坑）**：单次推送下 worktree 回收与分支删除发生在推送
+  **之前**（release-claims 判台账登记失效要靠「分支已删」，必须排在它前面），于是旧的回收
+  安全判据「还有未推送提交（`--not --remotes=origin`）」在这里**恒真**，每个工作区都会被判成
+  不可回收、永远留僵尸。判据改成「分支提交是否已全部进本次合并」（`rev-list --count HEAD
+  --not <合并提交>`）—— 刚做的 `--no-ff` 合并就是收纳证据，不在其中的提交才是真会丢的东西。
+  改「防丢」类判据时先想清楚它依赖的推送时序，时序变了判据要跟着换锚点。
 - **为什么不是别的修法**：
   - 「让 `--check` 区分『滞后』与『矛盾』」——**否决**。收尾失败的唯一外部表现就是快照一直滞后，
     把这个判据拆掉等于把眼睛挖了：以后收尾静默回滚，没人知道。
@@ -546,6 +566,56 @@
 - **一般化**：**给状态加语义时，必须同时回答「怎么进得去、怎么出得来」**。转移表是
   按使用方逐个扩出来的，新使用方接入失败路径时，入口出口都要验——只有入口没有出口的
   停放态，是把「步骤失败」变成「永久卡死」。
+### 1.36 手工立卡无凭证也无闸：授权靠提交信息两行自证，撞号后无从对账（DX-98）
+
+- **现象**（2026-11-06，DX-74 现场）：立卡靠人/agent 手工改 `board-ledger.json`，卡号 =
+  「扫描时点 max+1」（1.33 的取号竞态同源）；提交信息里的 `授权：`/`批次：` 两行是唯一
+  凭证，谁都可以写，没有机器可校验的登记记录 —— 撞号后只能靠翻会话记录对账谁先谁后。
+- **根因**：立卡是「读台账→本地决策→写回」，既没有临界区（发号竞态，见 1.33），也没有
+  不可抵赖的产物（凭证自证）。凡是靠提交信息文本自证的授权，删掉两行重写毫无成本。
+- **解法（DX-98）**：立卡收口为程序唯一入口 `scripts/register_board_cards.py`——
+  ① git 通用目录跨 worktree 文件锁内发号（锁内重读台账再 max+1，同机并发串行化）；
+  ② 每张新卡生成**回执** `docs/card-requests/registered/<短号>.json`，携带卡片规范 JSON 的
+  sha256 与 `authorizedBy`；③ `task_gate` 在 commit-msg 阶段核对：新增卡无回执 / `card`
+  不符 / 哈希不符 / 缺授权来源一律拒绝 —— **手工改台账的立卡通道就此关闭**，授权来源
+  从「可自证的散文」变成「机器可校验的凭证」。自动结卡（仅 baseline、`自动来源：`）不产
+  新卡，不走回执，通道不受影响。同源残余「**跨机竞态**」（锁只覆盖本机）由 DX-99 闭环：
+  ④ 发号在锁内先推**服务端占位** `refs/registrations/<短号>` —— 新建 ref 的推送在 origin
+  是原子的 test-and-set，推成即占号、被拒即刷新占用集换号重试；占用集 = 本地台账 ∪
+  origin 台账 ∪ 占位全集，占位永久留痕（顺带补全 1.33「占用集来源」的病根）；离线
+  fail-closed，显式 `--offline` 降级为暂定号并写入回执。两处收尾修正（DX-104）：
+  ⑤ 占位 sha 必须是 commit-tree 直造的**唯一 off-main 空提交**——v1 指向 HEAD 时，
+  别人的主线后代可 plain push 快进顶掉占位，test-and-set 失效；off-main 尖端无人可
+  为其后代，异 sha 重推必 non-FF 被拒，plain push 即严格仅创建。⑥ pre-push 钩子须
+  对 `refs/registrations/*` 给出与 `refs/claims/*` 同款豁免（服务端占用 ref 非分支
+  推送）——缺豁免时占位被「必须已合并 main」拦死，且失败曾被误报成撞号：**闸门
+  放行名单和重试归因要跟着新 ref 命名空间一起改，漏一处整套机制就是摆设**。
+  发号强度本身可配（DX-105）：台账 `numbering.mode`（`remote` 默认 / `local`
+  单机零网络，适合没有 origin 的纯本地仓库），CLI `--mode` 单次覆盖；改配置 =
+  改任务定义，同走 chore(board)+审计行 —— **强度是治理参数，不能成为免审计的后门**。
+- **预防**：授权类机制要区分「凭证」与「证词」——提交信息是证词，谁都能写；
+  只有带密度的产物（哈希回执）才能进闸门。给闸门新增判据时同步给 `selftest`
+  补三态（有凭证放行 / 无凭证拒 / 凭证与内容不符拒），回执路径要进流程合法路径集，
+  否则立卡提交会栽在自己的越面判定上。
+
+### 1.37 单次推送下 `branch -d` 恒拒：分支删除判据还锚在 origin/main（DX-109）
+
+- **现象**（2026-11-06 DX-106 收尾实录）：每次 `git-done.ps1` 收尾都打印
+  `error: the branch 'fix/...' is not fully merged`，并留下 `（分支可能仍被某个 worktree 占用…）`
+  提示；合并早就成功，分支却要手工 `git branch -D` 补删。DX-106 每批收尾都复现一次。
+- **根因**：DX-106 把 worktree 回收与分支删除都挪到推送**之前**（`release-claims` 要靠
+  「分支已删」判台账登记失效），worktree 回收的安全判据已经换成「提交已全部进本次合并」，
+  **分支删除那半边没跟着换**：`git branch -d` 的安全判据是「已合并到 upstream」，而功能分支
+  由 `agent-init` 建成时跟踪 `origin/main`；推送前 `origin/main` 还没含本次合并，判据恒假，
+  git 必然拒删。DX-106 的 worktree 判据换对了，同一个时序变化下的另一处判据却漏了。
+- **解法（DX-109）**：`git-done.ps1` 新增 `Remove-MergedBranch`，判据与 worktree 回收同锚点
+  ——`git rev-list --count <分支> --not <本次合并提交>` 为 0 才删；确认已收纳后用 `-D`
+  （`-d` 会再跑一遍同一套 upstream 检查，照样误拒）。remote 与 local 两个模式共用这一个
+  实现；`-KeepBranch` / `-DryRun` 的分支保留路径不受影响。分支若在合并后被别处推进
+  （计数 > 0）或被其它 worktree 占用，仍然保留并点名，不盲删。
+- **预防**：改「防丢」类判据时，先列出**所有**依赖同一时序前提的删除/回收动作，逐个问
+  「它的判据锚在哪」——DX-106 换了 worktree 那一处，漏掉分支这一处，症状就一直挂着。
+  验收要拿产物说话：正常收尾后 `git branch --list <分支>` 必须为空，而不是只看脚本没报错。
 
 ---
 
@@ -916,9 +986,15 @@
   自动分支：`git checkout origin/main -- progress.json` 取主线为底，合并提交后
   `-Recover` 的派生重算收敛（提交体带自动来源行留痕）——「取主线为底加重算」
   的手工舞步从此是脚本的一步。
-- **判据**：`python scripts/check_board_diff.py --selftest`（归因解析与判定谓词）；
-  端到端正例——分支上带 `#短号=done` 且快照滞后时 `-ScriptOnly` 绿；反例——把台账里
-  一张与分支无关的卡 baseline 改错再跑，必须仍红。
+- **补口（DX-81）**：DX-64 只认 `#卡=done`，领用登记派生的 doing 漂移仍会红——
+  领卡后还没写代码先跑 `-ScriptOnly`、或并行合并把 claims 带进来时必现，照样逼人手工
+  `derive --write`。归因证据扩为两路：本分支 `base..HEAD` 的 done 标记 ∪ 本分支相对
+  base **新增的 claims**（且派生状态确为 doing，复用 `claims_doing` / `status_of`）。
+  两路都解释不了的漂移照旧红灯；CI 在 main 上 `base..HEAD` 为空，口径不变。
+- **判据**：`python scripts/check_board_diff.py --selftest`（归因解析与判定谓词，
+  含 claims 命中 / 无 claims 反例 / done+claims 混合归因）；
+  端到端正例——分支上带 `#短号=done` 或新增 claim 且快照滞后时 `-ScriptOnly` 绿；
+  反例——把台账里一张与分支无关的卡 baseline 改错再跑，必须仍红。
 - **一般化**：**判据要收紧的是归因，不是松紧**。看到「检查失败」先问「这次失败由谁
   解释、会不会自愈」：能被本分支自身动作解释的中间态失败降为提示，解释不了的才
   是闸门对象。直接放宽阈值（跳过检查）会把真漂移一起放走，直接维持红灯则把
@@ -1034,6 +1110,88 @@
 - **一般化**：**给「写法」立禁令之前，先把「类别」的边界写清楚**。规则扩面前必须
   全仓校准零误伤，校准剩下的存量不能假装不存在——要么迁掉，要么点名进有主豁免面
   （写明哪张卡负责清空），两头都不沾的扩闸是给未来埋假绿灯。
+
+### 2.27 合并冲突退出不回滚现场：merge/* 临时分支 + 冲突态 + 停在临时分支（DX-107）
+
+- **现象**（2026-11-06 DX-106 收尾实录）：`git-done.ps1` 的合并撞 `progress.json`
+  冲突后，remote 模式的 catch 直接 `exit 1`：HEAD 停在 `merge/<slug>` 临时分支、
+  工作区挂着未合并冲突态、临时分支也没删；后续命令全部撞墙，得手工
+  `git merge --abort` + `git switch <原分支>` + `git branch -D merge/<slug>`。
+  `-DryRun` 更矛盾——头部文档承诺「结束切回原分支、演练提交全部丢弃」，冲突退出
+  同样不兑现，DX-106 实测留下 `merge/chore-board-dx-106-zip-push` 残留。local 模式
+  则把冲突态留在 `main` 上。
+- **根因**：冲突路径只打印指引就退出，没有任何清理；成功路径末尾的
+  `switch --detach` / dry-run 归位块都在冲突 exit 之前到不了。清理顺序还容易做反：
+  不先 abort 就切不走，不先切走就删不掉当前检出的分支。
+- **修复（DX-107）**：`Restore-ConflictScene` 收口两种模式的冲突退出，按
+  「abort 合并 → 切回进入时检出 → 删 merge/* 临时分支」顺序回滚，逐步打印、
+  失败只告警并给手工命令。全程非破坏性：`git merge --abort`（等价
+  `reset --merge`，保留未提交改动）+ `git switch`（非强制）+ `git branch -D`；
+  绝不 `reset --hard` / `checkout -- .`，用户未提交改动一律不碰。进入时是分离
+  HEAD 就按进入时 HEAD 回 `--detach`；无 `MERGE_HEAD`（合并未真正开始）跳过 abort。
+- **判据**：在会与 `origin/main` 冲突的分支上跑
+  `pwsh -File scripts/verify.ps1 -GitDoneDryRun`（回归用例；演练因冲突退 1 是预期，
+  看的是退出后的现场），退出后 `git status --porcelain` 为空、
+  `git symbolic-ref --short HEAD` 仍是进入时的分支、`git branch --list 'merge/*'` 为空、
+  `MERGE_HEAD` 不存在；真实模式（含 `progress.json` 待提交改动）与 local 模式同样不留现场，
+  且用户改动仍在、主线未被推送；`pwsh -File scripts/verify.ps1 -ScriptOnly` 全绿。
+  回归在隔离临时仓里造「两侧各改同一 `docs/` 文件」的必冲突分支，`origin` 指向临时裸仓，
+  不触真实远端（脚本留档：`.sandbox/artifacts/dx107-regression/`）。
+- **一般化**：**失败路径也要有和成功路径对称的回滚**。凡是中途 `exit 1` 的分支，
+  先问「这时检出在哪、有哪些临时产物」；只给手工指引等于把现场留给用户。
+  回滚动作必须按「先解状态、再切走、最后删引用」排序，且只许用不吞改动的命令。
+
+### 2.28 锚点检出台账是共享陈旧投影：领卡注入的契约与重开门判据口径分裂（DX-94）
+
+- **现象**（2026-11-06 agent-dx74 领 DX-74 实录）：`.agent-env.ps1` 注入的 `NB_SCOPE`
+  （`git-done/verify/pitfalls/AGENTS`）与 `NB_ACCEPTANCE` 全是 DX-88 的契约。锚点区本地
+  `main` 停在分叉提交 `45e1e93`，那份台账里的 DX-74 是改名前旧收尾补推卡，主线上早已
+  改配成 DX-88。agent 不逐字核对就拿着错契约开工，`check_scope` 必拒、白干一轮。
+- **根因**：同一份台账被两个读者按不同口径读 —— `agent-init.ps1` 的契约注入（旧实现
+  `$ledgerPath = Join-Path $repoRoot 'docs\board-ledger.json'`）读**检出本地文件**，
+  而「拒绝重新领用」的 `--stuck-codes` 判据读 `--ledger-ref origin/main`。`$repoRoot`
+  又是按脚本自身路径推出来的锚点根，锚点一旦分叉，注入的就是过期投影。
+  「位置不是凭证」在这里反过来：**不声明读哪一份台账，读到的就是随手那一份**。
+- **解法（DX-94）**：台账读取收口进 `derive_board_status.py`（新增
+  `--contract <短号> --out <文件>`，只认 `--ledger-ref`，默认 `origin/main`），
+  `agent-init.ps1` 改为调用它并把结果**落盘后按字节读**
+  （`[System.IO.File]::ReadAllText(..., UTF8)`），绕开 PowerShell 捕获 Python stdout
+  按控制台代码页 GBK 解码的坑（2.6 / 2.20 / DX-83）。worktree 开区与 `-InPlace`
+  原地两条路径共用同一段注入代码，同源；读不到契约宁可显式告警跳过，也**不回落
+  本地台账** —— 分叉副本正是要根治的陈旧源。
+- **判据**：`python scripts/derive_board_status.py --selftest` 的「契约源」用例在临时 git
+  仓库里造「ref 台账真值 + 工作区台账 SENTINEL」分叉，断言 `--ledger-ref` 读 ref、
+  不读工作区；实测把工作区 `docs/board-ledger.json` 的 DX-94 三字段改成 SENTINEL 后
+  重跑 `agent-init.ps1 -InPlace -Card DX-94`，`.agent-env.ps1` 的 `NB_SCOPE` /
+  `NB_ACCEPTANCE` 与 `origin/main` 台账逐字一致、不含 SENTINEL。
+- **一般化**：**读共享状态必须声明读哪一份**，尤其当另一条判据已经钉死某一份时 ——
+  口径分裂不会报错，只会让人按过期定义干活。文件在磁盘上不等于它是事实源。
+### 2.29 控制台编码自切只治一个入口：UTF-8 的三跳（代码页 / 解码 / 喂入）各留一份副本必漂
+
+- **现象**（同类三连）：DX-60 修 build.ps1（chcp 65001 保 CMake file(READ) 字节保真）之后同类
+  继续复发——verify.ps1 尾行输出「閫€鍑虹爜: 0」、nbflow status 授权段整段 mojibake（DX-77，
+  CP 936 控制台直读 UTF-8 字节）；git-done / agent-init 捕获 python 子进程的 UTF-8 输出按 GBK
+  解码后原样转发，乱码落地（DX-83，claim-card 的「[棰嗙敤] 鏈嶅姟绔...」实录，2026-11-06 多个
+  会话现场复现）。
+- **根因**：中文控制台上 UTF-8 化要同时管三跳——①控制台代码页（chcp 65001：子进程与直写
+  控制台的字节按 65001 解释）；②`[Console]::OutputEncoding`（PS 解码 native 子进程 stdout，
+  §2.20 的病根）；③`[Console]::InputEncoding`（PS 向 native 子进程喂输入）。§2.6 的 python
+  reconfigure 只管「写侧出 UTF-8 字节」，读方（控制台 / PS 捕获）仍按 GBK 就照花。每个入口
+  只修自己踩到的那一跳，其余跳下次准炸——同类第三次才收口，已经晚了两轮。
+- **修复（DX-77/DX-83）**：唯一实现 `scripts/nb-console.ps1` 的 `Set-NbUtf8Console`——三跳
+  一次到位、幂等（Get-Variable 探测，兼容宿主的 Set-StrictMode）、无控制台（计划任务 / CI
+  服务会话）时告警放行（fail-soft，硬门在 build.ps1 的前缀逐字节核对）；build.ps1 /
+  git-done.ps1 / agent-init.ps1 / verify.ps1 四个入口点源调用（build.ps1 的 DX-60 段迁移为
+  调用，判据与注释留在原位）；nbflow.py 入口自切控制台 CP（GetConsoleWindow 探测，无控制台
+  跳过——管道消费者本就按 UTF-8 解码）。机器判据：`check_script_hygiene.py` 规则 F——四个
+  入口缺点源或缺调用即拒，反向探针入自测。
+- **判据**：`python scripts/check_script_hygiene.py --selftest`；实测——CP 936 控制台下经封装
+  捕获 python 中文输出与 python 直出 UTF-8 归一行尾后逐字节一致（行尾是捕获路径固有差异：
+  python 文本模式写 CRLF、PS 管道捕获剥行尾；解码差异体现在内容字节），负对照（不接封装）
+  必不相等；nbflow 跑过后控制台 CP 探针为 65001。
+- **一般化**：§2.6（python 写侧）+ §2.20（字节落盘绕开解码）+ 本条（控制台三跳收口）是同一
+  坑的三个面：中文 Windows 上任何一方的编码假设没有显式声明，就默认有人按 GBK 读。新入口
+  脚本先点源 nb-console.ps1，新 python 工具先 reconfigure——两条都已有闸门盯着，别靠记性。
 
 ---
 
@@ -1719,3 +1877,32 @@
 | [`testing.md`](testing.md) | 测试与验收口径 |
 | [`auto-update.md`](auto-update.md) | 升级链路与 `update.json` 清单 |
 | [`adr/`](adr/README.md) | 架构决策记录（运行态与执行器安全边界见 ADR-0002） |
+- **实测（2026-11-06，DX-96 交付演练）**：用仅对 `derive_board_status.py` 失效的
+  python 垫片（PATH 注入 `python.cmd`，按参数命中即 exit 9，其余原样转发）注入
+  结卡/快照失败后真跑 git-done：合并照常推送（fail-soft ✓）、两步只告警不阻断、
+  EXIT 0、无收尾补推；main tip 因「标记 done / baseline todo」报红一次（眼睛 ✓），
+  按提示补跑收尾即转绿。注入走运行时 PATH 而非改文件 —— git-done 拒脏树，
+  改源码注入根本进不了收尾。
+- **实测（2026-11-06，DX-106 交付当日三次撞快照冲突）**：合并收尾连续三次在
+  `progress.json` 上撞冲突，每次都要手工五步善后（`merge --abort` → 切回分支 → 合主线 →
+  `--ours` 取版 → `derive --write` 重算 → 提交），步骤全靠人记、无任何脚本兜底 —— 第三次
+  甚至发生在「为这个问题立卡」的合并收尾里。**解法（DX-108）**：git-done 合并冲突路径加
+  自动善后 —— 冲突文件**仅** `progress.json` 时取主线版完成合并、收尾派生器整体重算；
+  含其它文件（尤其台账）不进通道，仍走人工。两个口径要说清：
+  - **这不是 §7.5 禁止的 `--ours` 盲解**：盲解指「拿一侧内容当最终答案」；这里取来的内容
+    只是让合并落地的占位，收尾的 `Sync-BoardSnapshot`（derive --write）必然按 git 事实
+    整体重算 —— 内容的最终来源是派生器，不是 `--ours`。台账 `docs/board-ledger.json`
+    不享受同等待遇：它承载任务定义（加卡/改契约要授权），不是纯派生物，取单侧会静默
+    丢掉另一边的立卡，含它的冲突必须人工。
+  - **领用占位的教训（同日实测）**：agent-init 报「服务端占位 sha 不符」时，先 `ls-remote`
+    核对 sha 再动占位 —— 本次误判成「自己上次运行的孤儿」，把别人（agent-dx107）刚领的
+    `refs/claims/DX-107` 删了，靠本地镜像 ref 重推才恢复。占位是双领防护的唯一事实源，
+    释放动作前先证明「这确实是我的」，证不出来就不动。
+- **实测（2026-11-06，DX-106 交付演练，同技巧复用）**：同一垫片注入后跑
+  `verify.ps1 -GitDoneDryRun`（派生器 exit 9，结卡与快照两步只告警）：
+  合并落本地 → 收尾两步告警跳过 → 合并+收尾单次推送桩成功 → EXIT 0、现场回滚干净。
+  无垫片的常规 `-GitDoneDryRun` 同轮通过：合并+收尾一次桩推送、结单对账、归位最后。
+  另记一个演练自身的坑（**已由 DX-107 修复，见 2.27**）：旧版 dry-run 撞合并冲突时
+  **不会回滚现场**（冲突退出路径直接 exit 1，留下 merge/<...> 临时分支与未合并状态）。
+  现在冲突退出会 abort 合并、删临时分支、切回进入时检出，演练后现场即干净；
+  垫片留档：`.sandbox/artifacts/shim/python.cmd`。

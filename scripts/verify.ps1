@@ -42,6 +42,9 @@ Set-Location $repoRoot
 . (Join-Path $PSScriptRoot 'nb-paths.ps1')
 # git 符号引用取值的唯一口径（DX-63）：空输出 / 多行 / 分离 HEAD 的空值语义只写一遍
 . (Join-Path $PSScriptRoot 'git-helpers.ps1')
+# 控制台 UTF-8 编码唯一口径（DX-77/DX-83）：中文输出可读、捕获 python 子进程输出不按 GBK 解码
+. (Join-Path $PSScriptRoot 'nb-console.ps1')
+Set-NbUtf8Console
 
 function Step([string]$name) {
     Write-Host ''
@@ -264,6 +267,24 @@ sys.exit(1 if bad else 0)
     if ($boardCode -eq 1) { Fail '台账派生快照不一致：跑 derive_board_status.py --write 后重试' }
     if ($boardCode -eq 2) { Fail '台账的 cards 结构有变化，-ScriptOnly 不足以验收；请跑 pwsh -File scripts/verify.ps1（全量）' }
     if ($boardCode -ne 0) { Fail "台账分档检查失败（退出码 $boardCode）" }
+
+    Step '收尾推送次数断言（DX-106）'
+    # git-done 对 main 的推送必须每 run 恰 1 次（DX-106 A2b）：合并提交与清理/结卡/快照
+    # 提交全部落本地后合成一次推送，Board 每批收尾只建 1 个 run 且落点必为自洽 tip。
+    # 口径用静态源码计数而非 dry-run 统计：git-done 拒脏树，而常规验收恰在提交前跑
+    # （树必然脏），动态口径在验收里永远走不到 —— 静态计数才能每次都生效。
+    # 推送语句收口在 Push-Main 单一实现（DX-106）；fail-soft 回退（收尾整体回滚后单独
+    # 推合并）与主路径共用它，两条路径互斥，故每 run 实际仍恰 1 次。动态口径由
+    # -GitDoneDryRun 档与真实收尾覆盖。
+    $gdPath = Join-Path $repoRoot 'scripts\git-done.ps1'
+    $gdSource = Get-Content -LiteralPath $gdPath -Raw -Encoding utf8
+    $netSites = ([regex]::Matches($gdSource, [regex]::Escape('Invoke-NetGit @(''push'', ''origin'', "HEAD:$MainBranch")'))).Count
+    $mergeSites = ([regex]::Matches($gdSource, [regex]::Escape('Invoke-Git push origin "HEAD:$MainBranch"'))).Count
+    $pmDefs = ([regex]::Matches($gdSource, [regex]::Escape('function Push-Main'))).Count
+    if ($pmDefs -ne 1 -or $netSites -ne 1 -or $mergeSites -ne 0) {
+        Fail ("git-done 对 main 的推送点异常：Push-Main 定义={0}、收口推送语句={1}、游离推送语句={2}（应为 1/1/0；DX-106 要求每批收尾对 main 恰推 1 次）" -f $pmDefs, $netSites, $mergeSites)
+    }
+    Write-Host ("  ✓ 对 main 的推送收口在 Push-Main 单一实现，每 run 恰 1 次（检出 {0}）" -f $repoRoot)
 
     Write-Host ''
     Write-Host '✓ 脚本层验收通过：语法 / 卫生 / YAML / 范围 / 路径引用 / 台账分档 全过（未触发编译）' -ForegroundColor Green

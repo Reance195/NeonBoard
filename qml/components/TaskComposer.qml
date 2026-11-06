@@ -4,16 +4,21 @@ import QtQuick.Layouts
 
 // 统一新建入口：标题（复用输入解析）+ 目标列 + 父卡。
 // 列底快速添加保留，本弹窗用于「明确选列 / 挂父卡 / 先看解析结果」的场景。
-Dialog {
+//
+// R11-09：改用统一弹窗壳 DialogShell —— 头固定（标题 + 关闭键）、体滚动、
+// 底固定（取消 / 创建右对齐），尺寸档 sm 440。
+DialogShell {
     id: composer
 
-    parent: Overlay.overlay
-    anchors.centerIn: parent
-    modal: true
-    focus: true
-    padding: Theme.spacingXl
-    width: Math.min(460, Overlay.overlay.width - 80)
-    closePolicy: Popup.CloseOnEscape
+    titleText: "新建任务"
+    sizeMode: "sm"
+    primaryText: "创建"
+    secondaryText: "取消"
+    primaryEnabled: titleField.text.trim().length > 0
+
+    onPrimaryTriggered: composer.submit()
+    onSecondaryTriggered: composer.close()
+    onCloseRequested: composer.close()
 
     property string status: "todo"
 
@@ -50,205 +55,168 @@ Dialog {
         composer.close()
     }
 
-    background: Rectangle {
-        color: Theme.panelSolid
-        radius: Theme.radiusPanel
-        border.width: 1
-        border.color: Theme.alpha(Theme.cyan, 0.32)
+    TextField {
+        id: titleField
+        Layout.fillWidth: true
+        placeholderText: "任务标题，支持「明天」「!高」「#标签」"
+        placeholderTextColor: Theme.muted
+        color: Theme.text
+        font.pixelSize: Theme.fontTitle
+        selectByMouse: true
+        background: Rectangle {
+            color: Theme.elevated
+            radius: Theme.radiusControl
+            border.width: 1
+            border.color: Theme.alpha(Theme.cyan, 0.20)
+        }
+        onAccepted: composer.submit()
     }
 
-    contentItem: ColumnLayout {
-        spacing: Theme.spacingMd
+    // 解析预览：与列底快速添加同一套 TaskInputParser，避免两处行为不一致
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: Theme.spacingSm
+        visible: titleField.text.trim().length > 0
 
         Text {
-            text: "新建任务"
-            color: Theme.text
-            font.pixelSize: Theme.fontDisplay
-            font.bold: true
+            text: "解析"
+            color: Theme.muted
+            font.pixelSize: Theme.fontCaption
         }
 
-        TextField {
-            id: titleField
+        Text {
             Layout.fillWidth: true
-            placeholderText: "任务标题，支持「明天」「!高」「#标签」"
-            placeholderTextColor: Theme.muted
+            text: composer.preview.title
             color: Theme.text
-            font.pixelSize: Theme.fontTitle
-            selectByMouse: true
+            font.pixelSize: Theme.fontCaption
+            elide: Text.ElideRight
+        }
+
+        Text {
+            visible: composer.preview.hasDue
+            text: "◷ " + composer.preview.dueText
+            color: Theme.cyan
+            font.pixelSize: Theme.fontCaption
+        }
+
+        Text {
+            visible: composer.preview.priority > 1
+            text: composer.preview.priority === 3 ? "!! 高" : "! 中"
+            color: Theme.accent3
+            font.pixelSize: Theme.fontCaption
+        }
+
+        Repeater {
+            model: composer.preview.tags
+            delegate: Text {
+                text: "#" + modelData
+                color: Theme.cyan
+                font.pixelSize: Theme.fontCaption
+            }
+        }
+    }
+
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: Theme.spacingSm
+
+        Text {
+            text: "列"
+            color: Theme.muted
+            font.pixelSize: Theme.fontBody
+        }
+
+        Repeater {
+            model: [["待办", "todo"], ["进行中", "doing"], ["已办结", "done"]]
+            delegate: Rectangle {
+                width: 68
+                height: 30
+                radius: Theme.radiusControl
+                color: composer.status === modelData[1]
+                       ? Theme.alpha(Theme.cyan, 0.48)
+                       : Theme.input
+                border.width: 1
+                border.color: composer.status === modelData[1] ? Theme.cyan : Theme.border
+
+                Text {
+                    anchors.centerIn: parent
+                    text: modelData[0]
+                    color: composer.status === modelData[1] ? Theme.text : Theme.muted
+                    font.pixelSize: Theme.fontCaption
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: composer.status = modelData[1]
+                }
+            }
+        }
+    }
+
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: Theme.spacingSm
+
+        Text {
+            text: "父卡"
+            color: Theme.muted
+            font.pixelSize: Theme.fontBody
+        }
+
+        ComboBox {
+            id: parentBox
+            Layout.fillWidth: true
+            model: composer.parentChoices
+            textRole: "title"
+            valueRole: "id"
+            font.pixelSize: Theme.fontBody
+            contentItem: Text {
+                leftPadding: 10
+                text: parentBox.displayText
+                color: Theme.text
+                font: parentBox.font
+                elide: Text.ElideRight
+                verticalAlignment: Text.AlignVCenter
+            }
             background: Rectangle {
+                implicitHeight: 32
                 color: Theme.elevated
                 radius: Theme.radiusControl
                 border.width: 1
                 border.color: Theme.alpha(Theme.cyan, 0.20)
             }
-            onAccepted: composer.submit()
-        }
-
-        // 解析预览：与列底快速添加同一套 TaskInputParser，避免两处行为不一致
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.spacingSm
-            visible: titleField.text.trim().length > 0
-
-            Text {
-                text: "解析"
-                color: Theme.muted
-                font.pixelSize: Theme.fontCaption
-            }
-
-            Text {
-                Layout.fillWidth: true
-                text: composer.preview.title
-                color: Theme.text
-                font.pixelSize: Theme.fontCaption
-                elide: Text.ElideRight
-            }
-
-            Text {
-                visible: composer.preview.hasDue
-                text: "◷ " + composer.preview.dueText
-                color: Theme.cyan
-                font.pixelSize: Theme.fontCaption
-            }
-
-            Text {
-                visible: composer.preview.priority > 1
-                text: composer.preview.priority === 3 ? "!! 高" : "! 中"
-                color: Theme.accent3
-                font.pixelSize: Theme.fontCaption
-            }
-
-            Repeater {
-                model: composer.preview.tags
-                delegate: Text {
-                    text: "#" + modelData
-                    color: Theme.cyan
-                    font.pixelSize: Theme.fontCaption
-                }
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.spacingSm
-
-            Text {
-                text: "列"
-                color: Theme.muted
-                font.pixelSize: Theme.fontBody
-            }
-
-            Repeater {
-                model: [["待办", "todo"], ["进行中", "doing"], ["已办结", "done"]]
-                delegate: Rectangle {
-                    width: 68
-                    height: 30
-                    radius: Theme.radiusControl
-                    color: composer.status === modelData[1]
-                           ? Theme.alpha(Theme.cyan, 0.48)
-                           : Theme.input
-                    border.width: 1
-                    border.color: composer.status === modelData[1] ? Theme.cyan : Theme.border
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: modelData[0]
-                        color: composer.status === modelData[1] ? Theme.text : Theme.muted
-                        font.pixelSize: Theme.fontCaption
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: composer.status = modelData[1]
-                    }
-                }
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.spacingSm
-
-            Text {
-                text: "父卡"
-                color: Theme.muted
-                font.pixelSize: Theme.fontBody
-            }
-
-            ComboBox {
-                id: parentBox
-                Layout.fillWidth: true
-                model: composer.parentChoices
-                textRole: "title"
-                valueRole: "id"
-                font.pixelSize: Theme.fontBody
+            delegate: ItemDelegate {
+                width: parentBox.width
+                highlighted: parentBox.highlightedIndex === index
                 contentItem: Text {
-                    leftPadding: 10
-                    text: parentBox.displayText
+                    text: modelData.title
                     color: Theme.text
-                    font: parentBox.font
+                    font.pixelSize: Theme.fontBody
                     elide: Text.ElideRight
-                    verticalAlignment: Text.AlignVCenter
                 }
                 background: Rectangle {
-                    implicitHeight: 32
-                    color: Theme.elevated
+                    color: highlighted ? Theme.alpha(Theme.cyan, 0.16)
+                                       : "transparent"
+                }
+            }
+            popup: Popup {
+                y: parentBox.height + 4
+                width: parentBox.width
+                implicitHeight: Math.min(contentItem.implicitHeight + 2, 280)
+                padding: 1
+                contentItem: ListView {
+                    clip: true
+                    implicitHeight: contentHeight
+                    model: parentBox.popup.visible ? parentBox.delegateModel : null
+                    currentIndex: parentBox.highlightedIndex
+                }
+                background: Rectangle {
+                    color: Theme.panelSolid
                     radius: Theme.radiusControl
                     border.width: 1
-                    border.color: Theme.alpha(Theme.cyan, 0.20)
+                    border.color: Theme.border
                 }
-                delegate: ItemDelegate {
-                    width: parentBox.width
-                    highlighted: parentBox.highlightedIndex === index
-                    contentItem: Text {
-                        text: modelData.title
-                        color: Theme.text
-                        font.pixelSize: Theme.fontBody
-                        elide: Text.ElideRight
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    background: Rectangle {
-                        color: highlighted ? Theme.alpha(Theme.cyan, 0.16)
-                                           : "transparent"
-                    }
-                }
-                popup: Popup {
-                    y: parentBox.height + 4
-                    width: parentBox.width
-                    implicitHeight: Math.min(contentItem.implicitHeight + 2, 280)
-                    padding: 1
-                    contentItem: ListView {
-                        clip: true
-                        implicitHeight: contentHeight
-                        model: parentBox.popup.visible ? parentBox.delegateModel : null
-                        currentIndex: parentBox.highlightedIndex
-                    }
-                    background: Rectangle {
-                        color: Theme.panelSolid
-                        radius: Theme.radiusControl
-                        border.width: 1
-                        border.color: Theme.border
-                    }
-                }
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.spacingSm
-
-            Item { Layout.fillWidth: true }
-
-            Button {
-                text: "取消"
-                onClicked: composer.close()
-            }
-
-            Button {
-                text: "创建"
-                enabled: titleField.text.trim().length > 0
-                onClicked: composer.submit()
             }
         }
     }

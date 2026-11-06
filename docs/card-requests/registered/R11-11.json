@@ -1,0 +1,13 @@
+{
+  "card": "R11-11",
+  "sha256": "7063b7c1547ba17b56d18eedf7d8b8c5c305740d54ff3bdb9324462243ce3a41",
+  "authorizedBy": "维护者 13706 会话 2026-11-06 指令「要完全收尾」",
+  "form": "docs/card-requests/20261106-ui-relayout-11.md",
+  "registeredAt": "2026-11-06T13:59:25+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R11-11",
+    "sha": "9a1c72a09bd4e5e03c076ac7df075b0864bcee67"
+  }
+}

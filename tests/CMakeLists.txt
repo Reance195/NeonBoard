@@ -154,6 +154,7 @@ neonboard_add_test(tst_projectstore
     ${NB_DIR_TASK}/TaskFilterModel.cpp
     ${NB_DIR_TASK}/TaskTree.cpp
     ${NB_DIR_BOARD}/ProjectStore.cpp
+    ${NB_DIR_BOARD}/RepoScaffolder.cpp
 )
 target_link_libraries(tst_projectstore PRIVATE Qt6::Sql)
 
@@ -168,6 +169,7 @@ neonboard_add_test(tst_projectscope
     ${NB_DIR_TASK}/TaskFilterModel.cpp
     ${NB_DIR_TASK}/TaskTree.cpp
     ${NB_DIR_BOARD}/ProjectStore.cpp
+    ${NB_DIR_BOARD}/RepoScaffolder.cpp
     ${NB_DIR_BOARD}/BoardColumns.cpp
 )
 target_link_libraries(tst_projectscope PRIVATE Qt6::Sql)
@@ -184,6 +186,7 @@ neonboard_add_test(tst_boardcolumns
     ${NB_DIR_TASK}/TaskTree.cpp
     ${NB_DIR_BOARD}/BoardColumns.cpp
     ${NB_DIR_BOARD}/ProjectStore.cpp
+    ${NB_DIR_BOARD}/RepoScaffolder.cpp
     ${NB_DIR_TASK}/TaskUndo.cpp
     ${NB_DIR_TASK}/TaskExtra.cpp
 )
@@ -513,5 +516,29 @@ target_link_libraries(tst_thememarket PRIVATE Qt6::Network)
 # 派生在 QThreadPool 后台线程跑（QtCore 自带），无需额外组件
 neonboard_add_test(tst_projectmap
     ${NB_DIR_BOARD}/ProjectMap.cpp
+)
+
+# R18-02：RoadmapSync 多项目注册表 —— 全局单文件向后兼容 / 绑定项目导入自动归属 /
+# 写回按项目隔离（每张卡只有一个「家」文件）/ 解绑卡保留回落全局 / repo_path 迁移。
+# 全用临时 sqlite 库 + 临时目录快照文件；不调 resolvePath / autoExportEnabled
+# （那两者读环境变量与用户 ini，测试不给它们碰）。
+neonboard_add_test(tst_roadmapsync
+    ${NB_DIR_CORE}/Database.cpp
+    ${NB_DIR_CORE}/AppPaths.cpp
+    ${NB_DIR_TASK}/TaskModel.cpp
+    ${NB_DIR_TASK}/TaskInputParser.cpp
+    ${NB_DIR_TASK}/TaskFilterModel.cpp
+    ${NB_DIR_TASK}/TaskTree.cpp
+    ${NB_DIR_BOARD}/ProjectStore.cpp
+    ${NB_DIR_BOARD}/RepoScaffolder.cpp
+    ${NB_DIR_BOARD}/RoadmapSync.cpp
+)
+target_link_libraries(tst_roadmapsync PRIVATE Qt6::Sql)
+
+# R18-03：无台账仓库脚手架 —— 合法 git 仓库生成 v3 空快照 + 空台账 /
+# 既有文件一律不覆盖 / 非法路径（相对 / 不存在 / 非 git）拒绝且零写入。
+# 纯文件操作，全部在 QTemporaryDir 里做，不碰真实仓库。
+neonboard_add_test(tst_reposcaffolder
+    ${NB_DIR_BOARD}/RepoScaffolder.cpp
 )
 

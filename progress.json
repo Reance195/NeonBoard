@@ -55,60 +55,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "R18-01",
-            "completedAt": 0,
-            "createdAt": 1793905066,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R18-01",
-            "note": "起因：R10-01~R10-05 给了项目维度数据层与两级看板，但明确把「项目增删改界面」留作后续卡 —— QML 对 ProjectStore 的写 API 零引用，项目只能靠归类脚本创建，用户在面板里无法管理项目。目标：设置面板新增「项目」区（列表 / 带颜色新建 / 重命名 / 删除，全部复用现有 ProjectStore API，无新表）；卡片详情抽屉新增项目归属下拉（留空 = 未归属，复用 assignTask）。非目标：不做跨项目拖动（拖过去等于改归属，需另案）、不做项目级权限、不做项目级统计视图。",
-            "orderKey": 45056,
-            "priority": 2,
-            "stage": "R18",
-            "status": "todo",
-            "tags": [
-                "R18"
-            ],
-            "title": "项目管理界面：设置面板创建 / 重命名 / 删除项目，详情抽屉项目归属下拉",
-            "updatedAt": 1793905066
-        },
-        {
-            "code": "R18-02",
-            "completedAt": 0,
-            "createdAt": 1793905066,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R18-02",
-            "note": "起因：RoadmapSync 是单路径设计（NEONBOARD_ROADMAP > ini [roadmap]/path > 从 exe 向上探测），一个实例只能盯一份 progress.json，「把其他项目纳入面板监控」没有原生路径 —— 目前唯一做法是手动搭脚手架 + 环境变量双实例。目标：project 表加可空 repo_path 字段（不升 user_version、老库兼容）；ProjectStore 增加 repo_path 读写并在项目清单中返回；RoadmapSync 由单例升级为注册表形态 —— 每个绑定项目独立监听 <repo_path>/progress.json，导入幂等、导入的卡自动归属该项目（task_project）、写回（autoExport）按项目隔离；未绑定任何项目时全局路线图行为与现状完全一致。非目标：不把 git 标记派生（derive_board_status.py）搬进应用（那是仓库侧工具）；不做跨项目卡片合并与去重。",
-            "orderKey": 46080,
-            "priority": 2,
-            "stage": "R18",
-            "status": "todo",
-            "tags": [
-                "R18"
-            ],
-            "title": "项目 ↔ 仓库绑定：project 表加可空 repo_path，每个绑定项目独立监听自己的 progress.json",
-            "updatedAt": 1793905066
-        },
-        {
-            "code": "R18-03",
-            "completedAt": 0,
-            "createdAt": 1793905066,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R18-03",
-            "note": "起因：R18-02 只能监听已有 progress.json 的仓库，全新仓库要用户手工建台账/快照 —— 正是维护者要求消灭的手工搭脚手架。目标：设置面板的项目绑定流程中，目标仓库缺 docs/board-ledger.json + progress.json 时提供「生成脚手架」选项：在目标仓库生成最小 v3 快照（version=3, items=[]）与空台账（baseline / cards / claims 均为空对象），生成后自动完成绑定；目标仓库任一文件已存在时不触发接入、不覆盖、给出提示。fail-closed：相对路径、不存在的目录、非 git 目录一律拒绝。非目标：不往目标仓库复制 derive_board_status.py / git 钩子工具链，不改目标仓库的 .gitignore / 钩子 / git 配置。",
-            "orderKey": 47104,
-            "priority": 2,
-            "stage": "R18",
-            "status": "todo",
-            "tags": [
-                "R18"
-            ],
-            "title": "无台账仓库一键接入：绑定时生成 board-ledger/progress 脚手架，既有文件不覆盖",
-            "updatedAt": 1793905066
-        },
-        {
             "code": "DX-75",
             "completedAt": 0,
             "createdAt": 1793905858,
@@ -124,24 +70,6 @@
                 "DX"
             ],
             "title": "nbflow 网络失败写 blocked 却报非法状态转移：blocked 进转移表并配恢复路径",
-            "updatedAt": 1793905858
-        },
-        {
-            "code": "DX-77",
-            "completedAt": 0,
-            "createdAt": 1793905858,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-77",
-            "note": "触发证据：本会话实测（chcp 936 控制台）：verify.ps1 尾行输出「閫€鍑虹爜: 0」、nbflow status 授权整段 mojibake；同类已三次：DX-46 修 board-apply.py、DX-60 修 build.ps1，均只治单文件（Z6：该收口所有入口了）\n\n## 目标\nDX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码\n\n## 验收\nchcp 936 控制台下 pwsh -File scripts/verify.ps1 -ScriptOnly 与 python -I scripts/nbflow.py status 的中文输出可读（无 mojibake），方案沿 DX-60 口径（入口自切 CP 65001 或 Python stdout reconfigure UTF-8），能抽公共实现就抽、不复制三份;python scripts/nbflow.py --selftest 与 check_script_hygiene 均通过（不引入 BOM/编码卫生回归）;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/verify.ps1;scripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 51200,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码",
             "updatedAt": 1793905858
         },
         {
@@ -163,24 +91,6 @@
             "updatedAt": 1793906024
         },
         {
-            "code": "DX-81",
-            "completedAt": 0,
-            "createdAt": 1793906764,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-81",
-            "note": "触发证据：DX-64 把归因集合限定为「本分支 #卡=done 标记」（check_board_diff.py drift_explained 只吃 done 集合），但领卡（agent-init claims 登记 / nbflow dispatch）同样让派生状态变 doing 而快照留 todo——漂移同样由本分支自身动作解释、同样在合入时由 git-done 收敛，却仍红灯。本会话实录两次：DX-65、DX-36 领用后第一次 -ScriptOnly 均红于「todo → doing」，各手工 derive --write 一次；DX-67/DX-63 靠先提交 done 标记再 verify 绕开。归因判据应覆盖本分支自身动作的全体来源（done 标记 + claims 登记），不是只有最早踩坑的那一种。查重命中的 DX-64 已交付且验收只覆盖 done 半边，本卡是归因集合扩展非重复；DX-13/41/62 为 done/标记 词面噪声\n\n## 目标\n领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯\n\n## 验收\n漂移项可被本分支自身新增的 claims 登记（相对 base 的 claims diff 且派生状态为 doing）解释时降为提示（合入由 git-done 收敛），其余漂移维持非零退出;DX-64 的 done 标记归因口径回归不破（反例：与分支无关的真漂移仍红灯）;自测覆盖 claims 解释命中 / 无 claims 的 doing 漂移仍红 / done 与 claims 混合归因，verify -ScriptOnly 通过\n\n## 边界\nscripts/check_board_diff.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 55296,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯",
-            "updatedAt": 1793906764
-        },
-        {
             "code": "DX-82",
             "completedAt": 0,
             "createdAt": 1793906980,
@@ -196,24 +106,6 @@
                 "DX"
             ],
             "title": "rebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用",
-            "updatedAt": 1793906980
-        },
-        {
-            "code": "DX-83",
-            "completedAt": 0,
-            "createdAt": 1793906980,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-83",
-            "note": "触发证据：DX-62 交付日复现实验钉死根因：python 子进程 stdout.reconfigure(utf-8) 后输出合法 UTF-8，pwsh 按 [Console]::OutputEncoding=gb2312（CP 936）解码后转发即乱码（实测输出「[娲剧敓鍣╙ 宸叉洿鏂� progress.json」）。受害链路：git-done 收尾里 derive --write 的输出、agent-init 捕获 claim-card 输出、nbflow 捕获 git-done 全程输出，本次会话全部观察到处。DX-60（710eed8）已在 build.ps1 修过同类（自切 CP 65001），属同类第二次，按 Z6 收口；Z5 要求编码设置只活一份\n\n## 目标\nPS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装\n\n## 验收\n新建 scripts/nb-console.ps1 提供 Set-NbUtf8Console 幂等封装（Console.OutputEncoding 与输入编码切 UTF-8，参照 DX-60 在 build.ps1 的实现），build.ps1 的编码设置段迁移为调用封装（ninja 前缀字节闸门留在 build.ps1 不动）；git-done.ps1、agent-init.ps1、verify.ps1 三个捕获 Python 子进程输出的入口 dot-source 并调用封装；机器判据：check_script_hygiene.py 新增规则，上述入口脚本缺封装调用即拒（反向探针验证）；实测判据：pwsh 下经封装后捕获 python 打印中文的输出与 python 直出 UTF-8 逐字节一致（控制台为 CP 936 的环境下验证）；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿，docs/pitfalls.md 记一条（§2.6 同类第二处的收口）\n\n## 边界\nscripts/nb-console.ps1;scripts/build.ps1;scripts/git-done.ps1;scripts/agent-init.ps1;scripts/verify.ps1;scripts/check_script_hygiene.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 57344,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "PS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装",
             "updatedAt": 1793906980
         },
         {
@@ -235,22 +127,238 @@
             "updatedAt": 1793908740
         },
         {
-            "code": "DX-94",
+            "code": "DX-100",
             "completedAt": 0,
-            "createdAt": 1793911047,
+            "createdAt": 1793935664,
             "deleted": false,
             "dueAt": 0,
-            "id": "DX-94",
-            "note": "触发证据：2026-11-06 agent-dx74 领 DX-74（裸 git 取值清理）实录：.agent-env.ps1 注入的 NB_SCOPE（git-done/verify/pitfalls/AGENTS）与 NB_ACCEPTANCE 均为 DX-88 契约。根因 agent-init.ps1:528 ledgerPath=Join-Path repoRoot，而 repoRoot=scriptRepoRoot（:82，锚点）；锚点 main 停在分叉 45e1e93，其 DX-74 是改名前旧收尾补推卡（主线上已改配 DX-88）。领用重开门判据读 origin/main（derive --stuck-codes --ledger-ref origin/main），两处口径分裂；agent 不逐字核对就会拿错契约开工，check_scope 必拒、白干一轮。\n\n## 目标\nagent-init 卡契约注入读锚点本地台账：锚点过时/分叉即注入过期契约，与 origin/main 重开门判据口径分裂\n\n## 验收\n卡契约注入（NB_SCOPE/NB_ACCEPTANCE/NB_DEPENDS）数据源改为 origin/main 台账，与 stuck-codes 重开门判据同源；台账读取单一实现落 Python 侧（derive_board_status.py 新增契约输出子命令），agent-init 经落盘文件按字节读消费（规避 git show 管道 GBK 解码坑）;worktree 与 -InPlace 两条路径走同一契约源；复现实验归零：分叉锚点（本地 main 45e1e93 含旧 DX-74）下 agent-init -Card DX-74 注入的 scope/acceptance 与 origin/main 台账 DX-74 逐字一致，证据落卡片 note;docs/pitfalls.md 记条目：锚点检出台账是共享陈旧投影，读台账必须声明读哪一份并与领用判据同源;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/agent-init.ps1;scripts/derive_board_status.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 61440,
+            "id": "DX-100",
+            "note": "",
+            "orderKey": 64512,
             "priority": 2,
             "stage": "DX",
             "status": "todo",
             "tags": [
                 "DX"
             ],
-            "title": "agent-init 卡契约注入读锚点本地台账：锚点过时/分叉即注入过期契约，与 origin/main 重开门判据口径分裂",
-            "updatedAt": 1793911047
+            "title": "立卡入口单一事实源：文档、旧工具注释与预演输出对齐 DX-98 新流程",
+            "updatedAt": 1793935664
+        },
+        {
+            "code": "DX-101",
+            "completedAt": 0,
+            "createdAt": 1793935666,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-101",
+            "note": "",
+            "orderKey": 65536,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "收尾与验收输出保真：合并提交四段、锚点跳过提示、红绿一致",
+            "updatedAt": 1793935666
+        },
+        {
+            "code": "DX-102",
+            "completedAt": 0,
+            "createdAt": 1793935667,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-102",
+            "note": "",
+            "orderKey": 66560,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "交互回归判据与 GUI 实机验收通道沉淀",
+            "updatedAt": 1793935667
+        },
+        {
+            "code": "R19-1",
+            "completedAt": 0,
+            "createdAt": 1793977718,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R19-1",
+            "note": "",
+            "orderKey": 73728,
+            "priority": 2,
+            "stage": "R19",
+            "status": "todo",
+            "tags": [
+                "R19"
+            ],
+            "title": "workflow 新增 retro 复盘步骤：agent 干完活后自省并沉淀程序化对策",
+            "updatedAt": 1793977718
+        },
+        {
+            "code": "DX-110",
+            "completedAt": 0,
+            "createdAt": 1793979017,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-110",
+            "note": "",
+            "orderKey": 74752,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "锚点快进永久跳过：立卡 roadmap 行收进立卡提交，锚点同步脏文件判据与分类修正",
+            "updatedAt": 1793979017
+        },
+        {
+            "code": "R11-13",
+            "completedAt": 0,
+            "createdAt": 1793979389,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-13",
+            "note": "",
+            "orderKey": 75776,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排收尾 3/3：修 EmptyState 锚定缺陷（空态浮到窗口左上角）+ 订正核验记录的归因",
+            "updatedAt": 1793979389
+        },
+        {
+            "code": "DX-114",
+            "completedAt": 0,
+            "createdAt": 1793979770,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-114",
+            "note": "",
+            "orderKey": 76800,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow selftest 探针越界读真仓库：占用集与 claim_refs 让语料卡号与生产事实撞车，并行环境下恒假红",
+            "updatedAt": 1793979770
+        },
+        {
+            "code": "DX-113",
+            "completedAt": 0,
+            "createdAt": 1793980098,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-113",
+            "note": "",
+            "orderKey": 77824,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "交付说明 note 提交被判「改契约」：full 档与 -ScriptOnly 验收口径分裂，agent 只能挑时态自证",
+            "updatedAt": 1793980098
+        },
+        {
+            "code": "DX-115",
+            "completedAt": 0,
+            "createdAt": 1793980234,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-115",
+            "note": "",
+            "orderKey": 78848,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移",
+            "updatedAt": 1793980234
+        },
+        {
+            "code": "DX-111",
+            "completedAt": 0,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-111",
+            "note": "",
+            "orderKey": 79872,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用",
+            "updatedAt": 1793980354
+        },
+        {
+            "code": "DX-112",
+            "completedAt": 0,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-112",
+            "note": "",
+            "orderKey": 80896,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现",
+            "updatedAt": 1793980354
+        },
+        {
+            "code": "DX-116",
+            "completedAt": 0,
+            "createdAt": 1793980568,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-116",
+            "note": "",
+            "orderKey": 81920,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印",
+            "updatedAt": 1793980568
+        },
+        {
+            "code": "DX-119",
+            "completedAt": 0,
+            "createdAt": 1793980819,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-119",
+            "note": "",
+            "orderKey": 82944,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9",
+            "updatedAt": 1793980819
         },
         {
             "code": "R0-01",
@@ -3455,6 +3563,24 @@
             "updatedAt": 1792748226
         },
         {
+            "code": "R18-01",
+            "completedAt": 1793933502,
+            "createdAt": 1793905066,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R18-01",
+            "note": "起因：R10-01~R10-05 给了项目维度数据层与两级看板，但明确把「项目增删改界面」留作后续卡 —— QML 对 ProjectStore 的写 API 零引用，项目只能靠归类脚本创建，用户在面板里无法管理项目。目标：设置面板新增「项目」区（列表 / 带颜色新建 / 重命名 / 删除，全部复用现有 ProjectStore API，无新表）；卡片详情抽屉新增项目归属下拉（留空 = 未归属，复用 assignTask）。非目标：不做跨项目拖动（拖过去等于改归属，需另案）、不做项目级权限、不做项目级统计视图。",
+            "orderKey": 45056,
+            "priority": 2,
+            "stage": "R18",
+            "status": "done",
+            "tags": [
+                "R18"
+            ],
+            "title": "项目管理界面：设置面板创建 / 重命名 / 删除项目，详情抽屉项目归属下拉",
+            "updatedAt": 1793933502
+        },
+        {
             "completedAt": 1792748226,
             "createdAt": 1792724524,
             "deleted": false,
@@ -3470,6 +3596,42 @@
             ],
             "title": "沙箱 e2e：脏标题自动清理 + 写回快照",
             "updatedAt": 1792748226
+        },
+        {
+            "code": "R18-02",
+            "completedAt": 1793933502,
+            "createdAt": 1793905066,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R18-02",
+            "note": "起因：RoadmapSync 是单路径设计（NEONBOARD_ROADMAP > ini [roadmap]/path > 从 exe 向上探测），一个实例只能盯一份 progress.json，「把其他项目纳入面板监控」没有原生路径 —— 目前唯一做法是手动搭脚手架 + 环境变量双实例。目标：project 表加可空 repo_path 字段（不升 user_version、老库兼容）；ProjectStore 增加 repo_path 读写并在项目清单中返回；RoadmapSync 由单例升级为注册表形态 —— 每个绑定项目独立监听 <repo_path>/progress.json，导入幂等、导入的卡自动归属该项目（task_project）、写回（autoExport）按项目隔离；未绑定任何项目时全局路线图行为与现状完全一致。非目标：不把 git 标记派生（derive_board_status.py）搬进应用（那是仓库侧工具）；不做跨项目卡片合并与去重。",
+            "orderKey": 46080,
+            "priority": 2,
+            "stage": "R18",
+            "status": "done",
+            "tags": [
+                "R18"
+            ],
+            "title": "项目 ↔ 仓库绑定：project 表加可空 repo_path，每个绑定项目独立监听自己的 progress.json",
+            "updatedAt": 1793933502
+        },
+        {
+            "code": "R18-03",
+            "completedAt": 1793933502,
+            "createdAt": 1793905066,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R18-03",
+            "note": "起因：R18-02 只能监听已有 progress.json 的仓库，全新仓库要用户手工建台账/快照 —— 正是维护者要求消灭的手工搭脚手架。目标：设置面板的项目绑定流程中，目标仓库缺 docs/board-ledger.json + progress.json 时提供「生成脚手架」选项：在目标仓库生成最小 v3 快照（version=3, items=[]）与空台账（baseline / cards / claims 均为空对象），生成后自动完成绑定；目标仓库任一文件已存在时不触发接入、不覆盖、给出提示。fail-closed：相对路径、不存在的目录、非 git 目录一律拒绝。非目标：不往目标仓库复制 derive_board_status.py / git 钩子工具链，不改目标仓库的 .gitignore / 钩子 / git 配置。",
+            "orderKey": 47104,
+            "priority": 2,
+            "stage": "R18",
+            "status": "done",
+            "tags": [
+                "R18"
+            ],
+            "title": "无台账仓库一键接入：绑定时生成 board-ledger/progress 脚手架，既有文件不覆盖",
+            "updatedAt": 1793933502
         },
         {
             "completedAt": 1792748226,
@@ -3575,6 +3737,24 @@
             ],
             "title": "已 done 卡的服务端 claim ref 存量未释放：补清并加巡检判据",
             "updatedAt": 1793911592
+        },
+        {
+            "code": "DX-77",
+            "completedAt": 1793979866,
+            "createdAt": 1793905858,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-77",
+            "note": "触发证据：本会话实测（chcp 936 控制台）：verify.ps1 尾行输出「閫€鍑虹爜: 0」、nbflow status 授权整段 mojibake；同类已三次：DX-46 修 board-apply.py、DX-60 修 build.ps1，均只治单文件（Z6：该收口所有入口了）\n\n## 目标\nDX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码\n\n## 验收\nchcp 936 控制台下 pwsh -File scripts/verify.ps1 -ScriptOnly 与 python -I scripts/nbflow.py status 的中文输出可读（无 mojibake），方案沿 DX-60 口径（入口自切 CP 65001 或 Python stdout reconfigure UTF-8），能抽公共实现就抽、不复制三份;python scripts/nbflow.py --selftest 与 check_script_hygiene 均通过（不引入 BOM/编码卫生回归）;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/verify.ps1;scripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 51200,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码",
+            "updatedAt": 1793979866
         },
         {
             "completedAt": 1792849809,
@@ -3698,6 +3878,24 @@
             "updatedAt": 1792849877
         },
         {
+            "code": "DX-81",
+            "completedAt": 1793976250,
+            "createdAt": 1793906764,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-81",
+            "note": "触发证据：DX-64 把归因集合限定为「本分支 #卡=done 标记」（check_board_diff.py drift_explained 只吃 done 集合），但领卡（agent-init claims 登记 / nbflow dispatch）同样让派生状态变 doing 而快照留 todo——漂移同样由本分支自身动作解释、同样在合入时由 git-done 收敛，却仍红灯。本会话实录两次：DX-65、DX-36 领用后第一次 -ScriptOnly 均红于「todo → doing」，各手工 derive --write 一次；DX-67/DX-63 靠先提交 done 标记再 verify 绕开。归因判据应覆盖本分支自身动作的全体来源（done 标记 + claims 登记），不是只有最早踩坑的那一种。查重命中的 DX-64 已交付且验收只覆盖 done 半边，本卡是归因集合扩展非重复；DX-13/41/62 为 done/标记 词面噪声\n\n## 目标\n领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯\n\n## 验收\n漂移项可被本分支自身新增的 claims 登记（相对 base 的 claims diff 且派生状态为 doing）解释时降为提示（合入由 git-done 收敛），其余漂移维持非零退出;DX-64 的 done 标记归因口径回归不破（反例：与分支无关的真漂移仍红灯）;自测覆盖 claims 解释命中 / 无 claims 的 doing 漂移仍红 / done 与 claims 混合归因，verify -ScriptOnly 通过\n\n## 边界\nscripts/check_board_diff.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 55296,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯",
+            "updatedAt": 1793976250
+        },
+        {
             "completedAt": 1792850012,
             "createdAt": 1792721608,
             "deleted": false,
@@ -3734,6 +3932,24 @@
             ],
             "title": "R4 键盘完整性 / 无障碍",
             "updatedAt": 1792850781
+        },
+        {
+            "code": "DX-83",
+            "completedAt": 1793979866,
+            "createdAt": 1793906980,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-83",
+            "note": "触发证据：DX-62 交付日复现实验钉死根因：python 子进程 stdout.reconfigure(utf-8) 后输出合法 UTF-8，pwsh 按 [Console]::OutputEncoding=gb2312（CP 936）解码后转发即乱码（实测输出「[娲剧敓鍣╙ 宸叉洿鏂� progress.json」）。受害链路：git-done 收尾里 derive --write 的输出、agent-init 捕获 claim-card 输出、nbflow 捕获 git-done 全程输出，本次会话全部观察到处。DX-60（710eed8）已在 build.ps1 修过同类（自切 CP 65001），属同类第二次，按 Z6 收口；Z5 要求编码设置只活一份\n\n## 目标\nPS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装\n\n## 验收\n新建 scripts/nb-console.ps1 提供 Set-NbUtf8Console 幂等封装（Console.OutputEncoding 与输入编码切 UTF-8，参照 DX-60 在 build.ps1 的实现），build.ps1 的编码设置段迁移为调用封装（ninja 前缀字节闸门留在 build.ps1 不动）；git-done.ps1、agent-init.ps1、verify.ps1 三个捕获 Python 子进程输出的入口 dot-source 并调用封装；机器判据：check_script_hygiene.py 新增规则，上述入口脚本缺封装调用即拒（反向探针验证）；实测判据：pwsh 下经封装后捕获 python 打印中文的输出与 python 直出 UTF-8 逐字节一致（控制台为 CP 936 的环境下验证）；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿，docs/pitfalls.md 记一条（§2.6 同类第二处的收口）\n\n## 边界\nscripts/nb-console.ps1;scripts/build.ps1;scripts/git-done.ps1;scripts/agent-init.ps1;scripts/verify.ps1;scripts/check_script_hygiene.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 57344,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "PS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装",
+            "updatedAt": 1793979866
         },
         {
             "completedAt": 1792855060,
@@ -3937,6 +4153,24 @@
             "updatedAt": 1793910602
         },
         {
+            "code": "DX-94",
+            "completedAt": 1793978122,
+            "createdAt": 1793911047,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-94",
+            "note": "触发证据：2026-11-06 agent-dx74 领 DX-74（裸 git 取值清理）实录：.agent-env.ps1 注入的 NB_SCOPE（git-done/verify/pitfalls/AGENTS）与 NB_ACCEPTANCE 均为 DX-88 契约。根因 agent-init.ps1:528 ledgerPath=Join-Path repoRoot，而 repoRoot=scriptRepoRoot（:82，锚点）；锚点 main 停在分叉 45e1e93，其 DX-74 是改名前旧收尾补推卡（主线上已改配 DX-88）。领用重开门判据读 origin/main（derive --stuck-codes --ledger-ref origin/main），两处口径分裂；agent 不逐字核对就会拿错契约开工，check_scope 必拒、白干一轮。\n\n## 目标\nagent-init 卡契约注入读锚点本地台账：锚点过时/分叉即注入过期契约，与 origin/main 重开门判据口径分裂\n\n## 验收\n卡契约注入（NB_SCOPE/NB_ACCEPTANCE/NB_DEPENDS）数据源改为 origin/main 台账，与 stuck-codes 重开门判据同源；台账读取单一实现落 Python 侧（derive_board_status.py 新增契约输出子命令），agent-init 经落盘文件按字节读消费（规避 git show 管道 GBK 解码坑）;worktree 与 -InPlace 两条路径走同一契约源；复现实验归零：分叉锚点（本地 main 45e1e93 含旧 DX-74）下 agent-init -Card DX-74 注入的 scope/acceptance 与 origin/main 台账 DX-74 逐字一致，证据落卡片 note;docs/pitfalls.md 记条目：锚点检出台账是共享陈旧投影，读台账必须声明读哪一份并与领用判据同源;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/agent-init.ps1;scripts/derive_board_status.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 61440,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "agent-init 卡契约注入读锚点本地台账：锚点过时/分叉即注入过期契约，与 origin/main 重开门判据口径分裂",
+            "updatedAt": 1793978122
+        },
+        {
             "completedAt": 1792855061,
             "createdAt": 1792719894,
             "deleted": false,
@@ -3988,6 +4222,60 @@
             ],
             "title": "remote 模式收尾在结卡前只清一次占位：本次合并自身的重写占位（baseline 此刻仍 todo）打不中判据 B，每次合并仍新增僵尸",
             "updatedAt": 1793911968
+        },
+        {
+            "code": "DX-96",
+            "completedAt": 1793953804,
+            "createdAt": 1793928256,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-96",
+            "note": "",
+            "orderKey": 62464,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 收尾补推 3→1：清理/结卡/快照合成单次 push，配合 DX-44 沉降降低 Board 中间态 run",
+            "updatedAt": 1793953804
+        },
+        {
+            "code": "DX-97",
+            "completedAt": 1793932964,
+            "createdAt": 1793930802,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-97",
+            "note": "起因（2026-11-06 维护者反馈截图）：卡片右上角 ✓ / ✕ / ▶ 悬停能显示，点击却没有任何效果。根因在 qml/components/TaskCard.qml 的层叠：actions 在 inner 内，虽然自己写了 z: 3，但 z 只在同一父级内比较；inner 与覆盖全卡的 cardMouse 同为 card 的直接子项且 z 均为 0，cardMouse 声明在 inner 之后，于是它压在最上层，把按钮 MouseArea 的 press 全吃掉，只触发 selectionRequested() 选中卡片。信号链本身（completeRequested / restoreRequested / deleteRequested → BoardColumn → Main.qml → taskUndo.moveTask / deleteTaskWithUndo）与键盘 Space / Delete 都正常。Qt 6.8.3 qmltestrunner 最小复现实测：默认结构点按钮，按钮收到 0 次 click，整卡 MouseArea 收到 1 次。目标：让 actions 的点击落在按钮 MouseArea 上，同时保留整卡 hover 渐显、双击编辑、拖拽与选中语义。边界：只改 qml/components/TaskCard.qml 的层级声明，不改按钮信号链、不动数据结构、不引入新依赖与新测试基建。",
+            "orderKey": 63488,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "卡片快捷动作按钮点击失效：整卡 MouseArea 吞掉 press",
+            "updatedAt": 1793932964
+        },
+        {
+            "code": "DX-99",
+            "completedAt": 1793974710,
+            "createdAt": 1793935663,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-99",
+            "note": "2026-11-06 交付：agent-init 生成 .agent-env.ps1 时对 NB_SCOPE / NB_ACCEPTANCE / NB_DEPENDS 统一经 Format-PsSingleQuoted 转义（单引号双写）。验证：临时仓库合成含单引号（rg 'z: 1'，与 DX-97 同形）、双引号、中文分号与环境变量的验收项，跑 agent-init 后生成的 .agent-env.ps1 经 PowerShell 7 Parser 0 错误、独立 pwsh dot-source 退出码 0、NB_ACCEPTANCE 与台账逐字一致（脚本比对）；真实 worktree 跑 pwsh -File scripts/verify.ps1 -ScriptOnly EXIT=0。",
+            "orderKey": 63488,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "agent 契约注入转义：含单引号的验收项不再让 .agent-env.ps1 语法报错",
+            "updatedAt": 1793974710
         },
         {
             "code": "R4-04",
@@ -4081,6 +4369,78 @@
             "updatedAt": 1792982913
         },
         {
+            "code": "DX-103",
+            "completedAt": 1793936510,
+            "createdAt": 1793936357,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-103",
+            "note": "",
+            "orderKey": 67584,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "发号跨机闭环：refs/registrations 服务端占位（原子 test-and-set）+ 换号重试",
+            "updatedAt": 1793936510
+        },
+        {
+            "code": "DX-104",
+            "completedAt": 1793937506,
+            "createdAt": 1793937446,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-104",
+            "note": "",
+            "orderKey": 67584,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "占位防顶掉：refs/registrations 指向唯一 off-main 空提交，异 sha 重推必 non-FF 被拒",
+            "updatedAt": 1793937506
+        },
+        {
+            "code": "DX-105",
+            "completedAt": 1793942027,
+            "createdAt": 1793941765,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-105",
+            "note": "",
+            "orderKey": 67584,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "发号模式可配置：numbering.mode（remote 服务端占位 / local 仅本地）+ CLI 覆盖",
+            "updatedAt": 1793942027
+        },
+        {
+            "code": "DX-106",
+            "completedAt": 1793973890,
+            "createdAt": 1793957895,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-106",
+            "note": "",
+            "orderKey": 67584,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "收尾零中间态：合并+收尾合成单次 push（A2b），fail-soft 语义重排",
+            "updatedAt": 1793973890
+        },
+        {
             "completedAt": 1792982913,
             "createdAt": 1792981704,
             "deleted": false,
@@ -4096,6 +4456,24 @@
             ],
             "title": "Rust: 启动窗口初始隐藏，reveal 时已就绪则跳过显示并直接交接",
             "updatedAt": 1792982913
+        },
+        {
+            "code": "R11-11",
+            "completedAt": 1793977247,
+            "createdAt": 1793973890,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-11",
+            "note": "已交付（2026-11-06，提交 db77d4d）：执行队列补规格 §3.4 落位表剩的两条子项 —— 表头固定（任务 / 状态 / 操作三列，列宽与数据行逐列对齐；表头放在 ListView 之外，列表滚动时不动） + 队列行高统一 40 px（行间距 0、行下细线分隔）。状态标签从副信息提为独立列，耗时 / 角色 / agent / 错误仍留在副信息行，信息不丢。实测（临时埋点，跑完已回滚）：入队 3 条时行高 40、表头行高 18；grep \"height: 56\" 命中 0、\"rows.length * 62\" 命中 0、\"rows.length * 40\" 命中 1。待做：无。",
+            "orderKey": 68608,
+            "priority": 2,
+            "stage": "R11",
+            "status": "done",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排收尾 1/2：执行队列补固定表头与 40 px 行高",
+            "updatedAt": 1793977247
         },
         {
             "completedAt": 1792982913,
@@ -4115,6 +4493,24 @@
             "updatedAt": 1792982913
         },
         {
+            "code": "R11-12",
+            "completedAt": 1793977247,
+            "createdAt": 1793973890,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-12",
+            "note": "已交付（2026-11-06，提交 7440933）：R11 规格全量核验，结论与实测值落 docs/design/ui-relayout-verify.md。①17 个界面逐个打开（真实入口、带真实参数），量到形态 / 壳宽（440 / 560 / 720 / 抽屉 320）/ 头底固定 / 关闭行为，17 行齐全；②权限弹窗三条关闭路径端到端实测：受权限门控的能力被拒后仍能再次触发弹窗，遮罩 / 关闭键 / Esc 三条路径关闭后权限仍未授权且再次触发都会再弹（走 PluginHost.storageSet → PluginContext::require → 宿主 permissionRequested 全链路）；③未推送提交数实测 0 / 2 / 4 / -1 四种取值，有 upstream 领先时显示数字、无 upstream 的分离头为 -1 且不渲染徽章。核验抓出并修掉一个既有缺陷：qml/components/PluginPanel.qml 给 Text 赋 selectByMouse（Text 无此属性），QML 报错使整个插件面板加载失败、抽屉打不开（由 R16-04 引入，非 R11 引入），改用只读 TextEdit 后恢复；该修复需扩 scope，已按 DX-10 单独走一条 chore(board) 契约变更（37da984），契约与实现分开提交。待做：无（遗留见核验文档第五节：Main.qml:1621 的 EmptyState 锚点告警是既有、不在范围内；Esc 未做真实按键注入，依据壳内 closePolicy 与组件内 Keys.onEscapePressed 的代码路径；视觉观感需人工确认）。",
+            "orderKey": 69632,
+            "priority": 2,
+            "stage": "R11",
+            "status": "done",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排收尾 2/2：规格全量核验（权限弹窗流程 / 17 个界面逐个 / 未推送提交数）",
+            "updatedAt": 1793977247
+        },
+        {
             "completedAt": 1792982913,
             "createdAt": 1792981704,
             "deleted": false,
@@ -4130,6 +4526,24 @@
             ],
             "title": "TS: splash 页面先 listen 再拉取快照重放，reveal 不可靠时用超时兜底",
             "updatedAt": 1792982913
+        },
+        {
+            "code": "DX-107",
+            "completedAt": 1793975673,
+            "createdAt": 1793974509,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-107",
+            "note": "",
+            "orderKey": 70656,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "合并冲突退出不回滚现场：冲突路径清理临时分支与冲突态，dry-run 承诺的回滚真正兑现",
+            "updatedAt": 1793975673
         },
         {
             "completedAt": 1792982914,
@@ -4149,6 +4563,24 @@
             "updatedAt": 1792982914
         },
         {
+            "code": "DX-108",
+            "completedAt": 1793977855,
+            "createdAt": 1793974520,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-108",
+            "note": "",
+            "orderKey": 71680,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "progress.json 合并冲突派生善后：冲突文件为纯派生物时自动重算，五步人工善后收口进 git-done",
+            "updatedAt": 1793977855
+        },
+        {
             "completedAt": 1792982914,
             "createdAt": 1792981705,
             "deleted": false,
@@ -4164,6 +4596,24 @@
             ],
             "title": "补充/更新测试并跑 bun test、cargo check、契约与矩阵校验",
             "updatedAt": 1792982914
+        },
+        {
+            "code": "DX-109",
+            "completedAt": 1793978677,
+            "createdAt": 1793974532,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-109",
+            "note": "",
+            "orderKey": 72704,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "单次推送下 branch -d 恒拒：分支删除判据换锚点，收尾不再残留已合并分支",
+            "updatedAt": 1793978677
         },
         {
             "completedAt": 1792982914,
@@ -4631,8 +5081,80 @@
             ],
             "title": "R5 安装器清理上一版残留：全量覆盖安装不删弃用文件，0.1.3 用户永久背着 1136 个死文件",
             "updatedAt": 1793809026
+        },
+        {
+            "code": "DX-98",
+            "completedAt": 1793934590,
+            "createdAt": 1793934590,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-98",
+            "note": "",
+            "orderKey": 100352,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡程序化：register_board_cards.py 唯一入口 + 回执闸门关闭手工改台账通道",
+            "updatedAt": 1793934590
+        },
+        {
+            "code": "R11-10",
+            "completedAt": 1793973485,
+            "createdAt": 1793973485,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-10",
+            "note": "已交付（2026-11-06）：9 个自绘浮层全部改用 DialogShell 或 DrawerShell —— 命令面板 / 插件库 / 预览中心 / 新手引导 / 权限授权为居中弹窗（lg 720 / lg 720 / lg 720 / md 560 / sm 440），外观 / 插件面板 / 项目全景 / 列管理为右侧抽屉（320）；原先三处不一致的位置（插件面板锚右下角、外观面板锚标题栏下方、项目全景锚右侧）统一收敛，头 / 体 / 底结构一致。插件库按规格 §3.4 改成已装 / 可装左右两栏；外观面板主题预设改 3 列色卡网格；项目全景的二级内容在抽屉内展开（带返回出口）；列管理条目统一「拖把手 + 名称 + 计数 + 操作」。权限弹窗遮罩点击 / Esc / 关闭键改为只关闭不表态：后端新增 releasePermissionPrompt 清掉「已提示」标记，插件下次调用该能力仍会再次弹窗，拒绝必须点显式的「拒绝」按钮。预览中心补「未推送提交」提示位（数据取自 PreviewHub 新增的 unpushed 字段，从已有的 git status --porcelain=v2 --branch 输出里解析，不额外跑 git 进程）。README 已同步。待做：无。",
+            "orderKey": 101376,
+            "priority": 2,
+            "stage": "R11",
+            "status": "done",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排 3/3：9 个自绘浮层迁移到统一壳 + 权限弹窗遮罩行为修正",
+            "updatedAt": 1793973485
+        },
+        {
+            "code": "R11-8",
+            "completedAt": 1793973485,
+            "createdAt": 1793973485,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-8",
+            "note": "已交付（2026-11-06，提交 c98fbd0）：顶区合并为单一工具行（项目切换 / 里程碑条 / 搜索框合并，搜索框右侧带 Ctrl K 提示）；活跃热力横幅默认收起（展开态 54 px / 收起态 28 px 摘要条）；侧栏去掉「工作台」标题块、去掉「设置」导航项、删掉插件库常驻卡片，宽度 220 → 200；专注按钮迁到标题栏；设置入口改为标题栏右上角齿轮（Ctrl+, 不变）；卡片元信息去掉调试串。实测顶区竖直占用 145 px（≤ 150 达标），760 px 宽窗口下看板可视高度多出 100 px 以上。待做：无。",
+            "orderKey": 102400,
+            "priority": 2,
+            "stage": "R11",
+            "status": "done",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排 1/3：主界面竖直重排（顶区 264 → 128 px）",
+            "updatedAt": 1793973485
+        },
+        {
+            "code": "R11-9",
+            "completedAt": 1793973485,
+            "createdAt": 1793973485,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-9",
+            "note": "已交付（2026-11-06）：新增 qml/components/DialogShell.qml（头固定 / 体滚动 / 底固定 + 右上角统一关闭键 + 底栏右对齐 + 头部右侧插槽 + 底栏说明）与 qml/components/DrawerShell.qml（右侧抽屉，自绘遮罩 + 点击穿透防护 + 底栏右槽）；Theme.qml 补 7 个令牌 —— 令牌名按规格 §4.2 写（dialogWidthSm 440 / dialogWidthMd 560 / dialogWidthLg 720 / drawerWidth 320 / dialogPadding 20 / scrimOpacity 0.62 / shadowDialog），与本卡验收里的简写名（dialogSm / dialogMd / dialogLg / dialogPad / scrim / drawer / shadow）是同一组 7 个值，只是命名口径不同；TaskComposer / CardDetailPanel / ThemeMarketPanel / SettingsPanel 与 Main.qml 的 4 个内联 Dialog 全部改用 DialogShell，头固定、底固定、底部按钮右对齐；SettingsPanel 拆出左侧 160 px 固定分页导航 + 6 个分页（热键与自动化 / 数据与备份 / 外观与动效 / 任务执行 / 插件 / 关于），插件目录 / 市场源 / 重新扫描归「插件」分页，「打开插件库」入口仍发 openLibraryRequested 信号。实测 qml/Main.qml 4034 行（≤ 4260 达标），verify.ps1 全过（ctest 39/39 + --selftest / --smoke 退出码 0）。待做：无。",
+            "orderKey": 103424,
+            "priority": 2,
+            "stage": "R11",
+            "status": "done",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排 2/3：统一弹窗壳（DialogShell / DrawerShell 落地 + 8 个 Dialog 迁移）",
+            "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T04:55:03",
+    "updated": "2026-11-07T00:00:19",
     "version": 3
 }

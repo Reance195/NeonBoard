@@ -121,6 +121,7 @@ QVariantList PreviewHub::agents() const
         item.insert(QStringLiteral("subject"), info.subject);
         item.insert(QStringLiteral("dirty"), info.dirty);
         item.insert(QStringLiteral("detached"), info.detached);
+        item.insert(QStringLiteral("unpushed"), info.unpushed);
         item.insert(QStringLiteral("built"), info.built);
         item.insert(QStringLiteral("builtAt"), info.builtAt);
         item.insert(QStringLiteral("exe"), info.exe);
@@ -347,6 +348,18 @@ PreviewHub::AgentInfo PreviewHub::makeAgent(const QString &path, const QString &
                     info.detached = true;
                 else if (!head.isEmpty())
                     info.branch = head;
+            } else if (line.startsWith(QStringLiteral("# branch.ab "))) {
+                // 「# branch.ab +<领先> -<落后>」：领先数就是未推送提交数。
+                // 从已有的 status 输出里取，不再多跑一次 git —— 那会让首帧多等一个进程。
+                const QString ab = line.mid(QStringLiteral("# branch.ab ").size()).trimmed();
+                const int plus = ab.indexOf(QLatin1Char('+'));
+                const int minus = ab.indexOf(QLatin1Char('-'));
+                if (plus >= 0) {
+                    const int end = (minus > plus) ? minus : ab.size();
+                    bool numOk = false;
+                    const int n = ab.mid(plus + 1, end - plus - 1).trimmed().toInt(&numOk);
+                    info.unpushed = numOk ? n : -1;
+                }
             } else if (!line.isEmpty() && !line.startsWith(QLatin1Char('#'))) {
                 info.dirty = true;
             }

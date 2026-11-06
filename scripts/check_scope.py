@@ -39,6 +39,9 @@ LEDGER = REPO_ROOT / "docs" / "board-ledger.json"
 ALWAYS_ALLOWED = [
     "progress.json",
     "docs/board-ledger.json",
+    # 立卡程序产物（DX-98）：请求单与回执由 register_board_cards.py 生成，
+    # 是「立卡」这个动作自身的产物，不算任何一张实现卡的越界。
+    "docs/card-requests/**",
 ]
 
 

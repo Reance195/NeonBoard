@@ -37,6 +37,10 @@
   python scripts/derive_board_status.py --stuck-codes
       只输出滞留卡短号（一行一个）：交付提交已合入主干但全历史无 #<短号>=done 的卡
       （DX-62）。供 agent-init 领用前告警，配 --ledger-ref 读主线台账。
+  python scripts/derive_board_status.py --contract DX-94 --out <文件>
+      输出卡片契约（scope/acceptance/depends）到 --out（DX-94）。台账只认
+      --ledger-ref（默认 origin/main），与领用重开门判据同源；结果落盘而非 stdout，
+      规避 PowerShell 捕获 Python 子进程输出时的控制台代码页 GBK 解码坑。
 """
 import argparse
 import json
@@ -551,6 +555,24 @@ def read_ledger(root, ledger_rel, ledger_ref=None):
     return read_json(path)
 
 
+def extract_contract(ledger, code):
+    """从台账 dict 投影出一张卡的任务契约（DX-94）。纯函数：读哪一份台账由调用方
+    （read_ledger）决定，这里只做字段投影，不碰文件、不碰 git —— 让「数据源」这一
+    决定只有一个入口。缺字段回落空列表，未知卡返回 None。
+    """
+    code = (code or "").strip().lstrip("#").upper()
+    cards = ledger.get("cards") or {}
+    card = cards.get(code)
+    if not isinstance(card, dict):
+        return None
+    return {
+        "code": code,
+        "scope": list(card.get("scope") or []),
+        "acceptance": list(card.get("acceptance") or []),
+        "depends": list(card.get("depends") or []),
+    }
+
+
 def selftest():
     """--close-cards 的可执行自测（DX-07 验收项）：四种情形一次跑完。"""
     cards = {"A-1": {}, "B-2": {}, "C-3": {}, "D-4": {}}
@@ -737,6 +759,53 @@ def selftest():
     cases.append(("闸门：全流程引用的假结（复刻 DX-79 原始形态）→ 拒",
                   close_evidence_problems({"DX-90"}, set()) == ["DX-90"]))
 
+    # ⑱ 契约注入数据源（DX-94）：--contract 只认 git 引用里的台账，工作区文件分叉不影响
+    real = {"cards": {"DX-94": {"scope": ["scripts/a.ps1"],
+                                "acceptance": ["验收一"], "depends": ["DX-1"]}}}
+    stale = {"cards": {"DX-94": {"scope": ["SENTINEL/STALE"],
+                                 "acceptance": ["SENTINEL"], "depends": ["SENTINEL"]}}}
+    cases.append(("契约投影：字段逐项带出", extract_contract(real, "dx-94") == {
+        "code": "DX-94", "scope": ["scripts/a.ps1"],
+        "acceptance": ["验收一"], "depends": ["DX-1"]}))
+    cases.append(("契约投影：# 前缀与大小写归一",
+                  extract_contract(real, "#dx-94")["code"] == "DX-94"))
+    cases.append(("契约投影：未知卡返回 None", extract_contract(real, "DX-999") is None))
+    cases.append(("契约投影：缺字段回落空列表",
+                  extract_contract({"cards": {"A-1": {}}}, "A-1") == {
+                      "code": "A-1", "scope": [], "acceptance": [], "depends": []}))
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            rel = os.path.join("docs", "board-ledger.json")
+            full = os.path.join(td, rel)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w", encoding="utf-8") as fh:
+                json.dump(real, fh, ensure_ascii=False)
+
+            def _git(*argv):
+                return subprocess.run(
+                    ["git", "-C", td, "-c", "commit.gpgsign=false", *argv],
+                    capture_output=True, check=True,
+                    cwd=td, env=dict(os.environ))
+
+            _git("init", "-q")
+            _git("add", rel.replace(os.sep, "/"))
+            _git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "init")
+            _git("update-ref", "refs/heads/mainline", "HEAD")
+            # 工作区文件被改成分叉的陈旧版本（模拟锚点本地台账），ref 仍是真实契约
+            with open(full, "w", encoding="utf-8") as fh:
+                json.dump(stale, fh, ensure_ascii=False)
+            from_ref = read_ledger(td, rel, "refs/heads/mainline")
+            from_local = read_ledger(td, rel)
+            cases.append(("契约源：分叉时 --ledger-ref 读 ref 而非工作区文件",
+                          from_ref == real and from_local == stale))
+            cases.append(("契约源：ref 版本注入的契约不含 SENTINEL",
+                          extract_contract(from_ref or {}, "DX-94")["scope"] == ["scripts/a.ps1"]))
+            cases.append(("契约源：工作区版本确实带 SENTINEL（反例不破）",
+                          extract_contract(from_local or {}, "DX-94")["scope"] == ["SENTINEL/STALE"]))
+    except (OSError, subprocess.CalledProcessError) as exc:
+        cases.append(("契约源：临时 git 仓库分叉实验可执行", False))
+        sys.stderr.write("[派生器] 契约源实验异常：%s\n" % exc)
+
     failed = [name for name, ok in cases if not ok]
     for name, ok in cases:
         print("  %s %s" % ("✓" if ok else "✗", name))
@@ -784,6 +853,15 @@ def main():
         help="结卡（DX-07）：把 git 里已有 #<短号>=done 的卡的 baseline 补成 done；"
              "写回台账的 baseline 字段，输出实际结掉的短号，一行一个",
     )
+    mode.add_argument(
+        "--contract", default="", metavar="CODE",
+        help="输出该卡的任务契约（scope/acceptance/depends）到 --out 文件（DX-94）；"
+             "台账只认 --ledger-ref（默认 origin/main），与领用重开门判据同源",
+    )
+    parser.add_argument(
+        "--out", default="",
+        help="配合 --contract：契约 JSON 落盘路径（agent-init 按字节读，不经管道）",
+    )
     parser.add_argument(
         "--close-explicit", default="",
         help="配合 --close-cards：额外把这些短号按人工确认直接结掉（逗号分隔）。"
@@ -825,11 +903,29 @@ def main():
         return selftest()
 
     if not any((args.check, args.write, args.baseline_check, args.close_cards,
-                args.emit_claimed, args.replay_closed, args.stuck_codes)):
+                args.emit_claimed, args.replay_closed, args.stuck_codes,
+                bool(args.contract))):
         parser.error("必须指定 --check / --write / --baseline-check / --close-cards / "
-                     "--emit-claimed / --replay-closed / --stuck-codes 之一")
+                     "--emit-claimed / --replay-closed / --stuck-codes / --contract 之一")
 
     root = os.path.abspath(args.repo)
+
+    if args.contract:
+        # 契约注入的唯一数据源（DX-94）：与领用重开门判据同读 origin/main 台账。
+        # 默认锁 origin/main，绝不回落到工作区文件 —— 锚点检出台账是共享陈旧投影。
+        if not args.out:
+            parser.error("--contract 需要同时指定 --out")
+        ledger = read_ledger(root, args.ledger, args.ledger_ref or "origin/main")
+        if ledger is None:
+            return 2
+        contract = extract_contract(ledger, args.contract)
+        if contract is None:
+            sys.stderr.write("卡片 %s 不在 %s 台账中\n"
+                             % (args.contract.strip().lstrip("#").upper(),
+                                args.ledger_ref or "origin/main"))
+            return 2
+        write_json_atomic(args.out, contract)
+        return 0
 
     if args.emit_claimed:
         # 不需要快照也不需要台账：纯 git 查询，先于文件检查返回。

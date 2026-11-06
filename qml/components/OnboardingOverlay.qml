@@ -1,10 +1,24 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
-// 首启动引导：三步说明（录任务 → 拖列 → 装插件）。
-// 只在看板为空且未完成过引导时出现；跳过也算完成，避免反复打扰。
-Rectangle {
+// 组件行为：Bound —— 委托里的 root 才能拿到根对象实例的属性。
+// 根对象是 DialogShell 的实例，不加这句的话委托里拿到的是「类型」，属性全是 undefined。
+pragma ComponentBehavior: Bound
+
+// 首启动引导（R11-10）：迁到统一弹窗壳 DialogShell —— md 560 档。
+//
+// 规格 §3.4：副标题位放「第 1 / 3 步」进度，不再自己画标题条；底部固定「跳过 / 下一步」。
+//
+// 显示由宿主驱动（Main.qml 用 visible 绑定 onboardVisible），所以本组件内部
+// **不调用 open() / close()**：内部只改 step 并发信号，finished 交给宿主去改 visible。
+// Esc / 点遮罩由壳的 closePolicy 关闭 → onClosed 里发 finished（等同原来的「跳过」）。
+DialogShell {
     id: root
+
+    titleText: "欢迎使用 NeonBoard"
+    subtitleText: "第 " + (step + 1) + " / " + steps.length + " 步"
+    sizeMode: "md"
 
     property int step: 0
     property bool canSeed: true
@@ -19,17 +33,6 @@ Rectangle {
         "会议记录：议题 / 结论 / 行动项",
         "Bug：现象 / 复现步骤 / 期望"
     ]
-
-    // 从命令面板「重看新手引导」进来时用：回到第一页，标记状态不动
-    function restart() {
-        step = 0
-    }
-
-    // 无障碍：整个浮层当作一个对话框播报，读屏用户至少知道当前停在哪一步
-    Accessible.role: Accessible.Dialog
-    Accessible.name: root.steps[root.step].title
-    Accessible.description: "首启动引导，第 " + (root.step + 1) + " / "
-                            + root.steps.length + " 步，Esc 可跳过"
 
     readonly property var steps: [
         {
@@ -49,247 +52,191 @@ Rectangle {
         }
     ]
 
-    color: Theme.alpha(Theme.bg, 0.72)
-    visible: false
+    // 是否已经表态过（跳过 / 收尾）：避免「点了按钮 → 壳关闭 → onClosed」重复发 finished
+    property bool finishedEmitted: false
 
-    MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.AllButtons
+    // 从命令面板「重看新手引导」进来时用：回到第一页，标记状态不动
+    function restart() {
+        step = 0
+        finishedEmitted = false
     }
 
-    Rectangle {
-        id: card
-        anchors.centerIn: parent
-        width: Math.min(480, root.width - 64)
-        height: content.implicitHeight + 48
-        radius: Theme.radiusPanel
-        color: Theme.panelSolid
-        border.width: 1
-        border.color: Theme.alpha(Theme.cyan, 0.42)
+    // 结束引导：只发信号，visible 由宿主改（组件内部不碰 open / close）
+    function finish() {
+        if (finishedEmitted)
+            return
+        finishedEmitted = true
+        finished()
+    }
 
-        ColumnLayout {
-            id: content
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: 24
-            spacing: 14
+    // 打开时：复位表态标记，并把焦点交给壳（Esc 要能被壳收到）
+    onOpened: {
+        finishedEmitted = false
+        forceActiveFocus()
+    }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
+    // Esc / 点遮罩 → 壳自己关闭 → 等同「跳过」
+    onClosed: finish()
 
-                Text {
-                    text: "NEONBOARD"
-                    color: Theme.cyan
-                    font.pixelSize: Theme.fontMicro
-                    font.letterSpacing: 3
-                    font.bold: true
-                }
+    // 右上角关闭键：同样只是结束引导
+    onCloseRequested: finish()
 
-                Item { Layout.fillWidth: true }
+    // 底部：主操作 = 下一步 / 开始使用；次操作 = 上一步
+    primaryText: step === steps.length - 1 ? "开始使用" : "下一步"
+    secondaryText: step > 0 ? "上一步" : ""
 
-                Repeater {
-                    model: root.steps.length
+    onPrimaryTriggered: {
+        if (step === steps.length - 1)
+            finish()
+        else
+            step += 1
+    }
 
-                    delegate: Rectangle {
-                        width: 22
-                        height: 4
-                        radius: Theme.radiusControl
-                        color: index <= root.step ? Theme.cyan : Theme.alpha(Theme.text, 0.14)
-                    }
-                }
-            }
+    onSecondaryTriggered: step -= 1
 
-            Text {
-                Layout.fillWidth: true
-                text: root.steps[root.step].title
-                color: Theme.text
-                font.pixelSize: Theme.fontDisplay
-                font.bold: true
-            }
+    // ---------- 正文 ----------
+    ColumnLayout {
+        id: content
+        Layout.fillWidth: true
+        spacing: Theme.spacingMd
 
-            Text {
-                Layout.fillWidth: true
-                text: root.steps[root.step].body
-                color: Theme.muted
-                font.pixelSize: Theme.fontBody
-                lineHeight: 1.45
-                wrapMode: Text.WordWrap
-            }
+        // 无障碍：整个浮层当作一个对话框播报，读屏用户至少知道当前停在哪一步
+        Accessible.role: Accessible.Dialog
+        Accessible.name: root.steps[root.step].title
+        Accessible.description: "首启动引导，第 " + (root.step + 1) + " / "
+                                + root.steps.length + " 步，Esc 可跳过"
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 34
-                radius: Theme.radiusControl
-                color: Theme.input
-                border.width: 1
-                border.color: Theme.border
+        // 进度点
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingXs
 
-                Text {
-                    anchors.centerIn: parent
-                    text: root.steps[root.step].keys
-                    color: Theme.accent2
-                    font.pixelSize: Theme.fontCaption
-                    font.family: "Consolas"
-                }
-            }
+            Item { Layout.fillWidth: true }
 
-            // 任务模板：空板上最常见的三个「不知道写什么」，点一下预填
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 6
-                visible: root.step === 0
+            Repeater {
+                model: root.steps.length
 
-                Repeater {
-                    model: root.templates
+                delegate: Rectangle {
+                    required property int index
 
-                    delegate: Rectangle {
-                        required property string modelData
-
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 28
-                        radius: Theme.radiusControl
-                        color: tplMouse.containsMouse ? Theme.cardHover : Theme.input
-                        border.width: 1
-                        border.color: Theme.border
-
-                        Text {
-                            anchors.centerIn: parent
-                            width: parent.width - 12
-                            text: modelData.split("：")[0]
-                            color: Theme.muted
-                            font.pixelSize: Theme.fontMicro
-                            elide: Text.ElideRight
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-
-                        MouseArea {
-                            id: tplMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: root.templateRequested(modelData)
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 32
-                radius: Theme.radiusControl
-                visible: root.step === 0 && root.canSeed
-                color: seedMouse.containsMouse ? Theme.cardHover : Theme.card
-                border.width: 1
-                border.color: Theme.border
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "载入三张示例卡（可随时删除）"
-                    color: Theme.cyan
-                    font.pixelSize: Theme.fontCaption
-                }
-
-                MouseArea {
-                    id: seedMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    // 载入示例卡后直接进入下一步：用户手上已经有牌可拖，
-                    // 引导该讲「怎么拖」而不是停在「先建一条」
-                    onClicked: {
-                        root.sampleRequested()
-                        root.step = Math.min(root.step + 1, root.steps.length - 1)
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Rectangle {
-                    width: 72
-                    height: 30
+                    width: 22
+                    height: 4
                     radius: Theme.radiusControl
-                    color: skipMouse.containsMouse ? Theme.alpha(Theme.text, 0.06) : "transparent"
+                    color: index <= root.step ? Theme.cyan : Theme.alpha(Theme.text, 0.14)
+                }
+            }
+        }
+
+        Text {
+            Layout.fillWidth: true
+            text: root.steps[root.step].title
+            color: Theme.text
+            font.pixelSize: Theme.fontDisplay
+            font.bold: true
+        }
+
+        Text {
+            Layout.fillWidth: true
+            text: root.steps[root.step].body
+            color: Theme.muted
+            font.pixelSize: Theme.fontBody
+            lineHeight: 1.45
+            wrapMode: Text.WordWrap
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 34
+            radius: Theme.radiusControl
+            color: Theme.input
+            border.width: 1
+            border.color: Theme.border
+
+            Text {
+                anchors.centerIn: parent
+                text: root.steps[root.step].keys
+                color: Theme.accent2
+                font.pixelSize: Theme.fontCaption
+                font.family: "Consolas"
+            }
+        }
+
+        // 任务模板：空板上最常见的三个「不知道写什么」，点一下预填
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingSm
+            visible: root.step === 0
+
+            Repeater {
+                model: root.templates
+
+                delegate: Rectangle {
+                    required property string modelData
+
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    radius: Theme.radiusControl
+                    color: tplMouse.containsMouse ? Theme.cardHover : Theme.input
                     border.width: 1
                     border.color: Theme.border
 
                     Text {
                         anchors.centerIn: parent
-                        text: "跳过"
+                        width: parent.width - Theme.spacingMd
+                        text: modelData.split("：")[0]
                         color: Theme.muted
-                        font.pixelSize: Theme.fontCaption
+                        font.pixelSize: Theme.fontMicro
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignHCenter
                     }
 
                     MouseArea {
-                        id: skipMouse
+                        id: tplMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: root.finished()
+                        onClicked: root.templateRequested(modelData)
                     }
                 }
+            }
+        }
 
-                Item { Layout.fillWidth: true }
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            radius: Theme.radiusControl
+            visible: root.step === 0 && root.canSeed
+            color: seedMouse.containsMouse ? Theme.cardHover : Theme.card
+            border.width: 1
+            border.color: Theme.border
 
-                Rectangle {
-                    width: 72
-                    height: 30
-                    radius: Theme.radiusControl
-                    visible: root.step > 0
-                    color: prevMouse.containsMouse ? Theme.cardHover : Theme.card
-                    border.width: 1
-                    border.color: Theme.border
+            Text {
+                anchors.centerIn: parent
+                text: "载入三张示例卡（可随时删除）"
+                color: Theme.cyan
+                font.pixelSize: Theme.fontCaption
+            }
 
-                    Text {
-                        anchors.centerIn: parent
-                        text: "上一步"
-                        color: Theme.muted
-                        font.pixelSize: Theme.fontCaption
-                    }
-
-                    MouseArea {
-                        id: prevMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: root.step -= 1
-                    }
-                }
-
-                Rectangle {
-                    width: 92
-                    height: 30
-                    radius: Theme.radiusControl
-                    color: nextMouse.containsMouse ? Theme.alpha(Theme.cyan, 0.26)
-                                                   : Theme.accentSoft
-                    border.width: 1
-                    border.color: Theme.borderStrong
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: root.step === root.steps.length - 1 ? "开始使用" : "下一步"
-                        color: Theme.cyan
-                        font.pixelSize: Theme.fontCaption
-                        font.bold: true
-                    }
-
-                    MouseArea {
-                        id: nextMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            if (root.step === root.steps.length - 1)
-                                root.finished()
-                            else
-                                root.step += 1
-                        }
-                    }
+            MouseArea {
+                id: seedMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                // 载入示例卡后直接进入下一步：用户手上已经有牌可拖，
+                // 引导该讲「怎么拖」而不是停在「先建一条」
+                onClicked: {
+                    root.sampleRequested()
+                    root.step = Math.min(root.step + 1, root.steps.length - 1)
                 }
             }
         }
     }
 
-    Keys.onEscapePressed: root.finished()
-    focus: visible
+    // ---------- 底栏左侧：跳过 ----------
+    footerExtra: Component {
+        TopToolButton {
+            text: "跳过"
+            description: "跳过新手引导"
+            accent: Theme.muted
+            onClicked: root.finish()
+        }
+    }
 }

@@ -233,7 +233,9 @@ Rectangle {
         if (card.busy)
             return
         card.busy = true
-        sweepBand.sweepAnimation.restart()
+        // id 不是父项属性：sweepBand.sweepAnimation 恒为 undefined，
+        // 这里点号访问会抛 TypeError，把卡片永远锁在 busy（完成按钮因此无效）。
+        sweepAnimation.restart()
         sweepDelay.restart()
     }
 
@@ -277,6 +279,10 @@ Rectangle {
     // 卡片内容（整体做位移，承载进场与故障抖动）
     Item {
         id: inner
+        // z 必须高于 cardMouse：两者同为 card 直接子项且默认 z=0，
+        // cardMouse 声明在后，不抬这一层会吞掉 actions 三颗按钮的 press。
+        // 保持在 sweepBand(z:4) 与选中条(z:10) 之下，动效不被遮挡。
+        z: 1
         width: parent.width
         height: 82
         anchors.top: parent.top

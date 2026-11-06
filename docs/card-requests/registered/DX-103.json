@@ -1,0 +1,12 @@
+{
+  "card": "DX-103",
+  "sha256": "2210e7e19265467e22b697638275fe38fcd30a8272f3356a9472167c6f789140",
+  "authorizedBy": "维护者 13706 会话授权跨机发号闭环（DX-99）",
+  "form": "docs/card-requests/20261106-dx-103.md",
+  "registeredAt": "2026-11-06T03:39:17+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "reservation": {
+    "ref": "refs/registrations/DX-103",
+    "sha": "5298db120084f43dae949183ced473550cc055f7"
+  }
+}

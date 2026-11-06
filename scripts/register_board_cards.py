@@ -7,6 +7,9 @@
 多会话并发立卡必撞号（DX-74 一个号被两个会话先后使用）。本工具把立卡收口为程序化：
 
   1. 发号：在跨 worktree 文件锁（git 通用目录）保护下扫台账取 max+1，锁内重读防竞态；
+     **再加服务端占位**（DX-99）：候选号先推 `refs/registrations/<短号>` 到 origin ——
+     新建 ref 的推送在服务端是原子的 test-and-set，谁先推成谁占号，被拒即刷新占用集
+     换号重试。跨机并发窗口就此缩到一次原子推送（与领用占位 refs/claims 同机制）；
   2. 回执：为每张新卡生成 docs/card-requests/registered/<短号>.json，内含卡片规范
      JSON 的 sha256 —— task_gate 在 commit-msg 阶段核对，无回执 / 哈希不符的新增卡
      一律拒绝，手工改台账的立卡通道就此关闭；
@@ -40,6 +43,8 @@ RECEIPT_DIR_REL = "docs/card-requests/registered"
 REQUIRED_META = ("title", "stage", "scope", "acceptance", "evidence", "author")
 FORM_SECTIONS = ("目标", "验收", "边界", "输入", "产出")
 LOCK_STALE_SECONDS = 600
+REGISTER_RETRY = 5
+REGISTRATION_REF_PREFIX = "refs/registrations/"
 
 
 def _out():
@@ -161,6 +166,32 @@ def rel_to(root, path):
         return str(path)
 
 
+def parse_registrations(text):
+    """从 ls-remote 输出解析已占用的注册号（纯函数，selftest 可测）。"""
+    codes = set()
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if not line or "\t" not in line:
+            continue
+        ref = line.split("\t", 1)[1]
+        if ref.startswith(REGISTRATION_REF_PREFIX):
+            codes.add(ref[len(REGISTRATION_REF_PREFIX):])
+    return codes
+
+
+def ls_registrations(root):
+    """远端注册占位全集。不可达时 fail-closed（DX-99）：跨机安全的前提是
+    占用集必须包含 origin 的实时事实，拿不到就不发号。"""
+    out = run(["git", "ls-remote", "origin",
+               "%s*" % REGISTRATION_REF_PREFIX], root)
+    if out.returncode != 0:
+        die("无法访问 origin 的注册占位（ls-remote 失败）：%s\n"
+            "  跨机并发下没有远端事实就不能发号；确要离线立卡请加 --offline\n"
+            "  （号为暂定，推送落地前必须重验）。"
+            % (out.stderr.strip() or out.stdout.strip()), 5)
+    return parse_registrations(out.stdout)
+
+
 def ledger_view(ledger):
     return ledger.get("cards") or {}, ledger.get("baseline") or {}
 
@@ -169,19 +200,70 @@ def dump_receipt(receipt):
     return json.dumps(receipt, ensure_ascii=False, indent=2) + "\n"
 
 
+def selftest():
+    """纯函数断言（DX-99）：占位集解析、发号避开已占号、换号收敛。"""
+    checks = []
+
+    def check(name, ok):
+        checks.append((name, ok))
+
+    # parse_registrations：标准输出 / 噪声行 / 空输入
+    sample = ("abc123\trefs/heads/main\n"
+              "def456\trefs/registrations/DX-98\n"
+              "789aaa\trefs/claims/DX-97\n"
+              "bbbccc\trefs/registrations/R5-01\n")
+    regs = parse_registrations(sample)
+    check("占位集解析：识别 refs/registrations/*", regs == {"DX-98", "R5-01"})
+    check("占位集解析：不混入 heads/claims",
+          "main" not in regs and "DX-97" not in regs)
+    check("占位集解析：空输入得空集", parse_registrations("") == set())
+
+    # next_code：占用集含本地台账与远端占位的并集时仍取 max+1 且避开全部已占号
+    occupied = {"DX-1", "DX-2", "DX-98", "R5-1"}
+    check("发号：避开全部已占号", next_code(occupied, "DX") == "DX-99")
+    check("发号：首次取 1", next_code(set(), "DX") == "DX-1")
+
+    # 换号收敛：模拟占位被拒后占用集更新，下一次发号必须跳过
+    occupied = {"DX-98"}
+    first = next_code(occupied, "DX")
+    occupied |= {first}  # 别的机器占走了 first
+    second = next_code(occupied, "DX")
+    check("换号重试：被拒后跳过被占号", first == "DX-99" and second == "DX-100")
+
+    failures = [n for n, ok in checks if not ok]
+    for name, ok in checks:
+        print("  %s %s" % ("✓" if ok else "✗", name))
+    if failures:
+        print("[立卡程序] 自测失败 %d/%d 例" % (len(failures), len(checks)),
+              file=sys.stderr)
+        return 1
+    print("[立卡程序] 自测通过：%d 例" % len(checks))
+    return 0
+
+
 def main(argv=None):
     _out()
     ap = argparse.ArgumentParser(
         description="立卡唯一合法入口：校验请求单、跨 worktree 发号、写台账与回执、刷快照")
-    ap.add_argument("--form", required=True,
-                    help="请求单路径 docs/card-requests/<YYYYMMDD>-<slug>.md")
-    ap.add_argument("--authorized-by", required=True,
+    ap.add_argument("--form", help="请求单路径 docs/card-requests/<YYYYMMDD>-<slug>.md")
+    ap.add_argument("--authorized-by",
                     help="授权来源（维护者会话/指令），写入回执")
     ap.add_argument("--dry-run", action="store_true",
                     help="只推演：打印卡号与卡片/回执内容，不写任何文件")
     ap.add_argument("--allow-new-stage", action="store_true",
                     help="stage 是陌生取值时放行（check_board_diff 会要求全量验收）")
+    ap.add_argument("--offline", action="store_true",
+                    help="跳过服务端占位与远端占用集（离线应急）：号为暂定，推送落地前必须重验")
+    ap.add_argument("--selftest", action="store_true",
+                    help="跑内置纯函数断言（占位集解析 / 发号换号），不依赖仓库状态")
     args = ap.parse_args(argv)
+
+    if args.selftest:
+        return selftest()
+    if not args.form:
+        ap.error("必须给 --form <请求单>（或 --selftest）")
+    if not args.authorized_by:
+        ap.error("必须给 --authorized-by <授权来源>（立卡必须留授权凭证）")
 
     root = repo_root()
     form_path = Path(args.form)
@@ -218,10 +300,37 @@ def main(argv=None):
     ledger_path = root / LEDGER_REL
     lock_path = acquire_lock(common)
     try:
-        # 锁内重读台账再发号：同机多个 worktree 并发立卡时，谁持锁谁说了算
+        # 锁内重读台账再发号：同机多个 worktree 并发立卡时，谁持锁谁说了算。
+        # 跨机并发靠服务端占位（DX-99）：候选号推 refs/registrations/<短号>，
+        # 新建 ref 的推送在服务端是原子的 test-and-set —— 推成即占号，被拒即
+        # 号刚被别的机器抢走，刷新占用集换号重试。
         ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
         cards, baseline = ledger_view(ledger)
-        code = next_code(set(cards) | set(baseline), stage)
+        local_occupied = set(cards) | set(baseline)
+        reservation = None
+        if args.offline:
+            print("[立卡程序] ⚠ --offline：跳过服务端占位，卡号为暂定，"
+                  "推送落地前必须对 origin 重验")
+            code = next_code(local_occupied, stage)
+        else:
+            occupied = local_occupied | ls_registrations(root)
+            for attempt in range(1, REGISTER_RETRY + 1):
+                code = next_code(occupied, stage)
+                head = run(["git", "rev-parse", "HEAD"], root).stdout.strip()
+                push = run(["git", "push", "origin",
+                            "HEAD:%s%s" % (REGISTRATION_REF_PREFIX, code)], root)
+                if push.returncode == 0:
+                    reservation = {"ref": REGISTRATION_REF_PREFIX + code,
+                                   "sha": head}
+                    print("[立卡程序] 服务端占位成功：%s（HEAD %s）"
+                          % (reservation["ref"], head[:7]))
+                    break
+                print("[立卡程序] %s 占位被拒（号被并发机器抢走），换号重试 %d/%d"
+                      % (code, attempt, REGISTER_RETRY))
+                occupied = local_occupied | ls_registrations(root)
+            if reservation is None:
+                die("连续 %d 次占位被拒：跨机竞争异常或远端异常，请稍后重试"
+                    % REGISTER_RETRY, 5)
         if code in cards or code in baseline:
             die("卡号 %s 已存在（发号在锁内进行，不应出现）" % code)
         suggested = (meta.get("suggestedId") or "").strip()
@@ -238,6 +347,7 @@ def main(argv=None):
             "form": rel_to(root, form_path),
             "registeredAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "tool": "scripts/register_board_cards.py",
+            "reservation": reservation,
         }
 
         cards[code] = card

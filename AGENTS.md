@@ -482,9 +482,9 @@ pwsh -File scripts/git-done.ps1 -Branch fix/stagebar-chip-overflow
 ```
 
 脚本内部流程：`git fetch origin` → 基于 `origin/main` 建临时分支 `merge/<slug>` →
-`git merge --no-ff <分支>` → `git push origin HEAD:main`（**快进推送**，不是强推）。
-DX-96 起**对 main 只推两次**：上面这次是合并（fail-soft 交付）；清理登记 / 结卡 / 快照
-在本地提交后**单次补推**（重试集中到这一次，失败整体回滚到合并点，不波及已推送的合并）。
+`git merge --no-ff <分支>`，清理登记 / 结卡 / 快照全部本地提交后，对 main **只推一次**
+（DX-106 起，快进推送，不是强推；推送收口在 `Push-Main` 单一实现）。撞 non-ff 时变基重试，
+仍失败则整体回滚收尾提交、**单独推送合并**（fail-soft 交付不被收尾拖住）。
 合并前还会跑**领用闸门**：分支必须带服务端 `refs/claims/<短号>` 占位，否则拒绝合并；
 纯文档/杂务分支按 diff 路径自动豁免（`scripts/task_gate.py scope` 判定为 `exempt`）。
 `-SkipClaimCheck` 已废弃，保留参数只为兼容旧脚本，**不再能放行任何代码改动**。
@@ -847,12 +847,12 @@ agent **禁止手改**快照文件 —— 手改已造成过 v2 覆盖 v3 的事
    派生结果，唯一写者是 `git-done` 收尾的 `Sync-BoardSnapshot`（`derive --write`）—— 它是
    **fail-soft** 的：派生 / 提交 / 推送失败只告警，绝不阻断已经成功的合并。`board.yml` 只是
    校验器：`--check` 不一致就报红，不自愈、也没有推送权限。
-   **红灯只可能落在 `main` tip 的那一个 run 上（DX-44；DX-96 起结构化）**：git-done 收尾只推两次 ——
-   合并先推（fail-soft 交付），清理登记/结卡/快照在本地提交后**单次补推**（快照已在补推前刷新完毕，
-   推送落点天然自洽；补推撞 non-ff 变基重试、仍失败整体回滚，不波及合并）。`board.yml` 的 `concurrency.cancel-in-progress: true` 让新推送
-   取消上一个在跑的 run；前提是 job 比推送间隔久，故 job 首步加 ~30s 沉降等待（DX-96 后
-   收尾补推与合并的推送间隔为秒级，沉降作双保险保留），中间 run 在新推送到来时仍在 sleep 中被取消，于是中间态不再产生 failure run，
-   判据落点自动挪到 main tip。**main tip 红 = 收尾那几步真的失败了**（离线 / 撞车 / 脚本失败，
+   **红灯只可能落在 `main` tip 的那一个 run 上（DX-44；DX-106 起结构化归零）**：git-done 收尾对
+   main 只推**一次** —— 合并提交与清理登记/结卡/快照全部本地提交后合成单次推送（快照已在
+   推送前刷新完毕，推送落点天然自洽；撞 non-ff 变基重试，仍失败整体回滚收尾提交、单独推合并）。
+   每批收尾只建 1 个 run，中间态在结构上不存在。`board.yml` 的 `concurrency.cancel-in-progress: true`
+   与 job 首步 ~30s 沉降等待（DX-44）降级为**纯双保险**：单推送下已无中间 run 可言，保留只为
+   防未来重新出现多次推送时回归。**main tip 红 = 收尾那几步真的失败了**（离线 / 撞车 / 脚本失败，
    R14-01 那次三件收尾全部回滚、靠人肉补 `d064c12`），照提示补跑即可；
    `--check` 对中间态照样返回非零 —— 折叠的是「留不留红灯」，不是判据本身。
    历史包袱（写权为什么要收成一处）：双写者时期两边写同一个派生文件必然撞车 —— 谁先推谁赢、

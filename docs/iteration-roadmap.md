@@ -392,7 +392,7 @@ feat(board): 支持列内精确插位 #R1-04=done
 | **R8** | 记忆点收尾 | 主题包格式与外部加载、主题包市场（浏览 / 安装 / 卸载）、卡片详情抽屉（Markdown 笔记 + 就地编辑）、详情进阶（子任务进度环 + 审计时间线 `task_event` 侧表）、拖拽手感升级（涟漪 / 光轨 / 磁吸 / 列高亮）、键盘位移与拖拽可达性 | 第三方主题可安装，换配色不必改代码；详情能回答「这张卡的前世今生」；拖拽全程有落点有轨迹，键盘也能做完同样的事；`Motion.reduced` 时全部新动效瞬时 | **已完成（6/6）**：承接 §5 P1 第 4–6 项（R2 只做完了记忆点的一半）；六张卡 R8-01 ~ R8-06 全部交付结卡 —— R8-01 主题包加载（`182bf2b`）、R8-02 主题包市场（`f865de8`）、R8-03 卡片详情抽屉（`34d0b9b`）、R8-04 详情进阶 + `task_event` 时间线（`4390ff0`）、R8-05 拖拽手感（`109ef92`）、R8-06 键盘位移与可达性（`515386a`）；详见 [§9.4](#94-r8-记忆点收尾主题包--卡片详情--拖拽手感已完成) 与 [r8-experience-plan.md](r8-experience-plan.md)
 | **R9** | Agent 适配插件化 | Agent Provider 扩展点（插件声明 agent profile + 三层合并 + 老 meta 迁移）、四个官方插件（agent-claude / agent-opencode / agent-cursor / agent-codex） | 新增一个 agent = 加一个插件，不改 C++；「已声明但 CLI 不可用」在设置页可见而非等到执行失败；老库打开行为不变 | **完成（5/5）**：站外适配器（统一投递器 + 四个 agent 适配器）已交付，见 [agent-adapters.md](agent-adapters.md)；站内扩展点设计稿见 [agent-provider-api.md](agent-provider-api.md)；R9-01 扩展点（`01ec4a8`）✅ + 四个官方插件 R9-02 agent-claude（`e4b2cf6`）/ R9-03 agent-opencode（`d5d5f0d`）/ R9-04 agent-cursor（`186b0e9`，不可用态进设置页列表）/ R9-05 agent-codex（`5529dda`，stdin 接 NUL 与启用前置）均已以 `#R9-0x=done` 结卡 ✅；五卡已进看板快照 详见 [§9.5](#95-r9-agent-适配插件化已完成-55) |
 | **R10** | 项目维度与卡片分类 | 项目维度数据层（`project` 表 + `task_project` 侧表）、两级看板（全局 ⇄ 项目范围切换）、标签语义修正（`stageOf` 扫全数组 + 卡片显示分类）、存量数据分类补全、范围切换器溢出修复（宽度自适应 + 渐隐 + 滚轮横滚） | 看板能按项目切开；阶段归属不再受 `tags` 顺序影响；115 张存量卡归位（NeonBoard 102 / 抢号系统 6 / 启动窗改造 7），「其他」桶归零 | **完成（5/5）**：R10-01 项目维度数据层（`927e6b7` #R10-01=done）、R10-03 标签语义修正（`1c8e837`，补结于 `d81a755`）、R10-04 存量数据分类补全（`3950cbd` #R10-04=done）、R10-02 两级看板：全局 ⇄ 项目范围切换（`d9ab85d` #R10-02=done）、R10-05 切换器溢出修复（`153b053` #R10-05=done）均已结卡 ✅ 详见 [§9.6](#96-r10-项目维度与卡片分类已完成-55) |
-| **R11** | 界面观感打磨 | 顶栏信息层级重排（标题瘦身 + 统计状态带）、顶栏视觉一致性（令牌化 + 统一工具按钮）、状态与空态反馈 + 热力图 Canvas 化 | 顶区垂直占用至少压缩 40 px，腾给看板；顶栏无重复样式代码；热力图换主题同步变色、无数据有空态；「逾期」有数字 | **完成**：三张卡 R11-01 ~ R11-03 已合入主线（2026-10-29）—— 顶区垂直占用实测省 50 px、标题栏按钮收敛为 `TopToolButton` 单一实现、热力图 91 图元 → 1 个 `Canvas` 且色阶跟随主题、新增 `taskStats.overdueCount` 与 `tst_taskstats`；`ctest` 4/4、`--selftest` / `--smoke` 退出码 0 ✅ 详见 [§9.7](#97-r11-界面观感打磨已完成-33)；**续批 R11-04 ~ R11-07（界面精致化）已交付**：卡片对比度与字号阶梯、辉光降噪、13 个二级界面令牌化、统一空态组件，详见 [§9.12](#912-r11-界面精致化已完成-44) |
+| **R11** | 界面观感打磨 | 顶栏信息层级重排（标题瘦身 + 统计状态带）、顶栏视觉一致性（令牌化 + 统一工具按钮）、状态与空态反馈 + 热力图 Canvas 化 | 顶区垂直占用至少压缩 40 px，腾给看板；顶栏无重复样式代码；热力图换主题同步变色、无数据有空态；「逾期」有数字 | **完成**：三张卡 R11-01 ~ R11-03 已合入主线（2026-10-29）—— 顶区垂直占用实测省 50 px、标题栏按钮收敛为 `TopToolButton` 单一实现、热力图 91 图元 → 1 个 `Canvas` 且色阶跟随主题、新增 `taskStats.overdueCount` 与 `tst_taskstats`；`ctest` 4/4、`--selftest` / `--smoke` 退出码 0 ✅ 详见 [§9.7](#97-r11-界面观感打磨已完成-33)；**续批 R11-04 ~ R11-07（界面精致化）已交付**：卡片对比度与字号阶梯、辉光降噪、13 个二级界面令牌化、统一空态组件，详见 [§9.12](#912-r11-界面精致化已完成-44)；**续批 R11-8 ~ R11-10（界面重排）已立卡**：主界面竖直密度重排 + 统一弹窗壳 + 自绘浮层迁移，详见 [§9.14](#914-r11-界面重排进行中-03) |
 | **R12** | 托盘图标修正 | 宿主进程托盘图标改用内嵌 neonboard 图标（R12-01） | 托盘显示 NeonBoard 霓虹图标，不再是系统通用图标 | **完成（1/1）**：R12-01 已合入主线（`e0cd23f` #R12-01）—— 宿主 `NeonBoardHost.exe` 的托盘图标从 `LoadIconW(nullptr, IDI_APPLICATION)`（系统通用图标）改为加载自身内嵌的 `neonboard.ico`（该图标 R5-05 起已由 `resources/neonboard.rc` 打进 Host，本次只是托盘代码没跟上） ✅ |
 | **R13** | 首启就绪竞态 | 看板偶发全空（0 条任务）与首启引导误弹的根因定位与修复：就绪判定从启动瞬间的一次快照改为随 count 可重算的派生状态，并留下区分「真空板 / 尚未就绪」的判据（R13-01） | 全新数据目录连续 5 次首启不出现「有卡却显示 0 条」或「有卡却弹引导」；ONBOARD 诊断行与 TaskModel 加载行 count 一致；`shouldOnboard` 三种组合有测试覆盖 | **完成**：R13-01 已合入主线（`b2d1bb8` #R13-01=done）—— 引导显隐从「启动算一次」改为随 `count` 重算，并加单测守住 `shouldOnboard` 的无状态性。**原始现象不是产品 bug**：那张「0 条 + 引导」截图截的是并行会话实例的窗口（判据：截图 mtime 落在该次运行窗口生命周期内，而同进程日志写着 `ONBOARD skip tasks 139`），见 `docs/pitfalls.md` 4.6；启动期 `load` 调两次、count 由 0 跳到实际条数的机制另见 6.4 ✅ |
 | **R14** | Agent 插件「装了没生效」 | R9 四个官方插件交付后核对发现两批空白：① 既有库上新增插件默认未授权、声明被静默丢弃（R14-01）；② 官方插件不进打包产物，安装版一个都看不到（R14-02）；③ cursor-agent 是 .cmd 包装器，执行器能否直接拉起未实测（R14-03）；④ opencode 只读参数 `--agent plan` 是否真实存在未核实（R14-04） | 既有库副本上四个插件 `declared[].authorized` 全为 true；dist 打包含全部官方插件且安装版能扫到；cursor-agent 与 opencode 两处问号各有实测结论落 `docs/agent-profile.md` | **完成（4/4）**：R14-01（`f611c19`）官方来源插件每次启动补齐缺失的声明权限、`plugins.grants.revoked` 给撤销留痕、第三方与示例仍走显式授权（伪造 `com.thirdparty.evil` 实测不放行），验收全部基于真实库副本；R14-02（`4fcdab9`）`deploy.ps1` 补拷 `plugins\*` 并加「以仓库 `plugins/` 为准、缺一个就 throw」的对齐自检，用 dist 产物（清掉 `NEONBOARD_SOURCE_DIR`）跑 `--plugin-report` 8 个插件全 `status=ok`；R14-03（`57ac656`）实测确认裸名 `.cmd` 必 `FailedToStart`（`findExecutable` 认 PATHEXT 而 `CreateProcess` 只补 `.exe`），`TaskRunner::resolveProgram` 先解析成绝对路径，A/B 对照去掉即红；R14-04（`728205c`）核实 opencode 1.19.0 内置 7 个 agent 含 `plan`，其 `edit` 为 deny、`bash` 未禁 —— 只读只到「工具白名单」档，不是系统级沙箱 ✅ 详见 [§9.8](#98-r14-agent-插件装了没生效已完成-44) 与 [agent-plugin-open-issues.md](agent-plugin-open-issues.md) |
@@ -883,6 +883,26 @@ neonboard-market 索引已上架 8 个插件并手写 `category` / `dependencies
 
 **出口标准**：程序内把任意仓库纳入面板监控（有台账 → 直接监听；无台账 → 脚手架接入）；
 项目管理零脚本；未绑定项目时行为与旧版逐字节一致（老库、老快照、老路径解析全兼容）。
+
+### 9.14 R11 界面重排（进行中 0/3）
+
+2026-11-06 维护者确认「立卡开干吧」，把 rev2 原型（`docs/design/index.html` / `docs/design/dialogs.html`，
+规格 `docs/design/ui-relayout-spec.md`）落成 QML。判断依据：顶区竖直占用 264 px（标题栏 40 + 标题统计行 40 +
+项目行 48 + 阶段行 48 + 热力图 80），760 px 窗口下看板只剩 476 px；17 个弹窗没有共同壳，头 / 底随内容滚走，
+各自写死 rgba 底色与圆角，与 `Theme` 令牌阶梯脱钩。
+
+| 卡 | scope | 目标 |
+| --- | --- | --- |
+| R11-8 | `qml/Main.qml` / `qml/components/{ActivityHeatmap,TaskCard,ThemePicker}.qml` | 主界面竖直重排：顶区合并为单一工具行 + 可收起热力图条（264 → 128 px），侧栏去标题块 / 去「设置」项 / 删插件库常驻卡片，宽 220 → 200 px |
+| R11-9 | `qml/components/{DialogShell,DrawerShell}.qml`（新增）/ `qml/theme/Theme.qml` / `qml/components/{SettingsPanel,TaskComposer,CardDetailPanel,ThemeMarketPanel}.qml` / `qml/Main.qml` | 统一弹窗壳：头固定 / 体滚动 / 底固定，尺寸档 sm 440 / md 560 / lg 720 / drawer 320，`Theme` 补 7 个令牌，8 个 Dialog 迁移，设置面板拆左侧分页 |
+| R11-10 | `qml/components/{CommandPalette,AppearancePanel,PluginPanel,PluginLibraryPanel,PreviewPanel,ProjectMapPanel,ColumnManager,OnboardingOverlay,PluginPermissionDialog}.qml` | 9 个自绘浮层迁到统一壳（居中弹窗 / 右侧抽屉两种形态），并修掉本次唯一的语义缺陷：权限弹窗遮罩点击不再等同拒绝 |
+
+**出口标准**：760 × 1180 窗口下顶区竖直占用 ≤ 150 px（热力图收起态）、看板可视高度 ≥ 600 px；
+17 个界面逐个打开，头 / 底位置一致、Esc 与关闭键行为一致；权限弹窗误点遮罩后插件仍能再次触发权限请求；
+`pwsh -File scripts/verify.ps1` 全过（编译 + ctest + `--selftest` / `--smoke` 退出码 0）。
+
+**非目标**：不改霓虹 Shader 背景、6 套主题预设色值、快捷键、无障碍语义、拖拽与撤销栈、数据模型 / schema、
+插件槽位机制；复用 `Theme.qml` 现有令牌阶梯，不另立第二份事实源。
 
 ## 10. 验收指标（“炫酷”可量化）
 | 指标 | 目标 | 当前实测 |

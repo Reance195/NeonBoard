@@ -349,11 +349,18 @@ function Release-WorkspaceClaim {
 }
 
 # 合并推送成功后，把锚点区快进到最新 main —— 否则维护者回到根目录看到的还是旧代码。
-# 只做 fast-forward：锚点有本地提交 / 非 main / 有 progress.json 之外的改动时一律跳过。
-# progress.json 是应用自动写回的快照：上游没动它时直接快进，应用常驻占用文件也不会挡；
-# 上游确实改了它才临时 stash 后还原，不丢数据。
+# 只做 fast-forward：锚点有本地提交 / 非 main / 未跟踪文件 / 受控文件之外的改动时一律跳过。
+# 受控文件（progress.json 与 docs/iteration-roadmap.md）允许临时 stash 后还原，不丢数据。
+# DX-110：跳过原因按「本地提交 / 已跟踪文件脏（逐个点名）/ 未跟踪冲突」三类分开报，
+# 不再一律甩一句「本地提交 / 未跟踪文件冲突」把排查带偏。
 function Sync-AnchorWorktree {
     param([string]$Main, [string]$CurrentRoot)
+
+    # 只有这两个文件允许在快进前临时暂存：progress.json 是应用自动写回的派生产物；
+    # docs/iteration-roadmap.md 是立卡程序写进立卡提交前的 §9 里程碑行（DX-110）。
+    # 工具产物目录与其它任何文件一律不碰（§7.10 回收 / 处置由人拍板）。
+    $safePaths = @('progress.json', 'docs/iteration-roadmap.md')
+
     $anchor = Get-AnchorWorktree
     if (-not $anchor) { return }
     try {
@@ -386,50 +393,92 @@ function Sync-AnchorWorktree {
     }
 
     # root 占用登记：别人正声明「我要在锚点区动手」时，快进照做（非破坏性），
-    # 但绝不 stash 那份 progress.json —— 快照的处置权归占用者，否则两边互相把对方的改动暂存掉（docs/pitfalls.md 7.3）。
+    # 但绝不 stash 受控文件 —— 处置权归占用者，否则两边互相把对方的改动暂存掉
+    #（docs/pitfalls.md 1.16）。
     $rootClaim = Get-AnchorRootClaim -Anchor $anchor
     if ($rootClaim) {
         $who = [string]$rootClaim.agent
         if (-not $who) { $who = '(未记名)' }
         $task = [string]$rootClaim.task
-        Write-Host ("⚠ 锚点同步：root 已被 '{0}' 登记占用{1}，本次只快进、不动 progress.json" -f $who, $(if ($task) { "（$task）" } else { '' })) -ForegroundColor Yellow
+        Write-Host ("⚠ 锚点同步：root 已被 '{0}' 登记占用{1}，本次只快进、不动受控文件" -f $who, $(if ($task) { "（$task）" } else { '' })) -ForegroundColor Yellow
     }
 
+    # ---------- 脏树精确分类（DX-110）----------
     $dirtyRes = Invoke-GitQuiet @('-C', $anchor, 'status', '--porcelain')
     $dirty = @($dirtyRes.Output | Where-Object { $_ -and $_.ToString().Trim() -ne '' })
-    $snapshotOnly = $dirty.Count -gt 0 -and @($dirty | Where-Object { $_.ToString() -notmatch '(^\S+\s+|\s)progress\.json$' }).Count -eq 0
-    if ($dirty.Count -gt 0 -and -not $snapshotOnly) {
-        Write-Host ("· 锚点同步：锚点区有未提交改动（{0} 项），跳过快进" -f $dirty.Count) -ForegroundColor Yellow
-        # 只报数量等于没报：拖脏锚点的通常是某个桌面工具往调用方 CWD 吐的产物目录，
-        # 不点名就查不出是谁（docs/pitfalls.md 1.1 / 7.7）。
-        $dirty | Select-Object -First 10 | ForEach-Object { Write-Host ("     {0}" -f $_) -ForegroundColor Yellow }
-        if ($dirty.Count -gt 10) {
-            Write-Host ("     …另有 {0} 项未列出" -f ($dirty.Count - 10)) -ForegroundColor Yellow
+    $tracked = @()
+    $untracked = @()
+    foreach ($entry in $dirty) {
+        $line = $entry.ToString()
+        if ($line.Length -lt 4) { continue }
+        $xy = $line.Substring(0, 2)
+        $path = $line.Substring(3).Trim()
+        # 重命名 "old -> new" 取新路径；core.quotePath 的引号去掉
+        if ($path -match ' -> ') { $path = ($path -split ' -> ')[-1] }
+        $path = ($path -replace '^"|"$', '').Replace('\', '/')
+        if ($xy -eq '??') { $untracked += $path } else { $tracked += $path }
+    }
+    $safeDirty = @($tracked | Where-Object { $safePaths -contains $_ })
+    $otherDirty = @($tracked | Where-Object { $safePaths -notcontains $_ })
+
+    # 本地提交：锚点 HEAD 不是 origin/<Main> 的祖先时 ff-only 必失败，stash 也救不了。
+    $ahead = 0
+    $aheadRes = Invoke-GitQuiet @('-C', $anchor, 'rev-list', '--count', ("origin/{0}..HEAD" -f $Main))
+    if ($aheadRes.Code -eq 0 -and $aheadRes.Output.Count -gt 0) {
+        [void][int]::TryParse($aheadRes.Output[0].ToString().Trim(), [ref]$ahead)
+    }
+
+    # 三类原因分开报、逐个点名（DX-110 验收 2）：不再一律「本地提交 / 未跟踪文件冲突」。
+    if ($ahead -gt 0 -or $untracked.Count -gt 0 -or $otherDirty.Count -gt 0) {
+        Write-Host '· 锚点同步：跳过快进，原因分类如下' -ForegroundColor Yellow
+        if ($ahead -gt 0) {
+            Write-Host ("   · 本地提交：锚点 {0} 相对 origin/{0} 有 {1} 个本地提交，快进会分叉" -f $Main, $ahead) -ForegroundColor Yellow
         }
-        Write-Host '     工具产物目录请补进 .gitignore，别让它长期卡住锚点同步' -ForegroundColor DarkGray
+        if ($otherDirty.Count -gt 0) {
+            Write-Host ("   · 已跟踪文件脏（{0} 个，逐个点名）：" -f $otherDirty.Count) -ForegroundColor Yellow
+            $otherDirty | Select-Object -First 10 | ForEach-Object { Write-Host ("       {0}" -f $_) -ForegroundColor Yellow }
+            if ($otherDirty.Count -gt 10) { Write-Host ("       …另有 {0} 个未列出" -f ($otherDirty.Count - 10)) -ForegroundColor Yellow }
+            Write-Host '     受控文件（progress.json / docs/iteration-roadmap.md）之外的改动一律不碰' -ForegroundColor DarkGray
+        }
+        if ($untracked.Count -gt 0) {
+            Write-Host ("   · 未跟踪冲突（{0} 个，逐个点名）：" -f $untracked.Count) -ForegroundColor Yellow
+            $untracked | Select-Object -First 10 | ForEach-Object { Write-Host ("       {0}" -f $_) -ForegroundColor Yellow }
+            if ($untracked.Count -gt 10) { Write-Host ("       …另有 {0} 个未列出" -f ($untracked.Count - 10)) -ForegroundColor Yellow }
+            Write-Host '     工具产物目录请补进 .gitignore，别让它长期卡住锚点同步' -ForegroundColor DarkGray
+        }
+        if ($safeDirty.Count -gt 0) {
+            Write-Host ("   · 另有受控文件脏（{0}），但被上面几类原因挡住，本次不暂存" -f ($safeDirty -join '、')) -ForegroundColor DarkGray
+        }
         return
     }
 
-    # 先直接快进：上游没改 progress.json 时，本地快照抓脏不构成阻碍。
-    # 应用常驻会占用 progress.json，stash 的 checkout 步骤可能失败 —— 能绕开就绕开。
+    # 到这里：无本地提交 / 无未跟踪 / 无非受控的已跟踪改动；只剩 0~N 个受控文件脏。
+    if ($safeDirty.Count -gt 0) {
+        Write-Host ("· 锚点同步：受控文件脏（{0}），按 stash / 还原 / 主线优先口径处理，其它文件不碰" -f ($safeDirty -join '、')) -ForegroundColor DarkGray
+    }
+    # 先直接快进：上游没动这些文件时，本地抓脏不构成阻碍。应用常驻会占用
+    # progress.json，stash 的 checkout 步骤可能失败 —— 能绕开就绕开（docs/pitfalls.md 1.2）。
     Write-Host ("· 锚点同步：快进 {0} → origin/{1}" -f $anchor, $Main) -ForegroundColor DarkGray
     $mergeRes = Invoke-GitQuiet @('-C', $anchor, 'merge', '--ff-only', "origin/$Main")
     $mergeOk = ($mergeRes.Code -eq 0)
 
     $stashed = $false
     $stashSha = ''
-    if (-not $mergeOk -and $snapshotOnly -and -not $rootClaim) {
-        Write-Host '· 锚点同步：临时暂存 progress.json 后重试 ...' -ForegroundColor DarkGray
-        $stashRes = Invoke-GitQuiet @('-C', $anchor, 'stash', 'push', '-q', '-m', 'git-done 锚点同步临时暂存', '--', 'progress.json')
+    if (-not $mergeOk -and $safeDirty.Count -gt 0 -and -not $rootClaim) {
+        Write-Host ("· 锚点同步：临时暂存受控文件（{0}）后重试 ..." -f ($safeDirty -join '、')) -ForegroundColor DarkGray
+        $stashArgs = @('-C', $anchor, 'stash', 'push', '-q', '-m', 'git-done 锚点同步临时暂存', '--') + $safeDirty
+        $stashRes = Invoke-GitQuiet $stashArgs
         $stashed = ($stashRes.Code -eq 0)
         if ($stashed) {
             # 记下暂存本身的提交号：stash@{0} 会被后续操作挪位，按号取回才靠得住。
             $shaRes = Invoke-GitQuiet @('-C', $anchor, 'rev-parse', '--verify', 'stash@{0}')
-            if ($shaRes.Code -eq 0) { $stashSha = ($shaRes.Output | Select-Object -First 1).ToString().Trim() }
+            if ($shaRes.Code -eq 0 -and $shaRes.Output.Count -gt 0) {
+                $stashSha = $shaRes.Output[0].ToString().Trim()
+            }
             $mergeRes = Invoke-GitQuiet @('-C', $anchor, 'merge', '--ff-only', "origin/$Main")
             $mergeOk = ($mergeRes.Code -eq 0)
         } else {
-            Write-Host '· 锚点同步：progress.json 暂存失败（应用可能在运行并占用它），跳过快进' -ForegroundColor Yellow
+            Write-Host '· 锚点同步：受控文件暂存失败（应用可能在运行并占用它），跳过快进' -ForegroundColor Yellow
         }
     }
 
@@ -440,21 +489,24 @@ function Sync-AnchorWorktree {
     if ($stashed) {
         $popRes = Invoke-GitQuiet @('-C', $anchor, 'stash', 'pop', '-q')
         if ($popRes.Code -ne 0) {
-            # 主线也动过 progress.json（CI 每次回写都会动），pop 必然撞车。
-            # 撞车不能只 warn 一句：失败的 pop 会把 <<<<<<< 冲突标记留在工作区、
-            # 并把该文件挂成 UU —— 而这份文件正是桌面应用 RoadmapSync 的写回对象，
-            # 下一次写回就把冲突标记打进快照；锚点的脏检查也会从此一直误判（已踩过）。
-            # 所以工作区一律回退到刚快进好的主线版本；本地快照本就留在暂存里，不丢。
+            # 主线也动过这些文件（CI 每次回写都会动 progress.json），pop 必然撞车。
+            # 撞车不能只 warn 一句：失败的 pop 会把 <<<<<<< 冲突标记留在工作区并把文件
+            # 挂成 UU —— progress.json 是 RoadmapSync 的写回对象，下次写回就把冲突标记
+            # 打进快照（docs/pitfalls.md 1.3）。所以工作区一律回退到刚快进好的主线版本；
+            # 本地内容本就完整留在 stash 里，不丢。
             $popRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
-            $restore = Invoke-GitQuiet @('-C', $anchor, 'checkout', 'HEAD', '--', 'progress.json')
+            $restoreArgs = @('-C', $anchor, 'checkout', 'HEAD', '--') + $safeDirty
+            $restore = Invoke-GitQuiet $restoreArgs
             if ($restore.Code -ne 0) {
-                Write-Host '   ✗ 冲突标记清理失败，请手工执行：git -C <锚点> checkout HEAD -- progress.json' -ForegroundColor Red
+                Write-Host ("   ✗ 冲突标记清理失败，请手工执行：git -C <锚点> checkout HEAD -- {0}" -f ($safeDirty -join ' ')) -ForegroundColor Red
             } else {
-                Write-Host '   ⚠ 本地快照与主线快照冲突，工作区已回退为主线版本（无冲突标记）' -ForegroundColor Yellow
+                Write-Host '   ⚠ 本地受控文件与主线冲突，工作区已回退为主线版本（无冲突标记）' -ForegroundColor Yellow
                 if ($stashSha) {
-                    Write-Host ("     本地快照仍在暂存中，需要用时就地取回：git -C {0} checkout {1} -- progress.json" -f $anchor, $stashSha) -ForegroundColor Yellow
+                    foreach ($item in $safeDirty) {
+                        Write-Host ("     本地版本仍在暂存中，需要时逐文件取回：git -C {0} checkout {1} -- {2}" -f $anchor, $stashSha, $item) -ForegroundColor Yellow
+                    }
                 } else {
-                    Write-Host '     本地快照仍在暂存中（git stash list 查看）' -ForegroundColor Yellow
+                    Write-Host '     本地版本仍在暂存中（git stash list 查看）' -ForegroundColor Yellow
                 }
             }
         }
@@ -463,9 +515,17 @@ function Sync-AnchorWorktree {
     if ($mergeOk) {
         Write-Host '✓ 锚点区已同步到最新 main' -ForegroundColor Green
     } else {
-        $why = '本地提交 / 未跟踪文件冲突'
-        if ($rootClaim -and $snapshotOnly) { $why = 'root 被占用（按登记让给占用者处理快照）' }
-        Write-Host ("· 锚点同步未完成（{0}），不影响远端合并" -f $why) -ForegroundColor Yellow
+        # 精确分类（DX-110 验收 2）：走到这里说明快进本身失败，按实际命中的原因点名，
+        # 不再一律报「本地提交 / 未跟踪文件冲突」。
+        $why = @()
+        if ($ahead -gt 0) { $why += ("本地提交 {0} 个" -f $ahead) }
+        if ($rootClaim -and $safeDirty.Count -gt 0) { $why += 'root 被占用（按登记让给占用者处理受控文件）' }
+        if ($safeDirty.Count -gt 0 -and $stashed) { $why += ('受控文件已暂存但快进仍失败：' + ($safeDirty -join '、')) }
+        if ($why.Count -eq 0) {
+            $firstLine = if ($mergeRes.Output.Count -gt 0) { $mergeRes.Output[0] } else { '' }
+            $why += ('快进被拒绝：' + $firstLine)
+        }
+        Write-Host ("· 锚点同步未完成（{0}），不影响远端合并" -f ($why -join '；')) -ForegroundColor Yellow
     }
 }
 

@@ -1,9 +1,11 @@
 import QtQuick
 
-// 标题栏右侧的两个入口（R11-8）：
-//   1. 主题三点 —— 打开外观面板（一键切换主题预设 / 画质档 / 减弱动效）。
+// 标题栏右侧的两个入口（R11-8 / R11-11）：
+//   1. 主题三点 —— 打开「外观」抽屉（一键切换主题预设 / 画质档 / 减弱动效）。
 //      切换主题时全应用（含霓虹背景）颜色渐变，切换过程本身就是一段动效。
-//      面板内容按需加载：未点开时不会构造 6 套预设行与投影层。
+//      外观面板已从「标题栏下方的浮动小面板」改成「主区右侧 320 px 抽屉」
+//      （AppearancePanel 以 DrawerShell 为根），抽屉由 Main.qml 承载，
+//      所以这里**不再内部加载 AppearancePanel**，只负责发开合意图。
 //   2. 齿轮 —— 打开设置面板。原先设置入口在侧栏导航里（低频全局操作占一整行），
 //      R11-8 把它收到标题栏右上角，与窗口按钮同区；Ctrl+, 快捷键不变。
 //
@@ -12,15 +14,23 @@ import QtQuick
 Item {
     id: picker
 
+    // 外观抽屉的开合意图：true = 想开，false = 想关。
+    // 抽屉本体在 Main.qml 侧（右侧抽屉），这里只同步意图。
     property bool open: false
-    // 面板内容是否已加载（首次打开后保持加载，再次打开零延迟）
-    property bool panelReady: false
+
+    // 开合意图变化时发一次：由宿主把抽屉的实际状态对齐过来
+    // （宿主收到后把抽屉 visible 设成 picker.open）。
+    signal appearanceRequested()
 
     // 设置入口交给宿主接线（Main.qml → window.openSettings()）
     signal settingsRequested()
 
     implicitWidth: 64
     implicitHeight: 30
+
+    // open 任何来源的变化（toggle / close / 宿主直接赋值）都发一次信号，
+    // 免得「按钮高亮了但抽屉没开」——宿主只需要在一个地方对齐 visible。
+    onOpenChanged: appearanceRequested()
 
     function toggle() {
         open = !open
@@ -116,38 +126,5 @@ Item {
 
         Accessible.role: Accessible.Button
         Accessible.name: "外观面板"
-    }
-
-    // ---------- 弹出面板（按需加载） ----------
-    Loader {
-        id: panelLoader
-        anchors.top: trigger.bottom
-        anchors.topMargin: 8
-        anchors.right: trigger.right
-        // 显式给宽高：QQuickLoader 会把 Loader 的尺寸强加给被加载项，
-        // 高度取面板自身的隐式高度，避免出现「高度为 0 看不见面板」。
-        width: 300
-        height: item ? item.implicitHeight : 0
-        active: picker.panelReady || picker.open
-        source: "AppearancePanel.qml"
-        z: 50
-
-        opacity: picker.open ? 1.0 : 0.0
-        scale: picker.open ? 1.0 : 0.96
-        transformOrigin: Item.TopRight
-        visible: opacity > 0.01
-
-        Behavior on opacity {
-            NumberAnimation { duration: Motion.panel; easing.type: Easing.OutCubic }
-        }
-        Behavior on scale {
-            NumberAnimation { duration: Motion.panel; easing.type: Easing.OutCubic }
-        }
-
-        onLoaded: {
-            item.pickerRef = picker
-            item.closeRequested.connect(picker.close)
-            picker.panelReady = true
-        }
     }
 }

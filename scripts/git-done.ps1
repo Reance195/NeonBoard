@@ -88,6 +88,41 @@ function Invoke-Git {
 # 失败不抛，由调用方按 Code 自行处置（探测类命令用这里）
 function Invoke-GitQuiet { param([string[]]$GitArgs) return Invoke-Cmd -File 'git' -CmdArgs $GitArgs }
 
+# 删除「提交已全部进本次合并」的分支（DX-109）：DX-106 的单次推送把删除挪到推送之前，
+# 而 `branch -d` 的安全判据是「已合并到 upstream（refs/remotes/origin/main）」—— 此刻
+# origin/main 还没含本次合并，判据恒假，git 必然以 "not fully merged" 拒删，每次收尾都
+# 残留一支已合并分支。判据改成与 worktree 回收同锚点：分支提交是否已全部进本次合并
+# （--no-ff 合并就是收纳证据）。确认后必须用 -D：-d 会再跑一遍同一套 upstream 检查，
+# 照样误拒。返回 $true = 已删除或本来就不存在；$false = 保留（未进本次合并 / 被占用）。
+function Remove-MergedBranch {
+    param([string]$Name, [string]$AnchorCommit)
+    $exists = Invoke-GitQuiet @('rev-parse', '--verify', '--quiet', "refs/heads/$Name")
+    if ($exists.Code -ne 0) {
+        Write-Host ("· 分支 {0} 已不存在，跳过删除" -f $Name) -ForegroundColor DarkGray
+        return $true
+    }
+    $ahead = -1
+    $aheadRes = Invoke-GitQuiet @('rev-list', '--count', $Name, '--not', $AnchorCommit)
+    if ($aheadRes.Code -eq 0) {
+        $first = $aheadRes.Output | Select-Object -First 1
+        if ($first) { [void][int]::TryParse($first.ToString().Trim(), [ref]$ahead) }
+    }
+    if ($aheadRes.Code -ne 0 -or $ahead -ne 0) {
+        if ($aheadRes.Code -ne 0) {
+            Write-Host ("· 保留分支 {0}：无法核对提交是否已全部进本次合并" -f $Name) -ForegroundColor Yellow
+            $aheadRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+        } else {
+            Write-Host ("· 保留分支 {0}：还有 {1} 个提交不在本次合并提交里" -f $Name, $ahead) -ForegroundColor Yellow
+        }
+        return $false
+    }
+    $delRes = Invoke-GitQuiet @('branch', '-D', $Name)
+    $delRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+    if ($delRes.Code -eq 0) { return $true }
+    Write-Host ("· 保留分支 {0}：可能仍被某个 worktree 占用（先 git worktree remove 再删）" -f $Name) -ForegroundColor Yellow
+    return $false
+}
+
 # 冲突退出回滚现场（DX-107）：合并撞冲突时，不把 merge/* 临时分支、未合并冲突态和
 # 「停在临时分支上的检出」留给下一条命令。所有动作都是非破坏性的 —— abort 用
 # `git merge --abort`（等价 reset --merge，保留用户未提交改动），归位用 switch，
@@ -876,10 +911,10 @@ if ($Mode -eq 'remote') {
         Write-Host ("· [dry-run] 保留分支 {0}（演练不删）" -f $Branch) -ForegroundColor DarkCyan
     } elseif (-not $KeepBranch) {
         Write-Host ("· 删除分支 {0}" -f $Branch) -ForegroundColor DarkGray
-        $delRes = Invoke-GitQuiet @('branch', '-d', $Branch)
-        $delRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
-        if ($delRes.Code -ne 0) {
-            Write-Host "   （分支可能仍被某个 worktree 占用，先 git worktree remove 再删）" -ForegroundColor DarkGray
+        # DX-109：判据换锚点（见 Remove-MergedBranch）—— 单次推送下删除在推送之前，
+        # `branch -d` 的 upstream 判据必然误拒。
+        if (Remove-MergedBranch -Name $Branch -AnchorCommit $mergedCommit) {
+            Write-Host ("✓ 已删除分支 {0}" -f $Branch) -ForegroundColor DarkGray
         }
     }
 
@@ -1232,8 +1267,12 @@ Invoke-ClaimRefCleanup -Main $MainBranch
 
 if (-not $KeepBranch) {
     Write-Host "· 删除分支 $Branch" -ForegroundColor DarkGray
-    Invoke-Git branch -d $Branch | Out-Null
-    Write-Host "✓ 已删除分支 $Branch" -ForegroundColor DarkGray
+    # DX-109：local 模式的分支同样跟踪 origin/main、合入的却是本地 main —— 与 remote 同一
+    # 病根，判据统一换成「已全部进本次合并（这里就是本地合并结果）」。
+    $localMergedCommit = (Invoke-Git rev-parse HEAD).Trim()
+    if (Remove-MergedBranch -Name $Branch -AnchorCommit $localMergedCommit) {
+        Write-Host "✓ 已删除分支 $Branch" -ForegroundColor DarkGray
+    }
 }
 
 # 开发区占用收尾释放（DX-05）：与 remote 模式同一口径

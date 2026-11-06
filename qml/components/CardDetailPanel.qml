@@ -12,8 +12,81 @@ import QtQuick.Layouts
 //   1. Esc / 点外部 / 取消：一个字都不写库 —— 草稿只在 QML 里活着
 //   2. 没有实际改动时「保存」置灰；即便绕过界面直调 saveFields，后端也会挡掉（零写入）
 //   3. 备注按 Text.MarkdownText 渲染，编辑时回落纯文本（渲染后的文本不能反过来当源码改）
-Dialog {
+DialogShell {
     id: root
+
+    // R11-09：统一弹窗壳 —— 头固定（标题 + 关闭键）、体滚动、底固定（编辑 / 取消 / 保存）。
+    titleText: root.editing ? "编辑卡片" : "卡片详情"
+    sizeMode: "md"
+    maxBodyHeight: 520
+    secondaryText: root.editing ? "取消" : ""
+    primaryText: root.editing ? "保存" : ""
+    primaryEnabled: root.draftDirty
+
+    onSecondaryTriggered: root.cancelEdit()
+    onPrimaryTriggered: root.saveAll()
+    onCloseRequested: {
+        // 关闭即丢弃草稿：取消语义只看「有没有写库」
+        if (root.editing)
+            root.cancelEdit()
+        root.close()
+    }
+
+    // 底栏左侧的动作：看详情时才有（编辑 / 打开编辑器），编辑态留给右边的取消 / 保存
+    footerExtra: Component {
+        RowLayout {
+            spacing: Theme.spacingSm
+
+            Button {
+                visible: !root.editing
+                text: "编辑"
+                Layout.preferredHeight: 26
+                Layout.preferredWidth: 52
+                padding: 0
+                onClicked: root.beginEdit()
+                background: Rectangle {
+                    radius: Theme.radiusControl
+                    color: Theme.input
+                    border.width: 1
+                    border.color: Theme.border
+                }
+                contentItem: Text {
+                    text: "编辑"
+                    color: Theme.muted
+                    font.pixelSize: Theme.fontCaption
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+            Button {
+                visible: !root.editing
+                text: "打开编辑器"
+                Layout.preferredHeight: 26
+                padding: 0
+                Layout.preferredWidth: 92
+                onClicked: {
+                    const id = root.cardId
+                    root.silentClose = true
+                    root.close()
+                    root.openEditor(id)
+                }
+                background: Rectangle {
+                    radius: Theme.radiusControl
+                    color: Theme.input
+                    border.width: 1
+                    border.color: Theme.border
+                }
+                contentItem: Text {
+                    text: "打开编辑器"
+                    color: Theme.muted
+                    font.pixelSize: Theme.fontCaption
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+        }
+    }
 
     property string cardId: ""
     property var snapshot: ({})
@@ -41,16 +114,6 @@ Dialog {
     // 声明成 Item 会在赋值时报 "Cannot assign QObject* to QQuickItem*"，parent 变 null 后
     // 抽屉就成了没有宿主的游离窗口。真正的挂载点取它的 contentItem（见下）。
     property var hostWindow: null
-
-    parent: hostWindow ? hostWindow.contentItem : null
-    anchors.centerIn: parent
-
-    modal: true
-    focus: true
-    padding: 20
-    width: Math.min(620, hostWindow ? hostWindow.width - 80 : 620)
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
 
     signal openEditor(string taskId)
 
@@ -337,13 +400,6 @@ Dialog {
         return Theme.muted
     }
 
-    background: Rectangle {
-        color: Theme.panelSolid
-        radius: Theme.radiusPanel
-        border.width: 1
-        border.color: Theme.alpha(Theme.cyan, 0.32)
-    }
-
     // 抽屉里的输入框统一长这样：省得每个字段各写一遍 background 而写歪
     component Field: TextField {
         Layout.fillWidth: true
@@ -362,22 +418,10 @@ Dialog {
     // 高度取「内容自然高度」与「窗口高度减 80」中较小者；
     // implicitHeight 在某些布局下会是 NaN（> 0 为假），此时直接退回上限，
     // 否则 Math.min(NaN, x) = NaN，弹窗会按内容一路长到屏幕外面去。
-    readonly property real maxDialogHeight: Math.min(hostWindow ? hostWindow.height - 80 : 700, 700)
-    height: Math.min(implicitHeight > 0 ? implicitHeight : maxDialogHeight, maxDialogHeight)
-
-    contentItem: ColumnLayout {
-        spacing: 8
-
-        ScrollView {
-            id: contentScroll
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-            ScrollBar.vertical.policy: ScrollBar.AsNeeded
-
-            ColumnLayout {
-                width: contentScroll.availableWidth
-                spacing: 12
+    // 内容落在壳的体滚动区（头 / 底固定）
+    ColumnLayout {
+        Layout.fillWidth: true
+        spacing: 12
 
 
             RowLayout {
@@ -417,60 +461,7 @@ Dialog {
                     }
                 }
 
-                Text {
-                    text: root.editing ? "编辑卡片" : "卡片详情"
-                    color: Theme.muted
-                    font.pixelSize: Theme.fontBody
-                }
-
                 Item { Layout.fillWidth: true }
-
-                Button {
-                    visible: !root.editing
-                    text: "编辑"
-                    Layout.preferredHeight: 26
-                    Layout.preferredWidth: 52
-                    padding: 0
-                    onClicked: root.beginEdit()
-                    background: Rectangle {
-                        radius: Theme.radiusControl
-                        color: Theme.input
-                        border.width: 1
-                        border.color: Theme.border
-                    }
-                    contentItem: Text {
-                        text: "编辑"
-                        color: Theme.muted
-                        font.pixelSize: Theme.fontCaption
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-
-                Button {
-                    text: "关闭"
-                    Layout.preferredHeight: 26
-                    Layout.preferredWidth: 52
-                    padding: 0
-                    onClicked: {
-                        if (root.editing)
-                            root.cancelEdit()
-                        root.close()
-                    }
-                    background: Rectangle {
-                        radius: Theme.radiusControl
-                        color: Theme.input
-                        border.width: 1
-                        border.color: Theme.border
-                    }
-                    contentItem: Text {
-                        text: "关闭"
-                        color: Theme.muted
-                        font.pixelSize: Theme.fontCaption
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
             }
 
             // 标题：看的时候是大字，改的时候是输入框
@@ -1029,88 +1020,5 @@ Dialog {
                     }
                 }
             }
-            }
         }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            Button {
-                visible: !root.editing
-                text: "打开编辑器"
-                Layout.preferredHeight: 28
-                padding: 0
-                Layout.preferredWidth: 92
-                onClicked: {
-                    const id = root.cardId
-                    root.silentClose = true
-                    root.close()
-                    root.openEditor(id)
-                }
-                background: Rectangle {
-                    radius: Theme.radiusControl
-                    color: Theme.input
-                    border.width: 1
-                    border.color: Theme.border
-                }
-                contentItem: Text {
-                    text: "打开编辑器"
-                    color: Theme.muted
-                    font.pixelSize: Theme.fontCaption
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Button {
-                visible: root.editing
-                text: "取消"
-                Layout.preferredHeight: 28
-                Layout.preferredWidth: 64
-                padding: 0
-                onClicked: root.cancelEdit()
-                background: Rectangle {
-                    radius: Theme.radiusControl
-                    color: Theme.input
-                    border.width: 1
-                    border.color: Theme.border
-                }
-                contentItem: Text {
-                    text: "取消"
-                    color: Theme.muted
-                    font.pixelSize: Theme.fontCaption
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-
-            Button {
-                visible: root.editing
-                text: "保存"
-                Layout.preferredHeight: 28
-                Layout.preferredWidth: 64
-                padding: 0
-                enabled: root.draftDirty
-                onClicked: root.saveAll()
-                background: Rectangle {
-                    radius: Theme.radiusControl
-                    color: root.draftDirty
-                           ? Theme.alpha(Theme.cyan, 0.32)
-                           : Theme.input
-                    border.width: 1
-                    border.color: root.draftDirty ? Theme.cyan : Theme.border
-                }
-                contentItem: Text {
-                    text: "保存"
-                    color: root.draftDirty ? Theme.text : Theme.muted
-                    font.pixelSize: Theme.fontCaption
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-        }
-    }
 }

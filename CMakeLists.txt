@@ -243,6 +243,8 @@ set_source_files_properties(qml/components/OnboardingOverlay.qml PROPERTIES QT_R
 set_source_files_properties(qml/components/ProjectMapPanel.qml PROPERTIES QT_RESOURCE_ALIAS "ProjectMapPanel.qml")
 set_source_files_properties(qml/components/CardDetailPanel.qml PROPERTIES QT_RESOURCE_ALIAS "CardDetailPanel.qml")
 set_source_files_properties(qml/components/ThemeMarketPanel.qml PROPERTIES QT_RESOURCE_ALIAS "ThemeMarketPanel.qml")
+set_source_files_properties(qml/components/DialogShell.qml PROPERTIES QT_RESOURCE_ALIAS "DialogShell.qml")
+set_source_files_properties(qml/components/DrawerShell.qml PROPERTIES QT_RESOURCE_ALIAS "DrawerShell.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -281,6 +283,8 @@ qt_add_qml_module(NeonBoard
         qml/components/ProjectMapPanel.qml
         qml/components/CardDetailPanel.qml
         qml/components/ThemeMarketPanel.qml
+        qml/components/DialogShell.qml
+        qml/components/DrawerShell.qml
 )
 
 qt_add_resources(NeonBoard "icons"

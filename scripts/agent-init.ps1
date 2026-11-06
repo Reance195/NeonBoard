@@ -524,6 +524,15 @@ $envLines = @(
 
 # ---------- 任务卡字段注入（docs/task-card.md）----------
 # 让 agent 一进工作区就知道：这张卡要验收什么、能改哪些路径、依赖哪张卡。
+# 生成的是单引号 PowerShell 字面量：值里的 ' 必须双写，否则验收项自带的引号会把
+# 字符串提前截断，dot-source 直接 ParserError（DX-99；DX-97 的 `rg 'z: 1'` 实测踩过）。
+function Format-PsSingleQuoted {
+    param([string]$Value)
+
+    if ($null -eq $Value) { return '' }
+    return $Value.Replace("'", "''")
+}
+
 if ($Card -and $Card -ne 'none') {
     $ledgerPath = Join-Path $repoRoot 'docs\board-ledger.json'
     if (Test-Path $ledgerPath) {
@@ -534,9 +543,9 @@ if ($Card -and $Card -ne 'none') {
         $cardData = $ledger.cards.$cardCode
         if ($cardData) {
             $envLines += "`$env:NB_CARD = '$cardCode'"
-            if ($cardData.scope)      { $envLines += ("`$env:NB_SCOPE = '" + (($cardData.scope) -join ';') + "'") }
-            if ($cardData.acceptance) { $envLines += ("`$env:NB_ACCEPTANCE = '" + (($cardData.acceptance) -join ';') + "'") }
-            if ($cardData.depends)    { $envLines += ("`$env:NB_DEPENDS = '" + (($cardData.depends) -join ';') + "'") }
+            if ($cardData.scope)      { $envLines += ("`$env:NB_SCOPE = '" + (Format-PsSingleQuoted (($cardData.scope) -join ';')) + "'") }
+            if ($cardData.acceptance) { $envLines += ("`$env:NB_ACCEPTANCE = '" + (Format-PsSingleQuoted (($cardData.acceptance) -join ';')) + "'") }
+            if ($cardData.depends)    { $envLines += ("`$env:NB_DEPENDS = '" + (Format-PsSingleQuoted (($cardData.depends) -join ';')) + "'") }
         }
     }
 }

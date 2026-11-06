@@ -289,24 +289,6 @@
             "updatedAt": 1793935667
         },
         {
-            "code": "DX-105",
-            "completedAt": 0,
-            "createdAt": 1793941765,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-105",
-            "note": "",
-            "orderKey": 67584,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "发号模式可配置：numbering.mode（remote 服务端占位 / local 仅本地）+ CLI 覆盖",
-            "updatedAt": 1793941765
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4243,6 +4225,24 @@
             "updatedAt": 1793937506
         },
         {
+            "code": "DX-105",
+            "completedAt": 1793942027,
+            "createdAt": 1793941765,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-105",
+            "note": "",
+            "orderKey": 67584,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "发号模式可配置：numbering.mode（remote 服务端占位 / local 仅本地）+ CLI 覆盖",
+            "updatedAt": 1793942027
+        },
+        {
             "completedAt": 1792982913,
             "createdAt": 1792981704,
             "deleted": false,
@@ -4813,6 +4813,6 @@
             "updatedAt": 1793934590
         }
     ],
-    "updated": "2026-11-06T13:09:25",
+    "updated": "2026-11-06T13:13:47",
     "version": 3
 }

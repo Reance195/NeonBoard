@@ -173,6 +173,9 @@ git branch -d feature/<简述>
    > `refs/registrations/<短号>` —— 新建 ref 的推送在 origin 是原子 test-and-set，
    > 谁先推成谁占号，被拒即刷新占用集换号重试；占位永久留痕即机器可校验的发号审计链，
    > 跨机并发窗口缩到一次原子推送（离线需显式 `--offline`，号为暂定须重验）。
+   > 发号强度按项目协作形态可配（DX-105）：台账顶层 `numbering.mode` —— `remote`
+   > （默认，服务端占位）/ `local`（仅本地锁+台账，零网络，适合单机/离线项目，
+   > 跨机并发不受保护）；CLI `--mode` 单次覆盖。改它属任务定义，必须 chore(board)+审计行。
    > **手工改台账新增卡一律被拒**：`task_gate` 在
    > commit-msg 阶段核对回执，无回执 / `card` 不符 / sha256 不符 / 缺 `authorizedBy` 即拒。
    > 代登记只允许追加卡片与对应的 `baseline`，不得改既有卡的 `id` / `title` / `stage`；

@@ -1,0 +1,13 @@
+{
+  "card": "DX-109",
+  "sha256": "d59a2c70d878d9d0941ed8fd33d6bc2c66e0ad0a50948519d8ae1ecc05f35181",
+  "authorizedBy": "维护者会话指令（2026-11-06，剖析未解决问题并立卡）",
+  "form": "docs/card-requests/20261106-dx-branch-delete-post-merge.md",
+  "registeredAt": "2026-11-06T14:15:32+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-109",
+    "sha": "63193c3a14b2e8a14732c401ade71e9a1924e45e"
+  }
+}

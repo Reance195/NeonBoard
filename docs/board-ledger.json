@@ -235,7 +235,10 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "DX-107": "todo",
+        "DX-108": "todo",
+        "DX-109": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5131,6 +5134,72 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "DX-107": {
+            "acceptance": [
+                "dry-run 撞合并冲突：退出前 abort 合并、删 merge/* 临时分支、切回进入时检出，工作区恢复干净",
+                "真实模式撞合并冲突：同样不残留 merge/* 临时分支与冲突态，且不吞掉用户未提交改动",
+                "verify.ps1 -GitDoneDryRun 在冲突分支上演练不再留现场（回归用例）",
+                "pitfalls 补现象/根因/解法条目",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-c",
+            "depends": [
+                "DX-106"
+            ],
+            "evidence": "DX-106 收尾实测两次撞 progress.json 合并冲突：git-done 冲突路径直接 exit 1，现场残留 merge/<slug> 临时分支与未合并冲突态，worktree 变脏、后续命令全部撞墙；dry-run 更矛盾——头部文档承诺「结束切回原分支、演练提交全部丢弃」，冲突退出同样不兑现，本次实测留下 merge/chore-board-dx-106-zip-push 残留需手工 merge --abort + branch -D。",
+            "id": "DX-107",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "合并冲突退出不回滚现场：冲突路径清理临时分支与冲突态，dry-run 承诺的回滚真正兑现"
+        },
+        "DX-108": {
+            "acceptance": [
+                "git-done 合并撞冲突且冲突文件仅为纯派生物（progress.json，可含 docs/board-ledger.json）时，自动完成「取主线版→完成合并→derive --write 重算→随收尾提交」，不要求人工介入",
+                "冲突含非派生文件（代码/其它文档）时行为不变：仍中止并给人工解决指引",
+                "dry-run 演练与真实收尾各验证一次冲突自动善后路径",
+                "pitfalls 补现象/根因/解法条目",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-c",
+            "depends": [
+                "DX-107"
+            ],
+            "evidence": "DX-106 收尾实测两次撞 progress.json 合并冲突，每次都要手工五步（merge --abort → 切回分支 → 合主线 → --ours 取版 → derive --write 重算 → 提交）才能继续收尾，步骤全靠人记且无任何脚本兜底。快照是派生产物（AGENTS §11.2：内容恒由 derive --write 按派生结果重算），内容冲突不存在需要人脑的语义合并——正确解恒为「任取一侧后重算」。DX-27 对台账同类问题已给出「本可语义合并」的剖析，快照侧因派生器幂等而更简单，可先行收口进 git-done 合并冲突路径。",
+            "id": "DX-108",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "progress.json 合并冲突派生善后：冲突文件为纯派生物时自动重算，五步人工善后收口进 git-done"
+        },
+        "DX-109": {
+            "acceptance": [
+                "分支删除改判「分支提交已全部进合并提交」（与 worktree 回收同锚点）或推送落地后补删，正常收尾后本地不再残留已合并分支",
+                "-KeepBranch 与 -DryRun 行为不变：保留分支的路径不受影响",
+                "真实收尾端到端一次，验证收尾完成后 git branch 清单无本次分支残留",
+                "pitfalls 补现象/根因/解法条目",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-c",
+            "depends": [
+                "DX-106"
+            ],
+            "evidence": "DX-106 把 worktree 回收挪到推送之前（单次推送时序），回收安全判据换成了「已进本次合并」，但分支删除那半边没跟上：branch -d 的安全判据是「已合并到 upstream（refs/remotes/origin/main）」，推送前恒假，git 拒删并留「not fully merged」提示——DX-106 实测每次收尾都在本地残留一支已合并分支，需手工 branch -d 清理。",
+            "id": "DX-109",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "单次推送下 branch -d 恒拒：分支删除判据换锚点，收尾不再残留已合并分支"
         }
     },
     "claims": {

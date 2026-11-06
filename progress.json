@@ -361,6 +361,24 @@
             "updatedAt": 1793981830
         },
         {
+            "code": "DX-122",
+            "completedAt": 0,
+            "createdAt": 1793982202,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-122",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 启动告警零容忍：把枚举式 pattern 换成按形态识别，规则收成一份",
+            "updatedAt": 1793982202
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5209,6 +5227,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-07T00:17:10",
+    "updated": "2026-11-07T00:23:22",
     "version": 3
 }

@@ -1,0 +1,13 @@
+{
+  "card": "DX-122",
+  "sha256": "7edae7ae89528f2a8e857797079db889280bba1366ef854f7fa0e6e7181818ee",
+  "authorizedBy": "维护者 13706 会话 2026-11-07 指令「立卡」：为 CI 启动告警零容忍立卡（承接 R11-13 复盘提出的系统性建议）",
+  "form": "docs/card-requests/20261107-qml-warning-gate.md",
+  "registeredAt": "2026-11-06T16:23:22+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-122",
+    "sha": "5b909dd901972b37807399cf2f1c2d3592cea2ca"
+  }
+}

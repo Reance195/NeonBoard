@@ -5304,19 +5304,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-77": {
-            "agent": "agent-dx77",
-            "branch": "fix/console-encoding-unify",
-            "claimedAt": 1793912386,
-            "head": "0eb69377a37ccc14b5e9b5dcd9447d072067e920"
-        },
-        "DX-83": {
-            "agent": "agent-dx77",
-            "branch": "fix/console-encoding-unify",
-            "claimedAt": 1793912412,
-            "head": "5c06a61d81672960f4a6b76e1fdfd0bb5cfb761a"
-        }
-    },
+    "claims": {},
     "version": 1
 }

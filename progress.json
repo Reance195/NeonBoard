@@ -235,24 +235,6 @@
             "updatedAt": 1793935667
         },
         {
-            "code": "DX-108",
-            "completedAt": 0,
-            "createdAt": 1793974520,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-108",
-            "note": "",
-            "orderKey": 71680,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "progress.json 合并冲突派生善后：冲突文件为纯派生物时自动重算，五步人工善后收口进 git-done",
-            "updatedAt": 1793974520
-        },
-        {
             "code": "DX-109",
             "completedAt": 0,
             "createdAt": 1793974532,
@@ -269,6 +251,24 @@
             ],
             "title": "单次推送下 branch -d 恒拒：分支删除判据换锚点，收尾不再残留已合并分支",
             "updatedAt": 1793974532
+        },
+        {
+            "code": "DX-108",
+            "completedAt": 0,
+            "createdAt": 1793974520,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-108",
+            "note": "",
+            "orderKey": 71680,
+            "priority": 2,
+            "stage": "DX",
+            "status": "doing",
+            "tags": [
+                "DX"
+            ],
+            "title": "progress.json 合并冲突派生善后：冲突文件为纯派生物时自动重算，五步人工善后收口进 git-done",
+            "updatedAt": 1793977574
         },
         {
             "code": "R0-01",
@@ -4975,6 +4975,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:00:47",
+    "updated": "2026-11-06T23:06:14",
     "version": 3
 }

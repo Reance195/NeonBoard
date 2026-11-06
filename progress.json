@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-82",
-            "completedAt": 0,
-            "createdAt": 1793906980,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-82",
-            "note": "触发证据：DX-62 交付日实测：分支 rebase 到最新主线后，derive 与 verify 每次都提示「领用 DX-62 的分支已推进或重写，旧登记过期，请重新领用」；但按提示重跑 agent-init -InPlace -Card DX-62 会被幂等门跳过（分支历史已有同短号领用提交且服务端占位仍在）——提示不可执行。且 rebase 是 §7.3 合并前的常规动作（并行推主线竞态下本次就发生了），每次 rebase 后每次 derive 都刷一遍噪声\n\n## 目标\nrebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用\n\n## 验收\nderive claims_doing 区分两种过期：head 非分支 tip 祖先但分支历史仍有本短号 chore(claim) 领用提交（复用 CLAIM_SUBJECT 同一正则）时归因为 rebase，提示「登记随 rebase 过期（预期），服务端占位为准、合并闸门按同主题回退放行」，不再出现「请重新领用」；分支重写丢失领用提交的场景维持原提示（反例不破）；agent-init 幂等跳过分支补一行「本地登记 head 已随 rebase 过期（预期，服务端占位为准）」；docs 补记 rebase 后 refs/claims 指向重写前提交属预期（Ruleset 禁强推不重推）与闸门放行口径；分类逻辑抽纯函数入 selftest，python scripts/derive_board_status.py --selftest 与 pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/derive_board_status.py;scripts/agent-init.ps1;docs/pitfalls.md;docs/git-workflow.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 13312,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "rebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用",
-            "updatedAt": 1793906980
-        },
-        {
             "code": "DX-117",
             "completedAt": 0,
             "createdAt": 1793981830,
@@ -1884,6 +1866,24 @@
             ],
             "title": "PluginLoader 升级：apiVersion 1|2 + background/contributes",
             "updatedAt": 1792588621
+        },
+        {
+            "code": "DX-82",
+            "completedAt": 1793985091,
+            "createdAt": 1793906980,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-82",
+            "note": "触发证据：DX-62 交付日实测：分支 rebase 到最新主线后，derive 与 verify 每次都提示「领用 DX-62 的分支已推进或重写，旧登记过期，请重新领用」；但按提示重跑 agent-init -InPlace -Card DX-62 会被幂等门跳过（分支历史已有同短号领用提交且服务端占位仍在）——提示不可执行。且 rebase 是 §7.3 合并前的常规动作（并行推主线竞态下本次就发生了），每次 rebase 后每次 derive 都刷一遍噪声\n\n## 目标\nrebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用\n\n## 验收\nderive claims_doing 区分两种过期：head 非分支 tip 祖先但分支历史仍有本短号 chore(claim) 领用提交（复用 CLAIM_SUBJECT 同一正则）时归因为 rebase，提示「登记随 rebase 过期（预期），服务端占位为准、合并闸门按同主题回退放行」，不再出现「请重新领用」；分支重写丢失领用提交的场景维持原提示（反例不破）；agent-init 幂等跳过分支补一行「本地登记 head 已随 rebase 过期（预期，服务端占位为准）」；docs 补记 rebase 后 refs/claims 指向重写前提交属预期（Ruleset 禁强推不重推）与闸门放行口径；分类逻辑抽纯函数入 selftest，python scripts/derive_board_status.py --selftest 与 pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/derive_board_status.py;scripts/agent-init.ps1;docs/pitfalls.md;docs/git-workflow.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 13312,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "rebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用",
+            "updatedAt": 1793985091
         },
         {
             "code": "R7-03",
@@ -5245,6 +5245,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-07T00:57:26",
+    "updated": "2026-11-07T01:11:31",
     "version": 3
 }

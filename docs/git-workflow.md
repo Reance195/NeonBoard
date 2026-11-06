@@ -190,7 +190,10 @@ pwsh -File scripts/agent-init.ps1 -Agent agent-c -Branch feature/task-tags -Card
 - 登记写法：`claims[<短号>] = {agent, branch, head, claimedAt}`，落在**本 worktree** 的台账副本，随 feature 分支提交；
 - 登记推送前钩子就会投递 `#<短号>=doing`（看板在跑立即生效，不在跑启动时补投递），合并回 `main` 后派生器按台账 claims 派生 `doing`；
 - 派生优先级：**提交信息显式标记 > 领用登记 > baseline**；
-- **释放不需要任何操作**：分支被合并进主干（head 变祖先）或分支被删除（ref 消失）、或分支被 rebase 重写（head 不再是 tip 祖先）时登记自动失效回退；
+- **释放不需要任何操作**：分支被合并进主干（head 变祖先）或分支被删除（ref 消失）时登记自动失效回退；
+  分支被 rebase 重写（head 不再是 tip 祖先）时按 DX-82 二分：分支历史仍有同短号 `chore(claim)` 领用提交
+  ⇒ rebase 预期态，登记继续生效（`refs/claims/<短号>` 指向重写前提交属预期——Ruleset 禁强推，
+  占位不随 rebase 重写；合并闸门按同主题回退放行）；改写丢失了领用提交 ⇒ 才失效回退；
   台账里这些失效 `claims` 条目由下一次 `agent-init.ps1` 开区时统一清理，避免短号被永久占用；
 - 收尾结项仍用提交标记：`feat: xxx done #R3-01=done`；
 - 若短号已被另一分支领用则拒绝（防双领）。
@@ -239,7 +242,10 @@ pwsh -File scripts/git-done.ps1 -Branch feature/xxx -RemoveWorktree
 合并前自动执行**领用闸门**：`refs/claims/<短号>` 必须存在并对应分支里的领用提交，否则拒绝合并。
 豁免只看 diff 路径，不看调用方怎么声明（`scripts/task_gate.py scope`）：改动全部落在 `docs/` `scripts/`
 `.githooks/` `.github/` 或 `*.md` 才算杂务；`-SkipClaimCheck` 已废弃，它不再能放行任何代码改动。
-分支 rebase 后领用提交被改写时，闸门按提交信息放行并提示。
+分支 rebase 后领用提交被改写时，闸门按提交信息放行并提示（DX-82 口径）：
+`refs/claims/<短号>` 仍指向重写前的领用提交——这是预期态，不是需要修复的漂移
+（Ruleset 禁止强推，占位不随 rebase 重写）；派生器把它归因为「登记随 rebase 过期（预期）」，
+登记继续生效，不再提示「请重新领用」。只有分支改写丢失了领用提交才需要重新领用。
 
 #### 合并推送之后的锚点快进
 

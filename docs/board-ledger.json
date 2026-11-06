@@ -3335,6 +3335,8 @@
                 "qml/components/ColumnManager.qml",
                 "qml/components/OnboardingOverlay.qml",
                 "qml/components/PluginPermissionDialog.qml",
+                "qml/Main.qml",
+                "qml/components/ThemePicker.qml",
                 "README.md",
                 "docs/iteration-roadmap.md"
             ],

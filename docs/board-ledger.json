@@ -249,7 +249,8 @@
         "R9-03": "done",
         "R9-04": "done",
         "R9-05": "done",
-        "DX-121": "todo"
+        "DX-121": "todo",
+        "DX-120": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5446,6 +5447,32 @@
             ],
             "stage": "DX",
             "title": "立卡半落地：回执/占位在而台账卡片被并发冲突抹去，回执闸门只查单向"
+        },
+        "DX-120": {
+            "acceptance": [
+                "端到端真实收尾（agent-init 开区 → 提交 → 从该 worktree 内跑 git-done.ps1 -Branch <本分支>，remote 模式 EXIT=0）后 git worktree list --porcelain 不含该 worktree 路径（产物断言，不以脚本是否打印「已回收」为准）",
+                "回收只发生在单次推送落地之后，且只收「进入时检出该分支、现已 detached 于本次合并结果、工作区干净、无未进本次合并的提交、占用登记属于自己的那一份」；任一条件不满足时只告警不删，并打印可复制的 git worktree remove <绝对路径> 与原因（打桩负测断言退出码与输出）",
+                "从其它检出调用 git-done.ps1 -Branch <别的分支> 时 DX-21 既有默认回收不回归（端到端一次：目录消失、分支已删、占用登记无残留）",
+                "-DryRun 不删 worktree、不切走占用，结束仍回到进入时分支（DX-50 时序不回归）",
+                "收尾回执仍落锚点区 .sandbox/receipts/ 且可读取，回收 worktree 不带走物证（DX-34 不回归）",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿；docs/pitfalls.md 补现象/根因/解法条目（含「进程 CWD 所在目录不能自删，须在推送落地后由外部检出执行或登记延后回收」）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "DX-21",
+                "DX-26",
+                "DX-34",
+                "DX-109"
+            ],
+            "evidence": "2026-11-06 DX-109 收尾实测：agent-init 开区 .worktrees/agent-dx109 / fix/dx109-branch-delete-anchor，从该 worktree 内跑 git-done.ps1 -Branch fix/dx109-branch-delete-anchor -Close DX-109，EXIT=0（合并 d4fc266、单次推送 d5b0f63、分支已删、DX-109 baseline=done），但 git worktree list 仍列 E:/projects/NeonBoard/.worktrees/agent-dx109 d5b0f63 (detached HEAD)，输出里既无「回收 worktree」也无「目标 worktree 就是当前目录，跳过回收」提示。根因链（origin/main 版 scripts/git-done.ps1）：:783 先 switch -c merge/<slug> origin/main 把当前 worktree 从目标分支摘走 → :843-851 第 4 步才按 branch refs/heads/<Branch> 反查 worktree，此时已无 worktree 检出该分支，$wtPath 为空 → :860 回收段 elseif ((-not $KeepWorktree) -and $wtPath) 整段静默跳过 → :1147 归位块 if ($atAnchor) 不适用于 linked worktree。:1143-1147 注释写「开发工作区保持分离 HEAD：下一步多半就被回收」，与实测不符；AGENTS.md:473「worktree 用完必须回收」与 §7.3「agent 在自己的 worktree 里跑 git-done」在这一姿势下同时落空。DX-21 [done] 把「当前目录就是目标 worktree 时不尝试自删」写进验收项，DX-23 巡检与 §7.10 均只报告不删除，无自动闭环；本次只能人工 git worktree remove 收敛。",
+            "id": "DX-120",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "git-done 从自身 worktree 收尾后残留 detached 工作区：反查失效且无回收闭环"
         }
     },
     "claims": {},

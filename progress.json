@@ -361,6 +361,24 @@
             "updatedAt": 1793981220
         },
         {
+            "code": "DX-120",
+            "completedAt": 0,
+            "createdAt": 1793981301,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-120",
+            "note": "",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 从自身 worktree 收尾后残留 detached 工作区：反查失效且无回收闭环",
+            "updatedAt": 1793981301
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5173,6 +5191,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-07T00:07:00",
+    "updated": "2026-11-07T00:08:21",
     "version": 3
 }

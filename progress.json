@@ -325,6 +325,24 @@
             "updatedAt": 1793980354
         },
         {
+            "code": "DX-116",
+            "completedAt": 0,
+            "createdAt": 1793980568,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-116",
+            "note": "",
+            "orderKey": 81920,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印",
+            "updatedAt": 1793980568
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5119,6 +5137,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:52:34",
+    "updated": "2026-11-06T23:56:08",
     "version": 3
 }

@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-124",
-            "completedAt": 0,
-            "createdAt": 1793987882,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-124",
-            "note": "",
-            "orderKey": 1024,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "结卡证据闸门整轮连坐：一张无证据候选卡拒结全批，--close-explicit 人工通道也被击穿",
-            "updatedAt": 1793987903
-        },
-        {
             "code": "DX-117",
             "completedAt": 0,
             "createdAt": 1793981830,
@@ -379,6 +361,24 @@
             ],
             "title": "DX 开发链路三处重复成本：代理变量、执行策略、残留工作区提示",
             "updatedAt": 1793732797
+        },
+        {
+            "code": "DX-124",
+            "completedAt": 1793988075,
+            "createdAt": 1793987882,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-124",
+            "note": "",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "结卡证据闸门整轮连坐：一张无证据候选卡拒结全批，--close-explicit 人工通道也被击穿",
+            "updatedAt": 1793988075
         },
         {
             "code": "DX-23",
@@ -5299,6 +5299,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T01:58:23",
+    "updated": "2026-11-07T02:01:15",
     "version": 3
 }

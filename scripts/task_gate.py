@@ -22,6 +22,7 @@
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -54,6 +55,11 @@ AUDIT_FIELDS = ("授权：", "批次：")
 CARD = re.compile(r"#((?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+))")
 LEDGER = os.path.join("docs", "board-ledger.json")
 ZERO = "0" * 40
+
+# 立卡回执目录（DX-97）：register_board_cards.py 为每张新卡生成
+# <RECEIPT_DIR>/<短号>.json，携带卡片规范 JSON 的 sha256。commit-msg 阶段核对：
+# 无回执 / 哈希不符的新增卡一律拒绝 —— 手工改台账的立卡通道就此关闭。
+RECEIPT_DIR = "docs/card-requests/registered"
 
 # 流程提交允许触碰的唯一路径集（DX-51）：台账与路线图快照。DX-40 只把豁免收到
 # 「非代码路径」，但 scripts/*.py、docs/*.md 仍在杂务白名单里 —— 领用/立卡提交把它们
@@ -131,7 +137,7 @@ def process_commit_exempt(kind, scope, paths):
     return (
         kind == "chore"
         and scope in PROCESS_SCOPES
-        and all(p in PROCESS_PATHS for p in paths)
+        and process_paths_ok(paths)
     )
 
 
@@ -144,7 +150,7 @@ def flow_scope_beyond_paths(kind, scope, paths):
     return (
         kind == "chore"
         and scope in FLOW_SCOPES
-        and not all(p in PROCESS_PATHS for p in paths)
+        and not process_paths_ok(paths)
     )
 
 
@@ -238,11 +244,28 @@ def cmd_message(args):
         if old is not None and new is not None and ledger_definition_changes(old, new):
             # DX-51：混提交判定从「代码路径」收紧到「流程路径之外」—— 立卡提交
             # 卷走 docs/、scripts/ 白名单文件同样洗白，一律要求拆开
-            beyond = [p for p in staged if p not in PROCESS_PATHS]
+            beyond = [p for p in staged if p not in PROCESS_PATHS
+                      and not p.startswith(RECEIPT_DIR + "/")]
             problems = audit_problems(
                 kind, scope, message, beyond,
                 ledger_definition_changes(old, new),
             )
+            # DX-97：新增卡必须带程序回执 —— 手工改台账的立卡通道就此关闭。
+            # 回执从暂存区读（:path），与本提交的台账版本同源，防「先登记后改卡」。
+            old_cards, _ = ledger_shape(old)
+            new_cards, _ = ledger_shape(new)
+            receipts = {}
+            for code in sorted(set(new_cards) - set(old_cards)):
+                path = "%s/%s.json" % (RECEIPT_DIR, code)
+                if path not in staged:
+                    receipts[code] = None
+                    continue
+                shown = git("show", ":%s" % path)
+                try:
+                    receipts[code] = json.loads(shown.stdout)
+                except ValueError:
+                    receipts[code] = None
+            problems += receipt_problems(old, new, receipts)
             if problems:
                 sys.stderr.write("[任务闸门] 代登记需要可审计凭证（AGENTS.md 条款 6 例外）：\n")
                 for line in problems:
@@ -362,6 +385,43 @@ def ledger_definition_changes(old, new):
     return problems
 
 
+def receipt_problems(old, new, receipts):
+    """新增卡的程序回执校验（DX-97）：立卡只能经 register_board_cards.py 完成。
+
+    receipts: {短号: 回执 dict 或 None（缺文件/坏 JSON）}。返回问题列表；
+    纯函数不碰 git，便于 --selftest 与 commit-msg 复用同一套判定。
+    """
+    old_cards, _ = ledger_shape(old)
+    new_cards, _ = ledger_shape(new)
+    problems = []
+    for code in sorted(set(new_cards) - set(old_cards)):
+        receipt = receipts.get(code)
+        if receipt is None:
+            problems.append(
+                "新增卡 %s 无立卡回执：手工改台账立卡通道已关闭（DX-97），"
+                "只能用 python scripts/register_board_cards.py "
+                "--form <请求单> --authorized-by <授权来源> 立卡" % code)
+            continue
+        if receipt.get("card") != code:
+            problems.append("回执 card 字段（%r）与新增卡（%s）不符"
+                            % (receipt.get("card"), code))
+        card = (new.get("cards") or {}).get(code) or {}
+        payload = json.dumps(card, ensure_ascii=False, sort_keys=True,
+                             separators=(",", ":"))
+        digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        if receipt.get("sha256") != digest:
+            problems.append("回执 sha256 与卡片内容不符（登记后被手工改动？）：%s" % code)
+        if not receipt.get("authorizedBy"):
+            problems.append("回执缺 authorizedBy（授权来源必须写入回执）：%s" % code)
+    return problems
+
+
+def process_paths_ok(paths):
+    """流程提交合法路径集（DX-97 扩）：台账、快照与立卡回执。"""
+    prefix = RECEIPT_DIR + "/"
+    return all(p in PROCESS_PATHS or p.startswith(prefix) for p in paths)
+
+
 def staged_files():
     out = git("diff", "--cached", "--name-only", "--diff-filter=ACMR")
     return [normalize(x.strip()) for x in out.stdout.splitlines() if x.strip()]
@@ -457,6 +517,9 @@ def cmd_ledger(args):
         "    授权：<维护者在哪次会话/哪条指令里授权的>\n"
         "    批次：<本批卡号，如 DX-05、R7-01>\n"
         "  且该提交不得同时改动代码路径（契约调整与实现分开提交）。\n"
+        "  其中**新增卡**只能走程序（DX-97）：\n"
+        "    python scripts/register_board_cards.py --form <请求单> --authorized-by <授权来源>\n"
+        "  手工往台账塞卡没有回执，commit-msg 阶段一律拒绝。\n"
     )
     return 0
 
@@ -739,6 +802,48 @@ def cmd_selftest(args):
     ]
     for name, ok in dx51:
         cases.append((name, True, [] if ok else ["flow 豁免收口断言失败"]))
+
+    # ---- DX-97：新增卡必须带程序回执（手工改台账立卡通道关闭）----
+    def receipt_card(code, title):
+        return {"id": code, "title": title, "stage": "DX",
+                "scope": ["scripts/x.py"], "acceptance": ["验收项"]}
+
+    def receipt_payload(card):
+        payload = json.dumps(card, ensure_ascii=False, sort_keys=True,
+                             separators=(",", ":"))
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    dx97_old = {"cards": {"DX-01": receipt_card("DX-01", "旧卡")},
+                "baseline": {"DX-01": "done"}}
+    dx97_card = receipt_card("DX-02", "新卡")
+    dx97_new = {"cards": {"DX-01": receipt_card("DX-01", "旧卡"),
+                          "DX-02": dx97_card},
+                "baseline": {"DX-01": "done", "DX-02": "todo"}}
+    good_receipt = {"card": "DX-02", "sha256": receipt_payload(dx97_card),
+                    "authorizedBy": "维护者 13706",
+                    "tool": "scripts/register_board_cards.py"}
+
+    cases.append(("DX-97 回执：有合法回执 → 放行",
+                  True, receipt_problems(dx97_old, dx97_new, {"DX-02": good_receipt})))
+    cases.append(("DX-97 回执：缺回执 → 拒绝",
+                  False, receipt_problems(dx97_old, dx97_new, {"DX-02": None})))
+    cases.append(("DX-97 回执：哈希篡改 → 拒绝",
+                  False, receipt_problems(
+                      dx97_old, dx97_new,
+                      {"DX-02": dict(good_receipt, sha256="0" * 64)})))
+    cases.append(("DX-97 回执：缺授权来源 → 拒绝",
+                  False, receipt_problems(
+                      dx97_old, dx97_new,
+                      {"DX-02": dict(good_receipt, authorizedBy="")})))
+    dx97_paths = [
+        ("DX-97 路径：回执目录属于流程合法路径",
+         process_paths_ok([LEDGER.replace("\\", "/"),
+                           RECEIPT_DIR + "/DX-02.json"]) is True),
+        ("DX-97 路径：回执之外的白名单文件仍算越面",
+         process_paths_ok([LEDGER.replace("\\", "/"), "docs/note.md"]) is False),
+    ]
+    for name, ok in dx97_paths:
+        cases.append((name, True, [] if ok else ["process_paths_ok 断言失败"]))
 
     failures = []
     for name, expect_ok, problems in cases:

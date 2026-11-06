@@ -159,13 +159,22 @@ git branch -d feature/<简述>
 **动代码之前必须先持有任务卡，并完成服务端领用占位。** 顺序不可颠倒：
 
 1. 卡片由维护者在台账 `docs/board-ledger.json` 的 `cards` 里登记。
+   **立卡只能走程序**（DX-98）：`python scripts/register_board_cards.py --form <请求单> --authorized-by <授权来源>`；
+   手工改台账新增卡没有回执，commit-msg 阶段一律被拒。
    **agent 不得自行加卡、改卡的标题/阶段、改 `baseline`** —— 否则就是自授权，
    所有领用闸门都会退化成自证；agent 只能写 `claims` 领用登记与卡片 `note` 交付说明。
 
    > **例外：维护者可显式授权代登记。** 授权必须由维护者在会话中对**具体批次**明确下达。
+   > **立卡只能走程序（DX-98）**：`python scripts/register_board_cards.py --form <请求单> --authorized-by <授权来源>`。
+   > 工具负责：五段式表单校验、git 通用目录**跨 worktree 锁内发号**（`<stage>-<max+1>`；
+   > 手工「扫描时点 max+1」无预占机制，多会话并发必撞号 —— DX-74/96 实测）、生成含卡片
+   > 规范 JSON sha256 的**回执** `docs/card-requests/registered/<短号>.json`、写盘后
+   > `derive --write`/`--check` 自校验。**手工改台账新增卡一律被拒**：`task_gate` 在
+   > commit-msg 阶段核对回执，无回执 / `card` 不符 / sha256 不符 / 缺 `authorizedBy` 即拒。
    > 代登记只允许追加卡片与对应的 `baseline`，不得改既有卡的 `id` / `title` / `stage`；
    > agent 不得以授权为名自行加卡，也不得通过临时 worktree、修改判定脚本或 `--no-verify` 绕过。
-   > 提交信息统一用 `chore(board): ...`，并在 body 记录授权来源与批次。
+   > 提交拆两段（工具运行完会打印完整指引）：`docs(board): 收录 <短号> 立卡请求单`（仅表单）
+   > + `chore(board): 立卡 <短号>`（台账+快照+回执，body 带 授权/批次 两行）。
    >
    > **判定凭「内容」而非「位置」**（DX-06 建立、DX-07 修正、DX-10 扩到卡片契约）：
    > 只要一次提交改了台账的**任务定义**（新增/删除卡、改 `id`/`title`/`stage`、
@@ -183,7 +192,8 @@ git branch -d feature/<简述>
    > 比对时忽略顺序与首尾空白（纯排版整理不触发）；自动结卡只改 `baseline`，**不给这条通道扩权**。
    >
    > 只改 `claims` 或卡片 `note` 不算代登记，无需凭证。判定逻辑只有一处实现
-   > （`scripts/task_gate.py` 的 `audit_problems`），自带 15 例（含自动结卡通道与不扩权）的可执行自测
+   > （`scripts/task_gate.py` 的 `audit_problems` + `receipt_problems`），自带 32 例
+   > （含自动结卡通道、不扩权与回执三态）的可执行自测
    > `python scripts/task_gate.py selftest`，CI 每次都跑。
    >
    > **为什么不再限定「只能在锚点区」**：锚点区检出停在 `main`、`pre-commit` 规则 1 禁止在

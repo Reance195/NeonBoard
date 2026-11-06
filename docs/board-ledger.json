@@ -33,6 +33,7 @@
         "DX-12": "done",
         "DX-120": "todo",
         "DX-121": "todo",
+        "DX-122": "todo",
         "DX-13": "done",
         "DX-14": "done",
         "DX-15": "done",
@@ -251,8 +252,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-122": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -961,6 +961,33 @@
             ],
             "stage": "DX",
             "title": "立卡半落地：回执/占位在而台账卡片被并发冲突抹去，回执闸门只查单向"
+        },
+        "DX-122": {
+            "acceptance": [
+                "python scripts/check_qml_warnings.py --selftest 退出码 0，自测含正反例（造一条含 Cannot anchor to an item that isn't a parent or sibling 的日志行 → 必须命中且判失败；造一条正常启动日志 → 必须不命中）",
+                "反向证伪：把一条含 Cannot anchor 的日志喂给检查，退出码非 0 且点名该行（证明它真能抓到 R11-13 那条连过五张卡的告警）",
+                "当前主线跑该检查（喂真实 --smoke 日志）命中 0",
+                "规则只有一份：QML/C++ 致命 pattern 字符串在 scripts/ 与 .github/ 下合计只出现一处（grep 断言），verify.ps1 与 ci.yml 均改为调用 scripts/check_qml_warnings.py",
+                "现有拦截能力不退化：自测覆盖 ASSERT / FATAL / Segmentation / TypeError / ReferenceError / Unable to assign 六类仍全部命中",
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0 + 模块守卫 + 看板一致性），CI 的「冒烟启动并检查日志」步骤改为调用同一脚本且仍能拦截",
+                "docs/pitfalls.md 记一条「枚举式 pattern 会漏检」的坑，docs/iteration-roadmap.md 补本卡行"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [
+                "R11-13"
+            ],
+            "evidence": "R11-13 复盘的直接产物。① 漏检事实：R11-07（9d92d45）引入的 EmptyState 非法锚定告警 `QML EmptyState: Cannot anchor to an item that isn't a parent or sibling` 连过 R11-08 ~ R11-12 五张卡的验收，直到 R11-13 复盘才被发现 —— 期间编译、ctest 39/39、--selftest、--smoke 全部全绿。② 漏检根因：`scripts/verify.ps1` L457-460 与 `.github/workflows/ci.yml` L244-247 各写了一份**完全相同**的 12 条枚举 pattern（`is not a type|is not a member|TypeError|ReferenceError|Unable to assign|Cannot assign|QQmlApplicationEngine failed|不是一种类型|不是一个类型|不存在的附加对象|没有安装|ASSERT|FATAL|Segmentation`），`Cannot anchor` 不在其中 —— 名单里甚至有 `Cannot assign`，只差一个词就漏了。枚举式判据的本质是「只拦已知坏法」，任何新形态的告警都会静默通过。③ 规则两份实现：同一份 pattern 在 verify.ps1 与 ci.yml 各活一份，改一处忘另一处就是判据漂移（Z5「同一份判定不允许在钩子、脚本、文档里各活一份」）。④ 当前主线已干净：R11-13 修完后跑真实 --smoke 日志（32 行），按 QML 告警形态筛命中 0，说明这道闸门建起来即可全量通过，不需要先清存量。⑤ 已知覆盖边界（写进卡里，不夸大）：--smoke 只加载启动期 QML，点开才加载的浮层告警（如 R11-12 核验抓到的 PluginPanel 加载失败）本卡抓不到，仍需逐界面核验兜底。",
+            "id": "DX-122",
+            "note": "",
+            "scope": [
+                "scripts/check_qml_warnings.py",
+                "scripts/verify.ps1",
+                ".github/workflows/ci.yml",
+                "docs/pitfalls.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "DX",
+            "title": "DX 启动告警零容忍：把枚举式 pattern 换成按形态识别，规则收成一份"
         },
         "DX-13": {
             "acceptance": [
@@ -5493,35 +5520,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-122": {
-            "acceptance": [
-                "python scripts/check_qml_warnings.py --selftest 退出码 0，自测含正反例（造一条含 Cannot anchor to an item that isn't a parent or sibling 的日志行 → 必须命中且判失败；造一条正常启动日志 → 必须不命中）",
-                "反向证伪：把一条含 Cannot anchor 的日志喂给检查，退出码非 0 且点名该行（证明它真能抓到 R11-13 那条连过五张卡的告警）",
-                "当前主线跑该检查（喂真实 --smoke 日志）命中 0",
-                "规则只有一份：QML/C++ 致命 pattern 字符串在 scripts/ 与 .github/ 下合计只出现一处（grep 断言），verify.ps1 与 ci.yml 均改为调用 scripts/check_qml_warnings.py",
-                "现有拦截能力不退化：自测覆盖 ASSERT / FATAL / Segmentation / TypeError / ReferenceError / Unable to assign 六类仍全部命中",
-                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0 + 模块守卫 + 看板一致性），CI 的「冒烟启动并检查日志」步骤改为调用同一脚本且仍能拦截",
-                "docs/pitfalls.md 记一条「枚举式 pattern 会漏检」的坑，docs/iteration-roadmap.md 补本卡行"
-            ],
-            "author": "maintainer-session-2026-11-07",
-            "depends": [
-                "R11-13"
-            ],
-            "evidence": "R11-13 复盘的直接产物。① 漏检事实：R11-07（9d92d45）引入的 EmptyState 非法锚定告警 `QML EmptyState: Cannot anchor to an item that isn't a parent or sibling` 连过 R11-08 ~ R11-12 五张卡的验收，直到 R11-13 复盘才被发现 —— 期间编译、ctest 39/39、--selftest、--smoke 全部全绿。② 漏检根因：`scripts/verify.ps1` L457-460 与 `.github/workflows/ci.yml` L244-247 各写了一份**完全相同**的 12 条枚举 pattern（`is not a type|is not a member|TypeError|ReferenceError|Unable to assign|Cannot assign|QQmlApplicationEngine failed|不是一种类型|不是一个类型|不存在的附加对象|没有安装|ASSERT|FATAL|Segmentation`），`Cannot anchor` 不在其中 —— 名单里甚至有 `Cannot assign`，只差一个词就漏了。枚举式判据的本质是「只拦已知坏法」，任何新形态的告警都会静默通过。③ 规则两份实现：同一份 pattern 在 verify.ps1 与 ci.yml 各活一份，改一处忘另一处就是判据漂移（Z5「同一份判定不允许在钩子、脚本、文档里各活一份」）。④ 当前主线已干净：R11-13 修完后跑真实 --smoke 日志（32 行），按 QML 告警形态筛命中 0，说明这道闸门建起来即可全量通过，不需要先清存量。⑤ 已知覆盖边界（写进卡里，不夸大）：--smoke 只加载启动期 QML，点开才加载的浮层告警（如 R11-12 核验抓到的 PluginPanel 加载失败）本卡抓不到，仍需逐界面核验兜底。",
-            "id": "DX-122",
-            "note": "",
-            "scope": [
-                "scripts/check_qml_warnings.py",
-                "scripts/verify.ps1",
-                ".github/workflows/ci.yml",
-                "docs/pitfalls.md",
-                "docs/iteration-roadmap.md"
-            ],
-            "stage": "DX",
-            "title": "DX 启动告警零容忍：把枚举式 pattern 换成按形态识别，规则收成一份"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-113": {
+            "agent": "agent-dx113",
+            "branch": "fix/board-diff-note-tier",
+            "claimedAt": 1793982368,
+            "head": "b397b54d4b92bdbb7b132ed04b94b4d74edfcad7"
+        }
+    },
     "version": 1
 }

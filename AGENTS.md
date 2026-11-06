@@ -485,6 +485,9 @@ pwsh -File scripts/git-done.ps1 -Branch fix/stagebar-chip-overflow
 `git merge --no-ff <分支>`，清理登记 / 结卡 / 快照全部本地提交后，对 main **只推一次**
 （DX-106 起，快进推送，不是强推；推送收口在 `Push-Main` 单一实现）。撞 non-ff 时变基重试，
 仍失败则整体回滚收尾提交、**单独推送合并**（fail-soft 交付不被收尾拖住）。
+合并撞冲突时（DX-108 起）：冲突文件仅为 `progress.json`（纯派生物）时**自动善后**——
+取主线版完成合并，收尾派生器整体重算，不要求人工介入；含其它文件（尤其台账，它承载
+任务定义）不进自动通道，现场自动回滚（DX-107）后转人工。
 合并前还会跑**领用闸门**：分支必须带服务端 `refs/claims/<短号>` 占位，否则拒绝合并；
 纯文档/杂务分支按 diff 路径自动豁免（`scripts/task_gate.py scope` 判定为 `exempt`）。
 `-SkipClaimCheck` 已废弃，保留参数只为兼容旧脚本，**不再能放行任何代码改动**。

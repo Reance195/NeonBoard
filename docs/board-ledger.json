@@ -5557,13 +5557,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-88": {
-            "agent": "agent-dx88b",
-            "branch": "fix/dx88-closeout-push-assert",
-            "claimedAt": 1793985574,
-            "head": "1cf1480714d89bc0fe000d02baf3d61073ba1332"
-        }
-    },
+    "claims": {},
     "version": 1
 }

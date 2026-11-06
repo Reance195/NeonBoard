@@ -1421,65 +1421,89 @@ MouseArea {
                     }
                 }
 
-                RowLayout {
-                    id: boardRow
+                // R11-13：筛选态空态要浮在看板正中间，但 EmptyState 原本挂在窗口级容器
+                // （本 Rectangle）上，而 boardRow 是它的三层后代 —— QML 只允许锚到父级或兄弟，
+                // anchors.centerIn: boardRow 必然失效：引擎每次启动打一条告警并忽略这条锚定，
+                // 空态面板停在窗口左上角 (0,0)，而不是看板正中。
+                // 这里给看板区包一层普通 Item，让 EmptyState 与 boardRow 变成同一父级下的兄弟，
+                // 锚定恢复合法；列的边距 / 间距数值一律沿用原值，布局不变。
+                Item {
+                    id: boardArea
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.leftMargin: 20
                     Layout.rightMargin: 20
                     Layout.bottomMargin: 20
-                    spacing: 12
 
-                    // 列由数据库驱动：加列 / 改名 / 调序只改 board_column，
-                    // 界面按 order_key 顺序自动出列，不再写死三列。
-                    Repeater {
-                        id: columnRepeater
-                        model: boardColumns
+                    RowLayout {
+                        id: boardRow
+                        anchors.fill: parent
+                        spacing: 12
 
-                        delegate: BoardColumn {
-                            required property string boardColumnId
-                            required property string boardColumnTitle
-                            required property string boardColumnStatus
-                            required property var boardColumnModel
-                            required property int boardColumnIndex
+                        // 列由数据库驱动：加列 / 改名 / 调序只改 board_column，
+                        // 界面按 order_key 顺序自动出列，不再写死三列。
+                        Repeater {
+                            id: columnRepeater
+                            model: boardColumns
 
-                            columnId: boardColumnId
-                            columnIndex: boardColumnIndex
-                            title: boardColumnTitle
-                            status: boardColumnStatus
-                            taskModel: boardColumnModel
-                            // 三态沿用原有配色：待办青、进行中紫、已办结洋红
-                            accent: boardColumnStatus === "done" ? Theme.magenta
-                                  : boardColumnStatus === "doing" ? Theme.violet
-                                  : Theme.cyan
-                            searchQuery: searchField.text
-                            stageFilter: window.stageFilter
-                            projectFilter: window.projectFilter
-                            dragSpace: root
-                            dropTarget: window.dragOverColumnId === boardColumnId
-                            onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
-                            // Ctrl+←/→：把选中卡搬到相邻列（落位规则与拖拽同一套）
-                            onCardMoveRequested: function(taskId, delta) {
-                                window.moveCardAcrossColumns(taskId, delta)
+                            delegate: BoardColumn {
+                                required property string boardColumnId
+                                required property string boardColumnTitle
+                                required property string boardColumnStatus
+                                required property var boardColumnModel
+                                required property int boardColumnIndex
+
+                                columnId: boardColumnId
+                                columnIndex: boardColumnIndex
+                                title: boardColumnTitle
+                                status: boardColumnStatus
+                                taskModel: boardColumnModel
+                                // 三态沿用原有配色：待办青、进行中紫、已办结洋红
+                                accent: boardColumnStatus === "done" ? Theme.magenta
+                                      : boardColumnStatus === "doing" ? Theme.violet
+                                      : Theme.cyan
+                                searchQuery: searchField.text
+                                stageFilter: window.stageFilter
+                                projectFilter: window.projectFilter
+                                dragSpace: root
+                                dropTarget: window.dragOverColumnId === boardColumnId
+                                onColumnMoveRequested: function(targetIndex) { window.focusColumn(targetIndex) }
+                                // Ctrl+←/→：把选中卡搬到相邻列（落位规则与拖拽同一套）
+                                onCardMoveRequested: function(taskId, delta) {
+                                    window.moveCardAcrossColumns(taskId, delta)
+                                }
+                                // 双击 / 回车 / 无障碍「按下」都走详情抽屉（R8-03）：
+                                // 先让人看清楚再决定改什么，编辑器从抽屉里一键进入
+                                onEditRequested: function(taskId) { window.openCardDetail(taskId) }
+                                onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
+                                onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
+                                onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
+                                onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
+                                onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
+                                onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
+                                onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
                             }
-                            // 双击 / 回车 / 无障碍「按下」都走详情抽屉（R8-03）：
-                            // 先让人看清楚再决定改什么，编辑器从抽屉里一键进入
-                            onEditRequested: function(taskId) { window.openCardDetail(taskId) }
-                            onStartRequested: function(taskId) { taskUndo.moveTask(taskId, "doing", -1) }
-                            onCompleteRequested: function(taskId) { taskUndo.moveTask(taskId, "done", -1) }
-                            onRestoreRequested: function(taskId) { taskUndo.moveTask(taskId, "todo", -1) }
-                            onDeleteRequested: function(taskId) { window.deleteTaskWithUndo(taskId) }
-                            onDragStarted: function(taskId, title, status, x, y) { window.beginTaskDrag(taskId, title, status, x, y) }
-                            onDragMoved: function(x, y) { window.updateTaskDrag(x, y) }
-                            onDragEnded: function(x, y) { window.endTaskDrag(x, y) }
+                        }
+
+                        // 列管理入口：列由数据库驱动，加列 / 改名 / 调序都在这里
+                        AddColumnButton {
+                            Layout.preferredWidth: 46
+                            Layout.fillHeight: true
+                            onClicked: { window.closeAllPanels(); columnManager.open = true }
                         }
                     }
 
-                    // 列管理入口：列由数据库驱动，加列 / 改名 / 调序都在这里
-                    AddColumnButton {
-                        Layout.preferredWidth: 46
-                        Layout.fillHeight: true
-                        onClicked: { window.closeAllPanels(); columnManager.open = true }
+                    // R11-13：空态与 boardRow 同级 → anchors.centerIn: boardRow 合法，
+                    // 空态真正落在看板正中（此前停在窗口左上角）。
+                    EmptyState {
+                        anchors.centerIn: boardRow
+                        width: Math.min(360, boardRow.width - Theme.spacingXl * 2)
+                        query: searchField.text
+                        stageFiltered: window.stageFilter.length > 0
+                        projectFiltered: window.projectFilter.length > 0
+                        visibleCount: boardColumns.todoCount + boardColumns.doingCount + boardColumns.doneCount
+                        actionText: "清除筛选"
+                        onActionTriggered: window.clearFilters()
                     }
                 }
 
@@ -1615,18 +1639,6 @@ MouseArea {
                     projectMapLoader.active = false
                 })
             }
-        }
-
-        // 筛选把看板清空时的空态（R11-07）：浮在看板正中间，并给一个「清除筛选」出口
-        EmptyState {
-            anchors.centerIn: boardRow
-            width: Math.min(360, boardRow.width - Theme.spacingXl * 2)
-            query: searchField.text
-            stageFiltered: window.stageFilter.length > 0
-            projectFiltered: window.projectFilter.length > 0
-            visibleCount: boardColumns.todoCount + boardColumns.doingCount + boardColumns.doneCount
-            actionText: "清除筛选"
-            onActionTriggered: window.clearFilters()
         }
 
         // 首启动引导：录任务 → 拖列 → 装插件（可用「跳过」直接收尾）

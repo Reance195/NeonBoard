@@ -3391,6 +3391,7 @@
                 "qml/components/CardDetailPanel.qml",
                 "qml/components/ThemeMarketPanel.qml",
                 "qml/Main.qml",
+                "CMakeLists.txt",
                 "README.md",
                 "docs/iteration-roadmap.md"
             ],

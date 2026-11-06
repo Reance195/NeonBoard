@@ -217,6 +217,78 @@
             "updatedAt": 1793928256
         },
         {
+            "code": "DX-99",
+            "completedAt": 0,
+            "createdAt": 1793935663,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-99",
+            "note": "",
+            "orderKey": 63488,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "agent 契约注入转义：含单引号的验收项不再让 .agent-env.ps1 语法报错",
+            "updatedAt": 1793935663
+        },
+        {
+            "code": "DX-100",
+            "completedAt": 0,
+            "createdAt": 1793935664,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-100",
+            "note": "",
+            "orderKey": 64512,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡入口单一事实源：文档、旧工具注释与预演输出对齐 DX-98 新流程",
+            "updatedAt": 1793935664
+        },
+        {
+            "code": "DX-101",
+            "completedAt": 0,
+            "createdAt": 1793935666,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-101",
+            "note": "",
+            "orderKey": 65536,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "收尾与验收输出保真：合并提交四段、锚点跳过提示、红绿一致",
+            "updatedAt": 1793935666
+        },
+        {
+            "code": "DX-102",
+            "completedAt": 0,
+            "createdAt": 1793935667,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-102",
+            "note": "",
+            "orderKey": 66560,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "交互回归判据与 GUI 实机验收通道沉淀",
+            "updatedAt": 1793935667
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4687,6 +4759,6 @@
             "updatedAt": 1793934590
         }
     ],
-    "updated": "2026-11-06T11:09:50",
+    "updated": "2026-11-06T11:27:47",
     "version": 3
 }

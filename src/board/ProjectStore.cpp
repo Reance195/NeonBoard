@@ -1,9 +1,12 @@
 #include "ProjectStore.h"
 
 #include "Database.h"
+#include "RepoScaffolder.h"
 
 #include <QDateTime>
 #include <QDebug>
+#include <QDir>
+#include <QFileInfo>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -52,7 +55,7 @@ QVariantList ProjectStore::projects() const
     QSqlQuery query(db);
     // 计数走 JOIN task：task_project 里可能有已删任务留下的孤儿行，不该算进项目卡片数。
     if (!query.exec(QStringLiteral(
-            "SELECT p.id, p.name, p.color, p.order_key,"
+            "SELECT p.id, p.name, p.color, p.repo_path, p.order_key,"
             " (SELECT COUNT(*) FROM task_project tp JOIN task t ON t.id = tp.task_id"
             "   WHERE tp.project_id = p.id) "
             "FROM project p ORDER BY p.order_key, p.name"))) {
@@ -64,8 +67,9 @@ QVariantList ProjectStore::projects() const
             {QStringLiteral("id"), query.value(0).toString()},
             {QStringLiteral("name"), query.value(1).toString()},
             {QStringLiteral("color"), query.value(2).toString()},
-            {QStringLiteral("orderKey"), query.value(3).toLongLong()},
-            {QStringLiteral("taskCount"), query.value(4).toInt()},
+            {QStringLiteral("repoPath"), query.value(3).toString()},
+            {QStringLiteral("orderKey"), query.value(4).toLongLong()},
+            {QStringLiteral("taskCount"), query.value(5).toInt()},
         });
     }
     return list;
@@ -340,6 +344,87 @@ QVariantMap ProjectStore::taskProject(const QString &taskId) const
     // 未归属也缓存（空 map）：绝大多数卡在项目视图外，每次都查库没必要。
     m_taskProjectCache.insert(taskId, info);
     return info;
+}
+
+// ---------------- 项目 ↔ 仓库绑定（R18-02） ----------------
+
+QList<QPair<QString, QString>> ProjectStore::boundRepos() const
+{
+    QList<QPair<QString, QString>> out;
+    if (!m_database)
+        return out;
+
+    QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    QSqlQuery query(db);
+    if (query.exec(QStringLiteral(
+            "SELECT id, repo_path FROM project "
+            "WHERE repo_path IS NOT NULL AND repo_path <> '' "
+            "ORDER BY order_key, name"))) {
+        while (query.next())
+            out.append({query.value(0).toString(), query.value(1).toString()});
+    } else {
+        qWarning() << "ProjectStore: 读取绑定仓库失败" << query.lastError().text();
+    }
+    return out;
+}
+
+bool ProjectStore::setRepoPath(const QString &projectId, const QString &repoPath)
+{
+    const QString pid = projectId.trimmed();
+    QString path = repoPath.trimmed();
+    // null 串规整成空串：QString() 绑到 SQL 是 NULL，会撞 repo_path 的 NOT NULL 约束
+    if (path.isNull())
+        path = QStringLiteral("");
+    if (!m_database || pid.isEmpty())
+        return false;
+
+    QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    QSqlQuery exists(db);
+    exists.prepare(QStringLiteral("SELECT 1 FROM project WHERE id = ? LIMIT 1"));
+    exists.addBindValue(pid);
+    if (!exists.exec() || !exists.next()) {
+        qWarning() << "ProjectStore: 项目不存在，拒绝绑定" << pid;
+        return false;
+    }
+    if (!path.isEmpty()) {
+        // 绑定校验从简：绝对路径 + 目录存在。是否为 git 仓库、要不要搭脚手架
+        // 由界面流程单独判定（R18-03），这里不重复校验，避免两层标准漂移。
+        if (!QDir::isAbsolutePath(path) || !QFileInfo::exists(path)) {
+            qWarning() << "ProjectStore: 非法仓库路径，拒绝绑定" << path;
+            return false;
+        }
+    }
+
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral("UPDATE project SET repo_path = ?, updated_at = ? WHERE id = ?"));
+    query.addBindValue(path);
+    query.addBindValue(QDateTime::currentSecsSinceEpoch());
+    query.addBindValue(pid);
+    if (!query.exec() || query.numRowsAffected() <= 0) {
+        qWarning() << "ProjectStore: 写入仓库绑定失败" << query.lastError().text();
+        return false;
+    }
+    bump();
+    return true;
+}
+
+// ---------------- 无台账仓库脚手架（R18-03） ----------------
+// 三个方法都是 RepoScaffolder 的薄包装：QML 侧不直接引脚手架类，
+// 门面统一走 projectStore（与归属读写的纪律一致）。
+
+QString ProjectStore::validateRepoPath(const QString &repoPath)
+{
+    return RepoScaffolder::validateRepoPath(repoPath);
+}
+
+bool ProjectStore::repoHasScaffold(const QString &repoPath)
+{
+    return RepoScaffolder::hasScaffold(repoPath);
+}
+
+QString ProjectStore::scaffoldRepo(const QString &repoPath)
+{
+    return RepoScaffolder::scaffold(repoPath);
 }
 
 void ProjectStore::forgetTask(const QString &taskId)

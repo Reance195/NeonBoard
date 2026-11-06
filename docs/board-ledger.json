@@ -5236,12 +5236,6 @@
         }
     },
     "claims": {
-        "DX-108": {
-            "agent": "agent-c",
-            "branch": "fix/dx107-108-conflict-cleanup",
-            "claimedAt": 1793977444,
-            "head": "59fa22adcb74a7d987bc81c74745c68576ec656e"
-        },
         "DX-94": {
             "agent": "agent-dx94",
             "branch": "fix/agent-init-contract-origin-main",

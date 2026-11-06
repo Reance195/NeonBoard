@@ -913,6 +913,21 @@ if ($Mode -eq 'remote') {
         }
     }
 
+    # DX-120：目标分支所在 worktree 的反查必须发生在 `switch -c $tmp` **之前** ——
+    # switch 会把当前检出从 $Branch 摘走（merge/<slug> 临时分支接管），此后按
+    # `branch refs/heads/<Branch>` 反查永远落空，$wtPath 为空，回收段整段静默跳过：
+    # 从自身 worktree 跑收尾（§7.3 的标准姿势）永远回收不了自己，只留 detached 尸体
+    # （DX-109 收尾实测）。此刻分支仍被检出，反查才有效。
+    $wtPath = $Worktree
+    if (-not $wtPath) {
+        $blocks = ((& git worktree list --porcelain) -join "`n") -split "`n`n"
+        foreach ($block in $blocks) {
+            if ($block -match ('branch refs/heads/' + [regex]::Escape($Branch))) {
+                $m = [regex]::Match($block, 'worktree (.+)')
+                if ($m.Success) { $wtPath = $m.Groups[1].Value.Trim() }
+            }
+        }
+    }
     $tmp = 'merge/' + ($Branch -replace '[^A-Za-z0-9]+', '-')
     & git rev-parse --verify -q $tmp | Out-Null
     if ($LASTEXITCODE -eq 0) {
@@ -995,57 +1010,61 @@ if ($Mode -eq 'remote') {
     }
 
     # ---- 4. 清理：先回收 worktree（解除分支占用），再删分支 ----
-    $wtPath = $Worktree
-    if (-not $wtPath) {
-        $blocks = ((& git worktree list --porcelain) -join "`n") -split "`n`n"
-        foreach ($block in $blocks) {
-            if ($block -match ('branch refs/heads/' + [regex]::Escape($Branch))) {
-                $m = [regex]::Match($block, 'worktree (.+)')
-                if ($m.Success) { $wtPath = $m.Groups[1].Value.Trim() }
-            }
-        }
-    }
-
+    # DX-120：$wtPath 的反查已提前到 switch -c 之前（见上），此处只做判定与执行。
     $recycleAgent = ''
     $recycleScope = ''
-    # DX-21：分支所在路径本来就能从上面的 `worktree list` 反查，不该再要求调用方记一次参数
+    # DX-21：分支所在路径本来就能从 `worktree list` 反查，不该再要求调用方记一次参数
     # （忘传 → 目录不删 → 分支被占用删不掉 → release-claims 判分支还在 → 台账留僵尸 claim）。
     # 默认回收 .worktrees/ 下的目标区；-KeepWorktree 显式保留；-RemoveWorktree 退化为
     # 「强制回收」（跳过下面两道安全检查），旧命令照旧能用。
-    if ($DryRun) {
+    $selfWorktreePending = $null
+    if ($DryRun -and -not $KeepWorktree) {
         Write-Host '· [dry-run] 跳过 worktree 回收与分支删除（演练不动现场，结束时切回原分支）' -ForegroundColor DarkCyan
-    } elseif ((-not $KeepWorktree) -and $wtPath) {
+    }
+    if ((-not $KeepWorktree) -and $wtPath) {
         $abs = if ([System.IO.Path]::IsPathRooted($wtPath)) { $wtPath } else { Join-Path $repoRoot $wtPath }
         $abs = [System.IO.Path]::GetFullPath($abs)
         $currentRoot = [System.IO.Path]::GetFullPath($repoRoot)
-        if ($abs -eq $currentRoot) {
-            Write-Host "· 目标 worktree 就是当前目录，跳过回收（请在其它目录执行 git worktree remove）" -ForegroundColor Yellow
-        } elseif (Test-Path -LiteralPath $abs) {
-            # 安全检查：删掉别人正在办的工作区是事故。两道判据都不成立才回收 ——
-            #   1) 有提交没进本次合并（说明它不是「已合入的尾巴」）；
-            #   2) 还有未提交改动（含 untracked），删了就没了。
-            # DX-106：单次推送下回收发生在推送**之前**，origin 上还没有这些提交 ——
-            # 旧的「未推送提交」判据（--not --remotes=origin）在这里恒真，会把每个
-            # 工作区都判成不可回收、永远留僵尸。改判「分支提交是否已全部进本次合并」：
-            # 刚做的 --no-ff 合并就在 $mergedCommit 里，不在其中的提交才是真会丢的东西。
-            $unsafe = ''
-            if (-not $RemoveWorktree) {
-                $ahead = 0
-                $aheadRes = Invoke-GitQuiet @('-C', $abs, 'rev-list', '--count', 'HEAD', '--not', $mergedCommit)
-                if ($aheadRes.Code -eq 0) {
-                    $first = $aheadRes.Output | Select-Object -First 1
-                    if ($first) { [void][int]::TryParse($first.ToString().Trim(), [ref]$ahead) }
-                }
-                $dirtyNum = 0
-                if ($ahead -le 0) {
-                    $dirtyRes = Invoke-GitQuiet @('-C', $abs, 'status', '--porcelain')
-                    $dirtyNum = @($dirtyRes.Output | Where-Object { $_ -and $_.ToString().Trim() -ne '' }).Count
-                }
-                if ($ahead -gt 0) { $unsafe = "有 $ahead 个提交未进本次合并" }
-                elseif ($dirtyNum -gt 0) { $unsafe = "还有 $dirtyNum 项未提交改动" }
+        # 安全检查：删掉正在办的工作区是事故。两道判据都不成立才回收 ——
+        #   1) 有提交没进本次合并（说明它不是「已合入的尾巴」）；
+        #   2) 还有未提交改动（含 untracked），删了就没了。
+        # DX-106：单次推送下他区回收发生在推送**之前**，origin 上还没有这些提交 ——
+        # 旧的「未推送提交」判据（--not --remotes=origin）在这里恒真，会把每个
+        # 工作区都判成不可回收、永远留僵尸。改判「分支提交是否已全部进本次合并」：
+        # 刚做的 --no-ff 合并就在 $mergedCommit 里，不在其中的提交才是真会丢的东西。
+        $unsafe = ''
+        if (-not $RemoveWorktree) {
+            $ahead = 0
+            $aheadRes = Invoke-GitQuiet @('-C', $abs, 'rev-list', '--count', 'HEAD', '--not', $mergedCommit)
+            if ($aheadRes.Code -eq 0) {
+                $first = $aheadRes.Output | Select-Object -First 1
+                if ($first) { [void][int]::TryParse($first.ToString().Trim(), [ref]$ahead) }
             }
+            $dirtyNum = 0
+            if ($ahead -le 0) {
+                $dirtyRes = Invoke-GitQuiet @('-C', $abs, 'status', '--porcelain')
+                $dirtyNum = @($dirtyRes.Output | Where-Object { $_ -and $_.ToString().Trim() -ne '' }).Count
+            }
+            if ($ahead -gt 0) { $unsafe = "有 $ahead 个提交未进本次合并" }
+            elseif ($dirtyNum -gt 0) { $unsafe = "还有 $dirtyNum 项未提交改动" }
+        }
+        if ($abs -eq $currentRoot) {
+            # DX-120：当前检出就是目标 worktree。不能在推送前删 —— 三步收尾提交与
+            # 回执都还要靠这个检出完成，且 Windows 不允许进程删除 CWD 所在目录。
+            # 记下来，推送落地后（结单对账与回执之后）由外部检出执行回收。
+            if ($unsafe) {
+                Write-Host ("· 跳过回收当前 worktree：{0}（确认要删用 -RemoveWorktree）" -f $unsafe) -ForegroundColor Yellow
+            } elseif ($DryRun) {
+                Write-Host '· [dry-run] 当前 worktree 将在推送落地后回收（演练不删）' -ForegroundColor DarkCyan
+            } else {
+                $selfWorktreePending = $abs
+            }
+        } elseif (Test-Path -LiteralPath $abs) {
             if ($unsafe) {
                 Write-Host ("· 跳过回收 {0}：{1}（可能是别的工作区在办；确认要删用 -RemoveWorktree）" -f $abs, $unsafe) -ForegroundColor Yellow
+            } elseif ($DryRun) {
+                # DX-120：演练只判定不动手，把「会怎么处置」说出来，供负测断言。
+                Write-Host ("· [dry-run] 将回收 worktree {0}（演练不删）" -f $abs) -ForegroundColor DarkCyan
             } else {
                 # 身份与 scope 必须在回收**之前**抓：.agent-env.ps1 随目录一起消失，事后再读只能
                 # 得到空，于是每次都「跳过释放」，agent-workspace.json 里堆已删工作区的僵尸条目
@@ -1061,7 +1080,6 @@ if ($Mode -eq 'remote') {
             }
         }
     }
-
     if ($DryRun) {
         Write-Host ("· [dry-run] 保留分支 {0}（演练不删）" -f $Branch) -ForegroundColor DarkCyan
     } elseif (-not $KeepBranch) {
@@ -1394,6 +1412,27 @@ if ($Mode -eq 'remote') {
         exit 1
     }
 
+
+
+    # ---- DX-120：自身 worktree 的延后回收 ----
+    # 单次推送已落地、结单对账与回执都完成后，才轮到删自己脚下的检出：
+    # 三步收尾提交与回执都靠它完成，且 Windows 不允许进程删除 CWD 所在目录。
+    # 先把 CWD 让位到锚点区再执行 git worktree remove；本段之后只剩输出，无 git 动作。
+    if ($selfWorktreePending -and (Test-Path -LiteralPath $selfWorktreePending)) {
+        $cwdHome = Get-AnchorWorktree
+        if (-not ($cwdHome -and (Test-Path -LiteralPath $cwdHome))) { $cwdHome = $env:TEMP }
+        Set-Location -LiteralPath $cwdHome
+        Write-Host ("· 回收当前 worktree {0}（推送已落地，CWD 已让位到 {1}）" -f $selfWorktreePending, $cwdHome) -ForegroundColor DarkGray
+        $selfRm = Invoke-GitQuiet @('worktree', 'remove', $selfWorktreePending)
+        if ($selfRm.Code -eq 0) {
+            Write-Host '✓ 已回收当前 worktree' -ForegroundColor Green
+        } else {
+            # 不无脑 --force：失败多半是句柄占用（终端 / 应用还站在里面），硬删会留下
+            # 半删除尸体（DX-93）。只告警并给出可直接复制的收敛命令。
+            Write-Host ("· 未能自动回收当前 worktree：{0}" -f $selfWorktreePending) -ForegroundColor Yellow
+            Write-Host ("  手工：git worktree remove {0}" -f $selfWorktreePending) -ForegroundColor Yellow
+        }
+    }
     Write-Host "`n✓ 合并完成：$Branch → origin/$MainBranch" -ForegroundColor Green
     Write-Host "   查看历史：git log --oneline --graph -10" -ForegroundColor DarkGray
     exit 0

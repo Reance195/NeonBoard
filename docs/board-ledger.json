@@ -24,13 +24,17 @@
         "DX-110": "todo",
         "DX-111": "todo",
         "DX-112": "todo",
-        "DX-113": "todo",
+        "DX-113": "done",
         "DX-114": "todo",
         "DX-115": "todo",
         "DX-116": "todo",
+        "DX-117": "todo",
         "DX-119": "todo",
         "DX-12": "done",
+        "DX-120": "done",
         "DX-121": "todo",
+        "DX-122": "todo",
+        "DX-123": "todo",
         "DX-13": "done",
         "DX-14": "done",
         "DX-15": "done",
@@ -172,7 +176,7 @@
         "R11-10": "done",
         "R11-11": "done",
         "R11-12": "done",
-        "R11-13": "todo",
+        "R11-13": "done",
         "R11-8": "done",
         "R11-9": "done",
         "R12-01": "done",
@@ -193,7 +197,7 @@
         "R18-01": "done",
         "R18-02": "done",
         "R18-03": "done",
-        "R19-1": "todo",
+        "R19-1": "done",
         "R2-01": "done",
         "R2-02": "done",
         "R3-01": "done",
@@ -785,7 +789,7 @@
             "depends": [],
             "evidence": "DX-94 交付实测：实现提交 8505f61（含 #DX-94=done）跑 check_board_diff.py --base origin/main 判 derive、-ScriptOnly EXIT=0；追加 docs(board): 补 DX-94 交付说明（540f9c9，仅改 cards[DX-94].note）后同一命令判 full、EXIT=2，verify.ps1 -ScriptOnly 直接 Fail「台账的 cards 结构有变化，-ScriptOnly 不足以验收」。为拿到轻档绿只能 detached 回实现提交跑，卡片 note 却只写「verify.ps1 -ScriptOnly EXIT=0」、未说明时态——验收口径不可机器复核。根因：check_board_diff.py:53 的 CARD_FIELDS 把 note 与 stage/title/scope/acceptance 同列，diff_cards 比整个 card dict，note 一变即判「改动既有卡片的契约」；但 note 是交付说明，不改 tst_projectmap 读的阶段/范围/roadmap 行，与契约字段不同权。同型非个例：DX-81（9ba62fd）、R11-11/12（1be772b）都把交付说明单独成 docs(board) 提交，靠各 agent 沿用惯例绕过，跑过哪一档无人可追溯。",
             "id": "DX-113",
-            "note": "",
+            "note": "\n\n## 交付（2026-11-07 · agent-dx113 / fix/board-diff-note-tier）\ncheck_board_diff.py 新增 CONTRACT_FIELDS（CARD_FIELDS 去 note）与 split_changed 纯函数：\n既有卡变动拆「契约变化」与「仅交付说明」，classify 只对契约变化（含删卡、自定义键）判 full，\nnote-only 维持 derive 档并在说明行点名；title 仍按契约对待（既有断言不破）。\ndocs/task-card.md 新增「交付说明（note）的提交与验收口径」节并改分流表两行；AGENTS.md 条款 6\n注释补同口径；docs/pitfalls.md §2.30 收录现象/根因/解法/一般化，点名 DX-94/DX-81/R11-11~12。\n\n端到端回归（本卡自身即用例）：本交付说明提交后跑 verify.ps1 -ScriptOnly 于最终分支态——\n修复前该形态必红（判 full EXIT=2），修复后 EXIT=0。--selftest 新增 6 例；\ntask_gate.py selftest 34 例不回归。已完成 5 / 待做 0。",
             "scope": [
                 "scripts/check_board_diff.py",
                 "scripts/verify.ps1",
@@ -851,6 +855,24 @@
             "stage": "DX",
             "title": "git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印"
         },
+        "DX-117": {
+            "acceptance": [
+                "分支领用多卡（台账 claims 按 branch 聚合 ≥2 张或提交信息含多个短号）时按各卡 scope 并集校验全部改动，越界仍退出码 1 并点名越界文件，不再出现「多个短号 → 跳过范围检查」的整段放行",
+                "单卡分支与 --card 显式指定口径不回归；检测不到任何卡时维持警告放行（现状行为不变）",
+                "python scripts/check_scope.py --selftest 覆盖多卡并集命中 / 越界点名 / 单卡不回归三类用例；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent（ZCode 会话 2026-11-06，维护者指令：干活过程中发现问题即立卡）",
+            "depends": [],
+            "evidence": "2026-11-06 DX-77+DX-83 一分支多卡交付实录：verify -ScriptOnly 输出「⚠ 提交里出现多个短号 ['DX-83', 'DX-77']，跳过范围检查（请用 --card 显式指定）」——两卡 scope 并集之外的任何改动在该分支上畅通无阻（Z11 的洞）；detect_card_from_commits 取第一个唯一值的设计对多卡分支整体放弃校验。与 DX-03 不同：DX-03 是多卡领用机制本身（已交付），本卡是多卡分支上范围闸门的失效面",
+            "id": "DX-117",
+            "note": "",
+            "scope": [
+                "scripts/check_scope.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "一分支多卡时 check_scope 整体跳过：按多卡 scope 并集校验，补上范围闸门空窗"
+        },
         "DX-119": {
             "acceptance": [
                 "nbflow approve --cards 能在 DX-98 闸门下完成立卡（回执由 approve 链路生成并随提交落库），全程不再依赖绕过；board-apply 的 task_gate/钩子拒绝输出透传到 approve 的可见输出（无缓冲吞没），失败可诊断；预演 --diff 与落盘口径一致（预演过闸 = 落盘过闸）；python scripts/nbflow.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
@@ -891,6 +913,32 @@
             "stage": "DX",
             "title": "DX 开发链路三处重复成本：代理变量、执行策略、残留工作区提示"
         },
+        "DX-120": {
+            "acceptance": [
+                "端到端真实收尾（agent-init 开区 → 提交 → 从该 worktree 内跑 git-done.ps1 -Branch <本分支>，remote 模式 EXIT=0）后 git worktree list --porcelain 不含该 worktree 路径（产物断言，不以脚本是否打印「已回收」为准）",
+                "回收只发生在单次推送落地之后，且只收「进入时检出该分支、现已 detached 于本次合并结果、工作区干净、无未进本次合并的提交、占用登记属于自己的那一份」；任一条件不满足时只告警不删，并打印可复制的 git worktree remove <绝对路径> 与原因（打桩负测断言退出码与输出）",
+                "从其它检出调用 git-done.ps1 -Branch <别的分支> 时 DX-21 既有默认回收不回归（端到端一次：目录消失、分支已删、占用登记无残留）",
+                "-DryRun 不删 worktree、不切走占用，结束仍回到进入时分支（DX-50 时序不回归）",
+                "收尾回执仍落锚点区 .sandbox/receipts/ 且可读取，回收 worktree 不带走物证（DX-34 不回归）",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿；docs/pitfalls.md 补现象/根因/解法条目（含「进程 CWD 所在目录不能自删，须在推送落地后由外部检出执行或登记延后回收」）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "DX-21",
+                "DX-26",
+                "DX-34",
+                "DX-109"
+            ],
+            "evidence": "2026-11-06 DX-109 收尾实测：agent-init 开区 .worktrees/agent-dx109 / fix/dx109-branch-delete-anchor，从该 worktree 内跑 git-done.ps1 -Branch fix/dx109-branch-delete-anchor -Close DX-109，EXIT=0（合并 d4fc266、单次推送 d5b0f63、分支已删、DX-109 baseline=done），但 git worktree list 仍列 E:/projects/NeonBoard/.worktrees/agent-dx109 d5b0f63 (detached HEAD)，输出里既无「回收 worktree」也无「目标 worktree 就是当前目录，跳过回收」提示。根因链（origin/main 版 scripts/git-done.ps1）：:783 先 switch -c merge/<slug> origin/main 把当前 worktree 从目标分支摘走 → :843-851 第 4 步才按 branch refs/heads/<Branch> 反查 worktree，此时已无 worktree 检出该分支，$wtPath 为空 → :860 回收段 elseif ((-not $KeepWorktree) -and $wtPath) 整段静默跳过 → :1147 归位块 if ($atAnchor) 不适用于 linked worktree。:1143-1147 注释写「开发工作区保持分离 HEAD：下一步多半就被回收」，与实测不符；AGENTS.md:473「worktree 用完必须回收」与 §7.3「agent 在自己的 worktree 里跑 git-done」在这一姿势下同时落空。DX-21 [done] 把「当前目录就是目标 worktree 时不尝试自删」写进验收项，DX-23 巡检与 §7.10 均只报告不删除，无自动闭环；本次只能人工 git worktree remove 收敛。",
+            "id": "DX-120",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "git-done 从自身 worktree 收尾后残留 detached 工作区：反查失效且无回收闭环"
+        },
         "DX-121": {
             "acceptance": [
                 "新增一致性检查：扫 docs/card-requests/registered/*.json 与服务端 refs/registrations/*，凡回执/占位存在而台账 cards 无对应卡、或卡片规范 JSON 与回执 sha256 不符 → 非零；接入 commit-msg 与 CI，且不误报历史在办/已结卡",
@@ -914,6 +962,67 @@
             ],
             "stage": "DX",
             "title": "立卡半落地：回执/占位在而台账卡片被并发冲突抹去，回执闸门只查单向"
+        },
+        "DX-122": {
+            "acceptance": [
+                "python scripts/check_qml_warnings.py --selftest 退出码 0，自测含正反例（造一条含 Cannot anchor to an item that isn't a parent or sibling 的日志行 → 必须命中且判失败；造一条正常启动日志 → 必须不命中）",
+                "反向证伪：把一条含 Cannot anchor 的日志喂给检查，退出码非 0 且点名该行（证明它真能抓到 R11-13 那条连过五张卡的告警）",
+                "当前主线跑该检查（喂真实 --smoke 日志）命中 0",
+                "规则只有一份：QML/C++ 致命 pattern 字符串在 scripts/ 与 .github/ 下合计只出现一处（grep 断言），verify.ps1 与 ci.yml 均改为调用 scripts/check_qml_warnings.py",
+                "现有拦截能力不退化：自测覆盖 ASSERT / FATAL / Segmentation / TypeError / ReferenceError / Unable to assign 六类仍全部命中",
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0 + 模块守卫 + 看板一致性），CI 的「冒烟启动并检查日志」步骤改为调用同一脚本且仍能拦截",
+                "docs/pitfalls.md 记一条「枚举式 pattern 会漏检」的坑，docs/iteration-roadmap.md 补本卡行"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [
+                "R11-13"
+            ],
+            "evidence": "R11-13 复盘的直接产物。① 漏检事实：R11-07（9d92d45）引入的 EmptyState 非法锚定告警 `QML EmptyState: Cannot anchor to an item that isn't a parent or sibling` 连过 R11-08 ~ R11-12 五张卡的验收，直到 R11-13 复盘才被发现 —— 期间编译、ctest 39/39、--selftest、--smoke 全部全绿。② 漏检根因：`scripts/verify.ps1` L457-460 与 `.github/workflows/ci.yml` L244-247 各写了一份**完全相同**的 12 条枚举 pattern（`is not a type|is not a member|TypeError|ReferenceError|Unable to assign|Cannot assign|QQmlApplicationEngine failed|不是一种类型|不是一个类型|不存在的附加对象|没有安装|ASSERT|FATAL|Segmentation`），`Cannot anchor` 不在其中 —— 名单里甚至有 `Cannot assign`，只差一个词就漏了。枚举式判据的本质是「只拦已知坏法」，任何新形态的告警都会静默通过。③ 规则两份实现：同一份 pattern 在 verify.ps1 与 ci.yml 各活一份，改一处忘另一处就是判据漂移（Z5「同一份判定不允许在钩子、脚本、文档里各活一份」）。④ 当前主线已干净：R11-13 修完后跑真实 --smoke 日志（32 行），按 QML 告警形态筛命中 0，说明这道闸门建起来即可全量通过，不需要先清存量。⑤ 已知覆盖边界（写进卡里，不夸大）：--smoke 只加载启动期 QML，点开才加载的浮层告警（如 R11-12 核验抓到的 PluginPanel 加载失败）本卡抓不到，仍需逐界面核验兜底。",
+            "id": "DX-122",
+            "note": "",
+            "scope": [
+                "scripts/check_qml_warnings.py",
+                "scripts/verify.ps1",
+                ".github/workflows/ci.yml",
+                "docs/pitfalls.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "DX",
+            "title": "DX 启动告警零容忍：把枚举式 pattern 换成按形态识别，规则收成一份"
+        },
+        "DX-123": {
+            "acceptance": [
+                "python scripts/board_priority.py --selftest 全过（含档位倒序抓取、间隙耗尽、空档位落点、未声明 tier 豁免四类用例）",
+                "python scripts/register_board_cards.py --selftest 全过，新增判据：tier 缺失或非法枚举拒绝、build_card 写入 tier、改 tier 后 canonical_hash 变化",
+                "python scripts/task_gate.py --selftest 全过，新增判据：仅改 cards[].tier 判为任务定义变更（须 chore(board)+授权/批次两行）",
+                "python scripts/derive_board_status.py --check 退出码 0，新卡 orderKey 由 cards[].tier 经 insertion_order 计算落点、不再追加列尾",
+                "负测：请求单 frontmatter 写 tier: P9 时 register_board_cards.py --dry-run 非 0 退出并点名「非法档位」",
+                "负测：临时把任一已声明 tier 的 todo 卡 orderKey 移到更低档之前，derive --check 非 0 且点名卡号，还原后恢复 0",
+                "端到端：本卡交付后 DX-123 的 orderKey 落在 P2 档（介于 DX-113 与 DX-100 之间），存量 todo 卡 orderKey 除本卡外一个不变",
+                "docs/board-ledger.json 回填在办 todo 卡 cards[].tier 与排定档位一致且 derive --check 通过",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿（本卡 scope 无代码路径，按脚本领验收）",
+                "pwsh -File scripts/verify.ps1 全量通过（回填既有卡被判「改既有卡」走 full 档）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 维护者会话按「先修开工/交付链路，再修独立项，最后开全量编译卡」排定 21 张待办卡顺序并写入 progress.json，实测两次被应用回写与锚点还原冲掉（AGENTS.md 快照撞车主线优先）；derive_board_status.py:1062 对新卡一律 max_order+1024 追加列尾，排位规则无处落地。维护者确认按「判断留给人（立卡声明 tier）、落位交给机器（派生器计算）、漂移用退出码拦（derive --check）」落地。",
+            "id": "DX-123",
+            "note": "",
+            "scope": [
+                "scripts/board_priority.py",
+                "scripts/register_board_cards.py",
+                "scripts/derive_board_status.py",
+                "scripts/task_gate.py",
+                "docs/task-card.md",
+                "docs/board-sync.md",
+                "AGENTS.md",
+                "docs/pitfalls.md",
+                "docs/board-ledger.json",
+                "progress.json",
+                "docs/card-requests/20261107-board-priority-tier.md"
+            ],
+            "stage": "DX",
+            "title": "立卡排位规则落地：tier 档位声明与 orderKey 档位落位"
         },
         "DX-13": {
             "acceptance": [
@@ -3680,7 +3789,7 @@
             ],
             "evidence": "复盘 R11-12 的核验记录时，发现 docs/design/ui-relayout-verify.md「遗留问题」一节把 Main.qml:1621 的 QML EmptyState 锚定告警归因为「origin/main 即有的告警，不是 R11 引入的，不在本轮范围内」—— 该归因经 git 溯源与实测证伪，且它是一个真实的界面缺陷，不是一行噪音。① 溯源：qml/components/EmptyState.qml 与 Main.qml 里唯一的 EmptyState 使用点均由 R11-07（9d92d45 feat(ui): 新增统一空态组件…#R11-07=done）引入，且引入时 anchors.centerIn: boardRow 就已非法（当时 boardRow 是空态兄弟节点 RowLayout 的子级）；R11-8（c98fbd0）把空态上移一层后仍然非法 —— 即缺陷在 R11 轮次内引入、从未生效过。② 结构：按括号配对解析 origin/main:qml/Main.qml，EmptyState 的父级是窗口主体 Rectangle（L924），boardRow 是它下面第三层 RowLayout（L1088 → L1210 → L1424），而 QML 只允许锚到父级或兄弟，这一锚必然失效。③ 实测：用当前主线代码启动应用，日志打出 Main.qml:1621:9: QML EmptyState: Cannot anchor to an item that isn't a parent or sibling.。④ 后果：一比一复现（同样的父子结构）量到空态落在 es.x=0 es.y=0，期望居中是 (220,240) —— 用户把看板筛空时，空态面板出现在窗口左上角，而不是代码注释写的「浮在看板正中间」。⑤ 验收未兑现：R11-12 的验收项原文有一条「核验暴露的功能缺陷在本卡 scope 内修复，scope 外的缺陷如实写进 ui-relayout-verify.md 的「遗留问题」一节不掩盖」，而 R11-12 的 scope 明确含 qml/Main.qml —— 该缺陷是核验暴露的、修复点在 scope 内，却被以「不是 R11 引入的」为由结卡，属这条验收项没有兑现。",
             "id": "R11-13",
-            "note": "",
+            "note": "已交付（2026-11-06，提交 7a934bd）：复盘 R11-12 核验记录时，查出一处错归因与一个真实界面缺陷，一并修掉。\n① 缺陷：qml/Main.qml 的筛选态空态 EmptyState 写的是 anchors.centerIn: boardRow，但 EmptyState 挂在窗口级容器上、boardRow 是它三层后代 —— QML 只允许锚到父级或兄弟，引擎每次启动打一条告警并忽略这条锚，空态面板停在窗口左上角 (0,0)，而不是注释承诺的「浮在看板正中间」。溯源：EmptyState.qml 与 Main.qml 里唯一的使用点均由 R11-07（9d92d45）引入、R11-8（c98fbd0）沿用未修 —— 即缺陷在 R11 轮次内引入、从未生效过。\n② 修法：看板区包一层普通 Item（id: boardArea），EmptyState 挪进去与 boardRow 成兄弟；boardRow 由 Layout.* 改为 anchors.fill: parent，边距（左 20 / 右 20 / 下 20）与列间距 12 全部沿用原值，布局不变。\n③ 订正 docs/design/ui-relayout-verify.md 里「origin/main 即有的告警，不是 R11 引入的」这句错归因，补第五节（缺陷 / 证据链 / 改后实测）与第六节遗留问题三要素表（归因 / 是否在 scope 内 / 处置决定）。\n④ 路线图 §9.14 由 5/5 改 6/6 并补 R11-13 行，同步 §9 表 R11 行与目录锚点。\n实测：启动告警「Cannot anchor to an item that isn't a parent or sibling」命中 1 → 0；筛空后空态落点 es.x=290 es.y=170，es 中心 (470, 266) vs boardRow 中心 (470, 265.5)，偏差 0.5 px（≤ 2 px）；es.visible=true（筛空后正常浮出，带「清除筛选」出口）；es 与 br 同父 boardArea；qml/Main.qml 4131 行（守卫 ≤ 4260）；临时埋点已整块撤除，不在交付物里。verify.ps1 全过（编译 + ctest 39/39 + selftest / smoke 退出码 0 + 模块守卫 + 看板一致性）。\n本卡同时补上 R11-12 那条未兑现的验收项「核验暴露的功能缺陷在本卡 scope 内修复」（R11-12 scope 含 qml/Main.qml，那条缺陷当时被错归因为「非 R11 引入」而漏修）。\n已完成 1 / 待做 0 —— 空态锚定修复 + 核验归因订正",
             "scope": [
                 "qml/Main.qml",
                 "docs/design/ui-relayout-verify.md",
@@ -4158,7 +4267,7 @@
             ],
             "evidence": "2026-11-06 维护者会话。现状：角色链（R7-03/04）所有预设到 qa / orchestrator 为止，链失败即 fail-fast 收口，orchestrator 的 summary 只有一句「回到 engineer 重跑」；执行过程中碰到的问题不落任何结构化产物，下次同类任务还会踩。维护者要求让 agent 干完活后自省、并把问题沉淀为程序化对策（对应 AGENTS.md Z6「踩坑两次沉淀成机器判据」）。",
             "id": "R19-1",
-            "note": "",
+            "note": "目标：角色链新增 retro 复盘步骤，agent 干完活后自省并沉淀「问题清单 → 根因 → 程序化对策」三段式交接物。【交付 2026-11-07 / agent-r19 / feature/workflow-retro-step】① TaskExec：isKnownRole 认识 retro，presetSteps 六条预设插 retro 步（fix/hotfix/docs/review 在产出方之后，delivery 在 qa 后 orchestrator 前）。② WorkflowPresets：builtinPresets 六条同步插 retro 并入 skippable（小任务可裁，isProtectedRole 不含 retro）；buildSummary 追加「复盘结论」段，引用 retro handoff 路径，未产出时 fail-soft 提示。③ WorkflowRunner：roleDeliverable 定 retro 三段式契约；失败链仍跑 retro（pendingFailReason 跳转，复盘结束无论过没过都按原失败原因收口，failed 结论不变）；retro 自身失败 fail-soft 只告警。④ main.cpp 自检同步角色序与裁剪规则。⑤ 测试：tst_workflowpresets / tst_workflow 同步既有断言并新增 4 例（角色序与裁剪、summary 复盘段、失败链仍复盘、retro fail-soft）。⑥ 路线图 §9 补 R19 行。验收：verify.ps1 全量通过（ctest 39/39、--selftest、--smoke、模块守卫），R19-1 验收 5 项全部满足。\n已完成 5 / 待做 0 —— 角色链复盘步骤与复盘结论收口",
             "scope": [
                 "src/agent/WorkflowPresets.cpp",
                 "src/agent/WorkflowPresets.h",

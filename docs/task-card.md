@@ -115,7 +115,8 @@ merge: 合入 fix/stagebar-chip-overflow
 | --- | --- |
 | 只动 `baseline` / `claims`（结卡、领用登记，最高频） | 自动跑 `derive_board_status.py --check`，且要求通过 |
 | 立卡（新增卡，`stage` 是既有取值） | 同样走派生一致性 —— 不拦，但新卡必须已在快照里 |
-| 改了既有卡（`scope` / `stage` / `depends` 等任一字段）、删卡、或新卡带陌生 `stage` | 直接拒绝并指回全量 |
+| **只改既有卡的 `note`（交付说明，DX-113）** | 留在轻档走派生一致性 —— 交付说明是每张卡收尾的必经动作，不升级验收档 |
+| 改了既有卡的契约字段（`scope` / `stage` / `title` / `depends` / `acceptance` 任一，或 note 与契约同改）、删卡、或新卡带陌生 `stage` | 直接拒绝并指回全量 |
 
 立卡不拦是有意的：立卡是每张卡的必经步骤、必然改 `cards`，若一律要求全量，脚本卡的轻档就
 永远用不上。真正会让 `tst_projectmap` 与 roadmap 对不上的是**改既有卡的契约**与**陌生 stage**，
@@ -123,6 +124,14 @@ merge: 合入 fix/stagebar-chip-overflow
 也会自动做）。
 
 判定由 `scripts/check_board_diff.py --base <ref>` 机械完成，不需要人记规则。
+
+## 交付说明（note）的提交与验收口径（DX-113）
+
+交付说明写进卡片 `note`，**单独一条 `docs(board): 补 <短号> 交付说明` 提交**，与实现提交
+分开；`note` 不属任务定义，无需授权凭证（同 `claims`）。它不改 `tst_projectmap` 读的任何
+派生输入，`check_board_diff` 判 derive 档 —— 所以**轻档验收在含交付说明提交的最终分支态
+也成立**，卡片验收项里的「`-ScriptOnly` 全绿」按最终分支态理解，不再存在「实现态绿、
+最终态红」靠挑提交时态自证的空间（DX-94 / DX-81 / R11-11~12 曾三次同型）。
 
 全量编译仍由 CI 兜底，本地这一档不降低任何门槛：脚本层不跑 ctest、不碰 exe、不看 `--smoke`。
 两种口径的退出码语义一致（0 通过 / 1 失败），`scripts/verify.ps1` 仍是唯一入口。

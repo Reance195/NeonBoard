@@ -1,6 +1,6 @@
 # R11 界面重排核验记录
 
-> 规格：`docs/design/ui-relayout-spec.md`；实施卡：R11-8 / R11-9 / R11-10 / R11-11 / R11-12。
+> 规格：`docs/design/ui-relayout-spec.md`；实施卡：R11-8 / R11-9 / R11-10 / R11-11 / R11-12 / R11-13。
 > 本文件是 R11 收尾核验（R11-12）的唯一事实源：结论、实测值、判定口径都写在这里，
 > 下次改界面的人以这份记录为准，不以「当时看着没问题」为准。
 
@@ -101,10 +101,76 @@ R11-10 改了本轮唯一的行为语义（规格 §3.5）：遮罩点击 / `Esc
 | 队列行高 | 统一 40 px | 入队 3 条实测行高 **40** ✅ |
 | 列对齐 | — | 任务 / 状态 / 操作三列，列宽与表头逐列对齐 ✅ |
 
-## 五、遗留问题
+## 五、空态锚定（R11-13）
 
-- `qml/Main.qml:1621` 的 `QML EmptyState: Cannot anchor to an item that isn't a parent or sibling`
-  —— `origin/main` 即有的告警，不是 R11 引入的，不在本轮范围内，未处理。
-- `Esc` 键未做真实按键注入，原因见「判定口径」一节（本机无 GUI 自动化能力）。
-- 视觉观感（配色、间距观感、是否有遮挡）没有人工确认：程序化埋点能测几何，测不了「好不好看」。
-  这一项只能靠人打开应用看。
+R11-12 的核验记录里把一条启动告警归因为「`origin/main` 即有的告警，不是 R11 引入的，
+不在本轮范围内，未处理」—— **这句归因是错的**。复盘时按 git 溯源 + 实测两头证伪：
+它是 **R11-07** 引入的真实界面缺陷，R11-8 沿用未修，R11-12 核验时已在日志里看到，
+却因为那句错归因被判成「不在本轮范围内」而结卡 —— R11-12 的验收项
+「核验暴露的功能缺陷在本卡 scope 内修复」（scope 含 `qml/Main.qml`）因此没有兑现。
+
+### 缺陷
+
+`qml/Main.qml` 的筛选态空态 `EmptyState` 写的是 `anchors.centerIn: boardRow`，但
+`EmptyState` 挂在**窗口级容器**上，而 `boardRow` 是它的**三层后代**：
+
+| 项 | 改前 | 改后 |
+| --- | --- | --- |
+| `EmptyState` 父级 | `Rectangle`（窗口主体） | `Item`（`boardArea`，看板区） |
+| `boardRow` 父级 | `ColumnLayout`（看板列） | `Item`（`boardArea`） |
+| 两者关系 | 隔三层，非父非兄弟 | **同父兄弟** |
+| `anchors.centerIn: boardRow` | 非法 → 引擎忽略该锚 | 合法 |
+
+QML 只允许锚到父级或兄弟。锚定非法时引擎打一条告警并**忽略这条锚定**，空态面板因此
+停在父容器的 (0,0) —— 用户把看板筛空时，空态出现在**窗口左上角**，而不是代码注释承诺的
+「浮在看板正中间」。
+
+### 证据（改前）
+
+1. **溯源**：`git log --diff-filter=A -- qml/components/EmptyState.qml` → 唯一引入点是
+   `9d92d45 feat(ui): 新增统一空态组件，筛选无结果时给出出口 #R11-07=done`；
+   `git log -S 'EmptyState {' -- qml/Main.qml` 同一条。R11-07 引入时锚定就已非法
+   （当时 `boardRow` 是空态兄弟节点的子级），R11-8（`c98fbd0`）把空态上移一层后仍然非法 ——
+   即该缺陷在 R11 轮次内引入、**从未生效过**。
+2. **结构**：按括号配对解析 `origin/main:qml/Main.qml`，改前 `EmptyState` 的父级是
+   `Rectangle`（L924），`boardRow` 是 `Rectangle > RowLayout > ColumnLayout > RowLayout`（三层后代）。
+3. **启动实测**：改前跑一次应用，日志打出
+   `Main.qml:1621:9: QML EmptyState: Cannot anchor to an item that isn't a parent or sibling.`
+4. **落点实测**（一比一复现同样的父子结构）：改前 `es.x=0 es.y=0`，期望居中 `(220,240)`。
+
+### 修法
+
+看板区包一层普通 `Item`（`id: boardArea`），把 `EmptyState` 挪进去与 `boardRow` 成兄弟；
+`boardRow` 从 `Layout.*` 改为 `anchors.fill: parent`，边距 / 间距数值沿用原值
+（左 20 / 右 20 / 下 20、列间距 12），**布局不变**。
+
+### 改后实测（临时埋点，跑完已撤）
+
+| 项 | 改前 | 改后 |
+| --- | --- | --- |
+| 启动告警 `Cannot anchor ...` | 命中 **1** | 命中 **0** ✅ |
+| 空态落点（筛空后） | (0, 0) —— 窗口左上角 | **es.x=290 es.y=170**（360 × 192）✅ |
+| 空态中心 vs 看板中心 | 不居中 | es 中心 (470, 266) / boardRow 中心 (470, 265.5) → **偏差 0.5 px** ✅ |
+| 空态是否真的显示 | — | `es.visible = true`（筛空后浮出，带「清除筛选」出口）✅ |
+| 父子关系 | 非父非兄弟 | `es.parentIsBoardArea = true` / `br.parentIsBoardArea = true`（同父兄弟）✅ |
+
+复现命令（沙箱隔离，不碰真实数据）：
+
+```powershell
+$env:PATH = "C:/Qt/6.8.3/msvc2022_64/bin;" + $env:PATH
+$env:NEONBOARD_DATA_DIR = "<worktree>\.sandbox\probe-r11-13-measure"
+$env:NEONBOARD_INSTANCE = "agent-ui5-r11-13-measure"
+& "<worktree>\build\NeonBoard.exe"
+# 日志：.sandbox\probe-r11-13-measure\neonboard.log
+```
+
+## 六、遗留问题
+
+每条遗留问题记三要素：**归因**（哪个提交引入）/ **是否在本次 scope 内** / **处置决定**
+（修 / 挂卡 / 不做）—— 免得下一轮又拿「看着像历史遗留」当放过的理由。
+
+| 现象 | 归因 | 在 scope 内 | 处置 |
+| --- | --- | --- | --- |
+| `QML EmptyState: Cannot anchor to an item that isn't a parent or sibling` | **R11-07 引入**（`9d92d45`），R11-8 未修；此前记录的「origin/main 即有、非 R11 引入」是错归因 | 是（`qml/Main.qml`） | **已修**：R11-13 修好并复测（见上节），告警命中 0、空态偏差 0.5 px |
+| `Esc` 键未做真实按键注入 | 本机无 GUI 自动化能力（见「判定口径」一节） | 不适用（能力缺失，非缺陷） | 不做：依据是壳内 `closePolicy` 与组件内 `Keys.onEscapePressed` 的代码路径 |
+| 视觉观感（配色、间距观感、是否有遮挡）没有人工确认 | 程序化埋点能测几何，测不了「好不好看」 | 不适用 | 不做：只能靠人打开应用看 |

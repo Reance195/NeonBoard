@@ -133,11 +133,11 @@ function Sync-BoardSnapshot {
         Write-Host '· 警告：派生器未能刷新快照（见上）。board.yml 只校验不回写（R14-01），这份落差只能等下次合并补' -ForegroundColor Yellow
         return $false
     }
-    # 无变化不落盘，绝不产生空提交
+    # 无变化不落盘，绝不产生空提交。返回值语义（DX-96）=「本次是否产生了待推提交」。
     $snapDirty = @((Invoke-Git status --porcelain -- progress.json) | Where-Object { $_ -match 'progress\.json$' })
     if ($snapDirty.Count -eq 0) {
         Write-Host '· 快照：派生结果与现有快照一致，无需提交' -ForegroundColor DarkGray
-        return $true
+        return $false
     }
     Assert-DryCloseStep -Step '快照提交'
     Invoke-GitQuiet @('add', 'progress.json') | Out-Null
@@ -150,34 +150,14 @@ function Sync-BoardSnapshot {
         Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'progress.json') | Out-Null
         return $false
     }
-    for ($i = 1; $i -le 3; $i++) {
-        $snapPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
-        if ($snapPush.Code -eq 0) {
-            if ($DryRun) {
-                Write-Host '✓ [dry-run] 快照：本地已提交（未推送）' -ForegroundColor Green
-            } else {
-                Write-Host ('✓ 快照：派生状态已同步并推上 {0}' -f $MainBranch) -ForegroundColor Green
-            }
-            return $true
-        }
-        if ($i -eq 3) {
-            Write-Host '· 警告：快照推送重试 3 次仍失败，本地回滚，留待下次合并' -ForegroundColor Yellow
-            Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
-            return $false
-        }
-        Write-Host ("   · 快照推送被拒（第 {0} 次）：拉取主线变基后重试" -f $i) -ForegroundColor DarkGray
-        Invoke-NetGit @('fetch', 'origin', $MainBranch) | Out-Null
-        $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
-        if ($rb.Code -ne 0) {
-            # 快照的唯一事实源就是派生结果，重叠提交丢弃即可，绝不手工解冲突
-            Invoke-GitQuiet @('rebase', '--abort') | Out-Null
-            Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
-            Write-Host '· 警告：快照与主线撞车且无法变基，回滚，留待下次合并' -ForegroundColor Yellow
-            return $false
-        }
-        Start-Sleep -Seconds 5
+    # DX-96：快照提交不再独自补推 —— 留在本地，随收尾单次补推（重试与回滚集中在
+    # 调用方的最终补推处，撞 non-ff 时整体变基或回滚到 $closeoutBase）。
+    if ($DryRun) {
+        Write-Host '✓ [dry-run] 快照：本地已提交（未推送）' -ForegroundColor Green
+    } else {
+        Write-Host '✓ 快照：派生状态已提交（随收尾一次性补推）' -ForegroundColor Green
     }
-    return $false
+    return $true
 }
 
 # 主 worktree（锚点区）永远是 `git worktree list --porcelain` 的第一块。
@@ -848,6 +828,11 @@ if ($Mode -eq 'remote') {
     if ($DryRun) { Write-Host '  [dry-run] 三步收尾前已 switch --detach（DX-26 时序）' -ForegroundColor DarkCyan }
     Invoke-GitQuiet @('branch', '-d', $tmp) | Out-Null
 
+    # DX-96：收尾提交栈底。单次补推失败需整体回滚时回到这里 —— 合并已在此前
+    # 单独推送（fail-soft 交付），回滚绝不波及它。
+    $closeoutBase = (Invoke-Git rev-parse HEAD).Trim()
+    $hasCloseoutCommit = $false
+
     # 台账过期领用登记清理：服务端占位与认领分支此刻都已没了，投影条目留着只会让
     # 派生器每次报「分支已不存在」的噪声，而且要等下任何人领卡才被顺带清 ——
     # 收尾闭环应该由「合并 + 删分支」这个动作自己完成（AGENTS.md §7.2.1 释放义务）。
@@ -868,16 +853,12 @@ if ($Mode -eq 'remote') {
             $rcCommit.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
             Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/board-ledger.json') | Out-Null
         } else {
-            $rcPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
-            if ($rcPush.Code -eq 0) {
-                if ($DryRun) {
-                    Write-Host '✓ [dry-run] 台账领用登记清理：本地已提交（未推送）' -ForegroundColor Green
-                } else {
-                    Write-Host ('✓ 台账领用登记清理：{0} 已删除并推上 {1}' -f ($goneCodes -join '、'), $MainBranch) -ForegroundColor Green
-                }
+            # DX-96：不再各自补推 —— 提交留在本地，随收尾单次补推（重试集中在最终推送处）。
+            $hasCloseoutCommit = $true
+            if ($DryRun) {
+                Write-Host '✓ [dry-run] 台账领用登记清理：本地已提交（未推送）' -ForegroundColor Green
             } else {
-                Write-Host '· 台账领用登记清理：补推失败（离线 / 主线被推进），本地回滚，留待下次合并再清' -ForegroundColor Yellow
-                Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
+                Write-Host ('✓ 台账领用登记清理：{0} 已提交（随收尾一次性补推）' -f ($goneCodes -join '、')) -ForegroundColor Green
             }
         }
     }
@@ -930,36 +911,55 @@ if ($Mode -eq 'remote') {
             $ccPending = @($closedCodes)
             Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/board-ledger.json') | Out-Null
         } else {
-            # 补推撞 non-ff（主线被并行会话推进）时自动恢复：重取 → 变基到 origin/main →
-            # 重推，上限 2 次；结卡提交只碰台账 baseline 行，变基冲突概率低，仍失败才回滚
-            # 挂起（DX-58：DX-57 实测一次竞态就丢了结卡且回执虚报）。
-            $ccPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
-            $ccRetry = 0
-            while ($ccPush.Code -ne 0 -and $ccRetry -lt 2) {
-                $ccRetry++
-                Write-Host ("· 结卡：补推撞 non-ff（第 {0} 次），重取主线变基后重试" -f $ccRetry) -ForegroundColor Yellow
-                Invoke-NetGit @('fetch', 'origin', '--prune') | Out-Null
-                $ccRebase = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
-                if ($ccRebase.Code -ne 0) {
-                    Write-Host '· 结卡：变基冲突，放弃重试' -ForegroundColor Yellow
-                    Invoke-GitQuiet @('rebase', '--abort') | Out-Null
-                    break
-                }
-                $ccPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
-            }
-            if ($ccPush.Code -eq 0) {
-                $ccLanded = @($closedCodes)
-                if ($DryRun) {
-                    Write-Host '✓ [dry-run] 结卡：本地已提交（未推送）' -ForegroundColor Green
-                } else {
-                    Write-Host ('✓ 结卡：{0} 的 baseline 已补为 done 并推上 {1}' -f ($closedCodes -join '、'), $MainBranch) -ForegroundColor Green
-                }
+            # DX-96：结卡提交留在本地，随收尾单次补推；是否 landed 由最终补推统一裁定
+            # （DX-58 口径不变：closed 只记「推送已落地」的，其余进 pending）。
+            $hasCloseoutCommit = $true
+            if ($DryRun) {
+                Write-Host '✓ [dry-run] 结卡：本地已提交（未推送）' -ForegroundColor Green
             } else {
-                Write-Host '· 结卡：补推失败（离线 / 主线被推进 / 变基冲突），本地回滚——结卡挂起，待下次合并再结' -ForegroundColor Yellow
-                Invoke-GitQuiet @('rebase', '--abort') | Out-Null
-                Invoke-GitQuiet @('reset', '--hard', 'HEAD~1') | Out-Null
-                $ccPending = @($closedCodes)
+                Write-Host ('✓ 结卡：{0} 的 baseline 已补为 done（随收尾一次性补推）' -f ($closedCodes -join '、')) -ForegroundColor Green
             }
+        }
+    }
+
+    # 快照刷新闭环（DX-13）：结卡改的是 baseline，快照是派生产物，必须单独重算一次。
+    # 放在结卡之后 —— 先改台账再派生，才能把刚结掉的卡写进快照。
+    # DX-96：返回值 =「本次是否产生了待推提交」；是则计入收尾单次补推。
+    $snapPending = Sync-BoardSnapshot -RepoRoot $repoRoot -MainBranch $MainBranch
+    if ($snapPending) { $hasCloseoutCommit = $true }
+
+    # ---- 收尾单次补推（DX-96）----
+    # 清理登记 / 结卡 / 快照的提交此前只落在本地，这里一次性快进补推 origin/main：
+    # 撞 non-ff 时重取变基重试（上限 3 次），仍失败则整体回滚到 $closeoutBase ——
+    # 合并已单独先推（fail-soft 交付），这里无论成败都不波及合并。
+    # Board 视角：每批收尾 run 从 4 降到 2（合并 + 收尾），推送间隔从 ~10s 缩到秒级，
+    # DX-44 的 cancel-in-progress 由时序巧合变成结构保证。
+    if ($hasCloseoutCommit) {
+        $finalOk = $false
+        for ($i = 1; $i -le 3; $i++) {
+            $finalPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
+            if ($finalPush.Code -eq 0) { $finalOk = $true; break }
+            if ($i -eq 3) { break }
+            Write-Host ("· 收尾补推被拒（第 {0} 次）：重取主线变基后重试" -f $i) -ForegroundColor Yellow
+            Invoke-NetGit @('fetch', 'origin', '--prune') | Out-Null
+            $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
+            if ($rb.Code -ne 0) {
+                Write-Host '· 收尾补推：变基冲突，放弃重试' -ForegroundColor Yellow
+                Invoke-GitQuiet @('rebase', '--abort') | Out-Null
+                break
+            }
+        }
+        if ($finalOk) {
+            $ccLanded = @($closedCodes)
+            if ($DryRun) {
+                Write-Host '✓ [dry-run] 收尾三步：本地已提交（单次补推为桩，未触网）' -ForegroundColor Green
+            } else {
+                Write-Host ('✓ 收尾补推：清理/结卡/快照已一次性推上 {0}' -f $MainBranch) -ForegroundColor Green
+            }
+        } else {
+            Write-Host '· 收尾补推失败（离线 / 主线被推进 / 变基冲突）：整体回滚到合并点，留待下次合并' -ForegroundColor Yellow
+            Invoke-GitQuiet @('reset', '--hard', $closeoutBase) | Out-Null
+            $ccPending = @($closedCodes)
         }
     }
 
@@ -967,6 +967,7 @@ if ($Mode -eq 'remote') {
     # --close-cards 只处理「已经写了 =done 标记」的卡；没写的卡一张都不结，而原先收尾
     # 在这种情况下连一行提示都没有 —— 干完活、合并、全绿，卡还挂在 todo，下次有人接着领
     # 一遍重做。程序判不了 acceptance 满不满足，但「领了没结」是两份名单的差集，能判。
+    # DX-96：挪到单次补推之后 —— landed/pending 此刻才有最终答案。
     $missedCodes = @($claimedCodes | Where-Object { $ccLanded -notcontains $_ -and $ccPending -notcontains $_ })
     if ($claimedCodes.Count -gt 0) {
         Write-Host ''
@@ -1001,11 +1002,6 @@ if ($Mode -eq 'remote') {
             Write-Host '    确实没做完：让卡留在 todo，下次接着领。' -ForegroundColor Yellow
         }
     }
-
-
-    # 快照刷新闭环（DX-13）：结卡改的是 baseline，快照是派生产物，必须单独重算一次。
-    # 放在结卡之后 —— 先改台账再派生，才能把刚结掉的卡写进快照。
-    Sync-BoardSnapshot -RepoRoot $repoRoot -MainBranch $MainBranch | Out-Null
 
     # DX-95：747 行的清理跑在 release-claims / close-cards 之前 —— 本次合并自身的卡那时
     # baseline 还是 todo，判据 B（done 且无分支引用）必然 keep，rebase 重写占位漏释

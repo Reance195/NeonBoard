@@ -4769,13 +4769,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-97": {
-            "agent": "agent-dx97-impl",
-            "branch": "fix/card-action-click",
-            "claimedAt": 1793930867,
-            "head": "5cfa58af297e44dcd555d334b98ef2bd3da37088"
-        }
-    },
+    "claims": {},
     "version": 1
 }

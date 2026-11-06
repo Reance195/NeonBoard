@@ -289,6 +289,60 @@
             "updatedAt": 1793973890
         },
         {
+            "code": "DX-107",
+            "completedAt": 0,
+            "createdAt": 1793974509,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-107",
+            "note": "",
+            "orderKey": 70656,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "合并冲突退出不回滚现场：冲突路径清理临时分支与冲突态，dry-run 承诺的回滚真正兑现",
+            "updatedAt": 1793974509
+        },
+        {
+            "code": "DX-108",
+            "completedAt": 0,
+            "createdAt": 1793974520,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-108",
+            "note": "",
+            "orderKey": 71680,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "progress.json 合并冲突派生善后：冲突文件为纯派生物时自动重算，五步人工善后收口进 git-done",
+            "updatedAt": 1793974520
+        },
+        {
+            "code": "DX-109",
+            "completedAt": 0,
+            "createdAt": 1793974532,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-109",
+            "note": "",
+            "orderKey": 72704,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "单次推送下 branch -d 恒拒：分支删除判据换锚点，收尾不再残留已合并分支",
+            "updatedAt": 1793974532
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4117,7 +4171,7 @@
         },
         {
             "code": "DX-99",
-            "completedAt": 1793974148,
+            "completedAt": 1793974710,
             "createdAt": 1793935663,
             "deleted": false,
             "dueAt": 0,
@@ -4131,7 +4185,7 @@
                 "DX"
             ],
             "title": "agent 契约注入转义：含单引号的验收项不再让 .agent-env.ps1 语法报错",
-            "updatedAt": 1793974148
+            "updatedAt": 1793974710
         },
         {
             "code": "R4-04",
@@ -4921,6 +4975,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T22:09:08",
+    "updated": "2026-11-06T22:18:30",
     "version": 3
 }

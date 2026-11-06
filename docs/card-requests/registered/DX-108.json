@@ -1,0 +1,13 @@
+{
+  "card": "DX-108",
+  "sha256": "79a9cdb52249f18a441e54f323d59664f888ba4f51f5f9c405687ddebe584ab6",
+  "authorizedBy": "维护者会话指令（2026-11-06，剖析未解决问题并立卡）",
+  "form": "docs/card-requests/20261106-dx-snapshot-conflict-derive.md",
+  "registeredAt": "2026-11-06T14:15:20+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-108",
+    "sha": "91a883ec8f4f6b7976dadde14bd437ef0ae56f48"
+  }
+}

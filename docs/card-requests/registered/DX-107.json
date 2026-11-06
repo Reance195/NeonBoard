@@ -1,0 +1,13 @@
+{
+  "card": "DX-107",
+  "sha256": "0692c954afb76611d2cae1129f08233847469a479dec2fee944f28c4cf809741",
+  "authorizedBy": "维护者会话指令（2026-11-06，剖析未解决问题并立卡）",
+  "form": "docs/card-requests/20261106-dx-merge-conflict-cleanup.md",
+  "registeredAt": "2026-11-06T14:15:08+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-107",
+    "sha": "2faa01710e711b36fba0a8834da0a81bbd8d1dd4"
+  }
+}

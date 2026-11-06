@@ -420,6 +420,7 @@ int main(int argc, char *argv[])
     // 只读侧表，不碰 task 表 —— 切范围是视图状态，不写库。
     ProjectStore projectStore(&database);
     boardColumns.setProjectStore(&projectStore);
+    roadmap.setProjectStore(&projectStore);
     boardColumns.reload();
     // 列是库里读出来的：启动时把实际列数与列 id 打进日志，
     // 「界面上一列都没有」这类问题（列表异常 / 迁移漏了）能直接从日志定位。
@@ -1146,16 +1147,12 @@ int main(int argc, char *argv[])
     });
     QObject::connect(&roadmapExport, &QTimer::timeout, &roadmap, [&roadmap]() {
         if (roadmap.enabled() && !roadmap.isApplying() && RoadmapSync::autoExportEnabled())
-            roadmap.exportTo(roadmap.path());
+            roadmap.exportAll();
     });
 
-    // 启动即拉取路线图快照：仓库 progress.json ↔ 本地看板保持一致
-    if (roadmap.enabled()) {
-        if (roadmap.importFrom(roadmap.path(), false))
-            qInfo().noquote() << "Roadmap: synced" << roadmap.path() << roadmap.lastReport();
-        else
-            qWarning().noquote() << "Roadmap: sync failed" << roadmap.path() << roadmap.lastReport();
-    }
+    // 启动即拉取路线图快照：全局文件 + 所有绑定项目文件（无激活文件时 importAll 空转）
+    if (roadmap.importAll(false))
+        qInfo().noquote() << "Roadmap: synced" << roadmap.path() << roadmap.lastReport();
 
     // 领用同步：启动即扫一次，之后每 5 秒轮询各 worktree 台账
     QTimer claimPoll;

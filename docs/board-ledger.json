@@ -5208,6 +5208,12 @@
             "branch": "fix/gitdone-conflict-rollback",
             "claimedAt": 1793975132,
             "head": "155b556d82462ea5c19fc874d42cd6c878700d8d"
+        },
+        "DX-108": {
+            "agent": "agent-c",
+            "branch": "fix/dx107-108-conflict-cleanup",
+            "claimedAt": 1793975244,
+            "head": "16fc8493ec6515f0ea60634dee2db7bfe6053a0a"
         }
     },
     "version": 1

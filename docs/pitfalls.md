@@ -947,9 +947,15 @@
   自动分支：`git checkout origin/main -- progress.json` 取主线为底，合并提交后
   `-Recover` 的派生重算收敛（提交体带自动来源行留痕）——「取主线为底加重算」
   的手工舞步从此是脚本的一步。
-- **判据**：`python scripts/check_board_diff.py --selftest`（归因解析与判定谓词）；
-  端到端正例——分支上带 `#短号=done` 且快照滞后时 `-ScriptOnly` 绿；反例——把台账里
-  一张与分支无关的卡 baseline 改错再跑，必须仍红。
+- **补口（DX-81）**：DX-64 只认 `#卡=done`，领用登记派生的 doing 漂移仍会红——
+  领卡后还没写代码先跑 `-ScriptOnly`、或并行合并把 claims 带进来时必现，照样逼人手工
+  `derive --write`。归因证据扩为两路：本分支 `base..HEAD` 的 done 标记 ∪ 本分支相对
+  base **新增的 claims**（且派生状态确为 doing，复用 `claims_doing` / `status_of`）。
+  两路都解释不了的漂移照旧红灯；CI 在 main 上 `base..HEAD` 为空，口径不变。
+- **判据**：`python scripts/check_board_diff.py --selftest`（归因解析与判定谓词，
+  含 claims 命中 / 无 claims 反例 / done+claims 混合归因）；
+  端到端正例——分支上带 `#短号=done` 或新增 claim 且快照滞后时 `-ScriptOnly` 绿；
+  反例——把台账里一张与分支无关的卡 baseline 改错再跑，必须仍红。
 - **一般化**：**判据要收紧的是归因，不是松紧**。看到「检查失败」先问「这次失败由谁
   解释、会不会自愈」：能被本分支自身动作解释的中间态失败降为提示，解释不了的才
   是闸门对象。直接放宽阈值（跳过检查）会把真漂移一起放走，直接维持红灯则把

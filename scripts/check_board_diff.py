@@ -106,9 +106,15 @@ def run_derive() -> int:
     return proc.returncode
 
 
-def drift_explained(drift: set[str], done: set[str]) -> bool:
-    """漂移集合是否被本分支自身的 #卡=done 标记**完整**解释（空漂移不算被解释）。"""
-    return bool(drift) and drift <= done
+def drift_explained(drift: set[str], done: set[str], claims_doing: set[str] | None = None) -> bool:
+    """漂移集合是否被本分支自身的交付证据**完整**解释（空漂移不算被解释）。
+
+    证据两路（DX-64 + DX-81）：
+      - done：本分支提交里的 #卡=done（收尾 --close-cards 会补 baseline）
+      - claims_doing：本分支新增的领用登记，且派生状态确为 doing（收尾刷新快照）
+    任一路都解释不了的漂移仍按红灯处理。
+    """
+    return bool(drift) and drift <= (done | (claims_doing or set()))
 
 
 def branch_done_codes(base: str, known: set[str]) -> set[str]:
@@ -122,6 +128,42 @@ def branch_done_codes(base: str, known: set[str]) -> set[str]:
     commits = drv.git_log(str(REPO_ROOT), f"{base}..HEAD")
     done, _bare = drv.collect_delivery_signals(commits, known)
     return done
+
+
+def added_claim_codes(old: dict, new: dict) -> set[str]:
+    """本分支相对 base 新增的 claims 短号（DX-81 归因用，纯函数）。"""
+    return set(new.get("claims") or {}) - set(old.get("claims") or {})
+
+
+def branch_claim_doing_codes(base: str, head_ledger: dict) -> set[str]:
+    """本分支新增、且派生状态为 doing 的领用登记（DX-81 归因用）。
+
+    claims diff 以 `base` 的台账为基准；派生链与快照漂移判定同源
+    （derive_status / claims_doing / status_of），不重复实现状态推导。
+    任何一步取不到都返回空集：归因不了就维持红灯（fail-closed）。
+    """
+    if drv is None:
+        return set()
+    base_ledger = read_from_git(base, LEDGER_REL)
+    if base_ledger is None:
+        return set()
+    candidates = added_claim_codes(base_ledger, head_ledger)
+    if not candidates:
+        return set()
+    try:
+        cards = head_ledger.get("cards") or {}
+        baseline = head_ledger.get("baseline") or {}
+        claims = head_ledger.get("claims") or {}
+        root = str(REPO_ROOT)
+        derived, _unknown, _warnings = drv.derive_status(root, set(cards))
+        main_ref = drv.resolve_main_ref(root)
+        claims_active, _notes = drv.claims_doing(root, claims, main_ref)
+        return {
+            code for code in candidates
+            if drv.status_of(code, derived, claims_active, baseline) == "doing"
+        }
+    except Exception:
+        return set()
 
 
 def snapshot_drift_codes() -> set[str]:
@@ -276,15 +318,31 @@ def main(argv: list[str] | None = None) -> int:
 
     code = run_derive()
     if code != 0:
-        # DX-64 归因：漂移若能被**本分支自身**的 #卡=done 标记完整解释，说明快照
+        # DX-64 + DX-81 归因：漂移若能被**本分支自身**的动作完整解释，说明快照
         # 落后是分支中间态的必然（快照在合入收尾时才由 git-done 统一刷新），
-        # 降为提示；与分支无关的真漂移照旧红灯。
+        # 降为提示。可解释的证据有两路：本分支的 #卡=done 标记（DX-64）、
+        # 本分支新增且派生为 doing 的领用登记（DX-81）；其余漂移照旧红灯。
         head_ledger = read_from_git("HEAD", LEDGER_REL) or {}
         drift = snapshot_drift_codes()
         done = branch_done_codes(args.base, set(head_ledger.get("cards") or {}))
-        if drift_explained(drift, done):
-            print("  · 快照漂移（%s）可被本分支自身 #卡=done 标记完整解释（DX-64）："
-                  "合入收尾时由 git-done 收敛，降为提示" % "、".join(sorted(drift)))
+        claims_doing = branch_claim_doing_codes(args.base, head_ledger)
+        if drift_explained(drift, done, claims_doing):
+            done_part = sorted(drift & done)
+            claim_part = sorted(drift & claims_doing)
+            if done_part and claim_part:
+                reason = "本分支 #卡=done 标记（DX-64）与新增领用 doing（DX-81）"
+            elif done_part:
+                reason = "本分支 #卡=done 标记（DX-64）"
+            else:
+                reason = "本分支新增领用 doing（DX-81）"
+            detail = []
+            if done_part:
+                detail.append("done：" + "、".join(done_part))
+            if claim_part:
+                detail.append("claims doing：" + "、".join(claim_part))
+            print("  · 快照漂移（%s）可被%s完整解释（%s）："
+                  "合入收尾时由 git-done 收敛，降为提示"
+                  % ("、".join(sorted(drift)), reason, "；".join(detail)))
             return 0
         print("  派生快照与 git 历史 / 台账不一致：先跑 derive_board_status.py --write 补推")
         return 1
@@ -389,6 +447,22 @@ def selftest() -> int:
           drift_explained({"DX-9"}, {"DX-9", "DX-8"})
           and not drift_explained(set(), {"DX-9"})
           and not drift_explained({"DX-9", "DX-7"}, {"DX-9"}))
+
+    # DX-81 归因：本分支新增的 claims 登记（派生 doing）也能解释漂移
+    base_claims = ledger(claims={})
+    head_claims = ledger(claims={"DX-9": {"branch": "fix/x"}})
+    check("claims 归因：新增 claim 被识别",
+          added_claim_codes(base_claims, head_claims) == {"DX-9"})
+    check("claims 归因：基线已有 claim 不算本分支新增",
+          added_claim_codes(head_claims, head_claims) == set())
+    check("claims 归因：漂移全被新增 claims 解释 → 降级",
+          drift_explained({"DX-9"}, set(), {"DX-9"}))
+    check("claims 反例：无 claims 的 doing 漂移 → 仍红灯",
+          not drift_explained({"DX-9"}, set(), set()))
+    check("混合归因：done + claims 共同解释 → 降级",
+          drift_explained({"DX-8", "DX-9"}, {"DX-9"}, {"DX-8"}))
+    check("混合归因反例：混入与分支无关的漂移 → 仍红灯",
+          not drift_explained({"DX-7", "DX-9"}, {"DX-9"}, {"DX-8"}))
 
     # DX-71：基点落后归因 —— 对账基准换成 merge-base，而不是放行
     mb_l = ledger({"DX-1": card("DX-1")}, {"DX-1": "done"}, {})

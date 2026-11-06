@@ -1,0 +1,13 @@
+{
+  "card": "R19-1",
+  "sha256": "e7aba9de12677792a33f5d0d5a55ddf5539f675a7aee608cbfcc41bb801a06a1",
+  "authorizedBy": "维护者会话授权（2026-11-06「行吧，就这么办吧」+「授权」）",
+  "form": "docs/card-requests/20261106-workflow-retro-step.md",
+  "registeredAt": "2026-11-06T14:59:15+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R19-1",
+    "sha": "43f35332d95f9cefba5b5fc81d2df1a0ac3c07dc"
+  }
+}

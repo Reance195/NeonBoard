@@ -238,7 +238,8 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "R19-1": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5205,6 +5206,33 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "R19-1": {
+            "acceptance": [
+                "ctest --test-dir build -C Release -R \"tst_workflowpresets|tst_workflow\" --output-on-failure 通过，新增用例覆盖：TaskExec::isKnownRole 认识 retro、六条内置预设角色序在 qa 之后插入 retro（两处 presetSteps/builtinPresets 断言一致）、小规模裁剪可裁 retro 且 isProtectedRole 不含 retro",
+                "WorkflowRunner 用例：retro 步 prompt 含三段式交付物要求（问题清单/根因/程序化对策）、retro handoff 落盘 .neonboard/handoff/<task>/retro.md、链失败时 retro 仍执行且其失败只告警不改变链 failed 结论（fail-soft）",
+                "buildSummary 产出含「复盘结论」段并引用 retro handoff 路径（纯函数断言）",
+                "build/Release/NeonBoard.exe --selftest 退出码 0",
+                "pwsh -File scripts/verify.ps1 全量通过"
+            ],
+            "author": "agent-retro",
+            "depends": [
+                "R7-04"
+            ],
+            "evidence": "2026-11-06 维护者会话。现状：角色链（R7-03/04）所有预设到 qa / orchestrator 为止，链失败即 fail-fast 收口，orchestrator 的 summary 只有一句「回到 engineer 重跑」；执行过程中碰到的问题不落任何结构化产物，下次同类任务还会踩。维护者要求让 agent 干完活后自省、并把问题沉淀为程序化对策（对应 AGENTS.md Z6「踩坑两次沉淀成机器判据」）。",
+            "id": "R19-1",
+            "note": "",
+            "scope": [
+                "src/agent/WorkflowPresets.cpp",
+                "src/agent/WorkflowPresets.h",
+                "src/agent/WorkflowRunner.cpp",
+                "src/agent/WorkflowRunner.h",
+                "src/task/TaskExec.cpp",
+                "src/task/TaskExec.h",
+                "tests/"
+            ],
+            "stage": "R19",
+            "title": "workflow 新增 retro 复盘步骤：agent 干完活后自省并沉淀程序化对策"
         }
     },
     "claims": {

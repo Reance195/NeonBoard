@@ -244,7 +244,9 @@
         "R9-04": "done",
         "R9-05": "done",
         "DX-113": "todo",
-        "DX-115": "todo"
+        "DX-115": "todo",
+        "DX-111": "todo",
+        "DX-112": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5348,6 +5350,42 @@
             ],
             "stage": "DX",
             "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移"
+        },
+        "DX-111": {
+            "acceptance": [
+                "台账支持弃单终态（建议 baseline=abandoned，命名实现时定）：弃单卡 agent-init 拒领（退出码明确）、派生器 --check 不再对它报漂移、--close-cards 不误碰；弃单结案走 chore(board) 人工授权行通道（baseline-only），自动来源行不适用；task_gate selftest 增用例：弃单结案放行，冒充弃单改定义拒绝；存量弃单卡 DX-43、R0-12 经维护者确认后按新终态结案，提交体带授权与批次两行；python scripts/task_gate.py selftest 与 python scripts/derive_board_status.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-flowguard",
+            "depends": [],
+            "evidence": "DX-43 note 已记弃单（nbflow 让位）仍挂 todo 可被重领；R0-12 弃卡处置 2026-11-06 已获维护者批准但无通道执行；DX-62 同款「可被重复领用」风险的弃单变体——交付型漂移已有 DX-62 兜，弃单型滞留无人管",
+            "id": "DX-111",
+            "note": "",
+            "scope": [
+                "scripts/agent-init.ps1",
+                "scripts/derive_board_status.py",
+                "scripts/task_gate.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用"
+        },
+        "DX-112": {
+            "acceptance": [
+                "nbflow 立卡工作区回收失败（如 Permission denied）自动重试至少 2 次，仍失败落显式待回收记录（state.json 或 receipts），status 点名，不再只打一行「不影响主线」；agent-workspace.ps1 -Action Check 点名 .worktrees/ 下未注册目录与根下散落产物（dx61-verify.log 类），当前 main 上 agent-dx35、dx41、dx42、dx47-close、agent-memrev 全部被点名；点名只报告不删除（§7.10 回收由人拍板）；.gitignore 点名 .worktrees/*.log；python scripts/nbflow.py --selftest 全过（回收重试用例入自测），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-flowguard",
+            "depends": [],
+            "evidence": "2026-11-06 会话实录：nbflow approve 收尾 worktree remove Permission denied 静默降级，_nbflow-board-2026-11-06 目录与 chore/board-2026-11-06 分支残留；.worktrees/ 下 5 个未注册目录（agent-dx35/dx41/dx42/dx47-close/agent-memrev）与 dx61-verify*.log 靠人肉 ls 发现。与 DX-66（开区半途回滚）、DX-109（分支删除判据）互补，本卡只管回收侧追踪与体检点名",
+            "id": "DX-112",
+            "note": "",
+            "scope": [
+                "scripts/nbflow.py",
+                "scripts/agent-workspace.ps1",
+                ".gitignore",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现"
         }
     },
     "claims": {},

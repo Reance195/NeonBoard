@@ -30,6 +30,8 @@ Item {
     property string subtitleText: ""
     // 底部左侧的额外按钮区（危险操作等），由调用方给一个 Component
     property Component footerExtra: null
+    // 底部右侧的主操作区（右对齐，与 DialogShell 的底栏纪律一致）
+    property Component footerAction: null
     // 左侧固定分页导航（给了就占体区左侧一列）
     property Component navRail: null
 
@@ -61,6 +63,16 @@ Item {
         color: Theme.panelSolid
         border.width: 1
         border.color: Theme.border
+
+        // 挡点击穿透：遮罩铺满整个根，头部 / 底部的空白处若不挡，
+        // 点下去会落到遮罩上误触发 closeRequested（点标题文字就关抽屉）。
+        // 这里吃掉左键点击但不做事；声明在最前 = z 序最底，
+        // 头 / 体 / 底里的控件仍照常收事件。
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.ArrowCursor
+            onClicked: {}
+        }
 
         // 头（固定）
         Item {
@@ -168,7 +180,10 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    contentWidth: availableWidth
+                    // 用 Flickable 自身的 width，不用布局的 availableWidth ——
+                    // 后者只有当本项确实在布局里才存在，首帧求值时会抛
+                    // ReferenceError（availableWidth is not defined）。
+                    contentWidth: width
                     contentHeight: bodyColumn.implicitHeight + Theme.dialogPadding * 2
                     boundsBehavior: Flickable.StopAtBounds
 
@@ -180,7 +195,7 @@ Item {
                         id: bodyColumn
                         x: 0
                         y: Theme.dialogPadding
-                        width: bodyFlick.availableWidth
+                        width: bodyFlick.width
                         spacing: Theme.spacingMd
                     }
                 }
@@ -190,7 +205,7 @@ Item {
         // 底（固定，没有额外按钮时不占位）
         Item {
             id: footer
-            visible: drawer.footerExtra !== null
+            visible: drawer.footerExtra !== null || drawer.footerAction !== null
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
@@ -204,10 +219,18 @@ Item {
 
                 Loader {
                     Layout.alignment: Qt.AlignVCenter
+                    visible: drawer.footerExtra !== null
                     sourceComponent: drawer.footerExtra
                 }
 
                 Item { Layout.fillWidth: true }
+
+                // 右侧主操作：与 DialogShell 底栏同一纪律（右对齐）
+                Loader {
+                    Layout.alignment: Qt.AlignVCenter
+                    visible: drawer.footerAction !== null
+                    sourceComponent: drawer.footerAction
+                }
             }
         }
     }

@@ -37,8 +37,12 @@ Dialog {
     property string secondaryText: ""
     property bool primaryEnabled: true
     property bool secondaryEnabled: true
+    // 底栏左侧的说明文字（固定在底栏，不随正文滚动）
+    property string footerNote: ""
     // 底部左侧的额外按钮区（危险操作等），由调用方给一个 Component
     property Component footerExtra: null
+    // 头部右侧的额外控件（结论徽章、暂停键等），由调用方给一个 Component
+    property Component headerExtra: null
     // 左侧固定分页导航（设置面板用）：给了就占体区左侧一列
     property Component navRail: null
     // 体滚动区的最大高度（超出则体滚动，头与底仍固定）
@@ -115,6 +119,13 @@ Dialog {
                     }
                 }
 
+                // 头部右侧的额外控件（结论徽章 / 暂停键等）
+                Loader {
+                    Layout.alignment: Qt.AlignVCenter
+                    visible: shell.headerExtra !== null
+                    sourceComponent: shell.headerExtra
+                }
+
                 // 关闭键：统一右上角，hover 变危险色
                 Rectangle {
                     Layout.preferredWidth: 26
@@ -186,7 +197,10 @@ Dialog {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    contentWidth: availableWidth
+                    // 用 Flickable 自身的 width，不用布局的 availableWidth ——
+                    // 后者只有当本项确实在布局里才存在，首帧求值时会抛
+                    // ReferenceError（availableWidth is not defined）。
+                    contentWidth: width
                     contentHeight: bodyColumn.implicitHeight + Theme.dialogPadding * 2
                     boundsBehavior: Flickable.StopAtBounds
 
@@ -198,7 +212,7 @@ Dialog {
                         id: bodyColumn
                         x: 0
                         y: Theme.dialogPadding
-                        width: bodyFlick.availableWidth
+                        width: bodyFlick.width
                         spacing: Theme.spacingMd
                     }
                 }
@@ -226,7 +240,16 @@ Dialog {
                     sourceComponent: shell.footerExtra
                 }
 
-                Item { Layout.fillWidth: true }
+                // 底栏说明：空串时不占视觉，但仍然吃掉剩余宽度，
+                // 于是右边的次操作 / 主操作恒定右对齐。
+                Text {
+                    Layout.fillWidth: true
+                    text: shell.footerNote
+                    color: Theme.muted
+                    font.pixelSize: Theme.fontMicro
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignVCenter
+                }
 
                 TopToolButton {
                     visible: shell.secondaryText.length > 0

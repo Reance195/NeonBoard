@@ -96,6 +96,7 @@
         "DX-95": "done",
         "DX-96": "todo",
         "DX-97": "done",
+        "DX-98": "done",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -221,8 +222,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-98": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -2043,6 +2043,30 @@
             ],
             "stage": "DX",
             "title": "卡片快捷动作按钮点击失效：整卡 MouseArea 吞掉 press"
+        },
+        "DX-98": {
+            "acceptance": [
+                "立卡只能通过 python scripts/register_board_cards.py --form … --authorized-by … 完成：五段式表单校验、git 通用目录跨 worktree 锁内发号 max+1、生成含卡片规范 JSON sha256 的回执 docs/card-requests/registered/<短号>.json，写盘后 derive --write/--check 自校验",
+                "手工通道关闭：commit-msg 阶段新增卡无回执或哈希不符即拒绝（task_gate），git-done 自动结卡通道（仅 baseline、自动来源）不受影响",
+                "task_gate.py --selftest 覆盖回执三态（有回执通过/缺回执拒绝/哈希篡改拒绝），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
+                "AGENTS.md 立卡条款改写为程序唯一入口并同步提交拆分指引，docs/pitfalls.md 收录 DX-74/96 卡号竞态证据",
+                "端到端：本卡即由程序立卡，实现分支提交 #DX-98=done 经 git-done 合并，收尾 Board run 绿"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [],
+            "evidence": "DX-74/DX-96 实测：立卡靠手工改 board-ledger.json，卡号=扫描时点 max+1、无预占机制，commit 落到 origin/main 前号都不算数；DX-74 被两个会话先后使用（本会话立卡未及推送，并发会话用同号立了另一张卡并已结卡）。授权链也只靠提交信息里的「授权：/批次：」两行自证，无机器可校验的凭证。",
+            "id": "DX-98",
+            "note": "",
+            "scope": [
+                "scripts/register_board_cards.py",
+                "scripts/task_gate.py",
+                "scripts/check_scope.py",
+                "scripts/verify.ps1",
+                "docs/pitfalls.md",
+                "AGENTS.md"
+            ],
+            "stage": "DX",
+            "title": "立卡程序化：register_board_cards.py 唯一入口 + 回执闸门关闭手工改台账通道"
         },
         "M01": {
             "acceptance": [
@@ -4768,30 +4792,6 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-98": {
-            "acceptance": [
-                "立卡只能通过 python scripts/register_board_cards.py --form … --authorized-by … 完成：五段式表单校验、git 通用目录跨 worktree 锁内发号 max+1、生成含卡片规范 JSON sha256 的回执 docs/card-requests/registered/<短号>.json，写盘后 derive --write/--check 自校验",
-                "手工通道关闭：commit-msg 阶段新增卡无回执或哈希不符即拒绝（task_gate），git-done 自动结卡通道（仅 baseline、自动来源）不受影响",
-                "task_gate.py --selftest 覆盖回执三态（有回执通过/缺回执拒绝/哈希篡改拒绝），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
-                "AGENTS.md 立卡条款改写为程序唯一入口并同步提交拆分指引，docs/pitfalls.md 收录 DX-74/96 卡号竞态证据",
-                "端到端：本卡即由程序立卡，实现分支提交 #DX-98=done 经 git-done 合并，收尾 Board run 绿"
-            ],
-            "author": "maintainer-session-2026-11-06",
-            "depends": [],
-            "evidence": "DX-74/DX-96 实测：立卡靠手工改 board-ledger.json，卡号=扫描时点 max+1、无预占机制，commit 落到 origin/main 前号都不算数；DX-74 被两个会话先后使用（本会话立卡未及推送，并发会话用同号立了另一张卡并已结卡）。授权链也只靠提交信息里的「授权：/批次：」两行自证，无机器可校验的凭证。",
-            "id": "DX-98",
-            "note": "",
-            "scope": [
-                "scripts/register_board_cards.py",
-                "scripts/task_gate.py",
-                "scripts/check_scope.py",
-                "scripts/verify.ps1",
-                "docs/pitfalls.md",
-                "AGENTS.md"
-            ],
-            "stage": "DX",
-            "title": "立卡程序化：register_board_cards.py 唯一入口 + 回执闸门关闭手工改台账通道"
         }
     },
     "claims": {},

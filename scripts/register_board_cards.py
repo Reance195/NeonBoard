@@ -14,7 +14,11 @@
      JSON 的 sha256 —— task_gate 在 commit-msg 阶段核对，无回执 / 哈希不符的新增卡
      一律拒绝，手工改台账的立卡通道就此关闭；
   3. 凭证：授权来源必须经 --authorized-by 显式传入并写入回执，杜绝口头免责；
-  4. 一致性：写盘后立即 derive --write 刷快照并 --check 校验，立卡提交自带绿灯。
+  4. 一致性：写盘后立即 derive --write 刷快照并 --check 校验，立卡提交自带绿灯；
+  5. 陌生 stage 的路线图行（DX-110）：stage 首次出现时，程序自己把
+     `docs/iteration-roadmap.md` §9 的里程碑行写进工作区并列入立卡提交指引，
+     不再让立卡会话手工补行 —— 锚点区 pre-commit 禁 main 提交，手工补的那行
+     永远入不了库，会把锚点快进（git-done 的 Sync-AnchorWorktree）永久卡住。
 
 用法：
   python scripts/register_board_cards.py --form docs/card-requests/20261106-dx-97.md \
@@ -39,6 +43,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 LEDGER_REL = "docs/board-ledger.json"
+ROADMAP_REL = "docs/iteration-roadmap.md"
 RECEIPT_DIR_REL = "docs/card-requests/registered"
 REQUIRED_META = ("title", "stage", "scope", "acceptance", "evidence", "author")
 FORM_SECTIONS = ("目标", "验收", "边界", "输入", "产出")
@@ -138,6 +143,74 @@ def build_card(meta, code):
         "stage": meta["stage"],
         "title": meta["title"],
     }
+
+
+def _roadmap_cell(value, limit=120):
+    """表格单元格：压成单行、去掉会破列的竖线、限长。"""
+    text = " ".join(str(value).split())
+    return text.replace("|", "／")[:limit]
+
+
+def roadmap_stage_rows(text):
+    """解析 §9 里程碑表，返回 [(行下标, stage)]。
+
+    与 src/board/ProjectMap.cpp 的 readRoadmap 同口径：只认「## 9」段内、第二格
+    整格加粗（| **R0** | … |）的行，表头 / 分隔行 / 说明行一律跳过。
+    """
+    rows = []
+    in_section = False
+    for i, raw in enumerate(text.replace("\r\n", "\n").split("\n")):
+        line = raw.strip()
+        if line.startswith("## "):
+            in_section = line.startswith("## 9")
+            continue
+        if not in_section or not line.startswith("|"):
+            continue
+        cells = line.split("|")
+        if len(cells) < 6:
+            continue
+        stage_cell = cells[1].strip()
+        if not (stage_cell.startswith("**") and stage_cell.endswith("**")):
+            continue
+        stage = stage_cell.strip("*").strip().upper()
+        if stage:
+            rows.append((i, stage))
+    return rows
+
+
+def roadmap_has_stage(text, stage):
+    want = stage.strip().upper()
+    return any(s == want for _, s in roadmap_stage_rows(text))
+
+
+def build_roadmap_row(meta, code):
+    """为新 stage 生成一行 §9 里程碑（列数/加粗形态须过 readRoadmap）。"""
+    stage = _roadmap_cell(meta["stage"], 16).replace("*", "")
+    title = _roadmap_cell(meta["title"], 90)
+    topic = title.split("：", 1)[0][:24] or stage
+    raw = meta.get("acceptance", "")
+    items = raw if isinstance(raw, list) else split_list(raw)
+    exit_std = _roadmap_cell(items[0], 120) if items else "见卡片验收项"
+    return "| **%s** | %s | %s | %s | **待办**：%s 已立卡，待实现 |" % (
+        stage, topic, title, exit_std, code)
+
+
+def insert_roadmap_row(text, row, stage):
+    """把行插到 §9 表格最后一行之后；该 stage 已有行则原样返回（幂等）。
+
+    返回 (新文本, 是否插入)。找不到表格返回 (原文本, False)，由调用方报错 ——
+    宁可 fail-closed，也不往猜错的位置写。行尾沿用原文件（本仓库为 LF）。
+    """
+    if roadmap_has_stage(text, stage):
+        return text, False
+    eol = "\r\n" if "\r\n" in text else "\n"
+    lines = text.splitlines()
+    rows = roadmap_stage_rows(text)
+    if not rows:
+        return text, False
+    lines.insert(rows[-1][0] + 1, row)
+    tail = eol if text.endswith(("\n", "\r")) else ""
+    return eol.join(lines) + tail, True
 
 
 def canonical_hash(card):
@@ -245,6 +318,33 @@ def selftest():
     check("模式解析：台账缺省回退 remote", resolve_mode(None, None) == "remote")
     check("模式解析：非法值返回 None", resolve_mode(None, "yolo") is None)
 
+    # 陌生 stage 的 roadmap 行（DX-110）：只认 §9 表里第二格整格加粗的行
+    sample = ("# 路线图\n"
+              "## 8. 明确不做\n"
+              "| **R8** | 假行 | 不该被算进 §9 | - | - |\n"
+              "## 9. 里程碑\n"
+              "| 版本 | 主题 | 内容 | 出口标准 | 进度 |\n"
+              "| --- | --- | --- | --- | --- |\n"
+              "| **R0** | 炫酷地基 | 剖析 | 热启动 | 完成 |\n"
+              "| **DX** | 开发体验 | 面板 | 打开即知 | 完成 |\n"
+              "\n### 9.1 R6 派发器\n")
+    stages = [s for _, s in roadmap_stage_rows(sample)]
+    check("roadmap 解析：只取 §9 段、跳过表头", stages == ["R0", "DX"])
+    check("roadmap 解析：已有 stage 幂等", roadmap_has_stage(sample, "dx"))
+    check("roadmap 解析：陌生 stage 未命中", not roadmap_has_stage(sample, "R19"))
+    meta = {"stage": "R19", "title": "执行链：复盘", "acceptance": ["验收一|含竖线;验收二"]}
+    row = build_roadmap_row(meta, "R19-1")
+    check("roadmap 行：第二格整格加粗且列数正确",
+          row.split("|")[1].strip() == "**R19**" and len(row.split("|")) == 7)
+    check("roadmap 行：表格竖线被转义", "|" not in row.split("|")[3])
+    new_text, inserted = insert_roadmap_row(sample, row, "R19")
+    check("roadmap 插入：陌生 stage 加在表格末行之后", inserted and
+          [s for _, s in roadmap_stage_rows(new_text)] == ["R0", "DX", "R19"])
+    same, again = insert_roadmap_row(new_text, row, "R19")
+    check("roadmap 插入：重复调用不重复加行", not again and same == new_text)
+    broken, no_rows = insert_roadmap_row("## 9. 里程碑\n没有表格\n", row, "R19")
+    check("roadmap 插入：找不到表格 fail-closed", not no_rows and broken.startswith("## 9"))
+
     failures = [n for n, ok in checks if not ok]
     for name, ok in checks:
         print("  %s %s" % ("✓" if ok else "✗", name))
@@ -299,7 +399,8 @@ def main(argv=None):
         die("numbering.mode 取值非法（只接受 remote|local），请修正台账或 --mode", 2)
     known_stages = {c.get("stage") for c in cards.values() if c.get("stage")}
     if stage not in known_stages and not args.allow_new_stage:
-        die("stage '%s' 是陌生取值（现有：%s）。确认 roadmap 有对应行后加 --allow-new-stage。"
+        die("stage '%s' 是陌生取值（现有：%s）。程序会自动把 §9 里程碑行并入立卡提交，"
+            "确认后加 --allow-new-stage。"
             % (stage, "、".join(sorted(x for x in known_stages if x)) or "<空>"))
 
     if args.dry_run:
@@ -307,6 +408,10 @@ def main(argv=None):
         card = build_card(meta, code)
         print("[立卡程序] dry-run（mode=%s）：将发号 %s" % (mode, code))
         print(json.dumps(card, ensure_ascii=False, indent=2))
+        if stage not in known_stages:
+            print("[立卡程序] dry-run：stage '%s' 首次出现，将把下列行写入 %s 并列入立卡提交："
+                  % (stage, ROADMAP_REL))
+            print(build_roadmap_row(meta, code))
         return 0
 
     if not args.authorized_by.strip():
@@ -386,6 +491,23 @@ def main(argv=None):
                   % (suggested, code))
 
         card = build_card(meta, code)
+
+        # DX-110：陌生 stage 的里程碑行由程序自己落盘，随立卡提交入库。先算插入结果，
+        # 找不到 §9 表格就 die —— 此时台账 / 回执都还没写盘，不留半截现场。
+        # 锁内重算 known_stages：并发立卡时别的机器可能刚把这个 stage 立起来。
+        roadmap_path = root / ROADMAP_REL
+        roadmap_text = roadmap_path.read_text(encoding="utf-8")
+        roadmap_new = roadmap_text
+        roadmap_added = False
+        locked_stages = {c.get("stage") for c in cards.values() if c.get("stage")}
+        if stage not in locked_stages:
+            row = build_roadmap_row(meta, code)
+            roadmap_new, roadmap_added = insert_roadmap_row(roadmap_text, row, stage)
+            if not roadmap_added:
+                die("无法在 %s 的 §9 里程碑表插入 stage '%s' 的行；"
+                    "请检查表格是否仍是 '| **阶段** | ... |' 形态"
+                    % (ROADMAP_REL, stage))
+
         digest = canonical_hash(card)
         receipt = {
             "card": code,
@@ -410,6 +532,12 @@ def main(argv=None):
         receipt_dir.mkdir(parents=True, exist_ok=True)
         (receipt_dir / ("%s.json" % code)).write_text(
             dump_receipt(receipt), encoding="utf-8")
+        if roadmap_added:
+            # newline=""：不让 Windows 把 LF 换成 CRLF（.gitattributes 固定 eol=lf）。
+            with open(roadmap_path, "w", encoding="utf-8", newline="") as fh:
+                fh.write(roadmap_new)
+            print("[立卡程序] 陌生 stage '%s'：已把 §9 里程碑行写入 %s（随立卡提交入库）"
+                  % (stage, ROADMAP_REL))
     finally:
         try:
             lock_path.unlink()
@@ -431,6 +559,11 @@ def main(argv=None):
                 % (" ".join(step), LEDGER_REL), 4)
 
     slug = code.lower()
+    form_rel = rel_to(root, form_path)
+    # 陌生 stage 的 roadmap 行并入**第一段** docs(board) 提交：docs/ 在任务闸门里是
+    # 杂务豁免路径。若塞进第二段 chore(board)，DX-51 的「改任务定义的提交不得
+    # 夹带流程路径之外的文件」会直接拒（连杂务白名单路径也算夹带）。
+    first_add = form_rel + ((" " + ROADMAP_REL) if roadmap_added else "")
     print(
         "\n下一步（commit-msg 会硬校验，两段提交缺一不可）：\n"
         "  git switch -c chore/board-%s\n"
@@ -441,10 +574,13 @@ def main(argv=None):
         "           -m \"授权：%s\" -m \"批次：%s\"\n"
         "  git switch main && git merge --no-ff chore/board-%s \\\n"
         "           -m \"merge: 合入 chore/board-%s\" && git push origin main\n"
-        % (slug, rel_to(root, form_path), code, LEDGER_REL,
+        % (slug, first_add, code, LEDGER_REL,
            RECEIPT_DIR_REL, code, code, args.authorized_by.strip(), code,
            slug, slug)
     )
+    if roadmap_added:
+        print("  · stage '%s' 的 §9 里程碑行已并入第一段 docs(board) 提交（docs 路径豁免）——"
+              "不要再手工往锚点工作区补行，那样会把 git-done 的锚点快进永久卡死。" % stage)
     return 0
 
 

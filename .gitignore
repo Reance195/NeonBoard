@@ -65,6 +65,9 @@ Makefile.*
 # Qoder Desktop 画布/额度报告产物（写到调用方 CWD）：
 # 同上，未忽略时锚点区永久带未跟踪文件，快进同步每次都被跳过
 .qoder-credits/
+# AtomCode 助手本地产物（memory-locks / artifacts / local，写到仓库根）：
+# 同上，未忽略时锚点区永久带未跟踪文件，快进同步每次都被跳过
+.atomcode/
 
 # ===== 运行时数据（本地数据库等）=====
 *.db

@@ -158,6 +158,8 @@
         "R11-06": "done",
         "R11-07": "done",
         "R11-10": "done",
+        "R11-11": "todo",
+        "R11-12": "todo",
         "R11-8": "done",
         "R11-9": "done",
         "R12-01": "done",
@@ -233,9 +235,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "R11-11": "todo",
-        "R11-12": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -3349,6 +3349,58 @@
             "stage": "R11",
             "title": "R11 界面重排 3/3：9 个自绘浮层迁移到统一壳 + 权限弹窗遮罩行为修正"
         },
+        "R11-11": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "qml/Main.qml 的 execQueueDialog 队列区有常驻表头行（列名固定在列表上方，列表滚动时表头不动）",
+                "qml/Main.qml 队列行 delegate 高度为 40（grep \"height: 40\" 在 execQueueDialog 段命中 1，grep \"height: 56\" 命中 0）",
+                "qml/Main.qml 队列容器高度按行数 × 40 预留（grep \"rows.length \\* 40\" 命中 1，grep \"rows.length \\* 62\" 命中 0）",
+                "README.md 与 docs/iteration-roadmap.md 的界面描述与实现一致（执行队列有固定表头、行高 40 px）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "R11-10"
+            ],
+            "evidence": "规格 docs/design/ui-relayout-spec.md §3.4 落位表 execQueueDialog 行写「lg 720；表头固定；队列行高统一 40 px」。R11-10 只迁了壳（lg 720 已落地），表头与行高两条子项没做：现状 qml/Main.qml:3697 队列行 delegate 写死 height: 56、qml/Main.qml:3672 容器按 rows.length * 62 + 16 预留、列表上方只有一条分隔线没有表头行，规格与实现不一致。",
+            "id": "R11-11",
+            "note": "",
+            "scope": [
+                "qml/Main.qml",
+                "README.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排收尾 1/2：执行队列补固定表头与 40 px 行高"
+        },
+        "R11-12": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "docs/design/ui-relayout-verify.md 存在且含 17 行界面核验记录（grep -c '^| [0-9][0-9] |' docs/design/ui-relayout-verify.md 输出 17），每行给出界面名 / 形态（居中弹窗或右侧抽屉）/ 壳宽 / 头固定 / 底固定 / 关闭行为",
+                "qml/components/PluginPermissionDialog.qml 的遮罩点击 / Esc / 右上角关闭键三条路径关闭后插件仍能再次触发权限请求（断言 pluginRuntime.missingPermissions(pluginId) 仍非空），三条路径各记一行进 ui-relayout-verify.md",
+                "未推送提交数在「有 upstream 且领先 N 个提交」时预览面板徽章显示 N、无 upstream 的仓库不显示徽章，两种情形记进 ui-relayout-verify.md",
+                "核验暴露的功能缺陷在本卡 scope 内修复，scope 外的缺陷如实写进 ui-relayout-verify.md 的「遗留问题」一节不掩盖",
+                "核验用的临时埋点不进交付物（git diff origin/main..HEAD -- qml/Main.qml 不含「临时埋点」字样）"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "R11-10"
+            ],
+            "evidence": "R11 三批（R11-8 / R11-9 / R11-10）落地后有三处只走代码没跑真实流程：①权限弹窗「误点遮罩后仍能再次触发权限请求」是本轮唯一的语义变更（规格 §3.5），实现上三条关闭路径都汇到 PluginPermissionDialog 的 onClosed → pluginRuntime.releasePermissionPrompt，但从未实测过；②规格第 2 批验收写「17 个界面逐个打开，头 / 底位置一致，Esc 与关闭键行为一致」，实际只程序化打开过 5 个（设置 / 外观 / 插件库 / 执行队列 / 新建任务），其余 12 个没验；③PreviewHub 的 unpushed 从 git status 的「# branch.ab +N」解析，只在干净仓库上跑过（恒为 0），非零路径未验证。本机无 Orca CLI、拿不到 GUI 截图，核验靠程序化埋点 + 应用日志取证。",
+            "id": "R11-12",
+            "note": "",
+            "scope": [
+                "qml/Main.qml",
+                "qml/components/PluginPermissionDialog.qml",
+                "qml/components/PreviewPanel.qml",
+                "src/board/PreviewHub.cpp",
+                "src/board/PreviewHub.h",
+                "docs/design/ui-relayout-verify.md",
+                "README.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排收尾 2/2：规格全量核验（权限弹窗流程 / 17 个界面逐个 / 未推送提交数）"
+        },
         "R11-8": {
             "acceptance": [
                 "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
@@ -5079,60 +5131,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "R11-11": {
-            "acceptance": [
-                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
-                "qml/Main.qml 的 execQueueDialog 队列区有常驻表头行（列名固定在列表上方，列表滚动时表头不动）",
-                "qml/Main.qml 队列行 delegate 高度为 40（grep \"height: 40\" 在 execQueueDialog 段命中 1，grep \"height: 56\" 命中 0）",
-                "qml/Main.qml 队列容器高度按行数 × 40 预留（grep \"rows.length \\* 40\" 命中 1，grep \"rows.length \\* 62\" 命中 0）",
-                "README.md 与 docs/iteration-roadmap.md 的界面描述与实现一致（执行队列有固定表头、行高 40 px）"
-            ],
-            "author": "maintainer-session-2026-11-06",
-            "depends": [
-                "R11-10"
-            ],
-            "evidence": "规格 docs/design/ui-relayout-spec.md §3.4 落位表 execQueueDialog 行写「lg 720；表头固定；队列行高统一 40 px」。R11-10 只迁了壳（lg 720 已落地），表头与行高两条子项没做：现状 qml/Main.qml:3697 队列行 delegate 写死 height: 56、qml/Main.qml:3672 容器按 rows.length * 62 + 16 预留、列表上方只有一条分隔线没有表头行，规格与实现不一致。",
-            "id": "R11-11",
-            "note": "",
-            "scope": [
-                "qml/Main.qml",
-                "README.md",
-                "docs/iteration-roadmap.md"
-            ],
-            "stage": "R11",
-            "title": "R11 界面重排收尾 1/2：执行队列补固定表头与 40 px 行高"
-        },
-        "R11-12": {
-            "acceptance": [
-                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
-                "docs/design/ui-relayout-verify.md 存在且含 17 行界面核验记录（grep -c '^| [0-9][0-9] |' docs/design/ui-relayout-verify.md 输出 17），每行给出界面名 / 形态（居中弹窗或右侧抽屉）/ 壳宽 / 头固定 / 底固定 / 关闭行为",
-                "qml/components/PluginPermissionDialog.qml 的遮罩点击 / Esc / 右上角关闭键三条路径关闭后插件仍能再次触发权限请求（断言 pluginRuntime.missingPermissions(pluginId) 仍非空），三条路径各记一行进 ui-relayout-verify.md",
-                "未推送提交数在「有 upstream 且领先 N 个提交」时预览面板徽章显示 N、无 upstream 的仓库不显示徽章，两种情形记进 ui-relayout-verify.md",
-                "核验暴露的功能缺陷在本卡 scope 内修复，scope 外的缺陷如实写进 ui-relayout-verify.md 的「遗留问题」一节不掩盖",
-                "核验用的临时埋点不进交付物（git diff origin/main..HEAD -- qml/Main.qml 不含「临时埋点」字样）"
-            ],
-            "author": "maintainer-session-2026-11-06",
-            "depends": [
-                "R11-10"
-            ],
-            "evidence": "R11 三批（R11-8 / R11-9 / R11-10）落地后有三处只走代码没跑真实流程：①权限弹窗「误点遮罩后仍能再次触发权限请求」是本轮唯一的语义变更（规格 §3.5），实现上三条关闭路径都汇到 PluginPermissionDialog 的 onClosed → pluginRuntime.releasePermissionPrompt，但从未实测过；②规格第 2 批验收写「17 个界面逐个打开，头 / 底位置一致，Esc 与关闭键行为一致」，实际只程序化打开过 5 个（设置 / 外观 / 插件库 / 执行队列 / 新建任务），其余 12 个没验；③PreviewHub 的 unpushed 从 git status 的「# branch.ab +N」解析，只在干净仓库上跑过（恒为 0），非零路径未验证。本机无 Orca CLI、拿不到 GUI 截图，核验靠程序化埋点 + 应用日志取证。",
-            "id": "R11-12",
-            "note": "",
-            "scope": [
-                "qml/Main.qml",
-                "qml/components/PluginPermissionDialog.qml",
-                "qml/components/PreviewPanel.qml",
-                "src/board/PreviewHub.cpp",
-                "src/board/PreviewHub.h",
-                "docs/design/ui-relayout-verify.md",
-                "README.md",
-                "docs/iteration-roadmap.md"
-            ],
-            "stage": "R11",
-            "title": "R11 界面重排收尾 2/2：规格全量核验（权限弹窗流程 / 17 个界面逐个 / 未推送提交数）"
         }
     },
-    "claims": {},
+    "claims": {
+        "R11-11": {
+            "agent": "agent-ui4",
+            "branch": "feature/r11-closeout",
+            "claimedAt": 1793973771,
+            "head": "e62c17222285357d824fe59e4bf62d1e54407ab7"
+        }
+    },
     "version": 1
 }

@@ -1756,3 +1756,10 @@
   EXIT 0、无收尾补推；main tip 因「标记 done / baseline todo」报红一次（眼睛 ✓），
   按提示补跑收尾即转绿。注入走运行时 PATH 而非改文件 —— git-done 拒脏树，
   改源码注入根本进不了收尾。
+- **实测（2026-11-06，DX-106 交付演练，同技巧复用）**：同一垫片注入后跑
+  `verify.ps1 -GitDoneDryRun`（派生器 exit 9，结卡与快照两步只告警）：
+  合并落本地 → 收尾两步告警跳过 → 合并+收尾单次推送桩成功 → EXIT 0、现场回滚干净。
+  无垫片的常规 `-GitDoneDryRun` 同轮通过：合并+收尾一次桩推送、结单对账、归位最后。
+  另记一个演练自身的坑：dry-run 撞合并冲突时**不会回滚现场**（冲突退出路径直接 exit 1，
+  留下 merge/<...> 临时分支与未合并状态），演练后要看一眼 `git status`，撞了就
+  `git merge --abort` + 删临时分支再继续。垫片留档：`.sandbox/artifacts/shim/python.cmd`。

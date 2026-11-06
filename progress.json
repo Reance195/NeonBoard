@@ -199,24 +199,6 @@
             "updatedAt": 1793911047
         },
         {
-            "code": "DX-99",
-            "completedAt": 0,
-            "createdAt": 1793935663,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-99",
-            "note": "",
-            "orderKey": 63488,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "agent 契约注入转义：含单引号的验收项不再让 .agent-env.ps1 语法报错",
-            "updatedAt": 1793935663
-        },
-        {
             "code": "DX-100",
             "completedAt": 0,
             "createdAt": 1793935664,
@@ -4188,6 +4170,24 @@
             "updatedAt": 1793932964
         },
         {
+            "code": "DX-99",
+            "completedAt": 1793974710,
+            "createdAt": 1793935663,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-99",
+            "note": "2026-11-06 交付：agent-init 生成 .agent-env.ps1 时对 NB_SCOPE / NB_ACCEPTANCE / NB_DEPENDS 统一经 Format-PsSingleQuoted 转义（单引号双写）。验证：临时仓库合成含单引号（rg 'z: 1'，与 DX-97 同形）、双引号、中文分号与环境变量的验收项，跑 agent-init 后生成的 .agent-env.ps1 经 PowerShell 7 Parser 0 错误、独立 pwsh dot-source 退出码 0、NB_ACCEPTANCE 与台账逐字一致（脚本比对）；真实 worktree 跑 pwsh -File scripts/verify.ps1 -ScriptOnly EXIT=0。",
+            "orderKey": 63488,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "agent 契约注入转义：含单引号的验收项不再让 .agent-env.ps1 语法报错",
+            "updatedAt": 1793974710
+        },
+        {
             "code": "R4-04",
             "completedAt": 1792856056,
             "createdAt": 1792654081,
@@ -4975,6 +4975,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T22:15:32",
+    "updated": "2026-11-06T22:18:30",
     "version": 3
 }

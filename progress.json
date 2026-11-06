@@ -343,6 +343,24 @@
             "updatedAt": 1793980568
         },
         {
+            "code": "DX-119",
+            "completedAt": 0,
+            "createdAt": 1793980819,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-119",
+            "note": "",
+            "orderKey": 82944,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9",
+            "updatedAt": 1793980819
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5137,6 +5155,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:56:08",
+    "updated": "2026-11-07T00:00:19",
     "version": 3
 }

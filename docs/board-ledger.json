@@ -22,7 +22,13 @@
         "DX-109": "done",
         "DX-11": "done",
         "DX-110": "todo",
+        "DX-111": "todo",
+        "DX-112": "todo",
+        "DX-113": "todo",
         "DX-114": "todo",
+        "DX-115": "todo",
+        "DX-116": "todo",
+        "DX-119": "todo",
         "DX-12": "done",
         "DX-13": "done",
         "DX-14": "done",
@@ -242,13 +248,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-113": "todo",
-        "DX-115": "todo",
-        "DX-111": "todo",
-        "DX-112": "todo",
-        "DX-116": "todo",
-        "DX-119": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -736,6 +736,65 @@
             "stage": "DX",
             "title": "锚点快进永久跳过：立卡 roadmap 行收进立卡提交，锚点同步脏文件判据与分类修正"
         },
+        "DX-111": {
+            "acceptance": [
+                "台账支持弃单终态（建议 baseline=abandoned，命名实现时定）：弃单卡 agent-init 拒领（退出码明确）、派生器 --check 不再对它报漂移、--close-cards 不误碰；弃单结案走 chore(board) 人工授权行通道（baseline-only），自动来源行不适用；task_gate selftest 增用例：弃单结案放行，冒充弃单改定义拒绝；存量弃单卡 DX-43、R0-12 经维护者确认后按新终态结案，提交体带授权与批次两行；python scripts/task_gate.py selftest 与 python scripts/derive_board_status.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-flowguard",
+            "depends": [],
+            "evidence": "DX-43 note 已记弃单（nbflow 让位）仍挂 todo 可被重领；R0-12 弃卡处置 2026-11-06 已获维护者批准但无通道执行；DX-62 同款「可被重复领用」风险的弃单变体——交付型漂移已有 DX-62 兜，弃单型滞留无人管",
+            "id": "DX-111",
+            "note": "",
+            "scope": [
+                "scripts/agent-init.ps1",
+                "scripts/derive_board_status.py",
+                "scripts/task_gate.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用"
+        },
+        "DX-112": {
+            "acceptance": [
+                "nbflow 立卡工作区回收失败（如 Permission denied）自动重试至少 2 次，仍失败落显式待回收记录（state.json 或 receipts），status 点名，不再只打一行「不影响主线」；agent-workspace.ps1 -Action Check 点名 .worktrees/ 下未注册目录与根下散落产物（dx61-verify.log 类），当前 main 上 agent-dx35、dx41、dx42、dx47-close、agent-memrev 全部被点名；点名只报告不删除（§7.10 回收由人拍板）；.gitignore 点名 .worktrees/*.log；python scripts/nbflow.py --selftest 全过（回收重试用例入自测），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-flowguard",
+            "depends": [],
+            "evidence": "2026-11-06 会话实录：nbflow approve 收尾 worktree remove Permission denied 静默降级，_nbflow-board-2026-11-06 目录与 chore/board-2026-11-06 分支残留；.worktrees/ 下 5 个未注册目录（agent-dx35/dx41/dx42/dx47-close/agent-memrev）与 dx61-verify*.log 靠人肉 ls 发现。与 DX-66（开区半途回滚）、DX-109（分支删除判据）互补，本卡只管回收侧追踪与体检点名",
+            "id": "DX-112",
+            "note": "",
+            "scope": [
+                "scripts/nbflow.py",
+                "scripts/agent-workspace.ps1",
+                ".gitignore",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现"
+        },
+        "DX-113": {
+            "acceptance": [
+                "check_board_diff.py 区分契约字段与交付说明：只改 cards[*].note 不判 full（维持 derive 档），改 stage/scope/acceptance 仍判 full（反例不破），分类逻辑抽纯函数进 --selftest",
+                "verify.ps1 -ScriptOnly 在「实现提交 + 交付说明提交」的最终分支态也 EXIT=0，端到端回归用例覆盖（造两提交分支跑轻档），不再靠挑时态",
+                "docs/task-card.md 与 AGENTS.md 写明交付说明的提交与验收档位口径（单独 docs(board) 提交、判哪一档、卡片验收项该写什么），消除 agent 自证空间",
+                "docs/pitfalls.md 记一条现象/根因/解法，点名 DX-94/DX-81/R11-11-12 三处同型",
+                "python scripts/check_board_diff.py --selftest 与 pwsh -File scripts/verify.ps1 -ScriptOnly 全绿，task_gate.py selftest 不回归"
+            ],
+            "author": "agent-dx94-retro / 维护者 2026-11-06 会话「立卡」批准",
+            "depends": [],
+            "evidence": "DX-94 交付实测：实现提交 8505f61（含 #DX-94=done）跑 check_board_diff.py --base origin/main 判 derive、-ScriptOnly EXIT=0；追加 docs(board): 补 DX-94 交付说明（540f9c9，仅改 cards[DX-94].note）后同一命令判 full、EXIT=2，verify.ps1 -ScriptOnly 直接 Fail「台账的 cards 结构有变化，-ScriptOnly 不足以验收」。为拿到轻档绿只能 detached 回实现提交跑，卡片 note 却只写「verify.ps1 -ScriptOnly EXIT=0」、未说明时态——验收口径不可机器复核。根因：check_board_diff.py:53 的 CARD_FIELDS 把 note 与 stage/title/scope/acceptance 同列，diff_cards 比整个 card dict，note 一变即判「改动既有卡片的契约」；但 note 是交付说明，不改 tst_projectmap 读的阶段/范围/roadmap 行，与契约字段不同权。同型非个例：DX-81（9ba62fd）、R11-11/12（1be772b）都把交付说明单独成 docs(board) 提交，靠各 agent 沿用惯例绕过，跑过哪一档无人可追溯。",
+            "id": "DX-113",
+            "note": "",
+            "scope": [
+                "scripts/check_board_diff.py",
+                "scripts/verify.ps1",
+                "docs/task-card.md",
+                "AGENTS.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "交付说明 note 提交被判「改契约」：full 档与 -ScriptOnly 验收口径分裂，agent 只能挑时态自证"
+        },
         "DX-114": {
             "acceptance": [
                 "三处越界探针全部收进语料边界：查重探针 stub 占用集事实源（ledger_card_ids/queued_card_ids/会话）或改用与生产号段隔离的自测卡段（如 TST-xx），投影补影探针 stub claim_refs 为空——断言不再依赖真仓库的台账/refs/活队列状态",
@@ -753,6 +812,60 @@
             ],
             "stage": "DX",
             "title": "nbflow selftest 探针越界读真仓库：占用集与 claim_refs 让语料卡号与生产事实撞车，并行环境下恒假红"
+        },
+        "DX-115": {
+            "acceptance": [
+                "nbflow approve 对新增卡的落盘步骤改走 register_board_cards.py（消费同一回执机制，Z5 单一写者），立卡提交含回执、commit-msg 放行；或按宪章显式退役 nbflow 立卡路径：request 保留（dedup/授权仍有效），approve 直接拒绝并打印 register_board_cards.py 指引，杜绝退出码 9 的暗失败",
+                "端到端实测任一方案：nbflow 侧发起一张演练请求，立卡最终合入 main 且 docs/card-requests/registered/ 出现对应回执",
+                "AGENTS.md 立卡条款与 nbflow 文档段同步实际口径（谁是唯一入口、另一个的角色）；pitfalls 记条目：同一职责出现两个程序时，闸门只认一个，另一个必须随闸门迁移或显式退役，不迁移不退役的第三个程序就是下一次的退出码 9"
+            ],
+            "author": "agent-dx75",
+            "depends": [
+                "DX-98"
+            ],
+            "evidence": "2026-11-06 agent-dx75 实录：nbflow request DX-112 → approve 两连拒，board-apply 在 fresh origin/main 检出的 chore worktree 里 git commit 被 commit-msg 拒（退出码 9）：『新增卡 DX-112 无立卡回执：手工改台账立卡通道已关闭（DX-97），只能用 register_board_cards.py』。DX-98（f99e483）落地后 task_gate 新增 receipt_problems 闸门，而 nbflow/board-apply 不产回执——两个立卡程序只被闸门认识一个，nbflow 的 request/dedup/授权机器全链变孤儿。DX-112 已 abandon 改走 register 正道（真实卡 DX-114 落地）。同一职责两个程序、闸门只认其一，另一个不迁移也不退役，Z5 现实版。",
+            "id": "DX-115",
+            "note": "",
+            "scope": [
+                "scripts/nbflow.py",
+                "AGENTS.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移"
+        },
+        "DX-116": {
+            "acceptance": [
+                "Push-Main 全部重试耗尽且单独推合并也失败时，不打印「✓ 合并完成」，改为打印失败总结（留在本地的 head 与下次合并的恢复指引），退出码非 0；回执 head 字段只记已落地的提交，推送失败时 head 置空或标 pushed=false，mergedInto 不写 origin/main，杜绝回执虚报；负测：打桩让两次推送均拒，断言无「合并完成」行且回执 head 为空，推送成功路径不回归（现有验收仍绿）；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-flowguard",
+            "depends": [],
+            "evidence": "2026-11-06 会话实录：chore/board-dx111-dx112 的合并提交 c016431 推送撞 non-ff、重试变基冲突 abort 后，git-done 继续打印「✓ 合并完成：chore/board-dx111-dx112 → origin/main」（git-done.ps1:1252 无条件打印）且回执记录 head=c016431/mergedInto=origin/main，而 c016431 从未成为 origin/main 祖先（ls-remote 实证），假成功让收尾失败静默漂移。与 DX-78（重试与检出归位）、DX-58（closed 字段诚实性）互补，本卡管「总结行与 head 字段按推送事实」",
+            "id": "DX-116",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印"
+        },
+        "DX-119": {
+            "acceptance": [
+                "nbflow approve --cards 能在 DX-98 闸门下完成立卡（回执由 approve 链路生成并随提交落库），全程不再依赖绕过；board-apply 的 task_gate/钩子拒绝输出透传到 approve 的可见输出（无缓冲吞没），失败可诊断；预演 --diff 与落盘口径一致（预演过闸 = 落盘过闸）；python scripts/nbflow.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent-flowguard",
+            "depends": [],
+            "evidence": "2026-11-06 会话实录：nbflow authorize/request 正常，approve 三连败——临时区里 board-apply --commit 的立卡提交被 commit-msg 钩子以「无立卡回执」拒绝（DX-98 的 f99e483 上线后），board-apply 把钩子 stderr 捕获后仅在自身退出路径打印，stdout 块缓冲把报错吞掉，nbflow 只见「立卡失败（退出码 9）」无法诊断；并行会话已全部改走 register_board_cards.py（DX-107~109 实录）。修法二选一：approve 内部改调 register_board_cards.py，或其立卡提交把回执一并生成入提交；无论哪种，board-apply 的钩子拒绝输出必须透传",
+            "id": "DX-119",
+            "note": "",
+            "scope": [
+                "scripts/nbflow.py",
+                "scripts/board-apply.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9"
         },
         "DX-12": {
             "acceptance": [
@@ -5308,128 +5421,8 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-113": {
-            "acceptance": [
-                "check_board_diff.py 区分契约字段与交付说明：只改 cards[*].note 不判 full（维持 derive 档），改 stage/scope/acceptance 仍判 full（反例不破），分类逻辑抽纯函数进 --selftest",
-                "verify.ps1 -ScriptOnly 在「实现提交 + 交付说明提交」的最终分支态也 EXIT=0，端到端回归用例覆盖（造两提交分支跑轻档），不再靠挑时态",
-                "docs/task-card.md 与 AGENTS.md 写明交付说明的提交与验收档位口径（单独 docs(board) 提交、判哪一档、卡片验收项该写什么），消除 agent 自证空间",
-                "docs/pitfalls.md 记一条现象/根因/解法，点名 DX-94/DX-81/R11-11-12 三处同型",
-                "python scripts/check_board_diff.py --selftest 与 pwsh -File scripts/verify.ps1 -ScriptOnly 全绿，task_gate.py selftest 不回归"
-            ],
-            "author": "agent-dx94-retro / 维护者 2026-11-06 会话「立卡」批准",
-            "depends": [],
-            "evidence": "DX-94 交付实测：实现提交 8505f61（含 #DX-94=done）跑 check_board_diff.py --base origin/main 判 derive、-ScriptOnly EXIT=0；追加 docs(board): 补 DX-94 交付说明（540f9c9，仅改 cards[DX-94].note）后同一命令判 full、EXIT=2，verify.ps1 -ScriptOnly 直接 Fail「台账的 cards 结构有变化，-ScriptOnly 不足以验收」。为拿到轻档绿只能 detached 回实现提交跑，卡片 note 却只写「verify.ps1 -ScriptOnly EXIT=0」、未说明时态——验收口径不可机器复核。根因：check_board_diff.py:53 的 CARD_FIELDS 把 note 与 stage/title/scope/acceptance 同列，diff_cards 比整个 card dict，note 一变即判「改动既有卡片的契约」；但 note 是交付说明，不改 tst_projectmap 读的阶段/范围/roadmap 行，与契约字段不同权。同型非个例：DX-81（9ba62fd）、R11-11/12（1be772b）都把交付说明单独成 docs(board) 提交，靠各 agent 沿用惯例绕过，跑过哪一档无人可追溯。",
-            "id": "DX-113",
-            "note": "",
-            "scope": [
-                "scripts/check_board_diff.py",
-                "scripts/verify.ps1",
-                "docs/task-card.md",
-                "AGENTS.md",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "title": "交付说明 note 提交被判「改契约」：full 档与 -ScriptOnly 验收口径分裂，agent 只能挑时态自证"
-        },
-        "DX-115": {
-            "acceptance": [
-                "nbflow approve 对新增卡的落盘步骤改走 register_board_cards.py（消费同一回执机制，Z5 单一写者），立卡提交含回执、commit-msg 放行；或按宪章显式退役 nbflow 立卡路径：request 保留（dedup/授权仍有效），approve 直接拒绝并打印 register_board_cards.py 指引，杜绝退出码 9 的暗失败",
-                "端到端实测任一方案：nbflow 侧发起一张演练请求，立卡最终合入 main 且 docs/card-requests/registered/ 出现对应回执",
-                "AGENTS.md 立卡条款与 nbflow 文档段同步实际口径（谁是唯一入口、另一个的角色）；pitfalls 记条目：同一职责出现两个程序时，闸门只认一个，另一个必须随闸门迁移或显式退役，不迁移不退役的第三个程序就是下一次的退出码 9"
-            ],
-            "author": "agent-dx75",
-            "depends": [
-                "DX-98"
-            ],
-            "evidence": "2026-11-06 agent-dx75 实录：nbflow request DX-112 → approve 两连拒，board-apply 在 fresh origin/main 检出的 chore worktree 里 git commit 被 commit-msg 拒（退出码 9）：『新增卡 DX-112 无立卡回执：手工改台账立卡通道已关闭（DX-97），只能用 register_board_cards.py』。DX-98（f99e483）落地后 task_gate 新增 receipt_problems 闸门，而 nbflow/board-apply 不产回执——两个立卡程序只被闸门认识一个，nbflow 的 request/dedup/授权机器全链变孤儿。DX-112 已 abandon 改走 register 正道（真实卡 DX-114 落地）。同一职责两个程序、闸门只认其一，另一个不迁移也不退役，Z5 现实版。",
-            "id": "DX-115",
-            "note": "",
-            "scope": [
-                "scripts/nbflow.py",
-                "AGENTS.md",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移"
-        },
-        "DX-111": {
-            "acceptance": [
-                "台账支持弃单终态（建议 baseline=abandoned，命名实现时定）：弃单卡 agent-init 拒领（退出码明确）、派生器 --check 不再对它报漂移、--close-cards 不误碰；弃单结案走 chore(board) 人工授权行通道（baseline-only），自动来源行不适用；task_gate selftest 增用例：弃单结案放行，冒充弃单改定义拒绝；存量弃单卡 DX-43、R0-12 经维护者确认后按新终态结案，提交体带授权与批次两行；python scripts/task_gate.py selftest 与 python scripts/derive_board_status.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
-            ],
-            "author": "agent-flowguard",
-            "depends": [],
-            "evidence": "DX-43 note 已记弃单（nbflow 让位）仍挂 todo 可被重领；R0-12 弃卡处置 2026-11-06 已获维护者批准但无通道执行；DX-62 同款「可被重复领用」风险的弃单变体——交付型漂移已有 DX-62 兜，弃单型滞留无人管",
-            "id": "DX-111",
-            "note": "",
-            "scope": [
-                "scripts/agent-init.ps1",
-                "scripts/derive_board_status.py",
-                "scripts/task_gate.py",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用"
-        },
-        "DX-112": {
-            "acceptance": [
-                "nbflow 立卡工作区回收失败（如 Permission denied）自动重试至少 2 次，仍失败落显式待回收记录（state.json 或 receipts），status 点名，不再只打一行「不影响主线」；agent-workspace.ps1 -Action Check 点名 .worktrees/ 下未注册目录与根下散落产物（dx61-verify.log 类），当前 main 上 agent-dx35、dx41、dx42、dx47-close、agent-memrev 全部被点名；点名只报告不删除（§7.10 回收由人拍板）；.gitignore 点名 .worktrees/*.log；python scripts/nbflow.py --selftest 全过（回收重试用例入自测），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
-            ],
-            "author": "agent-flowguard",
-            "depends": [],
-            "evidence": "2026-11-06 会话实录：nbflow approve 收尾 worktree remove Permission denied 静默降级，_nbflow-board-2026-11-06 目录与 chore/board-2026-11-06 分支残留；.worktrees/ 下 5 个未注册目录（agent-dx35/dx41/dx42/dx47-close/agent-memrev）与 dx61-verify*.log 靠人肉 ls 发现。与 DX-66（开区半途回滚）、DX-109（分支删除判据）互补，本卡只管回收侧追踪与体检点名",
-            "id": "DX-112",
-            "note": "",
-            "scope": [
-                "scripts/nbflow.py",
-                "scripts/agent-workspace.ps1",
-                ".gitignore",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现"
-        },
-        "DX-116": {
-            "acceptance": [
-                "Push-Main 全部重试耗尽且单独推合并也失败时，不打印「✓ 合并完成」，改为打印失败总结（留在本地的 head 与下次合并的恢复指引），退出码非 0；回执 head 字段只记已落地的提交，推送失败时 head 置空或标 pushed=false，mergedInto 不写 origin/main，杜绝回执虚报；负测：打桩让两次推送均拒，断言无「合并完成」行且回执 head 为空，推送成功路径不回归（现有验收仍绿）；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
-            ],
-            "author": "agent-flowguard",
-            "depends": [],
-            "evidence": "2026-11-06 会话实录：chore/board-dx111-dx112 的合并提交 c016431 推送撞 non-ff、重试变基冲突 abort 后，git-done 继续打印「✓ 合并完成：chore/board-dx111-dx112 → origin/main」（git-done.ps1:1252 无条件打印）且回执记录 head=c016431/mergedInto=origin/main，而 c016431 从未成为 origin/main 祖先（ls-remote 实证），假成功让收尾失败静默漂移。与 DX-78（重试与检出归位）、DX-58（closed 字段诚实性）互补，本卡管「总结行与 head 字段按推送事实」",
-            "id": "DX-116",
-            "note": "",
-            "scope": [
-                "scripts/git-done.ps1",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "title": "git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印"
-        },
-        "DX-119": {
-            "acceptance": [
-                "nbflow approve --cards 能在 DX-98 闸门下完成立卡（回执由 approve 链路生成并随提交落库），全程不再依赖绕过；board-apply 的 task_gate/钩子拒绝输出透传到 approve 的可见输出（无缓冲吞没），失败可诊断；预演 --diff 与落盘口径一致（预演过闸 = 落盘过闸）；python scripts/nbflow.py --selftest 全过，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
-            ],
-            "author": "agent-flowguard",
-            "depends": [],
-            "evidence": "2026-11-06 会话实录：nbflow authorize/request 正常，approve 三连败——临时区里 board-apply --commit 的立卡提交被 commit-msg 钩子以「无立卡回执」拒绝（DX-98 的 f99e483 上线后），board-apply 把钩子 stderr 捕获后仅在自身退出路径打印，stdout 块缓冲把报错吞掉，nbflow 只见「立卡失败（退出码 9）」无法诊断；并行会话已全部改走 register_board_cards.py（DX-107~109 实录）。修法二选一：approve 内部改调 register_board_cards.py，或其立卡提交把回执一并生成入提交；无论哪种，board-apply 的钩子拒绝输出必须透传",
-            "id": "DX-119",
-            "note": "",
-            "scope": [
-                "scripts/nbflow.py",
-                "scripts/board-apply.py",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9"
         }
     },
-    "claims": {
-        "R19-1": {
-            "agent": "agent-r19",
-            "branch": "feature/workflow-retro-step",
-            "claimedAt": 1793977827,
-            "head": "caaad1213663ab4d0c8003014deb3f19bcbf7ce7"
-        }
-    },
+    "claims": {},
     "version": 1
 }

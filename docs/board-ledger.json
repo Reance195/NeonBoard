@@ -229,7 +229,8 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "DX-106": "todo"
     },
     "cards": {
         "DX-01": {
@@ -4955,6 +4956,30 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "DX-106": {
+            "acceptance": [
+                "git-done 对 main 恰 1 次 push：合并+清理/结卡/快照全部本地提交后一次推（verify 推送点断言改为恰 1），Board 每批收尾恰 1 个 run 且落点必为自洽 tip",
+                "fail-soft 重排有明确机制：收尾步骤失败时合并交付不被永久阻塞（如失败即先单独推合并再终止并告警），PATH 垫片注入演练复用 DX-96 技巧留档",
+                "non-ff 撞车重试保留且集中，变基冲突整体回滚不留半套",
+                "真实端到端 + fail-soft 演练全绿，derive --check 绿",
+                "AGENTS.md §7.3/§11.2-8 与 pitfalls 1.26 口径同步，DX-44 沉降按实测降级为纯双保险或移除"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "DX-96"
+            ],
+            "evidence": "DX-44 沉降是时序启发式（job 首步 sleep 30s），「job 比推送间隔久」靠余量维持：DX-96 演练实测手工锚点操作两推间隔 54s 已超 job ~40s，中间 run 先跑完按 failure 结算、无法再取消——漏发窗口缩到每批 1 次（仅合并）但未归零。唯一结构性归零途径是合并+清理/结卡/快照全合成一次 push：GitHub 只对 push 事件建 run，一次 push 仅在最终 tip 建 1 个 run，天然自洽、零中间态、不依赖任何时序余量。代价：合并交付与收尾耦合，DX-96 的「结卡失败不挡合并交付」fail-soft 语义必须重排并有替代机制。",
+            "id": "DX-106",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/verify.ps1",
+                "docs/pitfalls.md",
+                "AGENTS.md"
+            ],
+            "stage": "DX",
+            "title": "收尾零中间态：合并+收尾合成单次 push（A2b），fail-soft 语义重排"
         }
     },
     "claims": {},

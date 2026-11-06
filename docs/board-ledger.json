@@ -14,6 +14,7 @@
         "DX-101": "todo",
         "DX-102": "todo",
         "DX-103": "done",
+        "DX-104": "done",
         "DX-11": "done",
         "DX-12": "done",
         "DX-13": "done",
@@ -227,8 +228,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-104": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -530,6 +530,29 @@
             ],
             "stage": "DX",
             "title": "发号跨机闭环：refs/registrations 服务端占位（原子 test-and-set）+ 换号重试"
+        },
+        "DX-104": {
+            "acceptance": [
+                "占位 sha 改为工具用 commit-tree 直造的唯一 off-main 空提交（免钩子，parent=HEAD，微秒时间戳保证唯一）：ref 尖端不在任何主线历史里，任何人的 HEAD 都不可能是它的后代，异 sha 重推必因 non-fast-forward 被拒，plain push 即严格仅创建，不依赖 force-with-lease 语义",
+                "回执 reservation.sha 记录该占位提交",
+                "--selftest 6 例仍全绿，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
+                "pre-push 钩子对 refs/registrations/* 豁免「必须已合并 main」判定（与 refs/claims 同类：服务端占用 ref 非分支推送），占位推送直达 origin",
+                "端到端：本卡即经修复版程序立卡（DX-104），origin 占位 refs/registrations/DX-104 指向 off-main 唯一提交，#DX-104=done 合并后 derive --check 绿"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "DX-103"
+            ],
+            "evidence": "DX-103 的占位指向注册时的 HEAD（主线历史提交）。实测发现洞：另一机器的 HEAD 只要是该提交在主线上的后代，plain push 即可快进顶掉占位而不被拒（本会话验证时占位 ref 被 HEAD 从 5298db1 快进到 ac10c63）——test-and-set 的「已存在必拒」失效，跨机竞态窗口重新打开。",
+            "id": "DX-104",
+            "note": "",
+            "scope": [
+                "scripts/register_board_cards.py",
+                ".githooks/pre-push",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "占位防顶掉：refs/registrations 指向唯一 off-main 空提交，异 sha 重推必 non-FF 被拒"
         },
         "DX-11": {
             "acceptance": [
@@ -4906,29 +4929,6 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-104": {
-            "acceptance": [
-                "占位 sha 改为工具用 commit-tree 直造的唯一 off-main 空提交（免钩子，parent=HEAD，微秒时间戳保证唯一）：ref 尖端不在任何主线历史里，任何人的 HEAD 都不可能是它的后代，异 sha 重推必因 non-fast-forward 被拒，plain push 即严格仅创建，不依赖 force-with-lease 语义",
-                "回执 reservation.sha 记录该占位提交",
-                "--selftest 6 例仍全绿，pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
-                "pre-push 钩子对 refs/registrations/* 豁免「必须已合并 main」判定（与 refs/claims 同类：服务端占用 ref 非分支推送），占位推送直达 origin",
-                "端到端：本卡即经修复版程序立卡（DX-104），origin 占位 refs/registrations/DX-104 指向 off-main 唯一提交，#DX-104=done 合并后 derive --check 绿"
-            ],
-            "author": "maintainer-session-2026-11-06",
-            "depends": [
-                "DX-103"
-            ],
-            "evidence": "DX-103 的占位指向注册时的 HEAD（主线历史提交）。实测发现洞：另一机器的 HEAD 只要是该提交在主线上的后代，plain push 即可快进顶掉占位而不被拒（本会话验证时占位 ref 被 HEAD 从 5298db1 快进到 ac10c63）——test-and-set 的「已存在必拒」失效，跨机竞态窗口重新打开。",
-            "id": "DX-104",
-            "note": "",
-            "scope": [
-                "scripts/register_board_cards.py",
-                ".githooks/pre-push",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "title": "占位防顶掉：refs/registrations 指向唯一 off-main 空提交，异 sha 重推必 non-FF 被拒"
         }
     },
     "claims": {},

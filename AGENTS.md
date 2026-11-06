@@ -178,6 +178,10 @@ git branch -d feature/<简述>
    > 跨机并发不受保护）；CLI `--mode` 单次覆盖。改它属任务定义，必须 chore(board)+审计行。
    > **手工改台账新增卡一律被拒**：`task_gate` 在
    > commit-msg 阶段核对回执，无回执 / `card` 不符 / sha256 不符 / 缺 `authorizedBy` 即拒。
+   > **立卡必须声明排位档位（DX-123）**：请求单 frontmatter 写 `tier: P0..P4`，缺省或非法枚举
+   > 立卡直接被拒；派生器按档位给新卡算 `orderKey` 落点，`derive --check` 校验档位随
+   > orderKey 单调。`tier` 属任务定义 —— 改既有卡的档位必须单独 `chore(board):` 提交，
+   > body 带「授权：」「批次：」两行。规则与五档含义见 `docs/task-card.md`「排位如何生效」。
    > 代登记只允许追加卡片与对应的 `baseline`，不得改既有卡的 `id` / `title` / `stage`；
    > agent 不得以授权为名自行加卡，也不得通过临时 worktree、修改判定脚本或 `--no-verify` 绕过。
    > 提交拆两段（工具运行完会打印完整指引）：`docs(board): 收录 <短号> 立卡请求单`（表单；

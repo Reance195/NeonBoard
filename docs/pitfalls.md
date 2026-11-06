@@ -546,7 +546,27 @@
   在壳里跑。判据写法上记一条：**任何 `git -C <dir>` 之前，先确认 <dir> 是本仓库注册的 worktree
   （注册可达且 common dir 对得上）——`-C` 从不保证你站在你以为的仓库里**。
 
-### 1.35 手工立卡无凭证也无闸：授权靠提交信息两行自证，撞号后无从对账（DX-98）
+### 1.35 dispatch 失败停不进 blocked：失败处理自己撞「非法状态转移」（DX-71/DX-75）
+
+- **现象**（2026-11-06 DX-71 领卡实测）：origin 抖动使 dispatch（agent-init）失败，nbflow 想
+  把卡停进 blocked，却打出「非法状态转移：DX-71 created → blocked（允许：abandoned, dispatched,
+  requested）」——失败处理逻辑被自己的转移表拒绝，异常裸抛、卡悬在 created，没有任何
+  「这一步失败了」的状态留痕。
+- **根因**：blocked 早已是一等状态（approve 落盘失败用，DX-72），但 `TRANSITIONS["created"]`
+  没放它进来——**停放态的入口没有跟着新的使用方一起扩**。更隐蔽的是出口：就算进得去，
+  `cmd_dispatch` 只认 created，blocked → dispatched 重跑会被入口再拒一次，停进去就出不来。
+- **修复（DX-75）**：① `created → blocked` 合法化（dispatch 失败可停放）；②
+  `blocked → dispatched` 合法化且 `cmd_dispatch` 接受 created|blocked（出路对应入局原因：
+  哪步失败停在哪步后面，重跑哪步）；③ status 对 blocked 卡打印明确出路行；④ selftest
+  钉死三件事：created→blocked 合法、blocked→dispatched 合法、blocked 不可直达 closed
+  （「未 report 不能 close」不被停放态绕过）。
+- **判据**：`python scripts/nbflow.py --selftest` 全过（含 DX-75 场景演练
+  created→blocked→dispatched）；真实失败路径不再抛异常，卡停在 blocked 且 status
+  给出重跑指引（DX-112 abandon 前的 blocked 态即实测样本）。
+- **一般化**：**给状态加语义时，必须同时回答「怎么进得去、怎么出得来」**。转移表是
+  按使用方逐个扩出来的，新使用方接入失败路径时，入口出口都要验——只有入口没有出口的
+  停放态，是把「步骤失败」变成「永久卡死」。
+### 1.36 手工立卡无凭证也无闸：授权靠提交信息两行自证，撞号后无从对账（DX-98）
 
 - **现象**（2026-11-06，DX-74 现场）：立卡靠人/agent 手工改 `board-ledger.json`，卡号 =
   「扫描时点 max+1」（1.33 的取号竞态同源）；提交信息里的 `授权：`/`批次：` 两行是唯一
@@ -578,7 +598,7 @@
   补三态（有凭证放行 / 无凭证拒 / 凭证与内容不符拒），回执路径要进流程合法路径集，
   否则立卡提交会栽在自己的越面判定上。
 
-### 1.36 单次推送下 `branch -d` 恒拒：分支删除判据还锚在 origin/main（DX-109）
+### 1.37 单次推送下 `branch -d` 恒拒：分支删除判据还锚在 origin/main（DX-109）
 
 - **现象**（2026-11-06 DX-106 收尾实录）：每次 `git-done.ps1` 收尾都打印
   `error: the branch 'fix/...' is not fully merged`，并留下 `（分支可能仍被某个 worktree 占用…）`

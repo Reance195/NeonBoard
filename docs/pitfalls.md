@@ -1146,6 +1146,32 @@
   `NB_ACCEPTANCE` 与 `origin/main` 台账逐字一致、不含 SENTINEL。
 - **一般化**：**读共享状态必须声明读哪一份**，尤其当另一条判据已经钉死某一份时 ——
   口径分裂不会报错，只会让人按过期定义干活。文件在磁盘上不等于它是事实源。
+### 2.29 控制台编码自切只治一个入口：UTF-8 的三跳（代码页 / 解码 / 喂入）各留一份副本必漂
+
+- **现象**（同类三连）：DX-60 修 build.ps1（chcp 65001 保 CMake file(READ) 字节保真）之后同类
+  继续复发——verify.ps1 尾行输出「閫€鍑虹爜: 0」、nbflow status 授权段整段 mojibake（DX-77，
+  CP 936 控制台直读 UTF-8 字节）；git-done / agent-init 捕获 python 子进程的 UTF-8 输出按 GBK
+  解码后原样转发，乱码落地（DX-83，claim-card 的「[棰嗙敤] 鏈嶅姟绔...」实录，2026-11-06 多个
+  会话现场复现）。
+- **根因**：中文控制台上 UTF-8 化要同时管三跳——①控制台代码页（chcp 65001：子进程与直写
+  控制台的字节按 65001 解释）；②`[Console]::OutputEncoding`（PS 解码 native 子进程 stdout，
+  §2.20 的病根）；③`[Console]::InputEncoding`（PS 向 native 子进程喂输入）。§2.6 的 python
+  reconfigure 只管「写侧出 UTF-8 字节」，读方（控制台 / PS 捕获）仍按 GBK 就照花。每个入口
+  只修自己踩到的那一跳，其余跳下次准炸——同类第三次才收口，已经晚了两轮。
+- **修复（DX-77/DX-83）**：唯一实现 `scripts/nb-console.ps1` 的 `Set-NbUtf8Console`——三跳
+  一次到位、幂等（Get-Variable 探测，兼容宿主的 Set-StrictMode）、无控制台（计划任务 / CI
+  服务会话）时告警放行（fail-soft，硬门在 build.ps1 的前缀逐字节核对）；build.ps1 /
+  git-done.ps1 / agent-init.ps1 / verify.ps1 四个入口点源调用（build.ps1 的 DX-60 段迁移为
+  调用，判据与注释留在原位）；nbflow.py 入口自切控制台 CP（GetConsoleWindow 探测，无控制台
+  跳过——管道消费者本就按 UTF-8 解码）。机器判据：`check_script_hygiene.py` 规则 F——四个
+  入口缺点源或缺调用即拒，反向探针入自测。
+- **判据**：`python scripts/check_script_hygiene.py --selftest`；实测——CP 936 控制台下经封装
+  捕获 python 中文输出与 python 直出 UTF-8 归一行尾后逐字节一致（行尾是捕获路径固有差异：
+  python 文本模式写 CRLF、PS 管道捕获剥行尾；解码差异体现在内容字节），负对照（不接封装）
+  必不相等；nbflow 跑过后控制台 CP 探针为 65001。
+- **一般化**：§2.6（python 写侧）+ §2.20（字节落盘绕开解码）+ 本条（控制台三跳收口）是同一
+  坑的三个面：中文 Windows 上任何一方的编码假设没有显式声明，就默认有人按 GBK 读。新入口
+  脚本先点源 nb-console.ps1，新 python 工具先 reconfigure——两条都已有闸门盯着，别靠记性。
 
 ---
 

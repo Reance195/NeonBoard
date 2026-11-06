@@ -2126,12 +2126,32 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _force_utf8_console() -> None:
+    """控制台代码页切 65001（DX-77）：reconfigure 之后 python 写出的是 UTF-8 字节，
+    CP 936 控制台按 GBK 解释即 mojibake（nbflow status 授权段实测）；切到 65001
+    后显示与字节一致。仅 Windows 实控台生效：GetConsoleWindow() 为 0（管道 /
+    计划任务 / CI 服务会话）时跳过——管道消费者本就按 UTF-8 解码。与 PS 侧
+    scripts/nb-console.ps1 同口径（DX-83），语言不同无法共用一份实现。"""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+
+        k32 = ctypes.windll.kernel32
+        if k32.GetConsoleWindow():
+            k32.SetConsoleOutputCP(65001)
+            k32.SetConsoleCP(65001)
+    except Exception:
+        pass
+
+
 def main() -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
             stream.reconfigure(encoding="utf-8", errors="replace")
         except (AttributeError, ValueError):
             pass
+    _force_utf8_console()
     args = build_parser().parse_args()
     args.dry_run = bool(args.dry_run or getattr(args, "dry_run_sub", False))
     if args.selftest:

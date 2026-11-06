@@ -5557,6 +5557,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-110": {
+            "agent": "agent-dx110",
+            "branch": "fix/dx110-anchor-ff-skip",
+            "claimedAt": 1793981308,
+            "head": "55087c7d17df34f6ab3f43d7138113807df42252"
+        }
+    },
     "version": 1
 }

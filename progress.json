@@ -163,24 +163,6 @@
             "updatedAt": 1793935666
         },
         {
-            "code": "DX-113",
-            "completedAt": 0,
-            "createdAt": 1793980098,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-113",
-            "note": "",
-            "orderKey": 74752,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "交付说明 note 提交被判「改契约」：full 档与 -ScriptOnly 验收口径分裂，agent 只能挑时态自证",
-            "updatedAt": 1793980098
-        },
-        {
             "code": "DX-122",
             "completedAt": 0,
             "createdAt": 1793982202,
@@ -4705,6 +4687,24 @@
             "updatedAt": 1793098683
         },
         {
+            "code": "DX-113",
+            "completedAt": 1793982867,
+            "createdAt": 1793980098,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-113",
+            "note": "\n\n## 交付（2026-11-07 · agent-dx113 / fix/board-diff-note-tier）\ncheck_board_diff.py 新增 CONTRACT_FIELDS（CARD_FIELDS 去 note）与 split_changed 纯函数：\n既有卡变动拆「契约变化」与「仅交付说明」，classify 只对契约变化（含删卡、自定义键）判 full，\nnote-only 维持 derive 档并在说明行点名；title 仍按契约对待（既有断言不破）。\ndocs/task-card.md 新增「交付说明（note）的提交与验收口径」节并改分流表两行；AGENTS.md 条款 6\n注释补同口径；docs/pitfalls.md §2.30 收录现象/根因/解法/一般化，点名 DX-94/DX-81/R11-11~12。\n\n端到端回归（本卡自身即用例）：本交付说明提交后跑 verify.ps1 -ScriptOnly 于最终分支态——\n修复前该形态必红（判 full EXIT=2），修复后 EXIT=0。--selftest 新增 6 例；\ntask_gate.py selftest 34 例不回归。已完成 5 / 待做 0。",
+            "orderKey": 74752,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "交付说明 note 提交被判「改契约」：full 档与 -ScriptOnly 验收口径分裂，agent 只能挑时态自证",
+            "updatedAt": 1793982867
+        },
+        {
             "code": "DX-01",
             "completedAt": 1793123355,
             "createdAt": 1793123355,
@@ -5227,6 +5227,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-07T00:23:22",
+    "updated": "2026-11-07T00:34:27",
     "version": 3
 }

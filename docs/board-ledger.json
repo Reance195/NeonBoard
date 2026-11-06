@@ -239,7 +239,8 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "DX-114": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5233,6 +5234,24 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "DX-114": {
+            "acceptance": [
+                "三处越界探针全部收进语料边界：查重探针 stub 占用集事实源（ledger_card_ids/queued_card_ids/会话）或改用与生产号段隔离的自测卡段（如 TST-xx），投影补影探针 stub claim_refs 为空——断言不再依赖真仓库的台账/refs/活队列状态",
+                "验证口径改为环境无关：在本仓库真实环境（含并行会话的活队列/refs/claims/台账状态）跑 python scripts/nbflow.py --selftest 退出码 0，且在无 git 的临时目录同样退出码 0",
+                "docs/pitfalls.md 记条目：自测探针声称『不碰真仓库』就必须枚举并 stub 每一个外部事实读取，测试语料号段与生产号段必须隔离"
+            ],
+            "author": "agent-dx75",
+            "depends": [],
+            "evidence": "2026-11-06 agent-dx75 跑 DX-75 验收实录：nbflow --selftest 3 项失败（查重命中 ack 放行→请求单落盘 / 无命中直通 / 投影：台账未结卡缺会话补影）。分离变量实测：origin/main 版代码在同一 worktree 环境同样失败这 3 项（代码无罪），在无 git 临时目录全绿（环境致病）。机理：①查重探针用 cmd_request 走真实占用集（DX-92 并集读真台账∪活队列），语料卡号 DX-71/72/73 与真实已立卡撞车被『号已占用』拒收；②投影探针 stub 了 ledger_doc 却 stub 不了 claim_refs()，语料卡 DX-83 命中真实 refs/claims/DX-83（并行会话 fix/console-encoding-unify 的真实占位），会话被重建为 dispatched 而非 created。探针注释自称『语料全部注入，不碰真仓库』，与实际读取面不符。",
+            "id": "DX-114",
+            "note": "",
+            "scope": [
+                "scripts/nbflow.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "nbflow selftest 探针越界读真仓库：占用集与 claim_refs 让语料卡号与生产事实撞车，并行环境下恒假红"
         }
     },
     "claims": {},

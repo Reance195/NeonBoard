@@ -617,8 +617,28 @@
   「它的判据锚在哪」——DX-106 换了 worktree 那一处，漏掉分支这一处，症状就一直挂着。
   验收要拿产物说话：正常收尾后 `git branch --list <分支>` 必须为空，而不是只看脚本没报错。
 
----
 
+### 1.38 从自身 worktree 收尾永远回收不了自己：反查在摘走分支之后才跑（DX-120）
+
+- **现象（DX-109 收尾实测）**：在 `.worktrees/agent-dx109` 里跑 `git-done.ps1 -Branch fix/dx109-branch-delete-anchor`，
+  EXIT=0、分支已删、推送成功，但 `git worktree list` 里 `agent-dx109` 残留（detached HEAD），输出里既没有
+  「回收 worktree」也没有「目标 worktree 就是当前目录，跳过回收」任何一句 —— 回收段被静默跳过。
+- **根因**：remote 模式先 `git switch -c merge/<slug> origin/main` 把当前检出从目标分支摘走，回收段**之后**才按
+  `branch refs/heads/<Branch>` 去 `worktree list --porcelain` 反查目标检出 —— 此刻已没有任何 worktree 检出该分支，
+  `$wtPath` 恒空，`elseif ((-not $KeepWorktree) -and $wtPath)` 整段不进，连自删保护那句提示都轮不到。
+  §7.3 的标准姿势（agent 在自己的 worktree 里跑收尾）与 AGENTS §7.2「worktree 用完必须回收」在同一条路径上
+  双双落空；DX-21 的验收项「当前目录就是目标 worktree 时不尝试自删」固化了跳过，但没有覆盖「跳过后谁来收」。
+- **解法（DX-120）**：反查提前到 `switch -c` 之前（此刻分支仍被检出，反查才有效）；反查到「目标就是当前检出」时
+  不在推送前删 —— 三步收尾提交与回执都要靠这个检出完成，且 Windows 不允许进程删除 CWD 所在目录 —— 改为记下
+  路径，待单次推送落地、结单对账与回执完成之后 `Set-Location` 让位到锚点区再 `git worktree remove`；删除失败
+  不无脑 `--force`（避免 DX-93 的半删除尸体），只告警并打印可复制的命令。`-DryRun` 演练只打印判定（将回收 /
+  将跳过 + 原因），不动手。
+- **预防**：回收类逻辑的判定对象（按分支反查检出）与改变该对象状态的动作（switch 摘走分支）在同一脚本里有
+  先后依赖时，反查必须排在动作之前；验收用产物断言（`git worktree list --porcelain`），不以脚本是否打印
+  「已回收」为准。他区回收（DX-21 路径）与自身回收（DX-120 路径）要各端到端一次，不能拿一条路径的成功推断
+  另一条。
+
+---
 ## 二、脚本与编码（PowerShell / Python）
 
 ### 2.1 `.ps1` 少了 UTF-8 BOM，整份脚本报「批处理式」语法错

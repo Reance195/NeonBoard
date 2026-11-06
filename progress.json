@@ -271,22 +271,40 @@
             "updatedAt": 1793935667
         },
         {
-            "code": "DX-106",
+            "code": "R11-11",
             "completedAt": 0,
-            "createdAt": 1793957895,
+            "createdAt": 1793973890,
             "deleted": false,
             "dueAt": 0,
-            "id": "DX-106",
+            "id": "R11-11",
             "note": "",
-            "orderKey": 67584,
+            "orderKey": 68608,
             "priority": 2,
-            "stage": "DX",
+            "stage": "R11",
             "status": "todo",
             "tags": [
-                "DX"
+                "R11"
             ],
-            "title": "收尾零中间态：合并+收尾合成单次 push（A2b），fail-soft 语义重排",
-            "updatedAt": 1793973485
+            "title": "R11 界面重排收尾 1/2：执行队列补固定表头与 40 px 行高",
+            "updatedAt": 1793973890
+        },
+        {
+            "code": "R11-12",
+            "completedAt": 0,
+            "createdAt": 1793973890,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-12",
+            "note": "",
+            "orderKey": 69632,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排收尾 2/2：规格全量核验（权限弹窗流程 / 17 个界面逐个 / 未推送提交数）",
+            "updatedAt": 1793973890
         },
         {
             "code": "R0-01",
@@ -4261,6 +4279,24 @@
             "updatedAt": 1793942027
         },
         {
+            "code": "DX-106",
+            "completedAt": 1793973890,
+            "createdAt": 1793957895,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-106",
+            "note": "",
+            "orderKey": 67584,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "收尾零中间态：合并+收尾合成单次 push（A2b），fail-soft 语义重排",
+            "updatedAt": 1793973890
+        },
+        {
             "completedAt": 1792982913,
             "createdAt": 1792981704,
             "deleted": false,
@@ -4885,6 +4921,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T21:58:05",
+    "updated": "2026-11-06T22:04:50",
     "version": 3
 }

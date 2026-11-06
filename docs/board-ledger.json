@@ -4133,7 +4133,7 @@
             ],
             "evidence": "2026-11-06 维护者会话。现状：角色链（R7-03/04）所有预设到 qa / orchestrator 为止，链失败即 fail-fast 收口，orchestrator 的 summary 只有一句「回到 engineer 重跑」；执行过程中碰到的问题不落任何结构化产物，下次同类任务还会踩。维护者要求让 agent 干完活后自省、并把问题沉淀为程序化对策（对应 AGENTS.md Z6「踩坑两次沉淀成机器判据」）。",
             "id": "R19-1",
-            "note": "",
+            "note": "目标：角色链新增 retro 复盘步骤，agent 干完活后自省并沉淀「问题清单 → 根因 → 程序化对策」三段式交接物。【交付 2026-11-07 / agent-r19 / feature/workflow-retro-step】① TaskExec：isKnownRole 认识 retro，presetSteps 六条预设插 retro 步（fix/hotfix/docs/review 在产出方之后，delivery 在 qa 后 orchestrator 前）。② WorkflowPresets：builtinPresets 六条同步插 retro 并入 skippable（小任务可裁，isProtectedRole 不含 retro）；buildSummary 追加「复盘结论」段，引用 retro handoff 路径，未产出时 fail-soft 提示。③ WorkflowRunner：roleDeliverable 定 retro 三段式契约；失败链仍跑 retro（pendingFailReason 跳转，复盘结束无论过没过都按原失败原因收口，failed 结论不变）；retro 自身失败 fail-soft 只告警。④ main.cpp 自检同步角色序与裁剪规则。⑤ 测试：tst_workflowpresets / tst_workflow 同步既有断言并新增 4 例（角色序与裁剪、summary 复盘段、失败链仍复盘、retro fail-soft）。⑥ 路线图 §9 补 R19 行。验收：verify.ps1 全量通过（ctest 39/39、--selftest、--smoke、模块守卫），R19-1 验收 5 项全部满足。\n已完成 5 / 待做 0 —— 角色链复盘步骤与复盘结论收口",
             "scope": [
                 "src/agent/WorkflowPresets.cpp",
                 "src/agent/WorkflowPresets.h",

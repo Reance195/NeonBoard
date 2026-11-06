@@ -1193,6 +1193,29 @@
   坑的三个面：中文 Windows 上任何一方的编码假设没有显式声明，就默认有人按 GBK 读。新入口
   脚本先点源 nb-console.ps1，新 python 工具先 reconfigure——两条都已有闸门盯着，别靠记性。
 
+### 2.30 交付说明提交被判「改契约」：验收档随提交时态漂移，轻档结论靠挑时态自证（DX-113）
+
+- **现象**（2026-11-06 DX-94 交付实录）：实现提交 `8505f61`（含 `#DX-94=done`）跑
+  `check_board_diff.py --base origin/main` 判 derive、`-ScriptOnly` EXIT=0；追加
+  `docs(board): 补 DX-94 交付说明`（仅改 `cards[DX-94].note`）后同一命令判 full、EXIT=2，
+  轻档直接 Fail「台账的 cards 结构有变化」。卡片验收项写着「`-ScriptOnly` 全绿」，
+  却只在中间态成立 —— 要拿到绿只能 detached 回实现提交跑，验收口径不可机器复核。
+  同型非个例：DX-81（`9ba62fd`）、R11-11/12（`1be772b`）的交付说明提交都在最终分支态红。
+- **根因**：`CARD_FIELDS` 把 `note` 与 stage/title/scope/acceptance 同列，`diff_cards`
+  比整个 card dict，`classify` 见「改既有卡」即判 full。但 `note` 是交付说明，不进
+  `tst_projectmap` 读的阶段 / 范围 / roadmap 行 —— 把每张卡收尾的必经动作当成改契约，
+  等于让验收结论取决于提交顺序而不是改动内容。
+- **修复（DX-113）**：`split_changed` 纯函数把既有卡变动拆「契约变化」（`CONTRACT_FIELDS`
+  = CARD_FIELDS 去掉 note，外加自定义键）与「仅交付说明」；`classify` 只对前者判 full，
+  note-only 维持 derive 档并在说明行点名。title 虽非派生输入，改标题仍属任务定义，按契约
+  对待（既有「改 title → full」断言不破）。
+- **判据**：`python scripts/check_board_diff.py --selftest` 新增 6 例（只改 note → derive、
+  只改 note 不算未改动、note+scope 同改 → full、split_changed 两向归属）；端到端 ——
+  本卡自身的交付说明提交在最终分支态跑 `-ScriptOnly` 必须 EXIT=0（修复前该形态必红）。
+- **一般化**：**验收档位必须由改动内容决定，不能由提交顺序决定**。当一条流程动作
+  （交付说明）必然触发某个保守闸门时，闸门该识别它并放行到正确的档位，而不是让执行者
+  用提交切分去绕 —— 那会把「验收绿」变成时态巧合。
+
 ---
 
 ## 三、构建与 Qt / QML

@@ -289,6 +289,24 @@
             "updatedAt": 1793935667
         },
         {
+            "code": "DX-104",
+            "completedAt": 0,
+            "createdAt": 1793937446,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-104",
+            "note": "",
+            "orderKey": 67584,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "占位防顶掉：refs/registrations 指向唯一 off-main 空提交，异 sha 重推必 non-FF 被拒",
+            "updatedAt": 1793937446
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4777,6 +4795,6 @@
             "updatedAt": 1793934590
         }
     ],
-    "updated": "2026-11-06T11:41:50",
+    "updated": "2026-11-06T11:57:26",
     "version": 3
 }

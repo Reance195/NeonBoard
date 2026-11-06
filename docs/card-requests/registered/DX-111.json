@@ -1,0 +1,13 @@
+{
+  "card": "DX-111",
+  "sha256": "6f412ecf528b1210d48c3d4778d54c7a8317cb39ed3990783616108d836e7455",
+  "authorizedBy": "维护者 2026-11-06 会话指令：该立卡的立卡（对 agent-flowguard 会话移交事项）",
+  "form": "docs/card-requests/20261106-dx-abandon-close-channel.md",
+  "registeredAt": "2026-11-06T15:31:19+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-111",
+    "sha": "ab0544fd8c08f35e1e1f5a90571bc92e625ac6c0"
+  }
+}

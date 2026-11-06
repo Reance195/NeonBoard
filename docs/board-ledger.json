@@ -5557,13 +5557,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-82": {
-            "agent": "agent-dx82",
-            "branch": "fix/dx82-rebase-expiry",
-            "claimedAt": 1793984532,
-            "head": "6178aba09ec7817bc4bc93ed7e5991c7c27c3dd6"
-        }
-    },
+    "claims": {},
     "version": 1
 }

@@ -239,7 +239,8 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "R11-13": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5233,6 +5234,30 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "R11-13": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "启动应用后应用日志中「Cannot anchor to an item that isn't a parent or sibling」命中 0（当前主线实测命中 1，命令行与日志路径记进 docs/design/ui-relayout-verify.md 供复现）",
+                "qml/Main.qml 中 EmptyState 与 boardRow 同属 boardArea 容器（grep -c \"id: boardArea\" qml/Main.qml 命中 1，且 EmptyState 块落在该容器定义范围内），锚定目标变成合法兄弟节点",
+                "空态落点实测：把看板筛空后量到 EmptyState 的中心落在 boardRow 区域内、偏差 ≤ 2 px，实测数值记进 docs/design/ui-relayout-verify.md（临时埋点不进交付物：git diff origin/main..HEAD -- qml/Main.qml 不含「临时埋点」字样）",
+                "docs/design/ui-relayout-verify.md 的「遗留问题」一节对 EmptyState 的条目改为准确归因（R11-07 引入 / R11-8 未修 / 本卡已修），全文不再出现「origin/main 即有的告警，不是 R11 引入的」字样",
+                "docs/iteration-roadmap.md 补 R11-13 行且描述与实现一致"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "R11-12"
+            ],
+            "evidence": "复盘 R11-12 的核验记录时，发现 docs/design/ui-relayout-verify.md「遗留问题」一节把 Main.qml:1621 的 QML EmptyState 锚定告警归因为「origin/main 即有的告警，不是 R11 引入的，不在本轮范围内」—— 该归因经 git 溯源与实测证伪，且它是一个真实的界面缺陷，不是一行噪音。① 溯源：qml/components/EmptyState.qml 与 Main.qml 里唯一的 EmptyState 使用点均由 R11-07（9d92d45 feat(ui): 新增统一空态组件…#R11-07=done）引入，且引入时 anchors.centerIn: boardRow 就已非法（当时 boardRow 是空态兄弟节点 RowLayout 的子级）；R11-8（c98fbd0）把空态上移一层后仍然非法 —— 即缺陷在 R11 轮次内引入、从未生效过。② 结构：按括号配对解析 origin/main:qml/Main.qml，EmptyState 的父级是窗口主体 Rectangle（L924），boardRow 是它下面第三层 RowLayout（L1088 → L1210 → L1424），而 QML 只允许锚到父级或兄弟，这一锚必然失效。③ 实测：用当前主线代码启动应用，日志打出 Main.qml:1621:9: QML EmptyState: Cannot anchor to an item that isn't a parent or sibling.。④ 后果：一比一复现（同样的父子结构）量到空态落在 es.x=0 es.y=0，期望居中是 (220,240) —— 用户把看板筛空时，空态面板出现在窗口左上角，而不是代码注释写的「浮在看板正中间」。⑤ 验收未兑现：R11-12 的验收项原文有一条「核验暴露的功能缺陷在本卡 scope 内修复，scope 外的缺陷如实写进 ui-relayout-verify.md 的「遗留问题」一节不掩盖」，而 R11-12 的 scope 明确含 qml/Main.qml —— 该缺陷是核验暴露的、修复点在 scope 内，却被以「不是 R11 引入的」为由结卡，属这条验收项没有兑现。",
+            "id": "R11-13",
+            "note": "",
+            "scope": [
+                "qml/Main.qml",
+                "docs/design/ui-relayout-verify.md",
+                "docs/iteration-roadmap.md"
+            ],
+            "stage": "R11",
+            "title": "R11 界面重排收尾 3/3：修 EmptyState 锚定缺陷（空态浮到窗口左上角）+ 订正核验记录的归因"
         }
     },
     "claims": {},

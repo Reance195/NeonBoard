@@ -5656,6 +5656,12 @@
         }
     },
     "claims": {
+        "DX-124": {
+            "agent": "agent-dx116b",
+            "branch": "chore/dx-registry-cards",
+            "claimedAt": 1793986982,
+            "head": "42c711892270783ba4f98ef3976d5c7fae3545ca"
+        },
         "DX-126": {
             "agent": "agent-dx116b",
             "branch": "chore/dx-registry-cards",

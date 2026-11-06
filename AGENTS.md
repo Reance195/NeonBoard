@@ -169,7 +169,11 @@ git branch -d feature/<简述>
    > 工具负责：五段式表单校验、git 通用目录**跨 worktree 锁内发号**（`<stage>-<max+1>`；
    > 手工「扫描时点 max+1」无预占机制，多会话并发必撞号 —— DX-74/96 实测）、生成含卡片
    > 规范 JSON sha256 的**回执** `docs/card-requests/registered/<短号>.json`、写盘后
-   > `derive --write`/`--check` 自校验。**手工改台账新增卡一律被拒**：`task_gate` 在
+   > `derive --write`/`--check` 自校验。发号含**服务端占位**（DX-99）：候选号先推
+   > `refs/registrations/<短号>` —— 新建 ref 的推送在 origin 是原子 test-and-set，
+   > 谁先推成谁占号，被拒即刷新占用集换号重试；占位永久留痕即机器可校验的发号审计链，
+   > 跨机并发窗口缩到一次原子推送（离线需显式 `--offline`，号为暂定须重验）。
+   > **手工改台账新增卡一律被拒**：`task_gate` 在
    > commit-msg 阶段核对回执，无回执 / `card` 不符 / sha256 不符 / 缺 `authorizedBy` 即拒。
    > 代登记只允许追加卡片与对应的 `baseline`，不得改既有卡的 `id` / `title` / `stage`；
    > agent 不得以授权为名自行加卡，也不得通过临时 worktree、修改判定脚本或 `--no-verify` 绕过。

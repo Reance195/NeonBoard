@@ -200,32 +200,38 @@ void TestWorkflowPresets::routeForBySize()
 
 void TestWorkflowPresets::skipRulesNeverDropQa()
 {
-    // feature@S 可跳 pm / architect（恰好两条），绝不含 qa
+    // feature@S 可跳 pm / architect / retro（恰好三条），绝不含 qa
     const QVariantList smallSkips =
         m_presets->skippableSteps(QStringLiteral("feature"), QStringLiteral("S"));
-    QCOMPARE(smallSkips.size(), 2);
+    QCOMPARE(smallSkips.size(), 3);
     QVERIFY(smallSkips.contains(QStringLiteral("pm")));
     QVERIFY(smallSkips.contains(QStringLiteral("architect")));
+    QVERIFY(smallSkips.contains(QStringLiteral("retro")));
     QVERIFY(!smallSkips.contains(QStringLiteral("qa")));
+    QVERIFY(!WorkflowPresets::isProtectedRole(QStringLiteral("retro")));
 
     // 非小任务：一律不裁
     QVERIFY(m_presets->skippableSteps(QStringLiteral("feature"), QStringLiteral("L")).isEmpty());
     QVERIFY(m_presets->skippableSteps(QStringLiteral("feature"), QString()).isEmpty());
 
-    // feature@S 展开 = engineer, qa（pm / architect 被裁）
+    // feature@S 展开 = engineer, qa（pm / architect / retro 被裁：小任务不跑复盘）
     QCOMPARE(rolesOf(m_presets->stepsFor(QStringLiteral("feature"), QStringLiteral("S"))),
              QStringList({QStringLiteral("engineer"), QStringLiteral("qa")}));
-    // feature@M 展开 = 全四步
+    // feature@M 展开 = 全五步（retro 保留）
     QCOMPARE(rolesOf(m_presets->stepsFor(QStringLiteral("feature"), QStringLiteral("M"))),
              QStringList({QStringLiteral("pm"), QStringLiteral("architect"),
-                          QStringLiteral("engineer"), QStringLiteral("qa")}));
-    // delivery@S：裁掉 pm / architect，但 orchestrator（收口）保留
+                          QStringLiteral("engineer"), QStringLiteral("qa"),
+                          QStringLiteral("retro")}));
+    // delivery@S：裁掉 pm / architect / retro，orchestrator（收口）保留
     QCOMPARE(rolesOf(m_presets->stepsFor(QStringLiteral("delivery"), QStringLiteral("S"))),
              QStringList({QStringLiteral("engineer"), QStringLiteral("qa"),
                           QStringLiteral("orchestrator")}));
-    // fix@S：没有可裁项，原样
+    // fix@S：retro 被裁；fix@M 保留
     QCOMPARE(rolesOf(m_presets->stepsFor(QStringLiteral("fix"), QStringLiteral("S"))),
              QStringList({QStringLiteral("engineer"), QStringLiteral("qa")}));
+    QCOMPARE(rolesOf(m_presets->stepsFor(QStringLiteral("fix"), QStringLiteral("M"))),
+             QStringList({QStringLiteral("engineer"), QStringLiteral("qa"),
+                          QStringLiteral("retro")}));
 }
 
 void TestWorkflowPresets::presetsAreEditable()
@@ -333,6 +339,35 @@ void TestWorkflowPresets::summaryIncludesRolesAndAdvice()
     QVERIFY(ok.contains(QStringLiteral("建议下一步")));
     QVERIFY(ok.contains(QStringLiteral("可交付")));
     QVERIFY(ok.contains(QStringLiteral("12s")));
+    // 没有 retro 步：不出复盘结论段
+    QVERIFY(!ok.contains(QStringLiteral("复盘结论")));
+
+    // retro 步通过：复盘结论段引用 handoff 路径（R19-01）
+    const QVariantList withRetro{
+        QVariantMap{{QStringLiteral("role"), QStringLiteral("engineer")},
+                    {QStringLiteral("status"), QStringLiteral("passed")}},
+        QVariantMap{{QStringLiteral("role"), QStringLiteral("retro")},
+                    {QStringLiteral("status"), QStringLiteral("passed")},
+                    {QStringLiteral("handoffPath"),
+                     QStringLiteral("C:/data/handoff/card-9/retro.md")}},
+    };
+    const QString retroSummary = WorkflowPresets::buildSummary(
+        QStringLiteral("card-9"), QStringLiteral("fix"), withRetro, QStringLiteral("修个 bug"));
+    QVERIFY(retroSummary.contains(QStringLiteral("## 复盘结论")));
+    QVERIFY(retroSummary.contains(QStringLiteral("handoff/card-9/retro.md")));
+    QVERIFY(retroSummary.contains(QStringLiteral("问题清单")));
+    QVERIFY(retroSummary.contains(QStringLiteral("程序化对策")));
+
+    // retro 未产出有效交接物：fail-soft 提示，不影响结论
+    const QVariantList retroBlocked{
+        QVariantMap{{QStringLiteral("role"), QStringLiteral("engineer")},
+                    {QStringLiteral("status"), QStringLiteral("passed")}},
+        QVariantMap{{QStringLiteral("role"), QStringLiteral("retro")},
+                    {QStringLiteral("status"), QStringLiteral("blocked")}},
+    };
+    const QString retroMiss = WorkflowPresets::buildSummary(
+        QStringLiteral("card-9"), QStringLiteral("fix"), retroBlocked, QStringLiteral("修个 bug"));
+    QVERIFY(retroMiss.contains(QStringLiteral("复盘步骤未产出有效交接物")));
 
     const QVariantList failed{
         QVariantMap{{QStringLiteral("role"), QStringLiteral("engineer")},
@@ -385,16 +420,18 @@ void TestWorkflowPresets::workflowRunnerSelectsAndExpands()
 
     QTRY_VERIFY_WITH_TIMEOUT(chainDone.count() >= 1, 60000);
 
-    // 选型兜底 = fix → 两步 engineer → qa（证明预设展开生效，而不是卡片覆盖）
-    QCOMPARE(started.count(), 2);
+    // 选型兜底 = fix → 三步 engineer → qa → retro（证明预设展开生效，而不是卡片覆盖）
+    QCOMPARE(started.count(), 3);
     QCOMPARE(started.at(0).at(2).toMap().value(QStringLiteral("role")).toString(),
              QStringLiteral("engineer"));
     QCOMPARE(started.at(1).at(2).toMap().value(QStringLiteral("role")).toString(),
              QStringLiteral("qa"));
+    QCOMPARE(started.at(2).at(2).toMap().value(QStringLiteral("role")).toString(),
+             QStringLiteral("retro"));
     const QVariantMap snapshot = m_workflow->chain();
     QVERIFY(snapshot.value(QStringLiteral("done")).toBool());
     QVERIFY(!snapshot.value(QStringLiteral("failed")).toBool());
-    QCOMPARE(snapshot.value(QStringLiteral("steps")).toList().size(), 2);
+    QCOMPARE(snapshot.value(QStringLiteral("steps")).toList().size(), 3);
 }
 
 QTEST_MAIN(TestWorkflowPresets)

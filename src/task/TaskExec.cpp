@@ -276,30 +276,36 @@ QVariantList TaskExec::presetSteps(const QString &workflow)
 
     if (name == QLatin1String("fix")) {
         return {step(QStringLiteral("engineer"), QStringLiteral("按卡片定义修复问题")),
-                step(QStringLiteral("qa"), QStringLiteral("复核修复结果与回归风险"))};
+                step(QStringLiteral("qa"), QStringLiteral("复核修复结果与回归风险")),
+                step(QStringLiteral("retro"), QStringLiteral("复盘执行过程：问题、根因与程序化对策"))};
     }
     if (name == QLatin1String("feature")) {
         return {step(QStringLiteral("pm"), QStringLiteral("把需求拆成可交付的验收项")),
                 step(QStringLiteral("architect"), QStringLiteral("给出实现方案与改动边界")),
                 step(QStringLiteral("engineer"), QStringLiteral("按方案实现")),
-                step(QStringLiteral("qa"), QStringLiteral("验收实现与边界"))};
+                step(QStringLiteral("qa"), QStringLiteral("验收实现与边界")),
+                step(QStringLiteral("retro"), QStringLiteral("复盘执行过程：问题、根因与程序化对策"))};
     }
     if (name == QLatin1String("hotfix")) {
         // 单步修复：跳过评审，但 qa 仍然要跑（验收不能被省掉）
         return {step(QStringLiteral("engineer"), QStringLiteral("紧急修复，最小改动面")),
-                step(QStringLiteral("qa"), QStringLiteral("确认紧急修复没有副作用"))};
+                step(QStringLiteral("qa"), QStringLiteral("确认紧急修复没有副作用")),
+                step(QStringLiteral("retro"), QStringLiteral("复盘执行过程：问题、根因与程序化对策"))};
     }
     if (name == QLatin1String("docs")) {
-        return {step(QStringLiteral("writer"), QStringLiteral("按卡片定义更新文档"))};
+        return {step(QStringLiteral("writer"), QStringLiteral("按卡片定义更新文档")),
+                step(QStringLiteral("retro"), QStringLiteral("复盘执行过程：问题、根因与程序化对策"))};
     }
     if (name == QLatin1String("review")) {
-        return {step(QStringLiteral("orchestrator"), QStringLiteral("只读复核：给结论与建议"))};
+        return {step(QStringLiteral("orchestrator"), QStringLiteral("只读复核：给结论与建议")),
+                step(QStringLiteral("retro"), QStringLiteral("复盘执行过程：问题、根因与程序化对策"))};
     }
     if (name == QLatin1String("delivery")) {
         return {step(QStringLiteral("pm"), QStringLiteral("确认交付范围")),
                 step(QStringLiteral("architect"), QStringLiteral("确认方案与风险")),
                 step(QStringLiteral("engineer"), QStringLiteral("实现交付内容")),
                 step(QStringLiteral("qa"), QStringLiteral("完整验收")),
+                step(QStringLiteral("retro"), QStringLiteral("复盘执行过程：问题、根因与程序化对策")),
                 step(QStringLiteral("orchestrator"), QStringLiteral("收口：写 summary 与下一步建议"))};
     }
     return {};
@@ -309,7 +315,8 @@ bool TaskExec::isKnownRole(const QString &role)
 {
     static const QStringList known = {
         QStringLiteral("pm"),     QStringLiteral("architect"), QStringLiteral("engineer"),
-        QStringLiteral("qa"),     QStringLiteral("writer"),    QStringLiteral("orchestrator"),
+        QStringLiteral("qa"),     QStringLiteral("writer"),    QStringLiteral("retro"),
+        QStringLiteral("orchestrator"),
     };
     return known.contains(role.trimmed().toLower());
 }

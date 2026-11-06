@@ -893,20 +893,22 @@ int main(int argc, char *argv[])
             ok = workflowPresets.routeFor(QStringLiteral("L")) == QStringLiteral("delivery") && ok;
             ok = workflowPresets.routeFor(QStringLiteral("4")) == QStringLiteral("delivery") && ok;
             ok = workflowPresets.routeFor(QString()) == QStringLiteral("fix") && ok;
-            // 跳过规则：feature 小任务可跳 pm/architect，qa 永不出现
+            // 跳过规则：feature 小任务可跳 pm/architect/retro（qa 永不出现）；
+            // feature@S 展开 = engineer,qa（小任务不跑复盘），M 档保留 retro（R19-01）
             const QVariantList skips = workflowPresets.skippableSteps(QStringLiteral("feature"),
                                                                      QStringLiteral("S"));
-            ok = skips.size() == 2 && ok;
+            ok = skips.size() == 3 && ok;
             for (const QVariant &role : skips)
-                ok = role.toString() != QStringLiteral("qa") && ok;
-            // feature@S 展开 = engineer,qa（pm/architect 被裁掉）
+                ok = role.toString() != QStringLiteral("qa")
+                     && !WorkflowPresets::isProtectedRole(role.toString()) && ok;
             const QVariantList smallFeature =
                 workflowPresets.stepsFor(QStringLiteral("feature"), QStringLiteral("S"));
-            ok = smallFeature.size() == 2
-                 && smallFeature.at(0).toMap().value(QStringLiteral("role")).toString()
-                        == QStringLiteral("engineer")
-                 && smallFeature.at(1).toMap().value(QStringLiteral("role")).toString()
-                        == QStringLiteral("qa") && ok;
+            ok = smallFeature.size() == 2 && ok;
+            const QVariantList midFeature =
+                workflowPresets.stepsFor(QStringLiteral("feature"), QStringLiteral("M"));
+            ok = midFeature.size() == 5
+                 && midFeature.at(4).toMap().value(QStringLiteral("role")).toString()
+                        == QStringLiteral("retro") && ok;
             // 预设可编辑：非法（skippable 含 qa）被拒；合法覆盖写 meta 后可见，reset 复位
             QVariantMap badPreset;
             badPreset.insert(QStringLiteral("key"), QStringLiteral("bad"));

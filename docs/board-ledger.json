@@ -3339,6 +3339,8 @@
                 "qml/components/ThemePicker.qml",
                 "src/plugin/PluginRuntime.h",
                 "src/plugin/PluginRuntime.cpp",
+                "src/board/PreviewHub.h",
+                "src/board/PreviewHub.cpp",
                 "README.md",
                 "docs/iteration-roadmap.md"
             ],

@@ -5079,6 +5079,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-106": {
+            "agent": "agent-c",
+            "branch": "chore/board-dx-106-zip-push",
+            "claimedAt": 1793958664,
+            "head": "b369dbb874db5d80788bae78d4e31dc7a5fd47e0"
+        }
+    },
     "version": 1
 }

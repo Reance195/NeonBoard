@@ -1736,3 +1736,9 @@
 | [`testing.md`](testing.md) | 测试与验收口径 |
 | [`auto-update.md`](auto-update.md) | 升级链路与 `update.json` 清单 |
 | [`adr/`](adr/README.md) | 架构决策记录（运行态与执行器安全边界见 ADR-0002） |
+- **实测（2026-11-06，DX-96 交付演练）**：用仅对 `derive_board_status.py` 失效的
+  python 垫片（PATH 注入 `python.cmd`，按参数命中即 exit 9，其余原样转发）注入
+  结卡/快照失败后真跑 git-done：合并照常推送（fail-soft ✓）、两步只告警不阻断、
+  EXIT 0、无收尾补推；main tip 因「标记 done / baseline todo」报红一次（眼睛 ✓），
+  按提示补跑收尾即转绿。注入走运行时 PATH 而非改文件 —— git-done 拒脏树，
+  改源码注入根本进不了收尾。

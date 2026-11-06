@@ -88,6 +88,37 @@ def check_monotonic(items, cards):
     return bad
 
 
+# 每档重排后预留的空档步数：中点插入每插一张间隙减半，64 格可连续承载
+# 6 张同档新卡（2^6）才再次耗尽 —— 耗尽再 compact 一次即满血，无需人工介入。
+COMPACT_RESERVE_STEPS = 64
+
+
+def compact_orders(items, cards):
+    """档间隙耗尽时的自愈（DX-126）：按档位序 × 档内现序，对全部声明 tier 的
+    todo 卡等距重排，档间各留 COMPACT_RESERVE_STEPS 格。
+
+    返回 {code: new_orderKey}，只含需要挪动的卡；done/doing 卡与未声明 tier 的
+    存量卡（棘轮口径，与 by_tier 一致）一律不动。落位与校验都从这份唯一实现走，
+    derive --write 在 insertion_order 抛耗尽时调用它，不复制规则（Z5）。
+    """
+    tiered = {}
+    for it in items:
+        if it.get("status") != "todo":
+            continue
+        code = it.get("code", "")
+        tier = (cards.get(code) or {}).get("tier")
+        if tier in TIERS:
+            tiered.setdefault(rank(tier), []).append((code, int(it.get("orderKey", 0) or 0)))
+    out = {}
+    cursor = 0
+    for r in sorted(tiered):
+        for code, _ in sorted(tiered[r], key=lambda x: x[1]):
+            cursor += ORDER_STEP
+            out[code] = cursor
+        cursor += COMPACT_RESERVE_STEPS * ORDER_STEP
+    return out
+
+
 def selftest():
     checks = []
 
@@ -122,6 +153,32 @@ def selftest():
         check("间隙耗尽抛 RuntimeError", False)
     except RuntimeError:
         check("间隙耗尽抛 RuntimeError", True)
+
+    # compact_orders（DX-126）：耗尽自愈 —— 重排后落位恢复、单调保持
+    ex_items = [{"code": "A", "status": "todo", "orderKey": 100},
+                {"code": "B", "status": "todo", "orderKey": 101},
+                {"code": "C", "status": "todo", "orderKey": 102},
+                {"code": "Z", "status": "done", "orderKey": 103},
+                {"code": "X", "status": "todo", "orderKey": 104}]
+    ex_cards = {"A": {"tier": "P2"}, "B": {"tier": "P2"}, "C": {"tier": "P2"},
+                "Z": {"tier": "P2"}, "X": {}}
+    moved = compact_orders(ex_items, ex_cards)
+    check("compact 重排声明 tier 的 todo 卡", sorted(moved) == ["A", "B", "C"])
+    for it in ex_items:
+        code = it["code"]
+        if code in moved:
+            it["orderKey"] = moved[code]
+    # 再插一张的完整回路：insertion_order 耗尽 → compact 满血 → 落位成功（不抛异常）
+    re_compact = compact_orders(ex_items, ex_cards)
+    for it in ex_items:
+        if it["code"] in re_compact:
+            it["orderKey"] = re_compact[it["code"]]
+    check("再插一张：先耗尽再 compact 即满血（落位合法）",
+          isinstance(insertion_order("P2", by_tier(ex_items, ex_cards)), int))
+    check("compact 保持档位单调", check_monotonic(ex_items, ex_cards) == [])
+    check("compact 不动 done 卡与未声明 tier 卡",
+          all(it["code"] not in moved for it in ex_items
+              if it["status"] != "todo" or it["code"] == "X"))
 
     # check_monotonic
     items = [{"code": "A", "status": "todo", "orderKey": 13312},

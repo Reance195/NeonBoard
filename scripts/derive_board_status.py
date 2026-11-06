@@ -262,6 +262,24 @@ def close_evidence_problems(candidates, evidenced):
     return sorted(code for code in candidates if code not in evidenced)
 
 
+def apply_close_gate(candidates, forced, evidenced):
+    """结卡证据闸门的粒度收口（DX-124）—— 纯函数，便于自测。
+
+    返回 (可落盘候选, 被排除的卡)：
+      - --close-explicit 名单（forced）在闸门**前**摘除，不经闸门 —— 人工确认通道
+        本来就是给「无标记可读」的卡留的（DX-33），证据闸门对它重复设卡会让补结
+        永远走不通（DX-116 交付日实测：DX-88 一张无证据卡把 DX-116 的 explicit
+        补结连坐拒掉）；
+      - 自动候选里缺交付证据的卡被**逐张排除**（点名告警由调用方打），其余照常
+        结卡 —— 「拒这一张」不再放大成「整轮不落」：那会把闸门从 fail-closed
+        变成一张历史坏卡就能锁死整条结卡通道的活锁。
+    """
+    forced = set(forced or ())
+    auto = {c for c in candidates if c not in forced}
+    rejected = set(close_evidence_problems(auto, evidenced))
+    return auto - rejected, rejected
+
+
 def stuck_cards(cards, baseline, ever_done, bare_merged):
     """滞留卡判定（DX-62）—— 纯函数，不碰磁盘。
 
@@ -684,6 +702,17 @@ def selftest():
     parsed = {m.group(1).upper(): m.group(2) for m in MARKER.finditer(text)}
     cases.append(("结卡标记串可被 MARKER 完整解析",
                   parsed == {"R9-04": "done", "DX-26": "done", "R16-05": "done"}))
+
+    # ⑬ 结卡证据闸门粒度（DX-124）：拒这一张，不再放大成整轮不落
+    gate_ev = {"DX-116"}
+    ok, bad = apply_close_gate({"DX-116", "DX-88"}, set(), gate_ev)
+    cases.append(("闸门只排无证据卡：有证据的照结、无证据的逐张点名",
+                  ok == {"DX-116"} and bad == {"DX-88"}))
+    ok2, bad2 = apply_close_gate({"DX-116", "DX-88"}, {"DX-88"}, gate_ev)
+    cases.append(("explicit 名单不经闸门：无证据的人工确认卡仍放行",
+                  ok2 == {"DX-116"} and bad2 == set()))
+    ok3, bad3 = apply_close_gate(set(), set(), gate_ev)
+    cases.append(("空候选零误伤", ok3 == set() and bad3 == set()))
 
     # ⑫ 过期登记二分（DX-82）：rebase 预期态不再喊重新领用；改写丢失维持原口径
     kind, note = stale_claim_note("DX-82", "fix/x", True)
@@ -1110,9 +1139,10 @@ def main():
         # DX-91 结卡证据闸门：#短号=done 标记谁都能写（写标记与验卡是同一人），
         # DX-79 虚假结卡实录 —— baseline=done 而全主线无非流程提交引用过它，acceptance
         # 一项都没交付。在唯一写者处 fail-closed：候选结卡的短号必须至少被一条非流程
-        # 提交引用过（subject/body 均算，口径见 collect_delivery_evidence）；
-        # 缺证据的卡整轮拒绝落盘（退出码 2，git-done 按派生器失败回滚、留待人工补），
-        # 宁可多跑一次，也不让假 done 关掉防重复领用的门。
+        # 提交引用过（subject/body 均算，口径见 collect_delivery_evidence）。
+        # DX-124 粒度收口：闸门只拒「无证据的那几张」（逐张排除、点名告警、维持现状
+        # baseline），其余照常结卡、整体退出 0 —— 曾经的「整轮拒绝落盘（退出码 2）」
+        # 被 DX-88 一张无证据卡锁成活锁（每轮退 2、所有交付卡结不上，DX-116 连坐实证）。
         # --close-explicit（DX-33）不经此门：人工确认通道本来就是给「无标记可读」的卡
         # 留的，证据闸门对它重复设卡会让补结永远走不通。
         candidates = {
@@ -1121,15 +1151,17 @@ def main():
                 and (baseline.get(code) or "").lower() != "done")
         }
         evidenced = collect_delivery_evidence(git_log(root), set(cards.keys()))
-        unevidenced = close_evidence_problems(candidates, evidenced)
-        if unevidenced:
-            for code in unevidenced:
-                sys.stderr.write(
-                    "[结卡] %s：主线无非流程提交引用 #%s（交付证据缺失），拒绝结卡 —— "
-                    "实现提交需按约定引用短号；本次不落盘，补引用后重跑收尾即可\n"
-                    % (code, code))
-            return 2
-        baseline_out = close_cards(cards, baseline, derived, forced)[0]
+        _, unevidenced = apply_close_gate(candidates, forced, evidenced)
+        for code in sorted(unevidenced):
+            sys.stderr.write(
+                "[结卡] %s：主线无非流程提交引用 #%s（交付证据缺失），本轮排除不结 —— "
+                "实现提交需按约定引用短号；其余候选照常落盘\n"
+                % (code, code))
+        # 被排除的卡从 derived 里摘掉，close_cards 就读不到它的 done 标记 ——
+        # 维持现状 baseline；forced 卡走人工确认通道，不受摘除影响。
+        baseline_out = close_cards(cards, baseline,
+                                   {k: v for k, v in derived.items() if k not in unevidenced},
+                                   forced)[0]
         for code in sorted(cards):
             before = (baseline.get(code) or "").lower()
             after = (baseline_out.get(code) or "").lower()
@@ -1235,7 +1267,22 @@ def main():
                 if tier not in bp.TIERS:
                     problems.append("卡片 %s 缺少合法 tier（立卡必须经 register_board_cards.py 声明档位，DX-123）" % code)
                     continue
-                order = bp.insertion_order(tier, tier_groups)
+                try:
+                    order = bp.insertion_order(tier, tier_groups)
+                except RuntimeError:
+                    # DX-126：中点插入把档间隙指数耗尽 —— 等距重排全部声明 tier 的
+                    # todo 卡后重算，不留「需先重排该档」的人工提示（仓库没有那条通道，
+                    # 人工重排又踩「不得手改快照」的红线）。重排只动 orderKey。
+                    compacted = bp.compact_orders(items, cards)
+                    for it in items:
+                        oc = it.get("code", "")
+                        if oc in compacted and int(it.get("orderKey", 0) or 0) != compacted[oc]:
+                            changes.append("卡片 %s 档间隙耗尽，自动等距重排 orderKey %d → %d"
+                                           % (oc, int(it.get("orderKey", 0) or 0), compacted[oc]))
+                        if oc in compacted:
+                            it["orderKey"] = compacted[oc]
+                    tier_groups = bp.by_tier(items, cards)
+                    order = bp.insertion_order(tier, tier_groups)
                 tier_groups.setdefault(bp.rank(tier), []).append(order)
             else:
                 order = max_order.get(want, 0) + ORDER_STEP

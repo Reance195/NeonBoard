@@ -271,6 +271,24 @@
             "updatedAt": 1793979389
         },
         {
+            "code": "DX-114",
+            "completedAt": 0,
+            "createdAt": 1793979770,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-114",
+            "note": "",
+            "orderKey": 76800,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow selftest 探针越界读真仓库：占用集与 claim_refs 让语料卡号与生产事实撞车，并行环境下恒假红",
+            "updatedAt": 1793979770
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5029,6 +5047,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:36:29",
+    "updated": "2026-11-06T23:42:50",
     "version": 3
 }

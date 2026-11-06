@@ -1,0 +1,13 @@
+{
+  "card": "DX-125",
+  "sha256": "c30ab5e347927d0561719472985595abbafe53b2d79bf0aeab55fedabcc5e512",
+  "authorizedBy": "维护者会话授权 2026-11-07:用户明确「所有立卡都授权」",
+  "form": "docs/card-requests/20261107-syspath-judgement-ratchet.md",
+  "registeredAt": "2026-11-06T17:36:41+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-125",
+    "sha": "bf660e85abfec0d1fc8fd51cae8dd37bf25c57c5"
+  }
+}

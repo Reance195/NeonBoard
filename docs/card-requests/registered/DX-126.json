@@ -1,0 +1,13 @@
+{
+  "card": "DX-126",
+  "sha256": "a71f9151897bf44727b521436876f50b8b5cf82bc1500b86d3fe33c46fb0f2fd",
+  "authorizedBy": "维护者会话授权 2026-11-07:用户明确「所有立卡都授权」",
+  "form": "docs/card-requests/20261107-orderkey-compaction.md",
+  "registeredAt": "2026-11-06T17:40:08+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-126",
+    "sha": "111bdac574335b8c7bde572f86276cca1d9a4f9c"
+  }
+}

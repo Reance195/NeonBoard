@@ -37,24 +37,6 @@
             "updatedAt": 1793981220
         },
         {
-            "code": "DX-116",
-            "completedAt": 0,
-            "createdAt": 1793980568,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-116",
-            "note": "",
-            "orderKey": 64512,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印",
-            "updatedAt": 1793980568
-        },
-        {
             "code": "DX-101",
             "completedAt": 0,
             "createdAt": 1793935666,
@@ -89,6 +71,24 @@
             ],
             "title": "DX 启动告警零容忍：把枚举式 pattern 换成按形态识别，规则收成一份",
             "updatedAt": 1793982202
+        },
+        {
+            "code": "DX-125",
+            "completedAt": 0,
+            "createdAt": 1793987882,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-125",
+            "note": "",
+            "orderKey": 77312,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX-84 显式 sys.path 判据只落在 board-apply.py：三个脚本跨模块 import 在 python -I 下即崩，且无机器判据防回归",
+            "updatedAt": 1793987882
         },
         {
             "code": "DX-100",
@@ -233,6 +233,24 @@
             ],
             "title": "交互回归判据与 GUI 实机验收通道沉淀",
             "updatedAt": 1793935667
+        },
+        {
+            "code": "DX-124",
+            "completedAt": 0,
+            "createdAt": 1793987882,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-124",
+            "note": "",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "doing",
+            "tags": [
+                "DX"
+            ],
+            "title": "结卡证据闸门整轮连坐：一张无证据候选卡拒结全批，--close-explicit 人工通道也被击穿",
+            "updatedAt": 1793987882
         },
         {
             "code": "R0-01",
@@ -4279,6 +4297,24 @@
             "updatedAt": 1792928574
         },
         {
+            "code": "DX-116",
+            "completedAt": 1793987882,
+            "createdAt": 1793980568,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-116",
+            "note": "",
+            "orderKey": 64512,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印",
+            "updatedAt": 1793987882
+        },
+        {
             "code": "R4-08",
             "completedAt": 1792942397,
             "createdAt": 1792726694,
@@ -5243,8 +5279,26 @@
             ],
             "title": "R11 界面重排 2/3：统一弹窗壳（DialogShell / DrawerShell 落地 + 8 个 Dialog 迁移）",
             "updatedAt": 1793973485
+        },
+        {
+            "code": "DX-126",
+            "completedAt": 1793987882,
+            "createdAt": 1793987882,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-126",
+            "note": "",
+            "orderKey": 104448,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡排位中点插入把档间隙指数耗尽：P2 新卡立卡时 derive --write 直接崩，DX-123 自身 orderKey 错位，排位守卫无自愈",
+            "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T01:50:36",
+    "updated": "2026-11-07T01:58:02",
     "version": 3
 }

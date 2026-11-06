@@ -252,7 +252,8 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "DX-123": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5520,6 +5521,40 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "DX-123": {
+            "acceptance": [
+                "python scripts/board_priority.py --selftest 全过（含档位倒序抓取、间隙耗尽、空档位落点、未声明 tier 豁免四类用例）",
+                "python scripts/register_board_cards.py --selftest 全过，新增判据：tier 缺失或非法枚举拒绝、build_card 写入 tier、改 tier 后 canonical_hash 变化",
+                "python scripts/task_gate.py --selftest 全过，新增判据：仅改 cards[].tier 判为任务定义变更（须 chore(board)+授权/批次两行）",
+                "python scripts/derive_board_status.py --check 退出码 0，新卡 orderKey 由 cards[].tier 经 insertion_order 计算落点、不再追加列尾",
+                "负测：请求单 frontmatter 写 tier: P9 时 register_board_cards.py --dry-run 非 0 退出并点名「非法档位」",
+                "负测：临时把任一已声明 tier 的 todo 卡 orderKey 移到更低档之前，derive --check 非 0 且点名卡号，还原后恢复 0",
+                "端到端：本卡交付后 DX-123 的 orderKey 落在 P2 档（介于 DX-113 与 DX-100 之间），存量 todo 卡 orderKey 除本卡外一个不变",
+                "docs/board-ledger.json 回填在办 todo 卡 cards[].tier 与排定档位一致且 derive --check 通过",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿（本卡 scope 无代码路径，按脚本领验收）",
+                "pwsh -File scripts/verify.ps1 全量通过（回填既有卡被判「改既有卡」走 full 档）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 维护者会话按「先修开工/交付链路，再修独立项，最后开全量编译卡」排定 21 张待办卡顺序并写入 progress.json，实测两次被应用回写与锚点还原冲掉（AGENTS.md 快照撞车主线优先）；derive_board_status.py:1062 对新卡一律 max_order+1024 追加列尾，排位规则无处落地。维护者确认按「判断留给人（立卡声明 tier）、落位交给机器（派生器计算）、漂移用退出码拦（derive --check）」落地。",
+            "id": "DX-123",
+            "note": "",
+            "scope": [
+                "scripts/board_priority.py",
+                "scripts/register_board_cards.py",
+                "scripts/derive_board_status.py",
+                "scripts/task_gate.py",
+                "docs/task-card.md",
+                "docs/board-sync.md",
+                "AGENTS.md",
+                "docs/pitfalls.md",
+                "docs/board-ledger.json",
+                "progress.json",
+                "docs/card-requests/20261107-board-priority-tier.md"
+            ],
+            "stage": "DX",
+            "title": "立卡排位规则落地：tier 档位声明与 orderKey 档位落位"
         }
     },
     "claims": {},

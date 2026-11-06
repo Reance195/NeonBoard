@@ -1,0 +1,13 @@
+{
+  "card": "DX-123",
+  "sha256": "e76363841467a3f4a03f20d61e21c5461175f9daa0819fbf7e274cfa97c497e2",
+  "authorizedBy": "维护者 2026-11-07 会话授权（按 2026-11-07 排定的待办顺序，把「立卡按档位落位」落地为项目规则，并回填在办卡档位）",
+  "form": "docs/card-requests/20261107-board-priority-tier.md",
+  "registeredAt": "2026-11-06T16:40:25+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-123",
+    "sha": "d7fa68b5cb3286cce035f742baee13cb4edf7887"
+  }
+}

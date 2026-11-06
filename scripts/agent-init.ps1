@@ -69,6 +69,11 @@ $ErrorActionPreference = 'Stop'
 # 裸 `[string](& git ...)` 模式已被 check_script_hygiene 规则 E 禁止。
 . (Join-Path $PSScriptRoot 'git-helpers.ps1')
 
+# 控制台 UTF-8 编码唯一口径（DX-77/DX-83）：开区捕获 python 子进程（claim-card 等）的
+# UTF-8 输出不再按 GBK 解码转发（§2.6/§2.20 同类的收口）
+. (Join-Path $PSScriptRoot 'nb-console.ps1')
+Set-NbUtf8Console
+
 # 仓库根按**脚本自身路径**定位：新工作区永远开在「脚本所属仓库」下，
 # 避免在别的目录里误开 worktree
 $scriptRepoRoot = $null

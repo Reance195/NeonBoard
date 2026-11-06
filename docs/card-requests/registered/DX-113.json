@@ -1,0 +1,13 @@
+{
+  "card": "DX-113",
+  "sha256": "eca21b64bf1777261478906965ed72311278127e6b4ce169a07304c7e8046ea8",
+  "authorizedBy": "维护者 2026-11-06 会话指令：DX-94 复盘后「立卡」",
+  "form": "docs/card-requests/20261106-note-verify-tier.md",
+  "registeredAt": "2026-11-06T15:33:54+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-113",
+    "sha": "4032179aae59cd7f7a8e5cd6b1551af935552d5e"
+  }
+}

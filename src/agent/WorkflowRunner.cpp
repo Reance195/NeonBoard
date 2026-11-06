@@ -42,6 +42,11 @@ QString roleDeliverable(const QString &role)
         return QStringLiteral("文档改动：改了哪几节、给谁看");
     if (role == QLatin1String("orchestrator"))
         return QStringLiteral("summary：整体结论、剩余风险、建议的下一步");
+    if (role == QLatin1String("retro"))
+        return QStringLiteral(
+            "复盘报告，固定三段：一、碰到的问题清单（含被跳过 / 失败 / 返工的环节）；"
+            "二、每条问题的根因；三、程序化对策 —— 能沉淀成脚本 / 钩子 / CI 检查的，"
+            "写明可执行命令与退出码判据；沉淀不了的写明理由");
     return QStringLiteral("本步结论");
 }
 
@@ -493,14 +498,50 @@ void WorkflowRunner::finishStep(int index, int exitCode, const QVariantMap &deta
     emit stepFinished(chain.chainId, index, info);
     bump();
 
-    // 4) fail-fast：这一步不过就地收口，后面步骤一个都不启动
+    // 4) 失败分支（R19-01）：链失败仍要复盘 —— 复盘最需要失败现场。
+    //    非 retro 步失败：先记下原因、跳去跑链上还没跑的 retro 步；
+    //    retro 结束（无论过没过）再按原原因收口，链的 failed 结论不变。
+    //    retro 自身失败：fail-soft（Z4 收尾装饰类），只告警，继续走后续步骤。
     if (!passed) {
         const QString reason = verdict.value(QStringLiteral("lastError")).toString();
-        markFailed(chain,
-                   QStringLiteral("第 %1 步（%2）未通过：%3")
-                       .arg(index + 1)
-                       .arg(step.role,
-                            reason.isEmpty() ? QStringLiteral("退出码 %1").arg(exitCode) : reason));
+        const QString message =
+            QStringLiteral("第 %1 步（%2）未通过：%3")
+                .arg(index + 1)
+                .arg(step.role,
+                     reason.isEmpty() ? QStringLiteral("退出码 %1").arg(exitCode) : reason);
+
+        if (step.role == QLatin1String("retro")) {
+            if (!chain.pendingFailReason.isEmpty()) {
+                markFailed(chain, chain.pendingFailReason);
+                return;
+            }
+            qWarning().noquote() << "Workflow: retro step failed (fail-soft), continuing"
+                                 << chain.taskId << message;
+            startStep(index + 1);
+            return;
+        }
+
+        if (!chain.pendingFailReason.isEmpty()) {
+            // 已有待复盘失败还再失败（不应发生，防御）：首个失败为准
+            markFailed(chain, chain.pendingFailReason);
+            return;
+        }
+        for (int j = index + 1; j < chain.steps.size(); ++j) {
+            if (chain.steps.at(j).role == QLatin1String("retro")
+                && chain.steps.at(j).status == QLatin1String("pending")) {
+                chain.pendingFailReason = message;
+                startStep(j);
+                return;
+            }
+        }
+        markFailed(chain, message);
+        return;
+    }
+
+    // R19-01：链此前已有失败、本步是补跑的 retro 且复盘通过 —— 仍按原失败原因收口，
+    // 链的 failed 结论不变（复盘是装饰性收尾，不能把失败链洗成成功）。
+    if (!chain.pendingFailReason.isEmpty()) {
+        markFailed(chain, chain.pendingFailReason);
         return;
     }
 

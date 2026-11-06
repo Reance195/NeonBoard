@@ -55,42 +55,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-75",
-            "completedAt": 0,
-            "createdAt": 1793905858,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-75",
-            "note": "触发证据：本会话 dispatch DX-71 时 origin 抖动实测：nbflow 打出「非法状态转移：DX-71 created → blocked（允许：abandoned, dispatched, requested）」——状态机自己写不被自己允许的状态；blocked 无恢复指令，reconcile 报「无需动作」，只能重跑 dispatch 碰运气恢复\n\n## 目标\nnbflow 网络失败写 blocked 却报非法状态转移：blocked 进转移表并配恢复路径\n\n## 验收\ndispatch 网络失败（fail-closed）的状态转移合法：blocked 作为一等状态进转移表，或失败回滚保持 created，不再出现「写 blocked 又报非法状态转移（允许：abandoned, dispatched, requested）」的自相矛盾输出;blocked 态有明确出路：status 对 blocked 卡打印下一步指令（重跑 dispatch 或 abandon），恢复后能正常领用;python scripts/nbflow.py --selftest 覆盖该转移场景并通过\n\n## 边界\nscripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 49152,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow 网络失败写 blocked 却报非法状态转移：blocked 进转移表并配恢复路径",
-            "updatedAt": 1793905858
-        },
-        {
-            "code": "DX-77",
-            "completedAt": 0,
-            "createdAt": 1793905858,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-77",
-            "note": "触发证据：本会话实测（chcp 936 控制台）：verify.ps1 尾行输出「閫€鍑虹爜: 0」、nbflow status 授权整段 mojibake；同类已三次：DX-46 修 board-apply.py、DX-60 修 build.ps1，均只治单文件（Z6：该收口所有入口了）\n\n## 目标\nDX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码\n\n## 验收\nchcp 936 控制台下 pwsh -File scripts/verify.ps1 -ScriptOnly 与 python -I scripts/nbflow.py status 的中文输出可读（无 mojibake），方案沿 DX-60 口径（入口自切 CP 65001 或 Python stdout reconfigure UTF-8），能抽公共实现就抽、不复制三份;python scripts/nbflow.py --selftest 与 check_script_hygiene 均通过（不引入 BOM/编码卫生回归）;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/verify.ps1;scripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 51200,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码",
-            "updatedAt": 1793905858
-        },
-        {
             "code": "DX-78",
             "completedAt": 0,
             "createdAt": 1793906024,
@@ -124,24 +88,6 @@
                 "DX"
             ],
             "title": "rebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用",
-            "updatedAt": 1793906980
-        },
-        {
-            "code": "DX-83",
-            "completedAt": 0,
-            "createdAt": 1793906980,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-83",
-            "note": "触发证据：DX-62 交付日复现实验钉死根因：python 子进程 stdout.reconfigure(utf-8) 后输出合法 UTF-8，pwsh 按 [Console]::OutputEncoding=gb2312（CP 936）解码后转发即乱码（实测输出「[娲剧敓鍣╙ 宸叉洿鏂� progress.json」）。受害链路：git-done 收尾里 derive --write 的输出、agent-init 捕获 claim-card 输出、nbflow 捕获 git-done 全程输出，本次会话全部观察到处。DX-60（710eed8）已在 build.ps1 修过同类（自切 CP 65001），属同类第二次，按 Z6 收口；Z5 要求编码设置只活一份\n\n## 目标\nPS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装\n\n## 验收\n新建 scripts/nb-console.ps1 提供 Set-NbUtf8Console 幂等封装（Console.OutputEncoding 与输入编码切 UTF-8，参照 DX-60 在 build.ps1 的实现），build.ps1 的编码设置段迁移为调用封装（ninja 前缀字节闸门留在 build.ps1 不动）；git-done.ps1、agent-init.ps1、verify.ps1 三个捕获 Python 子进程输出的入口 dot-source 并调用封装；机器判据：check_script_hygiene.py 新增规则，上述入口脚本缺封装调用即拒（反向探针验证）；实测判据：pwsh 下经封装后捕获 python 打印中文的输出与 python 直出 UTF-8 逐字节一致（控制台为 CP 936 的环境下验证）；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿，docs/pitfalls.md 记一条（§2.6 同类第二处的收口）\n\n## 边界\nscripts/nb-console.ps1;scripts/build.ps1;scripts/git-done.ps1;scripts/agent-init.ps1;scripts/verify.ps1;scripts/check_script_hygiene.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 57344,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "PS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装",
             "updatedAt": 1793906980
         },
         {
@@ -235,14 +181,32 @@
             "updatedAt": 1793977718
         },
         {
+            "code": "DX-110",
+            "completedAt": 0,
+            "createdAt": 1793979017,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-110",
+            "note": "",
+            "orderKey": 74752,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "锚点快进永久跳过：立卡 roadmap 行收进立卡提交，锚点同步脏文件判据与分类修正",
+            "updatedAt": 1793979017
+        },
+        {
             "code": "R11-13",
             "completedAt": 0,
-            "createdAt": 1793978912,
+            "createdAt": 1793979389,
             "deleted": false,
             "dueAt": 0,
             "id": "R11-13",
             "note": "",
-            "orderKey": 74752,
+            "orderKey": 75776,
             "priority": 2,
             "stage": "R11",
             "status": "todo",
@@ -250,7 +214,133 @@
                 "R11"
             ],
             "title": "R11 界面重排收尾 3/3：修 EmptyState 锚定缺陷（空态浮到窗口左上角）+ 订正核验记录的归因",
-            "updatedAt": 1793978912
+            "updatedAt": 1793979389
+        },
+        {
+            "code": "DX-114",
+            "completedAt": 0,
+            "createdAt": 1793979770,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-114",
+            "note": "",
+            "orderKey": 76800,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow selftest 探针越界读真仓库：占用集与 claim_refs 让语料卡号与生产事实撞车，并行环境下恒假红",
+            "updatedAt": 1793979770
+        },
+        {
+            "code": "DX-113",
+            "completedAt": 0,
+            "createdAt": 1793980098,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-113",
+            "note": "",
+            "orderKey": 77824,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "交付说明 note 提交被判「改契约」：full 档与 -ScriptOnly 验收口径分裂，agent 只能挑时态自证",
+            "updatedAt": 1793980098
+        },
+        {
+            "code": "DX-115",
+            "completedAt": 0,
+            "createdAt": 1793980234,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-115",
+            "note": "",
+            "orderKey": 78848,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移",
+            "updatedAt": 1793980234
+        },
+        {
+            "code": "DX-111",
+            "completedAt": 0,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-111",
+            "note": "",
+            "orderKey": 79872,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用",
+            "updatedAt": 1793980354
+        },
+        {
+            "code": "DX-112",
+            "completedAt": 0,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-112",
+            "note": "",
+            "orderKey": 80896,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现",
+            "updatedAt": 1793980354
+        },
+        {
+            "code": "DX-116",
+            "completedAt": 0,
+            "createdAt": 1793980568,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-116",
+            "note": "",
+            "orderKey": 81920,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印",
+            "updatedAt": 1793980568
+        },
+        {
+            "code": "DX-119",
+            "completedAt": 0,
+            "createdAt": 1793980819,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-119",
+            "note": "",
+            "orderKey": 82944,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9",
+            "updatedAt": 1793980819
         },
         {
             "code": "R0-01",
@@ -3579,6 +3669,24 @@
             "updatedAt": 1793912103
         },
         {
+            "code": "DX-75",
+            "completedAt": 1793981128,
+            "createdAt": 1793905858,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-75",
+            "note": "触发证据：本会话 dispatch DX-71 时 origin 抖动实测：nbflow 打出「非法状态转移：DX-71 created → blocked（允许：abandoned, dispatched, requested）」——状态机自己写不被自己允许的状态；blocked 无恢复指令，reconcile 报「无需动作」，只能重跑 dispatch 碰运气恢复\n\n## 目标\nnbflow 网络失败写 blocked 却报非法状态转移：blocked 进转移表并配恢复路径\n\n## 验收\ndispatch 网络失败（fail-closed）的状态转移合法：blocked 作为一等状态进转移表，或失败回滚保持 created，不再出现「写 blocked 又报非法状态转移（允许：abandoned, dispatched, requested）」的自相矛盾输出;blocked 态有明确出路：status 对 blocked 卡打印下一步指令（重跑 dispatch 或 abandon），恢复后能正常领用;python scripts/nbflow.py --selftest 覆盖该转移场景并通过\n\n## 边界\nscripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 49152,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow 网络失败写 blocked 却报非法状态转移：blocked 进转移表并配恢复路径",
+            "updatedAt": 1793981128
+        },
+        {
             "completedAt": 1792849808,
             "createdAt": 1792849311,
             "deleted": false,
@@ -3629,6 +3737,24 @@
             ],
             "title": "已 done 卡的服务端 claim ref 存量未释放：补清并加巡检判据",
             "updatedAt": 1793911592
+        },
+        {
+            "code": "DX-77",
+            "completedAt": 1793979866,
+            "createdAt": 1793905858,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-77",
+            "note": "触发证据：本会话实测（chcp 936 控制台）：verify.ps1 尾行输出「閫€鍑虹爜: 0」、nbflow status 授权整段 mojibake；同类已三次：DX-46 修 board-apply.py、DX-60 修 build.ps1，均只治单文件（Z6：该收口所有入口了）\n\n## 目标\nDX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码\n\n## 验收\nchcp 936 控制台下 pwsh -File scripts/verify.ps1 -ScriptOnly 与 python -I scripts/nbflow.py status 的中文输出可读（无 mojibake），方案沿 DX-60 口径（入口自切 CP 65001 或 Python stdout reconfigure UTF-8），能抽公共实现就抽、不复制三份;python scripts/nbflow.py --selftest 与 check_script_hygiene 均通过（不引入 BOM/编码卫生回归）;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/verify.ps1;scripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 51200,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码",
+            "updatedAt": 1793979866
         },
         {
             "completedAt": 1792849809,
@@ -3806,6 +3932,24 @@
             ],
             "title": "R4 键盘完整性 / 无障碍",
             "updatedAt": 1792850781
+        },
+        {
+            "code": "DX-83",
+            "completedAt": 1793979866,
+            "createdAt": 1793906980,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-83",
+            "note": "触发证据：DX-62 交付日复现实验钉死根因：python 子进程 stdout.reconfigure(utf-8) 后输出合法 UTF-8，pwsh 按 [Console]::OutputEncoding=gb2312（CP 936）解码后转发即乱码（实测输出「[娲剧敓鍣╙ 宸叉洿鏂� progress.json」）。受害链路：git-done 收尾里 derive --write 的输出、agent-init 捕获 claim-card 输出、nbflow 捕获 git-done 全程输出，本次会话全部观察到处。DX-60（710eed8）已在 build.ps1 修过同类（自切 CP 65001），属同类第二次，按 Z6 收口；Z5 要求编码设置只活一份\n\n## 目标\nPS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装\n\n## 验收\n新建 scripts/nb-console.ps1 提供 Set-NbUtf8Console 幂等封装（Console.OutputEncoding 与输入编码切 UTF-8，参照 DX-60 在 build.ps1 的实现），build.ps1 的编码设置段迁移为调用封装（ninja 前缀字节闸门留在 build.ps1 不动）；git-done.ps1、agent-init.ps1、verify.ps1 三个捕获 Python 子进程输出的入口 dot-source 并调用封装；机器判据：check_script_hygiene.py 新增规则，上述入口脚本缺封装调用即拒（反向探针验证）；实测判据：pwsh 下经封装后捕获 python 打印中文的输出与 python 直出 UTF-8 逐字节一致（控制台为 CP 936 的环境下验证）；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿，docs/pitfalls.md 记一条（§2.6 同类第二处的收口）\n\n## 边界\nscripts/nb-console.ps1;scripts/build.ps1;scripts/git-done.ps1;scripts/agent-init.ps1;scripts/verify.ps1;scripts/check_script_hygiene.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 57344,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "PS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装",
+            "updatedAt": 1793979866
         },
         {
             "completedAt": 1792855060,
@@ -5011,6 +5155,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:28:32",
+    "updated": "2026-11-07T00:05:28",
     "version": 3
 }

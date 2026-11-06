@@ -1,0 +1,13 @@
+{
+  "card": "DX-119",
+  "sha256": "1bd8c37b93a14e3bfee49bd5689a9405ea6f7688f3391917f3bf4353d7bad054",
+  "authorizedBy": "维护者 2026-11-06 会话指令：该立卡的立卡（对 agent-flowguard 会话移交事项）",
+  "form": "docs/card-requests/20261106-dx-nbflow-approve-receipt-gate.md",
+  "registeredAt": "2026-11-06T16:00:19+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-119",
+    "sha": "f1da3965a95addc33448337eaefdf1ee5d4b0328"
+  }
+}

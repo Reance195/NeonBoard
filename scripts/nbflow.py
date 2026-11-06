@@ -129,12 +129,16 @@ CODE_SUFFIXES = (".cpp", ".h", ".hpp", ".qml", "CMakeLists.txt")
 
 STATES = ("requested", "accepted", "approved", "created", "dispatched",
           "running", "reported", "closed", "cleaned", "abandoned", "rejected", "blocked")
-# 允许的状态转移；dispatch 直接从 created → dispatched（领卡与移交是一步，不设中间态）
+# 允许的状态转移；dispatch 直接从 created → dispatched（领卡与移交是一步，不设中间态）。
+# blocked 是「步骤失败停放态」：进哪步失败就停在哪步后面，出路对准入局原因——
+# approve 落盘失败 → blocked→accepted 重批（DX-72），dispatch 开区失败 →
+# blocked→dispatched 重跑领卡（DX-75：created 必须能进 blocked，否则失败处理
+# 自己撞「非法状态转移」，卡永远停不进停放态）。
 TRANSITIONS = {
     "requested": {"accepted", "approved", "rejected", "abandoned"},
     "accepted": {"approved", "rejected", "blocked", "abandoned"},
     "approved": {"created", "blocked", "abandoned"},
-    "created": {"dispatched", "abandoned", "requested"},   # requested 仅 requeue 用（台账确无此卡，DX-57）
+    "created": {"dispatched", "blocked", "abandoned", "requested"},   # requested 仅 requeue 用（台账确无此卡，DX-57）
     "dispatched": {"running", "reported", "abandoned"},
     "running": {"reported", "abandoned"},
     "reported": {"closed", "running", "abandoned"},
@@ -142,7 +146,7 @@ TRANSITIONS = {
     "cleaned": set(),
     "abandoned": {"requested"},
     "rejected": {"requested"},
-    "blocked": {"accepted", "abandoned"},
+    "blocked": {"accepted", "dispatched", "abandoned"},
 }
 
 
@@ -928,8 +932,9 @@ def cmd_dispatch(ctx: Ctx, state: dict, args) -> int:
         err("✗ 分支名不符合宪章前缀规范：%s" % args.branch)
         return 1
     sess = state["sessions"].get(card)
-    if not sess or sess["state"] != "created":
-        err("✗ %s 不处于 created（当前：%s）；先 approve" % (card, sess["state"] if sess else "无"))
+    if not sess or sess["state"] not in ("created", "blocked"):
+        err("✗ %s 不处于 created/blocked（当前：%s）；先 approve，或从 blocked 重跑本命令（DX-75）"
+            % (card, sess["state"] if sess else "无"))
         return 1
     code, _ = run(dispatch_argv(ctx, card, args.agent, args.branch, args.base), dry=ctx.dry_run)
     if code != 0:
@@ -1527,6 +1532,9 @@ def cmd_status(ctx: Ctx, state: dict, args) -> int:
         if wt:
             bits.append("handoff=%s" % ("有" if handoff_path(wt).exists() else "缺"))
             bits.append("report=%s" % ("有" if report_path(wt).exists() else "缺"))
+        if s["state"] == "blocked":
+            # DX-75：停放态必须自带出路——停在哪步失败，出路就是重跑哪步（或放弃）
+            out("  %-10s ↳ 出路：重跑 dispatch（开区失败）/ 对应失败步骤，或 abandon 放弃" % card)
         out("  %-10s %s" % (card, " | ".join(bits)))
     return 0
 
@@ -1704,6 +1712,22 @@ def selftest() -> int:
           "closed" in TRANSITIONS["reported"] and "cleaned" in TRANSITIONS["closed"])
     check("状态机：任意在办态可 abandoned",
           all("abandoned" in TRANSITIONS[s] for s in ("created", "dispatched", "running", "reported")))
+    # DX-75：dispatch 失败必须停得进 blocked，恢复出路直达重跑（否则失败处理自己撞
+    # 「非法状态转移」，卡永远悬在半空——DX-71 实录）
+    check("状态机：created→blocked 失败停放合法（DX-75）",
+          "blocked" in TRANSITIONS["created"])
+    check("状态机：blocked→dispatched 重跑出路合法（DX-75）",
+          "dispatched" in TRANSITIONS["blocked"])
+    check("状态机：blocked 不可直达 closed（未 report 不能 close 不被绕过）",
+          "closed" not in TRANSITIONS["blocked"])
+    # DX-75 转移场景演练：dispatch 失败 → 停放 blocked → 重跑出路（内存演算，dry-run 不落盘）
+    stw = blank_state()
+    stw["sessions"]["FLOW-01"] = {"state": "created", "history": []}
+    transition(Ctx(dry_run=True), stw, "FLOW-01", "blocked", nextStep="排查 agent-init 失败原因后重跑 dispatch")
+    transition(Ctx(dry_run=True), stw, "FLOW-01", "dispatched", agent="agent-x", branch="fix/x")
+    check("DX-75 场景：created→blocked→dispatched 重跑走通",
+          stw["sessions"]["FLOW-01"]["state"] == "dispatched"
+          and stw["sessions"]["FLOW-01"]["nextStep"] == "排查 agent-init 失败原因后重跑 dispatch")
 
     st = blank_state()
     rec = authorization(st, "维护者 2026-11-04 会话", "FLOW-01~04", 24)
@@ -2126,12 +2150,32 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _force_utf8_console() -> None:
+    """控制台代码页切 65001（DX-77）：reconfigure 之后 python 写出的是 UTF-8 字节，
+    CP 936 控制台按 GBK 解释即 mojibake（nbflow status 授权段实测）；切到 65001
+    后显示与字节一致。仅 Windows 实控台生效：GetConsoleWindow() 为 0（管道 /
+    计划任务 / CI 服务会话）时跳过——管道消费者本就按 UTF-8 解码。与 PS 侧
+    scripts/nb-console.ps1 同口径（DX-83），语言不同无法共用一份实现。"""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+
+        k32 = ctypes.windll.kernel32
+        if k32.GetConsoleWindow():
+            k32.SetConsoleOutputCP(65001)
+            k32.SetConsoleCP(65001)
+    except Exception:
+        pass
+
+
 def main() -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
             stream.reconfigure(encoding="utf-8", errors="replace")
         except (AttributeError, ValueError):
             pass
+    _force_utf8_console()
     args = build_parser().parse_args()
     args.dry_run = bool(args.dry_run or getattr(args, "dry_run_sub", False))
     if args.selftest:

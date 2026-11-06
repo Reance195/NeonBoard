@@ -123,25 +123,35 @@ QVariantList WorkflowPresets::builtinPresets()
     return {
         makePreset(QStringLiteral("fix"), QStringLiteral("快速修复"),
                    QStringLiteral("一行修复、小 bug"), {QStringLiteral("engineer"),
-                                                        QStringLiteral("qa")},
-                   {}),
+                                                        QStringLiteral("qa"),
+                                                        QStringLiteral("retro")},
+                   {QStringLiteral("retro")}),
         makePreset(QStringLiteral("feature"), QStringLiteral("新功能"),
                    QStringLiteral("需要拆解与设计的新功能"),
                    {QStringLiteral("pm"), QStringLiteral("architect"),
-                    QStringLiteral("engineer"), QStringLiteral("qa")},
-                   {QStringLiteral("pm"), QStringLiteral("architect")}),
+                    QStringLiteral("engineer"), QStringLiteral("qa"),
+                    QStringLiteral("retro")},
+                   {QStringLiteral("pm"), QStringLiteral("architect"),
+                    QStringLiteral("retro")}),
         makePreset(QStringLiteral("hotfix"), QStringLiteral("紧急修复"),
                    QStringLiteral("紧急，跳过评审（qa 仍保留）"),
-                   {QStringLiteral("engineer"), QStringLiteral("qa")}, {}),
+                   {QStringLiteral("engineer"), QStringLiteral("qa"),
+                    QStringLiteral("retro")},
+                   {QStringLiteral("retro")}),
         makePreset(QStringLiteral("docs"), QStringLiteral("纯文档"),
-                   QStringLiteral("只改文档"), {QStringLiteral("writer")}, {}),
+                   QStringLiteral("只改文档"), {QStringLiteral("writer"),
+                                                QStringLiteral("retro")},
+                   {QStringLiteral("retro")}),
         makePreset(QStringLiteral("review"), QStringLiteral("只读审查"),
-                   QStringLiteral("只看不改"), {QStringLiteral("orchestrator")}, {}),
+                   QStringLiteral("只看不改"), {QStringLiteral("orchestrator"),
+                                                QStringLiteral("retro")},
+                   {QStringLiteral("retro")}),
         makePreset(QStringLiteral("delivery"), QStringLiteral("0→1 交付"),
                    QStringLiteral("从需求到收口的大活"),
                    {QStringLiteral("pm"), QStringLiteral("architect"), QStringLiteral("engineer"),
-                    QStringLiteral("qa"), QStringLiteral("orchestrator")},
-                   {QStringLiteral("pm"), QStringLiteral("architect")}),
+                    QStringLiteral("qa"), QStringLiteral("retro"), QStringLiteral("orchestrator")},
+                   {QStringLiteral("pm"), QStringLiteral("architect"),
+                    QStringLiteral("retro")}),
     };
 }
 
@@ -509,6 +519,24 @@ QString WorkflowPresets::buildSummary(const QString &taskId, const QString &work
         lines << QStringLiteral("- 建议下一步：回到 %1 修复后重跑，或在看板上补一条卡再执行；"
                                 "重试轮数受 maxAttempts 约束。")
                      .arg(QStringLiteral("engineer"));
+    }
+
+    // 复盘结论（R19-01）：引用 retro 步的交接物，让人与下一次执行能顺着读根因与对策。
+    for (const QVariant &value : steps) {
+        const QVariantMap step = value.toMap();
+        if (step.value(QStringLiteral("role")).toString() != QLatin1String("retro"))
+            continue;
+        const QString handoff = step.value(QStringLiteral("handoffPath")).toString();
+        lines << QString();
+        lines << QStringLiteral("## 复盘结论");
+        if (step.value(QStringLiteral("status")).toString() == QLatin1String("passed")
+            && !handoff.isEmpty()) {
+            lines << QStringLiteral("- 复盘交接物：%1").arg(handoff);
+            lines << QStringLiteral("- 内容口径：问题清单 → 根因 → 程序化对策（可执行判据优先）。");
+        } else {
+            lines << QStringLiteral("- 复盘步骤未产出有效交接物（fail-soft 跳过，不影响上述结论）。");
+        }
+        break;
     }
     return lines.join(QLatin1Char('\n'));
 }

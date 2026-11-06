@@ -1,0 +1,13 @@
+{
+  "card": "DX-115",
+  "sha256": "4a194d2b0127ef687e458ad90e7715f26bd9deae99c14f3b41af3436e2a49fd5",
+  "authorizedBy": "维护者 2026-11-06 会话指令：确认无主卡并领卡干活，干活过程中发现问题即立卡（所有立卡都授权，前提是完善方案而非临时方案）",
+  "form": "docs/card-requests/20261106-nbflow-receipt-integration.md",
+  "registeredAt": "2026-11-06T15:50:33+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-115",
+    "sha": "f1c0dacfbd3d69375a492c7a882fae6aba4efd3e"
+  }
+}

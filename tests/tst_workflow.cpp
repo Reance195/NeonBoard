@@ -55,6 +55,8 @@ private slots:
     void summarizeKeepsTail();
     void twoStepChainRunsInOrder();
     void failedStepStopsChain();
+    void failedChainStillRunsRetro();
+    void retroFailureIsFailSoft();
     void startRejectsUnsafePreconditions();
 
 private:
@@ -126,31 +128,37 @@ void TestWorkflow::cleanup()
 
 void TestWorkflow::presetStepsByWorkflow()
 {
-    // fix = engineer → qa（qa 不能被省）
+    // fix = engineer → qa → retro（R19-01：qa 后固定插复盘步）
     const QVariantList fix = TaskExec::presetSteps(QStringLiteral("fix"));
-    QCOMPARE(fix.size(), 2);
+    QCOMPARE(fix.size(), 3);
     QCOMPARE(fix.at(0).toMap().value(QStringLiteral("role")).toString(), QStringLiteral("engineer"));
     QCOMPARE(fix.at(1).toMap().value(QStringLiteral("role")).toString(), QStringLiteral("qa"));
+    QCOMPARE(fix.at(2).toMap().value(QStringLiteral("role")).toString(), QStringLiteral("retro"));
 
-    // feature = pm → architect → engineer → qa
+    // feature = pm → architect → engineer → qa → retro
     const QVariantList feature = TaskExec::presetSteps(QStringLiteral("feature"));
-    QCOMPARE(feature.size(), 4);
+    QCOMPARE(feature.size(), 5);
     QCOMPARE(feature.at(0).toMap().value(QStringLiteral("role")).toString(), QStringLiteral("pm"));
     QCOMPARE(feature.at(1).toMap().value(QStringLiteral("role")).toString(),
              QStringLiteral("architect"));
     QCOMPARE(feature.at(3).toMap().value(QStringLiteral("role")).toString(), QStringLiteral("qa"));
+    QCOMPARE(feature.at(4).toMap().value(QStringLiteral("role")).toString(),
+             QStringLiteral("retro"));
 
-    // delivery = 五步，最后是 orchestrator（收口）
+    // delivery = 六步，retro 在 qa 之后、orchestrator（收口）之前
     const QVariantList delivery = TaskExec::presetSteps(QStringLiteral("delivery"));
-    QCOMPARE(delivery.size(), 5);
+    QCOMPARE(delivery.size(), 6);
+    QCOMPARE(delivery.at(4).toMap().value(QStringLiteral("role")).toString(),
+             QStringLiteral("retro"));
     QCOMPARE(delivery.last().toMap().value(QStringLiteral("role")).toString(),
              QStringLiteral("orchestrator"));
 
     // docs / review / hotfix
-    QCOMPARE(TaskExec::presetSteps(QStringLiteral("docs")).size(), 1);
-    QCOMPARE(TaskExec::presetSteps(QStringLiteral("review")).size(), 1);
-    QCOMPARE(TaskExec::presetSteps(QStringLiteral("hotfix")).size(), 2);
-    // 未知 workflow：空表（不猜）
+    QCOMPARE(TaskExec::presetSteps(QStringLiteral("docs")).size(), 2);
+    QCOMPARE(TaskExec::presetSteps(QStringLiteral("review")).size(), 2);
+    QCOMPARE(TaskExec::presetSteps(QStringLiteral("hotfix")).size(), 3);
+    // retro 是合法角色；未知 workflow：空表（不猜）
+    QVERIFY(TaskExec::isKnownRole(QStringLiteral("retro")));
     QVERIFY(TaskExec::presetSteps(QStringLiteral("no-such")).isEmpty());
     QVERIFY(TaskExec::presetSteps(QString()).isEmpty());
 }
@@ -198,8 +206,8 @@ void TestWorkflow::stepOverrideStoredInMeta()
     QVERIFY(m_exec->setExec(id, {{QStringLiteral("workflow"), QStringLiteral("fix")},
                                  {QStringLiteral("agent"), QStringLiteral("opencode")}}));
 
-    // 未覆盖时 = 预设
-    QCOMPARE(m_exec->stepsOf(id).size(), 2);
+    // 未覆盖时 = 预设（R19-01 起 fix = engineer → qa → retro，三步）
+    QCOMPARE(m_exec->stepsOf(id).size(), 3);
 
     // 覆盖：只留一步（卡片换 agent / 调 prompt）
     const QVariantList custom{QVariantMap{
@@ -236,7 +244,7 @@ void TestWorkflow::stepOverrideStoredInMeta()
 
     // clearSteps 回到预设
     QVERIFY(m_exec->clearSteps(id));
-    QCOMPARE(m_exec->stepsOf(id).size(), 2);
+    QCOMPARE(m_exec->stepsOf(id).size(), 3);
 
     // 删卡要清掉覆盖项，别留孤儿 meta
     QVERIFY(m_exec->setSteps(id, custom));
@@ -455,6 +463,161 @@ void TestWorkflow::failedStepStopsChain()
     const QVariantMap result = chainDone.at(0).at(1).toMap();
     QVERIFY(!result.value(QStringLiteral("ok")).toBool());
     QCOMPARE(result.value(QStringLiteral("failedStep")).toInt(), 0);
+}
+
+void TestWorkflow::failedChainStillRunsRetro()
+{
+    // R19-01：非 retro 步失败 → 先跳去跑还没跑的 retro 步（复盘最需要失败现场），
+    // retro 结束后再按原失败原因收口，链的 failed 结论不变。
+    const QVariantMap failProfile{
+        {QStringLiteral("id"), QStringLiteral("cmd-fail-retro")},
+        {QStringLiteral("label"), QStringLiteral("测试用 cmd（失败）")},
+        {QStringLiteral("exe"), kCmd},
+        {QStringLiteral("args"), QStringList{QStringLiteral("/c"), QStringLiteral("exit"),
+                                             QStringLiteral("7")}},
+        {QStringLiteral("readonlyArgs"), QStringList()},
+        {QStringLiteral("promptMode"), QStringLiteral("stdin")},
+        {QStringLiteral("output"), QStringLiteral("text")},
+        {QStringLiteral("defaultTimeoutMin"), 2},
+    };
+    QVERIFY(m_profiles->saveProfile(failProfile));
+    // retro 步用能成功的 profile（echo 标记），证明它真的被拉起并落了交接物
+    const QVariantMap okProfile{
+        {QStringLiteral("id"), QStringLiteral("cmd-retro-ok")},
+        {QStringLiteral("label"), QStringLiteral("测试用 cmd（retro）")},
+        {QStringLiteral("exe"), kCmd},
+        {QStringLiteral("args"), QStringList{QStringLiteral("/c"), QStringLiteral("echo"),
+                                             QStringLiteral("RETRO-DONE")}},
+        {QStringLiteral("readonlyArgs"), QStringList()},
+        {QStringLiteral("promptMode"), QStringLiteral("stdin")},
+        {QStringLiteral("output"), QStringLiteral("text")},
+        {QStringLiteral("defaultTimeoutMin"), 2},
+    };
+    QVERIFY(m_profiles->saveProfile(okProfile));
+
+    const QString id = addCard(QStringLiteral("wf-fail-retro"));
+    QVERIFY(!id.isEmpty());
+    QVERIFY(m_exec->setExec(id, {{QStringLiteral("workflow"), QString()},
+                                 {QStringLiteral("agent"), QStringLiteral("cmd-fail-retro")},
+                                 {QStringLiteral("cwd"), m_dir->path()}}));
+
+    const QVariantList steps{
+        QVariantMap{
+            {QStringLiteral("role"), QStringLiteral("engineer")},
+            {QStringLiteral("agent"), QStringLiteral("cmd-fail-retro")},
+        },
+        QVariantMap{
+            {QStringLiteral("role"), QStringLiteral("qa")},
+            {QStringLiteral("agent"), QStringLiteral("cmd-fail-retro")},
+        },
+        QVariantMap{
+            {QStringLiteral("role"), QStringLiteral("retro")},
+            {QStringLiteral("agent"), QStringLiteral("cmd-retro-ok")},
+        },
+    };
+    QVERIFY(m_exec->setSteps(id, steps));
+
+    QSignalSpy started(m_workflow, &WorkflowRunner::stepStarted);
+    QSignalSpy chainDone(m_workflow, &WorkflowRunner::chainFinished);
+    const QVariantMap began = m_workflow->start(id);
+    QVERIFY2(began.value(QStringLiteral("ok")).toBool(),
+             qPrintable(began.value(QStringLiteral("message")).toString()));
+
+    QTRY_VERIFY_WITH_TIMEOUT(chainDone.count() >= 1, 60000);
+
+    // engineer（失败）与 retro 都启动过；中间的 qa 被跳过（失败直接跳复盘）
+    QCOMPARE(started.count(), 2);
+    QCOMPARE(started.at(0).at(2).toMap().value(QStringLiteral("role")).toString(),
+             QStringLiteral("engineer"));
+    QCOMPARE(started.at(1).at(2).toMap().value(QStringLiteral("role")).toString(),
+             QStringLiteral("retro"));
+
+    // retro 交接物落盘
+    const QString retroHandoff =
+        QDir(m_workflow->handoffDir(id)).filePath(QStringLiteral("retro.md"));
+    QVERIFY(QFile::exists(retroHandoff));
+
+    // 链仍以原失败收口：failed 结论不变（retro 通过与否都不影响）
+    const QVariantMap snapshot = m_workflow->chain();
+    QVERIFY(snapshot.value(QStringLiteral("done")).toBool());
+    QVERIFY(snapshot.value(QStringLiteral("failed")).toBool());
+    const QVariantList chainSteps = snapshot.value(QStringLiteral("steps")).toList();
+    QCOMPARE(chainSteps.at(0).toMap().value(QStringLiteral("status")).toString(),
+             QStringLiteral("blocked"));
+    QCOMPARE(chainSteps.at(1).toMap().value(QStringLiteral("status")).toString(),
+             QStringLiteral("pending"));
+    QCOMPARE(chainSteps.at(2).toMap().value(QStringLiteral("status")).toString(),
+             QStringLiteral("passed"));
+
+    const QVariantMap result = chainDone.at(0).at(1).toMap();
+    QVERIFY(!result.value(QStringLiteral("ok")).toBool());
+    QVERIFY(result.value(QStringLiteral("message")).toString().contains(QStringLiteral("engineer")));
+}
+
+void TestWorkflow::retroFailureIsFailSoft()
+{
+    // R19-01：retro 步自己失败 → 只告警（fail-soft），链不因复盘失败而挂，
+    // 后续步骤照常跑（这里 retro 后无步骤，链正常完成 ok=true）。
+    const QVariantMap okProfile{
+        {QStringLiteral("id"), QStringLiteral("cmd-ok-soft")},
+        {QStringLiteral("label"), QStringLiteral("测试用 cmd（成功）")},
+        {QStringLiteral("exe"), kCmd},
+        {QStringLiteral("args"), QStringList{QStringLiteral("/c"), QStringLiteral("echo"),
+                                             QStringLiteral("OK")}},
+        {QStringLiteral("readonlyArgs"), QStringList()},
+        {QStringLiteral("promptMode"), QStringLiteral("stdin")},
+        {QStringLiteral("output"), QStringLiteral("text")},
+        {QStringLiteral("defaultTimeoutMin"), 2},
+    };
+    QVERIFY(m_profiles->saveProfile(okProfile));
+    const QVariantMap failProfile{
+        {QStringLiteral("id"), QStringLiteral("cmd-fail-soft")},
+        {QStringLiteral("label"), QStringLiteral("测试用 cmd（失败）")},
+        {QStringLiteral("exe"), kCmd},
+        {QStringLiteral("args"), QStringList{QStringLiteral("/c"), QStringLiteral("exit"),
+                                             QStringLiteral("7")}},
+        {QStringLiteral("readonlyArgs"), QStringList()},
+        {QStringLiteral("promptMode"), QStringLiteral("stdin")},
+        {QStringLiteral("output"), QStringLiteral("text")},
+        {QStringLiteral("defaultTimeoutMin"), 2},
+    };
+    QVERIFY(m_profiles->saveProfile(failProfile));
+
+    const QString id = addCard(QStringLiteral("wf-retro-soft"));
+    QVERIFY(!id.isEmpty());
+    QVERIFY(m_exec->setExec(id, {{QStringLiteral("workflow"), QString()},
+                                 {QStringLiteral("agent"), QStringLiteral("cmd-ok-soft")},
+                                 {QStringLiteral("cwd"), m_dir->path()}}));
+
+    const QVariantList steps{
+        QVariantMap{
+            {QStringLiteral("role"), QStringLiteral("engineer")},
+            {QStringLiteral("agent"), QStringLiteral("cmd-ok-soft")},
+        },
+        QVariantMap{
+            {QStringLiteral("role"), QStringLiteral("retro")},
+            {QStringLiteral("agent"), QStringLiteral("cmd-fail-soft")},
+        },
+    };
+    QVERIFY(m_exec->setSteps(id, steps));
+
+    QSignalSpy chainDone(m_workflow, &WorkflowRunner::chainFinished);
+    const QVariantMap began = m_workflow->start(id);
+    QVERIFY2(began.value(QStringLiteral("ok")).toBool(),
+             qPrintable(began.value(QStringLiteral("message")).toString()));
+
+    QTRY_VERIFY_WITH_TIMEOUT(chainDone.count() >= 1, 60000);
+
+    // retro 是最后一步且失败：fail-soft —— 无待复盘失败时链不算 failed
+    const QVariantMap snapshot = m_workflow->chain();
+    QVERIFY(snapshot.value(QStringLiteral("done")).toBool());
+    QVERIFY(!snapshot.value(QStringLiteral("failed")).toBool());
+    const QVariantList chainSteps = snapshot.value(QStringLiteral("steps")).toList();
+    QCOMPARE(chainSteps.at(0).toMap().value(QStringLiteral("status")).toString(),
+             QStringLiteral("passed"));
+    QCOMPARE(chainSteps.at(1).toMap().value(QStringLiteral("status")).toString(),
+             QStringLiteral("blocked"));
+    QVERIFY(chainDone.at(0).at(1).toMap().value(QStringLiteral("ok")).toBool());
 }
 
 void TestWorkflow::startRejectsUnsafePreconditions()

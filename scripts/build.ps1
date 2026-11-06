@@ -546,9 +546,10 @@ if ($Generator -eq 'VS') {
         # '?'（实测 msvc_deps_prefix 变成「??: ?:  」→ 依赖条目全 0），CP 65001 下逐字节
         # 保真（2026-11-06 R5-13 发版实测，pitfalls §3.21）。cl 的重定向输出编码跟系统
         # ANSI、不跟控制台 CP，所以切 65001 不改变编译输出字节，只让 CMake 这一跳保真。
-        # 副作用：宿主控制台代码页被留在 65001 —— 本仓库脚本与日志全按 UTF-8，这是更对的状态。
-        # 万一环境不允许切换，下面的前缀逐字节核对会当场拦下，不会静默放行。
-        chcp 65001 | Out-Null
+        # 切换机制（chcp + [Console] 编码三跳）已收口 scripts/nb-console.ps1（DX-83），
+        # 副作用说明见该文件头；万一环境不允许切换，下面的前缀逐字节核对会当场拦下，不会静默放行。
+        . (Join-Path $PSScriptRoot 'nb-console.ps1')
+        Set-NbUtf8Console
         $ninjaDir = Split-Path -Parent $ninja
         if ($env:PATH -notlike "*$ninjaDir*") {
             $env:PATH = $ninjaDir + ';' + $env:PATH

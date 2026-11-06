@@ -5241,6 +5241,12 @@
             "branch": "fix/agent-init-contract-origin-main",
             "claimedAt": 1793976149,
             "head": "d0073b02d6a516c7aa68e1493e840e0e3b4fd688"
+        },
+        "DX-109": {
+            "agent": "agent-dx109",
+            "branch": "fix/dx109-branch-delete-anchor",
+            "claimedAt": 1793976136,
+            "head": "f0f9b7e010d0334970f1c3e89be9c70cc889e999"
         }
     },
     "version": 1

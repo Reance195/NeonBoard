@@ -38,14 +38,6 @@ DialogShell {
     // 当前分页（键与左侧导航一一对应）
     property string page: "hotkey"
 
-    // 正文可用宽度：壳宽 - 左导航 160 - 左右留白。
-    //
-    // 为什么不用 Layout.fillWidth：壳的体滚动区把列宽绑在 bodyFlick.availableWidth 上，
-    // 而 availableWidth 是 Control 的属性、Flickable 没有（Qt 6.8 实测为 undefined），
-    // 于是体列宽会塌成「当前页内容宽」——本面板的开关与快捷键是右对齐的，一塌就全挤到左边。
-    // 壳归壳所有（不在本卡 scope），这里按壳的几何自己算准宽度。
-    readonly property int bodyWidth: Math.max(240, panel.width - 160 - Theme.spacingMd * 2)
-
     // 左侧导航的 6 项（顺序即导航顺序）
     readonly property var pages: [
         { key: "hotkey", label: "热键与自动化" },
@@ -377,7 +369,7 @@ DialogShell {
 
     // ================= 分页 1：热键与自动化 =================
     ColumnLayout {
-        width: panel.bodyWidth
+        Layout.fillWidth: true
         Layout.leftMargin: Theme.spacingMd
         Layout.rightMargin: Theme.spacingMd
         visible: panel.page === "hotkey"
@@ -401,7 +393,9 @@ DialogShell {
                     spacing: 3
 
                     Text {
-                        text: "全局热键"
+                        // 组名已是「全局热键」，行内再叫一遍是重复；
+                        // 这一行的主语其实是「显示 / 隐藏窗口」这个键（原型同名）。
+                        text: "显示 / 隐藏窗口"
                         color: Theme.text
                         font.pixelSize: Theme.fontBody
                     }
@@ -493,7 +487,7 @@ DialogShell {
 
     // ================= 分页 2：数据与备份 =================
     ColumnLayout {
-        width: panel.bodyWidth
+        Layout.fillWidth: true
         Layout.leftMargin: Theme.spacingMd
         Layout.rightMargin: Theme.spacingMd
         visible: panel.page === "data"
@@ -901,7 +895,7 @@ DialogShell {
 
     // ================= 分页 3：外观与动效 =================
     ColumnLayout {
-        width: panel.bodyWidth
+        Layout.fillWidth: true
         Layout.leftMargin: Theme.spacingMd
         Layout.rightMargin: Theme.spacingMd
         visible: panel.page === "appearance"
@@ -984,7 +978,7 @@ DialogShell {
     // ================= 分页 4：任务执行 =================
     // 任务执行（R6-03）：总开关默认关；profile 存 meta 表，命令行只拼 argv
     ColumnLayout {
-        width: panel.bodyWidth
+        Layout.fillWidth: true
         Layout.leftMargin: Theme.spacingMd
         Layout.rightMargin: Theme.spacingMd
         visible: panel.page === "exec"
@@ -1190,7 +1184,7 @@ DialogShell {
 
     // ================= 分页 5：插件 =================
     ColumnLayout {
-        width: panel.bodyWidth
+        Layout.fillWidth: true
         Layout.leftMargin: Theme.spacingMd
         Layout.rightMargin: Theme.spacingMd
         visible: panel.page === "plugin"
@@ -1520,6 +1514,8 @@ DialogShell {
     // ================= 分页 6：关于 =================
     ColumnLayout {
         Layout.fillWidth: true
+        Layout.leftMargin: Theme.spacingMd
+        Layout.rightMargin: Theme.spacingMd
         visible: panel.page === "about"
         spacing: Theme.spacingMd
 

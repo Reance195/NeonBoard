@@ -235,6 +235,24 @@
             "updatedAt": 1793935667
         },
         {
+            "code": "DX-108",
+            "completedAt": 0,
+            "createdAt": 1793974520,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-108",
+            "note": "",
+            "orderKey": 71680,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "progress.json 合并冲突派生善后：冲突文件为纯派生物时自动重算，五步人工善后收口进 git-done",
+            "updatedAt": 1793977718
+        },
+        {
             "code": "DX-109",
             "completedAt": 0,
             "createdAt": 1793974532,
@@ -253,22 +271,22 @@
             "updatedAt": 1793974532
         },
         {
-            "code": "DX-108",
+            "code": "R19-1",
             "completedAt": 0,
-            "createdAt": 1793974520,
+            "createdAt": 1793977718,
             "deleted": false,
             "dueAt": 0,
-            "id": "DX-108",
+            "id": "R19-1",
             "note": "",
-            "orderKey": 71680,
+            "orderKey": 73728,
             "priority": 2,
-            "stage": "DX",
-            "status": "doing",
+            "stage": "R19",
+            "status": "todo",
             "tags": [
-                "DX"
+                "R19"
             ],
-            "title": "progress.json 合并冲突派生善后：冲突文件为纯派生物时自动重算，五步人工善后收口进 git-done",
-            "updatedAt": 1793977574
+            "title": "workflow 新增 retro 复盘步骤：agent 干完活后自省并沉淀程序化对策",
+            "updatedAt": 1793977718
         },
         {
             "code": "R0-01",
@@ -4975,6 +4993,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:06:14",
+    "updated": "2026-11-06T23:08:38",
     "version": 3
 }

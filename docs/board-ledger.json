@@ -5405,6 +5405,13 @@
             "title": "git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印"
         }
     },
-    "claims": {},
+    "claims": {
+        "R19-1": {
+            "agent": "agent-r19",
+            "branch": "feature/workflow-retro-step",
+            "claimedAt": 1793977827,
+            "head": "caaad1213663ab4d0c8003014deb3f19bcbf7ce7"
+        }
+    },
     "version": 1
 }

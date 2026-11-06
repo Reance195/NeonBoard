@@ -99,6 +99,13 @@ function Invoke-NetGit {
     return Invoke-GitQuiet -GitArgs $GitArgs
 }
 
+# 对 main 的唯一推送点（DX-106）：合并提交与三步收尾提交全部落本地后**一次**推上 main，
+# Board 每批收尾只建 1 个 run 且落点必为自洽 tip。fail-soft 回退（收尾提交整体回滚后
+# 单独推合并）与主路径共用这里 —— 任何路径上对 main 的推送语句只有这一处。
+function Push-Main {
+    return Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
+}
+
 # 收尾时序断言（DX-50）：三步自动提交（claims 清理 / 结卡 / 快照）必须发生在分离 HEAD 上 ——
 # pre-commit 规则 1 禁止在 main 直接提交，DX-20 的回归正是归位提前导致三步全被自家钩子拒掉。
 function Assert-DryCloseStep {
@@ -150,8 +157,8 @@ function Sync-BoardSnapshot {
         Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'progress.json') | Out-Null
         return $false
     }
-    # DX-96：快照提交不再独自补推 —— 留在本地，随收尾单次补推（重试与回滚集中在
-    # 调用方的最终补推处，撞 non-ff 时整体变基或回滚到 $closeoutBase）。
+    # DX-106：快照提交不再独自补推 —— 留在本地，随合并+收尾单次推送（重试与回滚集中在
+    # Push-Main 处，撞 non-ff 时整体变基或回滚到 $closeoutBase 后单独推合并）。
     if ($DryRun) {
         Write-Host '✓ [dry-run] 快照：本地已提交（未推送）' -ForegroundColor Green
     } else {
@@ -702,36 +709,13 @@ if ($Mode -eq 'remote') {
         exit 1
     }
 
-    Write-Host "· 快进推送 $tmp → origin/$MainBranch" -ForegroundColor DarkGray
+    # DX-106：合并先落本地，不单独推送 —— 与三步收尾提交合成对 main 的**唯一一次**推送
+    # （收口在 Push-Main），Board 每批收尾只建 1 个 run 且落点必为自洽 tip。
+    $mergedCommit = (Invoke-Git rev-parse HEAD).Trim()
     if ($DryRun) {
-        Write-Host "  [dry-run] 桩：git push origin HEAD:$MainBranch（不触网）" -ForegroundColor DarkCyan
+        Write-Host ("✓ [dry-run] 合并在本地完成（合并提交 {0}，将随收尾一次推送 origin/{1}）" -f $mergedCommit.Substring(0, 7), $MainBranch) -ForegroundColor Green
     } else {
-        try {
-            Invoke-Git push origin "HEAD:$MainBranch" | Out-Null
-        } catch {
-            Write-Host "`n✗ 推送主分支失败（多半是别人刚推了新提交）：" -ForegroundColor Yellow
-            Write-Host $_.Exception.Message -ForegroundColor Yellow
-            Write-Host "`n恢复步骤：`n  git fetch origin`n  git switch -c merge/retry origin/$MainBranch`n  git merge --no-ff $Branch -m `"merge: 合入 $Branch`"`n  git push origin HEAD:$MainBranch`n" -ForegroundColor Yellow
-            exit 1
-        }
-    }
-
-    $merged = (Invoke-Git rev-parse HEAD).Trim()
-    if ($DryRun) {
-        Write-Host ("✓ [dry-run] 合并在本地完成（未推送 origin/{0}，合并提交 {1}）" -f $MainBranch, $merged.Substring(0, 7)) -ForegroundColor Green
-    } else {
-        Write-Host ("✓ 已推送到 origin/{0}（{1}）" -f $MainBranch, $merged.Substring(0, 7)) -ForegroundColor Green
-    }
-
-    # 合并收尾：释放已合入主线的认领占位（refs/claims/*），避免永久残留误拦重新认领。
-    Invoke-ClaimRefCleanup -Main $MainBranch
-
-    if ($DryRun) {
-        Write-Host '· [dry-run] 跳过锚点同步（演练不碰锚点区）' -ForegroundColor DarkCyan
-    } elseif (-not $SkipAnchorSync) {
-        Sync-AnchorWorktree -Main $MainBranch -CurrentRoot $repoRoot
-    } else {
-        Write-Host '· 已跳过锚点同步（-SkipAnchorSync）' -ForegroundColor Yellow
+        Write-Host ("✓ 合并在本地完成（合并提交 {0}，将随收尾一次推送 origin/{1}）" -f $mergedCommit.Substring(0, 7), $MainBranch) -ForegroundColor Green
     }
 
     # ---- 4. 清理：先回收 worktree（解除分支占用），再删分支 ----
@@ -762,13 +746,16 @@ if ($Mode -eq 'remote') {
             Write-Host "· 目标 worktree 就是当前目录，跳过回收（请在其它目录执行 git worktree remove）" -ForegroundColor Yellow
         } elseif (Test-Path -LiteralPath $abs) {
             # 安全检查：删掉别人正在办的工作区是事故。两道判据都不成立才回收 ——
-            #   1) 还有未推送提交（说明它不是「已合入的尾巴」）；
+            #   1) 有提交没进本次合并（说明它不是「已合入的尾巴」）；
             #   2) 还有未提交改动（含 untracked），删了就没了。
-            # 本次分支刚合并并推送过，它的提交此刻已是 origin/<main> 的祖先，判据自然为 0。
+            # DX-106：单次推送下回收发生在推送**之前**，origin 上还没有这些提交 ——
+            # 旧的「未推送提交」判据（--not --remotes=origin）在这里恒真，会把每个
+            # 工作区都判成不可回收、永远留僵尸。改判「分支提交是否已全部进本次合并」：
+            # 刚做的 --no-ff 合并就在 $mergedCommit 里，不在其中的提交才是真会丢的东西。
             $unsafe = ''
             if (-not $RemoveWorktree) {
                 $ahead = 0
-                $aheadRes = Invoke-GitQuiet @('-C', $abs, 'rev-list', '--count', 'HEAD', '--not', '--remotes=origin')
+                $aheadRes = Invoke-GitQuiet @('-C', $abs, 'rev-list', '--count', 'HEAD', '--not', $mergedCommit)
                 if ($aheadRes.Code -eq 0) {
                     $first = $aheadRes.Output | Select-Object -First 1
                     if ($first) { [void][int]::TryParse($first.ToString().Trim(), [ref]$ahead) }
@@ -778,7 +765,7 @@ if ($Mode -eq 'remote') {
                     $dirtyRes = Invoke-GitQuiet @('-C', $abs, 'status', '--porcelain')
                     $dirtyNum = @($dirtyRes.Output | Where-Object { $_ -and $_.ToString().Trim() -ne '' }).Count
                 }
-                if ($ahead -gt 0) { $unsafe = "还有 $ahead 个未推送提交" }
+                if ($ahead -gt 0) { $unsafe = "有 $ahead 个提交未进本次合并" }
                 elseif ($dirtyNum -gt 0) { $unsafe = "还有 $dirtyNum 项未提交改动" }
             }
             if ($unsafe) {
@@ -828,8 +815,8 @@ if ($Mode -eq 'remote') {
     if ($DryRun) { Write-Host '  [dry-run] 三步收尾前已 switch --detach（DX-26 时序）' -ForegroundColor DarkCyan }
     Invoke-GitQuiet @('branch', '-d', $tmp) | Out-Null
 
-    # DX-96：收尾提交栈底。单次补推失败需整体回滚时回到这里 —— 合并已在此前
-    # 单独推送（fail-soft 交付），回滚绝不波及它。
+    # DX-106：收尾提交栈底 = 本次合并提交。单次推送失败需整体回滚时回到这里 ——
+    # 回滚只丢弃收尾提交，随后**单独推送合并**（fail-soft 交付不被收尾拖住）。
     $closeoutBase = (Invoke-Git rev-parse HEAD).Trim()
     $hasCloseoutCommit = $false
 
@@ -853,7 +840,7 @@ if ($Mode -eq 'remote') {
             $rcCommit.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
             Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/board-ledger.json') | Out-Null
         } else {
-            # DX-96：不再各自补推 —— 提交留在本地，随收尾单次补推（重试集中在最终推送处）。
+            # DX-106：提交留在本地，随合并+收尾单次推送（重试集中在 Push-Main 处）。
             $hasCloseoutCommit = $true
             if ($DryRun) {
                 Write-Host '✓ [dry-run] 台账领用登记清理：本地已提交（未推送）' -ForegroundColor Green
@@ -911,7 +898,7 @@ if ($Mode -eq 'remote') {
             $ccPending = @($closedCodes)
             Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/board-ledger.json') | Out-Null
         } else {
-            # DX-96：结卡提交留在本地，随收尾单次补推；是否 landed 由最终补推统一裁定
+            # DX-106：结卡提交留在本地，随合并+收尾单次推送；是否 landed 由这次推送统一裁定
             # （DX-58 口径不变：closed 只记「推送已落地」的，其余进 pending）。
             $hasCloseoutCommit = $true
             if ($DryRun) {
@@ -928,39 +915,59 @@ if ($Mode -eq 'remote') {
     $snapPending = Sync-BoardSnapshot -RepoRoot $repoRoot -MainBranch $MainBranch
     if ($snapPending) { $hasCloseoutCommit = $true }
 
-    # ---- 收尾单次补推（DX-96）----
-    # 清理登记 / 结卡 / 快照的提交此前只落在本地，这里一次性快进补推 origin/main：
-    # 撞 non-ff 时重取变基重试（上限 3 次），仍失败则整体回滚到 $closeoutBase ——
-    # 合并已单独先推（fail-soft 交付），这里无论成败都不波及合并。
-    # Board 视角：每批收尾 run 从 4 降到 2（合并 + 收尾），推送间隔从 ~10s 缩到秒级，
-    # DX-44 的 cancel-in-progress 由时序巧合变成结构保证。
-    if ($hasCloseoutCommit) {
-        $finalOk = $false
-        for ($i = 1; $i -le 3; $i++) {
-            $finalPush = Invoke-NetGit @('push', 'origin', "HEAD:$MainBranch")
-            if ($finalPush.Code -eq 0) { $finalOk = $true; break }
-            if ($i -eq 3) { break }
-            Write-Host ("· 收尾补推被拒（第 {0} 次）：重取主线变基后重试" -f $i) -ForegroundColor Yellow
-            Invoke-NetGit @('fetch', 'origin', '--prune') | Out-Null
-            $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
-            if ($rb.Code -ne 0) {
-                Write-Host '· 收尾补推：变基冲突，放弃重试' -ForegroundColor Yellow
-                Invoke-GitQuiet @('rebase', '--abort') | Out-Null
-                break
-            }
+    # ---- 合并+收尾单次推送（DX-106，A2b）----
+    # 合并提交与清理登记 / 结卡 / 快照的提交全部落在本地后，对 main 只推**一次**：
+    # Board 每批收尾只建 1 个 run，落点必为自洽 tip —— 中间态在结构上不存在，
+    # DX-44 的 cancel-in-progress 与沉降等待降级为纯双保险。
+    # 撞 non-ff 时重取变基重试（上限 3 次，DX-58 重试收口保留）；仍失败则整体回滚
+    # 收尾提交到 $closeoutBase，**单独推送合并**（fail-soft 重排：交付不被收尾拖住）。
+    $finalOk = $false
+    for ($i = 1; $i -le 3; $i++) {
+        $finalPush = Push-Main
+        if ($finalPush.Code -eq 0) { $finalOk = $true; break }
+        if ($i -eq 3) { break }
+        Write-Host ("· 推送被拒（第 {0} 次）：重取主线变基后重试" -f $i) -ForegroundColor Yellow
+        Invoke-NetGit @('fetch', 'origin', '--prune') | Out-Null
+        $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
+        if ($rb.Code -ne 0) {
+            Write-Host '· 推送重试：变基冲突，放弃重试' -ForegroundColor Yellow
+            Invoke-GitQuiet @('rebase', '--abort') | Out-Null
+            break
         }
-        if ($finalOk) {
-            $ccLanded = @($closedCodes)
-            if ($DryRun) {
-                Write-Host '✓ [dry-run] 收尾三步：本地已提交（单次补推为桩，未触网）' -ForegroundColor Green
-            } else {
-                Write-Host ('✓ 收尾补推：清理/结卡/快照已一次性推上 {0}' -f $MainBranch) -ForegroundColor Green
-            }
+    }
+    if ($finalOk) {
+        $ccLanded = @($closedCodes)
+        if ($DryRun) {
+            Write-Host '✓ [dry-run] 合并+收尾单次推送：桩成功（未触网）' -ForegroundColor Green
         } else {
-            Write-Host '· 收尾补推失败（离线 / 主线被推进 / 变基冲突）：整体回滚到合并点，留待下次合并' -ForegroundColor Yellow
-            Invoke-GitQuiet @('reset', '--hard', $closeoutBase) | Out-Null
-            $ccPending = @($closedCodes)
+            Write-Host ('✓ 单次推送：合并与清理/结卡/快照已一起推上 {0}（落点自洽 tip）' -f $MainBranch) -ForegroundColor Green
         }
+    } else {
+        if ($hasCloseoutCommit) {
+            Write-Host '· 单次推送失败（离线 / 主线被推进 / 变基冲突）：整体回滚收尾提交到合并点，改为单独推送合并（fail-soft 交付）' -ForegroundColor Yellow
+            Invoke-GitQuiet @('reset', '--hard', $closeoutBase) | Out-Null
+        } else {
+            Write-Host '· 单次推送失败（离线 / 主线被推进 / 变基冲突）：改为单独推送合并（fail-soft 交付）' -ForegroundColor Yellow
+        }
+        $ccPending = @($closedCodes)
+        $mergePush = Push-Main
+        if ($mergePush.Code -eq 0) {
+            Write-Host '✓ 合并已单独推上 origin/main；收尾提交已回滚，留待下次合并' -ForegroundColor Yellow
+        } else {
+            Write-Host '· 合并也未能推送：全部留在本地，下次合并继续' -ForegroundColor Yellow
+        }
+    }
+
+    # 合并收尾：释放已合入主线的认领占位（refs/claims/*），避免永久残留误拦重新认领。
+    # DX-106：单次推送落地后才释放 —— 此刻本次合并的 head 才成为 origin/main 的祖先。
+    Invoke-ClaimRefCleanup -Main $MainBranch
+
+    if ($DryRun) {
+        Write-Host '· [dry-run] 跳过锚点同步（演练不碰锚点区）' -ForegroundColor DarkCyan
+    } elseif (-not $SkipAnchorSync) {
+        Sync-AnchorWorktree -Main $MainBranch -CurrentRoot $repoRoot
+    } else {
+        Write-Host '· 已跳过锚点同步（-SkipAnchorSync）' -ForegroundColor Yellow
     }
 
     # ---- 结单对账（DX-33）----

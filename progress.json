@@ -281,12 +281,12 @@
             "orderKey": 67584,
             "priority": 2,
             "stage": "DX",
-            "status": "todo",
+            "status": "doing",
             "tags": [
                 "DX"
             ],
             "title": "收尾零中间态：合并+收尾合成单次 push（A2b），fail-soft 语义重排",
-            "updatedAt": 1793957895
+            "updatedAt": 1793973102
         },
         {
             "code": "R0-01",
@@ -4278,24 +4278,6 @@
             "updatedAt": 1792982913
         },
         {
-            "code": "R11-8",
-            "completedAt": 1793968331,
-            "createdAt": 1793958785,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R11-8",
-            "note": "已交付（2026-11-06，提交 c98fbd0）：顶区合并为单一工具行（项目切换 / 里程碑条 / 搜索框合并，搜索框右侧带 Ctrl K 提示）；活跃热力横幅默认收起（展开态 54 px / 收起态 28 px 摘要条）；侧栏去掉「工作台」标题块、去掉「设置」导航项、删掉插件库常驻卡片，宽度 220 → 200；专注按钮迁到标题栏；设置入口改为标题栏右上角齿轮（Ctrl+, 不变）；卡片元信息去掉调试串。实测顶区竖直占用 145 px（≤ 150 达标），760 px 宽窗口下看板可视高度多出 100 px 以上。待做：无。",
-            "orderKey": 68608,
-            "priority": 2,
-            "stage": "R11",
-            "status": "done",
-            "tags": [
-                "R11"
-            ],
-            "title": "R11 界面重排 1/3：主界面竖直重排（顶区 264 → 128 px）",
-            "updatedAt": 1793968331
-        },
-        {
             "completedAt": 1792982913,
             "createdAt": 1792981704,
             "deleted": false,
@@ -4313,24 +4295,6 @@
             "updatedAt": 1792982913
         },
         {
-            "code": "R11-9",
-            "completedAt": 1793968331,
-            "createdAt": 1793958800,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R11-9",
-            "note": "已交付（2026-11-06）：新增 qml/components/DialogShell.qml（头固定 / 体滚动 / 底固定 + 右上角统一关闭键 + 底栏右对齐 + 头部右侧插槽 + 底栏说明）与 qml/components/DrawerShell.qml（右侧抽屉，自绘遮罩 + 点击穿透防护 + 底栏右槽）；Theme.qml 补 7 个令牌 —— 令牌名按规格 §4.2 写（dialogWidthSm 440 / dialogWidthMd 560 / dialogWidthLg 720 / drawerWidth 320 / dialogPadding 20 / scrimOpacity 0.62 / shadowDialog），与本卡验收里的简写名（dialogSm / dialogMd / dialogLg / dialogPad / scrim / drawer / shadow）是同一组 7 个值，只是命名口径不同；TaskComposer / CardDetailPanel / ThemeMarketPanel / SettingsPanel 与 Main.qml 的 4 个内联 Dialog 全部改用 DialogShell，头固定、底固定、底部按钮右对齐；SettingsPanel 拆出左侧 160 px 固定分页导航 + 6 个分页（热键与自动化 / 数据与备份 / 外观与动效 / 任务执行 / 插件 / 关于），插件目录 / 市场源 / 重新扫描归「插件」分页，「打开插件库」入口仍发 openLibraryRequested 信号。实测 qml/Main.qml 4034 行（≤ 4260 达标），verify.ps1 全过（ctest 39/39 + --selftest / --smoke 退出码 0）。待做：无。",
-            "orderKey": 69632,
-            "priority": 2,
-            "stage": "R11",
-            "status": "done",
-            "tags": [
-                "R11"
-            ],
-            "title": "R11 界面重排 2/3：统一弹窗壳（DialogShell / DrawerShell 落地 + 8 个 Dialog 迁移）",
-            "updatedAt": 1793968331
-        },
-        {
             "completedAt": 1792982913,
             "createdAt": 1792981704,
             "deleted": false,
@@ -4346,24 +4310,6 @@
             ],
             "title": "TS: splash 页面先 listen 再拉取快照重放，reveal 不可靠时用超时兜底",
             "updatedAt": 1792982913
-        },
-        {
-            "code": "R11-10",
-            "completedAt": 1793968331,
-            "createdAt": 1793958808,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R11-10",
-            "note": "已交付（2026-11-06）：9 个自绘浮层全部改用 DialogShell 或 DrawerShell —— 命令面板 / 插件库 / 预览中心 / 新手引导 / 权限授权为居中弹窗（lg 720 / lg 720 / lg 720 / md 560 / sm 440），外观 / 插件面板 / 项目全景 / 列管理为右侧抽屉（320）；原先三处不一致的位置（插件面板锚右下角、外观面板锚标题栏下方、项目全景锚右侧）统一收敛，头 / 体 / 底结构一致。插件库按规格 §3.4 改成已装 / 可装左右两栏；外观面板主题预设改 3 列色卡网格；项目全景的二级内容在抽屉内展开（带返回出口）；列管理条目统一「拖把手 + 名称 + 计数 + 操作」。权限弹窗遮罩点击 / Esc / 关闭键改为只关闭不表态：后端新增 releasePermissionPrompt 清掉「已提示」标记，插件下次调用该能力仍会再次弹窗，拒绝必须点显式的「拒绝」按钮。预览中心补「未推送提交」提示位（数据取自 PreviewHub 新增的 unpushed 字段，从已有的 git status --porcelain=v2 --branch 输出里解析，不额外跑 git 进程）。README 已同步。待做：无。",
-            "orderKey": 70656,
-            "priority": 2,
-            "stage": "R11",
-            "status": "done",
-            "tags": [
-                "R11"
-            ],
-            "title": "R11 界面重排 3/3：9 个自绘浮层迁移到统一壳 + 权限弹窗遮罩行为修正",
-            "updatedAt": 1793968331
         },
         {
             "completedAt": 1792982914,
@@ -4885,6 +4831,6 @@
             "updatedAt": 1793934590
         }
     ],
-    "updated": "2026-11-06T20:32:11",
+    "updated": "2026-11-06T21:51:42",
     "version": 3
 }

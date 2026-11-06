@@ -295,12 +295,46 @@ def resolve_main_ref(root, requested=None):
     return None
 
 
+def stale_claim_note(code, branch, claim_commit_in_history):
+    """过期登记的二分归因（DX-82，纯函数供 selftest）。
+
+    rebase 是 §7.3 合并前的常规动作：登记 head 指向重写前的 chore(claim) 提交，
+    服务端 refs/claims/<短号> 不随 rebase 重写（Ruleset 禁强推）——属预期态，
+    领用有效（合并闸门按同主题回退放行），提示里不许再出现走不通的「请重新领用」。
+    分支历史里连领用提交都没有 = 改写把它丢了，维持原失效口径。
+    返回 (kind, note)：kind 为 "rebase"（预期态，登记继续生效）或 "rewritten"（失效）。
+    """
+    if claim_commit_in_history:
+        return ("rebase",
+                "领用 %s 的登记随 rebase 过期（预期），服务端占位为准、合并闸门按同主题回退放行"
+                % code)
+    return ("rewritten",
+            "领用 %s 的分支 %s 已推进或重写，旧登记过期，请重新领用" % (code, branch))
+
+
+def branch_has_claim_commit(root, ref, code):
+    """分支历史里是否仍有该短号的 chore(claim) 领用提交（CLAIM_SUBJECT 同一正则，DX-82）。"""
+    out = subprocess.run(
+        ["git", "-C", root, "log", ref, "--format=%s"],
+        capture_output=True, check=False,
+    )
+    if out.returncode != 0:
+        return False
+    want = code.upper()
+    for line in out.stdout.decode("utf-8", "replace").splitlines():
+        m = CLAIM_SUBJECT.match(line.strip())
+        if m and m.group(1).upper() == want:
+            return True
+    return False
+
+
 def claims_doing(root, claims, main_ref):
     """台账领用登记 → doing。返回 (active: {code: "doing"}, notes)。
 
-    只认 git 事实，登记不需要「释放」动作。四态判定：
+    只认 git 事实，登记不需要「释放」动作。五态判定：
     - claims.branch 的本地 / 远端 ref 都不存在 → 分支已删除（放弃），失效
-    - head 不是该分支当前 tip 的祖先（或相等）→ 分支被 rebase/改写，登记过期失效
+    - head 不是该分支当前 tip 的祖先 → 分支被 rebase / 改写，按 stale_claim_note 二分：
+      历史仍有同短号领用提交 = rebase 预期态，登记继续生效（DX-82）；没有 = 改写丢失，失效
     - head 是主干祖先 → 分支已并入，失效（收尾请用提交标记 #code=done）
     - 其余 → doing 生效
     """
@@ -339,8 +373,15 @@ def claims_doing(root, claims, main_ref):
             notes.append("领用 %s 的分支 %s 已不存在（放弃或删除），已忽略" % (code, branch))
             continue
         if not is_ancestor(head, ref):
-            # head 不是该分支当前 tip 的祖先：分支被 rebase / 重写，登记过期
-            notes.append("领用 %s 的分支 %s 已推进或重写，旧登记过期，请重新领用" % (code, branch))
+            # head 不是该分支当前 tip 的祖先：rebase / 重写二分（DX-82）
+            kind, note = stale_claim_note(code, branch, branch_has_claim_commit(root, ref, code))
+            if kind == "rebase":
+                # 登记 head 指向重写前的 chore(claim) 提交属预期态：服务端 refs/claims/<短号>
+                # 不随 rebase 重写（Ruleset 禁强推），领用本身有效 → doing 继续生效
+                active[code] = "doing"
+                notes.append(note)
+                continue
+            notes.append(note)
             continue
         if main_ref and is_ancestor(head, main_ref):
             notes.append("领用 %s 的分支已并入 %s，请用提交标记 #%s=done 收尾（或回台账 baseline）"
@@ -641,6 +682,15 @@ def selftest():
     parsed = {m.group(1).upper(): m.group(2) for m in MARKER.finditer(text)}
     cases.append(("结卡标记串可被 MARKER 完整解析",
                   parsed == {"R9-04": "done", "DX-26": "done", "R16-05": "done"}))
+
+    # ⑫ 过期登记二分（DX-82）：rebase 预期态不再喊重新领用；改写丢失维持原口径
+    kind, note = stale_claim_note("DX-82", "fix/x", True)
+    cases.append(("rebase 过期归因为预期态（提示含服务端占位口径，不再喊重新领用）",
+                  kind == "rebase" and "随 rebase 过期" in note
+                  and "服务端占位为准" in note and "请重新领用" not in note))
+    kind2, note2 = stale_claim_note("DX-82", "fix/x", False)
+    cases.append(("改写丢失维持「请重新领用」原口径（反例不破）",
+                  kind2 == "rewritten" and "请重新领用" in note2))
 
     # ⑪ replay 文本（DX-41）：codes 空 → 空串；非空 → 一段说明 + 标记串
     cases.append(("replay 空 codes → 空文本", replay_marker_text([]) == ""))

@@ -667,6 +667,8 @@ if ($Card) {
             } else {
                 Write-Host ("· #{0} 已在本分支领用且占位仍在，跳过重复登记（一分支多卡允许，只补缺的卡）" -f $code) -ForegroundColor DarkGray
             }
+            # DX-82：rebase 后本地登记 head 指向重写前提交属预期态，跳过不是「该重新领用」的信号
+            Write-Host "· 本地登记 head 已随 rebase 过期（预期，服务端占位为准）" -ForegroundColor DarkGray
             $Card = ''
         }
     }

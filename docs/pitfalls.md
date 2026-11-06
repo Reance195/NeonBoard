@@ -1066,6 +1066,36 @@
   全仓校准零误伤，校准剩下的存量不能假装不存在——要么迁掉，要么点名进有主豁免面
   （写明哪张卡负责清空），两头都不沾的扩闸是给未来埋假绿灯。
 
+### 2.27 合并冲突退出不回滚现场：merge/* 临时分支 + 冲突态 + 停在临时分支（DX-107）
+
+- **现象**（2026-11-06 DX-106 收尾实录）：`git-done.ps1` 的合并撞 `progress.json`
+  冲突后，remote 模式的 catch 直接 `exit 1`：HEAD 停在 `merge/<slug>` 临时分支、
+  工作区挂着未合并冲突态、临时分支也没删；后续命令全部撞墙，得手工
+  `git merge --abort` + `git switch <原分支>` + `git branch -D merge/<slug>`。
+  `-DryRun` 更矛盾——头部文档承诺「结束切回原分支、演练提交全部丢弃」，冲突退出
+  同样不兑现，DX-106 实测留下 `merge/chore-board-dx-106-zip-push` 残留。local 模式
+  则把冲突态留在 `main` 上。
+- **根因**：冲突路径只打印指引就退出，没有任何清理；成功路径末尾的
+  `switch --detach` / dry-run 归位块都在冲突 exit 之前到不了。清理顺序还容易做反：
+  不先 abort 就切不走，不先切走就删不掉当前检出的分支。
+- **修复（DX-107）**：`Restore-ConflictScene` 收口两种模式的冲突退出，按
+  「abort 合并 → 切回进入时检出 → 删 merge/* 临时分支」顺序回滚，逐步打印、
+  失败只告警并给手工命令。全程非破坏性：`git merge --abort`（等价
+  `reset --merge`，保留未提交改动）+ `git switch`（非强制）+ `git branch -D`；
+  绝不 `reset --hard` / `checkout -- .`，用户未提交改动一律不碰。进入时是分离
+  HEAD 就按进入时 HEAD 回 `--detach`；无 `MERGE_HEAD`（合并未真正开始）跳过 abort。
+- **判据**：在会与 `origin/main` 冲突的分支上跑
+  `pwsh -File scripts/verify.ps1 -GitDoneDryRun`（回归用例；演练因冲突退 1 是预期，
+  看的是退出后的现场），退出后 `git status --porcelain` 为空、
+  `git symbolic-ref --short HEAD` 仍是进入时的分支、`git branch --list 'merge/*'` 为空、
+  `MERGE_HEAD` 不存在；真实模式（含 `progress.json` 待提交改动）与 local 模式同样不留现场，
+  且用户改动仍在、主线未被推送；`pwsh -File scripts/verify.ps1 -ScriptOnly` 全绿。
+  回归在隔离临时仓里造「两侧各改同一 `docs/` 文件」的必冲突分支，`origin` 指向临时裸仓，
+  不触真实远端（脚本留档：`.sandbox/artifacts/dx107-regression/`）。
+- **一般化**：**失败路径也要有和成功路径对称的回滚**。凡是中途 `exit 1` 的分支，
+  先问「这时检出在哪、有哪些临时产物」；只给手工指引等于把现场留给用户。
+  回滚动作必须按「先解状态、再切走、最后删引用」排序，且只许用不吞改动的命令。
+
 ---
 
 ## 三、构建与 Qt / QML
@@ -1760,6 +1790,7 @@
   `verify.ps1 -GitDoneDryRun`（派生器 exit 9，结卡与快照两步只告警）：
   合并落本地 → 收尾两步告警跳过 → 合并+收尾单次推送桩成功 → EXIT 0、现场回滚干净。
   无垫片的常规 `-GitDoneDryRun` 同轮通过：合并+收尾一次桩推送、结单对账、归位最后。
-  另记一个演练自身的坑：dry-run 撞合并冲突时**不会回滚现场**（冲突退出路径直接 exit 1，
-  留下 merge/<...> 临时分支与未合并状态），演练后要看一眼 `git status`，撞了就
-  `git merge --abort` + 删临时分支再继续。垫片留档：`.sandbox/artifacts/shim/python.cmd`。
+  另记一个演练自身的坑（**已由 DX-107 修复，见 2.27**）：旧版 dry-run 撞合并冲突时
+  **不会回滚现场**（冲突退出路径直接 exit 1，留下 merge/<...> 临时分支与未合并状态）。
+  现在冲突退出会 abort 合并、删临时分支、切回进入时检出，演练后现场即干净；
+  垫片留档：`.sandbox/artifacts/shim/python.cmd`。

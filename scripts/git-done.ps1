@@ -88,6 +88,53 @@ function Invoke-Git {
 # 失败不抛，由调用方按 Code 自行处置（探测类命令用这里）
 function Invoke-GitQuiet { param([string[]]$GitArgs) return Invoke-Cmd -File 'git' -CmdArgs $GitArgs }
 
+# 冲突退出回滚现场（DX-107）：合并撞冲突时，不把 merge/* 临时分支、未合并冲突态和
+# 「停在临时分支上的检出」留给下一条命令。所有动作都是非破坏性的 —— abort 用
+# `git merge --abort`（等价 reset --merge，保留用户未提交改动），归位用 switch，
+# 删分支用 branch -D；绝不 reset --hard / checkout -- .，用户的改动一律不碰。
+# 任一步失败只告警并给出手工命令，不做二次破坏；已成功的步骤逐条打印，便于对账。
+function Restore-ConflictScene {
+    param(
+        [string]$EntryRef,     # 进入时的符号引用；空串表示分离 HEAD
+        [string]$EntryHead,    # 进入时的 HEAD（EntryRef 为空时按它回分离 HEAD）
+        [string]$TempBranch    # 本次创建的 merge/* 临时分支；空串表示无（local 模式）
+    )
+    $mergeHead = Invoke-GitQuiet @('rev-parse', '-q', '--verify', 'MERGE_HEAD')
+    if ($mergeHead.Code -eq 0) {
+        $abort = Invoke-GitQuiet @('merge', '--abort')
+        if ($abort.Code -ne 0) {
+            $abort.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+            Write-Host '✗ git merge --abort 失败：冲突态仍在，未归位也未删临时分支，请手工：git merge --abort' -ForegroundColor Red
+            return
+        }
+        Write-Host '· 冲突现场：git merge --abort 已完成（未提交改动原样保留）' -ForegroundColor DarkGray
+    } else {
+        Write-Host '· 冲突现场：合并未真正开始（无 MERGE_HEAD），跳过 abort' -ForegroundColor DarkGray
+    }
+
+    $target = if ($EntryRef) { $EntryRef } else { $EntryHead }
+    $backArgs = if ($EntryRef) { @('switch', $EntryRef) } else { @('switch', '--detach', $EntryHead) }
+    $back = Invoke-GitQuiet -GitArgs $backArgs
+    if ($back.Code -ne 0) {
+        $back.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+        Write-Host ("· 警告：切回 {0} 失败（可能有未提交改动），请手工：git switch {1}" -f $target, ($backArgs -join ' ')) -ForegroundColor Yellow
+        return
+    }
+    Write-Host ("· 冲突现场：已切回 {0}" -f $target) -ForegroundColor DarkGray
+
+    if ($TempBranch) {
+        $exists = Invoke-GitQuiet @('rev-parse', '--verify', '--quiet', "refs/heads/$TempBranch")
+        if ($exists.Code -eq 0) {
+            $del = Invoke-GitQuiet @('branch', '-D', $TempBranch)
+            if ($del.Code -eq 0) {
+                Write-Host ("· 冲突现场：已删除临时分支 {0}" -f $TempBranch) -ForegroundColor DarkGray
+            } else {
+                Write-Host ("· 警告：临时分支 {0} 删除失败，请手工：git branch -D {0}" -f $TempBranch) -ForegroundColor Yellow
+            }
+        }
+    }
+}
+
 # 网络动作打桩（DX-50）：-DryRun 下 fetch / push 不执行、只留痕，返回成功形态让调用方
 # 走「成功」分支 —— 演练的是时序，不是网络。真实调用一律走 Invoke-GitQuiet。
 function Invoke-NetGit {
@@ -634,6 +681,7 @@ if ($Mode -eq 'remote') {
     # 读到的分支名是空串，判成「锚点区不在 main」直接跳过，本地 main 从此永远落后远端一步。
     # 先记住起点与「当前根是不是锚点」，收尾按它归位。
     $pristineBranch = Get-NbSymRef
+    $pristineHead = (Invoke-Git rev-parse HEAD).Trim()
     $anchorRoot = Get-AnchorWorktree
     $atAnchor = $false
     if ($anchorRoot) {
@@ -697,15 +745,19 @@ if ($Mode -eq 'remote') {
     $script:dryEntryRef = Get-NbSymRef
     if ($DryRun -and -not $script:dryEntryRef) { Write-Host '· [dry-run] 进入时已在分离 HEAD，结束时无可回滚' -ForegroundColor DarkCyan }
     Write-Host "· 基于 origin/$MainBranch 创建临时分支 $tmp" -ForegroundColor DarkGray
-    Invoke-Git switch -c $tmp "origin/$MainBranch" | Out-Null
-
-    Write-Host "· 合并 $Branch（--no-ff，保留分支合并痕迹）" -ForegroundColor DarkGray
     try {
+        Invoke-Git switch -c $tmp "origin/$MainBranch" | Out-Null
+
+        Write-Host "· 合并 $Branch（--no-ff，保留分支合并痕迹）" -ForegroundColor DarkGray
         Invoke-Git merge --no-ff $Branch -m "merge: 合入 $Branch" | Out-Null
     } catch {
-        Write-Host "`n✗ 合并冲突，请手工解决后继续：" -ForegroundColor Yellow
-        Write-Host $_.Exception.Message -ForegroundColor Yellow
-        Write-Host "`n解决后：git add -A ; git commit ; git push origin HEAD:$MainBranch`n" -ForegroundColor Yellow
+        $mergeError = $_.Exception.Message
+        # DX-107：冲突（或切临时分支失败）退出前先回滚现场 —— 不留 merge/* 临时分支、
+        # 不留冲突态、不停在临时分支上；dry-run 承诺的「切回原分支」同样在这里兑现。
+        Restore-ConflictScene -EntryRef $pristineBranch -EntryHead $pristineHead -TempBranch $tmp
+        Write-Host "`n✗ 合并冲突，现场已回滚（合并已 abort、临时分支已删、已切回进入时检出）：" -ForegroundColor Yellow
+        Write-Host $mergeError -ForegroundColor Yellow
+        Write-Host "`n解决冲突后重跑：pwsh -File scripts/git-done.ps1；或手工基于 origin/$MainBranch 合并 $Branch`n" -ForegroundColor Yellow
         exit 1
     }
 
@@ -1122,16 +1174,21 @@ if ($Mode -eq 'remote') {
 }
 
 # ---- local 模式：传统流程（需要能 checkout main） ----
-Write-Host "`n· 切换主分支 $MainBranch ..." -ForegroundColor Cyan
-Invoke-Git switch $MainBranch | Out-Null
-
-Write-Host "· 合并 $Branch（--no-ff）..." -ForegroundColor Cyan
+$localEntryRef = Get-NbSymRef
+$localEntryHead = (Invoke-Git rev-parse HEAD).Trim()
 try {
+    Write-Host "`n· 切换主分支 $MainBranch ..." -ForegroundColor Cyan
+    Invoke-Git switch $MainBranch | Out-Null
+
+    Write-Host "· 合并 $Branch（--no-ff）..." -ForegroundColor Cyan
     Invoke-Git merge --no-ff $Branch -m "merge: 合入 $Branch" | Out-Null
 } catch {
-    Write-Host "`n✗ 合并冲突，请手工解决：" -ForegroundColor Yellow
-    Write-Host $_.Exception.Message -ForegroundColor Yellow
-    Write-Host "`n解决后：git add -A ; git commit ; git branch -d $Branch`n" -ForegroundColor Yellow
+    $mergeError = $_.Exception.Message
+    # DX-107：local 模式同样不留冲突态、不停在 main 上（详见 Restore-ConflictScene）。
+    Restore-ConflictScene -EntryRef $localEntryRef -EntryHead $localEntryHead -TempBranch ''
+    Write-Host "`n✗ 合并冲突，现场已回滚（合并已 abort、已切回进入时检出）：" -ForegroundColor Yellow
+    Write-Host $mergeError -ForegroundColor Yellow
+    Write-Host "`n解决冲突后重跑：pwsh -File scripts/git-done.ps1 -Mode local`n" -ForegroundColor Yellow
     exit 1
 }
 

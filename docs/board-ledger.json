@@ -3392,6 +3392,7 @@
                 "qml/Main.qml",
                 "qml/components/PluginPermissionDialog.qml",
                 "qml/components/PreviewPanel.qml",
+                "qml/components/PluginPanel.qml",
                 "src/board/PreviewHub.cpp",
                 "src/board/PreviewHub.h",
                 "docs/design/ui-relayout-verify.md",

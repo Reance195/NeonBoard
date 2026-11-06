@@ -970,6 +970,22 @@ bool PluginRuntime::setPermissionGranted(const QString &pluginId, const QString 
     return true;
 }
 
+bool PluginRuntime::releasePermissionPrompt(const QString &pluginId, const QStringList &permissions)
+{
+    if (pluginId.isEmpty() || permissions.isEmpty())
+        return false;
+
+    // 只清「已提示」标记：授权表与撤销表都不动，所以「稍后再说」不是拒绝，
+    // 插件下次调用该能力还会再弹一次窗。
+    bool changed = false;
+    for (const QString &permission : permissions) {
+        if (permission.isEmpty())
+            continue;
+        changed = m_promptedPermissions.remove(pluginId + QLatin1Char('|') + permission) || changed;
+    }
+    return changed;
+}
+
 QVariantMap PluginRuntime::permissionPrompt(const QString &pluginId) const
 {
     QVariantMap prompt;

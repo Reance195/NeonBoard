@@ -289,24 +289,6 @@
             "updatedAt": 1793935667
         },
         {
-            "code": "DX-103",
-            "completedAt": 0,
-            "createdAt": 1793936357,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-103",
-            "note": "",
-            "orderKey": 67584,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "发号跨机闭环：refs/registrations 服务端占位（原子 test-and-set）+ 换号重试",
-            "updatedAt": 1793936357
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4207,6 +4189,24 @@
             "updatedAt": 1792982913
         },
         {
+            "code": "DX-103",
+            "completedAt": 1793936510,
+            "createdAt": 1793936357,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-103",
+            "note": "",
+            "orderKey": 67584,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "发号跨机闭环：refs/registrations 服务端占位（原子 test-and-set）+ 换号重试",
+            "updatedAt": 1793936510
+        },
+        {
             "completedAt": 1792982913,
             "createdAt": 1792981704,
             "deleted": false,
@@ -4777,6 +4777,6 @@
             "updatedAt": 1793934590
         }
     ],
-    "updated": "2026-11-06T11:39:17",
+    "updated": "2026-11-06T11:41:50",
     "version": 3
 }

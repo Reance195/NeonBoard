@@ -25,6 +25,7 @@
       pwsh -File scripts/git-done.ps1 -Close DX-32,DX-33   # 人工确认结卡（卡必须是本分支领用的）
       pwsh -File scripts/git-done.ps1 -AllowCrossTree      # 跨区调用显式放行（DX-49 检出漂移守卫）
       pwsh -File scripts/git-done.ps1 -DryRun              # 收尾演练（DX-50）：fetch/push 打桩不触网，本地完整走一遍时序后回滚
+      pwsh -File scripts/git-done.ps1 -SelfTest            # DX-78 打桩自测：首拒重试落地 / 连拒不虚报（DX-116 回执口径在其中）
 #>
 [CmdletBinding()]
 param(
@@ -676,6 +677,7 @@ if ($PSScriptRoot) {
 }
 $repoRoot = if ($scriptRepoRoot) { $scriptRepoRoot } else { Get-NbToplevel }
 
+
 # ---------- 检出漂移守卫（DX-49）----------
 # 多会话并行时，终端 / Bash 工具的 CWD 会在锚点区与各 worktree 之间静默漂移：调用方以为
 # 站在树 A，脚本却按自身路径作用于树 B（§7.3 的定位设计），两棵树不一致时此前没有任何
@@ -708,10 +710,13 @@ function Test-CheckoutDrift {
     Write-Host '    2) 确属有意跨区（复现旧脚本 / 跨区验证）：加 -AllowCrossTree 放行' -ForegroundColor Yellow
     exit 5
 }
-# ---------- 自测（DX-78 acc3 负测）----------
+# ---------- 自测（DX-78 acc3 负测 + DX-116 回执口径）----------
 # 在临时仓里用 -StubPushFailures 跑完整 remote 收尾链：
 #   A 首拒重试落地：推送第 1 次注入拒绝、重试成功 —— 断言退出码 0、合并已上 origin、检出归位不在 merge/*；
-#   B 连续拒绝：3 次重试全被拒、fail-soft 回滚后补推仍被拒 —— 断言退出码非 0、检出不在 merge/*。
+#   B 连续拒绝：3 次重试全被拒、fail-soft 回滚后补推仍被拒 —— 断言退出码非 0、检出不在 merge/*、
+#     合并提交 pin 在重建的 merge/* 分支上（DX-116：补推指引的落点必须真实存在）。
+#   回执口径（DX-116）：A 的回执 pushed=true/head 记已落地提交；B 的回执 pushed=false、head 置空、
+#     mergedInto 不写 origin/main、恢复信息记 localHead/localBranch —— 推送没落地就不得虚报。
 # 不触真 origin、不仓库外留文件。依赖 git / pwsh / python（claim 闸门的 task_gate.py）。
 if ($script:gitDoneSelfTest) {
     $ErrorActionPreference = 'Stop'
@@ -791,6 +796,37 @@ if ($script:gitDoneSelfTest) {
         Assert-St 'B：重试耗尽给出补推指引' ($outB -match '推送未落地')
         $curB = (Invoke-In $workB @('branch', '--show-current'))[0]
         Assert-St "B：检出不在 merge/*（$curB）" ("$curB" -notlike 'merge/*')
+
+        # ---- 回执口径（DX-116）：回执只记「已发生」的事实，推送没落地不得虚报 ----
+        # 场景 A 推送已落地：pushed=true、head 记已落地提交、mergedInto=origin/main；
+        # 场景 B 全被拒：pushed=false、head 置空、mergedInto 不写 origin/main，恢复信息
+        # 改记 localHead/localBranch（pin 分支），且该分支真实存在 —— 补推指引才可执行。
+        function Read-StReceipt([string]$Work, [string]$BranchSlug) {
+            $dir = Join-Path $Work '.sandbox\receipts'
+            $f = @(Get-ChildItem -LiteralPath $dir -Filter "$BranchSlug-*.json" -ErrorAction SilentlyContinue)
+            if ($f.Count -ne 1) { return $null }
+            return Get-Content -LiteralPath $f[0].FullName -Raw -Encoding utf8 | ConvertFrom-Json
+        }
+        $rcA = Read-StReceipt -Work $workA -BranchSlug 'fix-selftest-a'
+        if ($null -ne $rcA) {
+            Assert-St 'A：回执 pushed=true' ($rcA.pushed -eq $true)
+            Assert-St 'A：回执 head 非空（已落地提交）' (-not [string]::IsNullOrEmpty("$($rcA.head)"))
+            Assert-St 'A：回执 mergedInto=origin/main' ("$($rcA.mergedInto)" -eq 'origin/main')
+        } else {
+            Assert-St 'A：回执存在（fix-selftest-a-*.json）' $false
+        }
+        $rcB = Read-StReceipt -Work $workB -BranchSlug 'fix-selftest-b'
+        if ($null -ne $rcB) {
+            Assert-St 'B：回执 pushed=false' ($rcB.pushed -eq $false)
+            Assert-St 'B：回执 head 置空（只记已落地提交）' ([string]::IsNullOrEmpty("$($rcB.head)"))
+            Assert-St 'B：回执 mergedInto 不写 origin/main' ([string]::IsNullOrEmpty("$($rcB.mergedInto)"))
+            Assert-St 'B：回执 localHead 留痕本地合并提交' (-not [string]::IsNullOrEmpty("$($rcB.localHead)"))
+            Assert-St 'B：回执 localBranch 记 pin 分支' ("$($rcB.localBranch)" -eq 'merge/fix-selftest-b')
+        } else {
+            Assert-St 'B：回执存在（fix-selftest-b-*.json）' $false
+        }
+        $pinB = Invoke-Cmd -File 'git' -CmdArgs @('-C', $workB, 'rev-parse', '--verify', '--quiet', 'refs/heads/merge/fix-selftest-b')
+        Assert-St 'B：合并提交已 pin 到 merge/fix-selftest-b（补推落点真实存在）' ($pinB.Code -eq 0)
     } finally {
         if (Test-Path -LiteralPath $tmpRoot) { Remove-Item -Recurse -Force $tmpRoot -ErrorAction SilentlyContinue }
     }
@@ -799,7 +835,7 @@ if ($script:gitDoneSelfTest) {
         Write-Host ("✗ git-done selftest 失败 {0} 项" -f $script:stFails.Count) -ForegroundColor Red
         exit 1
     }
-    Write-Host '✓ git-done selftest 通过：首拒重试落地 / 连拒退出码非 0 且检出归位'
+    Write-Host '✓ git-done selftest 通过：首拒重试落地 / 连拒不虚报（退出码非 0、回执只记已落地、pin 分支在）且检出归位'
     exit 0
 }
 
@@ -1275,6 +1311,8 @@ if ($Mode -eq 'remote') {
     # DX-44 的 cancel-in-progress 与沉降等待降级为纯双保险。
     # 撞 non-ff 时重取变基重试（上限 3 次，DX-58 重试收口保留）；仍失败则整体回滚
     # 收尾提交到 $closeoutBase，**单独推送合并**（fail-soft 重排：交付不被收尾拖住）。
+    # DX-116：本次对 main 的推送是否落地。「✓ 合并完成」、回执的 pushed/head/mergedInto
+    # 全部以它为准 —— 推送没落地就报完成，等于把「我做了」说成「它好了」（Z9）。
     $mainPushLanded = $false
     # 撞 non-ff 自动恢复重试（DX-78 单一实现 Invoke-MainPushWithRetry，上限 3 次）；
     # 仍失败则整体回滚收尾提交到 $closeoutBase，**单独推送合并**（fail-soft 重排：交付不被收尾拖住）。
@@ -1302,6 +1340,10 @@ if ($Mode -eq 'remote') {
             Write-Host '✓ 合并已单独推上 origin/main；收尾提交已回滚，留待下次合并' -ForegroundColor Yellow
         } else {
             Write-Host '· 合并也未能推送：全部留在本地，下次合并继续' -ForegroundColor Yellow
+            # DX-116：临时分支已在三步收尾前删除，合并提交此刻只活在分离 HEAD 上 ——
+            # 检出一挪走它就只剩 reflog 可打捞。重建同名临时分支把合并提交 pin 住，
+            # 结尾「推送未落地」总结里的补推指引才真正可执行（acc3 声称的落点从谎言变事实）。
+            [void](Invoke-GitQuiet @('branch', $tmp, $mergedCommit))
         }
     }
 
@@ -1446,8 +1488,15 @@ if ($Mode -eq 'remote') {
         $receipt = [ordered]@{
             finishedAt     = (Get-Date).ToString('s')
             branch         = $Branch
-            mergedInto     = "origin/$MainBranch"
-            head           = $headSha
+            # DX-116：回执只记「已发生」的事实 —— pushed=false 时 head 置空、mergedInto 不写
+            # origin/main，本地合并提交改记 localHead/localBranch（pin 分支），杜绝虚报；
+            # dryRun=true 的回执是演练产物，一切字段按演练论。
+            dryRun         = [bool]$DryRun
+            pushed         = [bool]$mainPushLanded
+            mergedInto     = $(if ($mainPushLanded) { "origin/$MainBranch" } else { '' })
+            head           = $(if ($mainPushLanded) { $headSha } else { '' })
+            localHead      = $headSha
+            localBranch    = $(if ($mainPushLanded) { '' } else { $tmp })
             claimed        = @($claimedCodes)
             closed         = @($ccLanded)
             closePending   = @($ccPending)
@@ -1465,10 +1514,12 @@ if ($Mode -eq 'remote') {
 
     if (-not $mainPushLanded) {
         # DX-78 acc3：连续拒绝 / 离线时交付没有落地，不能以 0 告终 —— 否则调用方
-        # （nbflow / 收尾链）会把「没推上去」当成功。合并提交仍完整保留在本地临时分支上，
-        # 恢复后一条命令即可补推（重试循环已把它变基到最新 origin/main，必为快进）。
+        # （nbflow / 收尾链）会把「没推上去」当成功。DX-116：临时分支已在三步收尾前删除，
+        # 合并提交只活在分离 HEAD 上，失败路径上已把它重建 pin 到 $tmp —— 下面的补推
+        # 指引才真正可执行；回执 localHead/localBranch 同步留痕。
         Write-Host "`n✗ 推送未落地：合并提交保留在本地分支 $tmp 上，恢复后补推：" -ForegroundColor Red
         Write-Host "   git push origin $tmp`:$MainBranch" -ForegroundColor Yellow
+        Write-Host "   推送成功后清理：git branch -d $tmp；挂起的结卡（closePending）由下次合并收尾自动补结" -ForegroundColor Yellow
         exit 1
     }
 

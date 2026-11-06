@@ -289,6 +289,42 @@
             "updatedAt": 1793980234
         },
         {
+            "code": "DX-111",
+            "completedAt": 0,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-111",
+            "note": "",
+            "orderKey": 79872,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用",
+            "updatedAt": 1793980354
+        },
+        {
+            "code": "DX-112",
+            "completedAt": 0,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-112",
+            "note": "",
+            "orderKey": 80896,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现",
+            "updatedAt": 1793980354
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5083,6 +5119,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:50:34",
+    "updated": "2026-11-06T23:52:34",
     "version": 3
 }

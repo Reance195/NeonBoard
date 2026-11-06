@@ -99,14 +99,20 @@ DrawerShell {
             Layout.preferredWidth: 64
         }
 
-        Text {
+        // 只读值用 TextEdit：R16-04 原本想用 selectByMouse 让路径 / 命令可复制，
+        // 但 Text 没有这个属性，QML 报「Cannot assign to non-existent property」
+        // 会让整个插件面板加载失败、抽屉打不开。TextEdit 才是能选中的那个控件。
+        TextEdit {
             Layout.fillWidth: true
             text: v
             color: Theme.text
             font.pixelSize: Theme.fontMicro
             font.family: "Consolas"
-            wrapMode: Text.WrapAnywhere
+            wrapMode: TextEdit.WrapAnywhere
+            readOnly: true
             selectByMouse: true
+            selectionColor: Theme.alpha(Theme.cyan, 0.35)
+            selectedTextColor: Theme.text
         }
     }
 

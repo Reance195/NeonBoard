@@ -109,24 +109,6 @@
             "updatedAt": 1793906024
         },
         {
-            "code": "DX-81",
-            "completedAt": 0,
-            "createdAt": 1793906764,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-81",
-            "note": "触发证据：DX-64 把归因集合限定为「本分支 #卡=done 标记」（check_board_diff.py drift_explained 只吃 done 集合），但领卡（agent-init claims 登记 / nbflow dispatch）同样让派生状态变 doing 而快照留 todo——漂移同样由本分支自身动作解释、同样在合入时由 git-done 收敛，却仍红灯。本会话实录两次：DX-65、DX-36 领用后第一次 -ScriptOnly 均红于「todo → doing」，各手工 derive --write 一次；DX-67/DX-63 靠先提交 done 标记再 verify 绕开。归因判据应覆盖本分支自身动作的全体来源（done 标记 + claims 登记），不是只有最早踩坑的那一种。查重命中的 DX-64 已交付且验收只覆盖 done 半边，本卡是归因集合扩展非重复；DX-13/41/62 为 done/标记 词面噪声\n\n## 目标\n领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯\n\n## 验收\n漂移项可被本分支自身新增的 claims 登记（相对 base 的 claims diff 且派生状态为 doing）解释时降为提示（合入由 git-done 收敛），其余漂移维持非零退出;DX-64 的 done 标记归因口径回归不破（反例：与分支无关的真漂移仍红灯）;自测覆盖 claims 解释命中 / 无 claims 的 doing 漂移仍红 / done 与 claims 混合归因，verify -ScriptOnly 通过\n\n## 边界\nscripts/check_board_diff.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 55296,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯",
-            "updatedAt": 1793906764
-        },
-        {
             "code": "DX-82",
             "completedAt": 0,
             "createdAt": 1793906980,
@@ -251,42 +233,6 @@
             ],
             "title": "交互回归判据与 GUI 实机验收通道沉淀",
             "updatedAt": 1793935667
-        },
-        {
-            "code": "R11-11",
-            "completedAt": 0,
-            "createdAt": 1793973890,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R11-11",
-            "note": "",
-            "orderKey": 68608,
-            "priority": 2,
-            "stage": "R11",
-            "status": "todo",
-            "tags": [
-                "R11"
-            ],
-            "title": "R11 界面重排收尾 1/2：执行队列补固定表头与 40 px 行高",
-            "updatedAt": 1793973890
-        },
-        {
-            "code": "R11-12",
-            "completedAt": 0,
-            "createdAt": 1793973890,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R11-12",
-            "note": "",
-            "orderKey": 69632,
-            "priority": 2,
-            "stage": "R11",
-            "status": "todo",
-            "tags": [
-                "R11"
-            ],
-            "title": "R11 界面重排收尾 2/2：规格全量核验（权限弹窗流程 / 17 个界面逐个 / 未推送提交数）",
-            "updatedAt": 1793973890
         },
         {
             "code": "DX-108",
@@ -3824,6 +3770,24 @@
             "updatedAt": 1792849877
         },
         {
+            "code": "DX-81",
+            "completedAt": 1793976250,
+            "createdAt": 1793906764,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-81",
+            "note": "触发证据：DX-64 把归因集合限定为「本分支 #卡=done 标记」（check_board_diff.py drift_explained 只吃 done 集合），但领卡（agent-init claims 登记 / nbflow dispatch）同样让派生状态变 doing 而快照留 todo——漂移同样由本分支自身动作解释、同样在合入时由 git-done 收敛，却仍红灯。本会话实录两次：DX-65、DX-36 领用后第一次 -ScriptOnly 均红于「todo → doing」，各手工 derive --write 一次；DX-67/DX-63 靠先提交 done 标记再 verify 绕开。归因判据应覆盖本分支自身动作的全体来源（done 标记 + claims 登记），不是只有最早踩坑的那一种。查重命中的 DX-64 已交付且验收只覆盖 done 半边，本卡是归因集合扩展非重复；DX-13/41/62 为 done/标记 词面噪声\n\n## 目标\n领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯\n\n## 验收\n漂移项可被本分支自身新增的 claims 登记（相对 base 的 claims diff 且派生状态为 doing）解释时降为提示（合入由 git-done 收敛），其余漂移维持非零退出;DX-64 的 done 标记归因口径回归不破（反例：与分支无关的真漂移仍红灯）;自测覆盖 claims 解释命中 / 无 claims 的 doing 漂移仍红 / done 与 claims 混合归因，verify -ScriptOnly 通过\n\n## 边界\nscripts/check_board_diff.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 55296,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "领用 doing 快照漂移仍逼手工 derive --write：DX-64 归因只认 done 标记，claims 派生的 doing 漂移同等自愈却仍红灯",
+            "updatedAt": 1793976250
+        },
+        {
             "completedAt": 1792850012,
             "createdAt": 1792721608,
             "deleted": false,
@@ -4350,6 +4314,24 @@
             "updatedAt": 1792982913
         },
         {
+            "code": "R11-11",
+            "completedAt": 1793977247,
+            "createdAt": 1793973890,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-11",
+            "note": "已交付（2026-11-06，提交 db77d4d）：执行队列补规格 §3.4 落位表剩的两条子项 —— 表头固定（任务 / 状态 / 操作三列，列宽与数据行逐列对齐；表头放在 ListView 之外，列表滚动时不动） + 队列行高统一 40 px（行间距 0、行下细线分隔）。状态标签从副信息提为独立列，耗时 / 角色 / agent / 错误仍留在副信息行，信息不丢。实测（临时埋点，跑完已回滚）：入队 3 条时行高 40、表头行高 18；grep \"height: 56\" 命中 0、\"rows.length * 62\" 命中 0、\"rows.length * 40\" 命中 1。待做：无。",
+            "orderKey": 68608,
+            "priority": 2,
+            "stage": "R11",
+            "status": "done",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排收尾 1/2：执行队列补固定表头与 40 px 行高",
+            "updatedAt": 1793977247
+        },
+        {
             "completedAt": 1792982913,
             "createdAt": 1792981704,
             "deleted": false,
@@ -4365,6 +4347,24 @@
             ],
             "title": "TS: SplashHandover 增加 started 幂等标志并导出交接预算常量",
             "updatedAt": 1792982913
+        },
+        {
+            "code": "R11-12",
+            "completedAt": 1793977247,
+            "createdAt": 1793973890,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-12",
+            "note": "已交付（2026-11-06，提交 7440933）：R11 规格全量核验，结论与实测值落 docs/design/ui-relayout-verify.md。①17 个界面逐个打开（真实入口、带真实参数），量到形态 / 壳宽（440 / 560 / 720 / 抽屉 320）/ 头底固定 / 关闭行为，17 行齐全；②权限弹窗三条关闭路径端到端实测：受权限门控的能力被拒后仍能再次触发弹窗，遮罩 / 关闭键 / Esc 三条路径关闭后权限仍未授权且再次触发都会再弹（走 PluginHost.storageSet → PluginContext::require → 宿主 permissionRequested 全链路）；③未推送提交数实测 0 / 2 / 4 / -1 四种取值，有 upstream 领先时显示数字、无 upstream 的分离头为 -1 且不渲染徽章。核验抓出并修掉一个既有缺陷：qml/components/PluginPanel.qml 给 Text 赋 selectByMouse（Text 无此属性），QML 报错使整个插件面板加载失败、抽屉打不开（由 R16-04 引入，非 R11 引入），改用只读 TextEdit 后恢复；该修复需扩 scope，已按 DX-10 单独走一条 chore(board) 契约变更（37da984），契约与实现分开提交。待做：无（遗留见核验文档第五节：Main.qml:1621 的 EmptyState 锚点告警是既有、不在范围内；Esc 未做真实按键注入，依据壳内 closePolicy 与组件内 Keys.onEscapePressed 的代码路径；视觉观感需人工确认）。",
+            "orderKey": 69632,
+            "priority": 2,
+            "stage": "R11",
+            "status": "done",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排收尾 2/2：规格全量核验（权限弹窗流程 / 17 个界面逐个 / 未推送提交数）",
+            "updatedAt": 1793977247
         },
         {
             "completedAt": 1792982913,
@@ -4975,6 +4975,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T22:34:33",
+    "updated": "2026-11-06T23:00:47",
     "version": 3
 }

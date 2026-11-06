@@ -52,6 +52,11 @@ except ImportError:  # 同目录实现被挪走时保守退化：不可归因 �
 # 虽不直接影响断言，但改卡片结构属于低频高风险动作，一并要求全量更省心）
 CARD_FIELDS = ("stage", "title", "scope", "depends", "acceptance", "note")
 
+# 契约字段 = CARD_FIELDS 去掉 note（DX-113）：note 是交付说明，不进 tst_projectmap
+# 读的阶段 / 范围 / roadmap 行；交付说明是每张卡收尾的必经动作，单独改它不应把
+# 脚本卡从轻档踢进全量档。title 虽非派生输入，但改标题属于任务定义，仍按契约对待。
+CONTRACT_FIELDS = tuple(f for f in CARD_FIELDS if f != "note")
+
 
 def read_from_git(ref: str, rel: str) -> dict | None:
     """读 `ref:rel` 的 JSON；文件在该 ref 下不存在时返回 None。"""
@@ -91,6 +96,24 @@ def describe_changed(old: dict, new: dict, codes: list[str]) -> list[str]:
         parts = fields + extra
         lines.append(f"{code}（{'、'.join(parts) if parts else '整体'}）")
     return lines
+
+
+def split_changed(old: dict, new: dict, changed: list[str]) -> tuple[list[str], list[str]]:
+    """把变动的卡拆成「契约变化」与「仅交付说明（note）变化」（DX-113）。纯函数。
+
+    契约变化 = CONTRACT_FIELDS 任一变动，或 CARD_FIELDS 之外的自定义键变动
+    （与 describe_changed 的 extra 口径一致：未知键属低频高风险，一并保守对待）。
+    其余（即只有 note 变了）归入 note_only，不升级验收档。
+    """
+    contract: list[str] = []
+    note_only: list[str] = []
+    for code in changed:
+        a = old.get("cards", {}).get(code, {}) or {}
+        b = new.get("cards", {}).get(code, {}) or {}
+        fields = [f for f in CONTRACT_FIELDS if a.get(f) != b.get(f)]
+        extra = [k for k in (set(a) | set(b)) if k not in CARD_FIELDS and a.get(k) != b.get(k)]
+        (contract if (fields or extra) else note_only).append(code)
+    return contract, note_only
 
 
 def run_derive() -> int:
@@ -243,13 +266,18 @@ def classify(old: dict, new: dict) -> tuple[str, list[str]]:
 
     「新增卡的 stage 是否是陌生取值」要判：stage 第一次出现时，roadmap 里未必有对应行，
     这正是 `stageOrderFollowsRoadmapRows` 会红的情形。
+
+    DX-113：既有卡的变动先经 split_changed 拆「契约变化」与「仅交付说明（note）」——
+    只有 note 变了不升级 full（维持 derive 档），交付说明是每张卡收尾的必经动作，
+    不能把脚本卡从轻档踢进全量档，更不能逼 agent 挑提交时态换验收结论。
     """
     old_cards = old.get("cards") or {}
     new_cards = new.get("cards") or {}
     added, removed, changed = diff_cards(old, new)
+    contract_changed, note_only = split_changed(old, new, changed)
     lines: list[str] = []
 
-    if removed or changed:
+    if removed or contract_changed:
         lines = [f"  卡片结构有变化（{len(added)} 新增 / {len(removed)} 删除 / {len(changed)} 修改）"]
         if added:
             lines.append("    新增：" + "、".join(added))
@@ -260,6 +288,12 @@ def classify(old: dict, new: dict) -> tuple[str, list[str]]:
         lines.append("  改动了既有卡片的契约，tst_projectmap 可能读不到对应 roadmap 行；请跑全量：")
         lines.append("    pwsh -File scripts/verify.ps1")
         return "full", lines
+
+    if note_only:
+        lines.append(
+            "  · 交付说明更新（%d 张：%s），不改契约、留在轻档（DX-113）"
+            % (len(note_only), "、".join(note_only))
+        )
 
     if added:
         known = {c.get("stage") for c in old_cards.values() if c.get("stage")}
@@ -273,10 +307,11 @@ def classify(old: dict, new: dict) -> tuple[str, list[str]]:
 
     base_changed = (old.get("baseline") or {}) != (new.get("baseline") or {})
     claims_changed = (old.get("claims") or {}) != (new.get("claims") or {})
-    if not (added or base_changed or claims_changed):
+    if not (added or base_changed or claims_changed or note_only):
         return "skip", ["  · 台账未改动，跳过"]
 
-    what = [n for n, f in (("cards 新增", bool(added)), ("baseline", base_changed), ("claims", claims_changed)) if f]
+    what = [n for n, f in (("cards 新增", bool(added)), ("baseline", base_changed),
+                           ("claims", claims_changed), ("交付说明（note）", bool(note_only))) if f]
     lines.append(f"  · 只动了 {'、'.join(what)}，校验派生一致性（新增卡必须已在快照里）")
     return "derive", lines
 
@@ -435,6 +470,22 @@ def selftest() -> int:
     # 改既有卡的非契约字段（title）也算改动既有卡 → full（保守）
     act, _ = classify(a, ledger({"DX-1": card("DX-1", title="改了标题")}, {"DX-1": "done"}, {}))
     check("改既有卡 title → full", act == "full")
+
+    # DX-113：交付说明（note）与契约字段分档 —— 只改 note 不升级验收档
+    act, lines = classify(a, ledger({"DX-1": card("DX-1", note="补交付说明")}, {"DX-1": "done"}, {}))
+    check("只改 note → derive（不再 full）", act == "derive")
+    check("只改 note → 说明点名交付说明", any("交付说明" in l and "DX-1" in l for l in lines))
+    act, _ = classify(a, ledger({"DX-1": card("DX-1", note="补交付说明")}, {}, {}))
+    check("只改 note 也不算「台账未改动」", act == "derive")
+    contract, note_only = split_changed(
+        a, ledger({"DX-1": card("DX-1", note="补交付说明")}, {"DX-1": "done"}, {}), ["DX-1"])
+    check("split_changed：note-only 归入交付说明", contract == [] and note_only == ["DX-1"])
+    contract, note_only = split_changed(
+        a, ledger({"DX-1": card("DX-1", scope=["b"], note="补交付说明")}, {"DX-1": "done"}, {}), ["DX-1"])
+    check("split_changed：scope 变动归契约（反例不破）",
+          contract == ["DX-1"] and note_only == [])
+    act, _ = classify(a, ledger({"DX-1": card("DX-1", scope=["b"], note="补交付说明")}, {"DX-1": "done"}, {}))
+    check("note + scope 同改 → 仍 full", act == "full")
 
     # DX-64 归因：本分支 #卡=done 标记能完整解释的漂移降为提示
     if drv is not None:

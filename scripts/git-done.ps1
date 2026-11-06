@@ -745,20 +745,54 @@ if ($Mode -eq 'remote') {
     $script:dryEntryRef = Get-NbSymRef
     if ($DryRun -and -not $script:dryEntryRef) { Write-Host '· [dry-run] 进入时已在分离 HEAD，结束时无可回滚' -ForegroundColor DarkCyan }
     Write-Host "· 基于 origin/$MainBranch 创建临时分支 $tmp" -ForegroundColor DarkGray
-    try {
-        Invoke-Git switch -c $tmp "origin/$MainBranch" | Out-Null
-
+    $switchRes = Invoke-GitQuiet @('switch', '-c', $tmp, "origin/$MainBranch")
+    $mergeRes = $null
+    if ($switchRes.Code -eq 0) {
         Write-Host "· 合并 $Branch（--no-ff，保留分支合并痕迹）" -ForegroundColor DarkGray
-        Invoke-Git merge --no-ff $Branch -m "merge: 合入 $Branch" | Out-Null
-    } catch {
-        $mergeError = $_.Exception.Message
-        # DX-107：冲突（或切临时分支失败）退出前先回滚现场 —— 不留 merge/* 临时分支、
-        # 不留冲突态、不停在临时分支上；dry-run 承诺的「切回原分支」同样在这里兑现。
+        $mergeRes = Invoke-GitQuiet @('merge', '--no-ff', $Branch, '-m', "merge: 合入 $Branch")
+    }
+    $inConflict = ($switchRes.Code -eq 0) -and
+        ((Invoke-GitQuiet @('rev-parse', '--verify', '--quiet', 'MERGE_HEAD')).Code -eq 0)
+    if ($switchRes.Code -ne 0 -or ($mergeRes -and $mergeRes.Code -ne 0 -and -not $inConflict)) {
+        # DX-107：失败退出前先回滚现场 —— 不留 merge/* 临时分支、不留冲突态、不停在临时分支上；
+        # dry-run 承诺的「切回原分支」同样在这里兑现。
         Restore-ConflictScene -EntryRef $pristineBranch -EntryHead $pristineHead -TempBranch $tmp
-        Write-Host "`n✗ 合并冲突，现场已回滚（合并已 abort、临时分支已删、已切回进入时检出）：" -ForegroundColor Yellow
-        Write-Host $mergeError -ForegroundColor Yellow
-        Write-Host "`n解决冲突后重跑：pwsh -File scripts/git-done.ps1；或手工基于 origin/$MainBranch 合并 $Branch`n" -ForegroundColor Yellow
+        Write-Host "`n✗ 合并失败（非冲突），现场已回滚：" -ForegroundColor Yellow
+        if ($switchRes.Code -ne 0) { $switchRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow } }
+        if ($mergeRes) { $mergeRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow } }
         exit 1
+    }
+    if ($inConflict) {
+        $conflicted = @((Invoke-GitQuiet @('diff', '--name-only', '--diff-filter', 'U')).Output |
+            Where-Object { $_ -and $_.ToString().Trim() -ne '' })
+        # DX-108：progress.json 是纯派生产物（AGENTS §11.2——唯一写者是收尾的 derive --write），
+        # 内容冲突不存在需要人脑的语义合并，正确解恒为「任取一侧后由派生器整体重算」。
+        # 台账 docs/board-ledger.json 承载任务定义（加卡/改契约要授权），**不是**纯派生物，
+        # 含它的冲突不进本通道，仍走人工。这里的 --ours 也不是 §7.5 禁止的盲解：
+        # 取来的内容不作为最终结果，收尾的 Sync-BoardSnapshot（derive --write）必然整体重算。
+        # 实测背景：DX-106 交付当日三次撞 progress.json 冲突，每次手工五步善后全靠人记。
+        $nonDerived = @($conflicted | Where-Object { ($_ -replace '\\', '/') -ne 'progress.json' })
+        if ($conflicted.Count -gt 0 -and $nonDerived.Count -eq 0) {
+            foreach ($f in $conflicted) { [void](Invoke-GitQuiet @('checkout', '--ours', '--', $f)) }
+            [void](Invoke-GitQuiet (@('add', '--') + $conflicted))
+            $mcRes = Invoke-GitQuiet @('commit', '--no-edit')
+            if ($mcRes.Code -eq 0) {
+                Write-Host ("· 快照冲突自动善后（DX-108）：冲突仅 progress.json（纯派生物），取主线版完成合并，收尾派生器整体重算（{0}）" -f ($conflicted -join '、')) -ForegroundColor DarkGray
+            } else {
+                Write-Host "`n✗ 快照冲突自动善后失败（完成合并提交被拒），请手工解决：" -ForegroundColor Yellow
+                $mcRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow }
+                Write-Host "`n解决后：git add -A ; git commit ; git push origin HEAD:$MainBranch`n" -ForegroundColor Yellow
+                exit 1
+            }
+        } else {
+            # DX-107：含非派生文件的冲突转人工，退出前同样回滚现场（不留冲突态与临时分支）。
+            Restore-ConflictScene -EntryRef $pristineBranch -EntryHead $pristineHead -TempBranch $tmp
+            Write-Host "`n✗ 合并冲突（含非派生文件，不自动善后），现场已回滚，请手工解决后重跑收尾：" -ForegroundColor Yellow
+            $mergeRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow }
+            $conflicted | ForEach-Object { Write-Host ("   冲突文件：{0}" -f $_) -ForegroundColor Yellow }
+            Write-Host "`n解决后：git add -A ; git commit ; 重跑 pwsh -File scripts/git-done.ps1 -Branch $Branch`n" -ForegroundColor Yellow
+            exit 1
+        }
     }
 
     # DX-106：合并先落本地，不单独推送 —— 与三步收尾提交合成对 main 的**唯一一次**推送

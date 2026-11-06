@@ -5073,6 +5073,12 @@
         }
     },
     "claims": {
+        "R11-10": {
+            "agent": "agent-ui4",
+            "branch": "feature/ui-relayout-r11",
+            "claimedAt": 1793959155,
+            "head": "03d824f9d383976449367d27cdc522a08343004b"
+        },
         "R11-8": {
             "agent": "agent-ui4",
             "branch": "feature/ui-relayout-r11",

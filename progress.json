@@ -127,24 +127,6 @@
             "updatedAt": 1793980568
         },
         {
-            "code": "DX-120",
-            "completedAt": 0,
-            "createdAt": 1793981301,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-120",
-            "note": "",
-            "orderKey": 65536,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "git-done 从自身 worktree 收尾后残留 detached 工作区：反查失效且无回收闭环",
-            "updatedAt": 1793981301
-        },
-        {
             "code": "DX-101",
             "completedAt": 0,
             "createdAt": 1793935666,
@@ -4369,6 +4351,24 @@
             "updatedAt": 1792942397
         },
         {
+            "code": "DX-120",
+            "completedAt": 1793983297,
+            "createdAt": 1793981301,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-120",
+            "note": "",
+            "orderKey": 65536,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 从自身 worktree 收尾后残留 detached 工作区：反查失效且无回收闭环",
+            "updatedAt": 1793983297
+        },
+        {
             "code": "R4-05",
             "completedAt": 1792942397,
             "createdAt": 1792654081,
@@ -5245,6 +5245,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-07T00:40:26",
+    "updated": "2026-11-07T00:41:37",
     "version": 3
 }

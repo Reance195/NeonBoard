@@ -271,24 +271,6 @@
             "updatedAt": 1793935667
         },
         {
-            "code": "DX-123",
-            "completedAt": 0,
-            "createdAt": 1793983226,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-123",
-            "note": "",
-            "orderKey": 88064,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "立卡排位规则落地：tier 档位声明与 orderKey 档位落位",
-            "updatedAt": 1793983226
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4777,6 +4759,24 @@
             "updatedAt": 1793123355
         },
         {
+            "code": "DX-123",
+            "completedAt": 1793986446,
+            "createdAt": 1793983226,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-123",
+            "note": "",
+            "orderKey": 77312,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡排位规则落地：tier 档位声明与 orderKey 档位落位",
+            "updatedAt": 1793986446
+        },
+        {
             "code": "DX-07",
             "completedAt": 1793207091,
             "createdAt": 1793207091,
@@ -5245,6 +5245,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-07T01:23:03",
+    "updated": "2026-11-07T01:34:06",
     "version": 3
 }

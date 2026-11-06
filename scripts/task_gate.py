@@ -659,7 +659,7 @@ def cmd_selftest(args):
     tier_changed = ledger_with(cards={
         "DX-01": {
             "id": "a", "title": "t", "stage": "DX",
-            "scope": ["src/a.cpp", "src/b.cpp"],
+            "scope": ["scripts/a.py", "scripts/b.py"],
             "acceptance": ["跑通 A"],
             "tier": "P1",
         },

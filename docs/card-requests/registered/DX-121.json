@@ -1,0 +1,13 @@
+{
+  "card": "DX-121",
+  "sha256": "3cd83c4fd4789f90e2cb37f4d9f100d6edcb603d278c644ea693510e1a4ea121",
+  "authorizedBy": "维护者 2026-11-06 会话指令：追查 7ee6040 静默丢卡后「回复立卡以调用 register_board_cards.py」",
+  "form": "docs/card-requests/20261106-registration-half-land.md",
+  "registeredAt": "2026-11-06T16:05:12+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-121",
+    "sha": "d5a0141b9cd6894ee22c6363116bb9368adbb9b1"
+  }
+}

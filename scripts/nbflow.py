@@ -1902,12 +1902,20 @@ def selftest() -> int:
         finally:
             globals()["REQUEST_DIR"] = old_dir
 
-        # DX-67 语义查重：命中即拒 / ack 放行 / 无命中直通（语料全部注入，不碰真仓库）
-        old_dir2, old_arch, old_doc = REQUEST_DIR, ARCHIVE_REQUEST_DIR, ledger_doc
+        # DX-67 语义查重：命中即拒 / ack 放行 / 无命中直通（语料全部注入，不碰真仓库）。
+        # DX-114：「不碰真仓库」必须连占用集事实源一起注入——ledger_card_ids 直读真台账
+        # （DX-92 并集），语料卡号与真实已立卡撞车就会被「卡号已被占用」拒收（DX-71/72/73
+        # 实录，真仓库环境恒假红）；queued_card_ids 由 REQUEST_DIR 重定向覆盖，
+        # claim 占位由 reconcile 探针单独 stub。
+        old_dir2, old_arch, old_doc, old_ids = REQUEST_DIR, ARCHIVE_REQUEST_DIR, ledger_doc, ledger_card_ids
         globals()["REQUEST_DIR"] = Path(td) / "dup-q"
         globals()["ARCHIVE_REQUEST_DIR"] = Path(td) / "dup-arch"
         globals()["ledger_doc"] = lambda: {"cards": {
             "DX-40": {"title": "流程提交豁免收口：agent-init 拒绝脏树领用，闸门对卷入代码的流程提交失效"}}}
+        globals()["ledger_card_ids"] = lambda: {"DX-40"}
+        # known_titles 还从 local_main_doc() 取本地 main 台账（DX-92 并集的另一半），一并注入
+        old_lmd = local_main_doc
+        globals()["local_main_doc"] = lambda: {"cards": {}}
         try:
             def req_args(card: str, title: str, ack: bool = False):
                 return argparse.Namespace(
@@ -1943,13 +1951,19 @@ def selftest() -> int:
             globals()["REQUEST_DIR"] = old_dir2
             globals()["ARCHIVE_REQUEST_DIR"] = old_arch
             globals()["ledger_doc"] = old_doc
+            globals()["ledger_card_ids"] = old_ids
+            globals()["local_main_doc"] = old_lmd
 
-        # DX-65 投影化：断链重算 / 缺会话补影 / dry-run 纯化 / 删 state.json 可重建
-        old_doc65 = ledger_doc
+        # DX-65 投影化：断链重算 / 缺会话补影 / dry-run 纯化 / 删 state.json 可重建。
+        # DX-114：claim_refs 直读真 refs/claims——语料卡号命中真实占位时（DX-83 实录，
+        # 并行会话的真实 DX-83 占位让语料卡被重建为 dispatched）补影断言恒假，
+        # 一并 stub 进语料边界。
+        old_doc65, old_refs = ledger_doc, claim_refs
         globals()["ledger_doc"] = lambda: {
             "baseline": {"DX-80": "done", "DX-81": "todo", "DX-83": "todo"},
             "cards": {"DX-80": {"title": "已交付卡"}, "DX-81": {"title": "在库卡有会话"},
                       "DX-83": {"title": "在库卡缺会话"}}}
+        globals()["claim_refs"] = lambda: {}
         try:
             st6 = blank_state()
             st6["sessions"]["DX-80"] = {"state": "dispatched", "history": []}
@@ -1985,6 +1999,7 @@ def selftest() -> int:
                   load_state(fresh)["sessions"]["DX-90"]["state"] == "accepted")
         finally:
             globals()["ledger_doc"] = old_doc65
+            globals()["claim_refs"] = old_refs
 
         # DX-73：投影重建消费服务端 refs/claims —— 已领用卡不因状态丢失退回 created
         old_doc73, old_refs73, old_rec73 = ledger_doc, claim_refs, recover_claim_context

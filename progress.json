@@ -127,24 +127,6 @@
             "updatedAt": 1793980354
         },
         {
-            "code": "DX-115",
-            "completedAt": 0,
-            "createdAt": 1793980234,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-115",
-            "note": "",
-            "orderKey": 79872,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移",
-            "updatedAt": 1793980234
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -4813,6 +4795,24 @@
             "updatedAt": 1793251716
         },
         {
+            "code": "DX-115",
+            "completedAt": 1793987436,
+            "createdAt": 1793980234,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-115",
+            "note": "",
+            "orderKey": 79872,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移",
+            "updatedAt": 1793987436
+        },
+        {
             "code": "R10-03",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5245,6 +5245,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-07T01:41:03",
+    "updated": "2026-11-07T01:50:36",
     "version": 3
 }

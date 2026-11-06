@@ -490,6 +490,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "DX",
+            "tier": "P3",
             "title": "立卡入口单一事实源：文档、旧工具注释与预演输出对齐 DX-98 新流程"
         },
         "DX-101": {
@@ -511,6 +512,7 @@
                 "scripts/check_board_diff.py"
             ],
             "stage": "DX",
+            "tier": "P2",
             "title": "收尾与验收输出保真：合并提交四段、锚点跳过提示、红绿一致"
         },
         "DX-102": {
@@ -535,6 +537,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "DX",
+            "tier": "P4",
             "title": "交互回归判据与 GUI 实机验收通道沉淀"
         },
         "DX-103": {
@@ -739,6 +742,7 @@
                 "AGENTS.md"
             ],
             "stage": "DX",
+            "tier": "P1",
             "title": "锚点快进永久跳过：立卡 roadmap 行收进立卡提交，锚点同步脏文件判据与分类修正"
         },
         "DX-111": {
@@ -757,6 +761,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "DX",
+            "tier": "P3",
             "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用"
         },
         "DX-112": {
@@ -775,6 +780,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "DX",
+            "tier": "P3",
             "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现"
         },
         "DX-113": {
@@ -816,6 +822,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "DX",
+            "tier": "P3",
             "title": "nbflow selftest 探针越界读真仓库：占用集与 claim_refs 让语料卡号与生产事实撞车，并行环境下恒假红"
         },
         "DX-115": {
@@ -837,6 +844,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "DX",
+            "tier": "P3",
             "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移"
         },
         "DX-116": {
@@ -853,6 +861,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "DX",
+            "tier": "P2",
             "title": "git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印"
         },
         "DX-117": {
@@ -871,6 +880,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "DX",
+            "tier": "P1",
             "title": "一分支多卡时 check_scope 整体跳过：按多卡 scope 并集校验，补上范围闸门空窗"
         },
         "DX-119": {
@@ -888,6 +898,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "DX",
+            "tier": "P3",
             "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9"
         },
         "DX-12": {
@@ -961,6 +972,7 @@
                 ".github/workflows/ci.yml"
             ],
             "stage": "DX",
+            "tier": "P1",
             "title": "立卡半落地：回执/占位在而台账卡片被并发冲突抹去，回执闸门只查单向"
         },
         "DX-122": {
@@ -988,6 +1000,7 @@
                 "docs/iteration-roadmap.md"
             ],
             "stage": "DX",
+            "tier": "P2",
             "title": "DX 启动告警零容忍：把枚举式 pattern 换成按形态识别，规则收成一份"
         },
         "DX-123": {
@@ -1022,6 +1035,7 @@
                 "docs/card-requests/20261107-board-priority-tier.md"
             ],
             "stage": "DX",
+            "tier": "P2",
             "title": "立卡排位规则落地：tier 档位声明与 orderKey 档位落位"
         },
         "DX-13": {
@@ -1537,6 +1551,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "DX",
+            "tier": "P3",
             "title": "DX 发布构建零缓存：冷编译占掉四分之三墙钟，放大每次出包失败的排查代价"
         },
         "DX-38": {
@@ -1652,6 +1667,7 @@
                 "scripts/card-approve.ps1"
             ],
             "stage": "DX",
+            "tier": "P3",
             "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用"
         },
         "DX-44": {
@@ -2248,6 +2264,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "DX",
+            "tier": "P1",
             "title": "git-done 主推送撞 non-ff 无自动重试且把检出留在临时分支：DX-58 的重试收口为单一实现供两处推送共用"
         },
         "DX-79": {
@@ -2318,6 +2335,7 @@
                 "docs/git-workflow.md"
             ],
             "stage": "DX",
+            "tier": "P0",
             "title": "rebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用"
         },
         "DX-83": {
@@ -2430,6 +2448,7 @@
                 "AGENTS.md"
             ],
             "stage": "DX",
+            "tier": "P2",
             "title": "git-done 收尾补推 3→1：清理/结卡/快照合成单次 push，配合 DX-44 沉降降低 Board 中间态 run"
         },
         "DX-89": {
@@ -3230,6 +3249,7 @@
                 "docs/pitfalls.md"
             ],
             "stage": "R0",
+            "tier": "P4",
             "title": "发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头"
         },
         "R1-01": {

@@ -3667,20 +3667,79 @@ MouseArea {
             }
 
             // 队列列表：waiting / dispatching / running
+            //
+            // 规格 §3.4 落位表 execQueueDialog 行：「表头固定；队列行高统一 40 px」。
+            // 表头放在 ListView 之外 —— 列表滚动时表头不动；行高 40 px、间距 0，
+            // 三列（任务 / 状态 / 操作）的列宽与表头逐列对齐，扫一眼就能对上。
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(320, execQueueDialog.rows.length * 62 + 16)
+                // 表头块（6 + 18 + 1 + 4）+ 列表视口（最多 320）+ 底留白与边框
+                Layout.preferredHeight: 43 + Math.min(320, execQueueDialog.rows.length * 40)
                 visible: execQueueDialog.rows.length > 0
                 radius: 10
                 color: Theme.panel
                 border.width: 1
                 border.color: Theme.border
 
+                // ---- 表头（固定，不随列表滚动）----
+                RowLayout {
+                    id: queueHeader
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    anchors.topMargin: 6
+                    height: 18
+                    spacing: 8
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "任务"
+                        color: Theme.muted
+                        font.pixelSize: 10
+                        font.letterSpacing: 1.0
+                    }
+
+                    Text {
+                        Layout.preferredWidth: 72
+                        horizontalAlignment: Text.AlignRight
+                        text: "状态"
+                        color: Theme.muted
+                        font.pixelSize: 10
+                    }
+
+                    Text {
+                        Layout.preferredWidth: 64
+                        horizontalAlignment: Text.AlignRight
+                        text: "操作"
+                        color: Theme.muted
+                        font.pixelSize: 10
+                    }
+                }
+
+                Rectangle {
+                    id: queueHeaderLine
+                    anchors.top: queueHeader.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    height: 1
+                    color: Theme.hairline
+                }
+
                 ListView {
                     id: execQueueList
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 6
+                    anchors.top: queueHeaderLine.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    anchors.bottomMargin: 8
+                    anchors.topMargin: 4
+                    spacing: 0
                     clip: true
                     model: execQueueDialog.rows
 
@@ -3694,20 +3753,27 @@ MouseArea {
                         required property var modelData
 
                         width: execQueueList.width
-                        height: 56
-                        radius: 8
+                        height: 40
                         color: (modelData.queueStatus || "") === "running"
                                ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.10)
-                               : Theme.card
-                        border.width: 1
-                        border.color: (modelData.queueStatus || "") === "running"
-                                      ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.42)
-                                      : Theme.border
+                               : "transparent"
+
+                        // 行分隔线（表格感：行贴着行，不再是圆角卡片）
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: 1
+                            color: Theme.hairline
+                        }
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: 10
-                            spacing: 10
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            anchors.topMargin: 3
+                            anchors.bottomMargin: 3
+                            spacing: 8
 
                             // 状态点：只有 running 才脉冲（脉冲语义 = 正在跑）
                             Rectangle {
@@ -3739,9 +3805,10 @@ MouseArea {
                                 }
                             }
 
+                            // 第一列：任务（标题 + 副信息），与表头「任务」列同宽
                             ColumnLayout {
                                 Layout.fillWidth: true
-                                spacing: 2
+                                spacing: 0
 
                                 Text {
                                     Layout.fillWidth: true
@@ -3755,7 +3822,7 @@ MouseArea {
                                 Text {
                                     Layout.fillWidth: true
                                     text: {
-                                        var parts = [execQueueDialog.stateLabel(modelData)]
+                                        var parts = []
                                         if ((modelData.queueStatus || "") === "running")
                                             parts.push("已运行 " + execQueueDialog.humanDuration(
                                                            execQueueDialog.runDuration(modelData)))
@@ -3773,60 +3840,78 @@ MouseArea {
                                 }
                             }
 
-                            // 调序 / 跳过：只对 waiting 生效（running 的不许被打断）
+                            // 第二列：状态（从副信息里提出来，与表头「状态」列对齐）
                             Text {
-                                visible: (modelData.queueStatus || "") === "waiting"
-                                text: "↑"
-                                color: upMouse.containsMouse ? Theme.cyan : Theme.muted
-                                font.pixelSize: 13
-                                MouseArea {
-                                    id: upMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (!scheduler.reorder(modelData.id, -1))
-                                            execQueueDialog.notice = "已经是最前面一条"
-                                        execQueueDialog.refresh()
-                                    }
-                                }
-                            }
-
-                            Text {
-                                visible: (modelData.queueStatus || "") === "waiting"
-                                text: "↓"
-                                color: downMouse.containsMouse ? Theme.cyan : Theme.muted
-                                font.pixelSize: 13
-                                MouseArea {
-                                    id: downMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (!scheduler.reorder(modelData.id, 1))
-                                            execQueueDialog.notice = "已经是最后面一条"
-                                        execQueueDialog.refresh()
-                                    }
-                                }
-                            }
-
-                            Text {
-                                visible: (modelData.queueStatus || "") === "waiting"
-                                text: "跳过"
-                                color: skipMouse.containsMouse ? Theme.danger : Theme.muted
+                                Layout.preferredWidth: 72
+                                horizontalAlignment: Text.AlignRight
+                                text: execQueueDialog.stateLabel(modelData)
+                                color: (modelData.queueStatus || "") === "running"
+                                       ? Theme.cyan : Theme.muted
                                 font.pixelSize: 10
-                                MouseArea {
-                                    id: skipMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (!scheduler.skip(modelData.id))
-                                            execQueueDialog.notice = "该条已不在等待状态"
-                                        else
-                                            execQueueDialog.notice =
-                                                "已跳过：" + (modelData.title || "")
-                                        execQueueDialog.refresh()
+                                elide: Text.ElideRight
+                            }
+
+                            // 第三列：操作（调序 / 跳过，只对 waiting 生效）
+                            RowLayout {
+                                Layout.preferredWidth: 64
+                                Layout.alignment: Qt.AlignRight
+                                spacing: 8
+
+                                // 调序 / 跳过：只对 waiting 生效（running 的不许被打断）
+                                Text {
+                                    visible: (modelData.queueStatus || "") === "waiting"
+                                    text: "↑"
+                                    color: upMouse.containsMouse ? Theme.cyan : Theme.muted
+                                    font.pixelSize: 13
+                                    MouseArea {
+                                        id: upMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (!scheduler.reorder(modelData.id, -1))
+                                                execQueueDialog.notice = "已经是最前面一条"
+                                            execQueueDialog.refresh()
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    visible: (modelData.queueStatus || "") === "waiting"
+                                    text: "↓"
+                                    color: downMouse.containsMouse ? Theme.cyan : Theme.muted
+                                    font.pixelSize: 13
+                                    MouseArea {
+                                        id: downMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (!scheduler.reorder(modelData.id, 1))
+                                                execQueueDialog.notice = "已经是最后面一条"
+                                            execQueueDialog.refresh()
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    visible: (modelData.queueStatus || "") === "waiting"
+                                    text: "跳过"
+                                    color: skipMouse.containsMouse ? Theme.danger : Theme.muted
+                                    font.pixelSize: 10
+                                    MouseArea {
+                                        id: skipMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (!scheduler.skip(modelData.id))
+                                                execQueueDialog.notice = "该条已不在等待状态"
+                                            else
+                                                execQueueDialog.notice =
+                                                    "已跳过：" + (modelData.title || "")
+                                            execQueueDialog.refresh()
+                                        }
                                     }
                                 }
                             }

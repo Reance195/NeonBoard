@@ -86,6 +86,13 @@ Dialog {
         root.resetDrafts()
     }
 
+    onOpened: {
+        // 重开抽屉时把项目下拉复位到库里的实际归属：
+        // currentIndex 的绑定在用户交互后可能已失效、不会自动重建。
+        // 放 onOpened 而不是 refresh()：打开前 contentItem 不保证已实例化
+        projectCombo.currentIndex = projectCombo.projectIndexInDb
+    }
+
     function resetDrafts() {
         const s = root.snapshot
         root.draftTitle = s.title || ""
@@ -242,11 +249,35 @@ Dialog {
         return "每 " + interval + " " + unit
     }
 
+    // 项目归属（R18-01）：task_project 侧表，与草稿保存是两条独立写路径 ——
+    // 下拉一选立即落库（同设置面板里项目操作的口径），不进 patchOf / hasChanges 的草稿流程。
+    // projectName 引用 revision 是为了让 metaRows 的绑定随归属变化重算。
+    function projectName() {
+        const rev = projectStore.revision
+        const info = projectStore.taskProject(root.cardId)
+        return (info && info.name && String(info.name).length > 0) ? String(info.name) : "未归属"
+    }
+
+    // 名字 / id 平铺成两个数组：ComboBox 用字符串 model 最省事；
+    // map 模型得自己实现 labelRole（SettingsPanel 的 NeonComboBox 就是为此存在的，这里不值得再抄一份组件）。
+    function projectOptions() {
+        const rev = projectStore.revision
+        const list = projectStore.projects()
+        const names = ["（未归属）"]
+        const ids = [""]
+        for (let i = 0; i < list.length; ++i) {
+            names.push(String(list[i].name))
+            ids.push(String(list[i].id))
+        }
+        return { names: names, ids: ids }
+    }
+
     function metaRows() {
         const s = root.snapshot
         const rows = []
         if (s.stage && String(s.stage).length > 0 && String(s.stage) !== "OTHER")
             rows.push({ label: "阶段", value: s.stage, mono: true })
+        rows.push({ label: "项目", value: root.projectName(), mono: false })
         rows.push({ label: "所在列", value: columnName(s.columnId, s.status), mono: false })
         rows.push({ label: "到期", value: s.due || "未设置", mono: false })
         rows.push({ label: "提醒", value: i18nDate(s.remindAt) || "未设置", mono: false })
@@ -552,6 +583,100 @@ Dialog {
                 }
 
                 Item { Layout.fillWidth: true }
+            }
+
+            // 项目（R18-01）：编辑态可见；只读态已在 metaRows 网格里有「项目」行。
+            // 选即落库（侧表写入），不参与「有未保存的改动」判定。
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                visible: root.editing
+
+                Text {
+                    text: "项目"
+                    color: Theme.muted
+                    font.pixelSize: Theme.fontBody
+                    Layout.preferredWidth: 32
+                }
+
+                ComboBox {
+                    id: projectCombo
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    model: root.projectOptions().names
+                    font.pixelSize: Theme.fontBody
+
+                    // 库里当前归属在下拉里的下标；-1 显示「（未归属）」
+                    readonly property int projectIndexInDb: {
+                        const rev = projectStore.revision + root.cardId
+                        const current = projectStore.projectOfTask(root.cardId)
+                        return root.projectOptions().ids.indexOf(current)
+                    }
+
+                    // 显式引用 revision 与 cardId：归属变化、切卡查看时下拉要跟上库里的状态
+                    currentIndex: projectCombo.projectIndexInDb
+
+                    contentItem: Text {
+                        leftPadding: 8
+                        rightPadding: 20
+                        text: projectCombo.currentIndex >= 0
+                               ? String(projectCombo.model[projectCombo.currentIndex])
+                               : "（未归属）"
+                        color: Theme.text
+                        font: projectCombo.font
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+
+                    background: Rectangle {
+                        color: Theme.elevated
+                        radius: Theme.radiusControl
+                        border.width: 1
+                        border.color: Theme.alpha(Theme.cyan, 0.20)
+                    }
+
+                    delegate: ItemDelegate {
+                        width: projectCombo.width
+                        height: 28
+                        contentItem: Text {
+                            leftPadding: 8
+                            text: modelData
+                            color: Theme.text
+                            font.pixelSize: Theme.fontBody
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                        }
+                        background: Rectangle {
+                            color: parent.highlighted ? Theme.accentSoft : "transparent"
+                        }
+                    }
+
+                    popup: Popup {
+                        y: projectCombo.height + 2
+                        width: projectCombo.width
+                        implicitHeight: contentItem.implicitHeight
+                        padding: 1
+                        contentItem: ListView {
+                            clip: true
+                            implicitHeight: contentHeight
+                            model: projectCombo.popup.visible ? projectCombo.delegateModel : null
+                            currentIndex: projectCombo.highlightedIndex
+                            ScrollIndicator.vertical: ScrollIndicator {}
+                        }
+                        background: Rectangle {
+                            radius: Theme.radiusControl
+                            color: Theme.panelSolid
+                            border.width: 1
+                            border.color: Theme.border
+                        }
+                    }
+
+                    onActivated: function(index) {
+                        const ids = root.projectOptions().ids
+                        if (index >= 0 && index < ids.length)
+                            projectStore.assignTask(root.cardId, ids[index])
+                    }
+                }
             }
 
             GridLayout {

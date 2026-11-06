@@ -331,6 +331,13 @@ bool Database::open(QString *error, const QString &pathOverride)
             "ON task_project(project_id)"), error)) {
         return false;
     }
+    // 项目 ↔ 仓库绑定（R18-02）：repo_path 可空（空串 = 未绑定）。
+    // 列迁移走 ensureColumn（PRAGMA 探测 + ALTER TABLE ADD COLUMN），不升 user_version：
+    // 老库打开即补列，老版本程序读到多出来的列也不受影响。
+    if (!ensureColumn(QStringLiteral("project"), QStringLiteral("repo_path"),
+                      QStringLiteral("TEXT NOT NULL DEFAULT ''"), error)) {
+        return false;
+    }
 
     // 卡片事件侧表（R8-04）：详情抽屉的时间线从这里读。
     // 和其他侧表同一条纪律：独立表、不往 task 表加列、不升 user_version ——

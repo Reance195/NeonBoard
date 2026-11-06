@@ -1,6 +1,7 @@
 #include "RoadmapSync.h"
 
 #include "Database.h"
+#include "ProjectStore.h"
 #include "TaskModel.h"
 
 #include <QCoreApplication>
@@ -13,6 +14,7 @@
 #include <QList>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QSet>
 #include <QSettings>
 #include <QVariantMap>
 
@@ -115,15 +117,26 @@ QJsonObject preserveExistingFields(const QJsonObject &generated, const QJsonObje
 } // namespace
 
 RoadmapSync::RoadmapSync(Database *database, TaskModel *tasks, QObject *parent)
+    : RoadmapSync(database, tasks, nullptr, parent)
+{
+}
+
+RoadmapSync::RoadmapSync(Database *database, TaskModel *tasks, ProjectStore *projects, QObject *parent)
     : QObject(parent)
     , m_database(database)
     , m_tasks(tasks)
+    , m_projects(projects)
 {
 }
 
 bool RoadmapSync::enabled() const
 {
-    return !m_path.isEmpty();
+    if (!m_path.isEmpty())
+        return true;
+    for (const SyncEntry &entry : m_entries)
+        if (!entry.projectId.isEmpty() && !entry.path.isEmpty())
+            return true;
+    return false;
 }
 
 QString RoadmapSync::path() const
@@ -133,12 +146,18 @@ QString RoadmapSync::path() const
 
 QString RoadmapSync::lastReport() const
 {
-    return m_lastReport;
+    for (const SyncEntry &entry : m_entries)
+        if (entry.projectId.isEmpty())
+            return entry.report;
+    return {};
 }
 
 int RoadmapSync::conflicts() const
 {
-    return m_conflicts;
+    int total = 0;
+    for (const SyncEntry &entry : m_entries)
+        total += entry.conflicts;
+    return total;
 }
 
 void RoadmapSync::setPath(const QString &filePath)
@@ -149,7 +168,12 @@ void RoadmapSync::setPath(const QString &filePath)
 
 void RoadmapSync::setReport(const QString &text)
 {
-    m_lastReport = text;
+    // 兼容入口：报告落到全局条目（旧 UI 只显示全局那条）
+    for (auto &entry : m_entries)
+        if (entry.projectId.isEmpty()) {
+            entry.report = text;
+            break;
+        }
     emit stateChanged();
 }
 
@@ -232,21 +256,33 @@ bool RoadmapSync::writeFile(const QString &filePath, const QJsonObject &root) co
 
 bool RoadmapSync::importFrom(const QString &filePath, bool force)
 {
-    if (filePath.isEmpty()) {
-        setReport(QStringLiteral("未配置路线图文件路径"));
+    if (SyncEntry *entry = findEntry(filePath))
+        return importEntry(*entry, force);
+    // 临时路径（CLI --import-roadmap）：按全局范围一次性处理，不入注册表
+    SyncEntry adhoc{QDir::cleanPath(filePath), QString(), {}, 0, {}, 0};
+    return importEntry(adhoc, force);
+}
+
+bool RoadmapSync::importEntry(SyncEntry &entry, bool force)
+{
+    if (entry.path.isEmpty()) {
+        entry.report = QStringLiteral("未配置路线图文件路径");
+        emit stateChanged();
         return false;
     }
 
     QString error;
-    const QJsonObject root = readFile(filePath, &error);
+    const QJsonObject root = readFile(entry.path, &error);
     if (root.isEmpty()) {
-        setReport(error);
+        entry.report = error;
+        emit stateChanged();
         return false;
     }
 
     const int version = root.value(QStringLiteral("version")).toInt();
     if (version < kSnapshotMinVersion) {
-        setReport(QStringLiteral("路线图文件格式过旧（v%1），请重新导出后再同步").arg(version));
+        entry.report = QStringLiteral("路线图文件格式过旧（v%1），请重新导出后再同步").arg(version);
+        emit stateChanged();
         return false;
     }
 
@@ -261,7 +297,7 @@ bool RoadmapSync::importFrom(const QString &filePath, bool force)
     // 有基线 = 这个进程之前读过/写过这份文件，能识别「文件被外部改过」，
     // 这类条目一律以文件为准；没有基线（CLI / 首次启动）则退化为
     // 「按 updatedAt 大者胜」，避免旧文件覆盖看板里的新改动。
-    const bool hasBaseline = !m_baseline.isEmpty();
+    const bool hasBaseline = !entry.baseline.isEmpty();
 
     for (const QJsonValue &value : items) {
         const QJsonObject item = value.toObject();
@@ -274,8 +310,8 @@ bool RoadmapSync::importFrom(const QString &filePath, bool force)
             codes.insert(id, code);
 
         const bool external = hasBaseline
-            && (!m_baseline.contains(id)
-                || compactJson(m_baseline.value(id)) != compactJson(item));
+            && (!entry.baseline.contains(id)
+                || compactJson(entry.baseline.value(id)) != compactJson(item));
 
         const QVariantMap board = m_tasks->taskById(id);
         const qint64 fileUpdated = static_cast<qint64>(item.value(QStringLiteral("updatedAt")).toDouble());
@@ -339,31 +375,76 @@ bool RoadmapSync::importFrom(const QString &filePath, bool force)
             mapping.insert(it.key(), it.value());
         m_database->setMetaValue(key, QString::fromUtf8(QJsonDocument(mapping).toJson(QJsonDocument::Compact)));
     }
-    m_baseline.clear();
+    // 导入卡的归属（R18-02）：绑定项目的文件即「成员清单」——
+    // 尚未归属任何项目的卡自动归到该项目；已归属别的项目的卡不抢
+    // （归属是用户显式动作，文件只补齐不覆盖）。
+    if (!entry.projectId.isEmpty() && m_projects) {
+        for (const QJsonValue &value : items) {
+            const QJsonObject item = value.toObject();
+            if (item.value(QStringLiteral("deleted")).toBool())
+                continue;
+            const QString id = item.value(QStringLiteral("id")).toString();
+            if (id.isEmpty() || m_tasks->taskById(id).isEmpty())
+                continue;
+            if (!m_projects->projectOfTask(id).isEmpty())
+                continue;
+            m_projects->assignTask(id, entry.projectId);
+        }
+    }
+
+    entry.baseline.clear();
     for (const QJsonValue &value : items) {
         const QJsonObject item = value.toObject();
         const QString id = item.value(QStringLiteral("id")).toString();
         if (!id.isEmpty())
-            m_baseline.insert(id, item);
+            entry.baseline.insert(id, item);
     }
-    const QFileInfo info(filePath);
-    m_lastMtime = info.exists() ? info.lastModified().toSecsSinceEpoch() : 0;
-    m_conflicts = conflicts;
+    const QFileInfo info(entry.path);
+    entry.lastMtime = info.exists() ? info.lastModified().toSecsSinceEpoch() : 0;
+    entry.conflicts = conflicts;
 
-    setReport(QStringLiteral("同步完成：应用 %1 项，跳过 %2 项，删除 %3 项%4")
-                  .arg(applied).arg(skipped).arg(deleted)
-                  .arg(conflicts > 0 ? QStringLiteral("，保留看板侧 %1 项更新").arg(conflicts) : QString()));
+    entry.report = QStringLiteral("同步完成：应用 %1 项，跳过 %2 项，删除 %3 项%4")
+                       .arg(applied).arg(skipped).arg(deleted)
+                       .arg(conflicts > 0 ? QStringLiteral("，保留看板侧 %1 项更新").arg(conflicts) : QString());
     emit imported(applied, skipped);
+    emit stateChanged();
     return true;
 }
 
 bool RoadmapSync::exportTo(const QString &filePath)
 {
-    if (filePath.isEmpty())
+    if (SyncEntry *entry = findEntry(filePath))
+        return exportEntry(*entry);
+    // 临时路径（CLI --export-roadmap）：按全局范围一次性处理
+    SyncEntry adhoc{QDir::cleanPath(filePath), QString(), {}, 0, {}, 0};
+    return exportEntry(adhoc);
+}
+
+bool RoadmapSync::exportEntry(SyncEntry &entry)
+{
+    if (entry.path.isEmpty())
         return false;
 
+    // 作用域（R18-02）：全局文件只放未归属绑定项目的卡，项目文件只放
+    // 该项目的卡 —— 每张卡恰好有一个「家」文件，避免同一张卡写进
+    // 两个文件的双写者问题。
+    const bool isGlobal = entry.projectId.isEmpty();
+    QSet<QString> homeIds; // 全局条目：「家不在这」的卡（跳过）；项目条目：「家在这」的卡（写入）
+    bool scoped = false;
+    if (m_projects) {
+        if (isGlobal) {
+            for (const auto &bound : m_projects->boundRepos())
+                for (const QString &id : m_projects->taskIdsOf(bound.first))
+                    homeIds.insert(id);
+        } else {
+            for (const QString &id : m_projects->taskIdsOf(entry.projectId))
+                homeIds.insert(id);
+        }
+        scoped = true;
+    }
+
     QString error;
-    const QJsonObject root = readFile(filePath, &error);
+    const QJsonObject root = readFile(entry.path, &error);
     QHash<QString, QJsonObject> current;
     if (!root.isEmpty() && root.value(QStringLiteral("version")).toInt() >= kSnapshotVersion) {
         const QJsonArray items = root.value(QStringLiteral("items")).toArray();
@@ -373,9 +454,9 @@ bool RoadmapSync::exportTo(const QString &filePath)
             if (!id.isEmpty())
                 current.insert(id, item);
         }
-        if (m_baseline.isEmpty()) {
+        if (entry.baseline.isEmpty()) {
             // 首次写回：以文件现有内容为基线，避免把「文件里已有但我们没写过」的条目误判为冲突
-            m_baseline = current;
+            entry.baseline = current;
         }
     }
 
@@ -414,6 +495,12 @@ bool RoadmapSync::exportTo(const QString &filePath)
         const QString id = task.value(QStringLiteral("id")).toString();
         if (id.isEmpty())
             continue;
+        // 作用域过滤（R18-02）：这张卡的「家」不是本文件，不写
+        if (scoped) {
+            const bool homeHere = isGlobal ? !homeIds.contains(id) : homeIds.contains(id);
+            if (!homeHere)
+                continue;
+        }
         seen.append(id);
 
         QJsonObject item;
@@ -444,8 +531,8 @@ bool RoadmapSync::exportTo(const QString &filePath)
 
         // 文件里这一条被外部改过 → 原样保留，交给导入流程应用到看板
         const bool external = current.contains(id)
-            && (!m_baseline.contains(id)
-                || compactJson(current.value(id)) != compactJson(m_baseline.value(id)));
+            && (!entry.baseline.contains(id)
+                || compactJson(current.value(id)) != compactJson(entry.baseline.value(id)));
         if (external) {
             item = current.value(id);
             ++conflicts;
@@ -521,24 +608,26 @@ bool RoadmapSync::exportTo(const QString &filePath)
         lhs.remove(QStringLiteral("updated"));
         rhs.remove(QStringLiteral("updated"));
         if (compactJson(lhs) == compactJson(rhs)) {
-            m_baseline = next;
-            m_conflicts = conflicts;
-            m_lastMtime = QFileInfo(filePath).lastModified().toSecsSinceEpoch();
-            setReport(QStringLiteral("已写回 %1 条任务（内容无变化，跳过写盘）").arg(seen.size()));
+            entry.baseline = next;
+            entry.conflicts = conflicts;
+            entry.lastMtime = QFileInfo(entry.path).lastModified().toSecsSinceEpoch();
+            entry.report = QStringLiteral("已写回 %1 条任务（内容无变化，跳过写盘）").arg(seen.size());
+            emit stateChanged();
             return true;
         }
     }
 
-    if (!writeFile(filePath, out))
+    if (!writeFile(entry.path, out))
         return false;
 
-    m_baseline = next;
-    m_conflicts = conflicts;
-    const QFileInfo info(filePath);
-    m_lastMtime = info.lastModified().toSecsSinceEpoch();
-    setReport(QStringLiteral("已写回 %1 条任务%2")
-                  .arg(seen.size())
-                  .arg(conflicts > 0 ? QStringLiteral("，保留 %1 条外部改动").arg(conflicts) : QString()));
+    entry.baseline = next;
+    entry.conflicts = conflicts;
+    const QFileInfo info(entry.path);
+    entry.lastMtime = info.lastModified().toSecsSinceEpoch();
+    entry.report = QStringLiteral("已写回 %1 条任务%2")
+                       .arg(seen.size())
+                       .arg(conflicts > 0 ? QStringLiteral("，保留 %1 条外部改动").arg(conflicts) : QString());
+    emit stateChanged();
     return true;
 }
 
@@ -549,14 +638,77 @@ bool RoadmapSync::isApplying() const
 
 void RoadmapSync::poll()
 {
-    if (m_path.isEmpty())
-        return;
-    const QFileInfo info(m_path);
-    if (!info.exists())
-        return;
-    const qint64 mtime = info.lastModified().toSecsSinceEpoch();
-    if (mtime == m_lastMtime)
-        return;
-    m_lastMtime = mtime;
-    importFrom(m_path, false);
+    refreshEntries();
+    for (auto &entry : m_entries) {
+        if (entry.path.isEmpty())
+            continue;
+        const QFileInfo info(entry.path);
+        if (!info.exists())
+            continue;
+        const qint64 mtime = info.lastModified().toSecsSinceEpoch();
+        if (mtime == entry.lastMtime)
+            continue;
+        entry.lastMtime = mtime;
+        importEntry(entry, false);
+    }
+}
+
+void RoadmapSync::refreshEntries()
+{
+    // 注册表每次重建：全局条目（m_path，启动时设置）+ 所有绑定项目。
+    // 同路径的条目继承状态（基线 / mtime / 报告），绑定清单变化不会
+    // 丢掉「外部改动」判定基准。
+    QList<SyncEntry> next;
+    if (!m_path.isEmpty())
+        next.append(SyncEntry{m_path, QString(), {}, 0, {}, 0});
+    if (m_projects) {
+        for (const auto &bound : m_projects->boundRepos())
+            next.append(SyncEntry{QDir(bound.second).filePath(QStringLiteral("progress.json")),
+                                  bound.first, {}, 0, {}, 0});
+    }
+    auto fingerprint = [](const QList<SyncEntry> &list) {
+        QStringList keys;
+        for (const auto &entry : list)
+            keys << entry.path + QStringLiteral("|") + entry.projectId;
+        return keys.join(QStringLiteral("\n"));
+    };
+    const QString before = fingerprint(m_entries);
+    for (auto &entry : next)
+        if (SyncEntry *prev = findEntry(entry.path)) {
+            entry.baseline = prev->baseline;
+            entry.lastMtime = prev->lastMtime;
+            entry.report = prev->report;
+            entry.conflicts = prev->conflicts;
+        }
+    if (fingerprint(next) == before)
+        return; // 绑定清单没变，不触发 stateChanged
+    m_entries = next;
+    emit stateChanged();
+}
+
+bool RoadmapSync::importAll(bool force)
+{
+    refreshEntries();
+    bool any = false;
+    for (auto &entry : m_entries)
+        any = importEntry(entry, force) || any;
+    return any;
+}
+
+void RoadmapSync::exportAll()
+{
+    refreshEntries();
+    for (auto &entry : m_entries)
+        exportEntry(entry);
+}
+
+RoadmapSync::SyncEntry *RoadmapSync::findEntry(const QString &filePath)
+{
+    if (filePath.isEmpty())
+        return nullptr;
+    const QString cleaned = QDir::cleanPath(filePath);
+    for (auto &entry : m_entries)
+        if (!entry.path.isEmpty() && QDir::cleanPath(entry.path) == cleaned)
+            return &entry;
+    return nullptr;
 }

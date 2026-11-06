@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QHash>
+#include <QPair>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -57,6 +58,29 @@ public:
     // 卡片角标用：{ id, name, color }；未归属返回空 map。
     // 带内存缓存（随 changed() 失效），因为卡片 delegate 会在重绘时反复问同一个任务。
     Q_INVOKABLE QVariantMap taskProject(const QString &taskId) const;
+
+    // ---------------- 项目 ↔ 仓库绑定（R18-02） ----------------
+    //
+    // 每个绑定项目有自己的 progress.json（<repo_path>/progress.json），
+    // RoadmapSync 按项目各自导入 / 写回。repo_path 存 project 表（可空列），
+    // 空串 = 未绑定；绑定关系与归属一样，是视图层数据，不升 user_version。
+
+    // 已绑定项目清单（id, repo_path），未绑定的不出现。RoadmapSync 建注册表用。
+    QList<QPair<QString, QString>> boundRepos() const;
+    // 绑定 / 解绑：空路径 = 解绑。校验：项目必须存在；路径必须是存在的绝对目录
+    // （是否为 git 仓库 / 要不要搭脚手架是 R18-03 的事）。
+    Q_INVOKABLE bool setRepoPath(const QString &projectId, const QString &repoPath);
+
+    // ---------------- 无台账仓库脚手架（R18-03） ----------------
+    // 三个方法都 fail-closed：非法路径 / 缺文件一律返回原因，不写半个文件。
+
+    // 路径校验："" = 可用；否则返回原因（相对路径 / 不存在 / 非目录 / 非 git 仓库）
+    Q_INVOKABLE QString validateRepoPath(const QString &repoPath);
+    // 仓库是否已有台账脚手架（progress.json 与 docs/board-ledger.json 都在）
+    Q_INVOKABLE bool repoHasScaffold(const QString &repoPath);
+    // 生成脚手架：v3 空快照 + 空台账。既有文件一律不覆盖（已存在即返回原因）。
+    // "" = 成功；否则返回原因。
+    Q_INVOKABLE QString scaffoldRepo(const QString &repoPath);
 
     // 任务被删时清掉归属行（由使用方订阅 TaskModel::taskRemoved 后调用）
     void forgetTask(const QString &taskId);

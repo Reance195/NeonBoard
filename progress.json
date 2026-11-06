@@ -55,60 +55,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "R18-01",
-            "completedAt": 0,
-            "createdAt": 1793905066,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R18-01",
-            "note": "起因：R10-01~R10-05 给了项目维度数据层与两级看板，但明确把「项目增删改界面」留作后续卡 —— QML 对 ProjectStore 的写 API 零引用，项目只能靠归类脚本创建，用户在面板里无法管理项目。目标：设置面板新增「项目」区（列表 / 带颜色新建 / 重命名 / 删除，全部复用现有 ProjectStore API，无新表）；卡片详情抽屉新增项目归属下拉（留空 = 未归属，复用 assignTask）。非目标：不做跨项目拖动（拖过去等于改归属，需另案）、不做项目级权限、不做项目级统计视图。",
-            "orderKey": 45056,
-            "priority": 2,
-            "stage": "R18",
-            "status": "todo",
-            "tags": [
-                "R18"
-            ],
-            "title": "项目管理界面：设置面板创建 / 重命名 / 删除项目，详情抽屉项目归属下拉",
-            "updatedAt": 1793905066
-        },
-        {
-            "code": "R18-02",
-            "completedAt": 0,
-            "createdAt": 1793905066,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R18-02",
-            "note": "起因：RoadmapSync 是单路径设计（NEONBOARD_ROADMAP > ini [roadmap]/path > 从 exe 向上探测），一个实例只能盯一份 progress.json，「把其他项目纳入面板监控」没有原生路径 —— 目前唯一做法是手动搭脚手架 + 环境变量双实例。目标：project 表加可空 repo_path 字段（不升 user_version、老库兼容）；ProjectStore 增加 repo_path 读写并在项目清单中返回；RoadmapSync 由单例升级为注册表形态 —— 每个绑定项目独立监听 <repo_path>/progress.json，导入幂等、导入的卡自动归属该项目（task_project）、写回（autoExport）按项目隔离；未绑定任何项目时全局路线图行为与现状完全一致。非目标：不把 git 标记派生（derive_board_status.py）搬进应用（那是仓库侧工具）；不做跨项目卡片合并与去重。",
-            "orderKey": 46080,
-            "priority": 2,
-            "stage": "R18",
-            "status": "todo",
-            "tags": [
-                "R18"
-            ],
-            "title": "项目 ↔ 仓库绑定：project 表加可空 repo_path，每个绑定项目独立监听自己的 progress.json",
-            "updatedAt": 1793905066
-        },
-        {
-            "code": "R18-03",
-            "completedAt": 0,
-            "createdAt": 1793905066,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R18-03",
-            "note": "起因：R18-02 只能监听已有 progress.json 的仓库，全新仓库要用户手工建台账/快照 —— 正是维护者要求消灭的手工搭脚手架。目标：设置面板的项目绑定流程中，目标仓库缺 docs/board-ledger.json + progress.json 时提供「生成脚手架」选项：在目标仓库生成最小 v3 快照（version=3, items=[]）与空台账（baseline / cards / claims 均为空对象），生成后自动完成绑定；目标仓库任一文件已存在时不触发接入、不覆盖、给出提示。fail-closed：相对路径、不存在的目录、非 git 目录一律拒绝。非目标：不往目标仓库复制 derive_board_status.py / git 钩子工具链，不改目标仓库的 .gitignore / 钩子 / git 配置。",
-            "orderKey": 47104,
-            "priority": 2,
-            "stage": "R18",
-            "status": "todo",
-            "tags": [
-                "R18"
-            ],
-            "title": "无台账仓库一键接入：绑定时生成 board-ledger/progress 脚手架，既有文件不覆盖",
-            "updatedAt": 1793905066
-        },
-        {
             "code": "DX-75",
             "completedAt": 0,
             "createdAt": 1793905858,
@@ -3473,6 +3419,24 @@
             "updatedAt": 1792748226
         },
         {
+            "code": "R18-01",
+            "completedAt": 1793933502,
+            "createdAt": 1793905066,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R18-01",
+            "note": "起因：R10-01~R10-05 给了项目维度数据层与两级看板，但明确把「项目增删改界面」留作后续卡 —— QML 对 ProjectStore 的写 API 零引用，项目只能靠归类脚本创建，用户在面板里无法管理项目。目标：设置面板新增「项目」区（列表 / 带颜色新建 / 重命名 / 删除，全部复用现有 ProjectStore API，无新表）；卡片详情抽屉新增项目归属下拉（留空 = 未归属，复用 assignTask）。非目标：不做跨项目拖动（拖过去等于改归属，需另案）、不做项目级权限、不做项目级统计视图。",
+            "orderKey": 45056,
+            "priority": 2,
+            "stage": "R18",
+            "status": "done",
+            "tags": [
+                "R18"
+            ],
+            "title": "项目管理界面：设置面板创建 / 重命名 / 删除项目，详情抽屉项目归属下拉",
+            "updatedAt": 1793933502
+        },
+        {
             "completedAt": 1792748226,
             "createdAt": 1792724524,
             "deleted": false,
@@ -3488,6 +3452,42 @@
             ],
             "title": "沙箱 e2e：脏标题自动清理 + 写回快照",
             "updatedAt": 1792748226
+        },
+        {
+            "code": "R18-02",
+            "completedAt": 1793933502,
+            "createdAt": 1793905066,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R18-02",
+            "note": "起因：RoadmapSync 是单路径设计（NEONBOARD_ROADMAP > ini [roadmap]/path > 从 exe 向上探测），一个实例只能盯一份 progress.json，「把其他项目纳入面板监控」没有原生路径 —— 目前唯一做法是手动搭脚手架 + 环境变量双实例。目标：project 表加可空 repo_path 字段（不升 user_version、老库兼容）；ProjectStore 增加 repo_path 读写并在项目清单中返回；RoadmapSync 由单例升级为注册表形态 —— 每个绑定项目独立监听 <repo_path>/progress.json，导入幂等、导入的卡自动归属该项目（task_project）、写回（autoExport）按项目隔离；未绑定任何项目时全局路线图行为与现状完全一致。非目标：不把 git 标记派生（derive_board_status.py）搬进应用（那是仓库侧工具）；不做跨项目卡片合并与去重。",
+            "orderKey": 46080,
+            "priority": 2,
+            "stage": "R18",
+            "status": "done",
+            "tags": [
+                "R18"
+            ],
+            "title": "项目 ↔ 仓库绑定：project 表加可空 repo_path，每个绑定项目独立监听自己的 progress.json",
+            "updatedAt": 1793933502
+        },
+        {
+            "code": "R18-03",
+            "completedAt": 1793933502,
+            "createdAt": 1793905066,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R18-03",
+            "note": "起因：R18-02 只能监听已有 progress.json 的仓库，全新仓库要用户手工建台账/快照 —— 正是维护者要求消灭的手工搭脚手架。目标：设置面板的项目绑定流程中，目标仓库缺 docs/board-ledger.json + progress.json 时提供「生成脚手架」选项：在目标仓库生成最小 v3 快照（version=3, items=[]）与空台账（baseline / cards / claims 均为空对象），生成后自动完成绑定；目标仓库任一文件已存在时不触发接入、不覆盖、给出提示。fail-closed：相对路径、不存在的目录、非 git 目录一律拒绝。非目标：不往目标仓库复制 derive_board_status.py / git 钩子工具链，不改目标仓库的 .gitignore / 钩子 / git 配置。",
+            "orderKey": 47104,
+            "priority": 2,
+            "stage": "R18",
+            "status": "done",
+            "tags": [
+                "R18"
+            ],
+            "title": "无台账仓库一键接入：绑定时生成 board-ledger/progress 脚手架，既有文件不覆盖",
+            "updatedAt": 1793933502
         },
         {
             "completedAt": 1792748226,
@@ -4006,6 +4006,24 @@
             ],
             "title": "remote 模式收尾在结卡前只清一次占位：本次合并自身的重写占位（baseline 此刻仍 todo）打不中判据 B，每次合并仍新增僵尸",
             "updatedAt": 1793911968
+        },
+        {
+            "code": "DX-97",
+            "completedAt": 1793932964,
+            "createdAt": 1793930802,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-97",
+            "note": "起因（2026-11-06 维护者反馈截图）：卡片右上角 ✓ / ✕ / ▶ 悬停能显示，点击却没有任何效果。根因在 qml/components/TaskCard.qml 的层叠：actions 在 inner 内，虽然自己写了 z: 3，但 z 只在同一父级内比较；inner 与覆盖全卡的 cardMouse 同为 card 的直接子项且 z 均为 0，cardMouse 声明在 inner 之后，于是它压在最上层，把按钮 MouseArea 的 press 全吃掉，只触发 selectionRequested() 选中卡片。信号链本身（completeRequested / restoreRequested / deleteRequested → BoardColumn → Main.qml → taskUndo.moveTask / deleteTaskWithUndo）与键盘 Space / Delete 都正常。Qt 6.8.3 qmltestrunner 最小复现实测：默认结构点按钮，按钮收到 0 次 click，整卡 MouseArea 收到 1 次。目标：让 actions 的点击落在按钮 MouseArea 上，同时保留整卡 hover 渐显、双击编辑、拖拽与选中语义。边界：只改 qml/components/TaskCard.qml 的层级声明，不改按钮信号链、不动数据结构、不引入新依赖与新测试基建。",
+            "orderKey": 63488,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "卡片快捷动作按钮点击失效：整卡 MouseArea 吞掉 press",
+            "updatedAt": 1793932964
         },
         {
             "code": "R4-04",
@@ -4649,8 +4667,26 @@
             ],
             "title": "R5 安装器清理上一版残留：全量覆盖安装不删弃用文件，0.1.3 用户永久背着 1136 个死文件",
             "updatedAt": 1793809026
+        },
+        {
+            "code": "DX-98",
+            "completedAt": 1793934590,
+            "createdAt": 1793934590,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-98",
+            "note": "",
+            "orderKey": 100352,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡程序化：register_board_cards.py 唯一入口 + 回执闸门关闭手工改台账通道",
+            "updatedAt": 1793934590
         }
     ],
-    "updated": "2026-11-06T09:24:16",
+    "updated": "2026-11-06T11:09:50",
     "version": 3
 }

@@ -1,0 +1,8 @@
+{
+  "card": "DX-98",
+  "sha256": "c625b64ae5de905a811ce638b70285b395c7f394adb282f495789b3dbd77c432",
+  "authorizedBy": "维护者 13706 本会话明确授权关闭手工立卡通道（DX-98）",
+  "form": "docs/card-requests/20261106-dx-98.md",
+  "registeredAt": "2026-11-06T02:54:22+00:00",
+  "tool": "scripts/register_board_cards.py"
+}

@@ -2036,7 +2036,7 @@
             ],
             "depends": [],
             "id": "DX-97",
-            "note": "起因（2026-11-06 维护者反馈截图）：卡片右上角 ✓ / ✕ / ▶ 悬停能显示，点击却没有任何效果。根因在 qml/components/TaskCard.qml 的层叠：actions 在 inner 内，虽然自己写了 z: 3，但 z 只在同一父级内比较；inner 与覆盖全卡的 cardMouse 同为 card 的直接子项且 z 均为 0，cardMouse 声明在 inner 之后，于是它压在最上层，把按钮 MouseArea 的 press 全吃掉，只触发 selectionRequested() 选中卡片。信号链本身（completeRequested / restoreRequested / deleteRequested → BoardColumn → Main.qml → taskUndo.moveTask / deleteTaskWithUndo）与键盘 Space / Delete 都正常。Qt 6.8.3 qmltestrunner 最小复现实测：默认结构点按钮，按钮收到 0 次 click，整卡 MouseArea 收到 1 次。目标：让 actions 的点击落在按钮 MouseArea 上，同时保留整卡 hover 渐显、双击编辑、拖拽与选中语义。边界：只改 qml/components/TaskCard.qml 的层级声明，不改按钮信号链、不动数据结构、不引入新依赖与新测试基建。",
+            "note": "起因（2026-11-06 维护者反馈截图）：卡片右上角 ✓ / ✕ / ▶ 悬停能显示，点击却没有任何效果。根因在 qml/components/TaskCard.qml 的层叠：actions 在 inner 内，虽然自己写了 z: 3，但 z 只在同一父级内比较；inner 与覆盖全卡的 cardMouse 同为 card 的直接子项且 z 均为 0，cardMouse 声明在 inner 之后，于是它压在最上层，把按钮 MouseArea 的 press 全吃掉，只触发 selectionRequested() 选中卡片。信号链本身（completeRequested / restoreRequested / deleteRequested → BoardColumn → Main.qml → taskUndo.moveTask / deleteTaskWithUndo）与键盘 Space / Delete 都正常。Qt 6.8.3 qmltestrunner 最小复现实测：默认结构点按钮，按钮收到 0 次 click，整卡 MouseArea 收到 1 次。目标：让 actions 的点击落在按钮 MouseArea 上，同时保留整卡 hover 渐显、双击编辑、拖拽与选中语义。边界：只改 qml/components/TaskCard.qml 的层级声明，不改按钮信号链、不动数据结构、不引入新依赖与新测试基建。 已完成 4 / 待做 0 —— 实际修复两处：① inner 加 z: 1（低于光扫 z: 4、选中条 z: 10），让 actions 的 press 落到按钮 MouseArea；② 实机日志 qrc:/qt/qml/NeonBoard/TaskCard.qml:236 暴露第二处根因：playSweep 里 sweepBand.sweepAnimation.restart() 是 id 的点号访问，恒为 undefined，抛 TypeError 后 card.busy 永久为 true 把卡片锁死，改为直接 id sweepAnimation.restart()。逐条验收：① rg 断言 inner z: 1 且光扫 / 选中条层级不变 ✅；② Qt 6.8.3 qmltestrunner 最小复现 10 例全过（按钮点击 1 次 / 整卡 0 次、卡片空白区点击、双击、拖拽，以及 id 点号访问抛错与直接 id 可用）✅；③ 沙箱实机（NEONBOARD_DATA_DIR 隔离 + UIA 定位）：hover 出现三颗按钮，点 ✓ 卡片进已办结列，点 ✕ 卡片消失，Ctrl+Z 撤销回来，双击出「编辑 / 关闭 / 打开编辑器」详情抽屉，拖拽跨列待办→进行中 ✅；④ pwsh -File scripts/verify.ps1 全过（编译 8.3 s / ctest 37 项 / --selftest / --smoke / 模块守卫 / 看板一致性）✅。路线图 §9.3 DX 段无本卡专属验收项，按卡片 acceptance 逐条核对。影响：仅 qml/components/TaskCard.qml 6 行，信号链与数据结构未动。遗留（不在本卡 scope）：scripts/agent-init.ps1 生成 .agent-env.ps1 时不转义验收项里的单引号，含单引号的 acceptance 会让 dot-source 语法报错；本次只在本 worktree 本地转义修复（未入库），脚本修复留后续卡。",
             "scope": [
                 "qml/components/TaskCard.qml"
             ],
@@ -4769,6 +4769,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-97": {
+            "agent": "agent-dx97-impl",
+            "branch": "fix/card-action-click",
+            "claimedAt": 1793930867,
+            "head": "5cfa58af297e44dcd555d334b98ef2bd3da37088"
+        }
+    },
     "version": 1
 }

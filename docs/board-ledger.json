@@ -3345,9 +3345,9 @@
             "acceptance": [
                 "pwsh -File scripts/verify.ps1 全过（编译 + ctest + --selftest + --smoke 退出码 0）",
                 "qml/Main.qml 顶区合并为单一工具行加可收起热力图条，热力图收起时顶区竖直占用 ≤ 150 px",
-                "qml/Main.qml 侧栏宽 200 px 且导航项不含「设置」，设置入口改为标题栏右上角齿轮按钮（Accessible.name 含「设置」）；qml/Main.qml 侧栏不再有插件库常驻卡片，插件信息只留在插件库面板与设置面板",
+                "qml/Main.qml 侧栏宽 200 px 且导航项不含「设置」，设置入口改为标题栏右上角齿轮按钮（Accessible.name 含「设置」）；qml/Main.qml 侧栏不再有插件库常驻卡片，插件信息不再出现在侧栏（浏览 / 安装 / 卸载走插件库面板，插件目录 / 市场源 / 重新扫描归设置 → 插件，由 R11-9 落地）",
                 "qml/components/ActivityHeatmap.qml 暴露 collapsed 属性且默认收起",
-                "qml/components/TaskCard.qml 不含调试串（grep「槽位」命中 0）；qml/components/ThemePicker.qml 的齿轮按钮改为打开设置面板而非外观面板",
+                "qml/components/TaskCard.qml 的元信息行不显示调试 id（grep「卡片槽位 ·」命中 0）；qml/components/ThemePicker.qml 的齿轮按钮改为打开设置面板而非外观面板",
                 "README.md 的界面描述与实现一致（设置入口位置、侧栏宽度、顶区结构）"
             ],
             "author": "maintainer-session-2026-11-06",

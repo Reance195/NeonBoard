@@ -325,6 +325,24 @@
             "updatedAt": 1793980354
         },
         {
+            "code": "DX-117",
+            "completedAt": 0,
+            "createdAt": 1793980606,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-117",
+            "note": "",
+            "orderKey": 81920,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "一分支多卡时 check_scope 整体跳过：按多卡 scope 并集校验，补上范围闸门空窗",
+            "updatedAt": 1793980606
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5119,6 +5137,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:52:34",
+    "updated": "2026-11-06T23:56:46",
     "version": 3
 }

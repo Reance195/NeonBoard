@@ -246,7 +246,8 @@
         "DX-113": "todo",
         "DX-115": "todo",
         "DX-111": "todo",
-        "DX-112": "todo"
+        "DX-112": "todo",
+        "DX-117": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5386,6 +5387,24 @@
             ],
             "stage": "DX",
             "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现"
+        },
+        "DX-117": {
+            "acceptance": [
+                "分支领用多卡（台账 claims 按 branch 聚合 ≥2 张或提交信息含多个短号）时按各卡 scope 并集校验全部改动，越界仍退出码 1 并点名越界文件，不再出现「多个短号 → 跳过范围检查」的整段放行",
+                "单卡分支与 --card 显式指定口径不回归；检测不到任何卡时维持警告放行（现状行为不变）",
+                "python scripts/check_scope.py --selftest 覆盖多卡并集命中 / 越界点名 / 单卡不回归三类用例；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "agent（ZCode 会话 2026-11-06，维护者指令：干活过程中发现问题即立卡）",
+            "depends": [],
+            "evidence": "2026-11-06 DX-77+DX-83 一分支多卡交付实录：verify -ScriptOnly 输出「⚠ 提交里出现多个短号 ['DX-83', 'DX-77']，跳过范围检查（请用 --card 显式指定）」——两卡 scope 并集之外的任何改动在该分支上畅通无阻（Z11 的洞）；detect_card_from_commits 取第一个唯一值的设计对多卡分支整体放弃校验。与 DX-03 不同：DX-03 是多卡领用机制本身（已交付），本卡是多卡分支上范围闸门的失效面",
+            "id": "DX-117",
+            "note": "",
+            "scope": [
+                "scripts/check_scope.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "一分支多卡时 check_scope 整体跳过：按多卡 scope 并集校验，补上范围闸门空窗"
         }
     },
     "claims": {},

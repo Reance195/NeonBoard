@@ -423,7 +423,6 @@ DialogShell {
         Layout.fillWidth: true
         spacing: 12
 
-
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8

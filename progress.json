@@ -289,24 +289,6 @@
             "updatedAt": 1793933662
         },
         {
-            "code": "DX-98",
-            "completedAt": 0,
-            "createdAt": 1793933662,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-98",
-            "note": "",
-            "orderKey": 64512,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "立卡程序化：register_board_cards.py 唯一入口 + 回执闸门关闭手工改台账通道",
-            "updatedAt": 1793933662
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4081,6 +4063,24 @@
             "updatedAt": 1792928574
         },
         {
+            "code": "DX-98",
+            "completedAt": 1793934410,
+            "createdAt": 1793933662,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-98",
+            "note": "",
+            "orderKey": 64512,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡程序化：register_board_cards.py 唯一入口 + 回执闸门关闭手工改台账通道",
+            "updatedAt": 1793934410
+        },
+        {
             "code": "R4-08",
             "completedAt": 1792942397,
             "createdAt": 1792726694,
@@ -4687,6 +4687,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T10:54:22",
+    "updated": "2026-11-06T11:06:50",
     "version": 3
 }

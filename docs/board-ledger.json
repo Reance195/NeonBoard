@@ -4785,6 +4785,7 @@
             "scope": [
                 "scripts/register_board_cards.py",
                 "scripts/task_gate.py",
+                "scripts/check_scope.py",
                 "scripts/verify.ps1",
                 "docs/pitfalls.md",
                 "AGENTS.md"

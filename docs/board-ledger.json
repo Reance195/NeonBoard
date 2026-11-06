@@ -5522,6 +5522,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-120": {
+            "agent": "agent-dx109",
+            "branch": "fix/dx120-self-wt-recycle",
+            "claimedAt": 1793982377,
+            "head": "8d8fc49f5f7fe13285b4dd9e0b97d66cdd1f9529"
+        }
+    },
     "version": 1
 }

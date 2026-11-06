@@ -84,6 +84,18 @@ public:
     /** 授权弹窗数据：插件名 / 来源 / 待授权权限清单（含中文说明与风险级别） */
     Q_INVOKABLE QVariantMap permissionPrompt(const QString &pluginId) const;
     Q_INVOKABLE QVariantMap permissionCatalog() const;
+    /**
+     * R11-10：权限弹窗「稍后再说」—— 清掉这些权限的「已提示」标记。
+     *
+     * 存在的理由：权限请求的去重靠 m_promptedPermissions（只增不减），
+     * 插件第一次触发某个能力后运行时就不再发第二次 permissionRequested。
+     * 于是「用户没表态就关掉弹窗」也变成了永久拒绝，且没有撤销入口。
+     * 释放标记后，插件下次调用该能力会重新弹窗 —— 关掉不等于拒绝。
+     *
+     * 只动内存态：不写授权表、不动撤销表、不落库。
+     */
+    Q_INVOKABLE bool releasePermissionPrompt(const QString &pluginId,
+                                             const QStringList &permissions);
 
 signals:
     void backgroundCountChanged();

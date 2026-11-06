@@ -18,6 +18,11 @@ Item {
     property int totalDone: 0
     property int bestDay: 0
 
+    // R11-8：收起态。热力图是回顾性数据，默认常驻 72 px 横幅把顶区压得很扁；
+    // 收起后只留一条摘要（近 N 周 · 共 N 次完成 · 连续 N 天），点「展开」再铺开。
+    property bool collapsed: false
+    signal toggleRequested()
+
     readonly property int weeks: 13
     readonly property int days: 7
     readonly property int cellSize: 7
@@ -29,9 +34,51 @@ Item {
     // 当前悬浮的格子下标（-1 = 没悬停）
     property int activeIndex: -1
 
-    implicitHeight: gridHeight
+    implicitHeight: collapsed ? 18 : gridHeight
+
+    // 收起态：一条摘要 + 展开入口
+    RowLayout {
+        visible: heatmapRoot.collapsed
+        anchors.fill: parent
+        spacing: Theme.spacingSm
+
+        Text {
+            text: "活跃热力"
+            color: Theme.text
+            font.pixelSize: Theme.fontCaption
+            font.bold: true
+        }
+
+        Text {
+            text: "近 " + heatmapRoot.weeks + " 周 · 共 " + heatmapRoot.totalDone + " 次完成"
+            color: Theme.muted
+            font.pixelSize: Theme.fontMicro
+        }
+
+        Text {
+            text: "连续 " + heatmapRoot.streak + " 天"
+            color: heatmapRoot.streak > 0 ? Theme.magenta : Theme.muted
+            font.pixelSize: Theme.fontMicro
+        }
+
+        Item { Layout.fillWidth: true }
+
+        Text {
+            text: "展开"
+            color: expandMouse.containsMouse ? Theme.cyan : Theme.muted
+            font.pixelSize: Theme.fontMicro
+            MouseArea {
+                id: expandMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: heatmapRoot.toggleRequested()
+            }
+        }
+    }
 
     RowLayout {
+        visible: !heatmapRoot.collapsed
         anchors.fill: parent
         spacing: 12
 
@@ -371,6 +418,20 @@ Item {
                     color: Theme.text
                     font.pixelSize: Theme.fontMicro
                 }
+            }
+        }
+
+        // 收起入口：展开态下把横幅收回摘要条
+        Text {
+            text: "收起"
+            color: collapseMouse.containsMouse ? Theme.cyan : Theme.muted
+            font.pixelSize: Theme.fontMicro
+            MouseArea {
+                id: collapseMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: heatmapRoot.toggleRequested()
             }
         }
     }

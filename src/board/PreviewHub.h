@@ -79,6 +79,8 @@ private:
         QString subject;
         bool dirty = false;
         bool detached = false;
+        // 本地领先远端的提交数（-1 = 没有上游 / 取不到，界面不显示该提示位）
+        int unpushed = -1;
         bool built = false;
         QString builtAt;
         QString exe;

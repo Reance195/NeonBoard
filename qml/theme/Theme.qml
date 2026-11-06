@@ -199,6 +199,17 @@ QtObject {
     readonly property int fontTitle: 15    // 卡片标题、面板标题
     readonly property int fontDisplay: 18  // 页面级标题
 
+    // 弹窗壳令牌（R11-09）：统一弹窗与抽屉的尺寸档、遮罩与阴影。
+    // 规格见 docs/design/ui-relayout-spec.md §4.2 —— 这 7 个是本次唯一动 Theme 的地方，
+    // 其余重排全部靠布局重组完成，不另立第二份尺寸事实源。
+    readonly property int dialogWidthSm: 440   // 单字段表单（新建任务、权限授权）
+    readonly property int dialogWidthMd: 560   // 内容型（卡片详情、主题市场、执行相关）
+    readonly property int dialogWidthLg: 720   // 工作型（设置、命令面板、插件库、预览中心）
+    readonly property int drawerWidth: 320     // 右侧抽屉（外观、插件面板、项目全景、列管理）
+    readonly property int dialogPadding: 20    // 弹窗内边距
+    readonly property real scrimOpacity: 0.62  // 遮罩不透明度
+    readonly property color shadowDialog: Qt.rgba(0, 0, 0, 0.55) // 弹窗阴影（与浮层阴影分离）
+
     // 半透明派生的统一入口：组件要「某色按 alpha 摊平」时走这里，
     // 而不是自己写 Qt.rgba(...) —— 于是「颜色只从 Theme 出」这条规矩
     // 在 grep 口径上也能验（rg 'Qt.rgba' qml/components 无匹配）。

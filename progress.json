@@ -253,6 +253,24 @@
             "updatedAt": 1793911047
         },
         {
+            "code": "DX-96",
+            "completedAt": 0,
+            "createdAt": 1793928256,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-96",
+            "note": "",
+            "orderKey": 62464,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 收尾补推 3→1：清理/结卡/快照合成单次 push，配合 DX-44 沉降降低 Board 中间态 run",
+            "updatedAt": 1793928256
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4633,6 +4651,6 @@
             "updatedAt": 1793809026
         }
     ],
-    "updated": "2026-11-06T04:55:03",
+    "updated": "2026-11-06T09:24:16",
     "version": 3
 }

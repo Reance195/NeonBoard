@@ -94,6 +94,7 @@
         "DX-93": "done",
         "DX-94": "todo",
         "DX-95": "done",
+        "DX-96": "todo",
         "M01": "done",
         "M02": "done",
         "M03": "done",
@@ -2000,6 +2001,28 @@
             ],
             "stage": "DX",
             "title": "remote 模式收尾在结卡前只清一次占位：本次合并自身的重写占位（baseline 此刻仍 todo）打不中判据 B，每次合并仍新增僵尸"
+        },
+        "DX-96": {
+            "acceptance": [
+                "git-done remote 模式收尾：合并推送（保留 fail-soft：单独先推）之后，清理登记/结卡/快照三步在本地生成提交并一次性 push origin HEAD:main，收尾补推由 3 次降为 1 次；三步任一本地失败只告警不阻断已完成的合并推送",
+                "一次真实 git-done 端到端 EXIT=0；gh run list --workflow=board.yml --branch main --limit 6 中该批收尾 Board run ≤ 2（合并 + 收尾），且 0 个 failure（叠加已合入的 DX-44 沉降）",
+                "fail-soft 不回退：人为让结卡/快照本地失败的演练中，合并仍被推送、脚本只告警、main tip 的 Board run 按既有提示报红可补跑",
+                "scripts/verify.ps1 增加收尾补推次数断言（dry-run 下统计对 main 的 push 调用次数 ≤ 2 并打印所在检出/分支），接入常规验收；pwsh -File scripts/verify.ps1 全量通过",
+                "docs/pitfalls.md 补一条「多步收尾分次 push 是中间态 run 之源：合并补推 + 沉降双保险」；AGENTS.md §7.3 收尾流程同步 push 次数"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": ["DX-44"],
+            "evidence": "DX-44（job 首步沉降等待）已止血并实测 0 封失败邮件，但属时序补丁：job 时长与推送间隔仍靠 sleep 余量赛跑，且每批收尾 4 次 push 触发 4 个 Board run（3 个注定被取消），CI 抖动与 runner 占用被放大。根因：git-done 收尾把 清理登记/结卡/快照 各自单独 push origin HEAD:main（git-done.ps1 推送点 L726/L867/L932/L151）。治本：合并推送后把这三步在本地生成提交、一次性 push（收尾补推 3→1），叠加 DX-44 沉降使 Board run 4→2、0 failure。A2b（合并+收尾全合成 1 次 push、零中间态 run）列二期，需重排 fail-soft 语义。注：本卡曾以 DX-74 立卡但推送未及落地，卡号被并发会话占用，遂重立为 DX-96。",
+            "id": "DX-96",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "scripts/verify.ps1",
+                "docs/pitfalls.md",
+                "AGENTS.md"
+            ],
+            "stage": "DX",
+            "title": "git-done 收尾补推 3→1：清理/结卡/快照合成单次 push，配合 DX-44 沉降降低 Board 中间态 run"
         },
         "M01": {
             "acceptance": [

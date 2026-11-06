@@ -289,6 +289,42 @@
             "updatedAt": 1793957895
         },
         {
+            "code": "R11-11",
+            "completedAt": 0,
+            "createdAt": 1793973566,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-11",
+            "note": "",
+            "orderKey": 68608,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排收尾 1/2：执行队列补固定表头与 40 px 行高",
+            "updatedAt": 1793973566
+        },
+        {
+            "code": "R11-12",
+            "completedAt": 0,
+            "createdAt": 1793973607,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-12",
+            "note": "",
+            "orderKey": 69632,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "R11 界面重排收尾 2/2：规格全量核验（权限弹窗流程 / 17 个界面逐个 / 未推送提交数）",
+            "updatedAt": 1793973607
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4885,6 +4921,6 @@
             "updatedAt": 1793934590
         }
     ],
-    "updated": "2026-11-06T20:32:11",
+    "updated": "2026-11-06T22:00:07",
     "version": 3
 }

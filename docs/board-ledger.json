@@ -226,7 +226,8 @@
         "DX-99": "todo",
         "DX-100": "todo",
         "DX-101": "todo",
-        "DX-102": "todo"
+        "DX-102": "todo",
+        "DX-103": "todo"
     },
     "cards": {
         "DX-01": {
@@ -4881,6 +4882,29 @@
             ],
             "stage": "DX",
             "title": "交互回归判据与 GUI 实机验收通道沉淀"
+        },
+        "DX-103": {
+            "acceptance": [
+                "立卡发号含服务端占位：工具在本地锁内向 origin 推 refs/registrations/<短号>（新建 ref 的推送是原子 test-and-set），推成即占号，被拒即刷新占用集（本地台账 ∪ origin 台账 ∪ 占位全集）换号重试（上限 5 次），占位永久留痕即机器可校验的发号审计链",
+                "离线 fail-closed：ls-remote 不可达时不发号（exit 5），显式 --offline 才降级为暂定号并写入回执提示推送前重验",
+                "回执含 reservation.ref/sha，origin 上可查 refs/registrations/DX-99",
+                "--selftest 覆盖占位集解析/发号避开已占号/换号收敛（6 例），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿",
+                "端到端：本卡即经新程序立卡（DX-99，首个服务端占位真实创建），#DX-99=done 合并后 derive --check 绿、Board run 绿"
+            ],
+            "author": "maintainer-session-2026-11-06",
+            "depends": [
+                "DX-98"
+            ],
+            "evidence": "DX-98 的回执闸门只消除了「无凭证」，发号的跨机竞态仍在：文件锁只覆盖本机 worktree，跨机并发时卡号仍要等 commit 落到 origin/main 才真正归属（1.33/1.35 的同源残余）。仓库已有现成原子原语——领用占位 refs/claims/<短号> 的推送（双领被拒），把同一机制搬到发号即可闭环。",
+            "id": "DX-103",
+            "note": "",
+            "scope": [
+                "scripts/register_board_cards.py",
+                "AGENTS.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "title": "发号跨机闭环：refs/registrations 服务端占位（原子 test-and-set）+ 换号重试"
         }
     },
     "claims": {},

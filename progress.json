@@ -2718,7 +2718,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "DX-110",
-            "note": "",
+            "note": "## 交付（2026-11-07 · agent-dx110 / fix/dx110-anchor-ff-skip）\n① scripts/register_board_cards.py：陌生 stage 首次出现时，程序自己把 §9 里程碑行写入 docs/iteration-roadmap.md，并列入立卡流程第一段 docs(board) 提交（docs 路径豁免；塞进第二段 chore(board) 会撞 DX-51「流程路径之外不得夹带」）。立卡会话不再手工往锚点工作区补行。新增 roadmap_stage_rows / roadmap_has_stage / build_roadmap_row / insert_roadmap_row 纯函数，--selftest 补 8 例（共 17 例）。\n② scripts/git-done.ps1 的 Sync-AnchorWorktree：跳过原因按「本地提交 / 已跟踪文件脏（逐个点名）/ 未跟踪冲突」三类分开报，不再一律报「本地提交 / 未跟踪文件冲突」；受控文件从 progress.json 泛化为 progress.json + docs/iteration-roadmap.md，按同款 stash / 还原 / 主线优先口径处理，工具产物与其它文件仍跳过不碰。\n③ AGENTS.md 条款 6 与 §7.1 同步口径；docs/pitfalls.md §1.39 记三条叠加根因链与 2026-11-06 实录（主线 §1.38 已归 DX-120）。\n验收逐条：① 临时 git 仓库端到端真立陌生 stage 卡 ZZ9-1 —— §9 行写出且只写一次、两段提交均过 task_gate message、工作区干净（行随提交入库，锚点不再留脏）；② Sync-AnchorWorktree 动态演练 5 场景 17 断言，含 stash/pop 撞车后主线版本优先、无冲突标记、本地版可从 stash 取回；③ register --selftest 17 例 / task_gate 34 例 / check_claim_refs 14 例全过；④ verify.ps1 -ScriptOnly 与 -GitDoneDryRun 均 EXIT=0；⑤ pitfalls 根因链与实录已补。\n收尾：rebase 到最新 origin/main（--empty=keep 保留领用空提交，解决台账与 pitfalls 两处并行冲突）、git-done.ps1 -Close DX-110 单次推送合入；baseline=done、claims 与服务端 refs/claims/DX-110 均已释放、worktree 与分支已回收。已完成 5 / 待做 0。",
             "orderKey": 27648,
             "priority": 2,
             "stage": "DX",
@@ -2727,7 +2727,7 @@
                 "DX"
             ],
             "title": "锚点快进永久跳过：立卡 roadmap 行收进立卡提交，锚点同步脏文件判据与分类修正",
-            "updatedAt": 1793983743
+            "updatedAt": 1793984174
         },
         {
             "code": "M18",
@@ -5245,6 +5245,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-07T00:49:03",
+    "updated": "2026-11-07T00:56:14",
     "version": 3
 }

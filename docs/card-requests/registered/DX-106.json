@@ -1,0 +1,13 @@
+{
+  "card": "DX-106",
+  "sha256": "07d48e902b45210028f74bcbd54e6f76e530661d8f52a3864fadb2ee0662ea25",
+  "authorizedBy": "维护者 13706 会话授权补立 A2b 二期卡（DX-107）",
+  "form": "docs/card-requests/20261106-dx-106.md",
+  "registeredAt": "2026-11-06T09:38:15+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-106",
+    "sha": "2656d89bae5cbfb19885bd39d1db161c3171bfd3"
+  }
+}

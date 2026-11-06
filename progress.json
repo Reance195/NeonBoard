@@ -271,6 +271,24 @@
             "updatedAt": 1793935667
         },
         {
+            "code": "DX-106",
+            "completedAt": 0,
+            "createdAt": 1793957895,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-106",
+            "note": "",
+            "orderKey": 67584,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "收尾零中间态：合并+收尾合成单次 push（A2b），fail-soft 语义重排",
+            "updatedAt": 1793957895
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4813,6 +4831,6 @@
             "updatedAt": 1793934590
         }
     ],
-    "updated": "2026-11-06T16:30:04",
+    "updated": "2026-11-06T17:38:15",
     "version": 3
 }

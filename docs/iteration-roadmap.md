@@ -796,7 +796,7 @@ R14-02 要求拿 dist 产物启动而不是源码目录。方法见
 > dist 产物里的官方插件报的是 `source=appdir` —— 语义正是「来自分发目录的官方插件」，
 > 目标已达成。
 
-### 9.9 R15 插件市场元数据：类别与依赖贯穿（进行中 0/2）
+### 9.9 R15 插件市场元数据：类别与依赖贯穿（已完成 2/2）
 
 neonboard-market 索引已上架 8 个插件并手写 `category` / `dependencies`，但两个字段没有单源：
 发布脚本重建条目只取固定字段，重新发布必丢；客户端解析也把未知字段丢掉、面板不展示。
@@ -807,7 +807,7 @@ neonboard-market 索引已上架 8 个插件并手写 `category` / `dependencies
 | R15-01 | `plugins/*/plugin.json` / `plugins-samples/*/plugin.json` / `scripts/publish-market.ps1` / `docs/plugin-api.md` | category/dependencies 手写在市场索引里，publish-market.ps1 重建条目只取固定字段，重新发布会丢 —— 声明收进 plugin.json，发布脚本透传，索引由 manifest 单源生成 |
 | R15-02 | `src/plugin/**` / `qml/components/PluginLibraryPanel.qml` / `README.md` | 客户端 `PluginMarket::parseIndex` 丢弃未知字段，插件库面板看不到类别与依赖 —— 字段贯通到 `PluginLibrary.entries` 并在面板逐条展示类别徽章与依赖说明 |
 
-### 9.10 R16 插件巡检优化批次（进行中 0/5）
+### 9.10 R16 插件巡检优化批次（已完成 5/5）
 
 2026-11-05 插件巡检（六官方 + 两示例全量通读 + 宿主门面核对）发现三处宿主 API 缺口与两处插件债：
 面板收不到事件、agent-bridge 写库放大与映射无界增长、四个 agent 名片重复且与 manifest 双源。
@@ -869,7 +869,7 @@ neonboard-market 索引已上架 8 个插件并手写 `category` / `dependencies
 
 **非目标**：不换主题风格（保留赛博霓虹）、不加特效、不改数据模型与交互语义、不动 `src/**`。
 
-### 9.13 R18 多项目接入（进行中 0/3）
+### 9.13 R18 多项目接入（已完成 3/3）
 
 2026-11-06 维护者要求「将其他项目纳入面板监控」，并明确要**程序原生能力**而非手工搭脚手架
 或环境变量双实例。缺口两处：R10 只解决了「看板能按项目切开」，项目增删改界面当时明确留作

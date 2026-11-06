@@ -73,24 +73,6 @@
             "updatedAt": 1793905858
         },
         {
-            "code": "DX-77",
-            "completedAt": 0,
-            "createdAt": 1793905858,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-77",
-            "note": "触发证据：本会话实测（chcp 936 控制台）：verify.ps1 尾行输出「閫€鍑虹爜: 0」、nbflow status 授权整段 mojibake；同类已三次：DX-46 修 board-apply.py、DX-60 修 build.ps1，均只治单文件（Z6：该收口所有入口了）\n\n## 目标\nDX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码\n\n## 验收\nchcp 936 控制台下 pwsh -File scripts/verify.ps1 -ScriptOnly 与 python -I scripts/nbflow.py status 的中文输出可读（无 mojibake），方案沿 DX-60 口径（入口自切 CP 65001 或 Python stdout reconfigure UTF-8），能抽公共实现就抽、不复制三份;python scripts/nbflow.py --selftest 与 check_script_hygiene 均通过（不引入 BOM/编码卫生回归）;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/verify.ps1;scripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 51200,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码",
-            "updatedAt": 1793905858
-        },
-        {
             "code": "DX-78",
             "completedAt": 0,
             "createdAt": 1793906024,
@@ -124,24 +106,6 @@
                 "DX"
             ],
             "title": "rebase 后领用登记过期提示给了走不通的出路：按同主题领用提交归因，预期态不再喊重新领用",
-            "updatedAt": 1793906980
-        },
-        {
-            "code": "DX-83",
-            "completedAt": 0,
-            "createdAt": 1793906980,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-83",
-            "note": "触发证据：DX-62 交付日复现实验钉死根因：python 子进程 stdout.reconfigure(utf-8) 后输出合法 UTF-8，pwsh 按 [Console]::OutputEncoding=gb2312（CP 936）解码后转发即乱码（实测输出「[娲剧敓鍣╙ 宸叉洿鏂� progress.json」）。受害链路：git-done 收尾里 derive --write 的输出、agent-init 捕获 claim-card 输出、nbflow 捕获 git-done 全程输出，本次会话全部观察到处。DX-60（710eed8）已在 build.ps1 修过同类（自切 CP 65001），属同类第二次，按 Z6 收口；Z5 要求编码设置只活一份\n\n## 目标\nPS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装\n\n## 验收\n新建 scripts/nb-console.ps1 提供 Set-NbUtf8Console 幂等封装（Console.OutputEncoding 与输入编码切 UTF-8，参照 DX-60 在 build.ps1 的实现），build.ps1 的编码设置段迁移为调用封装（ninja 前缀字节闸门留在 build.ps1 不动）；git-done.ps1、agent-init.ps1、verify.ps1 三个捕获 Python 子进程输出的入口 dot-source 并调用封装；机器判据：check_script_hygiene.py 新增规则，上述入口脚本缺封装调用即拒（反向探针验证）；实测判据：pwsh 下经封装后捕获 python 打印中文的输出与 python 直出 UTF-8 逐字节一致（控制台为 CP 936 的环境下验证）；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿，docs/pitfalls.md 记一条（§2.6 同类第二处的收口）\n\n## 边界\nscripts/nb-console.ps1;scripts/build.ps1;scripts/git-done.ps1;scripts/agent-init.ps1;scripts/verify.ps1;scripts/check_script_hygiene.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 57344,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "PS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装",
             "updatedAt": 1793906980
         },
         {
@@ -3649,6 +3613,24 @@
             "updatedAt": 1793911592
         },
         {
+            "code": "DX-77",
+            "completedAt": 1793979682,
+            "createdAt": 1793905858,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-77",
+            "note": "触发证据：本会话实测（chcp 936 控制台）：verify.ps1 尾行输出「閫€鍑虹爜: 0」、nbflow status 授权整段 mojibake；同类已三次：DX-46 修 board-apply.py、DX-60 修 build.ps1，均只治单文件（Z6：该收口所有入口了）\n\n## 目标\nDX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码\n\n## 验收\nchcp 936 控制台下 pwsh -File scripts/verify.ps1 -ScriptOnly 与 python -I scripts/nbflow.py status 的中文输出可读（无 mojibake），方案沿 DX-60 口径（入口自切 CP 65001 或 Python stdout reconfigure UTF-8），能抽公共实现就抽、不复制三份;python scripts/nbflow.py --selftest 与 check_script_hygiene 均通过（不引入 BOM/编码卫生回归）;pwsh -File scripts/verify.ps1 -ScriptOnly 全绿\n\n## 边界\nscripts/verify.ps1;scripts/nbflow.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 51200,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX-60 编码自切只治了 build.ps1：verify.ps1 与 nbflow.py 在 GBK 控制台仍乱码",
+            "updatedAt": 1793979682
+        },
+        {
             "completedAt": 1792849809,
             "createdAt": 1792849312,
             "deleted": false,
@@ -3824,6 +3806,24 @@
             ],
             "title": "R4 键盘完整性 / 无障碍",
             "updatedAt": 1792850781
+        },
+        {
+            "code": "DX-83",
+            "completedAt": 1793979682,
+            "createdAt": 1793906980,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-83",
+            "note": "触发证据：DX-62 交付日复现实验钉死根因：python 子进程 stdout.reconfigure(utf-8) 后输出合法 UTF-8，pwsh 按 [Console]::OutputEncoding=gb2312（CP 936）解码后转发即乱码（实测输出「[娲剧敓鍣╙ 宸叉洿鏂� progress.json」）。受害链路：git-done 收尾里 derive --write 的输出、agent-init 捕获 claim-card 输出、nbflow 捕获 git-done 全程输出，本次会话全部观察到处。DX-60（710eed8）已在 build.ps1 修过同类（自切 CP 65001），属同类第二次，按 Z6 收口；Z5 要求编码设置只活一份\n\n## 目标\nPS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装\n\n## 验收\n新建 scripts/nb-console.ps1 提供 Set-NbUtf8Console 幂等封装（Console.OutputEncoding 与输入编码切 UTF-8，参照 DX-60 在 build.ps1 的实现），build.ps1 的编码设置段迁移为调用封装（ninja 前缀字节闸门留在 build.ps1 不动）；git-done.ps1、agent-init.ps1、verify.ps1 三个捕获 Python 子进程输出的入口 dot-source 并调用封装；机器判据：check_script_hygiene.py 新增规则，上述入口脚本缺封装调用即拒（反向探针验证）；实测判据：pwsh 下经封装后捕获 python 打印中文的输出与 python 直出 UTF-8 逐字节一致（控制台为 CP 936 的环境下验证）；pwsh -File scripts/verify.ps1 -ScriptOnly 全绿，docs/pitfalls.md 记一条（§2.6 同类第二处的收口）\n\n## 边界\nscripts/nb-console.ps1;scripts/build.ps1;scripts/git-done.ps1;scripts/agent-init.ps1;scripts/verify.ps1;scripts/check_script_hygiene.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 57344,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "PS 脚本链捕获 Python 子进程输出按控制台代码页解码乱码：DX-60 的控制台修复收口为单一封装",
+            "updatedAt": 1793979682
         },
         {
             "completedAt": 1792855060,
@@ -5029,6 +5029,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:36:29",
+    "updated": "2026-11-06T23:41:22",
     "version": 3
 }

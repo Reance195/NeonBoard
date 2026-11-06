@@ -235,6 +235,24 @@
             "updatedAt": 1793977718
         },
         {
+            "code": "DX-110",
+            "completedAt": 0,
+            "createdAt": 1793979017,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-110",
+            "note": "",
+            "orderKey": 74752,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "锚点快进永久跳过：立卡 roadmap 行收进立卡提交，锚点同步脏文件判据与分类修正",
+            "updatedAt": 1793979017
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4993,6 +5011,6 @@
             "updatedAt": 1793973485
         }
     ],
-    "updated": "2026-11-06T23:24:37",
+    "updated": "2026-11-06T23:30:17",
     "version": 3
 }

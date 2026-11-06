@@ -1,0 +1,13 @@
+{
+  "card": "DX-110",
+  "sha256": "2cf2a01295f73ecd61382b7e1c3e3fcfb02aea19c4805dad6cbaf288f18f643a",
+  "authorizedBy": "维护者会话授权（2026-11-06「分析清楚了就立卡」）",
+  "form": "docs/card-requests/20261106-dx-anchor-sync-dirty.md",
+  "registeredAt": "2026-11-06T15:30:15+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-110",
+    "sha": "6a55aefd638c73d8a0fdb370e334906a37061d68"
+  }
+}

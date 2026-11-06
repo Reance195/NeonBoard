@@ -342,6 +342,9 @@ def ledger_shape(data):
             "stage": card.get("stage", ""),
             "scope": contract_items(card.get("scope")),
             "acceptance": contract_items(card.get("acceptance")),
+            # 排位档位（DX-123）：决定新卡在看板的落点，属任务定义，
+            # 改动必须走 chore(board)+授权/批次，不给静默改序留后门。
+            "tier": card.get("tier", ""),
         }
     return cards, dict((data or {}).get("baseline") or {})
 
@@ -653,6 +656,14 @@ def cmd_selftest(args):
             "acceptance": ["跑通 A"],
         },
     })
+    tier_changed = ledger_with(cards={
+        "DX-01": {
+            "id": "a", "title": "t", "stage": "DX",
+            "scope": ["src/a.cpp", "src/b.cpp"],
+            "acceptance": ["跑通 A"],
+            "tier": "P1",
+        },
+    })
     scope_and_baseline = ledger_with(
         cards={
             "DX-01": {
@@ -690,6 +701,18 @@ def cmd_selftest(args):
         True, "chore", "board",
         "chore(board): 补 R10-02 的 scope\n\n授权：维护者 2026-10-29 会话\n批次：R10-02",
         [], contract, scope_widened,
+    )
+    case(
+        "改排位档位无审计行 → 拒（档位属任务定义，DX-123）",
+        False, "chore", "board",
+        "chore(board): 改 DX-01 排位档位",
+        [], contract, tier_changed,
+    )
+    case(
+        "改排位档位带授权/批次 → 放行",
+        True, "chore", "board",
+        "chore(board): 调 DX-01 排位档位\n\n授权：维护者 2026-11-07 会话\n批次：DX-01",
+        [], contract, tier_changed,
     )
     case(
         "只调换 scope / acceptance 顺序或改空白，不算定义变更 → 放行",

@@ -11,6 +11,7 @@
 | 验收 | `acceptance[]` | ✅ | **可执行**的验收项，每项一条命令或一个断言，禁止写「体验更好」这类主观描述 |
 | 边界 | `scope[]` | ✅ | 允许改动的路径 glob；越界 CI 直接红 |
 | 输入 | `base` / `depends[]` | ⚠️ | `depends` 列出必须先完成的卡号；基线默认 `origin/main` |
+| 排位 | `tier` | ✅ | `P0..P4` 五档（开工正确性 / 交付死结 / 共享脚本收口 / 独立脚本卡 / 全量编译卡），请求单 frontmatter 声明；派生器按档位给新卡算 `orderKey` 落点，不声明立卡直接被拒（DX-123） |
 | 产出 | 合并提交的 body 四段 | ✅ | 变更 / 验收 / 影响 / 卡片（见下） |
 
 ## 字段示例
@@ -182,6 +183,23 @@ pwsh -File scripts/agent-init.ps1 -Agent <名> -Branch <分支> -Card DX-32
 | `scripts/check_scope.py` | CI 里比对本次 diff 与卡的 `scope`，越界即失败 |
 | `scripts/agent-init.ps1 -Card <短号>` | 开工作区时把 `NB_CARD` / `NB_SCOPE` / `NB_ACCEPTANCE` / `NB_DEPENDS` 注入 `.agent-env.ps1` |
 | `scripts/board-apply.py` | 立卡：预演（默认只读）→ `--apply` 落盘 → `--commit` 提交；20 项校验拦住「不该立」的卡 |
+
+## 排位如何生效（DX-123）
+
+档位判断留在人这一侧，落位与校验交给机器：
+
+```text
+请求单 frontmatter 声明 tier → register_board_cards.py 校验枚举并写进 cards[<短号>].tier
+                             → derive --write 给新卡算落点：本档末张与下一档首张的中点
+                               （与看板拖拽同一套分数索引口径，不重排任何既有卡）
+                             → derive --check 校验「档位随 orderKey 单调不减」
+```
+
+- 五档含义与实现只有一份：`scripts/board_priority.py`（Z5）；漂移靠退出码拦，不靠人记（Z6）。
+- 未声明 tier 的存量卡按棘轮豁免，`--check` 只校验声明了档位的 todo 卡。
+- `tier` 属任务定义：改既有卡的档位必须单独 `chore(board):` 提交，body 带「授权：」「批次：」两行；
+  回填既有卡会被 `check_board_diff.py` 判为「改了既有卡」→ 走全量 `verify.ps1`。
+- 新卡落点冲突（档间间隙耗尽）时派生器直接报错拒绝写盘，不静默挪别人的卡。
 
 ## agent 侧约定
 

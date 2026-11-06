@@ -85,7 +85,24 @@ python scripts/derive_board_status.py --write   # 把派生结果写回快照
 派生器只认台账里登记过的短号。形如 `R0-01` / `M01` 的路线图短号一旦写错会直接让 CI 失败；
 其它短号（例如 `#T12`）不在台账范畴，只打印提示、不拦截。
 
-## 六、常见问题
+## 六、orderKey 的派生（DX-123）
+
+`status` 之外，新卡的 `orderKey` 也是派生的：
+
+```text
+orderKey(新卡) = insertion_order(cards[短号].tier, 当前 todo 列的档位分布)
+               = 本档末张与下一档首张的中点（与看板拖拽同一套分数索引口径）
+```
+
+- 档位枚举与落点算法只有一份：`scripts/board_priority.py`；立卡程序与派生器都从它 import。
+- 请求单 frontmatter 不声明 `tier` 立卡直接被拒；`tier` 属任务定义，改动须 `chore(board)`+授权/批次。
+- `derive --check` 额外校验「已声明档位的 todo 卡，档位随 orderKey 单调不减」：
+  看板里拖动越档、或手改快照，都会报「卡片 X 声明 P? 但 orderKey=… 排在更低档之后」。
+- 存量未声明档位的卡按棘轮豁免；非 todo 状态的卡不参与校验（done 列序无排位语义）。
+- 本地看板对**已存在**的卡保留自己的 `order_key`（`TaskModel::upsertTask` 既有设计），
+  新卡导入时采纳快照落点 —— 所以排位规则对新卡全链路生效，存量卡的顺序归 UI 拖拽。
+
+## 七、常见问题
 
 - **CI 报「快照状态落后于派生结果」**：本地跑 `python scripts/derive_board_status.py --write` 后提交 `progress.json` 即可。
 - **CI 报「台账未登记的路线图短号」**：短号拼错了，或者该卡还没登记进 `docs/board-ledger.json`。

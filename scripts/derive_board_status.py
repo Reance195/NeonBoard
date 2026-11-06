@@ -51,6 +51,8 @@ import sys
 import tempfile
 import time
 
+import board_priority as bp  # 排位规则唯一实现（DX-123），档位落点与校验不在此复制（Z5）
+
 SNAPSHOT_VERSION = 3
 ORDER_STEP = 1024
 MARKER = re.compile(r"#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)(?:=(todo|doing|done))?")
@@ -856,6 +858,28 @@ def selftest():
         cases.append(("契约源：临时 git 仓库分叉实验可执行", False))
         sys.stderr.write("[派生器] 契约源实验异常：%s\n" % exc)
 
+    # ⑮ 排位档位（DX-123）：新卡按 tier 落点、漂移被 check 点名、未声明豁免
+    tier_items = [
+        {"id": "a", "code": "A-1", "status": "todo", "orderKey": 13312},
+        {"id": "b", "code": "B-2", "status": "todo", "orderKey": 27648},
+        {"id": "c", "code": "C-3", "status": "todo", "orderKey": 51200},
+        {"id": "d", "code": "D-4", "status": "done", "orderKey": 1024},
+    ]
+    tier_cards = {"A-1": {"tier": "P0"}, "B-2": {"tier": "P1"},
+                  "C-3": {"tier": "P2"}, "D-4": {"tier": "P0"}}
+    groups = bp.by_tier(tier_items, tier_cards)
+    cases.append(("by_tier 只收 todo 且已声明档位",
+                  groups == {0: [13312], 1: [27648], 2: [51200]}))
+    cases.append(("insertion_order 取本档末张与下一档首张中点",
+                  bp.insertion_order("P1", groups) == (27648 + 51200) // 2))
+    drift_items = [
+        {"id": "a", "code": "A-1", "status": "todo", "orderKey": 13312},
+        {"id": "c", "code": "C-3", "status": "todo", "orderKey": 27648},
+        {"id": "b", "code": "B-2", "status": "todo", "orderKey": 51200},
+    ]
+    bad = bp.check_monotonic(drift_items, tier_cards)
+    cases.append(("档位倒序被点名", len(bad) == 1 and bad[0][0] == "B-2"))
+
     failed = [name for name, ok in cases if not ok]
     for name, ok in cases:
         print("  %s %s" % ("✓" if ok else "✗", name))
@@ -1190,7 +1214,8 @@ def main():
             problems.append("快照里的卡片带了台账未登记的短号：%s（%s）" % (code, item.get("title", "")))
 
     changes = []
-    max_order = {"todo": 0, "doing": 0, "done": 0}
+    tier_groups = bp.by_tier(items, cards)  # DX-123：todo 新卡按档位落位，不再追加列尾
+    max_order = {"doing": 0, "done": 0}  # 非 todo 状态保留旧追加口径（列序无排位语义）
     for item in items:
         status = item.get("status", "todo")
         if status in max_order:
@@ -1205,8 +1230,16 @@ def main():
             if args.check:
                 problems.append("台账里的卡片 %s（%s）还不在快照里" % (code, card.get("title", "")))
                 continue
-            order = max_order.get(want, 0) + ORDER_STEP
-            max_order[want] = order
+            if want == "todo":
+                tier = card.get("tier")
+                if tier not in bp.TIERS:
+                    problems.append("卡片 %s 缺少合法 tier（立卡必须经 register_board_cards.py 声明档位，DX-123）" % code)
+                    continue
+                order = bp.insertion_order(tier, tier_groups)
+                tier_groups.setdefault(bp.rank(tier), []).append(order)
+            else:
+                order = max_order.get(want, 0) + ORDER_STEP
+                max_order[want] = order
             item = {
                 "id": card_id,
                 "code": code,
@@ -1250,6 +1283,11 @@ def main():
     items.sort(key=sort_key)
 
     if args.check:
+        # 排位漂移门（DX-123）：档位必须随 orderKey 单调不减，UI 拖动或手改快照
+        # 造成越档都会在这里点名 —— 规则靠退出码拦，不靠人记（Z6）。
+        for bad_code, bad_tier, bad_key, prev_code in bp.check_monotonic(items, cards):
+            problems.append("卡片 %s 声明 %s 但 orderKey=%d 排在更低档 %s 之后，违反排位规则"
+                            % (bad_code, bad_tier, bad_key, prev_code))
         if problems:
             for line in problems:
                 sys.stderr.write("[派生器] %s\n" % line)

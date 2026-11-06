@@ -42,10 +42,12 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import board_priority as bp  # 排位规则唯一实现（DX-123），档位枚举与校验不在此复制（Z5）
+
 LEDGER_REL = "docs/board-ledger.json"
 ROADMAP_REL = "docs/iteration-roadmap.md"
 RECEIPT_DIR_REL = "docs/card-requests/registered"
-REQUIRED_META = ("title", "stage", "scope", "acceptance", "evidence", "author")
+REQUIRED_META = ("title", "stage", "scope", "acceptance", "evidence", "author", "tier")
 FORM_SECTIONS = ("目标", "验收", "边界", "输入", "产出")
 LOCK_STALE_SECONDS = 600
 REGISTER_RETRY = 5
@@ -106,6 +108,10 @@ def parse_form(text, form_path):
     if missing_meta:
         die("表单 %s frontmatter 缺字段：%s"
             % (form_path, "、".join(missing_meta)))
+    try:
+        bp.validate_tier(meta["tier"])
+    except ValueError as e:
+        die("表单 %s 的 tier 非法：%s" % (form_path, e))
     return meta
 
 
@@ -141,6 +147,7 @@ def build_card(meta, code):
         "note": "",
         "scope": split_list(meta["scope"]),
         "stage": meta["stage"],
+        "tier": meta["tier"],
         "title": meta["title"],
     }
 
@@ -344,6 +351,19 @@ def selftest():
     check("roadmap 插入：重复调用不重复加行", not again and same == new_text)
     broken, no_rows = insert_roadmap_row("## 9. 里程碑\n没有表格\n", row, "R19")
     check("roadmap 插入：找不到表格 fail-closed", not no_rows and broken.startswith("## 9"))
+    # tier 排位档位（DX-123）：声明必填、枚举受控、进卡片定义受回执哈希覆盖
+    tier_meta = {"acceptance": "a", "author": "t", "depends": "", "evidence": "e",
+                 "scope": "scripts/x.py", "stage": "DX", "title": "t"}
+    check("档位校验：合法值通过", bp.validate_tier("P2") == 2)
+    try:
+        bp.validate_tier("P9")
+        check("档位校验：非法枚举抛错", False)
+    except ValueError:
+        check("档位校验：非法枚举抛错", True)
+    check("build_card 写入 tier", build_card(dict(tier_meta, tier="P2"), "DX-999")["tier"] == "P2")
+    hash_with = canonical_hash(build_card(dict(tier_meta, tier="P2"), "DX-999"))
+    check("改 tier 后 canonical_hash 变化（回执审计覆盖）",
+          hash_with != canonical_hash(build_card(dict(tier_meta, tier="P3"), "DX-999")))
 
     failures = [n for n, ok in checks if not ok]
     for name, ok in checks:

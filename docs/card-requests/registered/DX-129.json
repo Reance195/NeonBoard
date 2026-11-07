@@ -1,0 +1,13 @@
+{
+  "card": "DX-129",
+  "sha256": "dc676961e200bc77f8aabd778c9d61ba4a20e9971c3c540bb7a5a768d0fad952",
+  "authorizedBy": "维护者 2026-11-07 会话「处理 继续」经交互选项「立卡改派生器（推荐）」明确授权",
+  "form": "docs/card-requests/20261107-abandoned-snapshot-tombstone.md",
+  "registeredAt": "2026-11-07T03:39:33+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-129",
+    "sha": "eff4534d1b963769d19627bfd9d063265677c4af"
+  }
+}

@@ -260,7 +260,8 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "DX-129": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5753,6 +5754,23 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "DX-129": {
+            "acceptance": [
+                "①派生器 --write 对 baseline=abandoned 的卡把快照条目置 deleted:true（幂等，已是 true 不再动），status 等其余字段不改、不投影三态；②重开对称：baseline 经维护者 chore(board) 改回非终态后，--write 恢复该条目 deleted:false 并恢复正常状态投影（updatedAt 抬高）；③--check 同口径：弃单+deleted:false 报漂移、弃单+deleted:true 与重开+deleted:false 不报；④--abandoned-codes 输出行为不变；⑤derive --selftest 增弃单投影/重开恢复/--check 口径用例全过，task_gate --selftest 不回归；⑥存量 DX-43/R0-12/DX-119 经收尾 --write 后快照 deleted:true 生效，推送过 pre-push 规则 4（version≥3/卡片数不减/code 不丢），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "DX-43/R0-12 台账已 abandoned（5108e69）、DX-119 已结案（4113d21），快照 progress.json 仍显示 todo——DX-111 设计「弃单终态只活台账、派生器整段跳过」防重领已收口，看板展示残留未收；快照 v3 已有 deleted:true 墓碑约定（AGENTS §11.2.5「移除的卡写 deleted 而不是删条目」），应用 RoadmapSync 导入对 deleted:true 即删看板任务、写回保留墓碑（src/board/RoadmapSync.cpp 337/556）；派生器对弃单卡整段 continue ⇒ 墓碑写入后不会被复活，pre-push 闸门（卡片数不减/code 不丢）照常满足",
+            "id": "DX-129",
+            "note": "",
+            "scope": [
+                "scripts/derive_board_status.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "弃单终态投影快照 deleted 墓碑：看板不再显示已弃单卡，重开自动恢复"
         }
     },
     "claims": {},

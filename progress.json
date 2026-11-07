@@ -91,6 +91,24 @@
             "updatedAt": 1793822375
         },
         {
+            "code": "DX-129",
+            "completedAt": 0,
+            "createdAt": 1794022774,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-129",
+            "note": "",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "弃单终态投影快照 deleted 墓碑：看板不再显示已弃单卡，重开自动恢复",
+            "updatedAt": 1794022774
+        },
+        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -5371,6 +5389,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T11:25:10",
+    "updated": "2026-11-07T11:39:34",
     "version": 3
 }

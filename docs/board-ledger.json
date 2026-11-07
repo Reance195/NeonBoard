@@ -1131,7 +1131,7 @@
             "depends": [],
             "evidence": "R20-1 定时任务插件交付实录（2026-11-07）：①close 撞台账冲突时，冲突工单自动立卡调用已退役的 cmd_approve（DX-115 退出码 9），工单卡立不起来只留请求单——approve 退役时只给了人工 recipe，raise_conflict_ticket 的自动通道漏迁；②锚点区出现未跟踪 .zcode/（ZCode 会话产物），git-done 的「工作区干净」闸门拒绝合并收尾，手动删除才放行；③README.md 同页两处 plan-hook 分发口径矛盾（0.1.4 起随包分发 vs 需先手工复制）。另：交付期间撞过的 verify.ps1 fail 路径 $bad.Count 崩溃已被 DX-122（8549179）在主线根治且残留 .Count 均为数组安全模式，本卡核实后不再涉及。维护者 2026-11-07 会话明确指示「你处理下这几个缺陷」。查重命中的 DX-89/113/121/72 均为不同痛点（dispatch 原地守卫 / 验收档位 / 回执完整性 / board-apply 异常），新痛点成立。",
             "id": "DX-127",
-            "note": "",
+            "note": "交付 2026-11-07 / agent-dx127 / fix/dx127-conflict-ticket-register：①raise_conflict_ticket 迁移唯一入口：专用立卡工作区（_board_worktree）内 register_board_cards.py 发号落回执 → 两段提交（docs(board) 收录 + chore(board) 立卡，授权/批次行随体）→ git-done 合回主线 → worktree 回收 → _mark_created → dispatch 派回；并发改号按 DX-55 跟随（表单/会话/派发同号新）；模块头注同步，selftest 增源码断言判定项（97 项全过）；②.gitignore 增「会话与工具产物」段收 .zcode/；③README.md L470 plan-hook 分发口径统一为 0.1.4 起随包分发。verify.ps1 $bad.Count 崩溃核实已被 DX-122（8549179）主线根治，残留 .Count 均数组安全（Z14 扫族），本卡不涉及。已完成 4 / 待做 0（report 侧按分号扁平 7 子项逐条 pass）。偏差与移交：①完整立卡后半程未真跑（需真实冲突，dry-run + selftest 钉住调用面）；②立卡侧与 report 侧的验收分号拆分口径不一致（创建 4 条 / report 扁平 7 条），report 已按 7 子项逐条给证，建议后续统一到 acceptance_split 单一实现；③register_board_cards 发号与 nbflow 请求单命名空间互相不可见，本卡发号撞 moot 工单留档号（DX-127 双占），已按台账为真手工对齐表单与状态投影——建议 register 发号纳入请求单避占或 nbflow 冲突工单让号后自动归档。",
             "scope": [
                 "scripts/nbflow.py",
                 ".gitignore",
@@ -5755,6 +5755,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-127": {
+            "agent": "agent-dx127",
+            "branch": "fix/dx127-conflict-ticket-register",
+            "claimedAt": 1794019244,
+            "head": "745b7eee164cfaac5541dd59dee876dcba8d149c"
+        }
+    },
     "version": 1
 }

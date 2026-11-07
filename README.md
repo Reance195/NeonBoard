@@ -467,7 +467,7 @@ pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
 - 更新检查在启动后延迟 8 秒且最长 20 小时一次，想立刻确认请用设置面板或 `--check-update`
 - Todo.txt 格式只带标题、标签与备注，不含优先级与到期日；需要完整备份请用 JSON 格式
 - 导入按标题匹配已有任务（存在则更新），而路线图快照按 id 匹配；若两者同时存在同一张卡，可能各生成一份
-- 计划钩子需先把 `plugins/plan-hook` 复制到用户插件目录才会生效；未安装时提交里的 `#T12` 静默失效
+- 未安装计划钩子时，提交里的 `#T12` 静默失效（不报错）；官方插件 0.1.4 起已随安装包分发（安装目录 `plugins\`，权限自动补授），无需手工复制
 - 插件市场默认源是仓库简写（`Reance195/neonboard-market`，索引仓库见 <https://github.com/Reance195/neonboard-market>），Gitee 拉取失败时自动回退 GitHub raw；索引签名校验暂未实现（`signature` 字段位已预留）
 - Qt 采用 LGPL 动态链接；再分发时需保留 Qt 动态库与许可说明
 - 任务派发器（R6）默认关闭，需在 设置 → 任务执行 打开总开关后才生效；只在本机拉起 agent CLI（opencode / claude / cursor-agent 实测过，codex 等未实测的 profile 不内置），执行完最多留下本地改动——不自动 push、不自动改看板列（验收通过后由人点「标为已办结」，可撤销）；同一张卡同一时刻最多一个活跃 run，忙时直接拒绝不排队；acceptance 的 `assert` v1 只支持 `file.exists`（http / json 断言留接口未实现），命令只走白名单程序或 cwd 内脚本路径、不经过 shell；cwd 必须先在确认框勾选「信任本目录」；Triage 只读分析强制用 profile 的只读参数并校验分析前后 git status 一致；失败自动重试上限 5 轮（默认 1 轮即不重试），人取消后不再重试

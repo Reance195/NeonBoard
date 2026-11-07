@@ -2267,6 +2267,35 @@
 - **教训**：**「启动瞬间读到的 count」不是事实，是快照。** 凡是要拿它做判断的地方，
   都得回答一个问题：数据后来变了，这个判断会跟着变吗？
 
+### 6.5 启动冷 I/O 的部署侧收敛：DELAYLOAD 不可行，运行时裁剪落地（原 7.6，R0-14）
+
+- **历史诊断**（2026-10-30，§7.6 原文）：CI 口径 `startup=6010ms / cpu=702ms`，分段
+  `app 15 → engine 310 → loaded 5316`——瓶颈是便携包的冷 I/O，不是 QML 树构建。
+  样式半标注已由 R0-11（`8e52812`）落实（windeployqt 只随 Basic + QML 样式目录裁剪）；
+  DLL 侧的「CMake DELAYLOAD」原计划由 R0-14 兑现。
+- **DELAYLOAD 在本仓库不可行，是 MSVC 的硬边界不是实现问题**：Qt 的 `Q_OBJECT`
+  静态元对象是 `__declspec(dllimport)` **数据符号**，链接器明确拒绝延迟加载数据符号 ——
+  `link /DELAYLOAD:Qt6Network.dll` 直接 `LNK1194: 无法延迟加载 Qt6Network.dll，原因在于
+  数据符号 QLocalServer::staticMetaObject 的导入`。QLocalServer/QLocalSocket（单实例机制，
+  主程序与 NeonBoardHost 都在启动期调用，属 QtNetwork 模块）就堵死在这。逐模块对照结论：
+  Quick / Qml / QuickControls2 / Sql / Gui / Core 首帧链路必需，Widgets 在 `QApplication`
+  实例化即用，Network 有数据符号 + 启动期调用 —— **「可延后加载的 Qt 模块」是空集**。
+  完整对照与实测见 `docs/iteration-roadmap.md` §3.1（R0-14）。
+- **真正落地的是运行时裁剪**（`scripts/deploy.ps1`，R0-14）：只删「运行期从不加载」的件，
+  每项都有运行期证据 —— qmltooling 11 个 `qmldbg_*`（调试器插件，生产路径碰不到）、
+  3 个非 SQLite 的 sqldrivers（代码只用 `QSQLITE`）、`Qt6QuickEffects` / `Qt6QuickShapes` /
+  `Qt6LabsFolderListModel`（qml/ 里零 import）、`opengl32sw.dll`（`QSG_RHI_BACKEND`
+  默认强制 d3d11，软件 GL 后备永不加载，windeployqt `--no-opengl-sw`）。合计
+  **DLL 69 → 51、包体 82.3 → 60.5 MB（-26.4%）**；同机冷态（新数据目录，`--smoke --settings`）
+  startup 中位 1603 → 1377 ms（-14%），热态持平（页缓存暖，收益看不见，属预期）。
+- **坑**：bash（Git Bash）直接调 Inno Setup 的 GUI 安装程序，`/VERYSILENT` + `/LOG` 全部
+  传对却**静默卡住不退出**（两次各 4–5 分钟超时）；换 PowerShell `Start-Process -Wait`
+  同参数秒装完成。给安装器做无人值守冒烟一律走 PowerShell，别用 bash 直接调。
+- **教训**：验收项里写「改 /DELAYLOAD」时，先做一个最小链接实验再写方案 ——
+  数据符号这条边界在 Qt 模块上是普遍的（每个模块都有 Q_OBJECT 数据导入），
+  只有纯函数接口的 DLL 才可能 delay。方案失败不是白做：LNK1194 的原始输出
+  就是「这条路线到此为止」的机器可查证据。
+
 ---
 
 ## 七、尚无解决方案（需人拍板）
@@ -2275,6 +2304,8 @@
 > 原 7.1 的漂移检查与代登记（1.14）、原 7.2 未推送成果警告（1.15）、原 7.3 root 占用让路（1.16）、
 > 原 7.7 产物落点变量（1.17）、代登记位置死锁（1.18）；现 7.1 的结卡权亦已解决 ——
 > 结卡改为合入即自动结（DX-07），条目保留在本节仅因为它是本轮决策的记录，不再有「等谁拍板」的成分。
+> 原 7.6 的启动冷 I/O 治本已由 R0-14 落地（样式半标注先由 R0-11 `8e52812` 落实，
+> 运行时裁剪 + DELAYLOAD 不可行结论见 6.5），条目随之迁出。
 
 ### 7.1 结卡权：已解决 —— 合入 `#短号=done` 即自动结（DX-07）
 
@@ -2342,20 +2373,6 @@
 - **卡在哪**：「会话产物一律写到仓库外的显式目录」这条约定要落地，得先定**由谁注入**
   （`.agent-env.ps1`？工具自身配置？）以及**只认默认路径的工具能不能挪**。没人拍板之前，
   只能维持「发现一个、点名一个」，名单本身就是我方的一项负债。
-
-### 7.6 R0-11 冷启动：指标与减法已落地，治本改动不在卡 scope 内
-
-- **现状**（2026-10-30 诊断定案）：启动 `startup=6010ms / cpu=702ms`，分段 `app 15 → engine 310 →
-  loaded 5316`——瓶颈是 portable 包带 7 套 QML 样式 + 35 个 Qt DLL 的冷 I/O，不是 QML 树构建。
-  卡 scope 内能做的已做完：`Metrics` 增 `startupCpuMs`、splash 五处 330ms→160ms 总预算
-  （`NEONBOARD_SPLASH_BUDGET` 可覆盖，预算用尽仍保证进度条重绘）。
-- **真正解法在哪**：`scripts/deploy.ps1` 只随包 Basic 样式 + CMake 改 DELAYLOAD 链接，预计能砍掉
-  大头冷加载。但这是**部署行为改动**，不在 R0-11 声明的 scope（`src/core/Metrics.*` / `src/main.cpp`）内，
-  不能顺手做。
-- **需要谁拍板**：扩 R0-11 的 scope（`scope`/`acceptance` 改动按 1.19 要单独 `chore(board)` + 授权行），
-  还是另立一张卡。拍板前该卡保持未结，由认领会话继续持有。
-
----
 
 ### 7.7 R0-13 启动性能收尾：四项改动的实施坑与残留（2026-11-07）
 

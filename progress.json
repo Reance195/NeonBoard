@@ -109,24 +109,6 @@
             "updatedAt": 1793816382
         },
         {
-            "code": "DX-127",
-            "completedAt": 0,
-            "createdAt": 1794018885,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-127",
-            "note": "",
-            "orderKey": 85504,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "收口 R20-1 交付观察：nbflow 冲突工单立卡走已退役 approve、.zcode 卡收尾闸门、README 分发口径过时",
-            "updatedAt": 1794018885
-        },
-        {
             "code": "DX-128",
             "completedAt": 0,
             "createdAt": 1794020126,
@@ -5011,6 +4993,24 @@
             "updatedAt": 1793251716
         },
         {
+            "code": "DX-127",
+            "completedAt": 1794020457,
+            "createdAt": 1794018885,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-127",
+            "note": "交付 2026-11-07 / agent-dx127 / fix/dx127-conflict-ticket-register：①raise_conflict_ticket 迁移唯一入口：专用立卡工作区（_board_worktree）内 register_board_cards.py 发号落回执 → 两段提交（docs(board) 收录 + chore(board) 立卡，授权/批次行随体）→ git-done 合回主线 → worktree 回收 → _mark_created → dispatch 派回；并发改号按 DX-55 跟随（表单/会话/派发同号新）；模块头注同步，selftest 增源码断言判定项（97 项全过）；②.gitignore 增「会话与工具产物」段收 .zcode/；③README.md L470 plan-hook 分发口径统一为 0.1.4 起随包分发。verify.ps1 $bad.Count 崩溃核实已被 DX-122（8549179）主线根治，残留 .Count 均数组安全（Z14 扫族），本卡不涉及。已完成 4 / 待做 0（report 侧按分号扁平 7 子项逐条 pass）。偏差与移交：①完整立卡后半程未真跑（需真实冲突，dry-run + selftest 钉住调用面）；②立卡侧与 report 侧的验收分号拆分口径不一致（创建 4 条 / report 扁平 7 条），report 已按 7 子项逐条给证，建议后续统一到 acceptance_split 单一实现；③register_board_cards 发号与 nbflow 请求单命名空间互相不可见，本卡发号撞 moot 工单留档号（DX-127 双占），已按台账为真手工对齐表单与状态投影——建议 register 发号纳入请求单避占或 nbflow 冲突工单让号后自动归档。",
+            "orderKey": 85504,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "收口 R20-1 交付观察：nbflow 冲突工单立卡走已退役 approve、.zcode 卡收尾闸门、README 分发口径过时",
+            "updatedAt": 1794020457
+        },
+        {
             "code": "R9-01",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5371,6 +5371,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T10:55:26",
+    "updated": "2026-11-07T11:00:57",
     "version": 3
 }

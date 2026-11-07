@@ -165,6 +165,50 @@ A/B 实测（`NEONBOARD_NO_BG=1` 关背景，用**进程 CPU 时间**与 `engine
 > **R0-11「R0 首启性能：冷启动 3.7s → ≤2s（四项瓶颈收口）」**承接，回链 GitHub issue #4
 > （CI `--smoke` 实测 startup=3772ms，验收为中位数 ≤ 2000ms + `docs/perf-baseline.json` 收紧）。
 
+**R0-14（2026-11-07）部署侧依赖收敛：DELAYLOAD 不可行（有机器证据），运行时裁剪落地。**
+
+**DELAYLOAD 逐模块对照**（`dumpbin /dependents` 基线：Qt6QuickControls2 / Sql / Widgets / Quick /
+Gui / Qml / Network / Core 共 8 个静态导入）：Quick / Qml / QuickControls2 / Sql / Gui / Core 为
+首帧链路必需；Widgets 在 `main.cpp` 的 `QApplication` 实例化即用；Network 由单实例机制
+（QLocalServer / QLocalSocket，属 QtNetwork）在启动期调用。尝试 `/DELAYLOAD:Qt6Network.dll`
+被链接器硬拒 —— `LNK1194: 无法延迟加载"Qt6Network.dll"，原因在于数据符号
+QLocalServer::staticMetaObject 的导入`：Qt 的 Q_OBJECT 静态元对象是 dllimport 数据符号，
+MSVC delayimp 不支持数据符号延迟加载。**结论：可延后加载的 Qt 模块为空集，该路线到此为止**
+（详见 pitfalls §6.5）；NeonBoardHost 同样链 Qt6::Network 且真用（SingleInstance），
+去链接亦被编译期否决。
+
+**运行时裁剪（`scripts/deploy.ps1`，每项都有「运行期从不加载」的证据）**：
+
+| 裁剪项 | 数量 | 证据 |
+| --- | --- | --- |
+| `qmltooling/qmldbg_*`（QML 调试器插件） | 11 | 仅 QT_QML_DEBUG 调试会话激活，生产路径不可达 |
+| `sqldrivers/qsqlmimer` / `qsqlodbc` / `qsqlpsql` | 3 | 代码只用 `QSQLITE`（Database.cpp `addDatabase`） |
+| `Qt6QuickEffects.dll` / `Qt6QuickShapes.dll` | 2 | `qml/` 全仓 import 扫描零命中 |
+| `Qt6LabsFolderListModel.dll` | 1 | 同上，且 check_dist 最小集注释明确不含它 |
+| `opengl32sw.dll`（windeployqt `--no-opengl-sw`） | 1 | `QSG_RHI_BACKEND` 默认强制 d3d11（main.cpp），软件 GL 永不加载 |
+
+**前后对照**（同 exe、同源码树，仅部署清单不同；`check_dist.py` 22 项最小集校验两边都过，
+最小集不含被裁项，自检无需改动）：
+
+| 指标 | 改动前 | 改动后 | 差值 |
+| --- | --- | --- | --- |
+| 全包 DLL 数 | 69 | **51** | -18 |
+| 包体积 | 82.3 MB | **60.5 MB** | **-21.8 MB（-26.4%）** |
+
+**冷启动同机实测**（Release，`--smoke --settings`，hot 5 轮 / cold 3 轮取中位；cold 口径
+沿 R0-13 = 新数据目录，非真实页缓存冷态；单位 ms）：
+
+| 打点 | 改动前 hot / cold | 改动后 hot / cold |
+| --- | --- | --- |
+| `BOOT loaded` | 533 / 533 | 513 / 513 |
+| `METRICS startup` | 1379 / 1603 | 1391 / 1377 |
+| `cpu` | 890 / 905 | 874 / 858 |
+
+口径说明（Z9）：热态持平（中位差 -12 ms，页缓存全暖时 DLL 读盘不在热路径，属预期）；
+**冷态 startup -226 ms（-14%）、BOOT loaded -20 ms，差值不劣化**——冷态首启要实际读盘
+这 18 个被裁 DLL 与其 Defender 首扫，收益与包体积差值同向。安装版冒烟：Inno 静默装入
+干净目录后安装目录 51 DLL 与便携包一致、`--selftest` 退出码 0。
+
 ### 3.2 帧率与画质分级（已落地三档）
 
 **已实现**：

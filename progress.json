@@ -91,24 +91,6 @@
             "updatedAt": 1793822375
         },
         {
-            "code": "DX-37",
-            "completedAt": 0,
-            "createdAt": 1793816382,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-37",
-            "note": "实测 run 41877631595：构建 Release 8m36s，占全流程 11m19s 的约 76%；装 Qt 1m14s、CMake configure 40s、其余步骤合计约 10s。对照 v0.1.4 成功那轮（run 41831538511）总时长 17m52s，多出的 6~7 分钟花在增量包生成、下载上一版、清单与上传。代价不只是慢：iss 每轮错误的排查被放大到 11~19 分钟（见 DX-36），再叠加 runner 排队 —— 本轮 17:26:55Z 起 queued 约 11 分钟才开始跑，runner=- 且同时有 5 个 run 排队，而 GitHub 状态页全绿，人只能干等。",
-            "orderKey": 84992,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 发布构建零缓存：冷编译占掉四分之三墙钟，放大每次出包失败的排查代价",
-            "updatedAt": 1793816382
-        },
-        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -4957,6 +4939,24 @@
             "updatedAt": 1793251716
         },
         {
+            "code": "DX-37",
+            "completedAt": 1794021910,
+            "createdAt": 1793816382,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-37",
+            "note": "实测 run 41877631595：构建 Release 8m36s，占全流程 11m19s 的约 76%；装 Qt 1m14s、CMake configure 40s、其余步骤合计约 10s。对照 v0.1.4 成功那轮（run 41831538511）总时长 17m52s，多出的 6~7 分钟花在增量包生成、下载上一版、清单与上传。代价不只是慢：iss 每轮错误的排查被放大到 11~19 分钟（见 DX-36），再叠加 runner 排队 —— 本轮 17:26:55Z 起 queued 约 11 分钟才开始跑，runner=- 且同时有 5 个 run 排队，而 GitHub 状态页全绿，人只能干等。",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 发布构建零缓存：冷编译占掉四分之三墙钟，放大每次出包失败的排查代价",
+            "updatedAt": 1794021910
+        },
+        {
             "code": "R11-03",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5371,6 +5371,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T11:11:19",
+    "updated": "2026-11-07T11:25:10",
     "version": 3
 }

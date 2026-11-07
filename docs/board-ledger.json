@@ -5755,6 +5755,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-128": {
+            "agent": "duty-dx128",
+            "branch": "fix/dx128-gitdone-tmp-recycle",
+            "claimedAt": 1794020250,
+            "head": "07d7fde627cbbacbabf3aaa24bf9ef30b3ca592a"
+        }
+    },
     "version": 1
 }

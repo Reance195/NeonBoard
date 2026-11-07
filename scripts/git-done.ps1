@@ -828,6 +828,11 @@ if ($script:gitDoneSelfTest) {
         }
         $curA = (Invoke-In $workA @('branch', '--show-current'))[0]
         Assert-St "A：检出已归位（$curA，不在 merge/*）" ("$curA" -eq 'main')
+        # DX-128：正常收尾不得留 merge/<slug> 临时分支。旧实现在临时分支删除处用裸
+        # `branch -d`（单次推送前 origin/main 还没含本次合并，upstream 判据恒假）拒删且
+        # 把输出吞掉，每轮收尾静默留一支。这条断言钉住「推送落地路径已回收」。
+        $tmpA = Invoke-Cmd -File 'git' -CmdArgs @('-C', $workA, 'rev-parse', '--verify', '--quiet', 'refs/heads/merge/fix-selftest-a')
+        Assert-St 'A：临时分支已回收（不留 merge/* 残留）' ($tmpA.Code -ne 0)
 
         # ---- 场景 B：连续拒绝 ----
         $originB = Join-Path $tmpRoot 'b-origin.git'
@@ -1251,7 +1256,17 @@ if ($Mode -eq 'remote') {
         $detachRes.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
     }
     if ($DryRun) { Write-Host '  [dry-run] 三步收尾前已 switch --detach（DX-26 时序）' -ForegroundColor DarkCyan }
-    Invoke-GitQuiet @('branch', '-d', $tmp) | Out-Null
+    # DX-128：临时分支 $tmp 同样删在单次推送之前（此刻 origin/main 还没含本次合并），
+    # 裸 `branch -d` 的 upstream 判据恒假、必然以 not fully merged 拒删 —— 旧实现还把
+    # 输出 Out-Null 吞掉、不检查返回码，于是每轮正常收尾静默留一支 merge/<slug>
+    #（不同分支名连 1084 行的同名残留清理都兜不住）。判据统一走 Remove-MergedBranch
+    #（DX-109：确认提交已全部进本次合并后用 -D），与功能分支 1233 / 1629 同锚点；
+    # 演练也回收自己建的临时分支（纯本地、不触网）。删不掉必须可见、给可执行命令，
+    # 但仍是 fail-soft，绝不阻断已成功的合并。
+    # 有意保留的例外：1394 行推送失败时重建的 pin 分支是 DX-116 的补推落点，不在此处。
+    if (-not (Remove-MergedBranch -Name $tmp -AnchorCommit $mergedCommit)) {
+        Write-Host ("· 临时分支 {0} 未回收（见上方诊断），收尾后手工：git branch -D {0}" -f $tmp) -ForegroundColor Yellow
+    }
 
     # DX-106：收尾提交栈底 = 本次合并提交。单次推送失败需整体回滚时回到这里 ——
     # 回滚只丢弃收尾提交，随后**单独推送合并**（fail-soft 交付不被收尾拖住）。

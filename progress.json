@@ -73,24 +73,6 @@
             "updatedAt": 1793982202
         },
         {
-            "code": "DX-125",
-            "completedAt": 0,
-            "createdAt": 1793987882,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-125",
-            "note": "",
-            "orderKey": 77312,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX-84 显式 sys.path 判据只落在 board-apply.py：三个脚本跨模块 import 在 python -I 下即崩，且无机器判据防回归",
-            "updatedAt": 1793987882
-        },
-        {
             "code": "DX-100",
             "completedAt": 0,
             "createdAt": 1793935664,
@@ -4777,6 +4759,24 @@
             "updatedAt": 1793986446
         },
         {
+            "code": "DX-125",
+            "completedAt": 1794012058,
+            "createdAt": 1793987882,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-125",
+            "note": "",
+            "orderKey": 77312,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX-84 显式 sys.path 判据只落在 board-apply.py：三个脚本跨模块 import 在 python -I 下即崩，且无机器判据防回归",
+            "updatedAt": 1794012058
+        },
+        {
             "code": "DX-07",
             "completedAt": 1793207091,
             "createdAt": 1793207091,
@@ -5299,6 +5299,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T02:01:15",
+    "updated": "2026-11-07T08:40:58",
     "version": 3
 }

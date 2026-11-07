@@ -19,24 +19,6 @@
             "updatedAt": 1794012369
         },
         {
-            "code": "DX-122",
-            "completedAt": 0,
-            "createdAt": 1793982202,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-122",
-            "note": "",
-            "orderKey": 76800,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 启动告警零容忍：把枚举式 pattern 换成按形态识别，规则收成一份",
-            "updatedAt": 1793982202
-        },
-        {
             "code": "DX-100",
             "completedAt": 0,
             "createdAt": 1793935664,
@@ -53,24 +35,6 @@
             ],
             "title": "立卡入口单一事实源：文档、旧工具注释与预演输出对齐 DX-98 新流程",
             "updatedAt": 1793935664
-        },
-        {
-            "code": "DX-111",
-            "completedAt": 0,
-            "createdAt": 1793980354,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-111",
-            "note": "",
-            "orderKey": 78848,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用",
-            "updatedAt": 1793980354
         },
         {
             "code": "DX-119",
@@ -4759,6 +4723,24 @@
             "updatedAt": 1793981567
         },
         {
+            "code": "DX-122",
+            "completedAt": 1794016378,
+            "createdAt": 1793982202,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-122",
+            "note": "已交付（2026-11-07，agent-dx122）：scripts/check_qml_warnings.py 按形态识别三形态（崩溃 / JS 异常 / QML 定位），verify.ps1 与 ci.yml 均改为调用，致命 pattern 字符串单源断言（--selftest 强制）；本地棘轮（--base origin/main）/ CI 严格（--strict）双口径。验收 7 条全过：selftest 13 正例 8 反例，含 R11-13 Cannot anchor 反向证伪（命中且点名行）；真实 --smoke 日志 33 行 strict 命中 0；全量 verify 退出码 0（编译 + ctest 39/39 + --selftest + --smoke + 模块守卫 + 看板一致性）。实现 8549179 + 8dea82a，合并 04f499a，结卡 40fc7bb。覆盖边界：--smoke 只含启动期 QML，点开才加载的浮层告警仍靠逐界面核验兜底（请求单已声明）。",
+            "orderKey": 76800,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 启动告警零容忍：把枚举式 pattern 换成按形态识别，规则收成一份",
+            "updatedAt": 1794017495
+        },
+        {
             "code": "DX-02",
             "completedAt": 1793123355,
             "createdAt": 1793123355,
@@ -4829,6 +4811,24 @@
             ],
             "title": "DX 结卡权自动化：合入 #短号=done 时同步台账 baseline，漂移不再靠人批量结",
             "updatedAt": 1793207091
+        },
+        {
+            "code": "DX-111",
+            "completedAt": 1794017721,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-111",
+            "note": "",
+            "orderKey": 78848,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用",
+            "updatedAt": 1794017721
         },
         {
             "code": "R10-01",
@@ -5335,6 +5335,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T09:14:37",
+    "updated": "2026-11-07T10:15:21",
     "version": 3
 }

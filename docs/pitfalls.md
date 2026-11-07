@@ -1515,6 +1515,30 @@
 - **一般化**：修坑时先问「这类坑还有几份同类现场」—— 只修撞崩的那个文件，
   等于把同一个坑按出现顺序再付一遍代价；判据要在第二次撞上前变成退出码。
 
+### 2.34 弃单卡没有结案通道：永挂 todo 且可被反复重领（DX-111）
+
+- **现象**（2026-11-05 / 11-06 两次实录）：DX-43 的 note 已记弃单（nbflow 让位）、
+  R0-12 的弃卡处置已获维护者批准，但两张卡在台账里仍是 `baseline=todo`：
+  领用门只认 `baseline=done`，`agent-init` 随时能把它们再领一遍重做；
+  `--close-cards` 又没有 done 标记可读，自动结卡也碰不到它们。
+- **根因**：台账的 baseline 只有「todo / doing / done」三态的语义，而弃单既不是
+  todo（不该再被领），也不是 done（没有交付，写成 done 是伪造 git 事实）。
+  把弃单写成 done 会污染 DX-91 的交付证据链，写成 todo 则永远关不上防重领门 ——
+  缺的是第三种**终态**，以及配套的三条判据。
+- **解法（DX-111）**：`baseline=abandoned` 作为弃单终态，四处判据一起收口：
+  `agent-init.ps1` 开区前用 `derive_board_status.py --abandoned-codes` 读
+  `origin/main` 台账拒领（退出码 7，fail-closed；补领的 `-InPlace` 路径同门）；
+  派生器在 `--check` / `--write` 里跳过它（不报「todo → abandoned」漂移）、
+  `close_cards` / `stuck_cards` 也不碰它；结案走 `chore(board)` 人工授权行通道
+  （body 带「授权：」「批次：」），**不适用** `自动来源：` 那条投影 done 的自动结卡
+  通道，且只许改 baseline —— 借弃单夹带卡片定义变更（哪怕带齐授权行）一律拒。
+- **判据**：`task_gate.py selftest` 46 例（含弃单结案放行 / 自动来源行不适用 /
+  冒充弃单改定义拒绝）、`derive_board_status.py --selftest` 61 例（含
+  `--close-cards` 不误碰 / 滞留探测不点名 / 大小写不敏感）、
+  `pwsh -File scripts/verify.ps1 -ScriptOnly` 全绿。
+- **一般化**：终态不是「换个字符串」就完事 —— 它同时是领用门、派生器、结卡闸门
+  与审计通道的判据。少接一处，那个缺口就会变成「状态写对了但仍能被重领」的半落地。
+
 ---
 
 ## 三、构建与 Qt / QML
@@ -1905,6 +1929,23 @@
 - **判据**：负测——在 iss 注释里写 `{ 用 {app} 常量拼接 }`，
   `-ScriptOnly` 的「安装器编译闸门」必须红。
 
+### 3.24 find_program 式可选加速器在 CI 上静默失效：配置存在不等于生效
+
+- **现象**（DX-37 实测）：发布流水线的「构建 Release」长期 8m36s、占全流程 76% 墙钟，
+  而 CI 主构建（ci.yml）早已接入 sccache —— release.yml 里没有任何编译缓存步骤，
+  却没人觉得缺了什么：CMakeLists 的 `find_program(sccache)` 在 runner 上探测不到
+  就静默跳过，日志里连一行提示都没有，看起来一切正常。
+- **根因**：`find_program` 式可选加速器的失败模式是「探测不到 → 静默降级」，
+  在 CI 的干净 runner 上必然走降级分支 —— 本机装了 ≠ runner 装了。
+  「配置存在」（CMakeLists 有挂 launcher 的代码）与「真的生效」（缓存命中 > 0）之间
+  隔着安装、PATH、生成器差异三道坎，断哪道都无感知。
+- **解法**：CI 上接入加速器必须三件套：显式安装（ccache-action / `choco install`）→
+  显式传入（`-DCMAKE_<LANG>_COMPILER_LAUNCHER=sccache`，与 ci.yml 同一口径）→
+  事后核验（读 CMakeCache 的 COMPILER_LAUNCHER + `sccache --show-stats` 打命中率）。
+  加速器 fail-soft 不阻断发布，但未启用时必须打印「sccache: 未启用」级别的显式告警。
+- **判据**：release.yml 的「sccache 生效核验与命中率」步骤：launcher 缺失时打印
+  「sccache: 未启用」；命中/未命中数字每次发布都出现在日志里（口径与 DX-16 一致）。
+
 ---
 
 ## 四、界面验收与自动化
@@ -2042,6 +2083,25 @@
   图集的设备像素坐标系里**，与目标矩形所在的坐标系无关。手写「按格取图」的代码
   （数字表、表情、图标条、序列帧）都要先问一句：**这格在图集里的设备像素位置是哪里？**
   凡是「逻辑宽度 × dpr」生成、却按逻辑宽度去采样的，都是同一类错。
+
+### 4.12 枚举式致命 pattern 会漏检：没在名单里的告警静默通过
+
+- **现象**：R11-07 引入的 `QML EmptyState: Cannot anchor to an item that isn't a parent or sibling`
+  连过 R11-08 ~ R11-12 五张卡的验收 —— 每张卡 verify 全绿、ctest 全绿、--smoke 退出码 0，
+  直到 R11-13 复盘人工翻日志才看见。名单里明明有 `Cannot assign`，只差一个词就漏了。
+- **根因**：`verify.ps1` 与 `ci.yml` 各自维护一份**完全相同**的枚举 pattern（两份实现还埋着
+  Z5 判据漂移），判据本质是「只拦已知坏法」—— 任何新形态的告警都静默通过。
+- **解法**（DX-122）：判据改**按形态识别**并收单源 —— `scripts/check_qml_warnings.py` 识别
+  崩溃形态（`ASSERT:` / `FATAL` / `Segmentation` / `QQmlApplicationEngine failed`）、JS 异常形态
+  （`TypeError:` / `ReferenceError:` 等语言级封闭集合）与 QML 定位形态
+  （`<file>.qml:<行>[:<列>]: <消息>`，引擎只对「有问题」的行打源定位，零容忍默认全拦）；
+  verify.ps1 与 ci.yml 只调用不再自带列表，脚本 `--selftest` 强制断言致命 pattern 字符串在
+  `scripts/` 与 `.github/` 下只出现一处。本地走棘轮口径（`--base origin/main`，存量不阻塞，
+  与 `check_module_deps` 同一套改动清单语义），CI 走 `--strict`（主线零容忍）。
+- **预防**：**「列出已知坏法」永远追不上「坏法的新形态」** —— 像启动日志这种「正常形态
+  稳定可描述」的判据，一律写成形态识别 + 反向证伪自测（造一条已知漏检样本喂进去，
+  检查必须红且点名该行）。只证明「当前主线命中 0」是不够的 —— 那分不清是检查写对了，
+  还是检查根本没在工作。
 
 ---
 

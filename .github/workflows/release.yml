@@ -90,8 +90,14 @@ jobs:
         # Ninja 才真正吃 launcher，且是 build.ps1 的默认路径：配置+编译收口在 build.ps1
         # 单一实现，/showIncludes 前缀字节（DX-52）与 sccache 命中率打印（DX-16 口径）都由它兜住。
         # exe 单配置直接落 build\NeonBoard.exe（deploy.ps1 两种布局都认）。
+        # Qt 经 NEONBOARD_QT_ROOT 传递而非 -QtRoot 参数：build.ps1 点源 dev-env.ps1 时，
+        # 其 param([string]$QtRoot='') 会在宿主作用域覆写 -QtRoot 已绑定的值
+        # （DX-37 发布 run 42330524049 实测：参数明明传了，Resolve-QtRoot 却收到空）。
+        # NEONBOARD_QT_ROOT 是 build.ps1 的正式探测序第二通道，点源覆写不了环境变量。
         shell: pwsh
-        run: pwsh -NoProfile -File scripts\build.ps1 -Config Release -QtRoot "${{ env.QT_ROOT_DIR }}" -BuildDir build
+        env:
+          NEONBOARD_QT_ROOT: ${{ env.QT_ROOT_DIR }}
+        run: pwsh -NoProfile -File scripts\build.ps1 -Config Release -BuildDir build
 
       - name: sccache 生效核验与命中率
         # DX-37：加速器「配置存在 ≠ 生效」，判据必须落到实测：launcher 进了 CMakeCache

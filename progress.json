@@ -7,7 +7,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "DX-131",
-            "note": "",
+            "note": "交付 2026-11-07 / agent-dx131 / fix/dx-131-deps-prefix-utf8：①字节事实复核修正了 evidence 的一半前提——探针本体自 DX-60 起已是 Latin-1 字节级保真，prefix.bin 与 cl 实际输出逐字节一致；实测 cl 直跑输出 UTF-8「注意: 包含文件:  」，经 sccache 改写成 D7 A2 EF BF BD 3A 20 EF BF BD 3A 20 20（GBK+U+FFFD 混合，任何单一编码无法无损 round-trip）；VSLANG=1033 两链路均无效（65001 会话复核，验收④按「无效→字节化方案」收敛）；②探针字节提取收口 check_ninja_deps.py --extract-prefix；configure 后 build.ps1 按 prefix.bin 对 rules.ninja 的 msvc_deps_prefix 做字节手术（--patch-rules-ninja），file(READ) 一跳按构造与控制台代码页无关，DX-60 闸门保留为手术后核对；③nb-console.ps1 补第四跳 PYTHONIOENCODING=utf-8，点源四入口（verify/build/git-done/agent-init）全链路生效。验收逐条：①UTF-8 / CP936 / 无控制台三种会话 build.ps1 -Reconfigure 全 EXIT 0、#deps 0 计数 0（443 编译单元 120287 条依赖非空）；②判据固化为 selftest 14/14（sccache 混合字节 / cl 直跑 UTF-8 / 纯 GBK 三形态 fixture 逐字节断言 + 手术替换/幂等/无标记用例）；③全量 verify.ps1 EXIT 0（无 -SkipBuild：ctest + --selftest + --smoke + 模块守卫 + 看板一致性）；check_qml_warnings --selftest 在 PYTHONIOENCODING/PYTHONUTF8 双 unset 下经 nb-console 链路通过（对照实验钉死）；④VSLANG 判决与三处修复入 pitfalls §3.20/§7.7(D)；⑤touch TaskModel.h 后 ninja 重编 62 个引用 TU（193 步），deps 全非空无跨树越界。已完成 5 / 待做 0。残留（卡 scope 外，留专卡）：绕过入口脚本裸调 python check_qml_warnings.py --selftest 仍依赖环境（本机 profile 常有 PYTHONUTF8=1 掩盖；双 unset 实测 exit 1，子进程把「第 2 行」按 GBK 编码进管道），根治只需 selftest() 的 subprocess.run 注入 env，但该文件不在 DX-131 scope；另历史「CP936 下 file(READ) 写 ?」在今日 CMake 4.4.4 + 混合字节形态无法重现（三会话实测保真），修复按构造关死不赌环境。",
             "orderKey": 20224,
             "priority": 2,
             "stage": "DX",
@@ -16,7 +16,7 @@
                 "DX"
             ],
             "title": "依赖前缀交接 UTF-8 会话失真：探针把 GBK 前缀解成 U+FFFD，全量 verify 编译步骤在本机必拦",
-            "updatedAt": 1794027722
+            "updatedAt": 1794030140
         },
         {
             "code": "R0-14",
@@ -5497,6 +5497,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T13:02:09",
+    "updated": "2026-11-07T13:42:20",
     "version": 3
 }

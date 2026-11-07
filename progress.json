@@ -73,6 +73,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "R1-8",
+            "completedAt": 0,
+            "createdAt": 1794027487,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R1-8",
+            "note": "",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "R1",
+            "status": "todo",
+            "tags": [
+                "R1"
+            ],
+            "title": "过滤态拖拽落点按可见顺序计算：搜索 / 阶段过滤下指示线与落库顺序一致",
+            "updatedAt": 1794027487
+        },
+        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -5443,6 +5461,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T12:57:17",
+    "updated": "2026-11-07T12:58:07",
     "version": 3
 }

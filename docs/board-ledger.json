@@ -1286,7 +1286,8 @@
                 "src/core/SafePaths.cpp",
                 "CMakeLists.txt",
                 "tests/**",
-                "docs/pitfalls.md"
+                "docs/pitfalls.md",
+                "src/main.cpp"
             ],
             "stage": "DX",
             "tier": "P3",

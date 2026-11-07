@@ -1,0 +1,13 @@
+{
+  "card": "R0-15",
+  "sha256": "e695d2576f6ffdaf6031ff2fac7f2f84e21b960e4aac8fecbf59a36e61de68bb",
+  "authorizedBy": "维护者会话 2026-11-07 授权（R0-13 复盘拍板：残留立卡）",
+  "form": "docs/card-requests/20261107-r0-15-startup-defer-tail.md",
+  "registeredAt": "2026-11-07T05:02:09+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R0-15",
+    "sha": "674d54e0caa83b92be83c6766544a9483276b805"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "card": "DX-131",
+  "sha256": "334ce93dd496f1069695d1131f829c5f349bd7aafd20238f95eb6f4ee5655995",
+  "authorizedBy": "维护者会话 2026-11-07 授权（R0-13 复盘拍板：残留立卡）",
+  "form": "docs/card-requests/20261107-dx131-deps-prefix-utf8.md",
+  "registeredAt": "2026-11-07T05:02:01+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-131",
+    "sha": "0b6e685148cd8420a81a7501a6d1b431684aa248"
+  }
+}

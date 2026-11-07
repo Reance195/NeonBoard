@@ -5709,13 +5709,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-122": {
-            "agent": "agent-dx122",
-            "branch": "fix/dx122-warning-shape",
-            "claimedAt": 1794014422,
-            "head": "1cb3e8980592628c68cf11073f4ca9413a80808c"
-        }
-    },
+    "claims": {},
     "version": 1
 }

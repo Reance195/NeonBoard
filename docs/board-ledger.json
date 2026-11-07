@@ -204,6 +204,7 @@
         "R19-1": "done",
         "R2-01": "done",
         "R2-02": "done",
+        "R20-1": "todo",
         "R3-01": "done",
         "R3-02": "done",
         "R3-03": "done",
@@ -257,8 +258,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "R20-1": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -4449,6 +4449,28 @@
             "stage": "R2",
             "title": "R2 Shader 场景化 + 主题包"
         },
+        "R20-1": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全过（全量档：编译 → ctest → --selftest → --smoke → 模块守卫 → 看板一致性）",
+                "沙箱运行 NeonBoard.exe --plugin-report 含 com.lin.scheduler 且 status 为 ok",
+                "补执行幂等用例：向沙箱数据目录 board.db 的 plugin_kv 预写一条 once 过期规则，启动后补执行一次（任务被创建、scheduler.records 与 scheduler.state 落盘、lastSlot 推进），再次启动不重复建卡",
+                "面板走查：规则增删改、启停、立即执行、执行记录展示正常，样式全部使用 Theme 令牌无硬编码颜色",
+                "README.md 与 docs/scheduler.md 与实现一致（规则模型、存储键、三型动作）"
+            ],
+            "author": "agent-sched-session-2026-11-07",
+            "depends": [],
+            "evidence": "维护者 2026-11-07 会话提出「开发定时任务插件」并批准实施计划（会话内 ExitPlanMode 批准）。探索确认：宿主插件平台 apiVersion 2 已具备后台常驻 / 事件 / storage / 通知能力（docs/plugin-api.md），plan-hook 提供完整的后台插件范式（plugins/plan-hook/），看板缺「时间驱动」的自动化入口——plan-hook 是事件（git 提交）驱动，ReminderScheduler 只覆盖 due_at 提醒，定时建卡 / 按条件流转无承载。查重命中 R4-09 系领用可见与统一新建入口，非时间驱动自动化，新痛点成立。",
+            "id": "R20-1",
+            "note": "",
+            "scope": [
+                "plugins/scheduler/**",
+                "docs/scheduler.md",
+                "README.md"
+            ],
+            "stage": "R20",
+            "tier": "P4",
+            "title": "定时任务插件：按时间计划自动建卡、流转任务、发提醒"
+        },
         "R3-01": {
             "acceptance": [
                 "pwsh -File scripts/verify.ps1 全过",
@@ -5685,30 +5707,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "R20-1": {
-            "acceptance": [
-                "pwsh -File scripts/verify.ps1 全过（全量档：编译 → ctest → --selftest → --smoke → 模块守卫 → 看板一致性）",
-                "沙箱运行 NeonBoard.exe --plugin-report 含 com.lin.scheduler 且 status 为 ok",
-                "补执行幂等用例：向沙箱数据目录 board.db 的 plugin_kv 预写一条 once 过期规则，启动后补执行一次（任务被创建、scheduler.records 与 scheduler.state 落盘、lastSlot 推进），再次启动不重复建卡",
-                "面板走查：规则增删改、启停、立即执行、执行记录展示正常，样式全部使用 Theme 令牌无硬编码颜色",
-                "README.md 与 docs/scheduler.md 与实现一致（规则模型、存储键、三型动作）"
-            ],
-            "author": "agent-sched-session-2026-11-07",
-            "depends": [],
-            "evidence": "维护者 2026-11-07 会话提出「开发定时任务插件」并批准实施计划（会话内 ExitPlanMode 批准）。探索确认：宿主插件平台 apiVersion 2 已具备后台常驻 / 事件 / storage / 通知能力（docs/plugin-api.md），plan-hook 提供完整的后台插件范式（plugins/plan-hook/），看板缺「时间驱动」的自动化入口——plan-hook 是事件（git 提交）驱动，ReminderScheduler 只覆盖 due_at 提醒，定时建卡 / 按条件流转无承载。查重命中 R4-09 系领用可见与统一新建入口，非时间驱动自动化，新痛点成立。",
-            "id": "R20-1",
-            "note": "",
-            "scope": [
-                "plugins/scheduler/**",
-                "docs/scheduler.md",
-                "README.md"
-            ],
-            "stage": "R20",
-            "tier": "P4",
-            "title": "定时任务插件：按时间计划自动建卡、流转任务、发提醒"
         }
     },
-    "claims": {},
+    "claims": {
+        "R20-1": {
+            "agent": "agent-sched",
+            "branch": "feature/scheduler-plugin",
+            "claimedAt": 1794014243,
+            "head": "11250809ee6faca496e5365fea906160220014c7"
+        }
+    },
     "version": 1
 }

@@ -1,5 +1,5 @@
 ---
-state: requested
+state: closed
 card: DX-44
 stage: DX
 title: board.yml 把注定短暂的中间态当最终状态校验，每次收尾固定产 1~3 封失败邮件

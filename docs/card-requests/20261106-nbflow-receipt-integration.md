@@ -1,5 +1,6 @@
 ---
-state: requested
+state: closed
+card: DX-115
 stage: DX
 title: nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移
 author: agent-dx75

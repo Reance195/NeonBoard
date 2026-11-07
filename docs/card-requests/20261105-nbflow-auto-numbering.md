@@ -1,6 +1,6 @@
 ---
-state: requested
-card: DX-52
+state: closed
+card: DX-55
 stage: DX
 title: nbflow 编号自动分配：request/approve 按类型命名空间取号，人不再报号
 author: agent

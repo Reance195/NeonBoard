@@ -389,12 +389,21 @@ jobs:
           # 放在发布之后：即使回写失败，Release 也已经出好了。
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # build.ps1 构建前会跑 setup-git-hooks.ps1 固化 core.hooksPath（DX-37 起 release
+          # 构建走 build.ps1，v0.1.7 run 42338278076 实录：钩子首次在 release CI 激活，
+          # 任务闸门把 update.json 判成代码路径、拒掉无短号的 bot 提交）。
+          # bot 回写是程序化派生物同步（DX-48 口径），恢复检出默认钩子态后再提交。
+          git config --local --unset core.hooksPath 2>$null
           git add update.json
           if (git diff --cached --quiet) {
             Write-Host 'update.json 无变化，跳过提交'
             exit 0
           }
           git commit -m "chore(release): 同步软件更新清单至 $env:RELEASE_VERSION"
+          # 提交失败必须当场炸：带着未提交暂存去 rebase 只会二次失败
+          # （v0.1.7 run 42338278076 实录：闸门拒 commit 后 rebase 报
+          #  "cannot rebase: Your index contains uncommitted changes"，报错还被顶掉）。
+          if ($LASTEXITCODE -ne 0) { throw "update.json 提交失败（退出码 $LASTEXITCODE）" }
           # main 在打包的十几分钟里很可能已被别的自动化（看板回写、CI 修复）推进，
           # 直接推会被 "fetch first" 拒掉 —— v0.1.1 发布时就踩了这个：Release 出好了，
           # 但清单没回到仓库，客户端读 raw 拿到的还是旧版本、判定「已是最新」。

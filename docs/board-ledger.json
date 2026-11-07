@@ -42,6 +42,7 @@
         "DX-128": "done",
         "DX-129": "done",
         "DX-13": "done",
+        "DX-130": "todo",
         "DX-14": "done",
         "DX-15": "done",
         "DX-16": "done",
@@ -1207,6 +1208,28 @@
             ],
             "stage": "DX",
             "title": "收尾闭环：结卡后必须刷新看板快照（git-done 快照漂移）"
+        },
+        "DX-130": {
+            "acceptance": [
+                "回写步在 bot 提交前恢复检出默认钩子态（unset core.hooksPath），并在 commit 之后显式检查 $LASTEXITCODE、失败立即 throw（不再带病 rebase）",
+                "run 42338278076 产出的 update.json（latest=0.1.7，三个资产的 sha256/size 与已挂 Release 资产一致）同步落地 origin/main，客户端 raw 读取可见 0.1.7",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过（.github/workflows 与 update.json 均非编译路径，走脚本档）",
+                "下次真实发版（v0.1.8+）清单回写步不再红 —— 本卡只修脚本与补同步，真发验证留给下一版"
+            ],
+            "author": "agent-codebuddy-release-session-2026-11-07",
+            "depends": [
+                "DX-37"
+            ],
+            "evidence": "v0.1.7 发布 run 42338278076 实录。① 打包/发布全绿（setup/portable/delta/update.json 全部挂上 Release），唯独最后一步「回写更新清单到仓库」失败：bot 的 `chore(release): 同步软件更新清单至 0.1.7` 被 commit-msg 任务闸门拒 —— update.json 不在豁免清单（EXEMPT_FILES 只认 progress.json/.gitignore/.gitattributes/LICENSE），判代码路径、无短号即拒。② 根因：DX-37（75fd108，v0.1.6 打 tag 之后才合入）把 release 构建换成 build.ps1，而 build.ps1 自 ad5134d 起构建前跑 setup-git-hooks.ps1 固化 core.hooksPath（clone 级配置、fresh runner 本无钩子）—— v0.1.6 的 release 还不走 build.ps1，钩子从未在 release CI 激活过；v0.1.7 是第一次，bot 提交从此撞自家闸门。③ 连锁：步骤不查 git commit 退出码，commit 被拒后带着未提交暂存执行 git rebase origin/main → 「cannot rebase: Your index contains uncommitted changes」→ 二次失败。④ 后果：Release 已出但 raw update.json 停在 0.1.6，客户端判定「已是最新」收不到 0.1.7（v0.1.1「Release 出好了但清单没回写」同款实录的第二次）。",
+            "id": "DX-130",
+            "note": "",
+            "scope": [
+                ".github/workflows/release.yml",
+                "update.json"
+            ],
+            "stage": "DX",
+            "tier": "P1",
+            "title": "release.yml 清单回写步撞自家任务闸门：build.ps1 激活 hooksPath 后 bot 提交被拒，步骤不查 commit 退出码连累 rebase 二次失败"
         },
         "DX-14": {
             "acceptance": [
@@ -5794,6 +5817,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-130": {
+            "agent": "agent-release-017",
+            "branch": "chore/board-dx-130",
+            "claimedAt": 1794026470,
+            "head": "5113e47063668b733aed3a4a1830921f55db2fd0"
+        }
+    },
     "version": 1
 }

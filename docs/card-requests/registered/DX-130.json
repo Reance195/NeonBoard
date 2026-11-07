@@ -1,0 +1,13 @@
+{
+  "card": "DX-130",
+  "sha256": "b2f73cb628505ca6c17caf41ff5b7b0c4933b61ed85119513fed557fdf38e597",
+  "authorizedBy": "维护者 2026-11-07 会话指令「发个版吧」（发版闭环内的 CI 修复）",
+  "form": "docs/card-requests/20261107-release-manifest-sync-gate.md",
+  "registeredAt": "2026-11-07T04:40:35+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-130",
+    "sha": "12ee63042ca3e37738cb6a359d4cbe819385b8f2"
+  }
+}

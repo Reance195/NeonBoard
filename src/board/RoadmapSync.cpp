@@ -263,6 +263,27 @@ bool RoadmapSync::importFrom(const QString &filePath, bool force)
     return importEntry(adhoc, force);
 }
 
+RoadmapSync::HomeScope RoadmapSync::homeScope(const SyncEntry &entry) const
+{
+    // 作用域（R18-02）：全局文件只放未归属绑定项目的卡，项目文件只放
+    // 该项目的卡 —— 每张卡恰好有一个「家」文件，避免同一张卡写进
+    // 两个文件的双写者问题。导入与导出共用这一份判据（DX-133）。
+    HomeScope scope;
+    scope.isGlobal = entry.projectId.isEmpty();
+    if (!m_projects)
+        return scope;
+    if (scope.isGlobal) {
+        for (const auto &bound : m_projects->boundRepos())
+            for (const QString &id : m_projects->taskIdsOf(bound.first))
+                scope.homeIds.insert(id);
+    } else {
+        for (const QString &id : m_projects->taskIdsOf(entry.projectId))
+            scope.homeIds.insert(id);
+    }
+    scope.scoped = true;
+    return scope;
+}
+
 bool RoadmapSync::importEntry(SyncEntry &entry, bool force)
 {
     if (entry.path.isEmpty()) {
@@ -298,6 +319,9 @@ bool RoadmapSync::importEntry(SyncEntry &entry, bool force)
     // 这类条目一律以文件为准；没有基线（CLI / 首次启动）则退化为
     // 「按 updatedAt 大者胜」，避免旧文件覆盖看板里的新改动。
     const bool hasBaseline = !entry.baseline.isEmpty();
+
+    // 作用域判据（DX-133 防线用）：墓碑只删「家在本文件」的卡
+    const HomeScope scope = homeScope(entry);
 
     for (const QJsonValue &value : items) {
         const QJsonObject item = value.toObject();
@@ -335,6 +359,17 @@ bool RoadmapSync::importEntry(SyncEntry &entry, bool force)
         }
 
         if (item.value(QStringLiteral("deleted")).toBool()) {
+            // 墓碑只对「家在本文件」的卡生效（DX-133 防线）：家在别处的墓碑
+            // 条目 —— 归属迁移后的残留、双项目绑同路径时对方的条目 —— 不执行
+            // 删除，按冲突计（以看板为准）。文件里可能已经躺着历史误标的
+            // 墓碑，这道防线保证导入侧永远删不到别人家的卡。
+            const bool homeHere = !scope.scoped
+                || (scope.isGlobal ? !scope.homeIds.contains(id) : scope.homeIds.contains(id));
+            if (!homeHere && !board.isEmpty()) {
+                ++conflicts;
+                ++skipped;
+                continue;
+            }
             if (!board.isEmpty() && m_tasks->deleteTask(id))
                 ++deleted;
             ++applied;
@@ -427,21 +462,11 @@ bool RoadmapSync::exportEntry(SyncEntry &entry)
 
     // 作用域（R18-02）：全局文件只放未归属绑定项目的卡，项目文件只放
     // 该项目的卡 —— 每张卡恰好有一个「家」文件，避免同一张卡写进
-    // 两个文件的双写者问题。
-    const bool isGlobal = entry.projectId.isEmpty();
-    QSet<QString> homeIds; // 全局条目：「家不在这」的卡（跳过）；项目条目：「家在这」的卡（写入）
-    bool scoped = false;
-    if (m_projects) {
-        if (isGlobal) {
-            for (const auto &bound : m_projects->boundRepos())
-                for (const QString &id : m_projects->taskIdsOf(bound.first))
-                    homeIds.insert(id);
-        } else {
-            for (const QString &id : m_projects->taskIdsOf(entry.projectId))
-                homeIds.insert(id);
-        }
-        scoped = true;
-    }
+    // 两个文件的双写者问题。判据与导入侧共用一份实现（DX-133）。
+    const HomeScope scope = homeScope(entry);
+    const bool isGlobal = scope.isGlobal;
+    const QSet<QString> homeIds = scope.homeIds;
+    const bool scoped = scope.scoped;
 
     QString error;
     const QJsonObject root = readFile(entry.path, &error);
@@ -495,13 +520,17 @@ bool RoadmapSync::exportEntry(SyncEntry &entry)
         const QString id = task.value(QStringLiteral("id")).toString();
         if (id.isEmpty())
             continue;
+        // 家不在本文件的卡必须先计入 seen：seen 的语义是「看板里存在」，
+        // 不是「要写进本文件」—— scoped 过滤只决定写不写。否则墓碑循环
+        // 会把文件里它的旧条目误标 deleted，下次导入就把卡删了
+        // （DX-133：归属迁移 / 同路径多项目的对方卡被清掉）。
+        seen.append(id);
         // 作用域过滤（R18-02）：这张卡的「家」不是本文件，不写
         if (scoped) {
             const bool homeHere = isGlobal ? !homeIds.contains(id) : homeIds.contains(id);
             if (!homeHere)
                 continue;
         }
-        seen.append(id);
 
         QJsonObject item;
         item[QStringLiteral("id")] = id;

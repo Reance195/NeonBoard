@@ -17,6 +17,7 @@
 #include "RoadmapSync.h"
 #include "TaskModel.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -113,6 +114,9 @@ private slots:
     void exportRoutingSeparatesFiles();
     void unbindingKeepsTasksAndMovesHomeToGlobal();
     void repoPathColumnDoesNotBumpVersion();
+    void tombstoneIgnoresCardsWithHomeElsewhere();
+    void realDeleteStillAppliesForHomeFile();
+    void sameRepoTwoProjectsDoNotKillEachOther();
 
 private:
     QString globalPath() const { return m_dir.filePath(QStringLiteral("global-%1.json").arg(m_seq)); }
@@ -285,6 +289,94 @@ void TestRoadmapSync::repoPathColumnDoesNotBumpVersion()
             hasRepoPath = true;
     }
     QVERIFY(hasRepoPath);
+}
+
+// ---- DX-133：墓碑只对「家在本文件」的卡生效 ----
+//
+// 缺陷链：导出时 scoped 过滤只控制「写不写」，却把卡也漏出了 seen；
+// 墓碑循环把「文件有、seen 没有」一律标 deleted，于是归属迁移 / 双项目
+// 绑同路径时，别人家的卡被误标墓碑，下次导入 deleteTask 把看板卡永久删掉。
+
+void TestRoadmapSync::tombstoneIgnoresCardsWithHomeElsewhere()
+{
+    // 第一段：归属迁移（家从项目文件回落全局文件）不得丢卡
+    writeRepo({makeItem("m1", QStringLiteral("迁移卡"), QStringLiteral("todo"), 1000)});
+    const QString p = m_projects->createProject(QStringLiteral("仓库A"));
+    QVERIFY(m_projects->setRepoPath(p, repoDir()));
+    QVERIFY(m_sync->importAll(false));
+    QCOMPARE(m_projects->projectOfTask(QStringLiteral("m1")), p);
+
+    // 解除归属 → 家回落全局文件
+    QVERIFY(m_projects->assignTask(QStringLiteral("m1"), QString()));
+    m_sync->exportAll();
+
+    // 全局文件接住了家；项目文件里不得留下墓碑（旧条目要么原样要么被清走）
+    QVERIFY(hasItem(snapshotItems(globalPath()), QStringLiteral("m1")));
+    QVERIFY(!hasItem(snapshotItems(repoFile()), QStringLiteral("m1"), true));
+
+    // 下一次导入：看板卡必须安然无恙
+    QVERIFY(m_sync->importAll(false));
+    QCOMPARE(m_model->count(), 1);
+    QVERIFY(!m_model->taskById(QStringLiteral("m1")).isEmpty());
+
+    // 第二段：存量损坏兜底 —— 文件里已经躺着历史误标的墓碑（updatedAt 更新，
+    // 会按「文件较新」进删除分支），导入侧防线必须拦下：不删、按冲突计
+    QJsonObject tomb = makeItem("m1", QStringLiteral("迁移卡"), QStringLiteral("todo"),
+                                QDateTime::currentSecsSinceEpoch() + 3600);
+    tomb.insert(QStringLiteral("deleted"), true);
+    writeRepo({tomb});
+    QVERIFY(m_sync->importAll(false));
+    QCOMPARE(m_model->count(), 1);
+    QVERIFY(!m_model->taskById(QStringLiteral("m1")).isEmpty());
+    QVERIFY(m_sync->conflicts() >= 1);
+}
+
+void TestRoadmapSync::realDeleteStillAppliesForHomeFile()
+{
+    // 真删除链路不回归：看板上删掉的卡，家文件的墓碑照常对账，不误伤他卡
+    writeRepo({makeItem("r1", QStringLiteral("待删卡"), QStringLiteral("todo"), 1000),
+               makeItem("r2", QStringLiteral("留存卡"), QStringLiteral("doing"), 2000)});
+    const QString p = m_projects->createProject(QStringLiteral("仓库A"));
+    QVERIFY(m_projects->setRepoPath(p, repoDir()));
+    QVERIFY(m_sync->importAll(false));
+    QCOMPARE(m_model->count(), 2);
+
+    QVERIFY(m_model->deleteTask(QStringLiteral("r1")));
+    m_sync->exportAll();
+    QVERIFY(hasItem(snapshotItems(repoFile()), QStringLiteral("r1"), true));
+    QVERIFY(hasItem(snapshotItems(repoFile()), QStringLiteral("r2"), false));
+
+    QVERIFY(m_sync->importAll(false));
+    QCOMPARE(m_model->count(), 1);
+    QVERIFY(!m_model->taskById(QStringLiteral("r2")).isEmpty());
+    QVERIFY(m_model->taskById(QStringLiteral("r1")).isEmpty());
+}
+
+void TestRoadmapSync::sameRepoTwoProjectsDoNotKillEachOther()
+{
+    // 两个项目绑同一路径（手滑配置）：各自的导出不得把对方家的卡标成墓碑，
+    // 导入也不得删对方的卡 —— 谁家归谁写，别人的条目原样或清走，唯独不删。
+    // setRepoPath 要求目录已存在（绑定校验），先落目录再绑
+    QDir(m_dir.path()).mkpath(QStringLiteral("repo-%1").arg(m_seq));
+    const QString p1 = m_projects->createProject(QStringLiteral("仓库一"));
+    const QString p2 = m_projects->createProject(QStringLiteral("仓库二"));
+    QVERIFY(m_projects->setRepoPath(p1, repoDir()));
+    QVERIFY(m_projects->setRepoPath(p2, repoDir()));
+
+    const QString t1 = m_model->addTask(QStringLiteral("甲的卡"), QStringLiteral("todo"), 1, QString());
+    const QString t2 = m_model->addTask(QStringLiteral("乙的卡"), QStringLiteral("doing"), 1, QString());
+    QVERIFY(!t1.isEmpty() && !t2.isEmpty());
+    QVERIFY(m_projects->assignTask(t1, p1));
+    QVERIFY(m_projects->assignTask(t2, p2));
+
+    m_sync->exportAll();
+    QVERIFY(!hasItem(snapshotItems(repoFile()), t1, true));
+    QVERIFY(!hasItem(snapshotItems(repoFile()), t2, true));
+
+    QVERIFY(m_sync->importAll(false));
+    QCOMPARE(m_model->count(), 2);
+    QCOMPARE(m_projects->projectOfTask(t1), p1);
+    QCOMPARE(m_projects->projectOfTask(t2), p2);
 }
 
 QTEST_MAIN(TestRoadmapSync)

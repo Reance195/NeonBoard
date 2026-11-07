@@ -5773,6 +5773,13 @@
             "title": "弃单终态投影快照 deleted 墓碑：看板不再显示已弃单卡，重开自动恢复"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-102": {
+            "agent": "agent-dx102",
+            "branch": "test/dx102-interaction-regression",
+            "claimedAt": 1794019173,
+            "head": "9a8bd515ade19739fd50aaea13d22b07aac16f51"
+        }
+    },
     "version": 1
 }

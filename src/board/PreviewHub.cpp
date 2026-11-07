@@ -652,6 +652,17 @@ void PreviewHub::spawnBuildStage(const AgentInfo &agent, const BuildSettings &se
         onBuildFinished(agentId, exitCode);
         proc->deleteLater();
     });
+    // FailedToStart 不发 finished（DX-135）：cmake 拉不起来时必须自行解锁，
+    // 否则 m_builds 永不清、该 agent 永远「构建中」
+    connect(proc, &QProcess::errorOccurred, this,
+            [this, agentId = agent.id, proc](QProcess::ProcessError error) {
+                if (error != QProcess::FailedToStart)
+                    return; // Crashed / Timedout 仍会发 finished，交给既有收尾
+                appendLog(agentId,
+                          QStringLiteral("\n=== 构建启动失败：程序拉不起来（检查 cmake 路径 / PATH） ===\n"));
+                onBuildFinished(agentId, -1);
+                proc->deleteLater();
+            });
 
     appendLog(agent.id, QStringLiteral("=== %1 : %2 ===\n").arg(agent.id, stage));
     proc->start(settings.cmake, args);
@@ -1193,7 +1204,29 @@ void PreviewHub::packageStep(const QString &step)
             finishPackage(true, done ? done->outputDir : QString());
         }
     });
+    // FailedToStart 不发 finished（DX-135）：不处理的话 m_packageProc 永不清空，
+    // startNextPackage 永远早退 —— 打包队列（含后续入队任务）死到进程重启
+    connect(proc, &QProcess::errorOccurred, this,
+            [this, agentId, step, proc](QProcess::ProcessError error) {
+                if (error != QProcess::FailedToStart)
+                    return;
+                appendLog(agentId, QStringLiteral("\n=== %1 启动失败：程序拉不起来 ===\n")
+                                       .arg(packageStepLabel(step)));
+                m_packageProc = nullptr;
+                proc->deleteLater();
+                finishPackage(false, QStringLiteral("%1 启动失败").arg(packageStepLabel(step)));
+            });
     proc->start(program, args);
+}
+
+void PreviewHub::runBuildStage(const QString &agentId, const QString &workDir, const QString &program)
+{
+    AgentInfo agent;
+    agent.id = agentId;
+    agent.path = workDir;
+    BuildSettings settings;
+    settings.cmake = program;
+    spawnBuildStage(agent, settings, QStringLiteral("configure"));
 }
 
 bool PreviewHub::preparePackageDir(const AgentInfo &agent, QString *outDir, QString *error)

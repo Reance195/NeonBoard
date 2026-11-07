@@ -53,6 +53,13 @@ public:
     Q_INVOKABLE bool enqueuePackage(const QString &agentId);
     Q_INVOKABLE void clearFinishedPackages();
 
+    // 诊断 / 测试用（DX-135）：以指定程序（可以是不存在的路径）走一次异步构建阶段，
+    // 钉住「QProcess FailedToStart 不发 finished，状态机必须自行解锁」的契约。
+    // 与 build() 的差异只在 cmake 程序可注入；不进 QML、不进 CLI。
+    void runBuildStage(const QString &agentId, const QString &workDir, const QString &program);
+    // 构建锁状态只读暴露：诊断 / 测试用
+    bool isBuilding(const QString &agentId) const { return m_builds.contains(agentId); }
+
     // 命令行模式（scripts/preview.ps1 走这条路，避免两套扫描逻辑）
     QString listJson() const;
     bool buildBlocking(const QString &agentId, QString *error);

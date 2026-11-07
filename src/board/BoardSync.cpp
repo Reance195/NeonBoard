@@ -20,10 +20,12 @@ constexpr char kCodeMetaKey[] = "board.codes";
 
 } // namespace
 
-BoardSync::BoardSync(Database *database, TaskModel *tasks, QObject *parent)
+BoardSync::BoardSync(Database *database, TaskModel *tasks, const QString &anchorRootOverride,
+                     QObject *parent)
     : QObject(parent)
     , m_database(database)
     , m_tasks(tasks)
+    , m_anchorRootOverride(anchorRootOverride)
 {
 }
 
@@ -76,7 +78,8 @@ void BoardSync::refresh()
     if (m_refreshing)
         return;
 
-    const QString root = findRepoRoot();
+    const QString root =
+        m_anchorRootOverride.isEmpty() ? findRepoRoot() : m_anchorRootOverride;
     if (root.isEmpty()) {
         if (!m_claims.isEmpty()) {
             m_claims.clear();
@@ -117,6 +120,18 @@ void BoardSync::refresh()
                 }
                 startMergedQuery();
             });
+    // FailedToStart 不发 finished（DX-135）：git 不在 GUI 实例 PATH 时 m_refreshing
+    // 会永久卡 true，领用刷新从此静默停摆 —— 起不来按「本次刷新失败」收尾，
+    // 下个轮询周期自然重试。Crashed / Timedout 仍会发 finished，走既有收尾。
+    connect(m_branchProcess, &QProcess::errorOccurred, this,
+            [this](QProcess::ProcessError error) {
+                if (error != QProcess::FailedToStart)
+                    return;
+                qWarning() << "BoardSync: git 启动失败，本次领用刷新跳过";
+                m_branchProcess->deleteLater();
+                m_branchProcess = nullptr;
+                finishRefresh();
+            });
     m_branchProcess->start(QStringLiteral("git"),
                            {QStringLiteral("-C"), m_anchorRoot, QStringLiteral("for-each-ref"),
                             QStringLiteral("--format=%(refname:short)"), QStringLiteral("refs/heads/")});
@@ -145,6 +160,16 @@ void BoardSync::startMergedQuery()
                     if (!branch.isEmpty())
                         m_mergedBranches.insert(branch);
                 }
+                finishRefresh();
+            });
+    // 同上（DX-135）：merged 查询拉不起来也要收尾，不能让 m_refreshing 楔死
+    connect(m_mergedProcess, &QProcess::errorOccurred, this,
+            [this](QProcess::ProcessError error) {
+                if (error != QProcess::FailedToStart)
+                    return;
+                qWarning() << "BoardSync: git 启动失败，本次领用刷新跳过";
+                m_mergedProcess->deleteLater();
+                m_mergedProcess = nullptr;
                 finishRefresh();
             });
     m_mergedProcess->start(QStringLiteral("git"),

@@ -30,7 +30,9 @@ class BoardSync : public QObject
     Q_PROPERTY(int activeClaims READ activeClaims NOTIFY changed)
 
 public:
-    BoardSync(Database *database, TaskModel *tasks, QObject *parent = nullptr);
+    /** anchorRootOverride 非空时跳过仓库探测，直接以该目录为锚点（测试用，DX-135）。 */
+    explicit BoardSync(Database *database, TaskModel *tasks,
+                       const QString &anchorRootOverride = QString(), QObject *parent = nullptr);
 
     int revision() const;
     int activeClaims() const;
@@ -67,6 +69,7 @@ private:
 
     Database *m_database = nullptr;
     TaskModel *m_tasks = nullptr;
+    QString m_anchorRootOverride; // 非空时 refresh 直接用它当锚点（DX-135）
     QProcess *m_branchProcess = nullptr;
     QProcess *m_mergedProcess = nullptr;
     QString m_anchorRoot;

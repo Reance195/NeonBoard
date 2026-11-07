@@ -5755,13 +5755,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-127": {
-            "agent": "agent-dx127",
-            "branch": "fix/dx127-conflict-ticket-register",
-            "claimedAt": 1794019244,
-            "head": "745b7eee164cfaac5541dd59dee876dcba8d149c"
-        }
-    },
+    "claims": {},
     "version": 1
 }

@@ -5817,13 +5817,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-130": {
-            "agent": "agent-release-017",
-            "branch": "chore/board-dx-130",
-            "claimedAt": 1794026470,
-            "head": "5113e47063668b733aed3a4a1830921f55db2fd0"
-        }
-    },
+    "claims": {},
     "version": 1
 }

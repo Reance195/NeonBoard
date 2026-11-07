@@ -1,0 +1,13 @@
+{
+  "card": "DX-135",
+  "sha256": "04f1805186dcc1aaf26cfac7be7a8fa0370fd218cd34c6e64b8fda6dc16660c4",
+  "authorizedBy": "维护者会话授权(2026-11-07)：全仓审计 P0 开修",
+  "form": "docs/card-requests/20261107-audit-qprocess-start-failure.md",
+  "registeredAt": "2026-11-07T06:39:55+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-135",
+    "sha": "42033e411cd82f7d6f1f5799c128527e9d3cc539"
+  }
+}

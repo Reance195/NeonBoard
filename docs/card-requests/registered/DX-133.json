@@ -1,0 +1,13 @@
+{
+  "card": "DX-133",
+  "sha256": "2a73d463d87db60198087f2e5a9b1fdae25cba3c94ee8850b4c11520b02b904d",
+  "authorizedBy": "维护者会话授权(2026-11-07)：全仓审计 P0 开修",
+  "form": "docs/card-requests/20261107-audit-roadmap-tombstone.md",
+  "registeredAt": "2026-11-07T06:39:05+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-133",
+    "sha": "618db0bb920a5fad837a2543bcf5211e9c65866c"
+  }
+}

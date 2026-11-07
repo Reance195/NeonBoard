@@ -91,6 +91,114 @@
             "updatedAt": 1794027516
         },
         {
+            "code": "DX-132",
+            "completedAt": 0,
+            "createdAt": 1794033482,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-132",
+            "note": "",
+            "orderKey": 85504,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "插件包信任链三洞：盘符路径穿越、卸载目录逃逸、manifest.id 未比对",
+            "updatedAt": 1794033482
+        },
+        {
+            "code": "DX-133",
+            "completedAt": 0,
+            "createdAt": 1794033547,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-133",
+            "note": "",
+            "orderKey": 85760,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "RoadmapSync 墓碑误删：卡的「家」迁移被当成删除，看板卡片永久丢失",
+            "updatedAt": 1794033547
+        },
+        {
+            "code": "DX-134",
+            "completedAt": 0,
+            "createdAt": 1794033571,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-134",
+            "note": "",
+            "orderKey": 85888,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "agent 执行器三洞：超时宽限定时器 UAF、cmd 包装器引号注入、验收白名单绝对路径绕过",
+            "updatedAt": 1794033571
+        },
+        {
+            "code": "DX-135",
+            "completedAt": 0,
+            "createdAt": 1794033597,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-135",
+            "note": "",
+            "orderKey": 85952,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "QProcess FailedToStart 黑洞族：预览构建/打包队列与领用同步的状态机永久卡死",
+            "updatedAt": 1794033597
+        },
+        {
+            "code": "DX-136",
+            "completedAt": 0,
+            "createdAt": 1794033689,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-136",
+            "note": "",
+            "orderKey": 85984,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "自更新增量链三洞：delta.json 路径穿越、增量 sha256 fail-open、version 拼路径 + 回滚毁备份",
+            "updatedAt": 1794033689
+        },
+        {
+            "code": "DX-137",
+            "completedAt": 0,
+            "createdAt": 1794033711,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-137",
+            "note": "",
+            "orderKey": 86000,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "QML 反馈链三处：QString.isEmpty() 必抛 TypeError、逾期判定跨年失效、热力图永不重绘",
+            "updatedAt": 1794033711
+        },
+        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -5497,6 +5605,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T13:47:09",
+    "updated": "2026-11-07T14:41:51",
     "version": 3
 }

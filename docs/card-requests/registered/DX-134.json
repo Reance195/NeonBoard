@@ -1,0 +1,13 @@
+{
+  "card": "DX-134",
+  "sha256": "5ba6c55e5f25ed871e52698bcb6b2318b5c6d1170c3cdf46ad13605fa715a0cc",
+  "authorizedBy": "维护者会话授权(2026-11-07)：全仓审计 P0 开修",
+  "form": "docs/card-requests/20261107-audit-executor-gates.md",
+  "registeredAt": "2026-11-07T06:39:29+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-134",
+    "sha": "e3c751153f2568161a306ea9956ff66e1119ff07"
+  }
+}

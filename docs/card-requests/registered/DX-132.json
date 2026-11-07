@@ -1,0 +1,13 @@
+{
+  "card": "DX-132",
+  "sha256": "4644c2bf8f4d52ffdd1d1e4bc168a56e7b6d5890445ed382e322d9223461576f",
+  "authorizedBy": "维护者会话授权(2026-11-07)：全仓审计 P0 开修",
+  "form": "docs/card-requests/20261107-audit-plugin-package-path.md",
+  "registeredAt": "2026-11-07T06:37:58+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-132",
+    "sha": "82ded612c69397202a206c182031414da334f66d"
+  }
+}

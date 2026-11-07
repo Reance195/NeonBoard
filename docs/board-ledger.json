@@ -3686,7 +3686,7 @@
             "depends": [],
             "evidence": "README「已知限制」第 2 条（2026-11-07 对现行 main 核实）：「搜索或按阶段过滤时，拖拽落点按未过滤的列内顺序计算」。成因：R1-1（moveTaskBefore + taskIdsInStatus，全列 order_key 口径）落地时未定义过滤态语义，落点索引按未过滤序列换算；R8-05 拖拽手感（涟漪 / 光轨 / 磁吸，109ef92）只做视觉层。过滤激活时霓虹指示线画在可见卡之间，落库却按全列序列换算，两者可错位——卡片实际落点偏离指示线所示的空档，这是看板核心交互的正确性缺陷。台账覆盖检查（2026-11-07）：「拖拽落点 / 过滤落点」关键词零命中，R1-1 与 R8-05 均 done 且验收不含过滤态语义，无在办卡或 claim 占用同方向。",
             "id": "R1-8",
-            "note": "",
+            "note": "实证结论：README 已知限制第 2 条为 R8-05（109ef92）重做拖拽落点后的过时残留 —— DragFeel::resolve 按可见序列算插入下标、按完整顺序锚列尾，moveTaskBefore 按 order_key 中点落库，三者组合下指示线位置与过滤视图落位一致，构造不出错位场景。交付：tst_taskcolumns 新增 4 用例（搜索落中间 / 搜索列尾锚隐藏卡 / 阶段过滤夹隐藏卡 / 未过滤回归含列尾）把该语义钉住，全绿；README 过时条目移除；无行为代码改动。验收：verify.ps1 全量通过（41/41 ctest + --selftest 0 + --smoke 0 告警）。",
             "scope": [
                 "src/task/TaskFilterModel.cpp",
                 "src/task/TaskFilterModel.h",
@@ -6086,6 +6086,13 @@
             "title": "QML 反馈链三处：QString.isEmpty() 必抛 TypeError、逾期判定跨年失效、热力图永不重绘"
         }
     },
-    "claims": {},
+    "claims": {
+        "R1-8": {
+            "agent": "agent-duty-1107",
+            "branch": "feature/filtered-drag-landing",
+            "claimedAt": 1794028052,
+            "head": "29f21a9bf9bb300969647cb4f4f961ae11da14da"
+        }
+    },
     "version": 1
 }

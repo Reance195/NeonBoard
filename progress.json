@@ -19,24 +19,6 @@
             "updatedAt": 1794012369
         },
         {
-            "code": "DX-121",
-            "completedAt": 0,
-            "createdAt": 1793981220,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-121",
-            "note": "",
-            "orderKey": 52224,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "立卡半落地：回执/占位在而台账卡片被并发冲突抹去，回执闸门只查单向",
-            "updatedAt": 1793981220
-        },
-        {
             "code": "DX-101",
             "completedAt": 0,
             "createdAt": 1793935666,
@@ -215,6 +197,24 @@
             ],
             "title": "交互回归判据与 GUI 实机验收通道沉淀",
             "updatedAt": 1793935667
+        },
+        {
+            "code": "DX-121",
+            "completedAt": 0,
+            "createdAt": 1793981220,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-121",
+            "note": "",
+            "orderKey": 52224,
+            "priority": 2,
+            "stage": "DX",
+            "status": "doing",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡半落地：回执/占位在而台账卡片被并发冲突抹去，回执闸门只查单向",
+            "updatedAt": 1794012840
         },
         {
             "code": "R0-01",
@@ -5317,6 +5317,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T08:46:09",
+    "updated": "2026-11-07T08:54:00",
     "version": 3
 }

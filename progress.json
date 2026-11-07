@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R0-14",
-            "completedAt": 0,
-            "createdAt": 1794027516,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R0-14",
-            "note": "",
-            "orderKey": 40448,
-            "priority": 2,
-            "stage": "R0",
-            "status": "todo",
-            "tags": [
-                "R0"
-            ],
-            "title": "部署侧依赖收敛：CMake DELAYLOAD 精简随包 DLL，并纠偏 pitfalls §7.6 的过时前提",
-            "updatedAt": 1794027516
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -3334,6 +3316,24 @@
             "updatedAt": 1793903226
         },
         {
+            "code": "R0-14",
+            "completedAt": 1794047953,
+            "createdAt": 1794027516,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R0-14",
+            "note": "R0-14 交付说明（与验收项逐条对应）：① DELAYLOAD 对照写 §3.1 —— dumpbin 基线 8 个静态导入模块逐一评估（Quick/Qml/QuickControls2/Sql/Gui/Core 首帧必需；Widgets 在 QApplication 实例化即用；Network 由单实例 QLocalServer 启动期调用），/DELAYLOAD:Qt6Network.dll 实测被 LNK1194 硬拒（Q_OBJECT 静态元对象是 dllimport 数据符号，MSVC delayimp 不支持数据符号）——「可延后加载的 Qt 模块」为空集，原始错误输出已入档 §3.1 与 pitfalls §6.5，该路线机器可查地到此为止。② 便携包核验：运行时裁剪落地（qmltooling 调试器 11 + 非 sqlite sqldrivers 3 + 零 import 的 QuickEffects/QuickShapes/Labs 3 + opengl32sw 1），DLL 69→51、包体 82.3→60.5MB（-26.4%）；check_dist 22 项最小集两边都过且最小集不含被裁项，自检无需改动（deploy 退出码 0）。③ selftest/smoke 退出码 0、致命 QML 告警 0。④ Inno 静默装入干净目录：51 DLL 与便携包一致、安装目录 --selftest 退出码 0（附带坑：bash 调 Setup 静默卡死，PowerShell Start-Process 秒装，已记 pitfalls §6.5）。⑤ 冷启动 5hot/3cold 中位写 §3.1：cold startup 1603→1377ms（-14%）不劣化，hot 持平（页缓存暖，属预期）。⑥ pitfalls §7.6 迁出「尚无解决方案」节为 §6.5（样式半标注标 R0-11 8e52812、运行时裁剪标 R0-14），节头说明追加迁移记录；README 已知限制首条按新实测更新。⑦ verify.ps1 全量通过（worktree，UTF-8 会话；无控制台后台会话会撞 DX-131 前缀闸门，chcp 65001 后过）。验收口径偏差如实声明：验收第 1 条字面「改 /DELAYLOAD 链接」以「评估 + 机器证据 + 不可行结论入档」交付 —— 数据符号边界是 MSVC 硬约束，非实现质量缺陷。",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "R0",
+            "status": "done",
+            "tags": [
+                "R0"
+            ],
+            "title": "部署侧依赖收敛：CMake DELAYLOAD 精简随包 DLL，并纠偏 pitfalls §7.6 的过时前提",
+            "updatedAt": 1794047953
+        },
+        {
             "completedAt": 1792748226,
             "createdAt": 1792724521,
             "deleted": false,
@@ -5713,6 +5713,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T17:38:36",
+    "updated": "2026-11-07T18:39:13",
     "version": 3
 }

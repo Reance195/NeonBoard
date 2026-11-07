@@ -266,6 +266,19 @@ def cmd_message(args):
                 except ValueError:
                     receipts[code] = None
             problems += receipt_problems(old, new, receipts)
+            # DX-121 半落地闸门：立卡提交的台账必须真的新增卡，且每个新增短号
+            # 都能对上 origin 的发号占位（服务端占位是发号的原子事实源；
+            # ls-remote 需网络 —— 与领用 fail-closed 同口径）。
+            problems += card_addition_problems(old, new, message)
+            added_codes = sorted(set(new_cards) - set(old_cards))
+            if added_codes:
+                remote = git("ls-remote", "origin",
+                             *["refs/registrations/%s" % c for c in added_codes])
+                if remote.returncode != 0:
+                    problems.append("无法核对 origin 发号占位（ls-remote 失败：%s）"
+                                    % (remote.stderr or remote.stdout).strip())
+                else:
+                    problems += registration_ref_problems(added_codes, remote.stdout)
             if problems:
                 sys.stderr.write("[任务闸门] 代登记需要可审计凭证（AGENTS.md 条款 6 例外）：\n")
                 for line in problems:
@@ -277,6 +290,17 @@ def cmd_message(args):
                     "    授权：<维护者在哪次会话/哪条指令里授权的>\n"
                     "    批次：<本批卡号，如 DX-05、R7-01>\n"
                 )
+                return 1
+        elif old is not None and new is not None:
+            # DX-121 半落地闸门（视图无变化分支）：7ee6040 的台账 diff 只有结尾
+            # 换行，ledger_definition_changes 看不出任何变更 —— 但 subject 是立卡
+            # 就必须查「真的新增了卡吗」。这一支专抓被冲突解决抹掉卡片定义的
+            # 半落地提交，也是它当时能溜过 commit-msg 的原因。
+            half_problems = card_addition_problems(old, new, message)
+            if half_problems:
+                sys.stderr.write("[任务闸门] 立卡半落地（DX-121）：\n")
+                for line in half_problems:
+                    sys.stderr.write("  - %s\n" % line)
                 return 1
 
     # DX-51：流程 scope 越面（卷入台账/快照之外的文件）时不吃杂务兜底，
@@ -428,6 +452,42 @@ def receipt_problems(old, new, receipts):
     return problems
 
 
+def card_addition_problems(old, new, subject):
+    """DX-121 半落地闸门：`chore(board): 立卡` 提交的台账必须真的新增卡片。
+
+    7ee6040 实录：rebase 误解析把程序写入的卡片定义抹掉，立卡提交的台账
+    只剩结尾换行变化，两个回执文件却照常落库 —— 回执/占位在而台账卡不在。
+    纯函数不碰 git，selftest 与 commit-msg 共用同一套判定。
+    """
+    if not re.match(r"^chore\(board\):\s*立卡", (subject or "").splitlines()[0]
+                    if subject else ""):
+        return []
+    old_cards, old_base = ledger_shape(old)
+    new_cards, new_base = ledger_shape(new)
+    if (set(new_cards) - set(old_cards)) or (set(new_base) - set(old_base)):
+        return []
+    same_semantics = old_cards == new_cards and old_base == new_base
+    hint = ("台账与上一版语义完全相同（仅空白/换行差异，7ee6040 形态）"
+            if same_semantics else "台账 diff 不含 cards/baseline 新增")
+    return ["立卡提交的台账 diff 不含任何卡片新增（%s）：卡片定义被冲突解决抹掉"
+            "即「半落地」（DX-121），回执/占位会悬空 —— 回到 register_board_cards.py"
+            "重放立卡，或补落卡片定义后重跑收尾" % hint]
+
+
+def registration_ref_problems(codes, lsremote_output):
+    """DX-121：立卡新增短号必须在 origin 有发号占位（refs/registrations/<短号>）。
+
+    服务端占位是发号的原子事实源（DX-99 test-and-set）；本地回执可以是半落地
+    残留，对不上占位即不可信。lsremote_output 传 `git ls-remote` 的原始输出，
+    纯函数便于 selftest。
+    """
+    held = {line.split("\t")[-1] for line in (lsremote_output or "").splitlines()
+            if line.strip()}
+    return ["新增卡 %s 在 origin 无发号占位 refs/registrations/%s：回执可能是"
+            "半落地残留或伪造（DX-121，7ee6040 形态）" % (code, code)
+            for code in codes if "refs/registrations/%s" % code not in held]
+
+
 def process_paths_ok(paths):
     """流程提交合法路径集（DX-97 扩）：台账、快照与立卡回执。"""
     prefix = RECEIPT_DIR + "/"
@@ -491,6 +551,70 @@ def audit_problems(kind, scope, message, code_paths, definition_changes):
             "改任务定义的提交不得同时改动流程路径之外的文件：%s"
             "（立卡与实现分开提交，杂务白名单路径也算夹带 —— DX-51）" % shown)
     return problems
+
+
+def cmd_registrations(args):
+    """DX-121：回执/占位 ↔ 台账卡片 双向一致性对账（半落地 7ee6040 防回归）。
+
+    扫 docs/card-requests/registered/*.json 与 origin refs/registrations/*，台账
+    cards 无对应卡时分两档：
+      硬拦（退出 1）—— 回执文件在而卡不在：register 程序已写卡片定义却没进台账，
+        即 7ee6040 半落地形态；
+      告警 —— 仅占位在（无回执文件）：立卡在「推占位 → 写回执」之间半途失败的
+        孤儿占位（DX-118 形态），留痕点名，补立或弃由维护者定。
+    sha256 失配不在此校验：合法定义变更（chore(board)+授权，DX-10）会让立卡时刻的
+    哈希漂移，全量硬闸必误报历史在办/已结卡；新增时刻的强校验在 commit-msg 的
+    receipt_problems（对新增卡）与 registration_ref_problems（对 origin 占位）处，
+    那里才是「登记后即被改」能被确证的时机。占位核对需联网（fail-closed，与领用同口径）。
+    """
+    try:
+        with open(LEDGER.replace("\\", "/"), encoding="utf-8") as fh:
+            ledger = json.load(fh)
+    except (OSError, ValueError) as exc:
+        fail("台账读取失败：%s" % exc, 2)
+    cards = ledger.get("cards") or {}
+    receipts = {}
+    receipt_dir = RECEIPT_DIR.replace("\\", "/")
+    if os.path.isdir(receipt_dir):
+        for name in sorted(os.listdir(receipt_dir)):
+            if not name.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(receipt_dir, name), encoding="utf-8") as fh:
+                    receipts[name[:-len(".json")]] = json.load(fh)
+            except ValueError:
+                receipts[name[:-len(".json")]] = None
+    remote = git("ls-remote", "origin", "refs/registrations/*")
+    if remote.returncode != 0:
+        fail("无法核对 origin 发号占位（ls-remote 失败：%s）—— 本检查 fail-closed 需联网"
+             % (remote.stderr or remote.stdout).strip(), 2)
+    placeholder_codes = {line.split("\t")[-1].split("/")[-1]
+                         for line in remote.stdout.splitlines() if line.strip()}
+    problems = []
+    warnings = []
+    for code in sorted(set(receipts) | placeholder_codes):
+        if code in cards:
+            continue
+        if code in receipts:
+            problems.append("回执文件在而台账 cards 无此卡：%s"
+                            "（半落地，DX-121 / 7ee6040 形态）" % code)
+        else:
+            warnings.append("占位 refs/registrations/%s 在而台账无此卡、也无回执文件："
+                            "立卡半途失败的孤儿占位（DX-118 形态），补立或弃由维护者定"
+                            % code)
+    if warnings:
+        for line in warnings:
+            sys.stderr.write("[任务闸门] 告警：%s\n" % line)
+    if problems:
+        for line in problems:
+            sys.stderr.write("[任务闸门] %s\n" % line)
+        sys.stderr.write("[任务闸门] 立卡半落地（DX-121）：回执文件在而台账卡不在。"
+                         "补落卡片定义（重放 register_board_cards.py 或按台账冲突"
+                         "语义合并保留程序写入的卡）后重跑本检查。\n")
+        return 1
+    print("[任务闸门] 立卡一致性对账通过：回执 %d / 占位 %d / 台账卡 %d（孤儿占位告警 %d）"
+          % (len(receipts), len(placeholder_codes), len(cards), len(warnings)))
+    return 0
 
 
 def cmd_ledger(args):
@@ -714,6 +838,33 @@ def cmd_selftest(args):
         "chore(board): 调 DX-01 排位档位\n\n授权：维护者 2026-11-07 会话\n批次：DX-01",
         [], contract, tier_changed,
     )
+
+    # ---- DX-121 半落地闸门（纯函数）----
+    half_a = {"cards": {"DX-1": {"id": "a", "title": "t", "stage": "DX"}},
+              "baseline": {"DX-1": "todo"}}
+    half_b = {"cards": {"DX-1": {"id": "a", "title": "t", "stage": "DX"}},
+              "baseline": {"DX-1": "todo"}}
+    lika = "chore(board): 立卡 DX-111、DX-112"
+    def check_half(name, ok):
+        cases.append((name, True, [] if ok else ["半落地断言失败"]))
+
+    cases_failed = card_addition_problems(half_a, half_b, lika)
+    check_half("半落地：立卡提交台账纯空白变化 → 拒（7ee6040 形态）", len(cases_failed) == 1)
+    check_half("半落地：改既有卡但无新增 → 拒",
+          len(card_addition_problems(
+              half_a,
+              {"cards": {"DX-1": {"id": "a", "title": "t2", "stage": "DX"}},
+               "baseline": {"DX-1": "todo"}}, lika)) == 1)
+    grown = {"cards": {"DX-1": {"id": "a", "title": "t", "stage": "DX"},
+                       "DX-2": {"id": "b", "title": "t2", "stage": "DX"}},
+             "baseline": {"DX-1": "todo", "DX-2": "todo"}}
+    check_half("正常立卡（有新增）→ 放", card_addition_problems(half_a, grown, lika) == [])
+    check_half("非立卡提交不吃此闸",
+          card_addition_problems(half_a, half_b, "chore(board): 结卡 #DX-1=done") == [])
+    check_half("占位核对：origin 有占位 → 放",
+          registration_ref_problems(["DX-2"], "abc\trefs/registrations/DX-2") == [])
+    check_half("占位核对：origin 无占位 → 拒",
+          len(registration_ref_problems(["DX-2"], "abc\trefs/registrations/DX-3")) == 1)
     case(
         "只调换 scope / acceptance 顺序或改空白，不算定义变更 → 放行",
         True, "chore", "board",
@@ -936,6 +1087,8 @@ def main():
 
     p = sub.add_parser("ledger", help="校验台账只被追加了 claims / note")
     p.set_defaults(func=cmd_ledger)
+    p = sub.add_parser("registrations", help="DX-121：回执/占位 ↔ 台账卡片双向一致性对账（需联网）")
+    p.set_defaults(func=cmd_registrations)
 
     p = sub.add_parser("push", help="校验推送到主干的代码提交都有 claim ref")
     p.add_argument("--remote", required=True)

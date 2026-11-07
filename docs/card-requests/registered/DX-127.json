@@ -1,0 +1,13 @@
+{
+  "card": "DX-127",
+  "sha256": "5374a177e9bcb53088153df013498beaca244f2a42c2992aab7583d55bd28b36",
+  "authorizedBy": "维护者会话授权 2026-11-07：指示处理 R20-1 交付观察的三处缺陷（「你处理下这几个缺陷」）",
+  "form": "docs/card-requests/20261107-dx128-flow-defects.md",
+  "registeredAt": "2026-11-07T02:34:45+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-127",
+    "sha": "e984c147623445d643603905e0a170cdb34209a3"
+  }
+}

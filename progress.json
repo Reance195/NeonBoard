@@ -109,6 +109,24 @@
             "updatedAt": 1793816382
         },
         {
+            "code": "DX-127",
+            "completedAt": 0,
+            "createdAt": 1794018885,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-127",
+            "note": "",
+            "orderKey": 85504,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "收口 R20-1 交付观察：nbflow 冲突工单立卡走已退役 approve、.zcode 卡收尾闸门、README 分发口径过时",
+            "updatedAt": 1794018885
+        },
+        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -5335,6 +5353,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T10:17:38",
+    "updated": "2026-11-07T10:34:45",
     "version": 3
 }

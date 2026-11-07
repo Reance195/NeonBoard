@@ -1,0 +1,13 @@
+{
+  "card": "DX-136",
+  "sha256": "77e086a3cf815a4f8b4e9dc012b14b979f030fd89b2d4d12f96d9a125b63ecea",
+  "authorizedBy": "维护者会话授权(2026-11-07)：全仓审计 P0 开修",
+  "form": "docs/card-requests/20261107-audit-update-delta-chain.md",
+  "registeredAt": "2026-11-07T06:41:28+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-136",
+    "sha": "1672810837fa70bee0bd3442161a5c2505f8f903"
+  }
+}

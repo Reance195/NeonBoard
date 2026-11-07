@@ -1,0 +1,13 @@
+{
+  "card": "DX-137",
+  "sha256": "792cde3361dc74796089c60f096439c6e20979b95f1f8dc864cc40afba95cb66",
+  "authorizedBy": "维护者会话授权(2026-11-07)：全仓审计 P0 开修",
+  "form": "docs/card-requests/20261107-audit-qml-feedback.md",
+  "registeredAt": "2026-11-07T06:41:48+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-137",
+    "sha": "e87de4e0e6dff687f120b8d2ff124087048502e8"
+  }
+}

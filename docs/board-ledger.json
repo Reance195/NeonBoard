@@ -267,7 +267,13 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "DX-132": "todo",
+        "DX-133": "todo",
+        "DX-134": "todo",
+        "DX-135": "todo",
+        "DX-136": "todo",
+        "DX-137": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5925,6 +5931,159 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "DX-132": {
+            "acceptance": [
+                "tests/tst_pluginpackage.cpp 新增用例：files 键为盘符绝对路径（\"C:/x/run.js\"）与盘符相对（\"C:name\"）的 .neon 安装整单拒绝且 staging 与目标目录均无任何文件落盘",
+                "新增用例：dirNameForId 对 \"..\"、\".\"、含路径分隔符的 id 返回空串，uninstall 与 install 在派生目录名为空时整单拒绝且不删除、不创建任何目录",
+                "新增用例：manifest.id 与请求 id 不一致的包经市场/直链安装入口整单失败（报错文案含 manifest.id），一致时正常安装不回归",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "既有官方插件部署与安装行为不回归（tst_pluginpackage、tst_pluginruntime 全绿）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 全仓审计（六域并行 + 逐条亲验）。其一：src/plugin/PluginPackage.cpp:14-32 isSafeRelativePath 只挡反斜杠/前导斜杠/..，不挡 Windows 盘符绝对路径——files 键写 \"C:/Users/.../run.js\" 四道校验全过，QDir::filePath 对绝对路径原样返回，writeFile 的 mkpath 直接落到插件目录之外（任意文件写），\"C:name\" 盘符相对与 ADS 写法同样通过。其二：PluginPackage.cpp:152-158 dirNameForId 对 \"..\" 原样返回 \"..\"，PluginLibrary.cpp:649-654 uninstall 拼 pluginDir()/.. 后 removeRecursively——uninstall(\"..\") 删掉整个 NeonBoard 数据目录（board.db、hooks.db、全部插件），且 PluginLibrary.h:48 uninstall 为 Q_INVOKABLE 可被面板 QML 直调。其三：PluginPackage.cpp:128-131 installNeonFile 只校验 manifest.id 非空，从不与请求 id 比对——AGENTS §9.2 四道校验的第 2 道全链路未实现，装 A 落 B，权限弹窗按攻击者自选 id 计。",
+            "id": "DX-132",
+            "note": "",
+            "scope": [
+                "src/plugin/PluginPackage.cpp",
+                "src/plugin/PluginPackage.h",
+                "src/plugin/PluginLibrary.cpp",
+                "src/plugin/PluginLibrary.h",
+                "src/core/SafePaths.h",
+                "src/core/SafePaths.cpp",
+                "CMakeLists.txt",
+                "tests/**",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "插件包信任链三洞：盘符路径穿越、卸载目录逃逸、manifest.id 未比对"
+        },
+        "DX-133": {
+            "acceptance": [
+                "tests/tst_roadmapsync.cpp 新增用例：卡归属从绑定项目文件迁到全局文件后，项目文件的墓碑条目导入不再删除看板卡（先复现原缺陷断言删卡，再断言修复后卡片仍在且计为冲突/跳过）",
+                "新增用例：真删除链路不回归——卡在看板被删后其家所在文件的墓碑导入仍正常对账（deleted 计数正确、不误伤他卡）",
+                "新增用例：两个项目绑定同一路径时，各自的墓碑互不删除对方家的卡",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 全仓审计（亲验复现链路）。src/board/RoadmapSync.cpp:499-503 导出侧 scoped 过滤只把「家在本文件」的卡写进 seen；:546-560 墓碑循环把 current 里不在 seen 的条目一律写 deleted:true 且 updatedAt=now；:337-342 importEntry 见 deleted 即 deleteTask，不看该卡现在的家在哪个文件；:320-326 shouldApply 门因墓碑 updatedAt 恒新于看板而放行。触发链全自动：把卡从绑定项目解绑（或指派给绑定项目）→ 1.5s 防抖导出在项目文件写墓碑 → 15s 轮询导入 → deleteTask 把看板上的卡删掉 → 下一轮导出把全局文件也写成墓碑——卡在看板与两个快照文件中永久消失，且 taskRemoved 连带清掉父子关联边（TaskTree::removeLinkFor）。audit 同时确认：多项目绑同一路径时互相把对方的家写墓碑，同根问题。",
+            "id": "DX-133",
+            "note": "",
+            "scope": [
+                "src/board/RoadmapSync.cpp",
+                "src/board/RoadmapSync.h",
+                "tests/**",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "RoadmapSync 墓碑误删：卡的「家」迁移被当成删除，看板卡片永久丢失"
+        },
+        "DX-134": {
+            "acceptance": [
+                "tests/tst_taskrunner.cpp 新增用例：超时宽限期内进程自行退出，settle 完成后宽限定时器不再访问已释放的 Process（以成员标志/归属检查断言无迟到回调）且重试轮不被旧定时器击毙、ending 状态正确",
+                "新增用例：isCmdWrapper 的 profile 在 prompt 含英文双引号时被判 lossy 拒绝 arg 模式（文案含引号原因）",
+                "tests/tst_acceptance.cpp 新增用例：白名单外绝对路径（如 C:\\Windows\\System32\\cmd.exe）被拒绝；cwd 内真实脚本相对路径仍放行不回归",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 全仓审计（亲验）。其一：src/agent/TaskRunner.cpp:314-320 超时宽限用 QTimer::singleShot 按引用捕获堆上 Process，cleanup（:595-608）delete &p 而该定时器无法取消——进程在 5 秒宽限内自行退出即 use-after-free；maxAttempts>1 时旧定时器看到的已是重试轮新进程，killTree 击毙自己的重试并误报 timeout（R6-08 的重试语义被破坏）。其二：TaskRunner.cpp:67-77 lossyPayloadReason 只拦换行与 %VAR% 对——cmd 包装器（cursor-agent 的 .cmd 由 Qt 6.8 套 cmd.exe /c 转调）不认 MSVCRT 反斜杠转义，prompt（来自卡片 goal）含英文双引号即可越出引号让 cmd 把 & 当命令分隔符（BatBadBut 类）。其三：AcceptanceRunner.cpp:136-142 白名单 fallback 用 QFileInfo(QDir(cwd), program) 判存在——绝对路径原样采用，C:\\Windows\\System32\\cmd.exe 不含禁字符即放行，白名单可绕（宪章 §12.2「只允许白名单脚本路径」被开洞）。",
+            "id": "DX-134",
+            "note": "",
+            "scope": [
+                "src/agent/TaskRunner.cpp",
+                "src/agent/TaskRunner.h",
+                "src/agent/AcceptanceRunner.cpp",
+                "src/agent/AcceptanceRunner.h",
+                "tests/**",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "agent 执行器三洞：超时宽限定时器 UAF、cmd 包装器引号注入、验收白名单绝对路径绕过"
+        },
+        "DX-135": {
+            "acceptance": [
+                "tests 新增用例：以不存在的 program 触发 FailedToStart，断言 PreviewHub 构建状态与打包队列解锁（m_builds 条目清理、队列可继续出队、job 以失败收尾而非永久 running）",
+                "tests 新增最小用例：BoardSync 在 git 启动失败后 m_refreshing 复位（经公共状态/信号可观察）且下一轮询可重试",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "正常路径不回归（构建成功与刷新成功行为不变）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 全仓审计（grep 亲验全仓 errorOccurred 零连接）。src/board/PreviewHub.cpp 打包队列（:1154-1196）与构建阶段（:639-661）的 QProcess 只连 finished——resolveBuildSettings 兜底 cmake 是写死的 VS BuildTools 路径，主机 GUI 实例从 Explorer 启动且锚点无 build/CMakeCache.txt 时 start() 直接 FailedToStart（不发 finished），m_packageProc 永不清空、startNextPackage 永远早退，打包队列死到进程重启，当前 job 永远停在构建中；m_builds[agentId] 同理永不清理。src/board/BoardSync.cpp:101-123（m_branchProcess）与 :125-153（m_mergedProcess）同构：git 不在 GUI 实例 PATH 时 finished 不发，m_refreshing 永久卡 true，之后每 5 秒的领用刷新全部被开头 guard 吞掉——领用标牌与 todo→doing 自动流转静默停摆。四处同族一次修（Z14）。",
+            "id": "DX-135",
+            "note": "",
+            "scope": [
+                "src/board/PreviewHub.cpp",
+                "src/board/PreviewHub.h",
+                "src/board/BoardSync.cpp",
+                "src/board/BoardSync.h",
+                "tests/**",
+                "tests/CMakeLists.txt"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "QProcess FailedToStart 黑洞族：预览构建/打包队列与领用同步的状态机永久卡死"
+        },
+        "DX-136": {
+            "acceptance": [
+                "tests/tst_updatemanager.cpp 新增（或新增 tst_deltaupdate）用例：delta.json 的 path 或 patchPath 含 ../ 与盘符写法的增量包整单拒绝且安装目录无任何文件落盘",
+                "用例：清单声明 deltaUrl 但 deltaSha256 为空时在应用前被拒绝（文案含 sha256，fail-closed 口径与全量路径一致）",
+                "用例：version 含路径分隔符或 .. 的清单在解析阶段即拒绝（parseManifest 单点校验）",
+                "用例：applyDelta 应用失败且回滚 copy 失败时备份目录保留并报错，不再静默删除",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "全量更新通道行为不回归（既有 tst_updatemanager 全绿）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [
+                "DX-132"
+            ],
+            "evidence": "2026-11-07 全仓审计（亲验）。其一：src/update/DeltaUpdate.cpp:350 apply 循环 dst = installQDir.absoluteFilePath(toNative(change.path))，path 来自不可信 delta.json 且无任何穿越校验——同文件 :429 对 obsolete-files.txt 明确做了防护并写明动机，同一条信任边界双标。其二：UpdateManager.cpp:1045 增量包 sha256「清单给了才校验」缺失即放行，而全量路径 verifyFile（:1275-1280）清单没给哈希时明确拒绝——同一清单格式两条通道安全姿态相反，与其一组合即任意写。其三：UpdateManager.cpp:892-894（及 :1002/:1120/:1251 同族）version 无字符白名单直接拼 %TEMP%/neonboard-update-<ver>.exe，downloadAndInstall 入口的 QFile::remove 即任意文件删除。其四：DeltaUpdate.cpp:392-404 回滚时 QFile::copy 返回值被丢，随后无条件 removeRecursively 销毁唯一备份——恢复失败即旧文件永久丢失（Z13）。",
+            "id": "DX-136",
+            "note": "",
+            "scope": [
+                "src/update/DeltaUpdate.cpp",
+                "src/update/DeltaUpdate.h",
+                "src/update/UpdateManager.cpp",
+                "src/update/UpdateManager.h",
+                "src/core/SafePaths.h",
+                "src/core/SafePaths.cpp",
+                "CMakeLists.txt",
+                "tests/**",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "自更新增量链三洞：delta.json 路径穿越、增量 sha256 fail-open、version 拼路径 + 回滚毁备份"
+        },
+        "DX-137": {
+            "acceptance": [
+                "scripts/check_qml_pitfalls.py 新增规则：拦截对 JS 字符串调用 .isEmpty() 的写法（QString 返回值进 QML 即 JS 字符串），qml/ 全目录扫描通过（本轮五处清零且后续回归被 CI 拦）",
+                "tests/qml 新增用例：TaskCard 以跨年 dueAt 断言 overdue 为 true、同年未来日期为 false",
+                "tests/qml 新增用例：ActivityHeatmap cells 属性变更后重绘被调度（以组件内可观测计数或 onPaint 触发为据）",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0，qml 用例 tst_taskcard_actions 全绿）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 全仓审计（五处调用点亲验）。qml/components/SettingsPanel.qml:546、556、640、650、682 对 DataPort 返回的 QString（进 QML 后是 JS 原始字符串）调用 .isEmpty()——JS 无此方法必抛 TypeError，导出/导入/备份五处提示永远不刷新而 C++ 侧其实成功。qml/components/TaskCard.qml:98-104 逾期判定用 MM-dd 字符串比较，跨年整年失效（due \"12-31\" 在次年任意日期都判不逾期），TaskModel 已有 DueRole（src/task/TaskModel.h:35）可按 epoch 比较。qml/components/ActivityHeatmap.qml 网格 Canvas 的 onPaint 读 cells 但无 onCellsChanged → requestPaint，唯一重绘入口是主题 accent 变化——完成卡当天格子不变，与 OnboardingOverlay「完成时间自动进入统计热力图」的承诺矛盾（同文件吞吐曲线写法正确，可对照）。",
+            "id": "DX-137",
+            "note": "",
+            "scope": [
+                "qml/components/SettingsPanel.qml",
+                "qml/components/TaskCard.qml",
+                "qml/components/ActivityHeatmap.qml",
+                "tests/qml/**",
+                "tests/CMakeLists.txt",
+                "scripts/check_qml_pitfalls.py"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "QML 反馈链三处：QString.isEmpty() 必抛 TypeError、逾期判定跨年失效、热力图永不重绘"
         }
     },
     "claims": {},

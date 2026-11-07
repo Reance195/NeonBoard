@@ -40,7 +40,7 @@
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
-            "deleted": false,
+            "deleted": true,
             "dueAt": 0,
             "id": "DX-119",
             "note": "",
@@ -52,7 +52,7 @@
                 "DX"
             ],
             "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9",
-            "updatedAt": 1793980819
+            "updatedAt": 1794023716
         },
         {
             "code": "DX-112",
@@ -76,7 +76,7 @@
             "code": "DX-43",
             "completedAt": 0,
             "createdAt": 1793822375,
-            "deleted": false,
+            "deleted": true,
             "dueAt": 0,
             "id": "DX-43",
             "note": "起因：每立一张卡，维护者须手工走完「临时分支 → 临时检出（agent 工作区禁改 cards）→ 手编 ledger JSON → 手写 chore(board) 授权/批次 → git-done 合并推送 → 清理」全套仪式（DX-40 即此流程），agent 侧还要等卡、领卡、再开区；需求队列 docs/card-requests/ 已有雏形但无人消费，请求积压。目标：scripts/card-approve.ps1 一键完成「受理队列请求/显式参数 → 查重 → 临时 worktree 立卡（授权/批次注入提交体）→ git-done 合并推送 → 回收 →（可选 -Claim）接 agent-init 领用开区」，维护者只需在会话中批准；宪章仅要求授权行不可省（位置不是凭证），仪式全部可自动化。看板 UI 需求面板/批准按钮为第二阶段，另立卡走全量验收。",
@@ -88,31 +88,13 @@
                 "DX"
             ],
             "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用",
-            "updatedAt": 1793822375
-        },
-        {
-            "code": "DX-129",
-            "completedAt": 0,
-            "createdAt": 1794022774,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-129",
-            "note": "",
-            "orderKey": 84992,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "弃单终态投影快照 deleted 墓碑：看板不再显示已弃单卡，重开自动恢复",
-            "updatedAt": 1794022774
+            "updatedAt": 1794023716
         },
         {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
-            "deleted": false,
+            "deleted": true,
             "dueAt": 0,
             "id": "R0-12",
             "note": "触发证据：pitfalls 7.6 与 R0-11 诊断定案：CI 冷启动 6010ms 中 CPU 仅 702ms，88% 墙钟在等 35 个 DLL 与 7 套 QML 样式的冷 I/O，秒级收益在打包侧（deploy 只随 Basic + CMake DELAYLOAD 链接）。R0-11 已结卡，治本改动不在其 scope，经维护者批准另立新卡。\n\n## 目标\n发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头\n\n## 验收\npwsh -File scripts/deploy.ps1 出包成功，dist 的 qml 样式目录仅剩 Basic（Fusion/Imagine/Material/Universal/FluentWinUI3/Windows 不再随包）;python scripts/check_dist.py --dir dist/NeonBoard 通过;dist NeonBoard NeonBoard.exe --selftest 退出码 0 且 --smoke 退出码 0;冷启动对比：BOOT loaded 分段与 startupCpuMs 记录进卡片 note，CPU 口径不回归;pwsh -File scripts/verify.ps1 全量通过\n\n## 边界\nscripts/deploy.ps1;CMakeLists.txt;scripts/check_dist.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
@@ -124,7 +106,7 @@
                 "R0"
             ],
             "title": "发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头",
-            "updatedAt": 1793825191
+            "updatedAt": 1794023716
         },
         {
             "code": "R0-01",
@@ -4939,6 +4921,24 @@
             "updatedAt": 1793251716
         },
         {
+            "code": "DX-129",
+            "completedAt": 1794023716,
+            "createdAt": 1794022774,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-129",
+            "note": "",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "弃单终态投影快照 deleted 墓碑：看板不再显示已弃单卡，重开自动恢复",
+            "updatedAt": 1794023716
+        },
+        {
             "code": "DX-37",
             "completedAt": 1794021910,
             "createdAt": 1793816382,
@@ -5389,6 +5389,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T11:44:31",
+    "updated": "2026-11-07T11:55:16",
     "version": 3
 }

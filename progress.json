@@ -19,24 +19,6 @@
             "updatedAt": 1794012369
         },
         {
-            "code": "DX-101",
-            "completedAt": 0,
-            "createdAt": 1793935666,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-101",
-            "note": "",
-            "orderKey": 66560,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "收尾与验收输出保真：合并提交四段、锚点跳过提示、红绿一致",
-            "updatedAt": 1793935666
-        },
-        {
             "code": "DX-122",
             "completedAt": 0,
             "createdAt": 1793982202,
@@ -4367,6 +4349,24 @@
             ],
             "title": "git-done 从自身 worktree 收尾后残留 detached 工作区：反查失效且无回收闭环",
             "updatedAt": 1793983297
+        },
+        {
+            "code": "DX-101",
+            "completedAt": 1794013995,
+            "createdAt": 1793935666,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-101",
+            "note": "",
+            "orderKey": 66560,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "收尾与验收输出保真：合并提交四段、锚点跳过提示、红绿一致",
+            "updatedAt": 1794013995
         },
         {
             "code": "R4-05",

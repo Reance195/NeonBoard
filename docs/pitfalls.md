@@ -1515,6 +1515,30 @@
 - **一般化**：修坑时先问「这类坑还有几份同类现场」—— 只修撞崩的那个文件，
   等于把同一个坑按出现顺序再付一遍代价；判据要在第二次撞上前变成退出码。
 
+### 2.34 弃单卡没有结案通道：永挂 todo 且可被反复重领（DX-111）
+
+- **现象**（2026-11-05 / 11-06 两次实录）：DX-43 的 note 已记弃单（nbflow 让位）、
+  R0-12 的弃卡处置已获维护者批准，但两张卡在台账里仍是 `baseline=todo`：
+  领用门只认 `baseline=done`，`agent-init` 随时能把它们再领一遍重做；
+  `--close-cards` 又没有 done 标记可读，自动结卡也碰不到它们。
+- **根因**：台账的 baseline 只有「todo / doing / done」三态的语义，而弃单既不是
+  todo（不该再被领），也不是 done（没有交付，写成 done 是伪造 git 事实）。
+  把弃单写成 done 会污染 DX-91 的交付证据链，写成 todo 则永远关不上防重领门 ——
+  缺的是第三种**终态**，以及配套的三条判据。
+- **解法（DX-111）**：`baseline=abandoned` 作为弃单终态，四处判据一起收口：
+  `agent-init.ps1` 开区前用 `derive_board_status.py --abandoned-codes` 读
+  `origin/main` 台账拒领（退出码 7，fail-closed；补领的 `-InPlace` 路径同门）；
+  派生器在 `--check` / `--write` 里跳过它（不报「todo → abandoned」漂移）、
+  `close_cards` / `stuck_cards` 也不碰它；结案走 `chore(board)` 人工授权行通道
+  （body 带「授权：」「批次：」），**不适用** `自动来源：` 那条投影 done 的自动结卡
+  通道，且只许改 baseline —— 借弃单夹带卡片定义变更（哪怕带齐授权行）一律拒。
+- **判据**：`task_gate.py selftest` 46 例（含弃单结案放行 / 自动来源行不适用 /
+  冒充弃单改定义拒绝）、`derive_board_status.py --selftest` 61 例（含
+  `--close-cards` 不误碰 / 滞留探测不点名 / 大小写不敏感）、
+  `pwsh -File scripts/verify.ps1 -ScriptOnly` 全绿。
+- **一般化**：终态不是「换个字符串」就完事 —— 它同时是领用门、派生器、结卡闸门
+  与审计通道的判据。少接一处，那个缺口就会变成「状态写对了但仍能被重领」的半落地。
+
 ---
 
 ## 三、构建与 Qt / QML

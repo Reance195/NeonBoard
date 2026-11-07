@@ -6092,6 +6092,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R0-14": {
+            "agent": "agent-duty-r014",
+            "branch": "perf/deplayload-network-deploy-slim",
+            "claimedAt": 1794044261,
+            "head": "5c20e28c01e45ff1620046902e7761c55d0e3851"
+        }
+    },
     "version": 1
 }

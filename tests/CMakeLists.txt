@@ -131,6 +131,7 @@ neonboard_add_test(tst_startupdefer
 target_link_libraries(tst_startupdefer PRIVATE Qt6::Sql)
 
 # R4-03 批次二：列感知的模型层（新增任务落默认列 / 按列搬运 / 按列过滤不串味）
+# R1-8：过滤态拖拽落点 —— DragFeel::resolve + moveTaskBefore 的端到端落点语义。
 neonboard_add_test(tst_taskcolumns
     ${NB_DIR_CORE}/Database.cpp
     ${NB_DIR_CORE}/AppPaths.cpp
@@ -138,6 +139,7 @@ neonboard_add_test(tst_taskcolumns
     ${NB_DIR_TASK}/TaskInputParser.cpp
     ${NB_DIR_TASK}/TaskFilterModel.cpp
     ${NB_DIR_TASK}/TaskTree.cpp
+    ${NB_DIR_SHELL}/DragFeel.cpp
 )
 target_link_libraries(tst_taskcolumns PRIVATE Qt6::Sql)
 

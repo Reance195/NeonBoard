@@ -877,7 +877,7 @@
             "depends": [],
             "evidence": "2026-11-06 DX-77+DX-83 一分支多卡交付实录：verify -ScriptOnly 输出「⚠ 提交里出现多个短号 ['DX-83', 'DX-77']，跳过范围检查（请用 --card 显式指定）」——两卡 scope 并集之外的任何改动在该分支上畅通无阻（Z11 的洞）；detect_card_from_commits 取第一个唯一值的设计对多卡分支整体放弃校验。与 DX-03 不同：DX-03 是多卡领用机制本身（已交付），本卡是多卡分支上范围闸门的失效面",
             "id": "DX-117",
-            "note": "",
+            "note": "## 交付（2026-11-07 · agent-dx117 / fix/check-scope-multicard-union）\nscripts/check_scope.py：detect_card_from_commits「取第一个唯一值、多卡整段跳过」改为\ndetect_cards_from_commits 返回全部短号；多卡（提交信息 ≥2 个短号，或台账 claims 按分支\n聚合 ≥2 张）时按各卡 scope 并集校验全部改动，越界仍退 1 并点名文件；新增\ndetect_cards_from_claims / union_scopes / scope_violations 纯函数与 current_branch。\n参与卡未声明 scope 的仍按棘轮整段跳过并点名（与单卡口径一致）。\nselftest 13→26 项断言：并集命中 / 越界点名 / 单卡不回归 / claims 按分支聚合。\ndocs/pitfalls.md §1.46 收录。端到端四场景实测（本卡交付日）：提交信息多卡并集通过 /\n并集越界退 1 点名 src/main.cpp / --card 单卡口径不回归 / 仅 claims 触发并集。\n验收项①②由上述实测覆盖；③ selftest 26 项过、verify -ScriptOnly 全绿（实现态与最终态各一次）。\n已完成 3 / 待做 0。",
             "scope": [
                 "scripts/check_scope.py",
                 "docs/pitfalls.md"

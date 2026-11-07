@@ -19,24 +19,6 @@
             "updatedAt": 1794012369
         },
         {
-            "code": "DX-100",
-            "completedAt": 0,
-            "createdAt": 1793935664,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-100",
-            "note": "",
-            "orderKey": 77824,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "立卡入口单一事实源：文档、旧工具注释与预演输出对齐 DX-98 新流程",
-            "updatedAt": 1793935664
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -4741,6 +4723,24 @@
             "updatedAt": 1794012058
         },
         {
+            "code": "DX-100",
+            "completedAt": 1794026799,
+            "createdAt": 1793935664,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-100",
+            "note": "## 交付（2026-11-07 · agent-dx100 / fix/dx100-register-entry-docs）\n① scripts/board-apply.py：--apply/--commit 落盘通道停用，命令行请求即拒并指向\nregister_board_cards.py --form（DX-98 唯一入口）；预演改纯增量文本判定——diff 基准\n先按写回格式（去 sort_keys，与 register 同一 serialize）规范化，格式漂移不再伪装成\n既有卡改写，规范化后 diff 仍出「-」行即 plan.text_not_additive 阻断。selftest 40 项过。\n② scripts/register_board_cards.py：头注释 DX-97 误标改 DX-98；新增\nacceptance_scope_conflicts 判据——验收项声明「回归用例/新增用例/补用例/新增脚本」\n却引用 scope 外 scripts/*.py|ps1 时立卡即拒并点名路径；纯验证命令\n（selftest/-ScriptOnly/--smoke/--check）不拦零误伤；--audit-acceptance-scope\n对全部在办卡回放（存量命中只告警，当前主线命中 0）；selftest 20→27 例。\n③ docs/task-card.md：立卡流程示例改 register --form（rg 断言无 --commit 旧写法残留），\n配套工具表更新，补「验收项提到的文件若在 scope 外须写明只读验证工具还是本卡产物」写法约定。\n验收逐条：①②③④⑥⑦⑧⑨ rg/实测覆盖（--diff 预演 0 删除行、--apply 退 2 并指向新入口、\nselftest 27 例、审计回放 EXIT=0 命中 0、写法约定已入库）；⑤ verify.ps1 -ScriptOnly 全绿\n（范围检查：改动全部落在 DX-100 scope 内）。已完成 9 / 待做 0。",
+            "orderKey": 77824,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡入口单一事实源：文档、旧工具注释与预演输出对齐 DX-98 新流程",
+            "updatedAt": 1794026799
+        },
+        {
             "code": "DX-07",
             "completedAt": 1793207091,
             "createdAt": 1793207091,
@@ -5407,6 +5407,6 @@
             "updatedAt": 1794025332
         }
     ],
-    "updated": "2026-11-07T12:22:12",
+    "updated": "2026-11-07T12:46:39",
     "version": 3
 }

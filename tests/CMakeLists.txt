@@ -580,6 +580,23 @@ neonboard_add_test(tst_reposcaffolder
     ${NB_DIR_BOARD}/RepoScaffolder.cpp
 )
 
+# DX-135：QProcess FailedToStart 必须解锁构建状态机 —— 只编入 PreviewHub 本体。
+neonboard_add_test(tst_previewhub
+    ${NB_DIR_BOARD}/PreviewHub.cpp
+)
+target_link_libraries(tst_previewhub PRIVATE Qt6::Gui)
+
+# DX-135：BoardSync 在 git 拉不起来时 m_refreshing 复位、下轮可重试。
+# applyClaims 引用 TaskModel 链接期符号，闭包照 tst_taskmodel 的编法。
+neonboard_add_test(tst_boardsync
+    ${NB_DIR_BOARD}/BoardSync.cpp
+    ${NB_DIR_CORE}/Database.cpp
+    ${NB_DIR_CORE}/AppPaths.cpp
+    ${NB_DIR_TASK}/TaskModel.cpp
+    ${NB_DIR_TASK}/TaskInputParser.cpp
+)
+target_link_libraries(tst_boardsync PRIVATE Qt6::Sql Qt6::Gui)
+
 # DX-102：TaskCard 交互回归 —— 按钮点击 / 整卡点击 / 双击 / 拖拽 / 层叠吞点击 /
 # id 点号访问恒 undefined。用例是自包含夹具（复刻 TaskCard 的层级与事件路由），
 # 不依赖应用上下文属性；真实 qml/ 的同形陷阱由 scripts/check_qml_pitfalls.py 扫描。

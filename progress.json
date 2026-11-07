@@ -19,24 +19,6 @@
             "updatedAt": 1794012369
         },
         {
-            "code": "DX-122",
-            "completedAt": 0,
-            "createdAt": 1793982202,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-122",
-            "note": "",
-            "orderKey": 76800,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 启动告警零容忍：把枚举式 pattern 换成按形态识别，规则收成一份",
-            "updatedAt": 1793982202
-        },
-        {
             "code": "DX-100",
             "completedAt": 0,
             "createdAt": 1793935664,
@@ -4759,6 +4741,24 @@
             "updatedAt": 1793981567
         },
         {
+            "code": "DX-122",
+            "completedAt": 1794016378,
+            "createdAt": 1793982202,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-122",
+            "note": "",
+            "orderKey": 76800,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 启动告警零容忍：把枚举式 pattern 换成按形态识别，规则收成一份",
+            "updatedAt": 1794016378
+        },
+        {
             "code": "DX-02",
             "completedAt": 1793123355,
             "createdAt": 1793123355,
@@ -5335,6 +5335,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T09:14:37",
+    "updated": "2026-11-07T09:52:58",
     "version": 3
 }

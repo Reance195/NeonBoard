@@ -223,8 +223,15 @@ bool PluginLibrary::installFromUrl(const QString &url)
                     QFile::remove(tempFile);
                     return;
                 }
-                const QString targetDir =
-                    AppPaths::pluginDir() + QLatin1Char('/') + dirNameForId(pluginId);
+                const QString dirName = dirNameForId(pluginId);
+                if (dirName.isEmpty()) {
+                    const QString text = QStringLiteral("插件 id 非法：无法派生安装目录");
+                    setStatusText(text);
+                    emit operationFinished(pluginId, QStringLiteral("install"), false, text);
+                    QFile::remove(tempFile);
+                    return;
+                }
+                const QString targetDir = AppPaths::pluginDir() + QLatin1Char('/') + dirName;
                 QString installError;
                 if (!PluginPackage::installNeonFile(tempFile, targetDir, &installError)) {
                     setStatusText(installError);
@@ -274,7 +281,14 @@ bool PluginLibrary::installFromUrlBlocking(const QString &url, QString *error)
             *error = QStringLiteral("包格式非法：缺少 manifest.id");
         return false;
     }
-    const QString targetDir = AppPaths::pluginDir() + QLatin1Char('/') + dirNameForId(pluginId);
+    const QString dirName = dirNameForId(pluginId);
+    if (dirName.isEmpty()) {
+        QFile::remove(tempFile);
+        if (error)
+            *error = QStringLiteral("插件 id 非法：无法派生安装目录");
+        return false;
+    }
+    const QString targetDir = AppPaths::pluginDir() + QLatin1Char('/') + dirName;
     if (!PluginPackage::installNeonFile(tempFile, targetDir, error)) {
         QFile::remove(tempFile);
         return false;
@@ -487,7 +501,13 @@ bool PluginLibrary::installFromLocalSource(const QString &pluginId, QString *err
             *error = QStringLiteral("找不到本地插件源");
         return false;
     }
-    const QString target = AppPaths::pluginDir() + QLatin1Char('/') + dirNameForId(pluginId);
+    const QString dirName = dirNameForId(pluginId);
+    if (dirName.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("插件 id 非法：无法派生安装目录");
+        return false;
+    }
+    const QString target = AppPaths::pluginDir() + QLatin1Char('/') + dirName;
     if (!PluginPackage::installDirectory(sourceDir, target, error))
         return false;
     setStatusText(QStringLiteral("已从本地源安装 %1").arg(pluginId));
@@ -510,10 +530,15 @@ bool PluginLibrary::installFromMarket(const QString &pluginId, QString *error)
             [this, pluginId, tempFile](const QString &file, bool ok, const QString &message) {
                 Q_UNUSED(file)
                 if (ok) {
-                    const QString target =
-                        AppPaths::pluginDir() + QLatin1Char('/') + dirNameForId(pluginId);
+                    const QString dirName = dirNameForId(pluginId);
                     QString installError;
-                    if (PluginPackage::installNeonFile(tempFile, target, &installError)) {
+                    if (dirName.isEmpty()) {
+                        installError = QStringLiteral("插件 id 非法：无法派生安装目录");
+                        emit operationFinished(pluginId, QStringLiteral("install"), false,
+                                              installError);
+                    } else if (PluginPackage::installNeonFile(
+                                   tempFile, AppPaths::pluginDir() + QLatin1Char('/') + dirName,
+                                   &installError, pluginId)) {
                         setStatusText(QStringLiteral("已安装 %1").arg(pluginId));
                         if (m_runtime)
                             m_runtime->reload();
@@ -548,8 +573,15 @@ bool PluginLibrary::installFromMarketBlocking(const QString &pluginId, QString *
         QFile::remove(tempFile);
         return false;
     }
-    const QString target = AppPaths::pluginDir() + QLatin1Char('/') + dirNameForId(pluginId);
-    if (!PluginPackage::installNeonFile(tempFile, target, error)) {
+    const QString dirName = dirNameForId(pluginId);
+    if (dirName.isEmpty()) {
+        QFile::remove(tempFile);
+        if (error)
+            *error = QStringLiteral("插件 id 非法：无法派生安装目录");
+        return false;
+    }
+    const QString target = AppPaths::pluginDir() + QLatin1Char('/') + dirName;
+    if (!PluginPackage::installNeonFile(tempFile, target, error, pluginId)) {
         QFile::remove(tempFile);
         return false;
     }
@@ -646,7 +678,12 @@ bool PluginLibrary::uninstall(const QString &pluginId)
     if (pluginId.isEmpty())
         return reportFailure(pluginId, QStringLiteral("uninstall"), QStringLiteral("插件 id 为空"));
     // 只允许删用户安装区里的副本，官方源/示例源是只读的
-    const QString target = AppPaths::pluginDir() + QLatin1Char('/') + dirNameForId(pluginId);
+    const QString dirName = dirNameForId(pluginId);
+    if (dirName.isEmpty()) {
+        return reportFailure(pluginId, QStringLiteral("uninstall"),
+                             QStringLiteral("插件 id 非法：无法派生安装目录"));
+    }
+    const QString target = AppPaths::pluginDir() + QLatin1Char('/') + dirName;
     if (!QDir(target).exists()) {
         return reportFailure(pluginId, QStringLiteral("uninstall"),
                              QStringLiteral("该插件不在用户安装区，无需卸载"));

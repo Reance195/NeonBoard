@@ -67,7 +67,30 @@ neonboard_add_test(tst_taskinputparser
 
 neonboard_add_test(tst_pluginpackage
     ${NB_DIR_PLUGIN}/PluginPackage.cpp
+    ${NB_DIR_CORE}/SafePaths.cpp
 )
+
+# DX-132：uninstall 的 id → 目录名派生防御。只走 id 防御分支，但 PluginLibrary
+# 的链接闭包要拉满（loader/market/runtime/数据库门面），沿 tst_pluginruntime 的编法。
+neonboard_add_test(tst_pluginlibrary
+    ${NB_DIR_PLUGIN}/PluginLibrary.cpp
+    ${NB_DIR_PLUGIN}/PluginPackage.cpp
+    ${NB_DIR_PLUGIN}/PluginLoader.cpp
+    ${NB_DIR_PLUGIN}/PluginMarket.cpp
+    ${NB_DIR_PLUGIN}/PluginRuntime.cpp
+    ${NB_DIR_PLUGIN}/PluginContext.cpp
+    ${NB_DIR_PLUGIN}/PluginEventBus.cpp
+    ${NB_DIR_PLUGIN}/PluginHost.cpp
+    ${NB_DIR_CORE}/SafePaths.cpp
+    ${NB_DIR_CORE}/AppPaths.cpp
+    ${NB_DIR_CORE}/Database.cpp
+    ${NB_DIR_TASK}/TaskModel.cpp
+    ${NB_DIR_TASK}/TaskInputParser.cpp
+    ${NB_DIR_SHELL}/TrayController.cpp
+    ${NB_DIR_THEME}/MenuSkin.cpp
+)
+target_link_libraries(tst_pluginlibrary PRIVATE
+    Qt6::Sql Qt6::Network Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Widgets)
 
 # R14-01：官方来源插件的授权补齐策略。
 # 只测 PluginLoader 的静态策略函数（来源判定 + 补齐计算），因此仍要整体编入
@@ -233,6 +256,7 @@ neonboard_add_test(tst_uisettings
 neonboard_add_test(tst_updatemanager
     ${NB_DIR_UPDATE}/UpdateManager.cpp
     ${NB_DIR_CORE}/AppPaths.cpp
+    ${NB_DIR_CORE}/SafePaths.cpp
     ${NB_DIR_UPDATE}/DeltaUpdate.cpp
     ${NB_DIR_UPDATE}/BsdiffWrapper.cpp
     ${CMAKE_SOURCE_DIR}/thirdparty/bsdiff/bsdiff.c

@@ -1276,7 +1276,7 @@
             "depends": [],
             "evidence": "2026-11-07 全仓审计（六域并行 + 逐条亲验）。其一：src/plugin/PluginPackage.cpp:14-32 isSafeRelativePath 只挡反斜杠/前导斜杠/..，不挡 Windows 盘符绝对路径——files 键写 \"C:/Users/.../run.js\" 四道校验全过，QDir::filePath 对绝对路径原样返回，writeFile 的 mkpath 直接落到插件目录之外（任意文件写），\"C:name\" 盘符相对与 ADS 写法同样通过。其二：PluginPackage.cpp:152-158 dirNameForId 对 \"..\" 原样返回 \"..\"，PluginLibrary.cpp:649-654 uninstall 拼 pluginDir()/.. 后 removeRecursively——uninstall(\"..\") 删掉整个 NeonBoard 数据目录（board.db、hooks.db、全部插件），且 PluginLibrary.h:48 uninstall 为 Q_INVOKABLE 可被面板 QML 直调。其三：PluginPackage.cpp:128-131 installNeonFile 只校验 manifest.id 非空，从不与请求 id 比对——AGENTS §9.2 四道校验的第 2 道全链路未实现，装 A 落 B，权限弹窗按攻击者自选 id 计。",
             "id": "DX-132",
-            "note": "",
+            "note": "交付：isSafeRelativePath 收口为 src/core/SafePaths（盘符/冒号/反斜杠/点段按内容拒绝）；dirNameForId 派生非安全单段返回空串，uninstall/install 全调用点拒绝；installNeonFile 增期望 id 比对（四道校验第 2 道补齐）+ 目标目录名兜底。验收：tst_pluginpackage 新增盘符/目标目录/manifest.id 三组用例、新增 tst_pluginlibrary（uninstall 拒 .. / . / 分隔符 / C:evil）全绿；verify.ps1 全量通过。pitfalls 未补（教训已写进判定处注释：信任边界按内容判定）。",
             "scope": [
                 "src/plugin/PluginPackage.cpp",
                 "src/plugin/PluginPackage.h",
@@ -1286,7 +1286,8 @@
                 "src/core/SafePaths.cpp",
                 "CMakeLists.txt",
                 "tests/**",
-                "docs/pitfalls.md"
+                "docs/pitfalls.md",
+                "src/main.cpp"
             ],
             "stage": "DX",
             "tier": "P3",
@@ -1377,7 +1378,7 @@
             ],
             "evidence": "2026-11-07 全仓审计（亲验）。其一：src/update/DeltaUpdate.cpp:350 apply 循环 dst = installQDir.absoluteFilePath(toNative(change.path))，path 来自不可信 delta.json 且无任何穿越校验——同文件 :429 对 obsolete-files.txt 明确做了防护并写明动机，同一条信任边界双标。其二：UpdateManager.cpp:1045 增量包 sha256「清单给了才校验」缺失即放行，而全量路径 verifyFile（:1275-1280）清单没给哈希时明确拒绝——同一清单格式两条通道安全姿态相反，与其一组合即任意写。其三：UpdateManager.cpp:892-894（及 :1002/:1120/:1251 同族）version 无字符白名单直接拼 %TEMP%/neonboard-update-<ver>.exe，downloadAndInstall 入口的 QFile::remove 即任意文件删除。其四：DeltaUpdate.cpp:392-404 回滚时 QFile::copy 返回值被丢，随后无条件 removeRecursively 销毁唯一备份——恢复失败即旧文件永久丢失（Z13）。",
             "id": "DX-136",
-            "note": "",
+            "note": "交付：DeltaUpdate 路径判定复用 SafePaths（delta.json 的 path/patchPath 穿越整单拒绝）；增量 sha256 缺失 fail-closed（ReleaseInfo::deltaApplicableSecure，与全量 verifyFile 同口径）；version 白名单在 parseManifest 单点拦截；回滚 copy/remove 返回值入判，恢复不完整时保留备份并报位置。验收：tst_updatemanager 新增 version 白名单/sha fail-closed/穿越拒绝/回滚保备份四组用例全绿；verify.ps1 全量通过。extractZip Zip Slip 疑点按边界留待后续。",
             "scope": [
                 "src/update/DeltaUpdate.cpp",
                 "src/update/DeltaUpdate.h",
@@ -6090,6 +6091,19 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-132": {
+            "agent": "agent-fix",
+            "branch": "fix/audit-trust-chain",
+            "claimedAt": 1794033840,
+            "head": "b369d1a759cd334f56ee061b59cc71b23cffc6cb"
+        },
+        "DX-136": {
+            "agent": "agent-fix",
+            "branch": "fix/audit-trust-chain",
+            "claimedAt": 1794033887,
+            "head": "280ef1f4e6bae4200469c3b20157465644398bf7"
+        }
+    },
     "version": 1
 }

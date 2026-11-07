@@ -334,6 +334,17 @@ UpdateManager::ReleaseInfo UpdateManager::parseManifest(const QByteArray &json, 
     if (!info.valid()) {
         if (error)
             *error = QStringLiteral("清单里没有版本号");
+        return info;
+    }
+
+    // 版本号字符白名单（DX-136）：version 会被拼进临时文件与自更新脚本名，
+    // 含路径分隔符或 .. 的值在解析这个单点直接拒绝，不留给下游拼路径
+    static const QRegularExpression kSafeVersionPattern(QStringLiteral("^[A-Za-z0-9._+-]+$"));
+    if (info.version.contains(QLatin1String(".."))
+        || !kSafeVersionPattern.match(info.version).hasMatch()) {
+        if (error)
+            *error = QStringLiteral("清单版本号非法：%1").arg(info.version);
+        return {};
     }
     return info;
 }
@@ -992,10 +1003,13 @@ bool UpdateManager::downloadAndApplyDelta(QString *error)
             *error = QStringLiteral("无可用更新信息");
         return false;
     }
-    // 增量包只在当前版本恰好等于源版本时可用，否则回退全量
-    if (!m_latest.deltaApplicable(currentVersion())) {
+    // 增量包只在当前版本恰好等于源版本、且清单带 sha256 时可用（fail-closed，DX-136），
+    // 否则回退全量 —— 与全量通道 verifyFile「没给哈希不静默放行」同一口径
+    if (!m_latest.deltaApplicableSecure(currentVersion())) {
         if (error)
-            *error = QStringLiteral("增量包不适用（当前版本与源版本不一致）");
+            *error = m_latest.deltaSha256.isEmpty()
+                         ? QStringLiteral("清单缺少增量包 sha256，拒绝应用")
+                         : QStringLiteral("增量包不适用（当前版本与源版本不一致）");
         return false;
     }
 

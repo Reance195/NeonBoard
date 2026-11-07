@@ -96,6 +96,12 @@ public:
             return !deltaUrl.isEmpty() && !deltaFromVersion.isEmpty()
                    && compareVersion(currentVersion, deltaFromVersion) == 0;
         }
+        /** 增量包是否可安全应用（DX-136）：可用之外还必须带 sha256 —— 增量内容会
+         *  直接合并/覆盖安装目录，与全量通道 verifyFile 同为 fail-closed 口径。 */
+        bool deltaApplicableSecure(const QString &currentVersion) const
+        {
+            return deltaApplicable(currentVersion) && !deltaSha256.isEmpty();
+        }
     };
 
     // ---- 纯逻辑（可离线单测）----

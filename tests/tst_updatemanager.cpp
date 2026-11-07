@@ -579,6 +579,156 @@ private slots:
         QVERIFY(text.contains(QStringLiteral("install-receipt.json")));
         QVERIFY(text.contains(QStringLiteral("BUILD-INFO.txt")));
     }
+
+    // DX-136：version 会拼进临时文件与脚本名，解析单点必须拦下路径形态的值
+    void parseRejectsUnsafeVersion()
+    {
+        const QStringList evil = {
+            QStringLiteral("../../evil"),
+            QStringLiteral("a/b"),
+            QStringLiteral("..\\evil"),
+            QStringLiteral("0.2.0 beta"),
+        };
+        for (const QString &value : evil) {
+            const QByteArray json = "{\"latest\": \"" + value.toUtf8() + "\"}";
+            QString error;
+            const UpdateManager::ReleaseInfo info = UpdateManager::parseManifest(json, &error);
+            QVERIFY2(!info.valid(),
+                     qPrintable(QStringLiteral("版本 %1 被放行").arg(value)));
+            QVERIFY2(error.contains(QStringLiteral("版本号非法")),
+                     qPrintable(error));
+        }
+
+        // 正常版本不受影响（字母数字与 . _ + -，不含连续点）
+        QString okError;
+        const UpdateManager::ReleaseInfo ok = UpdateManager::parseManifest(
+            QByteArray("{\"latest\": \"0.2.0-beta.1+build\"}"), &okError);
+        QVERIFY2(ok.valid(), qPrintable(okError));
+        QCOMPARE(ok.version, QStringLiteral("0.2.0-beta.1+build"));
+    }
+
+    // DX-136：增量包 sha256 缺失即不可安全应用（fail-closed，与全量通道同口径）
+    void deltaSecureApplyRequiresSha256()
+    {
+        UpdateManager::ReleaseInfo info;
+        info.version = QStringLiteral("0.3.0");
+        info.deltaUrl = QStringLiteral("https://example.test/delta.zip");
+        info.deltaFromVersion = QStringLiteral("0.2.0");
+
+        QVERIFY(info.deltaApplicable(QStringLiteral("0.2.0")));
+        // 缺 sha256：可「适用」但不可「安全应用」
+        QVERIFY(!info.deltaApplicableSecure(QStringLiteral("0.2.0")));
+
+        info.deltaSha256 = QStringLiteral("abc123");
+        QVERIFY(info.deltaApplicableSecure(QStringLiteral("0.2.0")));
+        // 版本不符依旧拒绝，不因 sha 齐全而放宽
+        QVERIFY(!info.deltaApplicableSecure(QStringLiteral("0.9.0")));
+    }
+
+    // DX-136：delta.json 的 path / patchPath 必须是安装目录内的安全相对路径
+    void deltaRejectsTraversalPaths()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        const QString installDir = QDir(dir.path()).filePath(QStringLiteral("install"));
+        QVERIFY(QDir().mkpath(installDir));
+
+        // Added + 盘符绝对路径：整单拒绝，任何文件不得落盘
+        const QByteArray json1 =
+            "{\"fromVersion\":\"0.2.0\",\"toVersion\":\"0.3.0\",\"changes\":"
+            "[{\"path\":\"C:/Users/attacker/evil.txt\",\"type\":0,\"newSha256\":\"x\"}]}";
+        const QString deltaDir1 = QDir(dir.path()).filePath(QStringLiteral("delta1"));
+        QVERIFY(QDir().mkpath(deltaDir1));
+        {
+            QFile f(QDir(deltaDir1).filePath(QStringLiteral("delta.json")));
+            QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            f.write(json1);
+        }
+        QString error;
+        QVERIFY2(!DeltaUpdate::applyDelta(deltaDir1, installDir,
+                                          QDir(dir.path()).filePath(QStringLiteral("staged1")),
+                                          &error),
+                 qPrintable(error));
+        QVERIFY(error.contains(QStringLiteral("非法路径")));
+        QVERIFY(!QFile::exists(QStringLiteral("C:/Users/attacker/evil.txt")));
+
+        // patchPath 穿越：同样拒绝
+        const QByteArray json2 =
+            "{\"fromVersion\":\"0.2.0\",\"toVersion\":\"0.3.0\",\"changes\":"
+            "[{\"path\":\"ok.txt\",\"type\":1,\"oldSha256\":\"a\",\"newSha256\":\"b\","
+            "\"patchPath\":\"../patches/evil.patch\"}]}";
+        const QString deltaDir2 = QDir(dir.path()).filePath(QStringLiteral("delta2"));
+        QVERIFY(QDir().mkpath(deltaDir2));
+        {
+            QFile f(QDir(deltaDir2).filePath(QStringLiteral("delta.json")));
+            QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            f.write(json2);
+        }
+        error.clear();
+        QVERIFY2(!DeltaUpdate::applyDelta(deltaDir2, installDir,
+                                          QDir(dir.path()).filePath(QStringLiteral("staged2")),
+                                          &error),
+                 qPrintable(error));
+        QVERIFY(error.contains(QStringLiteral("非法")));
+    }
+
+    // DX-136：应用失败且回滚不完整时必须保留备份目录，不得静默销毁旧文件唯一副本
+    void deltaRollbackKeepsBackupOnPartialRestore()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        const QString installDir = QDir(dir.path()).filePath(QStringLiteral("install"));
+        QVERIFY(QDir().mkpath(installDir));
+        const QString stagedDir = QDir(dir.path()).filePath(QStringLiteral("staged"));
+        const QString backupDir = stagedDir + QStringLiteral("/.backup");
+        const QString dstFile = QDir(installDir).filePath(QStringLiteral("a.txt"));
+        {
+            QFile f(dstFile);
+            QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            f.write("old-content");
+        }
+
+        // Modified 条目：oldSha256 与真实旧文件一致（过预校验），newSha256 故意写错
+        // → 应用阶段拷入新内容后 sha 校验失败 → 走回滚。
+        const QString deltaDir = QDir(dir.path()).filePath(QStringLiteral("delta"));
+        QVERIFY(QDir().mkpath(QDir(deltaDir).filePath(QStringLiteral("files"))));
+        {
+            QFile f(QDir(deltaDir).filePath(QStringLiteral("files/a.txt")));
+            QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            f.write("new-content");
+        }
+        const QString oldSha = DeltaUpdate::sha256OfFile(dstFile);
+        const QByteArray json = "{\"fromVersion\":\"0.2.0\",\"toVersion\":\"0.3.0\",\"changes\":"
+                                "[{\"path\":\"a.txt\",\"type\":1,\"oldSha256\":\"" + oldSha.toUtf8()
+                                + "\",\"newSha256\":\"" + QByteArray(64, '0') + "\"}]}";
+        {
+            QFile f(QDir(deltaDir).filePath(QStringLiteral("delta.json")));
+            QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            f.write(json);
+        }
+
+        // 锁住目标文件（只允许读、不允许删）：预校验/备份能正常读它，
+        // 但应用与回滚阶段的 remove 都会被拒，逼出 rollbackOk=false 的分支 ——
+        // 备份目录必须保留而不是被无条件删除
+        HANDLE lock = CreateFileW(reinterpret_cast<const wchar_t *>(dstFile.utf16()),
+                                  GENERIC_READ, FILE_SHARE_READ, nullptr,
+                                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        QVERIFY2(lock != INVALID_HANDLE_VALUE, qPrintable(dstFile));
+
+        QString error;
+        QVERIFY2(!DeltaUpdate::applyDelta(deltaDir, installDir, stagedDir, &error),
+                 qPrintable(error));
+        CloseHandle(lock);
+
+        QVERIFY2(QDir(backupDir).exists(), qPrintable(error));
+        QVERIFY2(error.contains(QStringLiteral("备份保留")), qPrintable(error));
+        // 备份里的旧文件内容完好，可据此手工恢复
+        QFile backupFile(QDir(backupDir).filePath(QStringLiteral("a.txt")));
+        QVERIFY(backupFile.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(backupFile.readAll()), QStringLiteral("old-content"));
+    }
 };
 
 // GUILESS：本用例只测纯逻辑，不需要 QApplication（与项目其它单测保持一致）

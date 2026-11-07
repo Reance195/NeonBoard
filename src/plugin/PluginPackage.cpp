@@ -1,5 +1,7 @@
 #include "PluginPackage.h"
 
+#include "SafePaths.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -9,27 +11,6 @@
 #include <QTemporaryDir>
 
 namespace {
-
-/** 防目录穿越：文件名只允许纯文件名 + 单层子目录 */
-bool isSafeRelativePath(const QString &path)
-{
-    if (path.isEmpty())
-        return false;
-    if (path.contains(QLatin1Char('\\')))
-        return false;
-    if (path.startsWith(QLatin1Char('/')))
-        return false;
-    if (path.contains(QLatin1String("..")))
-        return false;
-    const QStringList parts = path.split(QLatin1Char('/'), Qt::SkipEmptyParts);
-    if (parts.isEmpty())
-        return false;
-    for (const QString &part : parts) {
-        if (part == QLatin1String(".") || part == QLatin1String(".."))
-            return false;
-    }
-    return true;
-}
 
 bool writeFile(const QString &path, const QByteArray &content, QString *error)
 {
@@ -152,12 +133,16 @@ QString PluginPackage::neonPluginId(const QString &neonPath)
 QString PluginPackage::dirNameForId(const QString &pluginId)
 {
     const int dot = pluginId.lastIndexOf(QLatin1Char('.'));
-    if (dot >= 0 && dot + 1 < pluginId.size())
-        return pluginId.mid(dot + 1);
-    return pluginId;
+    const QString derived =
+        (dot >= 0 && dot + 1 < pluginId.size()) ? pluginId.mid(dot + 1) : pluginId;
+    // 派生结果不是安全单段（".."/"."/含分隔符）时返回空串，调用方据此整单拒绝（DX-132）
+    if (!SafePaths::isSafeSingleSegment(derived))
+        return QString();
+    return derived;
 }
 
-bool PluginPackage::installNeonFile(const QString &neonPath, const QString &targetDir, QString *error)
+bool PluginPackage::installNeonFile(const QString &neonPath, const QString &targetDir, QString *error,
+                                    const QString &expectedManifestId)
 {
     if (!validateNeonFile(neonPath, error))
         return false;
@@ -172,6 +157,25 @@ bool PluginPackage::installNeonFile(const QString &neonPath, const QString &targ
     const QJsonObject root = document.object();
     const QJsonObject manifest = root.value(QStringLiteral("manifest")).toObject();
     const QJsonObject files = root.value(QStringLiteral("files")).toObject();
+
+    // 四道校验第 2 道（DX-132）：包内 manifest.id 与请求 id 一致，不一致整单失败不落盘
+    const QString manifestId = manifest.value(QStringLiteral("id")).toString().trimmed();
+    if (!expectedManifestId.isEmpty() && manifestId != expectedManifestId.trimmed()) {
+        if (error)
+            *error = QStringLiteral("manifest.id 与请求 id 不一致：%1（请求 %2）")
+                         .arg(manifestId, expectedManifestId.trimmed());
+        return false;
+    }
+
+    // 目标目录名必须是安全单段：防止调用方拼出 pluginDir 上级目录后被整体替换（DX-132）。
+    // 尾部分隔符一并拒绝：目录名派生为空串时会拼出 "…/plugins/" 这种形态。
+    const QString targetLeaf = QFileInfo(targetDir).fileName();
+    if (targetDir.endsWith(QLatin1Char('/')) || targetDir.endsWith(QLatin1Char('\\'))
+        || !SafePaths::isSafeSingleSegment(targetLeaf)) {
+        if (error)
+            *error = QStringLiteral("安装目标目录名非法：%1").arg(targetDir);
+        return false;
+    }
 
     // 先落到同盘临时目录，成功后再原子替换目标目录
     const QString parent = QFileInfo(targetDir).absolutePath();
@@ -194,7 +198,7 @@ bool PluginPackage::installNeonFile(const QString &neonPath, const QString &targ
 
     for (auto it = files.constBegin(); it != files.constEnd(); ++it) {
         const QString relative = it.key();
-        if (!isSafeRelativePath(relative)) {
+        if (!SafePaths::isSafeRelativePath(relative)) {
             if (error)
                 *error = QStringLiteral("插件包包含非法路径：%1").arg(relative);
             return false;

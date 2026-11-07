@@ -125,6 +125,7 @@ qt_add_executable(NeonBoard
     src/shell/SplashLayeredWindow.h src/shell/SplashLayeredWindow.cpp
     src/core/UiSettings.h src/core/UiSettings.cpp
     src/core/AppPaths.h src/core/AppPaths.cpp
+    src/core/SafePaths.h src/core/SafePaths.cpp
     src/board/RoadmapSync.h src/board/RoadmapSync.cpp
     src/plugin/PluginContext.h src/plugin/PluginContext.cpp
     src/plugin/PluginEventBus.h src/plugin/PluginEventBus.cpp
@@ -343,6 +344,7 @@ target_include_directories(NeonBoardHost PRIVATE src src/core src/theme)
 add_executable(neonboard-delta-tool
     src/update/DeltaUpdate.cpp
     src/update/BsdiffWrapper.cpp
+    src/core/SafePaths.cpp
     thirdparty/bsdiff/bsdiff.c
     thirdparty/bsdiff/bspatch.c
     thirdparty/bzip2/bzlib.c
@@ -355,7 +357,7 @@ add_executable(neonboard-delta-tool
 )
 target_compile_definitions(neonboard-delta-tool PRIVATE NEONBOARD_DELTA_TOOL_MAIN)
 target_link_libraries(neonboard-delta-tool PRIVATE Qt6::Core)
-target_include_directories(neonboard-delta-tool PRIVATE src src/update ${CMAKE_SOURCE_DIR})
+target_include_directories(neonboard-delta-tool PRIVATE src src/update src/core ${CMAKE_SOURCE_DIR})
 
 # 自动化测试（R4-05）：include(CTest) 提供 BUILD_TESTING 开关与 test 目标，
 # 默认开启，因此 CI 与本地 `cmake --build` 都会编译测试目标 —— 编译失败即等于

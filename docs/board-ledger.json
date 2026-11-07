@@ -5709,6 +5709,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-37": {
+            "agent": "agent-dx37",
+            "branch": "ci/release-sccache-ninja",
+            "claimedAt": 1794019095,
+            "head": "fe60f1760d8e19ce5a400ed6bd4065939977d825"
+        }
+    },
     "version": 1
 }

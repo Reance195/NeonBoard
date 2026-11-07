@@ -127,24 +127,6 @@
             "updatedAt": 1793825191
         },
         {
-            "code": "DX-102",
-            "completedAt": 0,
-            "createdAt": 1793935667,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-102",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "交互回归判据与 GUI 实机验收通道沉淀",
-            "updatedAt": 1793935667
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5047,6 +5029,24 @@
             "updatedAt": 1793251716
         },
         {
+            "code": "DX-102",
+            "completedAt": 1794023071,
+            "createdAt": 1793935667,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-102",
+            "note": "已完成 5 / 待做 0。① scripts/check_qml_pitfalls.py：id 点号访问与 MouseArea 层叠两条判据，--selftest 6 项，真实 qml/ 35 个文件 0 命中；② tests/qml/tst_taskcard_actions.qml：按钮/整卡/双击/拖拽/层叠陷阱/id 语义 6 例，ctest 40/40 绿；③ scripts/gui-uia-verify.ps1：任何合成输入前校验前台句柄，-SelfTest 4 项；④ CI 增加静态检查步骤；⑤ pitfalls 4.13/4.14。验收：全量构建 + ctest + --selftest + --smoke 通过（本机 check_qml_warnings 反向证伪需 PYTHONUTF8=1 才能按 UTF-8 捕获子进程输出，属既有环境口径）。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "交互回归判据与 GUI 实机验收通道沉淀",
+            "updatedAt": 1794023071
+        },
+        {
             "code": "R9-02",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5389,6 +5389,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T11:39:34",
+    "updated": "2026-11-07T11:44:31",
     "version": 3
 }

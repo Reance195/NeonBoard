@@ -3682,7 +3682,11 @@
                 "src/plugin/PluginRuntime.h",
                 "src/task/TaskTree.cpp",
                 "src/task/TaskRunStore.cpp",
+                "src/task/TaskRunStore.h",
+                "src/shell/StartupDefer.h",
                 "src/main.cpp",
+                "src/board/ProjectStore.cpp",
+                "tests/",
                 "docs/pitfalls.md"
             ],
             "stage": "R0",

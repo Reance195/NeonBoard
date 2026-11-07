@@ -55,24 +55,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "DX-133",
-            "completedAt": 0,
-            "createdAt": 1794033547,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-133",
-            "note": "",
-            "orderKey": 85760,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "RoadmapSync 墓碑误删：卡的「家」迁移被当成删除，看板卡片永久丢失",
-            "updatedAt": 1794033547
-        },
-        {
             "code": "DX-134",
             "completedAt": 0,
             "createdAt": 1794033571,
@@ -5173,6 +5155,24 @@
             "updatedAt": 1794021079
         },
         {
+            "code": "DX-133",
+            "completedAt": 1794038390,
+            "createdAt": 1794033547,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-133",
+            "note": "缺陷链：导出侧 scoped 过滤把「家不在本文件」的卡漏出 seen（seen 语义应为「看板里存在」而非「要写进本文件」），墓碑循环把文件里有、seen 没有的条目一律标 deleted，导入侧 deleteTask 落库 —— 归属迁移 / 双项目绑同路径时永久丢卡。修复三件：① homeScope 判据抽成导入导出共用的单一实现（Z5）；② 导出侧 seen 计入前移到 scoped 过滤之前，家不在的卡不再误标墓碑（旧条目原样保留或被干净移出文件）；③ 导入侧 deleted 条目加防线，家不在本文件的墓碑不执行删除、按冲突计，兜住存量损坏文件。红色基线已实证：stash 修复后 tombstoneIgnoresCardsWithHomeElsewhere 与 sameRepoTwoProjectsDoNotKillEachOther 复现误标墓碑，恢复后全绿。验收：tst_roadmapsync 11 用例全绿（3 新增），verify.ps1 全量通过（编译+ctest+selftest+smoke 0 告警）。",
+            "orderKey": 85760,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "RoadmapSync 墓碑误删：卡的「家」迁移被当成删除，看板卡片永久丢失",
+            "updatedAt": 1794038390
+        },
+        {
             "code": "DX-136",
             "completedAt": 1794036764,
             "createdAt": 1794033689,
@@ -5605,6 +5605,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T15:32:44",
+    "updated": "2026-11-07T15:59:50",
     "version": 3
 }

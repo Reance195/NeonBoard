@@ -55,6 +55,8 @@ private slots:
     void batWrapperAbsolutePathLaunches();
     void cmdWrapperRejectsMultilinePrompt();
     void cmdWrapperRejectsPercentExpansion();
+    void cmdWrapperRejectsDoubleQuotePrompt();
+    void graceTimeoutSettlesBlocked();
     void realAgentProbeIfEnabled();
 
 private:
@@ -415,6 +417,74 @@ void TestTaskRunner::cmdWrapperRejectsPercentExpansion()
 // 本机装了真 agent 时，可用 NB_REAL_AGENT_PROBE=1 打一次真调用（R14-03 的实测口径：
 // 非交互、短超时）。默认跳过 —— 会拉起真实 CLI，且未登录时会以非零码退出。
 // 断言只覆盖「起得来、退出码取得到」，不替 agent 的成功与否背书。
+// DX-134：cmd 不认反斜杠转义，prompt 里的双引号会提前闭合引号段 —— 必须与
+// 换行 / %VAR% 同等待遇：启动前拒绝，不静默截断。
+void TestTaskRunner::cmdWrapperRejectsDoubleQuotePrompt()
+{
+#ifdef Q_OS_WIN
+    const QString path = m_dir.filePath(QStringLiteral("nb-wrap-quote.cmd"));
+    QFile script(path);
+    QVERIFY(script.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    script.write(QByteArray("@echo off\r\nexit /b 0\r\n"));
+    script.close();
+
+    const QString prompt = QStringLiteral("说明 \" 引用 & calc");
+    const QVariantMap r = m_runner->startRaw(QStringLiteral("task-wrap-quote"), path, {},
+                                             m_dir.path(), 60, /*promptToStdin=*/false, prompt, 1,
+                                             false, QStringLiteral("cursor-agent"));
+    QVERIFY2(!r.value(QStringLiteral("ok")).toBool(), "含双引号的 prompt 必须拒绝启动");
+    const QString message = r.value(QStringLiteral("message")).toString();
+    QVERIFY2(message.contains(QStringLiteral("双引号")), qPrintable(message));
+    QVERIFY2(m_runner->activeRuns().isEmpty(), "拒绝启动却留下了 running 锁");
+
+    // 对照：同样内容交给 .exe（cmd.exe 直起）不受这条限制，判据看的是包装器
+    QSignalSpy finished(m_runner, &TaskRunner::runFinished);
+    const QVariantMap ok = m_runner->startRaw(QStringLiteral("task-wrap-quote-control"), kCmd,
+                                              {QStringLiteral("/c"), QStringLiteral("exit 0")},
+                                              m_dir.path(), 60, /*promptToStdin=*/false, prompt);
+    QVERIFY2(ok.value(QStringLiteral("ok")).toBool(),
+             qPrintable(ok.value(QStringLiteral("message")).toString()));
+    QVERIFY2(finished.wait(15000), ".exe 对照用例 15s 未结束");
+#else
+    QSKIP("Windows 专有：.cmd 包装器");
+#endif
+}
+
+// DX-134：宽限计时器成员化后的超时全链路回归 —— deadline → terminate → 宽限 kill →
+// settle 成 blocked，收尾后无残留锁、无迟到回调。UAF 本身无法在常规构建下断言
+// （需 ASAN），这里钉的是重写后的行为等价性。
+void TestTaskRunner::graceTimeoutSettlesBlocked()
+{
+#ifdef Q_OS_WIN
+    // ping 拉满 30 秒，timeoutSec=1：deadline 在 1s 触发 terminate（控制台进程多半
+    // 不理会），宽限 5s 后 killTree 收尸 → blocked(timeout)
+    const QVariantMap r = m_runner->startRaw(QStringLiteral("task-grace-timeout"), kCmd,
+                                             {QStringLiteral("/c"),
+                                              QStringLiteral("ping -n 30 127.0.0.1 >nul")},
+                                             m_dir.path(), 1);
+    QVERIFY2(r.value(QStringLiteral("ok")).toBool(),
+             qPrintable(r.value(QStringLiteral("message")).toString()));
+    const QString runId = r.value(QStringLiteral("runId")).toString();
+
+    QSignalSpy finished(m_runner, &TaskRunner::runFinished);
+    QVERIFY2(finished.wait(30000), "超时 run 30s 内未 settle（宽限计时链路断了）");
+    const QVariantMap detail = finished.first().at(1).toMap();
+    QCOMPARE(detail.value(QStringLiteral("lastError")).toString(),
+             QStringLiteral("执行超时"));
+    QVERIFY(m_runner->activeRuns().isEmpty());
+    // 锁已释放：同卡可以再次启动（busy 会返回 ok:false）
+    const QVariantMap again = m_runner->startRaw(QStringLiteral("task-grace-timeout"), kCmd,
+                                                 {QStringLiteral("/c"), QStringLiteral("exit 0")},
+                                                 m_dir.path(), 60);
+    QVERIFY2(again.value(QStringLiteral("ok")).toBool(),
+             qPrintable(again.value(QStringLiteral("message")).toString()));
+    QSignalSpy finishAgain(m_runner, &TaskRunner::runFinished);
+    QVERIFY2(finishAgain.wait(15000), "复跑用例 15s 未结束");
+#else
+    QSKIP("Windows 专有：taskkill/命令行载体");
+#endif
+}
+
 void TestTaskRunner::realAgentProbeIfEnabled()
 {
     if (qEnvironmentVariableIsEmpty("NB_REAL_AGENT_PROBE"))

@@ -82,6 +82,10 @@ private:
         QProcess *proc = nullptr;
         QTimer *heartbeat = nullptr;
         QTimer *deadline = nullptr;
+        // 宽限 kill 计时器（DX-134）：必须是可跟踪成员 —— singleShot 按引用捕获堆上
+        // Process，进程宽限期内自行退出时 cleanup 已 delete，定时器再触发即 use-after-free，
+        // 重试轮还会被旧定时器误杀。成员化后由 cleanup/tryRetry 负责停表删表。
+        QTimer *grace = nullptr;
         QByteArray log;
         QString ending;     // 空 / timeout / cancelled：结束原因
         QString startError; // setupProcess 失败时的 QProcess errorString

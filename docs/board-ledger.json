@@ -1326,7 +1326,7 @@
             "depends": [],
             "evidence": "2026-11-07 全仓审计（亲验）。其一：src/agent/TaskRunner.cpp:314-320 超时宽限用 QTimer::singleShot 按引用捕获堆上 Process，cleanup（:595-608）delete &p 而该定时器无法取消——进程在 5 秒宽限内自行退出即 use-after-free；maxAttempts>1 时旧定时器看到的已是重试轮新进程，killTree 击毙自己的重试并误报 timeout（R6-08 的重试语义被破坏）。其二：TaskRunner.cpp:67-77 lossyPayloadReason 只拦换行与 %VAR% 对——cmd 包装器（cursor-agent 的 .cmd 由 Qt 6.8 套 cmd.exe /c 转调）不认 MSVCRT 反斜杠转义，prompt（来自卡片 goal）含英文双引号即可越出引号让 cmd 把 & 当命令分隔符（BatBadBut 类）。其三：AcceptanceRunner.cpp:136-142 白名单 fallback 用 QFileInfo(QDir(cwd), program) 判存在——绝对路径原样采用，C:\\Windows\\System32\\cmd.exe 不含禁字符即放行，白名单可绕（宪章 §12.2「只允许白名单脚本路径」被开洞）。",
             "id": "DX-134",
-            "note": "",
+            "note": "交付：宽限 kill 计时器成员化为 Process::grace（cleanup/tryRetry 停表删表 + m_processes 归属守卫，singleShot 悬垂 UAF 与重试误杀两态同治）；lossyPayloadReason 补英文双引号（cmd 包装器引号逃逸）；AcceptanceRunner fallback 改 canonical 包含判定（分隔符归一，绝对路径与 .. 出界全拦）。验收：tst_taskrunner 新增双引号拒绝 + graceTimeoutSettlesBlocked 全链路回归（UAF 本体需 ASAN，已如实记录）、tst_acceptance 新增绝对路径拒绝与 .. 逃逸拒绝（cwd 内对照不回归）全绿；verify.ps1 全量通过。",
             "scope": [
                 "src/agent/TaskRunner.cpp",
                 "src/agent/TaskRunner.h",
@@ -6091,6 +6091,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-134": {
+            "agent": "agent-fix2",
+            "branch": "fix/audit-executor-safety",
+            "claimedAt": 1794036250,
+            "head": "07935c364aca19c80725f5c4a5fbadf9f3a33b35"
+        }
+    },
     "version": 1
 }

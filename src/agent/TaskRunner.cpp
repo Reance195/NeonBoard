@@ -73,6 +73,10 @@ QString lossyPayloadReason(const QString &program, const QString &prompt)
     static const QRegularExpression percentPair(QStringLiteral("%[^%]+%"));
     if (percentPair.match(prompt).hasMatch())
         return QStringLiteral("%VAR%（会被展开成环境变量）");
+    // DX-134：cmd 只把引号当状态切换，不认 MSVCRT 的 \" 转义 —— prompt 里带
+    // 双引号会提前闭合引号段，让后续的 & 等元字符越出引号被 cmd 当命令分隔符。
+    if (prompt.contains(QLatin1Char('"')))
+        return QStringLiteral("英文双引号（cmd 包装器不认反斜杠转义，会越出引号）");
     return {};
 }
 
@@ -311,13 +315,24 @@ bool TaskRunner::setupProcess(Process &p, const QString &cwd, const QStringList 
         p.ending = QStringLiteral("timeout");
         if (p.proc && p.proc->state() != QProcess::NotRunning)
             p.proc->terminate();
-        QTimer::singleShot(kGraceMs, this, [this, &p]() {
-            if (p.proc && p.proc->state() != QProcess::NotRunning) {
-                killTree(p);
-                if (p.ending.isEmpty())
-                    p.ending = QStringLiteral("timeout");
-            }
-        });
+        // 宽限计时用可跟踪的成员定时器（DX-134）：singleShot 无法取消，进程在
+        // 宽限期内自行退出时 cleanup 已 delete Process，再触发就是悬垂访问；
+        // maxAttempts>1 时还会把重试轮的新进程误杀成 timeout。
+        if (!p.grace) {
+            p.grace = new QTimer(this);
+            p.grace->setSingleShot(true);
+            QObject::connect(p.grace, &QTimer::timeout, this, [this, &p]() {
+                // 先查归属再解引用：cleanup 会在 delete 前把指针移出 m_processes
+                if (!m_processes.contains(&p))
+                    return;
+                if (p.proc && p.proc->state() != QProcess::NotRunning) {
+                    killTree(p);
+                    if (p.ending.isEmpty())
+                        p.ending = QStringLiteral("timeout");
+                }
+            });
+        }
+        p.grace->start(kGraceMs);
     });
 
     proc->start();
@@ -458,6 +473,11 @@ bool TaskRunner::tryRetry(Process &p, const QVariantMap &detail)
         p.deadline->stop();
         p.deadline->deleteLater();
         p.deadline = nullptr;
+    }
+    if (p.grace) {
+        p.grace->stop();
+        p.grace->deleteLater();
+        p.grace = nullptr;
     }
 
     // 失败摘要注入下一轮 prompt：
@@ -600,6 +620,10 @@ void TaskRunner::cleanup(Process &p)
     if (p.heartbeat) {
         p.heartbeat->stop();
         p.heartbeat->deleteLater();
+    }
+    if (p.grace) {
+        p.grace->stop();
+        p.grace->deleteLater();
     }
     closeJob(p);
     if (p.proc) {

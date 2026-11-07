@@ -43,6 +43,7 @@
         "DX-129": "done",
         "DX-13": "done",
         "DX-130": "done",
+        "DX-131": "todo",
         "DX-14": "done",
         "DX-15": "done",
         "DX-16": "done",
@@ -162,6 +163,8 @@
         "R0-11": "done",
         "R0-12": "abandoned",
         "R0-13": "done",
+        "R0-14": "todo",
+        "R0-15": "todo",
         "R1-01": "done",
         "R1-02": "done",
         "R1-03": "done",
@@ -169,6 +172,7 @@
         "R1-05": "done",
         "R1-06": "done",
         "R1-07": "done",
+        "R1-8": "todo",
         "R10-01": "done",
         "R10-02": "done",
         "R10-03": "done",
@@ -263,11 +267,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "R0-14": "todo",
-        "R1-8": "todo",
-        "DX-131": "todo",
-        "R0-15": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -1234,6 +1234,29 @@
             "stage": "DX",
             "tier": "P1",
             "title": "release.yml 清单回写步撞自家任务闸门：build.ps1 激活 hooksPath 后 bot 提交被拒，步骤不查 commit 退出码连累 rebase 二次失败"
+        },
+        "DX-131": {
+            "acceptance": [
+                "UTF-8（chcp 65001）与 CP936 两种控制台各跑一次 build.ps1 -Reconfigure：前缀逐字节核对与依赖条目自检均通过，#deps 0 计数为 0",
+                "prefix.bin 字节与 cl 实际 /showIncludes 前缀逐字节一致，判据固化为探针自检用例（不依赖仓库状态）",
+                "本机全量 verify.ps1 EXIT 0（编译步骤不再需要 -SkipBuild 绕行）；check_qml_warnings --selftest 不再依赖调用方预设 PYTHONIOENCODING",
+                "VSLANG=1033 在 65001 会话实测复核：有效则固化进构建链，无效则如实记录并走探针字节化方案；pitfalls §3.20 / §7.7 相应更新",
+                "缓存面不回归：改公共头文件后 ninja 重编引用它的 TU（依赖条目非空且指向本 worktree）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "R0-13 交付实测（pitfalls §7.7 D）：DX-60 已结但未收敛——nb-console 的 Set-NbUtf8Console 切 65001 后，build.ps1 探针把 cl 的 GBK /showIncludes 前缀按 UTF-8 解码成 U+FFFD 写进 prefix.bin，CMake file(READ) 再逐字节保真进 rules.ninja；而 cl 实际输出恒为系统 ANSI（GBK）字节，两者永远对不上，check_ninja_deps.py 报 296/443 个 #deps 0，build.ps1 依赖自检硬门 throw，全量 verify.ps1 的编译步骤在本机必拦（R0-13 只能以手动 cmake --build 全量佐证 + -SkipBuild 组合交付，验收口径未严格满足）。PYTHONIOENCODING=utf-8 只修 Python 子进程侧（check_qml_warnings 自测的「第 2 行」断言），治不了探针；VSLANG=1033 在 pitfalls §3.20 记录为无效（本机无英文语言包），但未在 65001 会话下实测复核。",
+            "id": "DX-131",
+            "note": "",
+            "scope": [
+                "scripts/build.ps1",
+                "scripts/nb-console.ps1",
+                "scripts/check_ninja_deps.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P1",
+            "title": "依赖前缀交接 UTF-8 会话失真：探针把 GBK 前缀解成 U+FFFD，全量 verify 编译步骤在本机必拦"
         },
         "DX-14": {
             "acceptance": [
@@ -3454,6 +3477,59 @@
             "tier": "P0",
             "title": "启动性能收尾批次：建表延后 / 扫描后台化 / 字体回退不阻塞 / .qsb 预热"
         },
+        "R0-14": {
+            "acceptance": [
+                "CMake 对可延后加载的 Qt 模块改 /DELAYLOAD 链接（MSVC delayimp），dumpbin /dependents 对改动前后 NeonBoard.exe 的静态导入清单逐模块对照并写入 docs/iteration-roadmap.md §3.1（移出启动期的模块逐个点名）",
+                "便携包产物核验（拿产物验收）：deploy.ps1 出包后清点 dist 内 Qt 运行时 DLL 文件数与包体积，前后对照写入 §3.1 且随包 DLL 数下降，7b18c18 引入的便携包清单自检同步更新且 deploy.ps1 退出码 0",
+                "功能不回归：NeonBoard.exe --selftest 退出码 0 且 --smoke 退出码 0、日志无致命 QML 告警（沿用既有 check_qml_warnings 判据）",
+                "安装版冒烟：Inno 安装包装入干净目录后运行安装目录 NeonBoard.exe --selftest 退出码 0（DELAYLOAD 不引入运行期缺 DLL）",
+                "冷启动同机前后实测（沿用 R0-13 口径：Release --smoke 每档 5 轮 hot / 3 轮 cold 取中位）写入 §3.1，冷态 BOOT→首帧 差值不劣化，收益不显著也要有数据结论",
+                "docs/pitfalls.md §7.6 纠偏：样式半标注已由 R0-11（8e52812）落实，条目随本卡交付迁出「尚无解决方案（需人拍板）」节并标提交号，README「已知限制」首条按新实测数据更新",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
+            ],
+            "author": "scheduled-direction-cron-2026-11-07",
+            "depends": [
+                "R0-13"
+            ],
+            "evidence": "pitfalls §7.6（2026-10-30 诊断定案）把冷启动瓶颈记为「portable 包带 7 套 QML 样式 + 35 个 Qt DLL 的冷 I/O」，治本路径（deploy.ps1 只随包 Basic 样式 + CMake 改 DELAYLOAD）因不在 R0-11 scope 内被挂起待拍板。立卡时点（2026-11-07）核实两半现状：①样式半已由 R0-11 落实——8e52812 在 scripts/deploy.ps1 显式排除 Fusion/Imagine/Material/Universal 等 non-Basic 样式 DLL 并整目录删除未用样式 QML（L73–99），§7.6 该半句已过时；②DLL 半仍未动——CMakeLists.txt 全文无 DELAYLOAD 配置（grep 无命中），windeployqt 按 exe 静态导入复制运行时，链接多少 Qt 模块就随包多少 DLL。README「已知限制」首条仍为「首次运行约 5–9 秒」；R0-13（2026-11-07 合入）已交付代码侧批次（建表延后 / 扫描后台化 / 字体回退 / .qsb 预热），其立卡单引用 §10 指标「首次运行目标 <3 s」，部署侧 DLL 冷 I/O 是该指标剩余的主要可优化面。",
+            "id": "R0-14",
+            "note": "",
+            "scope": [
+                "CMakeLists.txt",
+                "scripts/deploy.ps1",
+                "docs/iteration-roadmap.md",
+                "docs/pitfalls.md",
+                "README.md"
+            ],
+            "stage": "R0",
+            "tier": "P2",
+            "title": "部署侧依赖收敛：CMake DELAYLOAD 精简随包 DLL，并纠偏 pitfalls §7.6 的过时前提"
+        },
+        "R0-15": {
+            "acceptance": [
+                "全新库 GUI 启动后，官方来源（appdir/official）插件的权限补齐在 schema finalized 后完成落地（grants 落库），无需二次启动；R14-01 的 officialAutoGrants 判据不回归",
+                "空态期一次性初始化（links / 陈旧队列清理 / 孤儿 run 恢复 / meta 写入）在 schemaReady 后重放或幂等补齐，启动日志不再出现 no such table / Parameter count mismatch 失败行",
+                "老库行为不回归：tst_pluginruntime、tst_startupdefer 全过；新增用例覆盖「空态失败 → 就绪后重放成功」",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）；若 DX-131 未先行合入，允许按 pitfalls §7.7 D 口径以全量构建 + -SkipBuild 组合佐证并如实记录，DX-131 合入后补一次全量",
+                "pitfalls §7.7 残留段收敛更新"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "R0-13 交付残留（pitfalls §7.7）：GUI 两阶段建表（openDeferred → 首帧后 finalizeSchema）在**全新库**空态期，TaskTree::loadLinks、TaskRunStore::cancelStaleQueue/recoverOrphans、Database meta 写入均失败（GUI 实测日志 no such table: task_link / Parameter count mismatch）；PluginRuntime::ensureGrantsBootstrapped() 私有且只在 start() 调用一次，首帧前写 meta 失败后无重试通道——首次运行的官方插件自动授权可能未落地。R14-01 只治「既有库默认未授权」，不含此场景。老库表已存在，无空态，完全不受影响。这些路径均在 R0-13 卡 scope 之外，由本卡承接。",
+            "id": "R0-15",
+            "note": "",
+            "scope": [
+                "src/plugin/PluginRuntime.cpp",
+                "src/plugin/PluginRuntime.h",
+                "src/task/TaskTree.cpp",
+                "src/task/TaskRunStore.cpp",
+                "src/main.cpp",
+                "docs/pitfalls.md"
+            ],
+            "stage": "R0",
+            "tier": "P2",
+            "title": "首启空态残留：全新库建表延后期初始化失败无重试，官方插件自动授权可能未落地"
+        },
         "R1-01": {
             "acceptance": [
                 "到期任务触发托盘提醒；逾期任务在卡片上标红并在侧栏计数",
@@ -3591,6 +3667,36 @@
             ],
             "stage": "R1",
             "title": "R1 快速录入解析：中文日期/时段/标签/优先级"
+        },
+        "R1-8": {
+            "acceptance": [
+                "新增或扩展 ctest 用例覆盖过滤态落点映射：搜索过滤与阶段过滤激活时，drop 目标索引按可见序列计算并映射回全局 order_key（落在可见前驱之后，不因不可见卡错位），断言落库顺序与可见顺序一致，ctest 全绿",
+                "未过滤回归：拖拽落点行为与现状一致，R1-1 的 moveTaskBefore「插到目标卡之前」语义不变（Z3），既有 ctest 全绿",
+                "UI 不回归：--smoke 退出码 0 且日志无致命 QML 告警（沿用既有 check_qml_warnings 判据）",
+                "README「已知限制」中「搜索或按阶段过滤时，拖拽落点按未过滤的列内顺序计算」一条移除或改写为已修复口径",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
+            ],
+            "author": "scheduled-direction-cron-2026-11-07",
+            "depends": [],
+            "evidence": "README「已知限制」第 2 条（2026-11-07 对现行 main 核实）：「搜索或按阶段过滤时，拖拽落点按未过滤的列内顺序计算」。成因：R1-1（moveTaskBefore + taskIdsInStatus，全列 order_key 口径）落地时未定义过滤态语义，落点索引按未过滤序列换算；R8-05 拖拽手感（涟漪 / 光轨 / 磁吸，109ef92）只做视觉层。过滤激活时霓虹指示线画在可见卡之间，落库却按全列序列换算，两者可错位——卡片实际落点偏离指示线所示的空档，这是看板核心交互的正确性缺陷。台账覆盖检查（2026-11-07）：「拖拽落点 / 过滤落点」关键词零命中，R1-1 与 R8-05 均 done 且验收不含过滤态语义，无在办卡或 claim 占用同方向。",
+            "id": "R1-8",
+            "note": "",
+            "scope": [
+                "src/task/TaskFilterModel.cpp",
+                "src/task/TaskFilterModel.h",
+                "src/task/TaskModel.cpp",
+                "src/task/TaskModel.h",
+                "src/shell/DragFeel.cpp",
+                "src/shell/DragFeel.h",
+                "qml/components/BoardColumn.qml",
+                "qml/components/TaskCard.qml",
+                "tests/",
+                "README.md",
+                "docs/pitfalls.md"
+            ],
+            "stage": "R1",
+            "tier": "P3",
+            "title": "过滤态拖拽落点按可见顺序计算：搜索 / 阶段过滤下指示线与落库顺序一致"
         },
         "R10-01": {
             "acceptance": [
@@ -5819,114 +5925,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "R0-14": {
-            "acceptance": [
-                "CMake 对可延后加载的 Qt 模块改 /DELAYLOAD 链接（MSVC delayimp），dumpbin /dependents 对改动前后 NeonBoard.exe 的静态导入清单逐模块对照并写入 docs/iteration-roadmap.md §3.1（移出启动期的模块逐个点名）",
-                "便携包产物核验（拿产物验收）：deploy.ps1 出包后清点 dist 内 Qt 运行时 DLL 文件数与包体积，前后对照写入 §3.1 且随包 DLL 数下降，7b18c18 引入的便携包清单自检同步更新且 deploy.ps1 退出码 0",
-                "功能不回归：NeonBoard.exe --selftest 退出码 0 且 --smoke 退出码 0、日志无致命 QML 告警（沿用既有 check_qml_warnings 判据）",
-                "安装版冒烟：Inno 安装包装入干净目录后运行安装目录 NeonBoard.exe --selftest 退出码 0（DELAYLOAD 不引入运行期缺 DLL）",
-                "冷启动同机前后实测（沿用 R0-13 口径：Release --smoke 每档 5 轮 hot / 3 轮 cold 取中位）写入 §3.1，冷态 BOOT→首帧 差值不劣化，收益不显著也要有数据结论",
-                "docs/pitfalls.md §7.6 纠偏：样式半标注已由 R0-11（8e52812）落实，条目随本卡交付迁出「尚无解决方案（需人拍板）」节并标提交号，README「已知限制」首条按新实测数据更新",
-                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
-            ],
-            "author": "scheduled-direction-cron-2026-11-07",
-            "depends": [
-                "R0-13"
-            ],
-            "evidence": "pitfalls §7.6（2026-10-30 诊断定案）把冷启动瓶颈记为「portable 包带 7 套 QML 样式 + 35 个 Qt DLL 的冷 I/O」，治本路径（deploy.ps1 只随包 Basic 样式 + CMake 改 DELAYLOAD）因不在 R0-11 scope 内被挂起待拍板。立卡时点（2026-11-07）核实两半现状：①样式半已由 R0-11 落实——8e52812 在 scripts/deploy.ps1 显式排除 Fusion/Imagine/Material/Universal 等 non-Basic 样式 DLL 并整目录删除未用样式 QML（L73–99），§7.6 该半句已过时；②DLL 半仍未动——CMakeLists.txt 全文无 DELAYLOAD 配置（grep 无命中），windeployqt 按 exe 静态导入复制运行时，链接多少 Qt 模块就随包多少 DLL。README「已知限制」首条仍为「首次运行约 5–9 秒」；R0-13（2026-11-07 合入）已交付代码侧批次（建表延后 / 扫描后台化 / 字体回退 / .qsb 预热），其立卡单引用 §10 指标「首次运行目标 <3 s」，部署侧 DLL 冷 I/O 是该指标剩余的主要可优化面。",
-            "id": "R0-14",
-            "note": "",
-            "scope": [
-                "CMakeLists.txt",
-                "scripts/deploy.ps1",
-                "docs/iteration-roadmap.md",
-                "docs/pitfalls.md",
-                "README.md"
-            ],
-            "stage": "R0",
-            "tier": "P2",
-            "title": "部署侧依赖收敛：CMake DELAYLOAD 精简随包 DLL，并纠偏 pitfalls §7.6 的过时前提"
-        },
-        "R1-8": {
-            "acceptance": [
-                "新增或扩展 ctest 用例覆盖过滤态落点映射：搜索过滤与阶段过滤激活时，drop 目标索引按可见序列计算并映射回全局 order_key（落在可见前驱之后，不因不可见卡错位），断言落库顺序与可见顺序一致，ctest 全绿",
-                "未过滤回归：拖拽落点行为与现状一致，R1-1 的 moveTaskBefore「插到目标卡之前」语义不变（Z3），既有 ctest 全绿",
-                "UI 不回归：--smoke 退出码 0 且日志无致命 QML 告警（沿用既有 check_qml_warnings 判据）",
-                "README「已知限制」中「搜索或按阶段过滤时，拖拽落点按未过滤的列内顺序计算」一条移除或改写为已修复口径",
-                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
-            ],
-            "author": "scheduled-direction-cron-2026-11-07",
-            "depends": [],
-            "evidence": "README「已知限制」第 2 条（2026-11-07 对现行 main 核实）：「搜索或按阶段过滤时，拖拽落点按未过滤的列内顺序计算」。成因：R1-1（moveTaskBefore + taskIdsInStatus，全列 order_key 口径）落地时未定义过滤态语义，落点索引按未过滤序列换算；R8-05 拖拽手感（涟漪 / 光轨 / 磁吸，109ef92）只做视觉层。过滤激活时霓虹指示线画在可见卡之间，落库却按全列序列换算，两者可错位——卡片实际落点偏离指示线所示的空档，这是看板核心交互的正确性缺陷。台账覆盖检查（2026-11-07）：「拖拽落点 / 过滤落点」关键词零命中，R1-1 与 R8-05 均 done 且验收不含过滤态语义，无在办卡或 claim 占用同方向。",
-            "id": "R1-8",
-            "note": "",
-            "scope": [
-                "src/task/TaskFilterModel.cpp",
-                "src/task/TaskFilterModel.h",
-                "src/task/TaskModel.cpp",
-                "src/task/TaskModel.h",
-                "src/shell/DragFeel.cpp",
-                "src/shell/DragFeel.h",
-                "qml/components/BoardColumn.qml",
-                "qml/components/TaskCard.qml",
-                "tests/",
-                "README.md",
-                "docs/pitfalls.md"
-            ],
-            "stage": "R1",
-            "tier": "P3",
-            "title": "过滤态拖拽落点按可见顺序计算：搜索 / 阶段过滤下指示线与落库顺序一致"
-        },
-        "DX-131": {
-            "acceptance": [
-                "UTF-8（chcp 65001）与 CP936 两种控制台各跑一次 build.ps1 -Reconfigure：前缀逐字节核对与依赖条目自检均通过，#deps 0 计数为 0",
-                "prefix.bin 字节与 cl 实际 /showIncludes 前缀逐字节一致，判据固化为探针自检用例（不依赖仓库状态）",
-                "本机全量 verify.ps1 EXIT 0（编译步骤不再需要 -SkipBuild 绕行）；check_qml_warnings --selftest 不再依赖调用方预设 PYTHONIOENCODING",
-                "VSLANG=1033 在 65001 会话实测复核：有效则固化进构建链，无效则如实记录并走探针字节化方案；pitfalls §3.20 / §7.7 相应更新",
-                "缓存面不回归：改公共头文件后 ninja 重编引用它的 TU（依赖条目非空且指向本 worktree）"
-            ],
-            "author": "maintainer-session-2026-11-07",
-            "depends": [],
-            "evidence": "R0-13 交付实测（pitfalls §7.7 D）：DX-60 已结但未收敛——nb-console 的 Set-NbUtf8Console 切 65001 后，build.ps1 探针把 cl 的 GBK /showIncludes 前缀按 UTF-8 解码成 U+FFFD 写进 prefix.bin，CMake file(READ) 再逐字节保真进 rules.ninja；而 cl 实际输出恒为系统 ANSI（GBK）字节，两者永远对不上，check_ninja_deps.py 报 296/443 个 #deps 0，build.ps1 依赖自检硬门 throw，全量 verify.ps1 的编译步骤在本机必拦（R0-13 只能以手动 cmake --build 全量佐证 + -SkipBuild 组合交付，验收口径未严格满足）。PYTHONIOENCODING=utf-8 只修 Python 子进程侧（check_qml_warnings 自测的「第 2 行」断言），治不了探针；VSLANG=1033 在 pitfalls §3.20 记录为无效（本机无英文语言包），但未在 65001 会话下实测复核。",
-            "id": "DX-131",
-            "note": "",
-            "scope": [
-                "scripts/build.ps1",
-                "scripts/nb-console.ps1",
-                "scripts/check_ninja_deps.py",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "tier": "P1",
-            "title": "依赖前缀交接 UTF-8 会话失真：探针把 GBK 前缀解成 U+FFFD，全量 verify 编译步骤在本机必拦"
-        },
-        "R0-15": {
-            "acceptance": [
-                "全新库 GUI 启动后，官方来源（appdir/official）插件的权限补齐在 schema finalized 后完成落地（grants 落库），无需二次启动；R14-01 的 officialAutoGrants 判据不回归",
-                "空态期一次性初始化（links / 陈旧队列清理 / 孤儿 run 恢复 / meta 写入）在 schemaReady 后重放或幂等补齐，启动日志不再出现 no such table / Parameter count mismatch 失败行",
-                "老库行为不回归：tst_pluginruntime、tst_startupdefer 全过；新增用例覆盖「空态失败 → 就绪后重放成功」",
-                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）；若 DX-131 未先行合入，允许按 pitfalls §7.7 D 口径以全量构建 + -SkipBuild 组合佐证并如实记录，DX-131 合入后补一次全量",
-                "pitfalls §7.7 残留段收敛更新"
-            ],
-            "author": "maintainer-session-2026-11-07",
-            "depends": [],
-            "evidence": "R0-13 交付残留（pitfalls §7.7）：GUI 两阶段建表（openDeferred → 首帧后 finalizeSchema）在**全新库**空态期，TaskTree::loadLinks、TaskRunStore::cancelStaleQueue/recoverOrphans、Database meta 写入均失败（GUI 实测日志 no such table: task_link / Parameter count mismatch）；PluginRuntime::ensureGrantsBootstrapped() 私有且只在 start() 调用一次，首帧前写 meta 失败后无重试通道——首次运行的官方插件自动授权可能未落地。R14-01 只治「既有库默认未授权」，不含此场景。老库表已存在，无空态，完全不受影响。这些路径均在 R0-13 卡 scope 之外，由本卡承接。",
-            "id": "R0-15",
-            "note": "",
-            "scope": [
-                "src/plugin/PluginRuntime.cpp",
-                "src/plugin/PluginRuntime.h",
-                "src/task/TaskTree.cpp",
-                "src/task/TaskRunStore.cpp",
-                "src/main.cpp",
-                "docs/pitfalls.md"
-            ],
-            "stage": "R0",
-            "tier": "P2",
-            "title": "首启空态残留：全新库建表延后期初始化失败无重试，官方插件自动授权可能未落地"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-131": {
+            "agent": "agent-dx131",
+            "branch": "fix/dx-131-deps-prefix-utf8",
+            "claimedAt": 1794028263,
+            "head": "0763331b58940f266c6dec6809828843e1c1629f"
+        }
+    },
     "version": 1
 }

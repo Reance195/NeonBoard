@@ -95,6 +95,17 @@ jobs:
           python scripts/check_script_hygiene.py
           if ($LASTEXITCODE -ne 0) { throw '脚本卫生检查未通过' }
 
+      - name: QML 交互陷阱静态检查（DX-102）
+        shell: pwsh
+        run: |
+          # 两处陷阱都是「编译不报、运行才炸」：id 点号访问恒 undefined、
+          # 同层全表面 MouseArea 吞掉按钮 press。判定实现在 scripts/check_qml_pitfalls.py
+          # （唯一实现），先跑其自测，再扫真实 qml/。
+          python scripts/check_qml_pitfalls.py --selftest
+          if ($LASTEXITCODE -ne 0) { throw 'QML 陷阱静态检查自测未通过' }
+          python scripts/check_qml_pitfalls.py
+          if ($LASTEXITCODE -ne 0) { throw 'qml/ 发现已知交互陷阱，见上方点名行' }
+
       - name: 编译口径守卫（/utf-8，DX-53）
         shell: pwsh
         run: |

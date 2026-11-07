@@ -38,6 +38,10 @@ OBJECT_RE = re.compile(r"^(\s*)([A-Z][A-Za-z0-9_.]*)\s*\{\s*$")
 MOUSEAREA_RE = re.compile(r"^(\s*)MouseArea\s*\{\s*$")
 Z_RE = re.compile(r"^\s*z\s*:\s*(-?\d+)\s*$")
 Z_ANY_RE = re.compile(r"^\s*z\s*:")
+# DX-137：C++ 门面返回 QString，进 QML 后是 JS 原始字符串 —— 没有 isEmpty() 方法，
+# 调用必抛语言级异常（SettingsPanel 五处踩过）。判空一律 === "" 或 .length === 0。
+# （致命形态的词面归 check_qml_warnings 单源所有，这里不复述它的 pattern 字符串。）
+JS_IS_EMPTY_RE = re.compile(r"\.isEmpty\(\s*\)")
 
 
 def strip_qml_noise(text: str) -> list[str]:
@@ -145,6 +149,15 @@ def find_id_dotted_access(lines: list[str]) -> list[tuple[int, str]]:
     return hits
 
 
+def find_js_is_empty(lines: list[str]) -> list[tuple[int, str]]:
+    hits: list[tuple[int, str]] = []
+    for idx, line in enumerate(lines):
+        m = JS_IS_EMPTY_RE.search(line)
+        if m:
+            hits.append((idx + 1, m.group(0)))
+    return hits
+
+
 def find_overlay_mouseareas(lines: list[str]) -> list[tuple[int, str]]:
     """找「全表面 MouseArea 压在含交互内容的前序兄弟层上且 z 相同」的写法。"""
     hits: list[tuple[int, str]] = []
@@ -213,6 +226,10 @@ def scan_file(path: Path) -> list[str]:
     problems: list[str] = []
     for line, snippet in find_id_dotted_access(lines):
         problems.append("%s:%d: [id-dotted] %s —— id 不是父项属性，第二段恒为 undefined"
+                        % (path, line, snippet))
+    for line, snippet in find_js_is_empty(lines):
+        problems.append("%s:%d: [js-isEmpty] %s —— QString 进 QML 即 JS 字符串，"
+                        "没有 isEmpty() 方法（必抛语言级异常）；判空用 === \"\""
                         % (path, line, snippet))
     for line, message in find_overlay_mouseareas(lines):
         problems.append("%s:%d: [mousearea-stacking] %s" % (path, line, message))
@@ -295,10 +312,30 @@ Rectangle {
           find_overlay_mouseareas(strip_qml_noise(negative_overlay_z)) == [])
     check("MouseArea 声明在内容层之前不误报",
           find_overlay_mouseareas(strip_qml_noise(negative_overlay_order)) == [])
+    positive_empty = """
+Item {
+    function refresh(path, error) {
+        hint.text = error.isEmpty() ? "ok" : error
+    }
+}
+"""
+    negative_empty = """
+Item {
+    function refresh(path, error) {
+        hint.text = error === "" ? "ok" : error
+        label.text = name.length === 0 ? "-" : name
+    }
+}
+"""
+    check("JS 字符串上的 isEmpty() 被扫出且带行号",
+          [(n, s) for n, s in find_js_is_empty(strip_qml_noise(positive_empty))]
+          == [(4, ".isEmpty()")])
+    check("判空的等价写法不误报",
+          find_js_is_empty(strip_qml_noise(negative_empty)) == [])
     if failures:
         print("✗ 自测失败 %d 项" % len(failures))
         return 1
-    print("✓ 自测通过（6 项）")
+    print("✓ 自测通过（8 项）")
     return 0
 
 

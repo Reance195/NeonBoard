@@ -13,6 +13,10 @@ Item {
     id: heatmapRoot
 
     property var cells: []
+    // 网格 Canvas 的数据变化必须显式触发重绘（DX-137）：onPaint 只在
+    // update()/requestPaint() 后执行，绑定变化本身不会重画 —— 同文件吞吐曲线
+    // 的 onPointsChanged 是正确参照。
+    onCellsChanged: gridCanvas.requestPaint()
     property var weekly: []
     property int streak: 0
     property int totalDone: 0

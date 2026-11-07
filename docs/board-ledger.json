@@ -1405,14 +1405,15 @@
             "depends": [],
             "evidence": "2026-11-07 全仓审计（五处调用点亲验）。qml/components/SettingsPanel.qml:546、556、640、650、682 对 DataPort 返回的 QString（进 QML 后是 JS 原始字符串）调用 .isEmpty()——JS 无此方法必抛 TypeError，导出/导入/备份五处提示永远不刷新而 C++ 侧其实成功。qml/components/TaskCard.qml:98-104 逾期判定用 MM-dd 字符串比较，跨年整年失效（due \"12-31\" 在次年任意日期都判不逾期），TaskModel 已有 DueRole（src/task/TaskModel.h:35）可按 epoch 比较。qml/components/ActivityHeatmap.qml 网格 Canvas 的 onPaint 读 cells 但无 onCellsChanged → requestPaint，唯一重绘入口是主题 accent 变化——完成卡当天格子不变，与 OnboardingOverlay「完成时间自动进入统计热力图」的承诺矛盾（同文件吞吐曲线写法正确，可对照）。",
             "id": "DX-137",
-            "note": "",
+            "note": "交付：SettingsPanel 五处 isEmpty() 改 === \"\"（QString 进 QML 即 JS 字符串）；逾期判定单源化到 Overdue.js（dueAt 带年份 epoch 优先，跨年不再失效，BoardColumn 补传 model.dueAt）；ActivityHeatmap 补 onCellsChanged → requestPaint（CMake 同步把 JS 挂进 QML 模块资源 + QT_RESOURCE_ALIAS）；check_qml_pitfalls 新增 js-isEmpty 规则（自测 8 项，全目录扫描清零；致命词面单源归 check_qml_warnings）。验收：tst_taskcard_logic 五用例（跨年/未来/当天/回退口径/重绘机制）经 qmltestrunner 全绿；verify.ps1 全量通过——冒烟闸曾拦下 Overdue.js 资源缺失，属真实拦截。热力图真实组件依赖 Theme 上下文属性无法在测试引擎实例化，接线以同形夹具证明机制成立。",
             "scope": [
                 "qml/components/SettingsPanel.qml",
                 "qml/components/TaskCard.qml",
                 "qml/components/ActivityHeatmap.qml",
                 "tests/qml/**",
                 "tests/CMakeLists.txt",
-                "scripts/check_qml_pitfalls.py"
+                "scripts/check_qml_pitfalls.py",
+                "qml/components/BoardColumn.qml"
             ],
             "stage": "DX",
             "tier": "P3",
@@ -6091,6 +6092,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-137": {
+            "agent": "agent-fix4",
+            "branch": "fix/audit-qml-feedback",
+            "claimedAt": 1794037800,
+            "head": "1f9c36d3ac0b9f136e9c7f2fbd02c01b024ea598"
+        }
+    },
     "version": 1
 }

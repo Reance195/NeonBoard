@@ -220,6 +220,7 @@ set_source_files_properties(qml/components/StatChip.qml PROPERTIES QT_RESOURCE_A
 set_source_files_properties(qml/components/TopStatBar.qml PROPERTIES QT_RESOURCE_ALIAS "TopStatBar.qml")
 set_source_files_properties(qml/components/TopToolButton.qml PROPERTIES QT_RESOURCE_ALIAS "TopToolButton.qml")
 set_source_files_properties(qml/components/TaskCard.qml PROPERTIES QT_RESOURCE_ALIAS "TaskCard.qml")
+set_source_files_properties(qml/components/Overdue.js PROPERTIES QT_RESOURCE_ALIAS "Overdue.js")
 set_source_files_properties(qml/components/BoardColumn.qml PROPERTIES QT_RESOURCE_ALIAS "BoardColumn.qml")
 set_source_files_properties(qml/components/EmptyState.qml PROPERTIES QT_RESOURCE_ALIAS "EmptyState.qml")
 set_source_files_properties(qml/components/AddColumnButton.qml PROPERTIES QT_RESOURCE_ALIAS "AddColumnButton.qml")
@@ -260,6 +261,7 @@ qt_add_qml_module(NeonBoard
         qml/components/TopStatBar.qml
         qml/components/TopToolButton.qml
         qml/components/TaskCard.qml
+        qml/components/Overdue.js
         qml/components/BoardColumn.qml
         qml/components/EmptyState.qml
         qml/components/AddColumnButton.qml

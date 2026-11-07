@@ -55,24 +55,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "DX-135",
-            "completedAt": 0,
-            "createdAt": 1794033597,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-135",
-            "note": "",
-            "orderKey": 85952,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "QProcess FailedToStart 黑洞族：预览构建/打包队列与领用同步的状态机永久卡死",
-            "updatedAt": 1794033597
-        },
-        {
             "code": "DX-137",
             "completedAt": 0,
             "createdAt": 1794033711,
@@ -5173,6 +5155,24 @@
             "updatedAt": 1794039854
         },
         {
+            "code": "DX-135",
+            "completedAt": 1794040424,
+            "createdAt": 1794033597,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-135",
+            "note": "交付：PreviewHub 构建/打包两段与 BoardSync 分支/merged 两段 QProcess 全部接上 errorOccurred（FailedToStart 不发 finished 的黑洞按失败收尾解锁）；PreviewHub 增 runBuildStage/isBuilding 诊断测试入口，BoardSync ctor 增缺省 anchorRootOverride。验收：新增 tst_previewhub（不存在程序触发 FailedToStart，构建锁两轮解锁）、tst_boardsync（PATH 置空触发 git 启动失败，changed 连发两轮不楔死）全绿；verify.ps1 全量通过。打包队列路径与构建路径同构，handler 同款收口。",
+            "orderKey": 85952,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "QProcess FailedToStart 黑洞族：预览构建/打包队列与领用同步的状态机永久卡死",
+            "updatedAt": 1794040424
+        },
+        {
             "code": "DX-136",
             "completedAt": 1794036764,
             "createdAt": 1794033689,
@@ -5605,6 +5605,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T16:24:14",
+    "updated": "2026-11-07T16:33:44",
     "version": 3
 }

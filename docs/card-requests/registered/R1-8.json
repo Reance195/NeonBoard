@@ -1,0 +1,13 @@
+{
+  "card": "R1-8",
+  "sha256": "60f6a68f2595c5c4be5e386d0c74733ffbb41e1e03c0fdf0df83c099d0bfe269",
+  "authorizedBy": "维护者定时任务授权(2026-11-07)",
+  "form": "docs/card-requests/20261107-r1-filtered-drag-landing.md",
+  "registeredAt": "2026-11-07T04:58:07+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R1-8",
+    "sha": "e0fcf2b2a5742696e81f28ab2103f8d870cb1645"
+  }
+}

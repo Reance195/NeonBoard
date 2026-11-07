@@ -41,9 +41,9 @@ claim-card.py、agent-init.ps1、git-done.ps1、release-claims.py 里，靠人�
   1. 生成 ``docs/card-requests/<日期>-conflict-<slug>.md``（DX-n 工单，沿用 §9
      已有的 DX 阶段以免新增 stage 触发全量；含冲突文件、双方提交、诊断、
      验收项与操作步骤，并写明锚点区不得由 agent 动手的 §7.1 约束）；
-  2. 有会话级授权时自动 approve 立卡并 dispatch 派回 agent（handoff.json 带
-     conflict 字段与 nextStep）；无授权则只留请求单，提示先 authorize ——
-     程序不自己发明批准；
+  2. 有会话级授权时经唯一入口 register_board_cards.py 自动立卡（专用立卡工作区，
+     DX-127）并 dispatch 派回 agent（handoff.json 带 conflict 字段与 nextStep）；
+     无授权则只留请求单，提示先 authorize —— 程序不自己发明批准；
   3. 原卡状态保持不变（可重跑 close），state 里记 conflictTicket；agent 在
      自己的 worktree 里合并、消除冲突标记、report 逐条填证据、close 上交。
 退出码 5 = 「已建冲突工单并交回 agent，本次未合入」。
@@ -1333,21 +1333,83 @@ def raise_conflict_ticket(ctx: Ctx, state: dict, *, branch: str, info: dict,
         state["sessions"][source_card]["conflictTicket"] = card
         state["sessions"][source_card]["nextStep"] = "等 %s 解决合并后重跑 close" % card
     save_state(ctx, state)
-    # 程序不自己发明批准：没有会话级授权就停在 requested，等人授权后再 approve
+    # 程序不自己发明批准：没有会话级授权就停在 requested，等人授权后再走立卡
     try:
-        authorization(state)
+        auth = authorization(state)
     except RuntimeError as exc:
         err("  · %s" % exc)
-        out("  · 工单已建但未立卡/未派发；请维护者 authorize 后跑：nbflow approve --cards %s" % card)
+        out("  · 工单已建但未立卡/未派发；请维护者 authorize 后按 DX-115 recipe 立卡："
+            "register_board_cards.py --form %s" % rel)
         return card, 0
-    # 工单自己的立卡分支不再试合并：否则冲突会再生成一张工单，形成递归
-    approve_args = argparse.Namespace(cards=card, all=False, authorize="", batch="",
-                                      ttl_hours=24, no_merge=False, no_probe=True,
-                                      conflict_agent=agent, dry_run_sub=ctx.dry_run)
-    code = cmd_approve(ctx, state, approve_args)
+    # DX-127：approve 退役（DX-115）后工单自动立卡改走唯一入口 register_board_cards.py，
+    # 沿用旧 approve 的隔离模式——专用立卡工作区 + chore/board-* 分支，表单落
+    # docs/card-requests/，两段提交后 git-done 合回主线，不污染调用者检出。
+    # 工单自己的立卡分支不再试合并：否则冲突会再生成一张工单，形成递归。
+    slug = "conflict-" + _slug(branch)
+    reg_branch = "chore/board-" + slug
+    wt = _board_worktree(ctx, slug)
+    if not ctx.dry_run:
+        if wt.exists() and not worktree_alive(wt, ctx.common):
+            if not discard_corpse_worktree(ctx, wt):
+                err("✗ 尸体目录删不掉（被占用），请手工删除后重跑：%s" % wt)
+                return card, 2
+        if not wt.exists():
+            code, _ = run(["git", "-C", str(REPO), "worktree", "add", "-b", reg_branch,
+                           str(wt), "origin/main"], check=False)
+            if code != 0:
+                err("✗ 建立立卡工作区失败（%s 已存在？先手工回收）" % wt)
+                return card, 2
+        else:
+            run(["git", "-C", str(wt), "checkout", "-B", reg_branch, "origin/main"], check=True)
+        form_dir = wt / "docs" / "card-requests"
+        form_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(p, form_dir / p.name)
+    code, reg_out = run([sys.executable, str(wt / "scripts" / "register_board_cards.py"),
+                         "--form", "docs/card-requests/%s" % p.name,
+                         "--authorized-by", auth["by"], "--allow-new-stage"],
+                        cwd=wt, capture=True, dry=ctx.dry_run)
     if code != 0:
-        err("✗ 冲突工单立卡失败（%d）；请求单已留档 %s" % (code, p))
+        err("✗ 冲突工单立卡失败（退出码 %d）；register 输出末段：\n%s" % (code, reg_out[-800:]))
         return card, code
+    actual = card
+    m = re.search(r"已登记 (\S+)：", reg_out)
+    if m:
+        actual = m.group(1)
+    if actual != card:
+        # register 按台账重配了号（并发发号窗口）：表单、会话、派发全部跟新号走（DX-55 同款）
+        for f in (p, wt / "docs" / "card-requests" / p.name):
+            if f.exists():
+                data = parse_request(f.read_text(encoding="utf-8"))
+                data["card"] = actual
+                data["suggestedId"] = actual
+                f.write_text(render_request(data), encoding="utf-8")
+        state["sessions"][actual] = state["sessions"].pop(card)
+        if source_card and state["sessions"].get(source_card, {}).get("conflictTicket") == card:
+            state["sessions"][source_card]["conflictTicket"] = actual
+        card = actual
+        save_state(ctx, state)
+    if not ctx.dry_run:
+        # 两段提交（register 只落盘并打印指引，不提交；形态即其打印的 recipe）
+        run(["git", "-C", str(wt), "add", "docs/card-requests/%s" % p.name,
+             "docs/iteration-roadmap.md"], check=False)
+        run(["git", "-C", str(wt), "commit", "-m",
+             "docs(board): 收录 %s 立卡请求单" % actual], check=False)
+        run(["git", "-C", str(wt), "add", "docs/board-ledger.json",
+             "progress.json", "docs/card-requests/registered/%s.json" % actual], check=False)
+        code, _ = run(["git", "-C", str(wt), "commit", "-m", "chore(board): 立卡 %s" % actual,
+                       "-m", "授权：%s" % auth["by"], "-m", "批次：%s" % actual], check=False)
+        if code != 0:
+            err("✗ 工单立卡提交失败；立卡分支留在 %s（%s）" % (reg_branch, wt))
+            return card, code
+        # 合回主线：git-done 在立卡工作区自己的检出里跑（DX-45），从不推工作分支
+        code, _ = run(ps_script("git-done.ps1", ["-Branch", reg_branch], root=wt), cwd=wt,
+                      dry=ctx.dry_run)
+        if code != 0:
+            err("✗ 工单立卡合回主线失败（可能撞并行收尾）；立卡分支仍在 %s" % wt)
+            return card, code
+        run(["git", "-C", str(REPO), "worktree", "remove", str(wt)], check=False)
+    _mark_created(ctx, state, card, p, auth, reg_branch)
+    out("%s 冲突工单已立卡并合回主线：%s" % ("[演练] 未落盘 ·" if ctx.dry_run else "✓", card))
     dbranch = "fix/conflict-" + _slug(branch)
     dispatch_args = argparse.Namespace(card=card, agent=agent, branch=dbranch, base="",
                                        dry_run_sub=ctx.dry_run,
@@ -1603,6 +1665,14 @@ def selftest() -> int:
           "register_board_cards.py" in APPROVE_RETIRE_NOTICE
           and "docs/card-requests" in APPROVE_RETIRE_NOTICE
           and "退出码 9" in APPROVE_RETIRE_NOTICE)
+    # DX-127：冲突工单自动立卡跟着迁移 —— 撞冲突是常规路径，不能停留在已退役通道
+    import inspect
+    ticket_src = inspect.getsource(raise_conflict_ticket)
+    check("冲突工单立卡走唯一入口且不含 cmd_approve（DX-127）",
+          "register_board_cards.py" in ticket_src
+          and "_board_worktree" in ticket_src
+          and "git-done.ps1" in ticket_src
+          and "cmd_approve" not in ticket_src)
 
     st = blank_state()
     rec = authorization(st, "维护者 2026-11-04 会话", "FLOW-01~04", 24)

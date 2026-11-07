@@ -90,3 +90,8 @@ venv/
 .env
 .env.*
 !.env.example
+
+# ===== 会话与工具产物（不入库）=====
+# ZCode 等工具会把会话产物落在仓库根（不认 NB_SESSION_ARTIFACT_DIR），未跟踪目录
+# 会卡 git-done 的「工作区干净」闸门（DX-127 实录）。
+.zcode/

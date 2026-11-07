@@ -2136,6 +2136,36 @@
   检查必须红且点名该行）。只证明「当前主线命中 0」是不够的 —— 那分不清是检查写对了，
   还是检查根本没在工作。
 
+### 4.13 id 点号访问恒 undefined：完成按钮一点就永久 busy
+
+- **现象**：卡片上的完成按钮点下去没反应，卡片进入 busy 后再也回不来；控制台只有一条
+  `TypeError: Cannot call method 'restart' of undefined`。源码形如
+  `sweepBand.sweepAnimation.restart()`，两个名字在同一个文件里都声明了 `id:`，看着像父子属性。
+- **根因**：QML 的 `id` 只在该组件的作用域里直接可见，**不是父项属性**。
+  `sweepBand.sweepAnimation` 的第一段能取到对象，第二段恒为 `undefined`；编译器不校验点号链，
+  所以构建、启动、静态语法检查全绿。
+- **解法**（DX-102）：直接写 `sweepAnimation.restart()`。判据沉淀到
+  `scripts/check_qml_pitfalls.py`：收集文件内声明的 id，命中 `idA.idB` 且两段都是 id 就报
+  `file:line`，注释与字符串先剥掉避免误报；`--selftest` 同时断言命中与不误报。
+- **预防**：QML 里「看起来像属性」的调用链，先查第二段是不是本文件的 id；`qml/` 的扫描
+  已挂进 CI，新写法不用靠人记。`tests/qml/tst_taskcard_actions.qml` 另有一条运行期断言
+  `sweepBand.sweepAnimation === undefined`，防止有人把「能取到」当成语义。
+
+### 4.14 同层全表面 MouseArea 吞点击：按钮看得见点不动
+
+- **现象**：内容层里的按钮明明可见，鼠标点上去没反应；点卡片空白处却正常触发整卡点击。
+  把内容层删掉或调整声明顺序后按钮又能点，症状会随改动「自己好」，很难稳定归因。
+- **根因**：QML 同层兄弟按声明顺序绘制，**后声明者在上面**。内容层与 `anchors.fill` 的
+  MouseArea 是兄弟、z 都是默认 0、MouseArea 声明在后，按钮的 press 先被全表面 MouseArea
+  接走。TaskCard 的修法是给内容层显式 `z: 1`，让按钮先拿到事件。
+- **解法**（DX-102）：`scripts/check_qml_pitfalls.py` 用缩进块解析找「全表面 MouseArea」，
+  若它前面有同缩进、含 MouseArea 的兄弟层且有效 z 相同（缺省或同字面量）就报；表达式 z
+  不判，避免误报。`acceptedButtons: Qt.NoButton` / `enabled: false` 的纯监视层不算吞点击。
+  `tests/qml/tst_taskcard_actions.qml` 的 `test_contentOverlayTrap` 用「降 z 后按钮收不到、
+  整卡收到」钉住事件路由。
+- **预防**：新增覆盖层时先问「它和内容层谁在上」；全表面 MouseArea 要么放最前面，要么显式
+  降 z / 只收需要的按钮。静态检查在 CI 拦结构，运行期用例拦行为，两层各管一段。
+
 ---
 
 ## 五、网络与远程操作

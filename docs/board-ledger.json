@@ -40,6 +40,7 @@
         "DX-126": "done",
         "DX-127": "done",
         "DX-128": "done",
+        "DX-129": "todo",
         "DX-13": "done",
         "DX-14": "done",
         "DX-15": "done",
@@ -260,8 +261,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-129": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -535,7 +535,7 @@
             "depends": [],
             "evidence": "2026-11-06 本会话为验证 TaskCard 修复临时写了 qmltestrunner 最小复现（10 例全过，含按钮点击/整卡点击/双击/拖拽与 id 点号访问语义）与 PowerShell UIA 合成输入脚本，用完即删，仓库内没有留下回归判据；computer-use skill 依赖的 orca CLI 在本机不存在，手写 GUI 自动化时 SetForegroundWindow 首次失效、窗口非前台导致 hover 与点击全落空，直到 SwitchToThisWindow 加 Alt 键技巧才激活成功，期间合成键鼠有发到别的前台窗口的风险。两处 QML 陷阱（id 点号访问、MouseArea 层叠）都可静态判定。",
             "id": "DX-102",
-            "note": "",
+            "note": "已完成 5 / 待做 0。① scripts/check_qml_pitfalls.py：id 点号访问与 MouseArea 层叠两条判据，--selftest 6 项，真实 qml/ 35 个文件 0 命中；② tests/qml/tst_taskcard_actions.qml：按钮/整卡/双击/拖拽/层叠陷阱/id 语义 6 例，ctest 40/40 绿；③ scripts/gui-uia-verify.ps1：任何合成输入前校验前台句柄，-SelfTest 4 项；④ CI 增加静态检查步骤；⑤ pitfalls 4.13/4.14。验收：全量构建 + ctest + --selftest + --smoke 通过（本机 check_qml_warnings 反向证伪需 PYTHONUTF8=1 才能按 UTF-8 捕获子进程输出，属既有环境口径）。",
             "scope": [
                 "scripts/check_qml_pitfalls.py",
                 "scripts/gui-uia-verify.ps1",
@@ -1164,6 +1164,23 @@
             "stage": "DX",
             "tier": "P3",
             "title": "git-done 临时分支 merge/* 静默残留：单次推送前 branch -d 的 upstream 判据恒假"
+        },
+        "DX-129": {
+            "acceptance": [
+                "①派生器 --write 对 baseline=abandoned 的卡把快照条目置 deleted:true（幂等，已是 true 不再动），status 等其余字段不改、不投影三态；②重开对称：baseline 经维护者 chore(board) 改回非终态后，--write 恢复该条目 deleted:false 并恢复正常状态投影（updatedAt 抬高）；③--check 同口径：弃单+deleted:false 报漂移、弃单+deleted:true 与重开+deleted:false 不报；④--abandoned-codes 输出行为不变；⑤derive --selftest 增弃单投影/重开恢复/--check 口径用例全过，task_gate --selftest 不回归；⑥存量 DX-43/R0-12/DX-119 经收尾 --write 后快照 deleted:true 生效，推送过 pre-push 规则 4（version≥3/卡片数不减/code 不丢），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "DX-43/R0-12 台账已 abandoned（5108e69）、DX-119 已结案（4113d21），快照 progress.json 仍显示 todo——DX-111 设计「弃单终态只活台账、派生器整段跳过」防重领已收口，看板展示残留未收；快照 v3 已有 deleted:true 墓碑约定（AGENTS §11.2.5「移除的卡写 deleted 而不是删条目」），应用 RoadmapSync 导入对 deleted:true 即删看板任务、写回保留墓碑（src/board/RoadmapSync.cpp 337/556）；派生器对弃单卡整段 continue ⇒ 墓碑写入后不会被复活，pre-push 闸门（卡片数不减/code 不丢）照常满足",
+            "id": "DX-129",
+            "note": "",
+            "scope": [
+                "scripts/derive_board_status.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "弃单终态投影快照 deleted 墓碑：看板不再显示已弃单卡，重开自动恢复"
         },
         "DX-13": {
             "acceptance": [
@@ -5754,25 +5771,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-129": {
-            "acceptance": [
-                "①派生器 --write 对 baseline=abandoned 的卡把快照条目置 deleted:true（幂等，已是 true 不再动），status 等其余字段不改、不投影三态；②重开对称：baseline 经维护者 chore(board) 改回非终态后，--write 恢复该条目 deleted:false 并恢复正常状态投影（updatedAt 抬高）；③--check 同口径：弃单+deleted:false 报漂移、弃单+deleted:true 与重开+deleted:false 不报；④--abandoned-codes 输出行为不变；⑤derive --selftest 增弃单投影/重开恢复/--check 口径用例全过，task_gate --selftest 不回归；⑥存量 DX-43/R0-12/DX-119 经收尾 --write 后快照 deleted:true 生效，推送过 pre-push 规则 4（version≥3/卡片数不减/code 不丢），pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
-            ],
-            "author": "maintainer-session-2026-11-07",
-            "depends": [],
-            "evidence": "DX-43/R0-12 台账已 abandoned（5108e69）、DX-119 已结案（4113d21），快照 progress.json 仍显示 todo——DX-111 设计「弃单终态只活台账、派生器整段跳过」防重领已收口，看板展示残留未收；快照 v3 已有 deleted:true 墓碑约定（AGENTS §11.2.5「移除的卡写 deleted 而不是删条目」），应用 RoadmapSync 导入对 deleted:true 即删看板任务、写回保留墓碑（src/board/RoadmapSync.cpp 337/556）；派生器对弃单卡整段 continue ⇒ 墓碑写入后不会被复活，pre-push 闸门（卡片数不减/code 不丢）照常满足",
-            "id": "DX-129",
-            "note": "",
-            "scope": [
-                "scripts/derive_board_status.py",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "tier": "P3",
-            "title": "弃单终态投影快照 deleted 墓碑：看板不再显示已弃单卡，重开自动恢复"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-102": {
+            "agent": "agent-dx102",
+            "branch": "test/dx102-interaction-regression",
+            "claimedAt": 1794023030,
+            "head": "a17fb5c3ce1202e2df1fdc96fde3150509d7e85e"
+        }
+    },
     "version": 1
 }

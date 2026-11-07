@@ -542,3 +542,17 @@ neonboard_add_test(tst_reposcaffolder
     ${NB_DIR_BOARD}/RepoScaffolder.cpp
 )
 
+# DX-102：TaskCard 交互回归 —— 按钮点击 / 整卡点击 / 双击 / 拖拽 / 层叠吞点击 /
+# id 点号访问恒 undefined。用例是自包含夹具（复刻 TaskCard 的层级与事件路由），
+# 不依赖应用上下文属性；真实 qml/ 的同形陷阱由 scripts/check_qml_pitfalls.py 扫描。
+find_package(Qt6 6.8 REQUIRED COMPONENTS QmlTools)
+add_test(NAME tst_taskcard_actions
+    COMMAND $<TARGET_FILE:Qt6::qmltestrunner> -nocrashhandler
+            -input ${CMAKE_CURRENT_SOURCE_DIR}/qml -o -,txt)
+set_tests_properties(tst_taskcard_actions PROPERTIES
+    TIMEOUT 120
+    # 无窗口平台：用例只验事件路由，不需要真实显示器；stderr 日志让 CI 能看到
+    # QtTest 的逐项结果（qmltestrunner 默认把输出吞进 Qt 消息处理器）。
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
+    ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+

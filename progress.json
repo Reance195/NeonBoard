@@ -73,24 +73,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "R1-8",
-            "completedAt": 0,
-            "createdAt": 1794027516,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R1-8",
-            "note": "",
-            "orderKey": 84992,
-            "priority": 2,
-            "stage": "R1",
-            "status": "todo",
-            "tags": [
-                "R1"
-            ],
-            "title": "过滤态拖拽落点按可见顺序计算：搜索 / 阶段过滤下指示线与落库顺序一致",
-            "updatedAt": 1794027516
-        },
-        {
             "code": "DX-132",
             "completedAt": 0,
             "createdAt": 1794033482,
@@ -5137,6 +5119,24 @@
             "updatedAt": 1794021910
         },
         {
+            "code": "R1-8",
+            "completedAt": 1794034029,
+            "createdAt": 1794027516,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R1-8",
+            "note": "实证结论：README 已知限制第 2 条为 R8-05（109ef92）重做拖拽落点后的过时残留 —— DragFeel::resolve 按可见序列算插入下标、按完整顺序锚列尾，moveTaskBefore 按 order_key 中点落库，三者组合下指示线位置与过滤视图落位一致，构造不出错位场景。交付：tst_taskcolumns 新增 4 用例（搜索落中间 / 搜索列尾锚隐藏卡 / 阶段过滤夹隐藏卡 / 未过滤回归含列尾）把该语义钉住，全绿；README 过时条目移除；无行为代码改动。验收：verify.ps1 全量通过（41/41 ctest + --selftest 0 + --smoke 0 告警）。",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "R1",
+            "status": "done",
+            "tags": [
+                "R1"
+            ],
+            "title": "过滤态拖拽落点按可见顺序计算：搜索 / 阶段过滤下指示线与落库顺序一致",
+            "updatedAt": 1794034029
+        },
+        {
             "code": "R11-03",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5605,6 +5605,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T14:41:51",
+    "updated": "2026-11-07T14:47:09",
     "version": 3
 }

@@ -19,6 +19,24 @@
             "updatedAt": 1794012369
         },
         {
+            "code": "DX-130",
+            "completedAt": 0,
+            "createdAt": 1794026435,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-130",
+            "note": "",
+            "orderKey": 51968,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "release.yml 清单回写步撞自家任务闸门：build.ps1 激活 hooksPath 后 bot 提交被拒，步骤不查 commit 退出码连累 rebase 二次失败",
+            "updatedAt": 1794026435
+        },
+        {
             "code": "DX-100",
             "completedAt": 0,
             "createdAt": 1793935664,
@@ -5407,6 +5425,6 @@
             "updatedAt": 1794025332
         }
     ],
-    "updated": "2026-11-07T12:22:12",
+    "updated": "2026-11-07T12:40:35",
     "version": 3
 }

@@ -6090,6 +6090,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-134": {
+            "agent": "agent-fix2",
+            "branch": "fix/audit-executor-safety",
+            "claimedAt": 1794036250,
+            "head": "07935c364aca19c80725f5c4a5fbadf9f3a33b35"
+        }
+    },
     "version": 1
 }

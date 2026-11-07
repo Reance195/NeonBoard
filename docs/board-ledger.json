@@ -1303,7 +1303,7 @@
             "depends": [],
             "evidence": "2026-11-07 全仓审计（亲验复现链路）。src/board/RoadmapSync.cpp:499-503 导出侧 scoped 过滤只把「家在本文件」的卡写进 seen；:546-560 墓碑循环把 current 里不在 seen 的条目一律写 deleted:true 且 updatedAt=now；:337-342 importEntry 见 deleted 即 deleteTask，不看该卡现在的家在哪个文件；:320-326 shouldApply 门因墓碑 updatedAt 恒新于看板而放行。触发链全自动：把卡从绑定项目解绑（或指派给绑定项目）→ 1.5s 防抖导出在项目文件写墓碑 → 15s 轮询导入 → deleteTask 把看板上的卡删掉 → 下一轮导出把全局文件也写成墓碑——卡在看板与两个快照文件中永久消失，且 taskRemoved 连带清掉父子关联边（TaskTree::removeLinkFor）。audit 同时确认：多项目绑同一路径时互相把对方的家写墓碑，同根问题。",
             "id": "DX-133",
-            "note": "",
+            "note": "缺陷链：导出侧 scoped 过滤把「家不在本文件」的卡漏出 seen（seen 语义应为「看板里存在」而非「要写进本文件」），墓碑循环把文件里有、seen 没有的条目一律标 deleted，导入侧 deleteTask 落库 —— 归属迁移 / 双项目绑同路径时永久丢卡。修复三件：① homeScope 判据抽成导入导出共用的单一实现（Z5）；② 导出侧 seen 计入前移到 scoped 过滤之前，家不在的卡不再误标墓碑（旧条目原样保留或被干净移出文件）；③ 导入侧 deleted 条目加防线，家不在本文件的墓碑不执行删除、按冲突计，兜住存量损坏文件。红色基线已实证：stash 修复后 tombstoneIgnoresCardsWithHomeElsewhere 与 sameRepoTwoProjectsDoNotKillEachOther 复现误标墓碑，恢复后全绿。验收：tst_roadmapsync 11 用例全绿（3 新增），verify.ps1 全量通过（编译+ctest+selftest+smoke 0 告警）。",
             "scope": [
                 "src/board/RoadmapSync.cpp",
                 "src/board/RoadmapSync.h",

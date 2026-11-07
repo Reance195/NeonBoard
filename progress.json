@@ -5405,8 +5405,26 @@
             ],
             "title": "v0.1.7 发版：版本号递增与发布验收",
             "updatedAt": 1794025332
+        },
+        {
+            "code": "DX-130",
+            "completedAt": 1794026856,
+            "createdAt": 1794026856,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-130",
+            "note": "",
+            "orderKey": 106496,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "release.yml 清单回写步撞自家任务闸门：build.ps1 激活 hooksPath 后 bot 提交被拒，步骤不查 commit 退出码连累 rebase 二次失败",
+            "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T12:47:12",
+    "updated": "2026-11-07T12:47:36",
     "version": 3
 }

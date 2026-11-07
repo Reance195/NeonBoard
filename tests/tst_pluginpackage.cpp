@@ -76,6 +76,9 @@ private slots:
 
     void installWritesManifestAndFiles();
     void installRejectsPathTraversal();
+    void installRejectsDriveLetterPaths();
+    void installRejectsUnsafeTargetDir();
+    void installRejectsManifestIdMismatch();
     void reinstallReplacesPreviousContent();
 };
 
@@ -91,6 +94,11 @@ void TestPluginPackage::dirNameForId_data()
     // 末尾点号后为空：按实现保留原串，避免产生空目录名
     QTest::newRow("末尾点号") << QStringLiteral("com.example.") << QStringLiteral("com.example.");
     QTest::newRow("空串") << QString() << QString();
+    // DX-132：派生结果不是安全单段时返回空串，调用方据此整单拒绝
+    QTest::newRow("点段上级") << QStringLiteral("..") << QString();
+    QTest::newRow("点自身") << QStringLiteral(".") << QString();
+    QTest::newRow("含分隔符") << QStringLiteral("a/../b") << QString();
+    QTest::newRow("盘符相对") << QStringLiteral("C:evil") << QString();
 }
 
 void TestPluginPackage::dirNameForId()
@@ -207,6 +215,85 @@ void TestPluginPackage::installRejectsPathTraversal()
     // 关键安全断言：越界文件绝不能落到目标目录之外
     QVERIFY(!QFile::exists(QDir(dir.path()).filePath(QStringLiteral("plugins/evil.txt"))));
     QVERIFY(!QDir(target).exists());
+}
+
+void TestPluginPackage::installRejectsDriveLetterPaths()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    // DX-132：盘符绝对与盘符相对（冒号一并拦，含备用数据流写法）都不得通过 isSafeRelativePath
+    const QStringList evilKeys = {QStringLiteral("C:/Users/attacker/run.js"),
+                                  QStringLiteral("C:name")};
+    for (const QString &key : evilKeys) {
+        const QString path = writePackage(dir.path(), QStringLiteral("evil.neon"),
+                                          packageWithFiles(QJsonObject{{key, QStringLiteral("pwned")}}));
+        QVERIFY(!path.isEmpty());
+
+        const QString target = QDir(dir.path()).filePath(QStringLiteral("plugins/evil"));
+        QString error;
+        QVERIFY2(!PluginPackage::installNeonFile(path, target, &error),
+                 qPrintable(QStringLiteral("盘符路径被放行：%1").arg(key)));
+        QVERIFY(error.contains(QStringLiteral("非法路径")));
+
+        // 关键安全断言：不落任何文件 —— 目标目录不存在，盘符路径也没被写出来
+        QVERIFY(!QDir(target).exists());
+        QVERIFY(!QFile::exists(QStringLiteral("C:/Users/attacker/run.js")));
+    }
+}
+
+void TestPluginPackage::installRejectsUnsafeTargetDir()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString path = writePackage(
+        dir.path(), QStringLiteral("demo.neon"),
+        packageWithFiles(QJsonObject{{QStringLiteral("main.qml"), QStringLiteral("Item {}")}}));
+    QVERIFY(!path.isEmpty());
+
+    const QString parent = QDir(dir.path()).filePath(QStringLiteral("plugins"));
+    QVERIFY(QDir().mkpath(parent));
+
+    QString error;
+    // 目标目录名不是安全单段：必须整单拒绝，不得把上级目录替换成包内容（DX-132）
+    QVERIFY2(!PluginPackage::installNeonFile(path, parent + QStringLiteral("/.."), &error),
+             qPrintable(error));
+    QVERIFY(error.contains(QStringLiteral("目标目录名非法")));
+    QVERIFY(QDir(parent).exists());
+
+    // 目录名派生为空串时会拼出尾分隔符形态，同样必须拒绝
+    error.clear();
+    QVERIFY2(!PluginPackage::installNeonFile(path, parent + QStringLiteral("/"), &error),
+             qPrintable(error));
+    QVERIFY(error.contains(QStringLiteral("目标目录名非法")));
+    QVERIFY(QDir(parent).exists());
+}
+
+void TestPluginPackage::installRejectsManifestIdMismatch()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QString path = writePackage(
+        dir.path(), QStringLiteral("demo.neon"),
+        packageWithFiles(QJsonObject{{QStringLiteral("main.qml"), QStringLiteral("Item {}")}}));
+    QVERIFY(!path.isEmpty());
+
+    const QString target = QDir(dir.path()).filePath(QStringLiteral("plugins/demo"));
+    QString error;
+
+    // DX-132：四道校验第 2 道 —— 包内 manifest.id 与请求 id 不一致，整单失败不落盘
+    QVERIFY2(!PluginPackage::installNeonFile(path, target, &error, QStringLiteral("com.test.other")),
+             qPrintable(error));
+    QVERIFY(error.contains(QStringLiteral("manifest.id")));
+    QVERIFY(!QDir(target).exists());
+
+    // 一致时正常安装，既有行为不回归
+    error.clear();
+    QVERIFY2(PluginPackage::installNeonFile(path, target, &error, QStringLiteral("com.test.demo")),
+             qPrintable(error));
+    QVERIFY(QFile::exists(QDir(target).filePath(QStringLiteral("plugin.json"))));
 }
 
 void TestPluginPackage::reinstallReplacesPreviousContent()

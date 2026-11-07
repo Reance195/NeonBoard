@@ -1,6 +1,7 @@
 #include "DeltaUpdate.h"
 
 #include "BsdiffWrapper.h"
+#include "SafePaths.h"
 
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -296,6 +297,21 @@ bool DeltaUpdate::applyDelta(const QString &deltaDir, const QString &installDir,
         return false;
     }
 
+    // 路径全部必须是安装目录内的安全相对路径（DX-136）：delta.json 是不可信输入，
+    // 与 obsolete-files.txt（loadObsoleteList）同一条信任边界，同一口径判定
+    for (const FileChange &change : info.changes) {
+        if (!SafePaths::isSafeRelativePath(change.path)) {
+            if (error)
+                *error = QStringLiteral("delta.json 包含非法路径：%1").arg(change.path);
+            return false;
+        }
+        if (!change.patchPath.isEmpty() && !SafePaths::isSafeRelativePath(change.patchPath)) {
+            if (error)
+                *error = QStringLiteral("delta.json 包含非法 patch 路径：%1").arg(change.patchPath);
+            return false;
+        }
+    }
+
     // 暂存目录（二进制合并落点）与备份目录
     const QString backupDir = stagedDir + QLatin1String("/.backup");
     QDir stagedQDir(stagedDir);
@@ -390,6 +406,9 @@ bool DeltaUpdate::applyDelta(const QString &deltaDir, const QString &installDir,
 
     // ---- 失败回滚 ----
     if (!success) {
+        // 回滚的 copy 必须检查返回值（DX-136）：恢复失败时保留备份目录——
+        // 它是旧文件的唯一副本，无条件删除会把文件变成「既不是新版也不是旧版」
+        bool rollbackOk = true;
         for (const FileChange &change : info.changes) {
             const QString dst = installQDir.absoluteFilePath(toNative(change.path));
             if (change.type == ChangeType::Added) {
@@ -397,11 +416,18 @@ bool DeltaUpdate::applyDelta(const QString &deltaDir, const QString &installDir,
             } else {
                 const QString src = backupDir + QLatin1String("/") + toNative(change.path);
                 QDir().mkpath(QFileInfo(dst).absolutePath());
-                QFile::remove(dst);
-                QFile::copy(src, dst);
+                if (QFile::exists(dst) && !QFile::remove(dst))
+                    rollbackOk = false;
+                if (QFile::exists(src) && !QFile::copy(src, dst))
+                    rollbackOk = false;
             }
         }
-        QDir(backupDir).removeRecursively();
+        if (rollbackOk) {
+            QDir(backupDir).removeRecursively();
+        } else if (error) {
+            *error = QStringLiteral("%1\n回滚不完整，旧文件备份保留在：%2")
+                         .arg(*error, backupDir);
+        }
         return false;
     }
 

@@ -16,8 +16,10 @@
 class PluginPackage
 {
 public:
-    /** 从 .neon 文件解包并安装到 targetDir（已存在则先备份再原子替换） */
-    static bool installNeonFile(const QString &neonPath, const QString &targetDir, QString *error);
+    /** 从 .neon 文件解包并安装到 targetDir（已存在则先备份再原子替换）。
+     *  expectedManifestId 非空时校验包内 manifest.id 与之一致（四道校验第 2 道，DX-132）。 */
+    static bool installNeonFile(const QString &neonPath, const QString &targetDir, QString *error,
+                                const QString &expectedManifestId = {});
 
     /** 把 sourceDir 整个目录复制到 targetDir（用于从官方源/示例源安装） */
     static bool installDirectory(const QString &sourceDir, const QString &targetDir, QString *error);
@@ -28,6 +30,7 @@ public:
     /** 读取 .neon 包里的 manifest.id（读不出返回空串） */
     static QString neonPluginId(const QString &neonPath);
 
-    /** 插件 id → 插件目录名（取最后一段点号后的部分，如 com.lin.plan-hook → plan-hook） */
+    /** 插件 id → 插件目录名（取最后一段点号后的部分，如 com.lin.plan-hook → plan-hook）。
+     *  派生结果不是安全单段（含分隔符/冒号，或就是 "." ".."）时返回空串，调用方必须拒绝（DX-132）。 */
     static QString dirNameForId(const QString &pluginId);
 };

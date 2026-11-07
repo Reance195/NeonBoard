@@ -504,12 +504,12 @@ int main(int argc, char *argv[])
         }
         const QString packagePath = arguments.at(installPluginFileIndex + 1);
         const QString pluginId = PluginPackage::neonPluginId(packagePath);
-        if (pluginId.isEmpty()) {
+        const QString dirName = PluginPackage::dirNameForId(pluginId);
+        if (pluginId.isEmpty() || dirName.isEmpty()) {
             qWarning().noquote() << "INSTALL-PLUGIN invalid package" << packagePath;
             return 2;
         }
-        const QString targetDir = AppPaths::pluginDir() + QLatin1Char('/')
-            + PluginPackage::dirNameForId(pluginId);
+        const QString targetDir = AppPaths::pluginDir() + QLatin1Char('/') + dirName;
         QString installError;
         if (!PluginPackage::installNeonFile(packagePath, targetDir, &installError)) {
             qWarning().noquote() << "INSTALL-PLUGIN FAIL" << installError;

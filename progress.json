@@ -199,6 +199,24 @@
             "updatedAt": 1793935667
         },
         {
+            "code": "R20-1",
+            "completedAt": 0,
+            "createdAt": 1794014077,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R20-1",
+            "note": "",
+            "orderKey": 88064,
+            "priority": 2,
+            "stage": "R20",
+            "status": "todo",
+            "tags": [
+                "R20"
+            ],
+            "title": "定时任务插件：按时间计划自动建卡、流转任务、发提醒",
+            "updatedAt": 1794014077
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5317,6 +5335,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T08:54:49",
+    "updated": "2026-11-07T09:14:37",
     "version": 3
 }

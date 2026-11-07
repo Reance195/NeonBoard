@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "DX-131",
+            "completedAt": 0,
+            "createdAt": 1794027722,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-131",
+            "note": "",
+            "orderKey": 20224,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "依赖前缀交接 UTF-8 会话失真：探针把 GBK 前缀解成 U+FFFD，全量 verify 编译步骤在本机必拦",
+            "updatedAt": 1794027722
+        },
+        {
             "code": "R0-14",
             "completedAt": 0,
             "createdAt": 1794027516,
@@ -17,6 +35,24 @@
             ],
             "title": "部署侧依赖收敛：CMake DELAYLOAD 精简随包 DLL，并纠偏 pitfalls §7.6 的过时前提",
             "updatedAt": 1794027516
+        },
+        {
+            "code": "R0-15",
+            "completedAt": 0,
+            "createdAt": 1794027729,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R0-15",
+            "note": "",
+            "orderKey": 60672,
+            "priority": 2,
+            "stage": "R0",
+            "status": "todo",
+            "tags": [
+                "R0"
+            ],
+            "title": "首启空态残留：全新库建表延后期初始化失败无重试，官方插件自动授权可能未落地",
+            "updatedAt": 1794027729
         },
         {
             "code": "DX-119",
@@ -5461,6 +5497,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T12:58:36",
+    "updated": "2026-11-07T13:02:09",
     "version": 3
 }

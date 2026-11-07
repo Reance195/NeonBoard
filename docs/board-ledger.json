@@ -265,7 +265,9 @@
         "R9-04": "done",
         "R9-05": "done",
         "R0-14": "todo",
-        "R1-8": "todo"
+        "R1-8": "todo",
+        "DX-131": "todo",
+        "R0-15": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5875,6 +5877,54 @@
             "stage": "R1",
             "tier": "P3",
             "title": "过滤态拖拽落点按可见顺序计算：搜索 / 阶段过滤下指示线与落库顺序一致"
+        },
+        "DX-131": {
+            "acceptance": [
+                "UTF-8（chcp 65001）与 CP936 两种控制台各跑一次 build.ps1 -Reconfigure：前缀逐字节核对与依赖条目自检均通过，#deps 0 计数为 0",
+                "prefix.bin 字节与 cl 实际 /showIncludes 前缀逐字节一致，判据固化为探针自检用例（不依赖仓库状态）",
+                "本机全量 verify.ps1 EXIT 0（编译步骤不再需要 -SkipBuild 绕行）；check_qml_warnings --selftest 不再依赖调用方预设 PYTHONIOENCODING",
+                "VSLANG=1033 在 65001 会话实测复核：有效则固化进构建链，无效则如实记录并走探针字节化方案；pitfalls §3.20 / §7.7 相应更新",
+                "缓存面不回归：改公共头文件后 ninja 重编引用它的 TU（依赖条目非空且指向本 worktree）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "R0-13 交付实测（pitfalls §7.7 D）：DX-60 已结但未收敛——nb-console 的 Set-NbUtf8Console 切 65001 后，build.ps1 探针把 cl 的 GBK /showIncludes 前缀按 UTF-8 解码成 U+FFFD 写进 prefix.bin，CMake file(READ) 再逐字节保真进 rules.ninja；而 cl 实际输出恒为系统 ANSI（GBK）字节，两者永远对不上，check_ninja_deps.py 报 296/443 个 #deps 0，build.ps1 依赖自检硬门 throw，全量 verify.ps1 的编译步骤在本机必拦（R0-13 只能以手动 cmake --build 全量佐证 + -SkipBuild 组合交付，验收口径未严格满足）。PYTHONIOENCODING=utf-8 只修 Python 子进程侧（check_qml_warnings 自测的「第 2 行」断言），治不了探针；VSLANG=1033 在 pitfalls §3.20 记录为无效（本机无英文语言包），但未在 65001 会话下实测复核。",
+            "id": "DX-131",
+            "note": "",
+            "scope": [
+                "scripts/build.ps1",
+                "scripts/nb-console.ps1",
+                "scripts/check_ninja_deps.py",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P1",
+            "title": "依赖前缀交接 UTF-8 会话失真：探针把 GBK 前缀解成 U+FFFD，全量 verify 编译步骤在本机必拦"
+        },
+        "R0-15": {
+            "acceptance": [
+                "全新库 GUI 启动后，官方来源（appdir/official）插件的权限补齐在 schema finalized 后完成落地（grants 落库），无需二次启动；R14-01 的 officialAutoGrants 判据不回归",
+                "空态期一次性初始化（links / 陈旧队列清理 / 孤儿 run 恢复 / meta 写入）在 schemaReady 后重放或幂等补齐，启动日志不再出现 no such table / Parameter count mismatch 失败行",
+                "老库行为不回归：tst_pluginruntime、tst_startupdefer 全过；新增用例覆盖「空态失败 → 就绪后重放成功」",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）；若 DX-131 未先行合入，允许按 pitfalls §7.7 D 口径以全量构建 + -SkipBuild 组合佐证并如实记录，DX-131 合入后补一次全量",
+                "pitfalls §7.7 残留段收敛更新"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "R0-13 交付残留（pitfalls §7.7）：GUI 两阶段建表（openDeferred → 首帧后 finalizeSchema）在**全新库**空态期，TaskTree::loadLinks、TaskRunStore::cancelStaleQueue/recoverOrphans、Database meta 写入均失败（GUI 实测日志 no such table: task_link / Parameter count mismatch）；PluginRuntime::ensureGrantsBootstrapped() 私有且只在 start() 调用一次，首帧前写 meta 失败后无重试通道——首次运行的官方插件自动授权可能未落地。R14-01 只治「既有库默认未授权」，不含此场景。老库表已存在，无空态，完全不受影响。这些路径均在 R0-13 卡 scope 之外，由本卡承接。",
+            "id": "R0-15",
+            "note": "",
+            "scope": [
+                "src/plugin/PluginRuntime.cpp",
+                "src/plugin/PluginRuntime.h",
+                "src/task/TaskTree.cpp",
+                "src/task/TaskRunStore.cpp",
+                "src/main.cpp",
+                "docs/pitfalls.md"
+            ],
+            "stage": "R0",
+            "tier": "P2",
+            "title": "首启空态残留：全新库建表延后期初始化失败无重试，官方插件自动授权可能未落地"
         }
     },
     "claims": {},

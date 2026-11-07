@@ -118,8 +118,16 @@ bool Database::recoverCorrupt(const QString &reason, QString *error)
 
 bool Database::open(QString *error, const QString &pathOverride)
 {
+    if (!openDeferred(error, pathOverride))
+        return false;
+    return finalizeSchema(error);
+}
+
+bool Database::openDeferred(QString *error, const QString &pathOverride)
+{
     closeConnection();
     m_recovered = false;
+    m_schemaReady = false;
     m_recoveryBackup.clear();
     m_recoveryReason.clear();
 
@@ -184,6 +192,12 @@ bool Database::open(QString *error, const QString &pathOverride)
     if (!execQuery(QStringLiteral("PRAGMA foreign_keys=ON"), error))
         return false;
 
+    // R0-13：连接已就绪，但表还没建。GUI 启动把这一段留到首帧之后。
+    return true;
+}
+
+bool Database::finalizeSchema(QString *error)
+{
     if (!ensureSchema(error))
         return false;
 
@@ -370,6 +384,8 @@ bool Database::open(QString *error, const QString &pathOverride)
     }
 
     refreshStats();
+    m_schemaReady = true;
+    emit schemaFinalized();
     return true;
 }
 

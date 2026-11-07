@@ -18,6 +18,14 @@ public:
     // pathOverride 为空时用 AppPaths::dataDir()/board.db；非空用于自检 / 测试实例，
     // 避免测试数据写进真实看板库。每次 open 都会分配独立连接名，允许同时开多个库。
     bool open(QString *error = nullptr, const QString &pathOverride = QString());
+
+    // R0-13：两阶段打开。openDeferred() 只建立连接与 PRAGMA（UI 线程毫秒级），
+    // 建表 / 迁移 / 侧表 / 索引留给 finalizeSchema()，由启动方在首帧之后调用。
+    // open() 仍是一次性同步全量，供 --selftest / 工具类 / 既有调用方，行为不变。
+    bool openDeferred(QString *error = nullptr, const QString &pathOverride = QString());
+    bool finalizeSchema(QString *error = nullptr);
+    bool schemaReady() const { return m_schemaReady; }
+
     QString path() const { return m_path; }
     QString connectionName() const { return m_connectionName; }
     int taskCount() const { return m_taskCount; }
@@ -65,6 +73,7 @@ public:
 
 signals:
     void taskCountChanged();
+    void schemaFinalized();
 
 private:
     bool openConnection(QString *error);
@@ -88,6 +97,7 @@ private:
     QString m_path;
     QString m_connectionName;
     int m_taskCount = 0;
+    bool m_schemaReady = false;
     bool m_recovered = false;
     QString m_recoveryBackup;
     QString m_recoveryReason;

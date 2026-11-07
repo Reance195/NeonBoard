@@ -14,6 +14,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
+#include <QThread>
 #include <QUrl>
 
 namespace {
@@ -52,7 +53,8 @@ PluginLoader::PluginLoader(Database *database, QObject *parent)
 {
     m_pluginDir = AppPaths::pluginDir();
     QDir().mkpath(m_pluginDir);
-    scan();
+    // R0-13：构造不再同步扫描目录 —— 由 scanAsync() 在独立线程完成；
+    // 启动方需要完整清单前用 scanFinished() 兜底（见 main.cpp）。
 }
 
 QStringList PluginLoader::sourceDirs() const
@@ -139,18 +141,17 @@ bool PluginLoader::writeDisabledList(const QStringList &ids) const
                                     jsonArrayFromIds(ids));
 }
 
-void PluginLoader::scan()
+PluginLoader::ScanResult PluginLoader::collectScan(const QStringList &disabledIds,
+                                                  const QStringList &roots) const
 {
     QElapsedTimer scanTimer;
     scanTimer.start();
-    m_plugins.clear();
-    m_candidates.clear();
+    QVariantList plugins;
+    QVariantList candidates;
     QSet<QString> seenIds;
 
-    const QStringList disabledIds = readDisabledList();
-
-    const auto scanDirectory = [this, &seenIds, &disabledIds](const QString &rootPath,
-                                                              const QString &source) {
+    const auto scanDirectory = [&plugins, &candidates, &seenIds, &disabledIds](
+                                   const QString &rootPath, const QString &source) {
         QDir root(rootPath);
         if (!root.exists())
             return;
@@ -180,7 +181,7 @@ void PluginLoader::scan()
             if (!manifestFile.open(QIODevice::ReadOnly)) {
                 plugin[QStringLiteral("status")] = QStringLiteral("error");
                 plugin[QStringLiteral("error")] = QStringLiteral("无法读取 plugin.json");
-                m_plugins.append(plugin);
+                plugins.append(plugin);
                 continue;
             }
 
@@ -190,7 +191,7 @@ void PluginLoader::scan()
                 plugin[QStringLiteral("status")] = QStringLiteral("error");
                 plugin[QStringLiteral("error")] =
                     QStringLiteral("plugin.json 解析失败: %1").arg(parseError.errorString());
-                m_plugins.append(plugin);
+                plugins.append(plugin);
                 continue;
             }
 
@@ -371,25 +372,57 @@ void PluginLoader::scan()
             plugin[QStringLiteral("shadowed")] = shadowed;
             if (shadowed) {
                 // 同 id 被前面的源覆盖：仍记进候选清单，插件库据此判断「可安装」
-                m_candidates.append(plugin);
+                candidates.append(plugin);
                 continue;
             }
             if (!id.isEmpty())
                 seenIds.insert(id);
 
-            m_plugins.append(plugin);
-            m_candidates.append(plugin);
+            plugins.append(plugin);
+            candidates.append(plugin);
         }
     };
 
-    const QStringList roots = sourceDirs();
     const char *sources[] = {"appdata", "appdir", "official", "sample"};
     for (int i = 0; i < roots.size(); ++i)
         scanDirectory(roots.at(i), QString::fromLatin1(sources[i]));
 
-    qInfo() << "PluginLoader: scanned" << m_plugins.size() << "plugin(s) from" << m_pluginDir
-            << "in" << scanTimer.elapsed() << "ms";
+    qInfo() << "PluginLoader: background scan" << plugins.size() << "plugin(s) in"
+            << scanTimer.elapsed() << "ms";
+    return qMakePair(plugins, candidates);
+}
+
+void PluginLoader::applyScan(const ScanResult &result)
+{
+    m_plugins = result.first;
+    m_candidates = result.second;
+    m_scanFinished = true;
+    qInfo() << "PluginLoader: injected" << m_plugins.size() << "plugin(s) into sidebar";
     emit pluginsChanged();
+}
+
+void PluginLoader::scan()
+{
+    applyScan(collectScan(readDisabledList(), sourceDirs()));
+}
+
+void PluginLoader::scanAsync()
+{
+    // Qt SQL 连接不能跨线程：disabled 列表与源目录在主线程取好，后台只做文件 I/O。
+    const QStringList disabledIds = readDisabledList();
+    const QStringList roots = sourceDirs();
+    auto *thread = new QThread(this);
+    auto *worker = new QObject();
+    worker->moveToThread(thread);
+    connect(thread, &QThread::started, worker, [this, disabledIds, roots, thread]() {
+        const ScanResult result = collectScan(disabledIds, roots);
+        QMetaObject::invokeMethod(this, [this, result]() { applyScan(result); },
+                                  Qt::QueuedConnection);
+        thread->quit();
+    });
+    connect(thread, &QThread::finished, worker, &QObject::deleteLater);
+    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
 }
 
 bool PluginLoader::openPluginDir()

@@ -236,6 +236,20 @@ switch ($Action) {
             }
         }
 
+        # 5) .worktrees/ 下的未注册目录与仓库根的散落产物（DX-112）：半删除尸体、
+        #    nbflow 临时区残留、根下 *.log（会挡锚点快进）—— 只点名报告，不删除（§7.10 回收由人拍板）
+        $worktreeRoot = Join-Path $anchor '.worktrees'
+        if (Test-Path -LiteralPath $worktreeRoot) {
+            foreach ($dir in (Get-ChildItem -LiteralPath $worktreeRoot -Directory)) {
+                if ($liveNames -notcontains $dir.Name) {
+                    $warnings.Add((".worktrees/{0} 未注册为 worktree（半删除尸体或残留目录，回收由人拍板；登记还在时可先 -Action Release）" -f $dir.Name))
+                }
+            }
+        }
+        foreach ($f in (Get-ChildItem -LiteralPath $anchor -File -Filter '*.log' -ErrorAction SilentlyContinue)) {
+            $warnings.Add(("仓库根散落产物 {0}（工具落错位置，会挡锚点快进，回收由人拍板）" -f $f.Name))
+        }
+
         Write-Host ("锚点区：{0}" -f $anchor) -ForegroundColor DarkGray
         Write-Host ("工作区：{0} 个（.worktrees {1} 个）" -f $worktrees.Count, @($liveNames).Count) -ForegroundColor DarkGray
         foreach ($w in $warnings) { Write-Host ("⚠ {0}" -f $w) -ForegroundColor Yellow }

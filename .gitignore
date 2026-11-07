@@ -55,6 +55,7 @@ Makefile.*
 # ===== 多代理并行 =====
 # 嵌套 worktree：每个 agent 一个工作区，禁止入库
 .worktrees/
+.worktrees/*.log
 # agent 沙箱数据目录（NEONBOARD_DATA_DIR 指向的位置）
 .sandbox/
 # agent 沙箱环境脚本（scripts/agent-init.ps1 生成）

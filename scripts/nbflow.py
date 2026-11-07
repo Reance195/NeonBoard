@@ -517,12 +517,76 @@ def worktree_alive(wt: Path, common: Path) -> bool:
 def discard_corpse_worktree(ctx: Ctx, wt: Path) -> bool:
     """验活失败后的清理：prune 注销残 ref + 删目录；删不掉（被占用）返回 False，
     调用方必须中止（fail-closed），绝不带着尸体继续（DX-93）。"""
-    run(["git", "-C", str(REPO), "worktree", "prune"], quiet=True)
+    return remove_dir_with_retry(ctx, wt, reason="尸体探测区清理")
+
+
+# DX-112：nbflow 自己经手的回收（probe 区 / 尸体区 / abandon）失败不再静默降级 ——
+# 实录（2026-11-06）：worktree remove Permission denied 只打一行「不影响主线」，
+# _nbflow-board-2026-11-06 目录与分支残留，靠人肉 ls 才发现。这里统一为：
+# 重试至少 2 次（瞬态占用自愈）→ 仍失败落 pending-recycle.json 显式留痕并大声点名，
+# 回收决定仍归人（§7.10），nbflow 只负责「让人看见」。
+PENDING_RECYCLE_ATTEMPTS = 3  # 首次 + 重试 2 次
+
+
+def pending_recycle_file(ctx: Ctx) -> Path:
+    return ctx.common / "neonboard-flow" / "pending-recycle.json"
+
+
+def record_pending_recycle(ctx: Ctx, wt: Path, reason: str) -> None:
+    """回收终败的显式留痕：独立于会话状态（失败点可能根本没有会话），
+    落在 common dir 的 pending-recycle.json；agent-workspace -Action Check 会点名。"""
+    if ctx.dry_run:
+        return
+    p = pending_recycle_file(ctx)
     try:
-        shutil.rmtree(wt)
-    except OSError:
-        pass
+        data = json.loads(p.read_text(encoding="utf-8"))
+        if not isinstance(data.get("items"), dict):
+            data["items"] = {}
+    except (OSError, ValueError):
+        data = {"version": 1, "items": {}}
+    data["updatedAt"] = now()
+    data["items"][rel_or_abs(wt)] = {"reason": reason, "recordedAt": now()}
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _default_worktree_remove(ctx: Ctx, wt: Path) -> bool:
+    """一次回收尝试：git 注销 + 兜底 rmtree；目录已不存在视为成功。"""
+    if not wt.exists():
+        return True
+    run(["git", "-C", str(REPO), "worktree", "prune"], quiet=True)
+    run(["git", "-C", str(REPO), "worktree", "remove", "--force", str(wt)], quiet=True)
+    if wt.exists():
+        try:
+            shutil.rmtree(wt)
+        except OSError:
+            pass
     return not wt.exists()
+
+
+def remove_dir_with_retry(ctx: Ctx, wt: Path, reason: str = "工作区回收",
+                          attempts: int = PENDING_RECYCLE_ATTEMPTS,
+                          remove_fn=None) -> bool:
+    """带重试的目录回收：失败重试 ≥2 次，仍失败落显式待回收记录（DX-112）。
+
+    remove_fn 仅供自测注入；生产路径走 _default_worktree_remove。
+    """
+    remove = remove_fn or (lambda: _default_worktree_remove(ctx, wt))
+    for i in range(1, max(attempts, 1) + 1):
+        try:
+            if remove():
+                if i > 1:
+                    out("  · %s：第 %d 次重试后成功" % (reason, i))
+                return True
+        except OSError:
+            pass
+        if i < attempts:
+            out("  · ⚠ %s 失败（第 %d/%d 次，多为文件被占用），重试…" % (reason, i, attempts))
+    record_pending_recycle(ctx, wt, reason=reason)
+    err("✗ %s 失败：重试 %d 次仍删不掉 %s；已落待回收记录（pending-recycle.json），"
+        "请人工处理 —— 回收由人拍板（§7.10），但残留必须被看见（DX-112）"
+        % (reason, attempts, rel_or_abs(wt)))
+    return False
 
 
 def board_apply_outcome(code: int) -> str:
@@ -1068,10 +1132,12 @@ def cmd_abandon(ctx: Ctx, state: dict, args) -> int:
         out("  · 服务端占位不存在或已释放（忽略）")
     run(["git", "-C", str(REPO), "update-ref", "-d", ref], dry=ctx.dry_run)
     if wt and Path(wt).is_dir():
-        argv = ["git", "-C", str(REPO), "worktree", "remove", wt]
-        if args.force:
-            argv.append("--force")
-        run(argv, dry=ctx.dry_run)
+        if not remove_dir_with_retry(ctx, Path(wt), reason="弃卡工作区回收"):
+            transition(ctx, state, card, "abandoned", reason=args.reason,
+                       nextStep="工作区回收失败，已落 pending-recycle.json 待人工处理（DX-112）")
+            out("%s %s 已弃卡并释放占位，但工作区回收失败（原因：%s）"
+                % ("[演练] 未执行 ·" if ctx.dry_run else "!", card, args.reason))
+            return 0
     if branch:
         run(["git", "-C", str(REPO), "branch", "-d" if not args.force else "-D", branch],
             dry=ctx.dry_run)
@@ -1125,7 +1191,10 @@ def probe_merge(ctx: Ctx, branch: str, simulate: bool = False) -> dict:
     try:
         if wt.exists() and not worktree_alive(wt, ctx.common):
             # DX-93：尸体探测区先清干净；清不掉会让下面的 add 失败走 probe-setup-failed
-            discard_corpse_worktree(ctx, wt)
+            if not remove_dir_with_retry(ctx, wt, reason="尸体探测区清理"):
+                info.update(ok=False, reason="probe-setup-failed",
+                            evidence="旧探测区清不掉：%s（见 pending-recycle.json）" % wt)
+                return info
         if wt.exists():
             run(["git", "-C", str(REPO), "worktree", "remove", "--force", str(wt)], quiet=True)
         code, _ = run(["git", "-C", str(REPO), "worktree", "add", "--detach",
@@ -1159,7 +1228,7 @@ def probe_merge(ctx: Ctx, branch: str, simulate: bool = False) -> dict:
     finally:
         if wt.exists():
             run(["git", "-C", str(wt), "merge", "--abort"], quiet=True)
-            run(["git", "-C", str(REPO), "worktree", "remove", "--force", str(wt)], quiet=True)
+            remove_dir_with_retry(ctx, wt, reason="探测区回收")
 
 
 def anchor_probe(ctx: Ctx, simulate: bool = False) -> dict:
@@ -2004,6 +2073,44 @@ def selftest() -> int:
         noscript.mkdir()
         check("尸体判死：缺 scripts/board-apply.py（纯 os 判定先行）",
               worktree_alive(noscript, Path(td)) is False)
+
+        # DX-112：回收失败重试 ≥2 次；终败落 pending-recycle.json 点名，不再静默降级
+        ctx112 = Ctx()
+        ctx112._common = Path(td)
+        calls = {"n": 0}
+
+        def flaky_remove():
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise OSError("Permission denied")
+            return True
+
+        wt_flaky = Path(td) / "wt-flaky"
+        wt_flaky.mkdir()
+        check("回收重试：前两次失败第三次成功（共 3 次尝试）",
+              remove_dir_with_retry(ctx112, wt_flaky, reason="自测回收", remove_fn=flaky_remove)
+              is True and calls["n"] == 3)
+        calls_one = {"n": 0}
+
+        def once_ok():
+            calls_one["n"] += 1
+            return True
+
+        check("回收重试：首次成功不多试",
+              remove_dir_with_retry(ctx112, Path(td) / "不存在的目录", reason="自测回收",
+                                    remove_fn=once_ok) is True and calls_one["n"] == 1)
+
+        def hopeless_remove():
+            raise OSError("Permission denied")
+
+        wt_stuck = Path(td) / "wt-stuck"
+        wt_stuck.mkdir()
+        ok_stuck = remove_dir_with_retry(ctx112, wt_stuck, reason="自测回收",
+                                         remove_fn=hopeless_remove)
+        pf = pending_recycle_file(ctx112)
+        recorded = json.loads(pf.read_text(encoding="utf-8"))["items"] if pf.exists() else {}
+        check("回收终败：返回 False 且待回收记录点名路径",
+              ok_stuck is False and any("wt-stuck" in k for k in recorded))
 
     failed = [n for n, ok in cases if not ok]
     for name, ok in cases:

@@ -50,7 +50,13 @@
         "DX-135": "done",
         "DX-136": "done",
         "DX-137": "done",
+        "DX-138": "todo",
+        "DX-139": "todo",
         "DX-14": "done",
+        "DX-140": "todo",
+        "DX-141": "todo",
+        "DX-142": "todo",
+        "DX-143": "todo",
         "DX-15": "done",
         "DX-16": "done",
         "DX-17": "done",
@@ -273,13 +279,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-138": "todo",
-        "DX-139": "todo",
-        "DX-140": "todo",
-        "DX-141": "todo",
-        "DX-142": "todo",
-        "DX-143": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -1425,6 +1425,52 @@
             "tier": "P3",
             "title": "QML 反馈链三处：QString.isEmpty() 必抛 TypeError、逾期判定跨年失效、热力图永不重绘"
         },
+        "DX-138": {
+            "acceptance": [
+                "tests/tst_scopematcher.cpp 新增用例：porcelain 带引号 octal 转义路径（如 \"docs/\\346\\226\\207\\346\\241\\243.md\"）被反转义为真实中文名并与 scope glob 正确匹配",
+                "新增用例：git 失败（含 captureBaseline 与 check 两条路径）不再返回 ok:true+skipped，而是按 fail-closed 给出可观察的失败态",
+                "新增用例：基线有、之后消失的条目（还原/删除用户改动）计入违规或至少进入结果集（双向比对）",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "既有越界判定与 triage 行为不回归（tst_scopematcher、tst_triage 全绿）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 全仓审计（两个域的审查代理独立发现 porcelain 问题，亲验）。其一：src/core/ScopeMatcher.cpp:84-90 只剥引号并把 \\ 换 /，不解 git 默认 core.quotePath 的 octal 转义——中文文件名变成 \"\\346\\226\\207...\" 剥完仍是字面转义串，永远匹配不上 scope glob，越界判定（阻断性）对合法中文改动整体假阳性，triage 只读门同样误报。其二：:205-212 git 失败返回 ok:true + skipped:true 静默放行——.git 被删 / index.lock 残留 / git 超时都当「跳过检查」，安全边界 fail-open，违反宪章 Z4。其三：:222-224 只比对「after 有 before 无」——agent 还原用户未提交改动、删 untracked 文件（基线条目消失）不检测，「前后 git status 必须一致」的只读承诺只兑现一半（TriageRunner.cpp:393-398 同构）。",
+            "id": "DX-138",
+            "note": "",
+            "scope": [
+                "src/core/ScopeMatcher.cpp",
+                "src/core/ScopeMatcher.h",
+                "tests/**",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "ScopeMatcher 三处判定缺陷：中文路径 octal 不反转义、git 失败 fail-open、diff 单向"
+        },
+        "DX-139": {
+            "acceptance": [
+                "TaskRunner::desensitize 收敛为公开静态纯函数（沿 failureSummary 先例）后，tests/tst_taskrunner.cpp 新增用例：「Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.签名段」整串被替换为占位符，普通 bearer/authorization 键值对不回归",
+                "新增用例：TriageRunner 的 raw 落库路径经 desensitize（以公开静态函数断言或夹具观测 meta 值不含原始凭据）",
+                "新增用例或日志证据：triage 启动失败时 start 返回 ok:false 且错误文案可读",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 全仓审计。其一：src/agent/TaskRunner.cpp:83-85 凭据正则对「Authorization: Bearer eyJhbG...」只捕获到 \"Bearer\" 一词——真正令牌留在日志里，JWT 是 base64url 不被 prefixedTokenPattern（sk-/ghp_/xox）与 longHexPattern（纯 hex）命中，明文凭据落 runs/<id>.log。其二：TriageRunner.cpp:505-509 raw（agent 输出末 4000 字符）未脱敏就写进 board.db meta，与 TaskRunner 日志脱敏口径不一致。其三：TriageRunner.cpp:356-358 launch() 内 waitForStarted 失败会同步 finish()（删 session、发 failed 信号）但 start() 仍返回 {ok:true}——启动失败被报成成功，调用方（QML/CLI）拿到假成功。",
+            "id": "DX-139",
+            "note": "",
+            "scope": [
+                "src/agent/TaskRunner.cpp",
+                "src/agent/TaskRunner.h",
+                "src/agent/TriageRunner.cpp",
+                "tests/**",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "agent 日志脱敏两处漏配与 triage 启动失败报成功"
+        },
         "DX-14": {
             "acceptance": [
                 "`grep -rn \"自动回写看板状态\" AGENTS.md docs/*.md` 不再有任何一处声称「CI 会回写 / 提交快照」，命中的只剩历史事故记录且已标注失效",
@@ -1453,6 +1499,105 @@
             ],
             "stage": "DX",
             "title": "文档与闸门随实现同步：回写整体取消（R14-01）后的过期条文"
+        },
+        "DX-140": {
+            "acceptance": [
+                "tests/tst_taskruns.cpp 新增用例：reorder 的两条 UPDATE 在第二条失败（模拟 busy/错误）时整体回滚，队列不出现同 position 条目且失败有告警日志",
+                "tests/tst_taskmodel.cpp 或 tst_taskundo 扩展：自定义列中删卡 → 撤销 → 卡回到原列（快照含 columnId）；默认列卡撤销不回归",
+                "新增用例：renumber 在 commit 失败时内存 orderKey 回滚（以可注入的失败路径或事务包裹后的一致性断言）",
+                "新增用例：同状态重复 order_key 时 renumber 与展示顺序一致（tiebreak 口径统一）",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 全仓审计（亲验）。其一：src/task/TaskRunStore.cpp:698-709 reorder 两条 UPDATE 无事务、失败无告警（同文件 moveColumn/deleteColumn 都包了事务）——第一条成功第二条失败时两条 waiting 行持有相同 position，队列顺序退化。其二：TaskModel.cpp:586-598 removeTask 快照不含 columnId，:620 restoreTask 固定落「该状态默认列」——自定义列里删卡再撤销，卡复活到错误列（移动类撤销支持按列回滚，删除类不齐）。其三：TaskModel.cpp:1033-1040 renumberColumn（renumberStatus :1112-1140 同构）先改内存后 commit，commit 失败不回滚内存——模型与 DB 从此漂移；且 renumberColumn 排序带 id tiebreak（:1016-1020）而 renumberStatus 没有，重复 order_key 时两处对同一状态的重排结果可与展示顺序错位。其四：TaskExec.cpp:252-257 removeRowFor 的 DELETE 返回值未检查无告警（同族 TaskExtra::removeRowFor :316-320 有告警）——残留行会让撤销复活旧执行定义。",
+            "id": "DX-140",
+            "note": "",
+            "scope": [
+                "src/task/TaskRunStore.cpp",
+                "src/task/TaskModel.cpp",
+                "src/task/TaskExec.cpp",
+                "tests/**",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "task 存储完整性四处：reorder 无事务、撤销删除丢列、renumber 失败内存漂移、removeRowFor 吞错"
+        },
+        "DX-141": {
+            "acceptance": [
+                "tests/tst_pluginruntime.cpp 扩展：卸载/热重载活跃 context 后事件不再向其投递、activeContextChanged 照发（以 spy 断言）",
+                "新增（或按既有夹具）用例：manifest 的 main/background 字段含 ../ 或盘符写法时加载校验拒绝（以 PluginLoader 可直接构造的校验入口断言，若无独立校验函数则抽出后测）",
+                "下载超时以常量/看门狗接线证明（对不存在主机触发一次异步下载，断言有限时间内以失败收尾而非永久挂起，超时上限随 kDownloadTimeoutMs 同源）",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "市场多源合并与缓存协议不回归（tst_pluginruntime、tst_pluginpackage 全绿）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 全仓审计。其一：src/plugin/PluginMarket.cpp:792-818 异步 downloadPackage（QML 实际调用频率最高）完全无超时——索引路径有 kIndexTimeoutMs、blocking 下载有 kDownloadTimeoutMs，唯独这条裸奔，恶意服务器只建连不发数据即永久挂起。其二：:784-817 状态按「单飞行」假设写死——m_pendingUrl/m_pendingSha/m_pendingDest 是成员，两次安装重叠时后者覆盖前者，前一包拿后一包的 sha 校验、payload 写进后者的临时文件。其三：PluginRuntime.cpp:452-461 refreshContexts 对「被移除的活跃 context」跳过退订与 deleteLater——PluginEventBus::publish 持裸指针派发，热重载后幽灵 context 继续收事件且 m_activeContext 置空未发 activeContextChanged。其四：PluginLoader.cpp:302-328 对 manifest 声明的 main/background/settings/slots 不做路径校验，../../../ 可指向插件目录外任意 QML 被 file:// 加载——用 manifest 引用绕过 files 落盘围栏（isSafeRelativePath 知识在 PluginPackage.cpp 未复用，违反 Z5）。",
+            "id": "DX-141",
+            "note": "",
+            "scope": [
+                "src/plugin/PluginMarket.cpp",
+                "src/plugin/PluginMarket.h",
+                "src/plugin/PluginRuntime.cpp",
+                "src/plugin/PluginLoader.cpp",
+                "tests/**",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "插件网络与生命周期四处：异步下载无超时、并发下载状态污染、活跃 context 泄漏、manifest 入口路径穿越"
+        },
+        "DX-142": {
+            "acceptance": [
+                "tests/tst_thememarket.cpp 扩展：对已安装主题重装且目标被占用（rename 失败可注入的等价场景）时旧包完好回滚，不再「先删后建」",
+                "tests/tst_roadmapsync.cpp 扩展：坏 JSON 文件触发导入失败后，mtime 不前移，文件修好后同 mtime 序列可再次导入（不吞变更）",
+                "tests/tst_updatemanager.cpp 扩展：竞速胜者 payload 非法（非 JSON/缺版本）时回退其余源或缓存，不再整体报错",
+                "kCacheTtlSeconds 接线生效（过期缓存不再无限期使用）或删除定义并在 pitfalls 记录决策",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 全仓审计。其一：src/update/UpdateManager.cpp:622-628 多源竞速成功分支在遍历 m_activeManifestReplies 中 abort 其他 reply——直连信号下 onManifestReplyFinished 同步重入、removeOne 使迭代器失效；异步路径下被 clear() 的 reply 永不 deleteLater，常驻进程逐次累积。判胜标准（:!payload.isEmpty()）不含解析有效性，captive portal 的 200 HTML 永久压过真源且不回退缓存；kCacheTtlSeconds（:57）定义后从未引用。其二：src/theme/ThemeMarket.cpp:280-286 更新主题先 remove(target) 再 rename，Windows rename 不覆盖——失败即旧包已毁新包未落。其三：src/board/RoadmapSync.cpp:645-653 poll 先记 mtime 再导入，导入失败（外部写一半/坏 JSON）不回退 mtime——该次文件变更被吞直到下次外部改动（importAll 启动导入不走此路，重启能救回反而掩盖问题）。",
+            "id": "DX-142",
+            "note": "",
+            "scope": [
+                "src/update/UpdateManager.cpp",
+                "src/theme/ThemeMarket.cpp",
+                "src/theme/ThemeMarket.h",
+                "src/board/RoadmapSync.cpp",
+                "tests/**",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "同步三处：更新竞速状态机重入与 reply 泄漏、ThemeMarket 先删后 rename、RoadmapSync poll 吞变更"
+        },
+        "DX-143": {
+            "acceptance": [
+                "tests/tst_boardsync.cpp 扩展：标题 #R1-12 的任务不再被 code R1-1 的领用命中（词边界用例，正反两向）",
+                "Main.qml 队列面板刷新改为「内容无变化不重建」（以快照比较或等价机制），委托重建只在真变化时发生——以夹具或代码级断言证明每秒赋值不再发生",
+                "HostMain 热键注册失败输出可读告警（含冲突含义），托盘窗口处理 TaskbarCreated 重建图标——以日志断言或代码级断言证明两路接线存在",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）",
+                "领用标牌既有匹配不回归（tst_boardsync 全绿）"
+            ],
+            "author": "maintainer-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 全仓审计。其一：src/host/HostMain.cpp:339 RegisterHotKey 返回值被忽略——热键被占用时 Ctrl+Shift+Space 静默失效而 HUD 仍在宣传它（SplashScene.cpp:925）；同文件托盘不监听 TaskbarCreated 广播，Explorer 崩溃重启后托盘图标永久消失。其二：qml/Main.qml:3563-3568 执行队列面板 Timer 每秒 rows = scheduler.queueView(100) 整体重新赋值——ListView 全量 reset，running 行脉冲动画频闪、悬停丢失、滚动位置回跳，注释声称的「避免整表重建」恰是其效果反面。其三：src/board/BoardSync.cpp:45-54 claimForTask 回退标题匹配无词边界——任务标题 #R1-12 会被 code R1-1 的领用命中（taskIdForCode :289-291 用了 \\b 正则，两套口径不一致），领用标牌可能挂错卡。",
+            "id": "DX-143",
+            "note": "",
+            "scope": [
+                "src/host/HostMain.cpp",
+                "src/host/HostMain.h",
+                "qml/Main.qml",
+                "src/board/BoardSync.cpp",
+                "tests/**",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "宿主与界面三处：热键注册静默失败、托盘不随 Explorer 重建、执行队列面板每秒整表重建"
         },
         "DX-15": {
             "acceptance": [
@@ -6096,160 +6241,8 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-138": {
-            "acceptance": [
-                "tests/tst_scopematcher.cpp 新增用例：porcelain 带引号 octal 转义路径（如 \"docs/\\346\\226\\207\\346\\241\\243.md\"）被反转义为真实中文名并与 scope glob 正确匹配",
-                "新增用例：git 失败（含 captureBaseline 与 check 两条路径）不再返回 ok:true+skipped，而是按 fail-closed 给出可观察的失败态",
-                "新增用例：基线有、之后消失的条目（还原/删除用户改动）计入违规或至少进入结果集（双向比对）",
-                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）",
-                "既有越界判定与 triage 行为不回归（tst_scopematcher、tst_triage 全绿）"
-            ],
-            "author": "maintainer-session-2026-11-07",
-            "depends": [],
-            "evidence": "2026-11-07 全仓审计（两个域的审查代理独立发现 porcelain 问题，亲验）。其一：src/core/ScopeMatcher.cpp:84-90 只剥引号并把 \\ 换 /，不解 git 默认 core.quotePath 的 octal 转义——中文文件名变成 \"\\346\\226\\207...\" 剥完仍是字面转义串，永远匹配不上 scope glob，越界判定（阻断性）对合法中文改动整体假阳性，triage 只读门同样误报。其二：:205-212 git 失败返回 ok:true + skipped:true 静默放行——.git 被删 / index.lock 残留 / git 超时都当「跳过检查」，安全边界 fail-open，违反宪章 Z4。其三：:222-224 只比对「after 有 before 无」——agent 还原用户未提交改动、删 untracked 文件（基线条目消失）不检测，「前后 git status 必须一致」的只读承诺只兑现一半（TriageRunner.cpp:393-398 同构）。",
-            "id": "DX-138",
-            "note": "",
-            "scope": [
-                "src/core/ScopeMatcher.cpp",
-                "src/core/ScopeMatcher.h",
-                "tests/**",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "tier": "P3",
-            "title": "ScopeMatcher 三处判定缺陷：中文路径 octal 不反转义、git 失败 fail-open、diff 单向"
-        },
-        "DX-139": {
-            "acceptance": [
-                "TaskRunner::desensitize 收敛为公开静态纯函数（沿 failureSummary 先例）后，tests/tst_taskrunner.cpp 新增用例：「Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.签名段」整串被替换为占位符，普通 bearer/authorization 键值对不回归",
-                "新增用例：TriageRunner 的 raw 落库路径经 desensitize（以公开静态函数断言或夹具观测 meta 值不含原始凭据）",
-                "新增用例或日志证据：triage 启动失败时 start 返回 ok:false 且错误文案可读",
-                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
-            ],
-            "author": "maintainer-session-2026-11-07",
-            "depends": [],
-            "evidence": "2026-11-07 全仓审计。其一：src/agent/TaskRunner.cpp:83-85 凭据正则对「Authorization: Bearer eyJhbG...」只捕获到 \"Bearer\" 一词——真正令牌留在日志里，JWT 是 base64url 不被 prefixedTokenPattern（sk-/ghp_/xox）与 longHexPattern（纯 hex）命中，明文凭据落 runs/<id>.log。其二：TriageRunner.cpp:505-509 raw（agent 输出末 4000 字符）未脱敏就写进 board.db meta，与 TaskRunner 日志脱敏口径不一致。其三：TriageRunner.cpp:356-358 launch() 内 waitForStarted 失败会同步 finish()（删 session、发 failed 信号）但 start() 仍返回 {ok:true}——启动失败被报成成功，调用方（QML/CLI）拿到假成功。",
-            "id": "DX-139",
-            "note": "",
-            "scope": [
-                "src/agent/TaskRunner.cpp",
-                "src/agent/TaskRunner.h",
-                "src/agent/TriageRunner.cpp",
-                "tests/**",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "tier": "P3",
-            "title": "agent 日志脱敏两处漏配与 triage 启动失败报成功"
-        },
-        "DX-140": {
-            "acceptance": [
-                "tests/tst_taskruns.cpp 新增用例：reorder 的两条 UPDATE 在第二条失败（模拟 busy/错误）时整体回滚，队列不出现同 position 条目且失败有告警日志",
-                "tests/tst_taskmodel.cpp 或 tst_taskundo 扩展：自定义列中删卡 → 撤销 → 卡回到原列（快照含 columnId）；默认列卡撤销不回归",
-                "新增用例：renumber 在 commit 失败时内存 orderKey 回滚（以可注入的失败路径或事务包裹后的一致性断言）",
-                "新增用例：同状态重复 order_key 时 renumber 与展示顺序一致（tiebreak 口径统一）",
-                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
-            ],
-            "author": "maintainer-session-2026-11-07",
-            "depends": [],
-            "evidence": "2026-11-07 全仓审计（亲验）。其一：src/task/TaskRunStore.cpp:698-709 reorder 两条 UPDATE 无事务、失败无告警（同文件 moveColumn/deleteColumn 都包了事务）——第一条成功第二条失败时两条 waiting 行持有相同 position，队列顺序退化。其二：TaskModel.cpp:586-598 removeTask 快照不含 columnId，:620 restoreTask 固定落「该状态默认列」——自定义列里删卡再撤销，卡复活到错误列（移动类撤销支持按列回滚，删除类不齐）。其三：TaskModel.cpp:1033-1040 renumberColumn（renumberStatus :1112-1140 同构）先改内存后 commit，commit 失败不回滚内存——模型与 DB 从此漂移；且 renumberColumn 排序带 id tiebreak（:1016-1020）而 renumberStatus 没有，重复 order_key 时两处对同一状态的重排结果可与展示顺序错位。其四：TaskExec.cpp:252-257 removeRowFor 的 DELETE 返回值未检查无告警（同族 TaskExtra::removeRowFor :316-320 有告警）——残留行会让撤销复活旧执行定义。",
-            "id": "DX-140",
-            "note": "",
-            "scope": [
-                "src/task/TaskRunStore.cpp",
-                "src/task/TaskModel.cpp",
-                "src/task/TaskExec.cpp",
-                "tests/**",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "tier": "P3",
-            "title": "task 存储完整性四处：reorder 无事务、撤销删除丢列、renumber 失败内存漂移、removeRowFor 吞错"
-        },
-        "DX-141": {
-            "acceptance": [
-                "tests/tst_pluginruntime.cpp 扩展：卸载/热重载活跃 context 后事件不再向其投递、activeContextChanged 照发（以 spy 断言）",
-                "新增（或按既有夹具）用例：manifest 的 main/background 字段含 ../ 或盘符写法时加载校验拒绝（以 PluginLoader 可直接构造的校验入口断言，若无独立校验函数则抽出后测）",
-                "下载超时以常量/看门狗接线证明（对不存在主机触发一次异步下载，断言有限时间内以失败收尾而非永久挂起，超时上限随 kDownloadTimeoutMs 同源）",
-                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）",
-                "市场多源合并与缓存协议不回归（tst_pluginruntime、tst_pluginpackage 全绿）"
-            ],
-            "author": "maintainer-session-2026-11-07",
-            "depends": [],
-            "evidence": "2026-11-07 全仓审计。其一：src/plugin/PluginMarket.cpp:792-818 异步 downloadPackage（QML 实际调用频率最高）完全无超时——索引路径有 kIndexTimeoutMs、blocking 下载有 kDownloadTimeoutMs，唯独这条裸奔，恶意服务器只建连不发数据即永久挂起。其二：:784-817 状态按「单飞行」假设写死——m_pendingUrl/m_pendingSha/m_pendingDest 是成员，两次安装重叠时后者覆盖前者，前一包拿后一包的 sha 校验、payload 写进后者的临时文件。其三：PluginRuntime.cpp:452-461 refreshContexts 对「被移除的活跃 context」跳过退订与 deleteLater——PluginEventBus::publish 持裸指针派发，热重载后幽灵 context 继续收事件且 m_activeContext 置空未发 activeContextChanged。其四：PluginLoader.cpp:302-328 对 manifest 声明的 main/background/settings/slots 不做路径校验，../../../ 可指向插件目录外任意 QML 被 file:// 加载——用 manifest 引用绕过 files 落盘围栏（isSafeRelativePath 知识在 PluginPackage.cpp 未复用，违反 Z5）。",
-            "id": "DX-141",
-            "note": "",
-            "scope": [
-                "src/plugin/PluginMarket.cpp",
-                "src/plugin/PluginMarket.h",
-                "src/plugin/PluginRuntime.cpp",
-                "src/plugin/PluginLoader.cpp",
-                "tests/**",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "tier": "P3",
-            "title": "插件网络与生命周期四处：异步下载无超时、并发下载状态污染、活跃 context 泄漏、manifest 入口路径穿越"
-        },
-        "DX-142": {
-            "acceptance": [
-                "tests/tst_thememarket.cpp 扩展：对已安装主题重装且目标被占用（rename 失败可注入的等价场景）时旧包完好回滚，不再「先删后建」",
-                "tests/tst_roadmapsync.cpp 扩展：坏 JSON 文件触发导入失败后，mtime 不前移，文件修好后同 mtime 序列可再次导入（不吞变更）",
-                "tests/tst_updatemanager.cpp 扩展：竞速胜者 payload 非法（非 JSON/缺版本）时回退其余源或缓存，不再整体报错",
-                "kCacheTtlSeconds 接线生效（过期缓存不再无限期使用）或删除定义并在 pitfalls 记录决策",
-                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
-            ],
-            "author": "maintainer-session-2026-11-07",
-            "depends": [],
-            "evidence": "2026-11-07 全仓审计。其一：src/update/UpdateManager.cpp:622-628 多源竞速成功分支在遍历 m_activeManifestReplies 中 abort 其他 reply——直连信号下 onManifestReplyFinished 同步重入、removeOne 使迭代器失效；异步路径下被 clear() 的 reply 永不 deleteLater，常驻进程逐次累积。判胜标准（:!payload.isEmpty()）不含解析有效性，captive portal 的 200 HTML 永久压过真源且不回退缓存；kCacheTtlSeconds（:57）定义后从未引用。其二：src/theme/ThemeMarket.cpp:280-286 更新主题先 remove(target) 再 rename，Windows rename 不覆盖——失败即旧包已毁新包未落。其三：src/board/RoadmapSync.cpp:645-653 poll 先记 mtime 再导入，导入失败（外部写一半/坏 JSON）不回退 mtime——该次文件变更被吞直到下次外部改动（importAll 启动导入不走此路，重启能救回反而掩盖问题）。",
-            "id": "DX-142",
-            "note": "",
-            "scope": [
-                "src/update/UpdateManager.cpp",
-                "src/theme/ThemeMarket.cpp",
-                "src/theme/ThemeMarket.h",
-                "src/board/RoadmapSync.cpp",
-                "tests/**",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "tier": "P3",
-            "title": "同步三处：更新竞速状态机重入与 reply 泄漏、ThemeMarket 先删后 rename、RoadmapSync poll 吞变更"
-        },
-        "DX-143": {
-            "acceptance": [
-                "tests/tst_boardsync.cpp 扩展：标题 #R1-12 的任务不再被 code R1-1 的领用命中（词边界用例，正反两向）",
-                "Main.qml 队列面板刷新改为「内容无变化不重建」（以快照比较或等价机制），委托重建只在真变化时发生——以夹具或代码级断言证明每秒赋值不再发生",
-                "HostMain 热键注册失败输出可读告警（含冲突含义），托盘窗口处理 TaskbarCreated 重建图标——以日志断言或代码级断言证明两路接线存在",
-                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）",
-                "领用标牌既有匹配不回归（tst_boardsync 全绿）"
-            ],
-            "author": "maintainer-session-2026-11-07",
-            "depends": [],
-            "evidence": "2026-11-07 全仓审计。其一：src/host/HostMain.cpp:339 RegisterHotKey 返回值被忽略——热键被占用时 Ctrl+Shift+Space 静默失效而 HUD 仍在宣传它（SplashScene.cpp:925）；同文件托盘不监听 TaskbarCreated 广播，Explorer 崩溃重启后托盘图标永久消失。其二：qml/Main.qml:3563-3568 执行队列面板 Timer 每秒 rows = scheduler.queueView(100) 整体重新赋值——ListView 全量 reset，running 行脉冲动画频闪、悬停丢失、滚动位置回跳，注释声称的「避免整表重建」恰是其效果反面。其三：src/board/BoardSync.cpp:45-54 claimForTask 回退标题匹配无词边界——任务标题 #R1-12 会被 code R1-1 的领用命中（taskIdForCode :289-291 用了 \\b 正则，两套口径不一致），领用标牌可能挂错卡。",
-            "id": "DX-143",
-            "note": "",
-            "scope": [
-                "src/host/HostMain.cpp",
-                "src/host/HostMain.h",
-                "qml/Main.qml",
-                "src/board/BoardSync.cpp",
-                "tests/**",
-                "docs/pitfalls.md"
-            ],
-            "stage": "DX",
-            "tier": "P3",
-            "title": "宿主与界面三处：热键注册静默失败、托盘不随 Explorer 重建、执行队列面板每秒整表重建"
         }
     },
-    "claims": {
-        "R0-14": {
-            "agent": "agent-duty-r014",
-            "branch": "perf/deplayload-network-deploy-slim",
-            "claimedAt": 1794044261,
-            "head": "5c20e28c01e45ff1620046902e7761c55d0e3851"
-        }
-    },
+    "claims": {},
     "version": 1
 }

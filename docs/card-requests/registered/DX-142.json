@@ -1,0 +1,13 @@
+{
+  "card": "DX-142",
+  "sha256": "aa5be6adf16e0eb7d395e98759feebf226df6ee470d387e0e84727f34d83ed9d",
+  "authorizedBy": "维护者会话授权(2026-11-07)：全仓审计 P1 开修",
+  "form": "docs/card-requests/20261107-audit-sync-hygiene.md",
+  "registeredAt": "2026-11-07T09:38:27+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-142",
+    "sha": "31bc8317e10430887dc55347cfb5c5377c0b3731"
+  }
+}

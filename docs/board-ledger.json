@@ -5655,6 +5655,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-125": {
+            "agent": "agent-dx125",
+            "branch": "fix/dx125-syspath-scripts",
+            "claimedAt": 1794011800,
+            "head": "e582d3c0b08b9294c13c1f85f1f496bec61cf19e"
+        }
+    },
     "version": 1
 }

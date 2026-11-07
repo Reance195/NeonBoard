@@ -84,6 +84,24 @@ def is_abandoned(baseline, code):
     return (baseline.get(code) or "").lower() == ABANDONED
 
 
+def tombstone_decision(baseline, code, item):
+    """弃单终态的快照墓碑投影（DX-129）。
+
+    返回该快照条目应有的 deleted 值：
+      - 弃单卡 → True：看板退役。导入端（RoadmapSync）对 deleted:true 直接
+        删看板任务、写回保留墓碑（§11.2.5「移除的卡写 deleted 而不是删条目」）；
+      - 非弃单卡 → False：台账活跃卡必须可见 —— 含重开对称（baseline 经维护者
+        chore(board) 改回非终态后，墓碑必须摘掉，否则卡永远从看板消失）。
+
+    台账是唯一事实源（§11.2.8），deleted 由派生器统一管理：看板侧删除台账
+    活跃卡不再粘滞，卡的退役通道就是弃单结案。item 传 None（台账有卡、快照
+    无条目）时返回 None —— 墓碑只挂在既有条目上，不为投影新建条目。
+    """
+    if item is None:
+        return None
+    return is_abandoned(baseline, code)
+
+
 def repo_root():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -739,6 +757,18 @@ def selftest():
                   and status_of("X-2", {}, {}, {"X-2": "todo"}) == "todo"
                   and status_of("X-3", {}, {}, {"X-3": "done"}) == "done"))
 
+    # ⑭ 弃单终态的快照墓碑投影（DX-129）：deleted 由派生器统一管理
+    ab_base = {"A-1": ABANDONED, "B-2": "todo"}
+    cases.append(("墓碑投影：弃单卡既有条目 → deleted=true（看板退役）",
+                  tombstone_decision(ab_base, "A-1", {"id": "a"}) is True))
+    cases.append(("墓碑投影：非弃单卡既有条目 → deleted=false（重开恢复口径）",
+                  tombstone_decision(ab_base, "B-2", {"id": "b"}) is False))
+    cases.append(("墓碑投影：快照无条目 → None（墓碑只挂既有条目，不为投影新建）",
+                  tombstone_decision(ab_base, "A-1", None) is None
+                  and tombstone_decision(ab_base, "B-2", None) is None))
+    cases.append(("墓碑投影大小写不敏感（与 is_abandoned 同口径）",
+                  tombstone_decision({"A-1": "Abandoned"}, "A-1", {"id": "a"}) is True))
+
     # ⑩ 结卡提交标记（DX-41）：拼串里每个短号都带 # 与 =done，
     #    post-commit 的 grep 与 plan-hook 的 MARKER_PATTERN 才认。
     text = close_commit_marker(["R9-04", "DX-26", "R16-05"])
@@ -1319,9 +1349,19 @@ def main():
 
     for code in sorted(cards):
         if is_abandoned(baseline, code):
-            # 弃单终态（DX-111）：不派生状态、不比对快照、不报漂移。
-            # 它靠 baseline 本身拦领用，不需要在快照三态里再找一个位置；
-            # 跳过也保证 --check 不会把「todo → abandoned」报成漂移。
+            # 弃单终态（DX-111 / DX-129）：不派生状态、不投影三态 —— 拒领判据
+            # 只读 baseline 本身。展示面改由快照 v3 的 deleted 墓碑承载（DX-129）：
+            # --write 幂等置墓碑（导入端删看板任务），--check 对未收敛的条目报漂移。
+            # 不比对 status，保证 --check 不会把「todo → abandoned」报成漂移。
+            item = by_id.get(cards[code].get("id", ""))
+            if item is not None and not item.get("deleted"):
+                if args.check:
+                    problems.append(
+                        "弃单卡 %s 的快照条目未置墓碑（deleted=false），跑 --write 收敛" % code)
+                else:
+                    item["deleted"] = True
+                    item["updatedAt"] = int(time.time())
+                    changes.append("弃单卡 %s 快照置墓碑（deleted=true，看板不再显示）" % code)
             continue
         card = cards[code]
         card_id = card.get("id", "")
@@ -1376,6 +1416,18 @@ def main():
             by_id[card_id] = item
             changes.append("新增卡片 %s（%s）状态 %s" % (code, card.get("title", ""), want))
             continue
+
+        # 重开对称（DX-129）：baseline 回到非终态后墓碑必须摘掉，否则卡永远
+        # 从看板消失。deleted 由派生器统一管理（tombstone_decision），看板侧
+        # 删除台账活跃卡不再粘滞 —— 退役通道就是弃单结案。
+        if item.get("deleted"):
+            if args.check:
+                problems.append(
+                    "卡片 %s 非弃单终态但快照仍是墓碑（deleted=true），跑 --write 恢复" % code)
+            else:
+                item["deleted"] = False
+                item["updatedAt"] = int(time.time())
+                changes.append("卡片 %s 重开，恢复快照显示（deleted=false）" % code)
 
         if item.get("code") != code:
             changes.append("卡片 %s 绑定短号 %s" % (item.get("title", ""), code))

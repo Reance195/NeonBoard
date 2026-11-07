@@ -5773,6 +5773,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-129": {
+            "agent": "codebuddy-dx129",
+            "branch": "feature/codebuddy-dx129",
+            "claimedAt": 1794022998,
+            "head": "c039c13e71c1d33aec8cbb7cb792669cf09e16fa"
+        }
+    },
     "version": 1
 }

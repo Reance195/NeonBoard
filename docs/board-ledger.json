@@ -535,7 +535,7 @@
             "depends": [],
             "evidence": "2026-11-06 本会话为验证 TaskCard 修复临时写了 qmltestrunner 最小复现（10 例全过，含按钮点击/整卡点击/双击/拖拽与 id 点号访问语义）与 PowerShell UIA 合成输入脚本，用完即删，仓库内没有留下回归判据；computer-use skill 依赖的 orca CLI 在本机不存在，手写 GUI 自动化时 SetForegroundWindow 首次失效、窗口非前台导致 hover 与点击全落空，直到 SwitchToThisWindow 加 Alt 键技巧才激活成功，期间合成键鼠有发到别的前台窗口的风险。两处 QML 陷阱（id 点号访问、MouseArea 层叠）都可静态判定。",
             "id": "DX-102",
-            "note": "",
+            "note": "已完成 5 / 待做 0。① scripts/check_qml_pitfalls.py：id 点号访问与 MouseArea 层叠两条判据，--selftest 6 项，真实 qml/ 35 个文件 0 命中；② tests/qml/tst_taskcard_actions.qml：按钮/整卡/双击/拖拽/层叠陷阱/id 语义 6 例，ctest 40/40 绿；③ scripts/gui-uia-verify.ps1：任何合成输入前校验前台句柄，-SelfTest 4 项；④ CI 增加静态检查步骤；⑤ pitfalls 4.13/4.14。验收：全量构建 + ctest + --selftest + --smoke 通过（本机 check_qml_warnings 反向证伪需 PYTHONUTF8=1 才能按 UTF-8 捕获子进程输出，属既有环境口径）。",
             "scope": [
                 "scripts/check_qml_pitfalls.py",
                 "scripts/gui-uia-verify.ps1",

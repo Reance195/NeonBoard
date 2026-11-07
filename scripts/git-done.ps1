@@ -142,6 +142,46 @@ function Remove-MergedBranch {
     return $false
 }
 
+# 合并提交正文四段（DX-101）：merge 提交不再只有一行标题 —— 正文按
+# 变更 / 验收 / 影响 / 卡片 四段写事实（docs/task-card.md 的合并提交口径）。
+# 卡片段从分支提交信息里提取 #短号 并对照台账 baseline 过滤，纯散文噪声
+# （#ERROR / #RRGGBB 一类宏与颜色写法）进不了卡片段；取不到的如实写，
+# 不编造。台账读不到时不过滤（退化为全收，与派生器的分层口径一致）。
+function New-MergeCommitBody {
+    param([string]$Branch, [string]$MainBranch)
+    $commitLines = @(Invoke-GitQuiet @('log', '--pretty=%s%n%b', ("origin/{0}..{1}" -f $MainBranch, $Branch)) |
+        Where-Object { $_ -and $_.ToString().Trim() -ne '' })
+    $commitCount = 0
+    $countRes = Invoke-GitQuiet @('rev-list', '--count', ("origin/{0}..{1}" -f $MainBranch, $Branch))
+    if ($countRes.Code -eq 0 -and $countRes.Output.Count -gt 0) {
+        [void][int]::TryParse($countRes.Output[0].ToString().Trim(), [ref]$commitCount)
+    }
+    $fileRes = Invoke-GitQuiet @('diff', '--name-only', ("origin/{0}...{1}" -f $MainBranch, $Branch))
+    $fileCount = @($fileRes | Where-Object { $_ -and $_.ToString().Trim() -ne '' }).Count
+
+    $known = @()
+    $ledgerFile = Join-Path (Get-Location).Path 'docs/board-ledger.json'
+    if (Test-Path -LiteralPath $ledgerFile) {
+        try {
+            # 显式按 UTF-8 读：Windows PowerShell 5.1 把无 BOM 的 UTF-8 当 GBK（§4 同坑）
+            $ledger = ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($ledgerFile, [System.Text.Encoding]::UTF8))
+            $known = @($ledger.baseline.PSObject.Properties.Name)
+        } catch { }
+    }
+    $codes = @()
+    foreach ($line in $commitLines) {
+        foreach ($m in [regex]::Matches([string]$line, '#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)')) {
+            $c = $m.Groups[1].Value
+            if (($known.Count -eq 0 -or $known -contains $c) -and $codes -notcontains $c) { $codes += $c }
+        }
+    }
+    $cardsLine = if ($codes.Count -gt 0) { (($codes | ForEach-Object { "#$_" }) -join ' ') } else { '无（纯杂务分支）' }
+    return ("变更：合入 {0} —— {1} 个提交、{2} 个文件改动。`n" +
+            "验收：以分支提交内 #短号=done 标记与 verify 口径为准，合并后 derive --check 校验台账一致性。`n" +
+            "影响：main 快进纳入本次分支改动，构建与测试由 CI 兜底。`n" +
+            "卡片：{3}") -f $Branch, $commitCount, $fileCount, $cardsLine
+}
+
 # 冲突退出回滚现场（DX-107）：合并撞冲突时，不把 merge/* 临时分支、未合并冲突态和
 # 「停在临时分支上的检出」留给下一条命令。所有动作都是非破坏性的 —— abort 用
 # `git merge --abort`（等价 reset --merge，保留用户未提交改动），归位用 switch，
@@ -484,6 +524,13 @@ function Sync-AnchorWorktree {
             if ($otherDirty.Count -gt 10) { Write-Host ("       …另有 {0} 个未列出" -f ($otherDirty.Count - 10)) -ForegroundColor Yellow }
             Write-Host '     受控文件（progress.json / docs/iteration-roadmap.md）之外的改动一律不碰' -ForegroundColor DarkGray
         }
+        # DX-101：跳过提示必须给出现成命令与落后提交数，不能再只报原因让人自己拼
+        $behind = 0
+        $behindRes = Invoke-GitQuiet @('-C', $anchor, 'rev-list', '--count', ("HEAD..origin/{0}" -f $Main))
+        if ($behindRes.Code -eq 0 -and $behindRes.Output.Count -gt 0) {
+            [void][int]::TryParse($behindRes.Output[0].ToString().Trim(), [ref]$behind)
+        }
+        Write-Host ("    现场清好后手工同步：git -C {0} merge --ff-only origin/{1}（当前落后 {2} 个提交）" -f $anchor, $Main, $behind) -ForegroundColor Yellow
         if ($untracked.Count -gt 0) {
             Write-Host ("   · 未跟踪冲突（{0} 个，逐个点名）：" -f $untracked.Count) -ForegroundColor Yellow
             $untracked | Select-Object -First 10 | ForEach-Object { Write-Host ("       {0}" -f $_) -ForegroundColor Yellow }
@@ -1050,7 +1097,8 @@ if ($Mode -eq 'remote') {
     $mergeRes = $null
     if ($switchRes.Code -eq 0) {
         Write-Host "· 合并 $Branch（--no-ff，保留分支合并痕迹）" -ForegroundColor DarkGray
-        $mergeRes = Invoke-GitQuiet @('merge', '--no-ff', $Branch, '-m', "merge: 合入 $Branch")
+        $mergeBody = New-MergeCommitBody -Branch $Branch -MainBranch $MainBranch
+        $mergeRes = Invoke-GitQuiet @('merge', '--no-ff', $Branch, '-m', "merge: 合入 $Branch", '-m', $mergeBody)
     }
     $inConflict = ($switchRes.Code -eq 0) -and
         ((Invoke-GitQuiet @('rev-parse', '--verify', '--quiet', 'MERGE_HEAD')).Code -eq 0)
@@ -1557,7 +1605,8 @@ try {
     Invoke-Git switch $MainBranch | Out-Null
 
     Write-Host "· 合并 $Branch（--no-ff）..." -ForegroundColor Cyan
-    Invoke-Git merge --no-ff $Branch -m "merge: 合入 $Branch" | Out-Null
+    $localBody = New-MergeCommitBody -Branch $Branch -MainBranch $MainBranch
+    Invoke-Git merge --no-ff $Branch -m "merge: 合入 $Branch" -m $localBody | Out-Null
 } catch {
     $mergeError = $_.Exception.Message
     # DX-107：local 模式同样不留冲突态、不停在 main 上（详见 Restore-ConflictScene）。

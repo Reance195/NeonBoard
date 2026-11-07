@@ -36,6 +36,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+# DX-101：看板快照落后为非阻断提示时置位，收尾绿灯的口径随之变化（不再报「全过」）
+$script:snapshotLagged = $false
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 # 应用落盘路径的唯一口径（Get-NbLogFile / Get-NbBoardDb），不要在本文件里再拼一次
@@ -499,7 +501,10 @@ if ((Test-Path $deriveScript) -and (Get-Command python -ErrorAction SilentlyCont
         if ($onMain) {
             Fail "看板状态与 git 历史/台账不一致（退出码 $deriveCode），请先跑 $hint 并提交"
         } else {
-            Write-Host ("! 看板快照落后于派生结果（退出码 {0}）；合并收尾会由 git-done 自动刷新，或手工跑 {1}" -f $deriveCode, $hint) -ForegroundColor Yellow
+            # DX-101：不再打印「退出码 1」这类误导字样 —— 本分支领用后快照本就会落后，
+            # 属预期非阻断项，说明语与最终绿灯的口径必须一致。
+            Write-Host ("! 看板快照落后于派生结果（derive --check 未过，非阻断）；本分支领用造成的预期落后 —— 合并收尾会由 git-done 自动刷新，确需手工对齐可跑 {0}" -f $hint) -ForegroundColor Yellow
+            $script:snapshotLagged = $true
         }
     }
 } else {
@@ -507,5 +512,9 @@ if ((Test-Path $deriveScript) -and (Get-Command python -ErrorAction SilentlyCont
 }
 
 Write-Host ''
-Write-Host '✓ 验收通过：编译 / ctest / --selftest / --smoke / 模块守卫 / 看板一致性 全过' -ForegroundColor Green
+if ($script:snapshotLagged) {
+    Write-Host '✓ 验收通过（1 项非阻断提示：看板快照落后于派生结果，合并收尾由 git-done 自动刷新）' -ForegroundColor Green
+} else {
+    Write-Host '✓ 验收通过：编译 / ctest / --selftest / --smoke / 模块守卫 / 看板一致性 全过' -ForegroundColor Green
+}
 exit 0

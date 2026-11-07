@@ -6092,13 +6092,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-137": {
-            "agent": "agent-fix4",
-            "branch": "fix/audit-qml-feedback",
-            "claimedAt": 1794037800,
-            "head": "1f9c36d3ac0b9f136e9c7f2fbd02c01b024ea598"
-        }
-    },
+    "claims": {},
     "version": 1
 }

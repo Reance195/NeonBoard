@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "R0-14",
+            "completedAt": 0,
+            "createdAt": 1794027516,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R0-14",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "R0",
+            "status": "todo",
+            "tags": [
+                "R0"
+            ],
+            "title": "部署侧依赖收敛：CMake DELAYLOAD 精简随包 DLL，并纠偏 pitfalls §7.6 的过时前提",
+            "updatedAt": 1794027516
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -35,6 +53,24 @@
             ],
             "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用",
             "updatedAt": 1794023716
+        },
+        {
+            "code": "R1-8",
+            "completedAt": 0,
+            "createdAt": 1794027516,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R1-8",
+            "note": "",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "R1",
+            "status": "todo",
+            "tags": [
+                "R1"
+            ],
+            "title": "过滤态拖拽落点按可见顺序计算：搜索 / 阶段过滤下指示线与落库顺序一致",
+            "updatedAt": 1794027516
         },
         {
             "code": "R0-12",
@@ -5425,6 +5461,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T12:54:31",
+    "updated": "2026-11-07T12:58:36",
     "version": 3
 }

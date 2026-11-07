@@ -4461,7 +4461,7 @@
             "depends": [],
             "evidence": "维护者 2026-11-07 会话提出「开发定时任务插件」并批准实施计划（会话内 ExitPlanMode 批准）。探索确认：宿主插件平台 apiVersion 2 已具备后台常驻 / 事件 / storage / 通知能力（docs/plugin-api.md），plan-hook 提供完整的后台插件范式（plugins/plan-hook/），看板缺「时间驱动」的自动化入口——plan-hook 是事件（git 提交）驱动，ReminderScheduler 只覆盖 due_at 提醒，定时建卡 / 按条件流转无承载。查重命中 R4-09 系领用可见与统一新建入口，非时间驱动自动化，新痛点成立。",
             "id": "R20-1",
-            "note": "",
+            "note": "交付 2026-11-07 / agent-sched / feature/scheduler-plugin：官方 QML 插件 plugins/scheduler/（id com.lin.scheduler「定时任务」，apiVersion 2，main+background 双入口，权限 tasks.read/tasks.write/notifications/storage）。规则三型计划（每天/每周/一次性）× 三型动作（建卡/流转/托盘通知），槽位键幂等（daily:YYYY-MM-DD / weekly:YYYY-MM-DD / once:<ms>），错过槽位补执行最近一次不逐日重放；一次性规则指向过去时点视为显式补执行诉求、首次巡检即触发（否则保存时已过期的规则永远死在手上，沙箱用例钉住此语义）。纯 QML 零 C++/CMake 改动。验收：verify.ps1 全过（ctest 39/39、selftest/smoke 退出码 0）；--plugin-report status=ok 且权限零缺口；沙箱补执行+幂等用例 7/7；面板台架 7/7（加载/编辑开合/保存拦截/星期往返）；规则引擎 node 台架 30/30；qmllint 0 Error。已完成 5 / 待做 0。偏差与移交：①验收第 4 条以自动化台架代真人点击，视觉观感未人工走查；②过程中发现 verify.ps1 既有缺陷（fail 路径 $bad.Count 对非数组取属性抛异常，会把冒烟失败变成脚本崩溃）与 bash 管道吃 pwsh 退出码两个观察，均不在本卡 scope，留维护者处置；③插件面板记录与状态经 plugin_kv 共享，卸载插件即随库清理。",
             "scope": [
                 "plugins/scheduler/**",
                 "docs/scheduler.md",

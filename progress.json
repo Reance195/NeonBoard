@@ -109,24 +109,6 @@
             "updatedAt": 1793816382
         },
         {
-            "code": "DX-128",
-            "completedAt": 0,
-            "createdAt": 1794020126,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-128",
-            "note": "",
-            "orderKey": 85760,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "git-done 临时分支 merge/* 静默残留：单次推送前 branch -d 的 upstream 判据恒假",
-            "updatedAt": 1794020126
-        },
-        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -5011,6 +4993,24 @@
             "updatedAt": 1794020457
         },
         {
+            "code": "DX-128",
+            "completedAt": 1794020689,
+            "createdAt": 1794020126,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-128",
+            "note": "",
+            "orderKey": 85760,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 临时分支 merge/* 静默残留：单次推送前 branch -d 的 upstream 判据恒假",
+            "updatedAt": 1794020689
+        },
+        {
             "code": "R9-01",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5371,6 +5371,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T11:00:57",
+    "updated": "2026-11-07T11:04:49",
     "version": 3
 }

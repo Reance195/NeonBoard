@@ -4,6 +4,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -89,6 +90,15 @@ signals:
     void imported(int applied, int skipped);
 
 private:
+    // 作用域判据的单一实现（R18-02 / DX-133）：这份文件是全局还是项目条目、
+    // 哪些卡的家在这里。scoped=false = 没有项目存储可用（不按作用域过滤）。
+    struct HomeScope {
+        bool scoped = false;
+        bool isGlobal = true;
+        QSet<QString> homeIds;
+    };
+    HomeScope homeScope(const SyncEntry &entry) const;
+
     QJsonObject readFile(const QString &filePath, QString *error) const;
     bool writeFile(const QString &filePath, const QJsonObject &root) const;
     void setReport(const QString &text);

@@ -431,6 +431,13 @@ def status_of(code, derived, claims_active, baseline):
     if code in claims_active:
         return claims_active[code]
     if code in baseline:
+        # 弃单是台账终态，不是看板三态（DX-111）：派生器不维护它的快照项
+        #（--check / --write 主循环已整卡跳过）。返回 todo 是为了让跨模块比对
+        #（check_board_diff.snapshot_drift_codes）拿到的值与现存快照一致，
+        # 不把「台账终态 vs 快照原状」误判成漂移、连坐后续领卡分支的轻档验收。
+        # 拒领判据只读 baseline 本身，不经过这里。
+        if is_abandoned(baseline, code):
+            return "todo"
         return baseline[code]
     return "todo"
 
@@ -727,6 +734,10 @@ def selftest():
     cases.append(("is_abandoned 大小写不敏感",
                   is_abandoned({"X-1": "Abandoned"}, "X-1")
                   and not is_abandoned({"X-1": "todo"}, "X-1")))
+    cases.append(("status_of：弃单终态返回 todo（跨模块比对不误判漂移），done 不受影响",
+                  status_of("X-1", {}, {}, {"X-1": ABANDONED}) == "todo"
+                  and status_of("X-2", {}, {}, {"X-2": "todo"}) == "todo"
+                  and status_of("X-3", {}, {}, {"X-3": "done"}) == "done"))
 
     # ⑩ 结卡提交标记（DX-41）：拼串里每个短号都带 # 与 =done，
     #    post-commit 的 grep 与 plan-hook 的 MARKER_PATTERN 才认。

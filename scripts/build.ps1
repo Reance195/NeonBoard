@@ -358,27 +358,26 @@ function Get-NbShowIncludesPrefix {
     }
 
     if (-not (Test-Path -LiteralPath $logPath)) { return $null }
-    $bytes = [System.IO.File]::ReadAllBytes($logPath)
-    if ($bytes.Length -eq 0) { return $null }
 
-    # latin1(28591) 解码：1 字节 ↔ 1 字符，字节保真。按 UTF-8 解会把中文前缀换成 U+FFFD，
-    # 那样测到的就不是编译器真正写出的字节了。
-    $text = [System.Text.Encoding]::GetEncoding(28591).GetString($bytes)
-    $idx = $text.LastIndexOf($headerPath)
-    if ($idx -lt 0) {
-        $idx = $text.LastIndexOf($headerPath.Replace('\', '/'))
+    # DX-131：字节提取收口到 scripts/check_ninja_deps.py --extract-prefix（判定只活一份）。
+    # sccache 会把 cl 的前缀改写成「GBK + U+FFFD」混合字节，任何一层字符串解码都可能
+    # 改写它 —— 这里的 Latin-1 手工切片退场，交由带固定 fixture 自测的 Python 实现做。
+    $py = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $py) { return $null }
+    $prefixFile = Join-Path $ProbeRoot 'showincludes-prefix.bin'
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & python (Join-Path $PSScriptRoot 'check_ninja_deps.py') --extract-prefix $logPath --needle $headerPath --out $prefixFile | Out-Null
+    } catch {
+        return $null
+    } finally {
+        $ErrorActionPreference = $previous
     }
-    if ($idx -lt 0) { return $null }
+    if ($LASTEXITCODE -ne 0) { return $null }
 
-    # 前缀 = 该行行首到「路径起点」之间的字节
-    $lineStart = $text.LastIndexOf("`n", $idx)
-    if ($lineStart -lt 0) { $lineStart = 0 } else { $lineStart = 1 + $lineStart }
-    if ($idx -le $lineStart) { return $null }
-
-    $prefix = New-Object byte[] ($idx - $lineStart)
-    [System.Array]::Copy($bytes, $lineStart, $prefix, 0, $prefix.Length)
     # 逗号包一层：裸 byte[] 会被 PowerShell 管道拆成一堆字节，逐个返回
-    return , $prefix
+    return , [System.IO.File]::ReadAllBytes($prefixFile)
 }
 
 # ---- DX-52：编译缓存必须按「源码树」分桶，否则依赖条目会指向别的 worktree ----
@@ -636,7 +635,8 @@ if ($useNinja) {
         Write-Host ("  探针日志（如有）：" + $probeLogPath)
         Write-Host '  排查方向：docs/pitfalls.md §3.16（根因）、§3.20（探针被 sccache 缓存污染）、'
         Write-Host '  §3.21（前缀交接在 CP 936 下失真）。'
-        Write-Host '  常见原因：cl.exe 不在 PATH；探针输出被拦；sccache 回放了别的工作区的路径。'
+        Write-Host '  常见原因：cl.exe 不在 PATH；探针输出被拦；sccache 回放了别的工作区的路径；'
+        Write-Host '  python 不可用（DX-131 起前缀字节提取依赖 scripts/check_ninja_deps.py）。'
         throw '未能实测 /showIncludes 前缀：Ninja 的依赖条目会全空，构建中止（见 docs/pitfalls.md §3.16 / §3.20）'
     }
 }
@@ -723,14 +723,33 @@ if ($needsConfigure) {
 }
 $swConfigure.Stop()
 
+# ---- DX-131：configure 后对 rules.ninja 的 msvc_deps_prefix 做字节级手术 ----
+# prefix.bin 里的前缀是 sccache 改写出的「GBK + U+FFFD」混合字节，file(READ) 这一跳
+# 不保证逐字节保真：CP 936 控制台把非 UTF-8 字节写成 '?'（§3.21 实测）；无控制台的
+# 会话里 Set-NbUtf8Console fail-soft 放行、代码页停在 936 时正好踩中 —— 这是 R0-13
+# 之后「全量 verify 编译步骤在本机必拦」的根因。手术按 prefix.bin 的原始字节直接
+# 改写 rules.ninja，绕开 CMake 的编码层（实现收口 check_ninja_deps.py --patch-rules-ninja）；
+# 下面的 DX-60 闸门保留为手术后核对。
+$rulesNinja = Join-Path $buildPath 'CMakeFiles\rules.ninja'
+if ($useNinja -and $needsConfigure -and $prefixFile -and (Test-Path -LiteralPath $rulesNinja)) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & python (Join-Path $PSScriptRoot 'check_ninja_deps.py') --patch-rules-ninja $rulesNinja --prefix $prefixFile
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw ('rules.ninja 的 msvc_deps_prefix 字节手术失败（exit ' + $LASTEXITCODE + '），构建中止。')
+    }
+}
+
 # ---- DX-60：前缀交接逐字节核对（秒级闸门，别等全量编译完才由依赖守卫兜底）----
 # file(READ) 一跳在 CP 936 下会把非 UTF-8 前缀写成 '?'，configure 照样「成功」，
 # 症状要等整个构建跑完的依赖守卫才冒出来（新树一烧 20-30 分钟）。这里拿 rules.ninja
 # 里实际记录的 msvc_deps_prefix 与探针落盘的 prefix.bin 逐字节比对，不一致立即指名。
-# 判定是纯字节等值、没有语义，不算 check_ninja_deps.py 的第二份实现；后者仍是
-# 构建后依赖条目的唯一判据。
+# DX-131 后本闸门核对的也是**手术之后**的 rules.ninja（手术不可用时照样在这里拦下）。
 if ($useNinja -and $prefixFile -and (Test-Path -LiteralPath $prefixFile)) {
-    $rulesNinja = Join-Path $buildPath 'CMakeFiles\rules.ninja'
     if (Test-Path -LiteralPath $rulesNinja) {
         # 按 Latin-1（28591）读：字节与字符一一对应，任何代码页都不会改写字节
         $latin1 = [System.Text.Encoding]::GetEncoding(28591)

@@ -7,12 +7,16 @@
 # 编码设置在四个入口各写一遍就是四份漂移的副本（Z5/Z6），收口成一个函数；
 # 入口脚本点源调用，漏接的由 check_script_hygiene 规则 F 拦住。
 #
-# 一次管三跳，缺一不可：
+# 一次管四跳，缺一不可：
 #   chcp 65001                 —— 控制台代码页：子进程（CMake file(READ)）与直写控制台的
 #                                 字节按 65001 解释（DX-60 的原始动机）；
 #   [Console]::OutputEncoding  —— PowerShell 解码 native 子进程 stdout 的口径
 #                                 （pitfalls §2.20 的病根）；
-#   [Console]::InputEncoding   —— PowerShell 向 native 子进程喂输入的编码。
+#   [Console]::InputEncoding   —— PowerShell 向 native 子进程喂输入的编码；
+#   PYTHONIOENCODING           —— python 子进程自己的 stdio 编码（DX-131）：管道下
+#                                 python 按系统 ANSI 编码输出，父进程按 UTF-8 解码会把
+#                                 中文搞成乱码（check_qml_warnings --selftest 的反向证伪
+#                                 因此假失败，§7.7 D）。
 # 副作用与 DX-60 相同：宿主控制台代码页被留在 65001 —— 本仓库脚本与日志全按
 # UTF-8，这是更对的状态。没有控制台的场合（计划任务 / CI 服务会话）设置会抛
 # IOException，捕获后告警放行（fail-soft，Z4）：本函数管的是显示与捕获的体验，
@@ -23,6 +27,8 @@ function Set-NbUtf8Console {
     # Get-Variable 探测而非直读：宿主普遍 Set-StrictMode，直读未初始化变量会抛错。
     if ($null -ne (Get-Variable -Name NbUtf8ConsoleSet -Scope Script -ErrorAction SilentlyContinue)) { return }
     $script:NbUtf8ConsoleSet = $true
+    # ④ PYTHONIOENCODING：环境变量注入不依赖控制台、不会抛 IOException，放在 try 外面。
+    $env:PYTHONIOENCODING = 'utf-8'
     try {
         # ① 控制台代码页。cmd /d /c 包一层：无控制台 / chcp 失败时 stderr 不至于
         #    撞上调用方的 $ErrorActionPreference='Stop'（pitfalls §2.3）。

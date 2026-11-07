@@ -1931,6 +1931,12 @@
   工作区里做的，条件一换（第二个工作区）就塌 —— 只验一次、且那次恰好是特例，等于没验。
   同理，**静默降级是最坏的失败模式**：它不报错，只是把一个隐患埋进去，等它以别的形式
   （堆损坏）冒出来时现场早已没了。宁可中止。
+- **后续（DX-131，2026-11-07）**：前缀字节链的最后一跳又见失真 —— sccache 改写出的
+  「GBK + U+FFFD」混合字节在 `file(READ)` 一跳历史上有 CP 936 下被写成 `?` 的记录
+  （§3.21）。现在 configure 之后 build.ps1 按 prefix.bin 的原始字节对 rules.ninja 做
+  **字节级手术**，这一跳按构造与控制台代码页无关；手术与前缀提取的实现都收口
+  `scripts/check_ninja_deps.py`（`--patch-rules-ninja` / `--extract-prefix`），带三种
+  字节形态的固定 fixture 自测。DX-60 的逐字节闸门保留为手术后核对。详见 §7.7(D)。
 
 ### 3.21 前缀交接的最后一跳失真：CP 936 下 file(READ) 把前缀写成「??」，deps 又全 0
 
@@ -2390,6 +2396,39 @@
   模块守卫 / 看板一致性（40/40 全过、EXIT 0）；自测前设
   `$env:PYTHONIOENCODING='utf-8'`。**注意**：这不是「`verify.ps1` 全量档通过」，
   交付说明必须如实写清编译步骤的环境阻塞与佐证方式。
+  - **根治（DX-131，2026-11-07 当日立卡当日结）**：上面的 `-SkipBuild` 绕行退役，
+    本机全量 `verify.ps1` 恢复 EXIT 0。
+    - **字节事实（2026-11-07 实测）**：cl 直跑（无启动器）的 `/showIncludes` 前缀字节是
+      UTF-8「注意: 包含文件:  」（`E6 B3 A8 E6 84 8F 3A 20 …`）；经 sccache 中转被改写成
+      `D7 A2 EF BF BD 3A 20 EF BF BD 3A 20 20`（GBK + U+FFFD 混合，任何单一编码都无法
+      无损 round-trip，与 §3.21 当年记录逐字节一致）。**`VSLANG=1033` 两条链路都无效**
+      （有无该变量输出逐字节相同，本机未装英文语言包的老结论在 65001 会话复核成立）——
+      本地化角度排除，收敛到探针字节化方案。
+    - **根因定位**：探针本体（DX-60 起 Latin-1 字节级）与 prefix.bin 一直保真；失真点是
+      `file(READ)` 一跳在 CP 936 下的 `?` 改写（§3.21）。无控制台会话（计划任务 / 服务
+      会话）里 `Set-NbUtf8Console` fail-soft 放行、代码页停在 936，正好踩中 —— R0-13
+      验收时「全量 verify 编译步骤在本机必拦」对应的就是这种会话形态。当天三形态复测：
+      UTF-8 控制台 / CP936 控制台 / 无控制台各跑 `build.ps1 -Reconfigure` 全 EXIT 0、
+      `#deps 0` 计数 0（当日 CMake 4.4.4 对混合字节实测保真；纯 GBK 形态的历史失真无法
+      在今日环境重现，所以收口不赌环境、按构造关死）。
+    - **修复（三处）**：① 探针字节提取收口 `check_ninja_deps.py --extract-prefix`，
+      build.ps1 的 Latin-1 手工切片退场；② configure 后 build.ps1 按 prefix.bin 原始
+      字节对 rules.ninja 做**字节手术**（`--patch-rules-ninja`），`file(READ)` 无论怎么
+      写坏都会被拨回来，DX-60 闸门保留为手术后核对；③ nb-console.ps1 补第四跳
+      `PYTHONIOENCODING=utf-8`，点源它的四个入口（verify / build / git-done / agent-init）
+      全链路生效，`check_qml_warnings --selftest` 的反向证伪不再假失败。
+    - **判据固化（不依赖仓库状态）**：`check_ninja_deps.py --selftest` 增至 14/14：
+      三种前缀形态（sccache 混合字节 / cl 直跑 UTF-8 / 纯 GBK）的固定 fixture 逐字节
+      断言 + 手术的替换/幂等/无标记用例，钉死「prefix.bin 与 cl 实际输出逐字节一致」。
+    - **缓存面不回归**：`touch src/task/TaskModel.h` 后 ninja 重编 62 个引用 TU
+      （193 步），443 个编译单元依赖条目全非空、无跨 worktree 越界。
+    - **残留（DX-131 卡 scope 外，如实记录）**：绕过入口脚本直接
+      `python scripts/check_qml_warnings.py --selftest` 仍依赖环境 —— 本机 profile 常有
+      全局 `PYTHONUTF8=1` 掩盖它；`PYTHONIOENCODING` / `PYTHONUTF8` 都 unset 时，子进程
+      把「第 2 行」按 GBK 编码写进管道、父进程按 UTF-8 解码，自测假失败（实测 exit 1）。
+      根治只需在 `selftest()` 里给 `subprocess.run` 注入
+      `env={**os.environ, "PYTHONIOENCODING": "utf-8"}`，但该文件不在 DX-131 的卡
+      scope，留待专卡。
 - **残留（未修，已如实记入交付说明）**：GUI 两阶段建表在**全新库**的空态期会留几行
   启动日志 —— `TaskTree: load links failed: no such table: task_link`、
   `TaskRunStore: ... failed: Parameter count mismatch`、`Database: meta write failed`。

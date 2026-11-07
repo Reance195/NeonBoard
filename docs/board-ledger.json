@@ -5709,13 +5709,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "R20-1": {
-            "agent": "agent-sched",
-            "branch": "feature/scheduler-plugin",
-            "claimedAt": 1794014243,
-            "head": "11250809ee6faca496e5365fea906160220014c7"
-        }
-    },
+    "claims": {},
     "version": 1
 }

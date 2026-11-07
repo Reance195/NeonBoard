@@ -18,6 +18,7 @@ Rectangle {
     property var records: []
     property int editingIndex: -1      // -1 = 新建；>=0 = 编辑 rules[editingIndex]
     property var draftActions: []      // 编辑中的动作列表（deep copy，保存时写回）
+    property bool editorOpen: false    // 编辑表单开合状态（对外可读，便于台架/巡检观察）
 
     function reload() {
         rules = Rules.readRules(pluginHost)
@@ -55,6 +56,7 @@ Rectangle {
         actionsRepeater.model = draftActions
         editorTitle.text = "新建规则"
         draft.visible = true
+        editorOpen = true
     }
 
     function startEdit(index) {
@@ -71,11 +73,13 @@ Rectangle {
         actionsRepeater.model = draftActions
         editorTitle.text = "编辑规则"
         draft.visible = true
+        editorOpen = true
     }
 
     function closeEditor() {
         draft.visible = false
         editingIndex = -1
+        editorOpen = false
     }
 
     // 收集表单 → 归一化规则；返回 null 表示校验失败（statusText 已提示）
@@ -503,7 +507,7 @@ Rectangle {
                                         Layout.fillWidth: true
                                         placeholderText: "卡片标题"
                                         font.pixelSize: 10
-                                        text: actionCard.modelData.title
+                                        text: actionCard.modelData.title || ""
                                         onTextEdited: actionCard.modelData.title = text
                                     }
 
@@ -526,7 +530,7 @@ Rectangle {
                                         Layout.fillWidth: true
                                         placeholderText: "标签（可空）"
                                         font.pixelSize: 10
-                                        text: actionCard.modelData.tags
+                                        text: actionCard.modelData.tags || ""
                                         onTextEdited: actionCard.modelData.tags = text
                                     }
 
@@ -550,7 +554,7 @@ Rectangle {
                                         Layout.fillWidth: true
                                         placeholderText: "标题含（可空）"
                                         font.pixelSize: 10
-                                        text: actionCard.modelData.keyword
+                                        text: actionCard.modelData.keyword || ""
                                         onTextEdited: actionCard.modelData.keyword = text
                                     }
 
@@ -558,7 +562,7 @@ Rectangle {
                                         Layout.fillWidth: true
                                         placeholderText: "标签等于（可空）"
                                         font.pixelSize: 10
-                                        text: actionCard.modelData.tag
+                                        text: actionCard.modelData.tag || ""
                                         onTextEdited: actionCard.modelData.tag = text
                                     }
                                 }
@@ -607,7 +611,7 @@ Rectangle {
                                         Layout.fillWidth: true
                                         placeholderText: "通知标题（空则用规则名）"
                                         font.pixelSize: 10
-                                        text: actionCard.modelData.title
+                                        text: actionCard.modelData.title || ""
                                         onTextEdited: actionCard.modelData.title = text
                                     }
 
@@ -615,7 +619,7 @@ Rectangle {
                                         Layout.fillWidth: true
                                         placeholderText: "通知正文（可空）"
                                         font.pixelSize: 10
-                                        text: actionCard.modelData.body
+                                        text: actionCard.modelData.body || ""
                                         onTextEdited: actionCard.modelData.body = text
                                     }
                                 }

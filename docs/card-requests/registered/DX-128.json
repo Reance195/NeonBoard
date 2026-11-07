@@ -1,0 +1,13 @@
+{
+  "card": "DX-128",
+  "sha256": "a61ba6d584af50f269aecbb33e94256b62b560ee8cb9858357854839afe25209",
+  "authorizedBy": "维护者 2026-11-07 值守会话「根治」授权",
+  "form": "docs/card-requests/20261107-gitdone-tmp-recycle.md",
+  "registeredAt": "2026-11-07T02:55:26+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-128",
+    "sha": "c9657371041e7da96b8b8bf0d1b163d92d99bb20"
+  }
+}

@@ -259,7 +259,8 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "DX-128": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5729,6 +5730,29 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "DX-128": {
+            "acceptance": [
+                "scripts/git-done.ps1 临时分支 $tmp 的删除改走 Remove-MergedBranch -Name $tmp -AnchorCommit $mergedCommit，不再用裸 branch -d + Out-Null；返回 false 时打印可见诊断与手工 git branch -D 命令，失败不再静默",
+                "pwsh -File scripts/git-done.ps1 -SelfTest 全过，新增回归断言：场景 A（首拒重试落地）收尾后 refs/heads/merge/fix-selftest-a 不存在，且场景 B 的 DX-116 pin 分支断言仍通过（有意保留的补推落点不受影响）",
+                "负测：把该删除还原成旧 branch -d | Out-Null 写法，-SelfTest 的「临时分支已回收」断言必须 FAIL；还原后恢复全过，证明判据能抓住回归",
+                "pwsh -File scripts/verify.ps1 -GitDoneDryRun 通过（DX-50 收尾时序不回归），且演练结束不留 merge/* 临时分支",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿（scope 无代码路径，轻档）",
+                "端到端：本卡自身 git-done 收尾后 git for-each-ref refs/heads/merge/ 不含本次 slug，证据写进卡片 note",
+                "docs/pitfalls.md 记一条：单次推送时序下 branch -d 的 upstream 判据恒假，删除判据必须锚定本次合并提交"
+            ],
+            "author": "duty-session-2026-11-07",
+            "depends": [],
+            "evidence": "2026-11-07 值守会话盘点：本地 refs/heads/merge/* 累计 45 支历史残留（2026-11-06~07 两天），已按维护者「B（全清）」授权清空。根因在 scripts/git-done.ps1:1254 —— DX-106 把删分支挪到单次推送之前，此刻 origin/main 尚未含本次合并，`git branch -d <tmp>` 的安全判据「已合并到 upstream」恒假，git 必然以 not fully merged 拒删；旧实现还把输出 `| Out-Null` 吞掉、不检查返回码，于是每轮正常收尾都静默留一支 merge/<slug>（不同分支名不会被 1084 行的同名残留清理兜住）。同一文件 116 行的 Remove-MergedBranch（DX-109）早已给出正确判据（rev-list --count <branch> --not <合并提交> 为 0 后用 branch -D），但只在 1233（remote 功能分支）与 1629（local 模式）被调用，临时分支 $tmp 漏接，属于「判据已存在、调用点漏一处」的收口缺口。维护者 2026-11-07 会话明确指示「根治」。查重：DX-106（单次推送时序）、DX-109（分支删除判据）、DX-116（推送失败回执与 pin 分支）、DX-120（自身 worktree 回收）均为不同痛点，本卡只收口临时分支这一处漏接，不重做上述卡。",
+            "id": "DX-128",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1",
+                "docs/pitfalls.md"
+            ],
+            "stage": "DX",
+            "tier": "P3",
+            "title": "git-done 临时分支 merge/* 静默残留：单次推送前 branch -d 的 upstream 判据恒假"
         }
     },
     "claims": {},

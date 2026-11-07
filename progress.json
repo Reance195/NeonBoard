@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "R0-13",
+            "completedAt": 0,
+            "createdAt": 1794012369,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R0-13",
+            "note": "",
+            "orderKey": 26112,
+            "priority": 2,
+            "stage": "R0",
+            "status": "todo",
+            "tags": [
+                "R0"
+            ],
+            "title": "启动性能收尾批次：建表延后 / 扫描后台化 / 字体回退不阻塞 / .qsb 预热",
+            "updatedAt": 1794012369
+        },
+        {
             "code": "DX-121",
             "completedAt": 0,
             "createdAt": 1793981220,
@@ -5299,6 +5317,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T08:44:27",
+    "updated": "2026-11-07T08:46:09",
     "version": 3
 }

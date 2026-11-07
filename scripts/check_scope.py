@@ -16,6 +16,9 @@
     一条真实文件都盖不住 —— 写了等于没写。
   - **`--audit` 默认只审在办卡**（DX-18）：已结卡的失效路径是历史记录，折叠成一行计数；
     `--include-closed` 回看全部。判据本身不放松 —— 目录式命中 0 仍退 1。
+  - **多卡分支按 scope 并集校验**（DX-117）：提交信息出现多个短号、或台账 claims 给
+    本分支登记了多张卡时，改动按各卡 scope 并集校验，越界照样退 1 ——
+    不再出现「多个短号 → 跳过范围检查」的整段放行。
   - scope 缺失或为空 → 只打印警告并放行（棘轮：字段补齐后才强制）。
   - 每次改动必须命中至少一个 glob；ALWAYS_ALLOWED 里的路径不受限。
   - 退出码：0 通过 / 1 越界（--audit 时为「目录式 scope 命中 0」）/ 2 参数或数据错误。
@@ -138,21 +141,12 @@ def changed_files(base: str) -> list[str]:
     return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
 
 
-def load_card(code: str) -> dict:
-    if not LEDGER.exists():
-        print(f"找不到台账：{LEDGER}", file=sys.stderr)
-        sys.exit(2)
-    data = json.loads(LEDGER.read_text(encoding="utf-8"))
-    cards = data.get("cards") or {}
-    card = cards.get(code)
-    if card is None:
-        print(f"台账里没有卡片 {code}", file=sys.stderr)
-        sys.exit(2)
-    return card
+def detect_cards_from_commits(base: str) -> list[str]:
+    """从 base..HEAD 的提交信息里找全部 #短号（去重，保序，统一大写）。
 
-
-def detect_card_from_commits(base: str) -> str | None:
-    """从 base..HEAD 的提交信息里找 #短号，取第一个唯一值。"""
+    DX-117 之前取「第一个唯一值」，多于一个就整体放弃校验 —— 两卡 scope 并集之外的
+    改动畅通无阻。现在返回完整列表，上层按各卡 scope 并集校验。
+    """
     proc = subprocess.run(
         ["git", "log", "--format=%B", f"{base}..HEAD"],
         cwd=REPO_ROOT,
@@ -162,18 +156,72 @@ def detect_card_from_commits(base: str) -> str | None:
         errors="replace",
     )
     if proc.returncode != 0:
-        return None
+        return []
     codes: list[str] = []
     for m in re.finditer(r"#([A-Za-z]{1,4}\d*-\d+|M\d+)", proc.stdout, re.IGNORECASE):
-        code = m.group(1)
+        code = m.group(1).upper()
         if code not in codes:
             codes.append(code)
-    if len(codes) == 1:
-        return codes[0]
-    if len(codes) > 1:
-        print(f"⚠ 提交里出现多个短号 {codes}，跳过范围检查（请用 --card 显式指定）")
-        return None
-    return None
+    return codes
+
+
+def detect_cards_from_claims(claims: dict, branch: str) -> list[str]:
+    """台账 claims 里登记到指定分支的领用短号（纯函数，保序去重）。
+
+    提交信息可能漏记某张卡（rebase 压缩、补领后忘带短号），claims 按分支聚合仍能
+    触发并集校验 —— 与提交信息检测互为补充（DX-117）。
+    """
+    if not branch:
+        return []
+    out: list[str] = []
+    for code, entry in claims.items():
+        if isinstance(entry, dict) and entry.get("branch") == branch:
+            upper = str(code).upper()
+            if upper not in out:
+                out.append(upper)
+    return out
+
+
+def current_branch() -> str:
+    proc = subprocess.run(
+        ["git", "branch", "--show-current"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return proc.stdout.strip() if proc.returncode == 0 else ""
+
+
+def union_scopes(codes: list[str], cards: dict) -> tuple[list[str], list[str]]:
+    """各卡 scope 并集（DX-117）。返回 (并集, 未声明 scope 的短号)。
+
+    未声明 scope 的卡不并入（棘轮：字段补齐后才强制）；只要有一张这样的卡，
+    并集就盖不住它名下的改动，上层据此整体跳过并点名 —— 与单卡口径一致。
+    """
+    union: list[str] = []
+    scopeless: list[str] = []
+    for code in codes:
+        scope = [s for s in (cards[code].get("scope") or []) if s]
+        if not scope:
+            scopeless.append(code)
+            continue
+        for s in scope:
+            if s not in union:
+                union.append(s)
+    return union, scopeless
+
+
+def scope_violations(scope: list[str], files: list[str]) -> list[str]:
+    """返回越出 scope 的文件（ALWAYS_ALLOWED 不受限）。main 与 --selftest 共用。"""
+    patterns = [glob_to_regex(normalize_scope(g)) for g in scope]
+    always = [glob_to_regex(g) for g in ALWAYS_ALLOWED]
+    return [
+        f
+        for f in files
+        if not any(p.match(f) for p in always) and not any(p.match(f) for p in patterns)
+    ]
 
 
 def load_ledger() -> dict:
@@ -328,6 +376,42 @@ def selftest() -> int:
     check("--include-closed 不再折叠", with_closed["folded"] == 0 and with_closed["audited_cards"] == 2)
     check("--include-closed 的目录式失效也算缺陷", len(with_closed["dir_empty"]) == 2)
 
+    # --- DX-117：多卡分支按 scope 并集校验（纯函数，喂假数据） ---
+    multi_cards = {
+        "A-1": {"scope": ["alpha/"]},
+        "B-2": {"scope": ["beta/", "shared.cpp"]},
+        "C-3": {},  # 未声明 scope（棘轮缺口）
+    }
+    union, scopeless = union_scopes(["A-1", "B-2"], multi_cards)
+    check("并集合并两卡 scope 且保序去重", union == ["alpha/", "beta/", "shared.cpp"])
+    check("全部卡都声明了 scope", scopeless == [])
+    check(
+        "多卡并集：各卡目录内改动全命中",
+        scope_violations(union, ["alpha/x.cpp", "beta/y.qml", "shared.cpp"]) == [],
+    )
+    check(
+        "多卡并集：并集之外越界点名",
+        scope_violations(union, ["gamma/z.cpp"]) == ["gamma/z.cpp"],
+    )
+    mixed_union, mixed_scopeless = union_scopes(["A-1", "C-3"], multi_cards)
+    check(
+        "混入未声明 scope 的卡：不并入且被点名",
+        mixed_union == ["alpha/"] and mixed_scopeless == ["C-3"],
+    )
+    check(
+        "单卡不回归：并集退化为该卡自身 scope",
+        union_scopes(["A-1"], multi_cards) == (["alpha/"], []),
+    )
+    check(
+        "claims 按分支聚合出领用短号",
+        detect_cards_from_claims(
+            {"A-1": {"branch": "fix/x"}, "B-2": {"branch": "fix/y"}, "C-3": "残缺条目"},
+            "fix/x",
+        )
+        == ["A-1"],
+    )
+    check("空分支名（detached）不触发 claims 检测", detect_cards_from_claims({"A-1": {"branch": "fix/x"}}, "") == [])
+
     if failures:
         print("✗ 自检失败：", file=sys.stderr)
         for name in failures:
@@ -364,51 +448,67 @@ def main() -> int:
     if args.audit:
         return audit(include_closed=args.include_closed)
 
-    raw = args.card.strip() or (detect_card_from_commits(args.base) or "")
-    if not raw:
+    ledger = load_ledger()
+    if args.card.strip():
+        codes = [args.card.strip().lstrip("#").upper()]
+    else:
+        codes = detect_cards_from_commits(args.base)
+        for c in detect_cards_from_claims(ledger.get("claims") or {}, current_branch()):
+            if c not in codes:
+                codes.append(c)
+    if not codes:
         print("本次提交没有任务短号，跳过范围检查")
         return 0
-    code = raw.lstrip("#").upper()
-    card = load_card(code)
 
-    scope = [s for s in (card.get("scope") or []) if s]
+    cards_all = ledger.get("cards") or {}
+    missing = [c for c in codes if c not in cards_all]
+    if missing:
+        print(f"台账里没有卡片 {'、'.join(missing)}", file=sys.stderr)
+        sys.exit(2)
+    scope, scopeless = union_scopes(codes, cards_all)
+
     files = changed_files(args.base)
     if not files:
         print("本次没有文件改动，跳过范围检查")
         return 0
 
-    if not scope:
-        print(
-            f"⚠ 卡片 {code} 未声明 scope，跳过范围检查"
-            f"（补上 cards[\"{code}\"].scope 后即生效）"
-        )
+    if scopeless:
+        for code in scopeless:
+            print(
+                f"⚠ 卡片 {code} 未声明 scope，跳过范围检查"
+                f"（补上 cards[\"{code}\"].scope 后即生效）"
+            )
         return 0
 
-    patterns = [glob_to_regex(normalize_scope(g)) for g in scope]
-    always = [glob_to_regex(g) for g in ALWAYS_ALLOWED]
-
-    violations = []
-    for f in files:
-        if any(p.match(f) for p in always):
-            continue
-        if not any(p.match(f) for p in patterns):
-            violations.append(f)
+    violations = scope_violations(scope, files)
 
     if violations:
-        print(f"✗ 改动越出卡片 {code} 的 scope：", file=sys.stderr)
+        if len(codes) == 1:
+            print(f"✗ 改动越出卡片 {codes[0]} 的 scope：", file=sys.stderr)
+        else:
+            print(
+                f"✗ 改动越出 {len(codes)} 张卡（{'、'.join(codes)}）的 scope 并集：",
+                file=sys.stderr,
+            )
         for v in violations:
             print(f"    {v}", file=sys.stderr)
         print("\n允许范围：", file=sys.stderr)
         for s in scope:
             print(f"    {s}", file=sys.stderr)
         print(
-            "\n如果确实需要扩大范围：改 docs/board-ledger.json 里这张卡的 scope，"
+            "\n如果确实需要扩大范围：改 docs/board-ledger.json 里对应卡的 scope，"
             "在本次分支里一并提交（评审可见）。",
             file=sys.stderr,
         )
         return 1
 
-    print(f"✓ 范围检查通过：{len(files)} 个改动全部落在 {code} 的 scope 内")
+    if len(codes) == 1:
+        print(f"✓ 范围检查通过：{len(files)} 个改动全部落在 {codes[0]} 的 scope 内")
+    else:
+        print(
+            f"✓ 范围检查通过：{len(files)} 个改动全部落在 {len(codes)} 张卡"
+            f"（{'、'.join(codes)}）的 scope 并集内"
+        )
     return 0
 
 

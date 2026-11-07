@@ -5709,13 +5709,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-111": {
-            "agent": "duty-dx111",
-            "branch": "fix/dx111-abandoned-terminal",
-            "claimedAt": 1794015633,
-            "head": "3f5082681d6618bce3e0c654edbb71c9bbbfcb10"
-        }
-    },
+    "claims": {},
     "version": 1
 }

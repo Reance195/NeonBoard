@@ -55,24 +55,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "DX-132",
-            "completedAt": 0,
-            "createdAt": 1794033482,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-132",
-            "note": "",
-            "orderKey": 85504,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "插件包信任链三洞：盘符路径穿越、卸载目录逃逸、manifest.id 未比对",
-            "updatedAt": 1794033482
-        },
-        {
             "code": "DX-133",
             "completedAt": 0,
             "createdAt": 1794033547,
@@ -125,24 +107,6 @@
             ],
             "title": "QProcess FailedToStart 黑洞族：预览构建/打包队列与领用同步的状态机永久卡死",
             "updatedAt": 1794033597
-        },
-        {
-            "code": "DX-136",
-            "completedAt": 0,
-            "createdAt": 1794033689,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-136",
-            "note": "",
-            "orderKey": 85984,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "自更新增量链三洞：delta.json 路径穿越、增量 sha256 fail-open、version 拼路径 + 回滚毁备份",
-            "updatedAt": 1794033689
         },
         {
             "code": "DX-137",
@@ -5173,6 +5137,24 @@
             "updatedAt": 1794020457
         },
         {
+            "code": "DX-132",
+            "completedAt": 1794036764,
+            "createdAt": 1794033482,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-132",
+            "note": "交付：isSafeRelativePath 收口为 src/core/SafePaths（盘符/冒号/反斜杠/点段按内容拒绝）；dirNameForId 派生非安全单段返回空串，uninstall/install 全调用点拒绝；installNeonFile 增期望 id 比对（四道校验第 2 道补齐）+ 目标目录名兜底。验收：tst_pluginpackage 新增盘符/目标目录/manifest.id 三组用例、新增 tst_pluginlibrary（uninstall 拒 .. / . / 分隔符 / C:evil）全绿；verify.ps1 全量通过。pitfalls 未补（教训已写进判定处注释：信任边界按内容判定）。",
+            "orderKey": 85504,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "插件包信任链三洞：盘符路径穿越、卸载目录逃逸、manifest.id 未比对",
+            "updatedAt": 1794036764
+        },
+        {
             "code": "DX-128",
             "completedAt": 1794020689,
             "createdAt": 1794020126,
@@ -5189,6 +5171,24 @@
             ],
             "title": "git-done 临时分支 merge/* 静默残留：单次推送前 branch -d 的 upstream 判据恒假",
             "updatedAt": 1794021079
+        },
+        {
+            "code": "DX-136",
+            "completedAt": 1794036764,
+            "createdAt": 1794033689,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-136",
+            "note": "交付：DeltaUpdate 路径判定复用 SafePaths（delta.json 的 path/patchPath 穿越整单拒绝）；增量 sha256 缺失 fail-closed（ReleaseInfo::deltaApplicableSecure，与全量 verifyFile 同口径）；version 白名单在 parseManifest 单点拦截；回滚 copy/remove 返回值入判，恢复不完整时保留备份并报位置。验收：tst_updatemanager 新增 version 白名单/sha fail-closed/穿越拒绝/回滚保备份四组用例全绿；verify.ps1 全量通过。extractZip Zip Slip 疑点按边界留待后续。",
+            "orderKey": 85984,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "自更新增量链三洞：delta.json 路径穿越、增量 sha256 fail-open、version 拼路径 + 回滚毁备份",
+            "updatedAt": 1794036764
         },
         {
             "code": "R9-01",
@@ -5605,6 +5605,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T15:13:33",
+    "updated": "2026-11-07T15:32:44",
     "version": 3
 }

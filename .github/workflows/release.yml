@@ -72,25 +72,36 @@ jobs:
 
       - name: 编译缓存（sccache）
         # DX-37：发布构建此前零编译缓存，冷编译占「构建 Release」约 76% 墙钟（8m36s）。
-        # 与 ci.yml 同一套 ccache-action（variant sccache）、同一个 key：CI 主构建喂热的，
-        # 发布构建直接吃；Qt 安装目录的缓存由上方 install-qt-action 的 cache: true 负责。
-        # 命中/未命中在 Post「编译缓存」日志与下方「sccache 生效核验与命中率」步骤可见。
+        # ccache-action 负责 sccache 的安装与缓存目录持久化，key 与 ci.yml 同一套：
+        # CI 主构建喂热的，发布构建直接吃；Qt 安装目录的缓存由上方 install-qt-action 负责。
         uses: hendrikmuhs/ccache-action@v1.2
         with:
           variant: sccache
           key: neonboard-sccache-${{ runner.os }}
 
-      - name: 配置 CMake
-        # launcher 与 ci.yml 同一口径显式传入：sccache 未装上时构建会当场报错，
-        # 而不是退回「干净 cl.exe」的静默冷编译（见 docs/pitfalls.md §3.24）。
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}" -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+      - name: 安装 Ninja
+        # build.ps1 默认 Ninja 生成器；runner 上显式装一份，不依赖 VS 自带的 PATH 顺序。
+        shell: pwsh
+        run: choco install ninja -y --no-progress
 
-      - name: 构建 Release
-        run: cmake --build build --config Release --parallel
+      - name: 配置并编译 Release（Ninja + sccache）
+        # DX-37 实测：VS/MSBuild 生成器不支持 CMAKE_<LANG>_COMPILER_LAUNCHER —— flag 传了、
+        # CMakeCache 里也有，MSBuild 照样用干净 cl.exe 直编（sccache 0 请求，见 pitfalls §3.24）。
+        # Ninja 才真正吃 launcher，且是 build.ps1 的默认路径：配置+编译收口在 build.ps1
+        # 单一实现，/showIncludes 前缀字节（DX-52）与 sccache 命中率打印（DX-16 口径）都由它兜住。
+        # exe 单配置直接落 build\NeonBoard.exe（deploy.ps1 两种布局都认）。
+        # Qt 经 NEONBOARD_QT_ROOT 传递而非 -QtRoot 参数：build.ps1 点源 dev-env.ps1 时，
+        # 其 param([string]$QtRoot='') 会在宿主作用域覆写 -QtRoot 已绑定的值
+        # （DX-37 发布 run 42330524049 实测：参数明明传了，Resolve-QtRoot 却收到空）。
+        # NEONBOARD_QT_ROOT 是 build.ps1 的正式探测序第二通道，点源覆写不了环境变量。
+        shell: pwsh
+        env:
+          NEONBOARD_QT_ROOT: ${{ env.QT_ROOT_DIR }}
+        run: pwsh -NoProfile -File scripts\build.ps1 -Config Release -BuildDir build
 
       - name: sccache 生效核验与命中率
-        # DX-37：find_program 式可选加速器在 CI 上会静默失效（没装就直编，配置存在 ≠ 生效）。
-        # 显式核对两件事：launcher 是否真的进了 CMakeCache、命中/未命中各多少；
+        # DX-37：加速器「配置存在 ≠ 生效」，判据必须落到实测：launcher 进了 CMakeCache
+        # 且 Compile requests > 0（ launcher 挂上但一次编译都没经过它，等于没挂）。
         # 未启用只告警不阻断 —— 缓存是加速器，不是发布前提（fail-soft + 告警）。
         if: always()
         shell: pwsh
@@ -108,7 +119,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH = "$env:QT_ROOT_DIR\bin;$env:PATH"
-          $exe = Join-Path $PWD 'build\Release\NeonBoard.exe'
+          $exe = Join-Path $PWD 'build\NeonBoard.exe'
           $proc = Start-Process -FilePath $exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow `
             -RedirectStandardOutput selftest.out -RedirectStandardError selftest.err
           Get-Content selftest.out -ErrorAction SilentlyContinue
@@ -121,7 +132,9 @@ jobs:
         shell: pwsh
         run: |
           $commit = (git rev-parse HEAD).Trim()
-          $exeHash = (Get-FileHash -LiteralPath 'build\Release\NeonBoard.exe' -Algorithm SHA256).Hash
+          # DX-37 发布 run 实测：本步被 DX-36 提前到 deploy 之前后，dist\ 还不存在，
+          # 直接 WriteAllText 会报「Could not find a part of the path」—— 先建目录再写。
+          $exeHash = (Get-FileHash -LiteralPath 'build\NeonBoard.exe' -Algorithm SHA256).Hash
           $lines = @(
             'NeonBoard build info',
             "generated : $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))",
@@ -129,6 +142,7 @@ jobs:
             "exe sha256: $exeHash"
           )
           $text = ($lines -join "`n") + "`n"
+          New-Item -ItemType Directory -Force -Path 'dist' | Out-Null
           [System.IO.File]::WriteAllText((Join-Path $PWD 'dist\BUILD-INFO.txt'), $text, (New-Object System.Text.UTF8Encoding($false)))
           New-Item -ItemType Directory -Force -Path 'dist\NeonBoard' | Out-Null
           [System.IO.File]::WriteAllText((Join-Path $PWD 'dist\NeonBoard\BUILD-INFO.txt'), $text, (New-Object System.Text.UTF8Encoding($false)))

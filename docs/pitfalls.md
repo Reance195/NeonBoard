@@ -1939,12 +1939,23 @@
   在 CI 的干净 runner 上必然走降级分支 —— 本机装了 ≠ runner 装了。
   「配置存在」（CMakeLists 有挂 launcher 的代码）与「真的生效」（缓存命中 > 0）之间
   隔着安装、PATH、生成器差异三道坎，断哪道都无感知。
+- **第二层坑（DX-37 发布 run 42328106369 实测）**：即便显式传
+  `-DCMAKE_<LANG>_COMPILER_LAUNCHER=sccache`（CMakeCache 里也查得到），
+  **VS/MSBuild 生成器根本不把 launcher 写进 vcxproj**——MSBuild 照样用干净 cl.exe 直编，
+  `sccache --show-stats` 的 Compile requests 恒为 0。本地实测同构：VS 生成器配置后
+  vcxproj 无任何 launcher 元数据。ci.yml 主构建的「编译缓存（sccache）」+
+  launcher flag 因此一直是装饰性的（Post 步骤 stats 恒 0 请求，无人看过）。
+  **Ninja 生成器才真正吃 launcher** —— 这正是 build.ps1 默认 Ninja、并为它修了
+  /showIncludes 前缀字节（DX-52）整套机制的原因。
 - **解法**：CI 上接入加速器必须三件套：显式安装（ccache-action / `choco install`）→
-  显式传入（`-DCMAKE_<LANG>_COMPILER_LAUNCHER=sccache`，与 ci.yml 同一口径）→
-  事后核验（读 CMakeCache 的 COMPILER_LAUNCHER + `sccache --show-stats` 打命中率）。
-  加速器 fail-soft 不阻断发布，但未启用时必须打印「sccache: 未启用」级别的显式告警。
+  用**支持的生成器**（Ninja；配置+编译收口 build.ps1 单一实现，前缀字节等坑由它兜住）→
+  事后核验（CMakeCache 的 COMPILER_LAUNCHER **且** `sccache --show-stats` 的
+  Compile requests > 0）。加速器 fail-soft 不阻断发布，但未启用时必须打印
+  「sccache: 未启用」级别的显式告警。
 - **判据**：release.yml 的「sccache 生效核验与命中率」步骤：launcher 缺失时打印
   「sccache: 未启用」；命中/未命中数字每次发布都出现在日志里（口径与 DX-16 一致）。
+  ci.yml 主构建仍走 VS 生成器（DX-53 的 /utf-8 生成物守卫依赖 vcxproj，切换需另行
+  拍板），其 sccache 装饰性留此存照，待后续卡处置。
 
 ---
 

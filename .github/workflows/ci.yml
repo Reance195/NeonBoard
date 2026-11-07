@@ -340,8 +340,12 @@ jobs:
         run: choco install ninja sccache -y --no-progress
 
       - name: build.ps1 以 Ninja 构建（含 sccache）
+        # Qt 走 NEONBOARD_QT_ROOT 而非 -QtRoot 参数：build.ps1 点源 dev-env.ps1 时其
+        # param($QtRoot='') 会覆写宿主已绑定的 -QtRoot（DX-37 实测，与 release.yml 同修）。
         shell: pwsh
-        run: pwsh -NoProfile -File scripts/build.ps1 -Config Release -QtRoot "${{ env.QT_ROOT_DIR }}" -BuildDir build-ninja
+        env:
+          NEONBOARD_QT_ROOT: ${{ env.QT_ROOT_DIR }}
+        run: pwsh -NoProfile -File scripts/build.ps1 -Config Release -BuildDir build-ninja
 
       - name: 校验 Ninja 产物
         shell: pwsh

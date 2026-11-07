@@ -30,12 +30,17 @@ verify.ps1 读不到沙箱日志，根因都是「规则在多处各写一遍」
      python/git 输出的入口脚本（build / git-done / agent-init / verify）必须点源并调用
      Set-NbUtf8Console。CP 936 控制台下漏接的入口必现 mojibake（DX-77 实测 verify.ps1
      「閫€鍑虹爜」/ nbflow status 授权段；DX-83 实测 claim-card 输出捕获后乱码落地）。
+  G. scripts/*.py 若 import 同目录本地模块（scripts/<名>.py），源码必须有显式 sys.path
+     处理（DX-125）：python -I 隔离模式不含脚本目录，跨模块 import 必崩（DX-84 修了
+     撞崩的 board-apply.py，同类三个原样留着，第二次撞上才立这条机器判据 —— Z6）。
+     无本地 import 的脚本不受影响。
 
 用法：python scripts/check_script_hygiene.py [仓库根目录]
       python scripts/check_script_hygiene.py --selftest   # 反向探针（不依赖真仓库）
 退出码：0 通过 / 1 违规 / 2 找不到仓库
 """
 
+import ast
 import re
 import sys
 import tempfile
@@ -81,6 +86,9 @@ CONSOLE_WRAPPER_REQUIRE = {
     "scripts/agent-init.ps1",
     "scripts/verify.ps1",
 }
+# 规则 G（DX-125）：显式 sys.path 处理的判据 —— 源码出现对 sys.path 的写操作即算
+# （与 board-apply.py 的既有修法一致：SCRIPT_DIR + sys.path.insert）。
+LOCAL_IMPORT_SYSPATH_RE = re.compile(r"sys\.path\.(insert|append)")
 
 SCAN_GLOBS = ["scripts/*.ps1", "scripts/*.py", ".github/workflows/*.yml"]
 # 注释行不算「使用」：# 开头（PS/Python）与 YAML 里的 # 开头
@@ -164,6 +172,31 @@ def find_problems(root: Path) -> tuple[list[str], dict]:
             problems.append("   编码三跳（chcp 65001 + [Console]::Output/InputEncoding）的单一实现在 scripts/nb-console.ps1")
         else:
             hits["console_ok"] += 1
+    # 规则 G（DX-125）：scripts/*.py import 同目录本地模块而源码无显式 sys.path 处理则拒。
+    # 判定凭 AST 的 import 名单与本地模块名集合求交，不靠正则猜 import 行。
+    local_mods = {p.stem for p in (root / "scripts").glob("*.py") if p.stem != "__init__"}
+    for name, path in scan_files(root):
+        if not name.endswith(".py"):
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            continue  # 语法错误不是本规则的射程，交给其它检查
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(a.name.split(".")[0] for a in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+                imported.add(node.module.split(".")[0])
+        local = sorted(imported & local_mods)
+        if local and "sys.path." not in text:
+            problems.append("G 本地模块 import 缺显式 sys.path（python -I 即崩）：%s → import %s"
+                            % (name, ", ".join(local)))
+            problems.append("   按 board-apply.py 模式补：SCRIPT_DIR = Path(__file__).resolve().parent；"
+                            "sys.path.insert(0, str(SCRIPT_DIR))")
+        elif local:
+            hits["local_import_ok"] = hits.get("local_import_ok", 0) + 1
     return problems, hits
 
 
@@ -227,6 +260,28 @@ def selftest() -> int:
         problems, hits = find_problems(root)
         check("接入封装的入口放行", not any(p.startswith("F ") and "verify.ps1" in p for p in problems))
         check("规则 F 计数正确", hits["console_ok"] == 1)
+
+        # 规则 G（DX-125）：import 同目录本地模块而无显式 sys.path 处理被抓；
+        # 有 sys.path 处理放行；无本地 import 的脚本不受影响。
+        (root / "scripts" / "helper_mod.py").write_text("X = 1\n", encoding="utf-8")
+        bad_py = root / "scripts" / "bad_g.py"
+        bad_py.write_text("import helper_mod\nprint(helper_mod.X)\n", encoding="utf-8")
+        plain_py = root / "scripts" / "plain_g.py"
+        plain_py.write_text("import json\nprint(json.dumps({}))\n", encoding="utf-8")
+        problems, hits = find_problems(root)
+        check("规则 G 抓到缺 sys.path 的本地 import", any(p.startswith("G ") and "bad_g.py" in p for p in problems))
+        check("规则 G 点名本地模块", any("helper_mod" in p for p in problems))
+        check("规则 G 不误伤无本地 import 的脚本", not any("plain_g.py" in p for p in problems))
+        bad_py.write_text(
+            "from pathlib import Path\n"
+            "import sys\n"
+            "SCRIPT_DIR = Path(__file__).resolve().parent\n"
+            "sys.path.insert(0, str(SCRIPT_DIR))\n"
+            "import helper_mod\nprint(helper_mod.X)\n",
+            encoding="utf-8",
+        )
+        problems, hits = find_problems(root)
+        check("有显式 sys.path 的本地 import 放行", not any("bad_g.py" in p for p in problems))
 
     if fails:
         print("自测失败 %d 项：%s" % (len(fails), "；".join(fails)))

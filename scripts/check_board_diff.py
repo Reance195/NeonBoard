@@ -36,7 +36,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+sys.path.insert(0, str(SCRIPT_DIR))
 LEDGER_REL = "docs/board-ledger.json"
 SNAPSHOT_REL = "progress.json"
 DERIVE = "scripts/derive_board_status.py"

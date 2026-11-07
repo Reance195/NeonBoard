@@ -1453,6 +1453,28 @@
   不是边界情形，是同档第 N+1 张卡的必然；fail-fast 的错误信息不许指向一条
   不存在的通道，那不是报错，是把死锁包装成指引。
 
+### 2.33 判据只修现场不修类别：DX-84 修了撞崩的 board-apply.py，同类的三个原样留着（DX-125）
+
+- **现象**（2026-11-07 实录，同日两次）：`python -I scripts/derive_board_status.py
+  --close-cards` 报 `ModuleNotFoundError: No module named 'board_priority'`；
+  `python -I scripts/register_board_cards.py --help` 以同一异常当场复现 ——
+  立卡工具自己立不了卡。
+- **根因**：`python -I` 隔离模式不含脚本所在目录，跨模块 import 必崩。这个坑
+  DX-84 已经踩过并修了 board-apply.py（`SCRIPT_DIR` + `sys.path.insert`），
+  但修法只落在一个文件上；AST 全仓扫描确认 derive_board_status.py→board_priority、
+  check_board_diff.py→derive_board_status、register_board_cards.py→board_priority
+  三个脚本同样 import 本地模块、同样没有显式 sys.path 处理。pitfalls 有记录、
+  靠人读文档，第二次撞上才补齐 —— 正是 Z6 说的「靠记性不靠退出码」的代价。
+- **解法（DX-125）**：三个脚本按 board-apply.py 模式补齐 `SCRIPT_DIR` +
+  `sys.path.insert`；机器判据落进 `check_script_hygiene.py` 规则 G ——
+  scripts/*.py 凡 AST 检出 import 同目录本地模块（scripts/<名>.py）而源码无
+  显式 sys.path 处理即拒，点名文件与模块；无本地 import 的脚本不受影响。
+- **判据**：`python -I` 三脚本 selftest 全过；规则 G 自测含正反例（缺 sys.path
+  被抓且点名模块 / 有 sys.path 放行 / 无本地 import 不误伤）；
+  `check_script_hygiene.py` 全仓存量零违规。
+- **一般化**：修坑时先问「这类坑还有几份同类现场」—— 只修撞崩的那个文件，
+  等于把同一个坑按出现顺序再付一遍代价；判据要在第二次撞上前变成退出码。
+
 ---
 
 ## 三、构建与 Qt / QML

@@ -50,8 +50,11 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 
-import board_priority as bp  # 排位规则唯一实现（DX-123），档位落点与校验不在此复制（Z5）
+SCRIPT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPT_DIR))
+import board_priority as bp  # noqa: E402  排位规则唯一实现（DX-123），档位落点与校验不在此复制（Z5）
 
 SNAPSHOT_VERSION = 3
 ORDER_STEP = 1024

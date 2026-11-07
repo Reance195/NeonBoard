@@ -5387,8 +5387,26 @@
             ],
             "title": "立卡排位中点插入把档间隙指数耗尽：P2 新卡立卡时 derive --write 直接崩，DX-123 自身 orderKey 错位，排位守卫无自愈",
             "updatedAt": 1793987882
+        },
+        {
+            "code": "R5-14",
+            "completedAt": 1794025332,
+            "createdAt": 1794025332,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R5-14",
+            "note": "",
+            "orderKey": 105472,
+            "priority": 2,
+            "stage": "R5",
+            "status": "done",
+            "tags": [
+                "R5"
+            ],
+            "title": "v0.1.7 发版：版本号递增与发布验收",
+            "updatedAt": 1794025332
         }
     ],
-    "updated": "2026-11-07T11:55:16",
+    "updated": "2026-11-07T12:22:12",
     "version": 3
 }

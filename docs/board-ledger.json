@@ -236,7 +236,7 @@
         "R5-11": "done",
         "R5-12": "done",
         "R5-13": "done",
-        "R5-14": "todo",
+        "R5-14": "done",
         "R6-01": "done",
         "R6-02": "done",
         "R6-03": "done",
@@ -5794,13 +5794,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "R5-14": {
-            "agent": "agent-release-017",
-            "branch": "chore/board-r5-14",
-            "claimedAt": 1794023330,
-            "head": "27acafecb4fedd985534431198da48d9a4d62486"
-        }
-    },
+    "claims": {},
     "version": 1
 }

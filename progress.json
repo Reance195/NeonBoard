@@ -55,6 +55,114 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "DX-138",
+            "completedAt": 0,
+            "createdAt": 1794044277,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-138",
+            "note": "",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "ScopeMatcher 三处判定缺陷：中文路径 octal 不反转义、git 失败 fail-open、diff 单向",
+            "updatedAt": 1794044277
+        },
+        {
+            "code": "DX-139",
+            "completedAt": 0,
+            "createdAt": 1794044284,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-139",
+            "note": "",
+            "orderKey": 85504,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "agent 日志脱敏两处漏配与 triage 启动失败报成功",
+            "updatedAt": 1794044284
+        },
+        {
+            "code": "DX-140",
+            "completedAt": 0,
+            "createdAt": 1794044292,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-140",
+            "note": "",
+            "orderKey": 85760,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "task 存储完整性四处：reorder 无事务、撤销删除丢列、renumber 失败内存漂移、removeRowFor 吞错",
+            "updatedAt": 1794044292
+        },
+        {
+            "code": "DX-141",
+            "completedAt": 0,
+            "createdAt": 1794044300,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-141",
+            "note": "",
+            "orderKey": 85888,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "插件网络与生命周期四处：异步下载无超时、并发下载状态污染、活跃 context 泄漏、manifest 入口路径穿越",
+            "updatedAt": 1794044300
+        },
+        {
+            "code": "DX-142",
+            "completedAt": 0,
+            "createdAt": 1794044307,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-142",
+            "note": "",
+            "orderKey": 85952,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "同步三处：更新竞速状态机重入与 reply 泄漏、ThemeMarket 先删后 rename、RoadmapSync poll 吞变更",
+            "updatedAt": 1794044307
+        },
+        {
+            "code": "DX-143",
+            "completedAt": 0,
+            "createdAt": 1794044316,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-143",
+            "note": "",
+            "orderKey": 85984,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "宿主与界面三处：热键注册静默失败、托盘不随 Explorer 重建、执行队列面板每秒整表重建",
+            "updatedAt": 1794044316
+        },
+        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -5605,6 +5713,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T16:34:52",
+    "updated": "2026-11-07T17:38:36",
     "version": 3
 }

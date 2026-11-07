@@ -1,0 +1,13 @@
+{
+  "card": "DX-141",
+  "sha256": "cca55801aee8a8ce491c583e1311c994da0b7223dce1823aec56ec6c02d5075e",
+  "authorizedBy": "维护者会话授权(2026-11-07)：全仓审计 P1 开修",
+  "form": "docs/card-requests/20261107-audit-plugin-market-lifecycle.md",
+  "registeredAt": "2026-11-07T09:38:20+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-141",
+    "sha": "b14cae38bd3da00d5b7290afaea8a133f9a1d6f2"
+  }
+}

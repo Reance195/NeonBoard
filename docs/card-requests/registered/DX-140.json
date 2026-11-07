@@ -1,0 +1,13 @@
+{
+  "card": "DX-140",
+  "sha256": "d6d1211c731fd423fa00871e21e2acfb67b2d178d95033cb02271449268a2ef1",
+  "authorizedBy": "维护者会话授权(2026-11-07)：全仓审计 P1 开修",
+  "form": "docs/card-requests/20261107-audit-task-store-integrity.md",
+  "registeredAt": "2026-11-07T09:38:12+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-140",
+    "sha": "46b635cad46faad88171d919f00c4d348ab4fb29"
+  }
+}

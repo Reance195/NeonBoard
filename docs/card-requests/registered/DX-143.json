@@ -1,0 +1,13 @@
+{
+  "card": "DX-143",
+  "sha256": "87826ccef6b1bd96277d28c1f919191a70b05c6af761b26dffb2e8be664e31fb",
+  "authorizedBy": "维护者会话授权(2026-11-07)：全仓审计 P1 开修",
+  "form": "docs/card-requests/20261107-audit-host-ui.md",
+  "registeredAt": "2026-11-07T09:38:36+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-143",
+    "sha": "be4e192b35242750cd9307871b7197aad25eb1e8"
+  }
+}

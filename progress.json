@@ -163,24 +163,6 @@
             "updatedAt": 1794014077
         },
         {
-            "code": "DX-111",
-            "completedAt": 0,
-            "createdAt": 1793980354,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-111",
-            "note": "",
-            "orderKey": 78848,
-            "priority": 2,
-            "stage": "DX",
-            "status": "doing",
-            "tags": [
-                "DX"
-            ],
-            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用",
-            "updatedAt": 1794017630
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -4831,6 +4813,24 @@
             "updatedAt": 1793207091
         },
         {
+            "code": "DX-111",
+            "completedAt": 1794017721,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-111",
+            "note": "",
+            "orderKey": 78848,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用",
+            "updatedAt": 1794017721
+        },
+        {
             "code": "R10-01",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5335,6 +5335,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T10:13:50",
+    "updated": "2026-11-07T10:15:21",
     "version": 3
 }

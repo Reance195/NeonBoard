@@ -55,24 +55,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "DX-134",
-            "completedAt": 0,
-            "createdAt": 1794033571,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-134",
-            "note": "",
-            "orderKey": 85888,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "agent 执行器三洞：超时宽限定时器 UAF、cmd 包装器引号注入、验收白名单绝对路径绕过",
-            "updatedAt": 1794033571
-        },
-        {
             "code": "DX-135",
             "completedAt": 0,
             "createdAt": 1794033597,
@@ -5173,6 +5155,24 @@
             "updatedAt": 1794038390
         },
         {
+            "code": "DX-134",
+            "completedAt": 1794039854,
+            "createdAt": 1794033571,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-134",
+            "note": "交付：宽限 kill 计时器成员化为 Process::grace（cleanup/tryRetry 停表删表 + m_processes 归属守卫，singleShot 悬垂 UAF 与重试误杀两态同治）；lossyPayloadReason 补英文双引号（cmd 包装器引号逃逸）；AcceptanceRunner fallback 改 canonical 包含判定（分隔符归一，绝对路径与 .. 出界全拦）。验收：tst_taskrunner 新增双引号拒绝 + graceTimeoutSettlesBlocked 全链路回归（UAF 本体需 ASAN，已如实记录）、tst_acceptance 新增绝对路径拒绝与 .. 逃逸拒绝（cwd 内对照不回归）全绿；verify.ps1 全量通过。",
+            "orderKey": 85888,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "agent 执行器三洞：超时宽限定时器 UAF、cmd 包装器引号注入、验收白名单绝对路径绕过",
+            "updatedAt": 1794039854
+        },
+        {
             "code": "DX-136",
             "completedAt": 1794036764,
             "createdAt": 1794033689,
@@ -5605,6 +5605,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T15:59:50",
+    "updated": "2026-11-07T16:24:14",
     "version": 3
 }

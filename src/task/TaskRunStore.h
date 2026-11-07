@@ -42,6 +42,11 @@ public:
 
     explicit TaskRunStore(Database *database, QObject *parent = nullptr);
 
+    // 启动期一次性维护（R0-15）：取消跨会话残留的排队 + 恢复心跳超时的孤儿 run。
+    // 构造时跑一遍；两阶段建表的空态期构造会打在不存在的表上而失败，
+    // schema finalized 后由启动方重放（操作全带 WHERE 条件，幂等）。
+    void startupMaintenance();
+
     int revision() const;
 
     // fields: agent / cwd / workflow / attempt / status（queued|running，默认 running）

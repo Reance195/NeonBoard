@@ -59,7 +59,13 @@ QVariantList ProjectStore::projects() const
             " (SELECT COUNT(*) FROM task_project tp JOIN task t ON t.id = tp.task_id"
             "   WHERE tp.project_id = p.id) "
             "FROM project p ORDER BY p.order_key, p.name"))) {
-        qWarning() << "ProjectStore: 读取项目清单失败" << query.lastError().text();
+        // R0-15：两阶段建表（openDeferred → 首帧后 finalizeSchema）下，QML 装载期的
+        // 只读查询会打在还不存在的表上 —— 这是两阶段设计的预期空态，不是缺陷；该读
+        // 自愈（projectList 绑定挂 revision，bump 后重算），降噪为 debug 别记成失败行。
+        if (query.lastError().text().contains(QStringLiteral("no such table")))
+            qDebug() << "ProjectStore: 空态读取项目清单（表未建，finalizeSchema 后自愈）";
+        else
+            qWarning() << "ProjectStore: 读取项目清单失败" << query.lastError().text();
         return list;
     }
     while (query.next()) {

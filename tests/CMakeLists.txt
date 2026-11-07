@@ -124,9 +124,14 @@ neonboard_add_test(tst_databasemigration
 target_link_libraries(tst_databasemigration PRIVATE Qt6::Sql)
 
 # R0-13：Database 两阶段打开的竞态面（空态 / 就绪信号 / 幂等 / 老库迁移）。
+# R0-15：空态重放用例要把 TaskTree / TaskRunStore / TaskModel 一并拉进链接闭包。
 neonboard_add_test(tst_startupdefer
     ${NB_DIR_CORE}/Database.cpp
     ${NB_DIR_CORE}/AppPaths.cpp
+    ${NB_DIR_TASK}/TaskModel.cpp
+    ${NB_DIR_TASK}/TaskInputParser.cpp
+    ${NB_DIR_TASK}/TaskTree.cpp
+    ${NB_DIR_TASK}/TaskRunStore.cpp
 )
 target_link_libraries(tst_startupdefer PRIVATE Qt6::Sql)
 

@@ -94,6 +94,8 @@ private slots:
     void samplePanelAutoRefreshesOnTaskEvents();
     // R16-02/03：真实 agent-bridge background.qml 走批次 —— 合并写库计数、幂等、映射清扫
     void agentBridgeBatchReconcileAndSweep();
+    // R0-15：空态期 start() 的授权引导落库失败且单次闸已置位 → 就绪后重放补落库
+    void grantsBootstrapReplaysAfterDeferredFinalize();
 };
 
 void TestPluginRuntime::officialSourceClassification()
@@ -513,6 +515,38 @@ void TestPluginRuntime::agentBridgeBatchReconcileAndSweep()
     QFile::remove(path);
     QFile::remove(path + QStringLiteral("-wal"));
     QFile::remove(path + QStringLiteral("-shm"));
+}
+
+// R0-15 核心用例：空态跳过 → 就绪后重放成功（授权侧）。
+// 两阶段建表下 start() 的引导被 schemaReady 守卫跳过（否则 meta 落库失败、授权只在
+// 内存里等重启丢掉）；finalizeSchema 后 replayGrantsBootstrap 完成首次引导并落库，
+// 已引导时重放为空操作。
+void TestPluginRuntime::grantsBootstrapReplaysAfterDeferredFinalize()
+{
+    QTemporaryDir tmp;
+    QVERIFY(tmp.isValid());
+    Database db;
+    QString error;
+    QVERIFY2(db.openDeferred(&error, tmp.filePath(QStringLiteral("board.db"))),
+             qPrintable(error));
+
+    TaskModel model(&db);
+    PluginEventBus bus;
+    PluginRuntime runtime(nullptr, &bus, &db, &model, nullptr);
+
+    // 空态期 start()：引导被守卫跳过，meta 里没有 grants 键
+    runtime.start();
+    QVERIFY(db.metaValue(QStringLiteral("plugins.grants")).isEmpty());
+
+    QVERIFY2(db.finalizeSchema(&error), qPrintable(error));
+    runtime.replayGrantsBootstrap();
+    // 补落库：loader 为 nullptr 时引导结果是空授予集，但 grants 键必须真实存在
+    QVERIFY(!db.metaValue(QStringLiteral("plugins.grants")).isEmpty());
+
+    // 幂等：已落库后重放为空操作
+    const QString first = db.metaValue(QStringLiteral("plugins.grants"));
+    runtime.replayGrantsBootstrap();
+    QCOMPARE(db.metaValue(QStringLiteral("plugins.grants")), first);
 }
 
 QTEST_MAIN(TestPluginRuntime)

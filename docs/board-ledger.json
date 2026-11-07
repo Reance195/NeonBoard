@@ -5794,6 +5794,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-100": {
+            "agent": "agent-dx100",
+            "branch": "fix/dx100-register-entry-docs",
+            "claimedAt": 1794014347,
+            "head": "33efc7d3d26db788b839d7c6fa9cd63078455600"
+        }
+    },
     "version": 1
 }

@@ -5731,6 +5731,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-37": {
+            "agent": "agent-dx37",
+            "branch": "ci/release-qtroot-env",
+            "claimedAt": 1794020147,
+            "head": "2e82fe3d888546f6f559a7276b8605c776c20a69"
+        }
+    },
     "version": 1
 }

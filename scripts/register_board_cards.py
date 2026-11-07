@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""register_board_cards.py —— 立卡唯一合法入口（DX-97）。
+"""register_board_cards.py —— 立卡唯一合法入口（DX-98）。
 
 背景（DX-74/DX-96 竞态实测）：此前立卡靠人 / agent 手工改 docs/board-ledger.json，
 卡号 = 「扫描时点的 max+1」，无预占机制；commit 落到 origin/main 之前号都不算数，
@@ -21,8 +21,8 @@
      永远入不了库，会把锚点快进（git-done 的 Sync-AnchorWorktree）永久卡住。
 
 用法：
-  python scripts/register_board_cards.py --form docs/card-requests/20261106-dx-97.md \
-      --authorized-by "维护者 13706 会话 2026-11-06" [--dry-run] [--allow-new-stage]
+  python scripts/register_board_cards.py --form docs/card-requests/<YYYYMMDD>-<slug>.md \
+      --authorized-by "维护者 <会话> <日期>" [--dry-run] [--allow-new-stage]
 
 提交拆分（commit-msg 会硬校验，两段缺一不可）：
   commit 1: docs(board): 收录 <短号> 立卡请求单     —— 仅表单 .md
@@ -36,6 +36,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -82,6 +83,31 @@ def run(cmd, cwd):
 
 def split_list(value):
     return [x.strip() for x in (value or "").split(";") if x.strip()]
+
+
+# DX-100：验收项里声明要写「回归用例 / 新增用例 / 补用例 / 新增脚本」却引用
+# scope 外的 scripts/*.py|ps1，意味着本卡要改 scope 外文件 —— 立卡即拒，
+# 把矛盾暴露在登记时而不是验收时（DX-107 曾以 scope 外的 verify.ps1 演练承诺收场）。
+CROSSCHECK_MARKERS = ("回归用例", "新增用例", "补用例", "新增脚本")
+# 纯验证命令只跑不改（selftest / -ScriptOnly / --smoke / --check），引用 scope 外
+# 脚本是合法的「借工具验收」，不拦。
+READONLY_VERIFY_MARKERS = ("selftest", "-ScriptOnly", "--smoke", "--check")
+SCRIPT_REF_RE = re.compile(r"scripts/[\w\-./]+\.(?:py|ps1)")
+
+
+def acceptance_scope_conflicts(meta):
+    """返回 [(验收项序号, 越界脚本路径)]：声明产出用例/脚本却引用 scope 外脚本。"""
+    scope = set(meta.get("scope") or [])
+    conflicts = []
+    for i, item in enumerate(meta.get("acceptance") or [], 1):
+        if not any(m in item for m in CROSSCHECK_MARKERS):
+            continue
+        if any(m in item for m in READONLY_VERIFY_MARKERS):
+            continue
+        for path in SCRIPT_REF_RE.findall(item):
+            if path not in scope:
+                conflicts.append((i, path))
+    return conflicts
 
 
 def parse_form(text, form_path):
@@ -302,12 +328,12 @@ def selftest():
     # parse_registrations：标准输出 / 噪声行 / 空输入
     sample = ("abc123\trefs/heads/main\n"
               "def456\trefs/registrations/DX-98\n"
-              "789aaa\trefs/claims/DX-97\n"
+              "789aaa\trefs/claims/ZZ-9\n"
               "bbbccc\trefs/registrations/R5-01\n")
     regs = parse_registrations(sample)
     check("占位集解析：识别 refs/registrations/*", regs == {"DX-98", "R5-01"})
     check("占位集解析：不混入 heads/claims",
-          "main" not in regs and "DX-97" not in regs)
+          "main" not in regs and "ZZ-9" not in regs)
     check("占位集解析：空输入得空集", parse_registrations("") == set())
 
     # next_code：占用集含本地台账与远端占位的并集时仍取 max+1 且避开全部已占号
@@ -367,6 +393,27 @@ def selftest():
     check("改 tier 后 canonical_hash 变化（回执审计覆盖）",
           hash_with != canonical_hash(build_card(dict(tier_meta, tier="P3"), "DX-999")))
 
+    # 验收项 × scope 交叉判据（DX-100）：声明产出用例/脚本却引用 scope 外脚本 → 拒；
+    # 路径在 scope 内、纯验证命令、无脚本引用 → 均不拦（零误伤）。
+    def conflicts_for(item, scope):
+        return acceptance_scope_conflicts({"acceptance": [item], "scope": scope})
+
+    check("交叉判据：回归用例引用 scope 外脚本被拒",
+          conflicts_for("回归用例：造一次并发冲突重放验证不再静默半落地，"
+                        "见 scripts/task_gate.py", ["docs/pitfalls.md"])
+          == [(1, "scripts/task_gate.py")])
+    check("交叉判据：脚本在 scope 内不拦",
+          conflicts_for("回归用例：造一次冲突重放，见 scripts/task_gate.py",
+                        ["scripts/task_gate.py"]) == [])
+    check("交叉判据：纯验证命令（selftest）不拦",
+          conflicts_for("python scripts/board_priority.py --selftest 全过", []) == [])
+    check("交叉判据：纯验证命令（-ScriptOnly）不拦",
+          conflicts_for("pwsh -File scripts/verify.ps1 -ScriptOnly 全绿", []) == [])
+    check("交叉判据：普通验收项无脚本引用不拦",
+          conflicts_for("新增用例：界面上肉眼核对进度环", []) == [])
+    check("交叉判据：无触发词的脚本引用不拦（只管声明产出的项）",
+          conflicts_for("跑 scripts/board-view.py 确认渲染", []) == [])
+
     failures = [n for n, ok in checks if not ok]
     for name, ok in checks:
         print("  %s %s" % ("✓" if ok else "✗", name))
@@ -396,10 +443,27 @@ def main(argv=None):
                          "（单机/离线项目）。省略则读台账 numbering.mode，再缺省 remote")
     ap.add_argument("--selftest", action="store_true",
                     help="跑内置纯函数断言（占位集解析 / 发号换号），不依赖仓库状态")
+    ap.add_argument("--audit-acceptance-scope", action="store_true",
+                    help="DX-100：对台账全部在办卡回放「验收项引用 scope 外脚本」判据，"
+                         "命中只打印告警（棘轮），恒退 0")
     args = ap.parse_args(argv)
 
     if args.selftest:
         return selftest()
+    if args.audit_acceptance_scope:
+        root = repo_root()
+        ledger = json.loads((root / LEDGER_REL).read_text(encoding="utf-8"))
+        cards, baseline = ledger_view(ledger)
+        hits = 0
+        for cid in sorted(cards):
+            if baseline.get(cid) == "done":
+                continue
+            for i, path in acceptance_scope_conflicts(cards[cid]):
+                hits += 1
+                print("[立卡程序] ⚠ 存量命中 %s：验收项 %d 引用 scope 外脚本 %s"
+                      "（只告警不硬拦，修表单或登记豁免）" % (cid, i, path))
+        print("[立卡程序] 在办卡回放完成：命中 %d 处" % hits)
+        return 0
     if not args.form:
         ap.error("必须给 --form <请求单>（或 --selftest）")
     if not args.authorized_by:
@@ -413,6 +477,15 @@ def main(argv=None):
         die("找不到请求单：%s" % form_path)
     meta = parse_form(form_path.read_text(encoding="utf-8"), form_path)
     stage = meta["stage"]
+
+    conflicts = acceptance_scope_conflicts(meta)
+    if conflicts:
+        detail = "\n".join("  验收项 %d 引用 %s（scope 未含）" % (i, p)
+                           for i, p in conflicts)
+        die("验收项声明了用例/脚本产出，却引用 scope 外的脚本（DX-100）——"
+            "验收时会因越界被闸门拒，立卡阶段先拦：\n%s\n"
+            "  把该路径加进 scope，或把验收项改写成只读验证"
+            "（selftest / -ScriptOnly / --smoke / --check）。" % detail, 2)
 
     ledger = json.loads((root / LEDGER_REL).read_text(encoding="utf-8"))
     cards, baseline = ledger_view(ledger)

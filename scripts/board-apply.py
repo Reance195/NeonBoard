@@ -11,15 +11,15 @@ baseline。这条路的问题是「贴」这个动作没法预制、没法复查
 本文件把「贴」之前的判断全部机器化：读一份建卡请求清单（.md 里的 ```json 片段，
 或纯 .json），对照台账与实际文件系统，输出「如果批准，会多出哪几行」。
 
-默认仍然只读。加 --apply 才落盘，且必须同时给出 --authorize 与 --batch ——
-「写台账」是维护者授权动作，程序只负责把授权来源写进提交体，不替人承担判断。
-v1 当初连 --apply 一起拒绝，理由是「先让人看它 20 次输出对不对」；这个目的已经达到，
-留下来的只有「立卡还得手贴 JSON」这个真实摩擦 —— 而它还带来一个副作用：立卡需要
-一次提交、提交不能在主干，于是只能先开个区，在那个区里再领卡就会缺 chore(claim)
-凭据（DX-32 的起因）。落盘交给程序后，立卡与实现天然分成两条分支。
+**落盘通道已收口（DX-98/DX-100）**：立卡唯一合法入口是
+`scripts/register_board_cards.py --form`（发号 + 服务端占位 + 回执，commit-msg
+按回执硬校验）。本工具的 --apply / --commit 在命令行上直接拒绝并指向新入口，
+保留的只有只读预演（默认输出与 --diff）与内置自测——后者仍走 apply_plan 验证
+纯增量复核与回滚逻辑，不落任何仓库文件。
 
-立卡属于**一次提交**，所以 --apply 自己就带提交（--commit）：写台账 → 生成带
-「授权：」「批次：」两行的提交信息 → 过 task_gate.py message → 提交。
+预演的 diff 是**纯增量文本判定**：基准先做一次规范化序列化（与
+register_board_cards.py 同一写回格式），格式漂移不会伪装成既有卡改写；
+diff 里仍出现「-」行即视为篡改既有卡，直接列阻断问题。
 
 校验的不是格式，是「这张卡能不能立」
 ------------------------------------
@@ -44,13 +44,13 @@ v1 当初连 --apply 一起拒绝，理由是「先让人看它 20 次输出对�
     python scripts/board-apply.py req.json --json
     python scripts/board-apply.py --selftest
 
-    # 落盘（必须给出授权来源与批次，且不在主干上）
-    python scripts/board-apply.py req.json --apply --authorize "维护者 2026-11-04 会话" --batch "DX-32、DX-33"
-    python scripts/board-apply.py req.json --commit --authorize "..." --batch "..."
+    # 落盘不再走本工具：立卡唯一合法入口是
+    python scripts/register_board_cards.py --form <请求单> --authorized-by "..."
+    # --apply / --commit 在命令行上会直接拒绝并指向上面这条命令。
 
-退出码：0 通过 / 2 有阻断问题 / 3 无需变更 / 4 读取失败
-        6 在主干或分离 HEAD 上请求落盘 / 7 缺少授权或批次 / 8 提交信息未过闸门
-        9 git 写操作失败
+退出码：0 通过 / 2 有阻断问题（含请求落盘被拒）/ 3 无需变更 / 4 读取失败
+        8 提交信息未过闸门（仅 selftest 内部路径）
+        9 git 写操作失败（仅 selftest 内部路径）
 """
 
 import argparse
@@ -321,8 +321,12 @@ def validate(cards: dict, ledger: dict, repo: Path) -> tuple:
 # ---------------------------------------------------------------- 计划
 
 def serialize(ledger: dict) -> str:
-    """与 claim-card.py / release-claims.py 的写回格式完全一致。"""
-    return json.dumps(ledger, indent=4, sort_keys=True, ensure_ascii=False) + "\n"
+    """与 register_board_cards.py 的写回格式完全一致（DX-100）。
+
+    不用 sort_keys：主线台账由 register_board_cards.py 追加写，键序是「登记序」
+    而非字典序，排序会把既有卡的行在 diff 里伪装成改写（DX-96 depends 重排的根源）。
+    """
+    return json.dumps(ledger, indent=4, ensure_ascii=False) + "\n"
 
 
 def build_plan(ledger: dict, cards: dict) -> tuple:
@@ -621,7 +625,7 @@ def render(path: Path, cards: dict, ledger: dict, blockers, warnings, infos,
         out("结论：可以建卡。就绪 %d 张（%s），其余需等依赖结卡。"
             % (len(ready), "、".join(ready) or "-"))
         if dry_run:
-            out("本脚本未写文件。确认无误后加 --apply（需 --authorize / --batch）落盘。")
+            out("本脚本未写文件。落盘请走唯一合法入口：register_board_cards.py --form。")
 
 
 # ---------------------------------------------------------------- 自检
@@ -850,7 +854,7 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="机器可读输出")
     parser.add_argument("--selftest", action="store_true")
     parser.add_argument("--apply", action="store_true",
-                        help="写入台账（需 --authorize / --batch，且不在主干上）")
+                        help="（已停用）落盘通道收口到 register_board_cards.py，请求即拒并指向新入口")
     parser.add_argument("--commit", action="store_true", help="写入后直接提交（隐含 --apply）")
     parser.add_argument("-Authorize", "--authorize", default="", dest="authorize",
                         help="授权来源，写进提交体的「授权：」一行")
@@ -863,8 +867,14 @@ def main() -> int:
 
     if args.commit:
         args.apply = True
-    if args.apply and args.json:
-        parser.error("--json 与 --apply 不能同时用（落盘时没有「机器可读的计划」可读）")
+    if args.apply:
+        # DX-100：落盘已收口到 register_board_cards.py --form（发号 + 占位 + 回执，
+        # commit-msg 按回执硬校验）。本工具保留只读预演，写台账分支只剩 selftest 内部路径。
+        sys.stderr.write("✗ --apply/--commit 已停用：立卡唯一合法入口是\n"
+                         "    python scripts/register_board_cards.py --form <请求单> "
+                         "--authorized-by <授权来源>\n"
+                         "  本工具只剩只读预演（默认输出 / --diff / --json）。\n")
+        return 2
 
     if not args.manifest:
         parser.error("需要一份清单（或 --selftest）")
@@ -887,12 +897,21 @@ def main() -> int:
     blockers, warnings, infos = validate(cards, ledger, repo)
     plan = build_plan(ledger, cards)
     after = serialize(plan)
-    diff_lines, removed = diff_text(before, after)
+    # 纯增量文本判定（DX-100）：基准先规范化（与写回同一 serialize），格式漂移
+    # 不再伪装成既有卡改写；规范化之后 diff 里仍出现「-」行 = 真的会改既有卡，
+    # 语义层 additive_violations 可能查不出（如键序差异），文本层兜底拦住。
+    canonical_before = serialize(ledger)
+    diff_lines, removed = diff_text(canonical_before, after)
     violations = additive_violations(ledger, plan)
     if violations:
         blockers.append(("plan.not_additive", "-",
                          "；".join(violations[:3]) + ("（等 %d 处）" % len(violations)
-                                                     if len(violations) > 3 else "")))
+                                                      if len(violations) > 3 else "")))
+    if removed:
+        blockers.append(("plan.text_not_additive", "-",
+                         "预演 diff 出现 %d 行既有内容删除（纯增量文本判定失败），"
+                         "前 2 行：%s" % (len(removed),
+                                          " / ".join(ln.strip() for ln in removed[:2]))))
     if json.loads(after) == ledger:
         print("无需变更：应用后台账无任何差异。")
         return 3

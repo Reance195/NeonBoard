@@ -543,7 +543,7 @@ DialogShell {
                     onTriggered: {
                         var path = dataPort.defaultPath("json")
                         var error = dataPort.exportTasks(path, "json")
-                        dataHint.text = error.isEmpty() ? "已导出：" + path : "导出失败：" + error
+                        dataHint.text = error === "" ? "已导出：" + path : "导出失败：" + error
                     }
                 }
 
@@ -553,7 +553,7 @@ DialogShell {
                     onTriggered: {
                         var path = dataPort.defaultPath("markdown")
                         var error = dataPort.exportTasks(path, "markdown")
-                        dataHint.text = error.isEmpty() ? "已导出：" + path : "导出失败：" + error
+                        dataHint.text = error === "" ? "已导出：" + path : "导出失败：" + error
                     }
                 }
             }
@@ -637,7 +637,7 @@ DialogShell {
                         }
                         var path = exportCombo.currentText
                         var error = dataPort.importTasks(path, "auto")
-                        dataHint.text = error.isEmpty() ? "导入完成：" + path : "导入失败：" + error
+                        dataHint.text = error === "" ? "导入完成：" + path : "导入失败：" + error
                     }
                 }
 
@@ -647,7 +647,7 @@ DialogShell {
                     Layout.preferredWidth: 84
                     onTriggered: {
                         var error = dataPort.backupNow()
-                        dataHint.text = error.isEmpty()
+                        dataHint.text = error === ""
                                         ? "备份完成：" + dataPort.backupDir
                                         : "备份失败：" + error
                     }
@@ -679,7 +679,7 @@ DialogShell {
                             return
                         }
                         var error = dataPort.importTasks(path, "auto")
-                        dataHint.text = error.isEmpty() ? "导入完成：" + path : "导入失败：" + error
+                        dataHint.text = error === "" ? "导入完成：" + path : "导入失败：" + error
                     }
                 }
             }

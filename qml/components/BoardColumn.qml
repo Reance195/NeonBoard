@@ -396,6 +396,7 @@ Rectangle {
                     tag: model.tag
                     priority: model.priority
                     due: model.due
+                    dueAt: model.dueAt
                     taskId: model.id
                     taskStatus: model.status
                     showProjectBadge: column.showProjectBadge

@@ -1,4 +1,5 @@
 import QtQuick
+import "Overdue.js" as OverdueLogic
 
 // 任务卡片：看板三列的最小信息单元。
 // 动效链：进场滑入 → 悬停浮起 → 按下微沉 → 拖起放大 → 勾选光扫 → 删除故障 → 撤销滑回。
@@ -9,6 +10,9 @@ Rectangle {
     property string tag: ""
     property int priority: 1
     property string due: ""
+    // 到期时刻（epoch 秒）：带年份的逾期判定依据（DX-137）。老调用方只传 due
+    // 文本时为 0，退回同年字典序口径。
+    property real dueAt: 0
     property string taskId: ""
     property string taskStatus: "todo"
     // 项目角标（R10-02）：只在全局视图显示。项目视图里整列都是同一个项目，
@@ -94,14 +98,9 @@ Rectangle {
     // 卡片槽位（插件 contributes.slots.card）展开后占用的额外高度
     readonly property real cardSlotExtra: cardSlot.implicitHeight > 0 ? cardSlot.implicitHeight + 8 : 0
 
-    // 逾期：due 形如 "MM-dd"，同年按字典序比较即可
-    readonly property bool overdue: {
-        if (due.length !== 5)
-            return false
-        var now = new Date()
-        var today = ("0" + (now.getMonth() + 1)).slice(-2) + "-" + ("0" + now.getDate()).slice(-2)
-        return due < today
-    }
+    // 逾期：判定逻辑在 Overdue.js（带年份优先，跨年不再失效 —— DX-137），
+    // 与 tests/qml 用例共用同一份实现
+    readonly property bool overdue: OverdueLogic.isOverdue(dueAt, due, Date.now())
 
     // 内部状态
     property bool busy: false        // 正在播放完成/删除动效，屏蔽重复点击

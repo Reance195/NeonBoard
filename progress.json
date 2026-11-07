@@ -19,24 +19,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "DX-112",
-            "completedAt": 0,
-            "createdAt": 1793980354,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-112",
-            "note": "",
-            "orderKey": 82944,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现",
-            "updatedAt": 1793980354
-        },
-        {
             "code": "DX-43",
             "completedAt": 0,
             "createdAt": 1793822375,
@@ -4903,6 +4885,24 @@
             "updatedAt": 1793251716
         },
         {
+            "code": "DX-112",
+            "completedAt": 1794027271,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-112",
+            "note": "",
+            "orderKey": 82944,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现",
+            "updatedAt": 1794027271
+        },
+        {
             "code": "R11-02",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5425,6 +5425,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T12:47:36",
+    "updated": "2026-11-07T12:54:31",
     "version": 3
 }

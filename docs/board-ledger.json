@@ -5731,6 +5731,13 @@
             "title": "收口 R20-1 交付观察：nbflow 冲突工单立卡走已退役 approve、.zcode 卡收尾闸门、README 分发口径过时"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-37": {
+            "agent": "agent-dx37",
+            "branch": "ci/release-sccache-ninja",
+            "claimedAt": 1794019095,
+            "head": "fe60f1760d8e19ce5a400ed6bd4065939977d825"
+        }
+    },
     "version": 1
 }

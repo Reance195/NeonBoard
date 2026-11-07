@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "R0-14",
+            "completedAt": 0,
+            "createdAt": 1794027437,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R0-14",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "R0",
+            "status": "todo",
+            "tags": [
+                "R0"
+            ],
+            "title": "部署侧依赖收敛：CMake DELAYLOAD 精简随包 DLL，并纠偏 pitfalls §7.6 的过时前提",
+            "updatedAt": 1794027437
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5425,6 +5443,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T12:47:36",
+    "updated": "2026-11-07T12:57:17",
     "version": 3
 }

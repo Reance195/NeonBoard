@@ -263,7 +263,8 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "R0-14": "todo"
     },
     "cards": {
         "DX-01": {
@@ -5815,6 +5816,34 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "R0-14": {
+            "acceptance": [
+                "CMake 对可延后加载的 Qt 模块改 /DELAYLOAD 链接（MSVC delayimp），dumpbin /dependents 对改动前后 NeonBoard.exe 的静态导入清单逐模块对照并写入 docs/iteration-roadmap.md §3.1（移出启动期的模块逐个点名）",
+                "便携包产物核验（拿产物验收）：deploy.ps1 出包后清点 dist 内 Qt 运行时 DLL 文件数与包体积，前后对照写入 §3.1 且随包 DLL 数下降，7b18c18 引入的便携包清单自检同步更新且 deploy.ps1 退出码 0",
+                "功能不回归：NeonBoard.exe --selftest 退出码 0 且 --smoke 退出码 0、日志无致命 QML 告警（沿用既有 check_qml_warnings 判据）",
+                "安装版冒烟：Inno 安装包装入干净目录后运行安装目录 NeonBoard.exe --selftest 退出码 0（DELAYLOAD 不引入运行期缺 DLL）",
+                "冷启动同机前后实测（沿用 R0-13 口径：Release --smoke 每档 5 轮 hot / 3 轮 cold 取中位）写入 §3.1，冷态 BOOT→首帧 差值不劣化，收益不显著也要有数据结论",
+                "docs/pitfalls.md §7.6 纠偏：样式半标注已由 R0-11（8e52812）落实，条目随本卡交付迁出「尚无解决方案（需人拍板）」节并标提交号，README「已知限制」首条按新实测数据更新",
+                "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0）"
+            ],
+            "author": "scheduled-direction-cron-2026-11-07",
+            "depends": [
+                "R0-13"
+            ],
+            "evidence": "pitfalls §7.6（2026-10-30 诊断定案）把冷启动瓶颈记为「portable 包带 7 套 QML 样式 + 35 个 Qt DLL 的冷 I/O」，治本路径（deploy.ps1 只随包 Basic 样式 + CMake 改 DELAYLOAD）因不在 R0-11 scope 内被挂起待拍板。立卡时点（2026-11-07）核实两半现状：①样式半已由 R0-11 落实——8e52812 在 scripts/deploy.ps1 显式排除 Fusion/Imagine/Material/Universal 等 non-Basic 样式 DLL 并整目录删除未用样式 QML（L73–99），§7.6 该半句已过时；②DLL 半仍未动——CMakeLists.txt 全文无 DELAYLOAD 配置（grep 无命中），windeployqt 按 exe 静态导入复制运行时，链接多少 Qt 模块就随包多少 DLL。README「已知限制」首条仍为「首次运行约 5–9 秒」；R0-13（2026-11-07 合入）已交付代码侧批次（建表延后 / 扫描后台化 / 字体回退 / .qsb 预热），其立卡单引用 §10 指标「首次运行目标 <3 s」，部署侧 DLL 冷 I/O 是该指标剩余的主要可优化面。",
+            "id": "R0-14",
+            "note": "",
+            "scope": [
+                "CMakeLists.txt",
+                "scripts/deploy.ps1",
+                "docs/iteration-roadmap.md",
+                "docs/pitfalls.md",
+                "README.md"
+            ],
+            "stage": "R0",
+            "tier": "P2",
+            "title": "部署侧依赖收敛：CMake DELAYLOAD 精简随包 DLL，并纠偏 pitfalls §7.6 的过时前提"
         }
     },
     "claims": {},

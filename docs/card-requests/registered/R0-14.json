@@ -1,0 +1,13 @@
+{
+  "card": "R0-14",
+  "sha256": "796f1e78ee503d7a2ae305f7be1fcae45240b05fd1d6fe0c05d4ed647168a984",
+  "authorizedBy": "维护者定时任务授权(2026-11-07)",
+  "form": "docs/card-requests/20261107-r0-deploy-delayload-slim.md",
+  "registeredAt": "2026-11-07T04:57:17+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R0-14",
+    "sha": "d760ba66d7b249d542b62344e222fdf7c948d3c3"
+  }
+}

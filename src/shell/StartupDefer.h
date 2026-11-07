@@ -68,3 +68,33 @@ inline void nbDeferUntilFirstFrame(FirstFrameSource *source, QObject *context,
                      [context, once]() { QTimer::singleShot(0, context, once); });
     QTimer::singleShot(2000, context, once);
 }
+
+// R0-15：空态期一次性初始化的「就绪后重放」接线。
+//
+// 两阶段建表（openDeferred → 首帧后 finalizeSchema）下，启动早期构造的组件会把
+// 一次性初始化打在**还不存在的表**上，失败即永久错过。老库（表已存在）与工具模式
+// 的 open() 没有空态，初始化本来就成功，调用方以 deferredSchema 决定是否接线。
+//
+// 模板化原因（模块守卫）：本文件属 shell(L6)，层序禁止反向 include task / plugin /
+// core 的头文件 —— 依赖在调用方 main.cpp（组合根，无模块归属）实例化时才落地，
+// 与本文件已有的 nbDeferUntilFirstFrame 泛型风格一致。被调方约定（全部幂等）：
+//   tree->reload()                —— 重载边表并刷新派生快照
+//   runs->startupMaintenance()    —— 取消跨会话排队 + 恢复心跳超时孤儿 run
+//   plugins->replayGrantsBootstrap() —— 空态期被守卫跳过的首次授权引导
+template <typename DatabasePtr, typename ReadySignal, typename TreePtr,
+          typename RunsPtr, typename PluginsPtr>
+inline void nbConnectStartupReplay(bool deferredSchema, DatabasePtr database,
+                                   ReadySignal ready, TreePtr tree, RunsPtr runs,
+                                   PluginsPtr plugins, QObject *context)
+{
+    if (!deferredSchema)
+        return;
+    QObject::connect(database, ready, context, [tree, runs, plugins]() {
+        if (tree)
+            tree->reload();
+        if (runs)
+            runs->startupMaintenance();
+        if (plugins)
+            plugins->replayGrantsBootstrap();
+    });
+}

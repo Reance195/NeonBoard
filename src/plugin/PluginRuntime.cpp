@@ -823,6 +823,12 @@ void PluginRuntime::ensureGrantsBootstrapped() const
 {
     if (m_grantsReady || !m_database)
         return;
+    // R0-15：两阶段建表的空态期 meta 表还不存在，这里引导了也落不了库，只会留下
+    // 「Database: meta write failed」失败行、把授权留在内存里等重启丢掉。
+    // 空态期直接跳过（m_grantsReady 不置位）；就绪后的首次引导由
+    // replayGrantsBootstrap（schema finalized 重放）或下一次惰性调用完成。
+    if (!m_database->schemaReady())
+        return;
     m_grantsReady = true;
 
     m_revoked = parseGrants(m_database->metaValue(QString::fromLatin1(kRevokedMetaKey)));
@@ -888,6 +894,16 @@ QStringList PluginRuntime::grantedPermissions(const QString &pluginId) const
 {
     ensureGrantsBootstrapped();
     return m_grants.value(pluginId);
+}
+
+void PluginRuntime::replayGrantsBootstrap()
+{
+    // R0-15：schema finalized 后的首次引导补位。空态期 ensureGrantsBootstrapped
+    // 被守卫跳过（m_grantsReady 未置位），就绪后在这里（或下一次惰性调用）真正引导；
+    // 老库的引导在 start() 里已完成（m_grantsReady 已置位），这里是空操作。
+    if (!m_database || !m_database->schemaReady() || m_grantsReady)
+        return;
+    ensureGrantsBootstrapped();
 }
 
 QStringList PluginRuntime::missingPermissions(const QString &pluginId) const

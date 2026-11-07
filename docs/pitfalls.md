@@ -2429,14 +2429,33 @@
       根治只需在 `selftest()` 里给 `subprocess.run` 注入
       `env={**os.environ, "PYTHONIOENCODING": "utf-8"}`，但该文件不在 DX-131 的卡
       scope，留待专卡。
-- **残留（未修，已如实记入交付说明）**：GUI 两阶段建表在**全新库**的空态期会留几行
-  启动日志 —— `TaskTree: load links failed: no such table: task_link`、
-  `TaskRunStore: ... failed: Parameter count mismatch`、`Database: meta write failed`。
-  老库表已存在时完全没有；finalize 后 `taskStore.load()` 补齐主模型，最终
-  12 张表齐全、`PRAGMA user_version=2`。这些是启动期的一次性初始化，新库上多为
-  空操作，但 `PluginRuntime::ensureGrantsBootstrapped()` 在首帧前写入 meta 失败后
-  没有重试通道（该方法私有且只在 `start()` 里调），首次运行的官方插件自动授权
-  可能未落地 —— 涉及 `src/agent/`、`src/task/` 等卡片 scope 外路径，本批未动。
+- **残留（未修，已如实记入交付说明）→ 根治（R0-15，2026-11-07 当日立卡当日结）**：
+  GUI 两阶段建表（`openDeferred` → 首帧后 `finalizeSchema`）在**全新库**的空态期会把
+  一次性初始化打在还不存在的表上：`TaskTree: load links failed: no such table: task_link`、
+  `TaskRunStore: ... failed: Parameter count mismatch`×2、`Database: meta write failed`×2、
+  以及基线实测新增发现的 `ProjectStore: 读取项目清单失败 "no such table: project"`（QML
+  装载期只读，绑定挂 `revision` 自愈、无持久错误态）。老库（表已存在）与工具模式
+  （`open()` 直通，含 `--smoke`）完全不受影响。其中最重的一处：
+  `PluginRuntime::ensureGrantsBootstrapped()` 是 `m_grantsReady` 单次闸且只在 `start()`
+  里跑 —— 空态期引导后 `persistGrants` 落库失败，授权只存在于内存，**首次运行的官方
+  插件自动授权要二次启动才落地**（R14-01 只治「既有库默认未授权」，不含此场景）。
+  - **解法（R0-15）**：空态期一次性初始化统一改为「schemaReady 守卫跳过 + 就绪后重放」：
+    ① `TaskTree` / `TaskRunStore` 构造期初始化在 `schemaReady()==false` 时跳过（不再
+    产出失败行）；② `ensureGrantsBootstrapped()` 加同一守卫（`m_grantsReady` 不置位，
+    三处惰性调用点行为一致）；③ 新增 `TaskRunStore::startupMaintenance()`（构造体抽出，
+    语义不变）、`PluginRuntime::replayGrantsBootstrap()`、`TaskTree::reload()` 尾部自带
+    快照刷新（重放只调得到公开接口）；④ 接线收口 `src/shell/StartupDefer.h` 的
+    `nbConnectStartupReplay()` —— **模板化**（shell L6 层序禁止反向 include task/plugin
+    头，依赖在无模块归属的组合根 main.cpp 实例化时才落地，与同文件
+    `nbDeferUntilFirstFrame` 泛型风格一致；main.cpp 1910 行棘轮恰好一行放下）。
+  - **判据（agent-r015 沙箱全新库 GUI 实测）**：修复前 6 条失败行 → 修复后 **0 条**；
+    `plugins.grants` 首启即落库（8 个官方插件全量授权，无需二次启动）；13 张表齐全；
+    ctest 41/41（含两个新用例：tst_startupdefer「空态跳过 → 重放成功」集成例、
+    tst_pluginruntime「授权引导重放」例）；全量 verify.ps1 EXIT 0（DX-131 合入后编译
+    步骤不再绕行）。
+  - **降噪注记**：`ProjectStore::projects()` 的空态读保留但降为 debug（「空态读取项目
+    清单（表未建，finalizeSchema 后自愈）」）—— 它是两阶段设计的预期读而非失败，
+    与 Z10「一次性预期信号 vs 常驻失败」同源；非 `no such table` 的真失败仍走 qWarning。
 
 ## 八、同专题的既有文档
 

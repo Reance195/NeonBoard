@@ -44,6 +44,11 @@ public:
     Q_INVOKABLE void start();
     Q_INVOKABLE void reload();
 
+    // R0-15：schema finalized 后的首次引导补位。空态期 ensureGrantsBootstrapped
+    // 被 schemaReady 守卫跳过（否则 meta 落库失败、授权只存在内存里等重启丢掉），
+    // 就绪后由启动方调用本方法完成引导；老库引导在 start() 里已完成，此处为空操作。
+    void replayGrantsBootstrap();
+
     PluginContext *contextFor(const QString &pluginId);
     PluginContext *activeContext() const { return m_activeContext; }
     void setActiveContext(PluginContext *context);

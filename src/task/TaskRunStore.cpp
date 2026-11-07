@@ -68,9 +68,19 @@ TaskRunStore::TaskRunStore(Database *database, QObject *parent)
     : QObject(parent)
     , m_database(database)
 {
+    // R0-15：两阶段建表的空态期 task_run 还不存在，硬跑只会留下「no such table /
+    // Parameter count mismatch」失败行 —— 跳过，就绪后的重放会调 startupMaintenance()。
+    if (!m_database || m_database->schemaReady())
+        startupMaintenance();
+}
+
+void TaskRunStore::startupMaintenance()
+{
     // 队列不跨会话恢复（r7-dispatcher-plan §8 非目标）：应用重启后残留的 waiting /
     // dispatching 行不会再有进程认领，留着只会让「排队中」永远卡住，也会让重启自动
     // 拉起一堆 agent 进程。先把它们结算成 cancelled，再处理心跳超时的活跃 run。
+    // （R0-15：从构造函数抽出 —— 两阶段建表的空态期构造会打在不存在的表上，
+    // schema finalized 后由启动方重放；操作全带 WHERE 条件，幂等。）
     if (m_database) {
         const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
         if (db.isOpen()) {

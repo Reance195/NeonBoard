@@ -1196,6 +1196,7 @@ int main(int argc, char *argv[])
     pluginLoader.scanAsync();
     PluginEventBus pluginEventBus;
     PluginRuntime pluginRuntime(&pluginLoader, &pluginEventBus, &database, &taskStore, &tray);
+    nbConnectStartupReplay(deferredSchema, &database, &Database::schemaFinalized, &taskTree, &taskRuns, &pluginRuntime, &app);
 
     // R9-01：把插件声明的 agent profile 注入 AgentProfile（三层合并里的 L1）。
     // 挂信号而不是只调一次：插件热插拔会重扫（pluginsChanged），

@@ -17,7 +17,11 @@ TaskTree::TaskTree(Database *database, TaskModel *tasks, QObject *parent)
     , m_database(database)
     , m_tasks(tasks)
 {
-    reload();
+    // R0-15：两阶段建表的空态期 task_link 还不存在，硬跑只会留下「no such table」
+    // 失败行 —— 跳过，就绪后的重放（nbConnectStartupReplay）会调公开的 reload()。
+    // 老库（表已存在）与工具模式的 open() 在构造时已就绪，行为不变。
+    if (!m_database || m_database->schemaReady())
+        reload();
     refreshSnapshot();
 
     if (m_tasks) {
@@ -73,6 +77,10 @@ void TaskTree::reload()
         m_links.insert(child, parent);
     }
     rebuildIndex();
+    // R0-15：快照是 m_links 的派生缓存，reload 改了 m_links 就该自己恢复完整不变量 ——
+    // 空态重放（nbConnectStartupReplay）只调得到公开的 reload()，私有 refreshSnapshot
+    // 没有第二次外部触发，漏掉会让子卡进度环在重放后拿到旧缓存。
+    refreshSnapshot();
     bump();
 }
 

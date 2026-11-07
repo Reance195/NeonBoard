@@ -6840,6 +6840,13 @@
       "title": "MOD CLI 派发块抽取：AppMain 的六组命令处理迁入 CliHandlers"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-143": {
+      "agent": "agent-fxd",
+      "branch": "fix/audit-host-ui",
+      "claimedAt": 1794044817,
+      "head": "0f8cbe7"
+    }
+  },
   "version": 1
 }

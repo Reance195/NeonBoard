@@ -47,6 +47,8 @@ PROCESS_SCOPES = ("claim", "roadmap")
 AUDIT_TYPE = "chore"
 AUDIT_SCOPE = "board"
 AUDIT_FIELDS = ("授权：", "批次：")
+# 弃单终态（DX-111）：baseline 的第三种终态，与 derive_board_status.py 同名。
+ABANDONED_BASELINE = "abandoned"
 
 # 任务号文法：<1-4 个字母><可选数字>-<数字>，外加历史遗留的纯 M 编号。
 # 覆盖三种真实形态：R4-10（字母+阶段数字）、DX-01 / OPS-02（纯字母阶段）、M19（小任务）。
@@ -499,6 +501,20 @@ def staged_files():
     return [normalize(x.strip()) for x in out.stdout.splitlines() if x.strip()]
 
 
+def is_abandon_close(definition_changes):
+    """本提交是否把某张卡的 baseline 落到弃单终态（DX-111）。
+
+    只认 ``ledger_definition_changes`` 产出的
+    「改动 baseline <短号>（<旧值> → abandoned）」行；纯字符串判定，与派生器
+    的终态值同名。弃单结案是人工授权动作，不是 git 事实的机械投影。
+    """
+    pattern = re.compile(r"→\s*%s\s*）?\s*$" % ABANDONED_BASELINE)
+    return any(
+        line.startswith("改动 baseline ") and pattern.search(line)
+        for line in definition_changes
+    )
+
+
 def audit_problems(kind, scope, message, code_paths, definition_changes):
     """台账任务定义变更的审计判定（DX-06 / DX-07 / DX-10）。纯函数：不碰 git，便于自测与 CI 跑。
 
@@ -535,7 +551,17 @@ def audit_problems(kind, scope, message, code_paths, definition_changes):
     baseline_only = all(
         line.startswith("改动 baseline ") for line in definition_changes
     )
-    auto_close = bool(re.search(r"(?m)^\s*自动来源：\S", body)) and baseline_only
+    abandon_close = is_abandon_close(definition_changes)
+    # DX-111：自动来源通道只服务「git 事实投影成 done」的自动结卡；弃单结案是
+    # 人的决定，不适用该通道，必须走 A 类人工授权行。且弃单结案只改 baseline，
+    # 借弃单之名夹带卡片定义变更（哪怕带齐授权/批次两行）一律拒绝。
+    auto_close = (bool(re.search(r"(?m)^\s*自动来源：\S", body))
+                  and baseline_only and not abandon_close)
+    if abandon_close and not baseline_only:
+        problems.append(
+            "弃单结案提交只改 baseline，不得夹带卡片定义变更"
+            "（冒充弃单改定义，DX-111）"
+        )
 
     if not auto_close:
         missing = [f for f in AUDIT_FIELDS if not re.search(
@@ -942,6 +968,37 @@ def cmd_selftest(args):
         False, "chore", "board",
         "chore(board): 结卡\n\n自动来源：derive --close-cards",
         ["src/Database.cpp"], base, baseline_changed,
+    )
+
+    # ---- DX-111：弃单终态结案通道 ----
+    abandoned_close = ledger_with(baseline={"DX-01": ABANDONED_BASELINE})
+    abandoned_mixed = ledger_with(
+        cards={"DX-01": {"id": "a", "title": "改了标题", "stage": "DX"}},
+        baseline={"DX-01": ABANDONED_BASELINE},
+    )
+    case(
+        "弃单结案：chore(board) + 授权/批次 + baseline→abandoned → 放行",
+        True, "chore", "board",
+        "chore(board): 结案弃单卡\n\n授权：维护者 2026-11-05 会话弃单批准\n批次：DX-111",
+        [], base, abandoned_close,
+    )
+    case(
+        "弃单结案不适用自动来源：自动来源 + baseline→abandoned → 拦截",
+        False, "chore", "board",
+        "chore(board): 结案弃单卡\n\n自动来源：derive --close-cards",
+        [], base, abandoned_close,
+    )
+    case(
+        "冒充弃单改定义：baseline→abandoned 夹带改标题（无授权行）→ 拦截",
+        False, "chore", "board",
+        "chore(board): 结案弃单卡并顺手改标题",
+        [], base, abandoned_mixed,
+    )
+    case(
+        "冒充弃单改定义：带齐授权/批次行也拦",
+        False, "chore", "board",
+        "chore(board): 结案弃单卡并顺手改标题\n\n授权：维护者\n批次：DX-111",
+        [], base, abandoned_mixed,
     )
 
     # ---- DX-40：流程豁免收口（process_commit_exempt 直测，4 例）----

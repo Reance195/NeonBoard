@@ -37,24 +37,6 @@
             "updatedAt": 1793935664
         },
         {
-            "code": "DX-111",
-            "completedAt": 0,
-            "createdAt": 1793980354,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-111",
-            "note": "",
-            "orderKey": 78848,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用",
-            "updatedAt": 1793980354
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -179,6 +161,24 @@
             ],
             "title": "定时任务插件：按时间计划自动建卡、流转任务、发提醒",
             "updatedAt": 1794014077
+        },
+        {
+            "code": "DX-111",
+            "completedAt": 0,
+            "createdAt": 1793980354,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-111",
+            "note": "",
+            "orderKey": 78848,
+            "priority": 2,
+            "stage": "DX",
+            "status": "doing",
+            "tags": [
+                "DX"
+            ],
+            "title": "弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用",
+            "updatedAt": 1794017630
         },
         {
             "code": "R0-01",
@@ -5335,6 +5335,6 @@
             "updatedAt": 1793987882
         }
     ],
-    "updated": "2026-11-07T10:11:35",
+    "updated": "2026-11-07T10:13:50",
     "version": 3
 }

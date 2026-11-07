@@ -38,7 +38,9 @@
     出口码：2 = 分支名不合规（入口即拦，未创建任何目录）；3 = 锚点 / 占用冲突（含领用被拒，
             回滚后退出）；4 = 残留工作区或分支已存在（只诊断，不自动删）；
             5 = 调用方检出与脚本所属检出不一致（DX-49 漂移守卫，-AllowCrossTree 显式放行）；
-            6 = 网络预检失败（DX-66，此时未创建任何产物）。
+            6 = 网络预检失败（DX-66，此时未创建任何产物）；
+            7 = 卡片已按弃单结案（baseline=abandoned，DX-111），或弃单清单核对失败
+                （fail-closed，此时未创建任何产物）。
 
     开区事务（DX-66）：从第一个写动作（worktree add / 占用登记 / 领用提交 / 服务端占位）起
     跟踪本次创建的产物，任一步失败按清单自动回滚并逐项打印 —— 失败即无残留，重跑就是干净起点。
@@ -360,6 +362,39 @@ if ($Card -and -not $InPlace) {
     }
 }
 
+# DX-111 弃单终态：origin/main 台账里 baseline=abandoned 的卡是已结案的弃单，
+# 不得再领用（旧门只认 baseline=done，弃单会永挂 todo 被反复重领）。
+# 判据只在 derive_board_status.py --abandoned-codes 一处实现，与 claim-card 的
+# 重开门同读 origin/main 那份台账（唯一事实源）；这里不重复解析 JSON。
+function Test-AbandonedClaim {
+    param([string]$Code)
+    # 返回 $true = 本次领用必须被拒（核对不了也按 fail-closed 拒），$false = 放行。
+    $derivePy = Join-Path $repoRoot 'scripts\derive_board_status.py'
+    if (-not (Test-Path -LiteralPath $derivePy)) {
+        Write-Host '✗ 找不到 derive_board_status.py，无法核对弃单终态，保守拒绝（fail-closed，DX-111）。' -ForegroundColor Red
+        return $true
+    }
+    $abandonedCodes = @(& python $derivePy --repo $repoRoot --ledger-ref origin/main --abandoned-codes 2>$null |
+        ForEach-Object { "$_".Trim().ToUpperInvariant() } | Where-Object { $_ })
+    $abandonedRc = $LASTEXITCODE
+    if ($abandonedRc -ne 0) {
+        Write-Host ("✗ 无法核对弃单终态清单（derive --abandoned-codes 退出码 {0}），保守拒绝（fail-closed，DX-111）。" -f $abandonedRc) -ForegroundColor Red
+        return $true
+    }
+    if ($abandonedCodes -contains $Code.ToUpperInvariant()) {
+        Write-Host ("✗ 卡片 {0} 已按弃单结案（baseline=abandoned），不允许重新领用（DX-111）。" -f $Code) -ForegroundColor Red
+        Write-Host '  弃单是终态：确需重做，先由维护者经 chore(board) 授权把 baseline 改回 todo。' -ForegroundColor Yellow
+        return $true
+    }
+    return $false
+}
+
+# 标准开区路径：放在第一个写动作之前，拒绝时不产生 worktree / 分支 / 占位，无需回滚。
+if ($Card -and -not $InPlace -and (Test-AbandonedClaim $probeCode)) {
+    Write-Host '  此刻尚未创建任何工作区产物，无需清理。' -ForegroundColor DarkGray
+    exit 7
+}
+
 # ---------- 开区事务（DX-66）----------
 # 从第一个写动作起登记本次创建的产物，任一步失败调 Invoke-TxnRollback 按固定顺序回滚：
 # 提交 → 服务端占位 → 占用登记 → 工作区 → 分支。顺序不能按创建时间倒着来 ——
@@ -676,6 +711,13 @@ if ($Card) {
 
 if ($Card) {
     $code = $Card.TrimStart('#').ToUpperInvariant()
+
+    # DX-111：-InPlace（补领）不走上面的开区前探针，这里补同一道弃单终态门。
+    # 拒绝时 worktree 是调用方自己的，Invoke-TxnRollback 只清本次产物（空），不会误删。
+    if ($InPlace -and (Test-AbandonedClaim $code)) {
+        Invoke-TxnRollback
+        exit 7
+    }
 
     # DX-42：detached 检出禁止领用 —— 领用登记会记下 branch="HEAD"：
     # release-claims 的「分支不存在」判据被恒存在的 refs/remotes/origin/HEAD 符号引用

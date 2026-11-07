@@ -73,6 +73,15 @@ ROADMAP_CODE = re.compile(r"^(?:[A-Za-z]{1,4}\d*-\d+|M\d+)$")
 LIKELY_CODE = re.compile(r"^[A-Za-z]{1,4}\d+(?:-\d+)?$")
 STATUS_RANK = {"todo": 0, "doing": 1, "done": 2}
 VALID_STATUS = ("todo", "doing", "done")
+# 弃单终态（DX-111）：baseline 的第三种终态 —— 不是 done（没有交付），也不是
+# todo（不得再被领用）。它只活在台账里：派生器不把它投到快照的三态，agent-init
+# 直接读 baseline 拒领。重开必须由维护者经 chore(board) 授权改回 todo。
+ABANDONED = "abandoned"
+
+
+def is_abandoned(baseline, code):
+    """台账 baseline 是否把这张卡标成弃单终态（大小写不敏感）。"""
+    return (baseline.get(code) or "").lower() == ABANDONED
 
 
 def repo_root():
@@ -297,7 +306,8 @@ def stuck_cards(cards, baseline, ever_done, bare_merged):
     stuck = []
     for code in sorted(cards):
         current = (baseline.get(code) or "").lower()
-        if current == "done":
+        if current == "done" or current == ABANDONED:
+            # 弃单是终态（DX-111）：已结案，不该被当成「交付证据缺失的滞留卡」。
             continue
         if code in ever_done:
             continue
@@ -448,6 +458,11 @@ def close_cards(cards, baseline, derived, forced=None):
     out = dict(baseline)
     changed = []
     for code in sorted(cards):
+        if is_abandoned(out, code):
+            # 弃单终态（DX-111）：--close-cards 不误碰。即便 git 里残留 #done
+            # 标记、或 --close-explicit 点名，也不把它改成 done / todo ——
+            # 重开是维护者的 chore(board) 授权动作，不是 git 事实的机械投影。
+            continue
         mark = (derived.get(code) or "").lower()
         current = (out.get(code) or "").lower()
         if code in forced:
@@ -696,6 +711,22 @@ def selftest():
     out9, changed9 = close_cards({"A-1": {}}, {"A-1": "done"}, {}, {"A-1"})
     cases.append(("已 done 的卡再被人工确认 → 无变化",
                   out9.get("A-1") == "done" and changed9 == []))
+
+    # ⑪ 弃单终态（DX-111）：--close-cards 不误碰、--check 不报漂移、滞留探测不点名
+    base_ab = {"A-1": "todo", "B-2": ABANDONED, "C-3": "done"}
+    out_ab, changed_ab = close_cards(cards, base_ab,
+                                     {"B-2": "done", "A-1": "done"}, {"B-2"})
+    cases.append(("弃单卡即便有 #done 标记也不被 --close-cards 误结",
+                  out_ab.get("B-2") == ABANDONED and "B-2" not in changed_ab))
+    cases.append(("弃单卡即便 --close-explicit 点名也不动",
+                  out_ab.get("B-2") == ABANDONED))
+    cases.append(("弃单不波及同批其它卡正常结卡",
+                  out_ab.get("A-1") == "done" and "A-1" in changed_ab))
+    cases.append(("弃单终态不算滞留卡",
+                  ("B-2", ABANDONED) not in stuck_cards(cards, base_ab, set(), {"B-2"})))
+    cases.append(("is_abandoned 大小写不敏感",
+                  is_abandoned({"X-1": "Abandoned"}, "X-1")
+                  and not is_abandoned({"X-1": "todo"}, "X-1")))
 
     # ⑩ 结卡提交标记（DX-41）：拼串里每个短号都带 # 与 =done，
     #    post-commit 的 grep 与 plan-hook 的 MARKER_PATTERN 才认。
@@ -955,6 +986,11 @@ def main():
              "供 agent-init 领用前告警，配 --ledger-ref 读主线台账",
     )
     mode.add_argument(
+        "--abandoned-codes", action="store_true",
+        help="只输出弃单终态卡短号（一行一个，baseline=abandoned，DX-111）；"
+             "供 agent-init 领用前拒领，配 --ledger-ref 读主线台账",
+    )
+    mode.add_argument(
         "--close-cards", action="store_true",
         help="结卡（DX-07）：把 git 里已有 #<短号>=done 的卡的 baseline 补成 done；"
              "写回台账的 baseline 字段，输出实际结掉的短号，一行一个",
@@ -1010,9 +1046,10 @@ def main():
 
     if not any((args.check, args.write, args.baseline_check, args.close_cards,
                 args.emit_claimed, args.replay_closed, args.stuck_codes,
-                bool(args.contract))):
+                args.abandoned_codes, bool(args.contract))):
         parser.error("必须指定 --check / --write / --baseline-check / --close-cards / "
-                     "--emit-claimed / --replay-closed / --stuck-codes / --contract 之一")
+                     "--emit-claimed / --replay-closed / --stuck-codes / "
+                     "--abandoned-codes / --contract 之一")
 
     root = os.path.abspath(args.repo)
 
@@ -1086,6 +1123,19 @@ def main():
             _, bare_merged = collect_delivery_signals(git_log(root, main_ref), known)
         for code, _current in stuck_cards(cards, baseline, ever_done, bare_merged):
             print(code)
+        return 0
+
+    if args.abandoned_codes:
+        # 弃单终态机器可读出口（DX-111）：与 --stuck-codes 同源，只认主线台账，
+        # 供 agent-init 在开区前判「这张卡是否已被结案为弃单」。不依赖快照。
+        ledger = read_ledger(root, args.ledger, args.ledger_ref)
+        if ledger is None:
+            return 2
+        cards = ledger.get("cards") or {}
+        baseline = ledger.get("baseline") or {}
+        for code in sorted(cards):
+            if is_abandoned(baseline, code):
+                print(code)
         return 0
 
     snapshot_path = os.path.join(root, args.snapshot)
@@ -1257,6 +1307,11 @@ def main():
             max_order[status] = max(max_order[status], int(item.get("orderKey", 0) or 0))
 
     for code in sorted(cards):
+        if is_abandoned(baseline, code):
+            # 弃单终态（DX-111）：不派生状态、不比对快照、不报漂移。
+            # 它靠 baseline 本身拦领用，不需要在快照三态里再找一个位置；
+            # 跳过也保证 --check 不会把「todo → abandoned」报成漂移。
+            continue
         card = cards[code]
         card_id = card.get("id", "")
         want = status_of(code, derived, claims_active, baseline)

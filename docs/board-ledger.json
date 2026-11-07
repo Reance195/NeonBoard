@@ -68,7 +68,7 @@
         "DX-40": "done",
         "DX-41": "done",
         "DX-42": "done",
-        "DX-43": "todo",
+        "DX-43": "abandoned",
         "DX-44": "done",
         "DX-45": "done",
         "DX-46": "done",
@@ -156,7 +156,7 @@
         "R0-09": "done",
         "R0-10": "done",
         "R0-11": "done",
-        "R0-12": "todo",
+        "R0-12": "abandoned",
         "R0-13": "todo",
         "R1-01": "done",
         "R1-02": "done",
@@ -5709,6 +5709,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-111": {
+            "agent": "duty-dx111",
+            "branch": "fix/dx111-abandoned-terminal",
+            "claimedAt": 1794015633,
+            "head": "3f5082681d6618bce3e0c654edbb71c9bbbfcb10"
+        }
+    },
     "version": 1
 }

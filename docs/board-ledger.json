@@ -5773,13 +5773,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-102": {
-            "agent": "agent-dx102",
-            "branch": "test/dx102-interaction-regression",
-            "claimedAt": 1794023030,
-            "head": "a17fb5c3ce1202e2df1fdc96fde3150509d7e85e"
-        }
-    },
+    "claims": {},
     "version": 1
 }

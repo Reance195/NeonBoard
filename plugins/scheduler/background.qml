@@ -36,16 +36,20 @@ QtObject {
             var fp = Rules.fingerprint(rule);
             var slot = Rules.dueSlot(rule, now);
             var st = state[rule.id];
-            if (!st || st.fp !== fp) {
-                // 首次见到或计划被修改：从当前时点起生效，不追改前的历史槽位
-                //（否则新建「每天 09:00」会在当天 09:00 已过时立刻补发一次）
+            var fresh = (!st || st.fp !== fp);
+            // 首次见到或计划被修改：从当前时点起生效，不追改前的历史槽位
+            //（否则新建「每天 09:00」会在当天 09:00 已过时立刻补发一次）。
+            // 例外：一次性规则指向过去时点 = 显式的补执行诉求，首次即触发——
+            // 否则「保存时已过期」的一次性规则永远死在手上。
+            if (fresh && !(rule.kind === "once" && slot.length > 0)) {
                 state[rule.id] = { "lastSlot": (slot.length > 0 ? slot : "_"), "fp": fp };
                 changed = true;
                 continue;
             }
-            if (slot.length > 0 && slot > st.lastSlot) {
+            if (slot.length > 0 && (fresh || slot > st.lastSlot)) {
                 var result = Rules.runActions(rule, pluginHost);
-                st.lastSlot = slot;
+                // fresh 时 st 尚不存在，统一整对象写回，别在 st 上补字段
+                state[rule.id] = { "lastSlot": slot, "fp": fp };
                 changed = true;
                 handledCount += 1;
                 lastSummary = rule.label + " · " + Rules.resultText(result);

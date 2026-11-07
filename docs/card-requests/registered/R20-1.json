@@ -1,0 +1,13 @@
+{
+  "card": "R20-1",
+  "sha256": "27be1fd7fa9a835b08a2ae3593a17d7edff84a52a1c0d679e69aabffeec28894",
+  "authorizedBy": "维护者会话授权 2026-11-07：批准 R20-01 定时任务插件实施计划（ExitPlanMode 批准记录）",
+  "form": "docs/card-requests/20261107-r20-01.md",
+  "registeredAt": "2026-11-07T01:14:37+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R20-1",
+    "sha": "79e8d4c12ca217c5b5514ff6960ff7f592f9e77a"
+  }
+}

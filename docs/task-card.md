@@ -78,6 +78,13 @@ CI 里的这一步仍是**信号**（`continue-on-error`）：存量卡还有未
 或改软 `acceptance` 一定会在提交信息里留下授权来源 —— 这是留给事后复核的痕迹；
 闸门无法验证「谁真的批准过」，真正的门仍是维护者复核。
 
+**验收项提到的文件若在 scope 外，须写明是只读验证工具还是本卡产物**（DX-100）：
+验收项声明「回归用例 / 新增用例 / 补用例 / 新增脚本」却引用 scope 外的
+`scripts/*.py|ps1`，意味着本卡要改 scope 外文件 —— `register_board_cards.py`
+会在立卡阶段直接拒绝并点名该路径；只读验证命令（`selftest` / `-ScriptOnly` /
+`--smoke` / `--check`，如 `pwsh -File scripts/verify.ps1 -ScriptOnly 全绿`）不受限。
+存量卡由 `python scripts/register_board_cards.py --audit-acceptance-scope` 回放，命中只告警（棘轮）。
+
 ## 产出：合并提交 body 四段
 
 `docs/git-workflow.md` 要求 `merge: 合入 <分支名>` 作为标题，正文补四段：
@@ -148,25 +155,28 @@ merge: 合入 fix/stagebar-chip-overflow
 第二条之前的每一步都有工具，别手贴 JSON：
 
 ```powershell
-# 1) 预演：只输出「如果批准会多出哪几行」，不写文件
-python scripts/board-apply.py docs/batches/dx-32.md --diff
+# 1) 请求单五段式表单（frontmatter + 目标/验收/边界/输入/产出）落 docs/card-requests/
+# 2) 立卡唯一合法入口：校验表单 → 发号（服务端占位）→ 写台账与回执 → derive 刷快照
+python scripts/register_board_cards.py --form docs/card-requests/<YYYYMMDD>-<slug>.md `
+  --authorized-by "维护者 <会话> <日期>"
 
-# 2) 落盘 + 提交（自动带「授权：」「批次：」两行，过 task_gate.py message 才提交）
-python scripts/board-apply.py docs/batches/dx-32.md --commit `
-  --authorize "维护者 2026-11-04 会话" --batch "DX-32、DX-33"
-
-# 3) 合并立卡分支，再开实现区
-pwsh -File scripts/git-done.ps1
-pwsh -File scripts/agent-init.ps1 -Agent <名> -Branch <分支> -Card DX-32
+# 3) 程序打印两段提交指引（docs(board) 收录请求单 + chore(board) 立卡），照做后合并立卡分支
+# 4) 再从主干开实现区领卡
+pwsh -File scripts/agent-init.ps1 -Agent <名> -Branch <分支> -Card <短号>
 ```
+
+> 预演可用 `python scripts/board-apply.py <请求单> --diff`（只读，纯增量文本判定，
+> 不落任何文件）；它的 `--apply` / `--commit` 落盘通道已停用（DX-100）——
+> 发号、服务端占位与回执只有 `register_board_cards.py --form` 一条路。
 
 几个边界：
 
-- `--apply` 在 `main` / `master` / `develop` 或分离 HEAD 上直接退 6 —— 主干不受理立卡提交。
-- 缺 `--authorize` / `--batch` 退 7。程序不替你写判断，只替你把授权写进提交体。
-- 落盘前复核一次纯增量（既有 `cards` / `baseline` / `claims` 逐条相等），写入走临时文件 +
-  `os.replace`：失败不留半张卡。
-- 校验是 20 项，不是格式检查：卡号正则、重复、`scope` 精确路径与父目录都不存在、
+- 立卡的落盘、发号、服务端占位与回执**只有 `register_board_cards.py --form` 一条路**；
+  `board-apply.py` 的 `--apply` / `--commit` 已停用（请求即拒并指向新入口，DX-100）。
+- 授权来源必须经 `--authorized-by` 显式传入并写进回执；程序不替你写判断，只替你把凭证落盘。
+- 落盘前程序自校验纯增量（既有 `cards` / `baseline` / `claims` 逐条相等），预演 diff 里
+  出现任何「-」行都会被 `plan.text_not_additive` 阻断（DX-100）。
+- 校验不是格式检查：卡号正则、tier 档位（DX-123）、验收项引用 scope 外脚本（DX-100）、
   与在办卡争同一路径、依赖成环、`acceptance` 里没有任何可执行记号……逐条见脚本头部说明。
 
 **立卡 → 实现分开两条分支**不是形式主义。合并成一条会丢掉 `chore(claim): 领取 #<短号>`
@@ -182,7 +192,8 @@ pwsh -File scripts/agent-init.ps1 -Agent <名> -Branch <分支> -Card DX-32
 | `scripts/check_path_refs.py` | 扫全仓对 `src/` 文件的硬编码引用，指向不存在的路径即失败（棘轮：只报本次新增） |
 | `scripts/check_scope.py` | CI 里比对本次 diff 与卡的 `scope`，越界即失败 |
 | `scripts/agent-init.ps1 -Card <短号>` | 开工作区时把 `NB_CARD` / `NB_SCOPE` / `NB_ACCEPTANCE` / `NB_DEPENDS` 注入 `.agent-env.ps1` |
-| `scripts/board-apply.py` | 立卡：预演（默认只读）→ `--apply` 落盘 → `--commit` 提交；20 项校验拦住「不该立」的卡 |
+| `scripts/register_board_cards.py --form <请求单>` | 立卡唯一合法入口（DX-98）：五段式表单校验、跨 worktree 发号 + 服务端占位、生成回执、刷快照并打印两段提交指引 |
+| `scripts/board-apply.py --diff` | 立卡请求**只读预演**：20 项校验 + 纯增量文本判定（DX-100）；`--apply` / `--commit` 落盘通道已停用 |
 
 ## 排位如何生效（DX-123）
 

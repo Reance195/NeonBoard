@@ -11,7 +11,9 @@ QtObject {
     property string lastSummary: ""
     property int handledCount: 0
 
-    Timer {
+    // QtObject 没有可写子对象的默认属性（与顶层 Connections 必须改 JS 连接同源），
+    // Timer 以属性值形式挂在根上，不能写成 child 声明
+    property Timer ticker: Timer {
         interval: 30000
         repeat: true
         running: true

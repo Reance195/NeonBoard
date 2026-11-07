@@ -6086,6 +6086,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-133": {
+            "agent": "agent-duty-1107b",
+            "branch": "fix/roadmap-tombstone-home-scope",
+            "claimedAt": 1794035375,
+            "head": "01bbea3375fd6d373cd480d9864e9677df8e2b78"
+        }
+    },
     "version": 1
 }

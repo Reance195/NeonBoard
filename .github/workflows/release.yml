@@ -124,6 +124,9 @@ jobs:
             -RedirectStandardOutput selftest.out -RedirectStandardError selftest.err
           Get-Content selftest.out -ErrorAction SilentlyContinue
           Get-Content selftest.err -ErrorAction SilentlyContinue
+          # 退出码检查归位在本步：写溯源信息步骤里没有 $proc（跨步骤变量不存在），
+          # 那里的引用在非严格模式下恒 $null ≠ 0，导致该步无条件 throw（DX-37 run 实测）。
+          if ($proc.ExitCode -ne 0) { throw "自检失败，退出码 $($proc.ExitCode)" }
 
       - name: 写溯源信息
         # DX-36：必须在「生成便携版 / 编译安装包」**之前**写，且要写进 dist\NeonBoard\
@@ -146,7 +149,6 @@ jobs:
           [System.IO.File]::WriteAllText((Join-Path $PWD 'dist\BUILD-INFO.txt'), $text, (New-Object System.Text.UTF8Encoding($false)))
           New-Item -ItemType Directory -Force -Path 'dist\NeonBoard' | Out-Null
           [System.IO.File]::WriteAllText((Join-Path $PWD 'dist\NeonBoard\BUILD-INFO.txt'), $text, (New-Object System.Text.UTF8Encoding($false)))
-          if ($proc.ExitCode -ne 0) { throw "自检失败：$($proc.ExitCode)" }
 
       - name: 生成便携版
         shell: pwsh

@@ -123,6 +123,13 @@ neonboard_add_test(tst_databasemigration
 )
 target_link_libraries(tst_databasemigration PRIVATE Qt6::Sql)
 
+# R0-13：Database 两阶段打开的竞态面（空态 / 就绪信号 / 幂等 / 老库迁移）。
+neonboard_add_test(tst_startupdefer
+    ${NB_DIR_CORE}/Database.cpp
+    ${NB_DIR_CORE}/AppPaths.cpp
+)
+target_link_libraries(tst_startupdefer PRIVATE Qt6::Sql)
+
 # R4-03 批次二：列感知的模型层（新增任务落默认列 / 按列搬运 / 按列过滤不串味）
 neonboard_add_test(tst_taskcolumns
     ${NB_DIR_CORE}/Database.cpp

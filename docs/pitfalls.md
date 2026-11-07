@@ -2333,6 +2333,54 @@
 
 ---
 
+### 7.7 R0-13 启动性能收尾：四项改动的实施坑与残留（2026-11-07）
+
+- **现象 / 根因 / 解法（A）`QShader` 头文件不在标准 include 路径**：想用
+  `QShader::fromSerialized()` 在 Splash 阶段反序列化 `.qsb` 做预热，
+  `#include <QShader>` 直接 `fatal error C1083`。Qt 6.8.3 把 QShader 放在
+  `include/QtGui/6.8.3/QtGui/rhi/qshader.h`（RHI 版本化目录），编译命令只带
+  `include/QtGui`，够不着；而 `CMakeLists.txt` 不在 R0-13 的卡片 scope，不能为它加
+  include 目录。**解法**：降级为 `QFile(":/shaders/neon.frag.qsb").readAll()` 的
+  零依赖资源预读（`BOOT qsb prewarm 8696 0`），预热的是冷 I/O；GPU 侧的 shader
+  编译/链接仍由 Qt Quick 首帧完成 —— 这一项只算「部分完成」，别在交付里写成
+  「首次链接已预热」。
+- **现象 / 根因 / 解法（B）`main.cpp` 行数棘轮差点撑破**：四项改动若全部内联进
+  `main.cpp`，文件从 1907 涨到 1968 行，超过 `check_module_deps.py` 的
+  `LINE_LIMITS["src/main.cpp"]=1910`（+58），守卫直接拦下验收。**解法**：按棘轮的
+  设计意图把启动时序逻辑外移到 `src/shell/StartupDefer.h`（header-only，不需要进
+  CMakeLists 源文件列表），main.cpp 只留几行调用点并压缩单行条件，最终 1909 行。
+  新入口脚本 / 新 helper 先默认「不往 main.cpp 里塞」，这是棘轮逼出来的好习惯。
+- **现象 / 根因 / 解法（C）`--smoke` 测不到首帧，前后对比会变成假的**：
+  `Main.qml` 根窗口 `visible: false`，靠 `dispatch()` 里的 `showAndActivate()` 显示；
+  空动作参数时 `AppActions::fromArguments` 返回 `kShow`、`targetFor` 的 method 为空，
+  `dispatch` 仍会 `showAndActivate()`，但实测纯 `--smoke`（无动作）下
+  `frameSwapped` 不触发 → `BOOT firstframe` 不打印、`METRICS startup=-1ms`、
+  `fps=0.0 frames=0`，CPU 口径全是 -1。**解法**：实机计时统一带
+  `--settings`（或任何会 show 窗口的动作）跑 `--smoke --settings`，首帧/CPU 才有效；
+  纯 GUI 启动验证另用 `--settings` 无 `--smoke`，日志能走完
+  `BOOT shown` → `BOOT firstframe` → `BOOT schema finalized`。
+- **现象 / 根因 / 解法（D）全量 `verify.ps1` 在编译步骤被本机编码环境阻住，非本次改动引入**：
+  本机中文 Windows + 非交互 PowerShell 下，`build.ps1` 的 `/showIncludes` 前缀交接
+  两头失真 —— 旧 `rules.ninja` 记 `??: ?:  `（CP936 下 `file(READ)` 把 GBK 写 `?`），
+  重新 configure 后探针在 UTF-8 会话里把 cl 的 GBK 前缀解成 U+FFFD；两者都与 cl
+  实际输出字节对不上，`check_ninja_deps.py` 报 296/443 个 `#deps 0`，
+  `build.ps1` 的硬门 throw（同源记录见 §3.16 / §3.20 / §3.21）。
+  另外 `check_qml_warnings.py --selftest` 的「反向证伪」断言检查中文「第 2 行」，
+  子进程 stdout 在管道里被编码成 `?`，自测假失败。**解法（环境层，不动脚本、不绕闸门）**：
+  编译由手动 `cmake --build --parallel` 全量佐证通过（319/319 + 增量 5/5），
+  验收用 `verify.ps1 -SkipBuild` 跑完 ctest / `--selftest` / `--smoke` / QML 守卫 /
+  模块守卫 / 看板一致性（40/40 全过、EXIT 0）；自测前设
+  `$env:PYTHONIOENCODING='utf-8'`。**注意**：这不是「`verify.ps1` 全量档通过」，
+  交付说明必须如实写清编译步骤的环境阻塞与佐证方式。
+- **残留（未修，已如实记入交付说明）**：GUI 两阶段建表在**全新库**的空态期会留几行
+  启动日志 —— `TaskTree: load links failed: no such table: task_link`、
+  `TaskRunStore: ... failed: Parameter count mismatch`、`Database: meta write failed`。
+  老库表已存在时完全没有；finalize 后 `taskStore.load()` 补齐主模型，最终
+  12 张表齐全、`PRAGMA user_version=2`。这些是启动期的一次性初始化，新库上多为
+  空操作，但 `PluginRuntime::ensureGrantsBootstrapped()` 在首帧前写入 meta 失败后
+  没有重试通道（该方法私有且只在 `start()` 里调），首次运行的官方插件自动授权
+  可能未落地 —— 涉及 `src/agent/`、`src/task/` 等卡片 scope 外路径，本批未动。
+
 ## 八、同专题的既有文档
 
 本文不重复展开这些，遇到对应场景请直接翻：

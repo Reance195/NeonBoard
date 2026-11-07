@@ -60,8 +60,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFont>
-#include <QFontDatabase>
-#include <QFontMetrics>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QJsonArray>
@@ -85,6 +83,7 @@
 #include <cstdio>
 #include <memory>
 #include <mutex>
+#include "StartupDefer.h"
 
 static void neonboardLogHandler(QtMsgType, const QMessageLogContext &, const QString &message)
 {
@@ -228,6 +227,8 @@ int main(int argc, char *argv[])
         splashPump(70);
     }
 
+    nbPrewarmShader();
+
     const auto splashStage = [&splash, &splashPump](qreal progress, const QString &label, int holdMs) {
         if (!splash)
             return;
@@ -235,21 +236,15 @@ int main(int argc, char *argv[])
         splashPump(holdMs);
     };
 
-    QElapsedTimer fontTimer;
-    fontTimer.start();
-    qInfo() << "BOOT font families" << QFontDatabase::families().size() << fontTimer.elapsed();
     QFont uiFont(QStringLiteral("Microsoft YaHei UI"));
     uiFont.setPointSize(9);
-    QFontMetrics uiMetrics(uiFont);
-    qInfo() << "BOOT font metrics"
-            << uiMetrics.horizontalAdvance(QStringLiteral("工作台待办进行中已办结"))
-            << fontTimer.elapsed();
     QApplication::setFont(uiFont);
     splashStage(0.18, QStringLiteral("LOADING TYPEFACES"), 40);
 
     Database database;
     QString databaseError;
-    if (!database.open(&databaseError)) {
+    const bool deferredSchema = !utilityMode;
+    if (!(deferredSchema ? database.openDeferred(&databaseError) : database.open(&databaseError))) {
         if (splash)
             splash->close();
         QMessageBox::critical(nullptr,
@@ -269,7 +264,7 @@ int main(int argc, char *argv[])
     splashStage(0.36, QStringLiteral("OPENING LOCAL STORE"), 70);
 
     TaskModel taskStore(&database);
-    taskStore.load();
+    if (!deferredSchema) taskStore.load();
 
     // 通用撤销栈：删除 / 移动 / 完成 / 编辑 四类用户操作统一可撤销
     TaskUndo taskUndo(&taskStore);
@@ -1152,9 +1147,7 @@ int main(int argc, char *argv[])
             roadmap.exportAll();
     });
 
-    // 启动即拉取路线图快照：全局文件 + 所有绑定项目文件（无激活文件时 importAll 空转）
-    if (roadmap.importAll(false))
-        qInfo().noquote() << "Roadmap: synced" << roadmap.path() << roadmap.lastReport();
+    if (!deferredSchema && roadmap.importAll(false)) qInfo().noquote() << "Roadmap: synced" << roadmap.path();
 
     // 领用同步：启动即扫一次，之后每 5 秒轮询各 worktree 台账
     QTimer claimPoll;
@@ -1164,18 +1157,25 @@ int main(int argc, char *argv[])
     boardSync.refresh();
 
     // 每日首次启动自动备份数据库（先落 WAL 再复制，保证备份完整）
-    {
-        const QString backupMessage = dataPort.backupIfNeeded();
-        if (backupMessage.isEmpty())
-            qInfo().noquote() << "Backup: daily snapshot ready" << dataPort.backupDir();
-        else
-            qWarning().noquote() << "Backup failed" << backupMessage;
+    if (!deferredSchema) {
+        const QString m = dataPort.backupIfNeeded();
+        if (m.isEmpty()) qInfo().noquote() << "Backup: daily snapshot ready" << dataPort.backupDir();
+        else qWarning().noquote() << "Backup failed" << m;
     }
 
     Metrics metrics;
     QObject::connect(&metrics, &Metrics::startupMeasured, [&boot, &metrics]() {
         // 同时打墙钟与 CPU：墙钟随机器负载乱飘，CPU 才是改动有没有用的判据
         qInfo() << "BOOT firstframe" << boot.elapsed() << "cpu" << metrics.startupCpuMs();
+    });
+
+    nbDeferUntilFirstFrame(&metrics, &app, [&]() {
+        if (!deferredSchema) return;
+        if (QString e; !database.finalizeSchema(&e)) qWarning().noquote() << "Database: deferred schema failed" << e;
+        else qInfo() << "BOOT schema finalized" << boot.elapsed();
+        taskStore.load();
+        if (roadmap.importAll(false)) qInfo().noquote() << "Roadmap: synced" << roadmap.path();
+        if (const QString m = dataPort.backupIfNeeded(); !m.isEmpty()) qWarning().noquote() << "Backup failed" << m;
     });
     UiSettings uiSettings;
     // 外部主题包（R8-01）：启动即扫描 themes/ 目录。
@@ -1193,6 +1193,7 @@ int main(int argc, char *argv[])
     // 提醒调度器：30s 轮询，托盘通知 + 窗口辉光；启动后先查一轮补发漏提醒
     ReminderScheduler reminderScheduler(&taskExtra, &tray);
     PluginLoader pluginLoader(&database);
+    pluginLoader.scanAsync();
     PluginEventBus pluginEventBus;
     PluginRuntime pluginRuntime(&pluginLoader, &pluginEventBus, &database, &taskStore, &tray);
 
@@ -1762,6 +1763,7 @@ engine.rootContext()->setContextProperty(QStringLiteral("dataPort"), &dataPort);
         qInfo() << "BENCH main only" << (boot.elapsed() - tMain);
         return 0;
     }
+    if (!pluginLoader.scanFinished()) pluginLoader.scan();
     pluginRuntime.start();
     // 后台插件就绪后再开始消费事件队列：启动时攒下的事件会被这一轮补投递
     hookQueue.start(1000);

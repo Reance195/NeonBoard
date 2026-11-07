@@ -137,10 +137,27 @@ A/B 实测（`NEONBOARD_NO_BG=1` 关背景，用**进程 CPU 时间**与 `engine
 | 子项 | 做法 | 预期 | 状态 |
 | --- | --- | --- | --- |
 | QML 树瘦身 | 面板类（设置 / 插件 / 外观）改 `Loader` 按需加载 | 200–400 ms | **已完成（实测 -250 ~ -490 ms）** |
-| 数据库 | `Database.cpp` 在 UI 线程同步建表/迁移，改为独立线程 + 延后首帧 | 数十 ms | 待做 |
-| 插件扫描 | `PluginLoader` 扫描目录在主线程，改为后台扫描，首帧后再注入侧栏 | 数十 ms | 待做（实测当前仅 2–8 ms，优先级下调） |
-| 字体 | `Cascadia Code` 缺失时的回退字体加载可能阻塞首帧 | 数十 ms | 待做 |
-| Shader 预热 | `.qsb` 首次链接可在 Splash 阶段预热（当前冷态 BOOT shown 比热态多 1–2 s） | 可能秒级 | 待做 |
+| 数据库 | `Database` 两阶段打开：`openDeferred()` 只开连接，建表/迁移延到首帧后 `finalizeSchema()` | 数十 ms | **已完成（R0-13）**：`BOOT db` 82→32 ms（hot）/ 81→44 ms（cold）；竞态面由 `tst_startupdefer` 覆盖空态 / 就绪信号 / 幂等 / 老库迁移 |
+| 插件扫描 | `PluginLoader::scanAsync()` 在独立线程读目录 / manifest，完成后回主线程注入 | 数十 ms | **已完成（R0-13）**：日志 `background scan 9 plugin(s) in 2–3 ms` + `injected 9 plugin(s) into sidebar`；启动路径保留一次同步兜底（见 pitfalls §7.7） |
+| 字体 | `QFontDatabase::families()` / `QFontMetrics` 探针延到首帧后 | 数十 ms | **已完成（R0-13）**：`BOOT font families` / `BOOT font metrics` 现排在 `BOOT firstframe` 之后；首帧前 4/18 ms → 0/0 ms |
+| Shader 预热 | Splash BOOT 阶段并行预读 `.qsb` 资源 | 可能秒级 | **已完成（R0-13，部分）**：`BOOT qsb prewarm 8696 0` 紧跟 `BOOT app`；只预热冷 I/O，GPU 链接仍由 Qt Quick 首帧完成（Qt 6.8.3 的 `QShader` 在 RHI 内部头，见 pitfalls §7.7） |
+
+**R0-13 同机前后实测**（Release，`--smoke --settings`，每档 5 轮 hot / 3 轮 cold 取中位数；单位 ms）：
+
+| 打点 | 改动前 hot / cold | 改动后 hot / cold | 归属 |
+| --- | --- | --- | --- |
+| `BOOT app` | 50 / 38 | 25 / 27 | 噪声 |
+| `BOOT font families`（首帧前） | 4 / 4 | 0 / 0 | 探针移到首帧后 |
+| `BOOT font metrics`（首帧前） | 18 / 16 | 0 / 0 | 同上 |
+| `BOOT db` | 82 / 81 | 32 / 44 | 两阶段只开连接 |
+| `BOOT engine` | 427 / 303 | 90 / 115 | 非本次改动作用段 |
+| `BOOT loaded` | 1717 / 953 | 562 / 567 | 非本次改动作用段 |
+| `BOOT attached` | 1831 / 1014 | 604 / 609 | 非本次改动作用段 |
+| `BOOT shown` | 1843 / 1024 | 610 / 614 | 非本次改动作用段 |
+| `BOOT firstframe` | 4972 / 4801 | 1723 / 1727 | 非本次改动作用段 |
+| `cpu`（首帧 CPU） | 1624 / 1436 | 952 / 921 | 非本次改动作用段 |
+
+口径说明（Z8/Z9）：`engine → loaded → shown` 的降幅约 65%，**远超四项改动能解释的量级**（字体 ~20 ms、建表 ~50 ms、扫描 ~3 ms、`.qsb` 预读 <1 ms），主要来自两次测量之间机器负载 / 页缓存差异（中间隔了两次全量编译）；只把「首帧前同步路径上这几段的消失」当作改动收益，不把整体降幅归因于本次改动。冷/热 `firstframe` 差值 |改动前 171 ms| → |改动后 4 ms| 收敛；但本机 cold/hot 以「新数据目录 / 同数据目录」定义，并非真正的磁盘页缓存冷态，按卡片口径只记同机前后对比，不写绝对承诺值。GUI 正常启动（非 `--smoke`）另实测：空态期后 `BOOT schema finalized`，12 张表齐全、`PRAGMA user_version=2`、`BOOT firstframe 2426ms cpu 1468`。
 
 **验收**：热启动 < 1.5 s（**已达成：1.23–1.39 s**）；首次运行 < 3 s（待优化）；指标面板保留可见（这本身也是炫酷元素）。
 

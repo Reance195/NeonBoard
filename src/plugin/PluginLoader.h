@@ -2,6 +2,7 @@
 
 #include <QHash>
 #include <QObject>
+#include <QPair>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
@@ -61,6 +62,10 @@ public:
     QStringList disabledPlugins() const;
 
     Q_INVOKABLE void scan();
+    /** R0-13：在独立线程读目录 / manifest，完成后回主线程注入并 emit pluginsChanged。
+     *  构造不再同步 scan()；启动方需要完整清单前用 scanFinished() 兜底。 */
+    Q_INVOKABLE void scanAsync();
+    bool scanFinished() const { return m_scanFinished; }
     Q_INVOKABLE bool openPluginDir();
     Q_INVOKABLE QVariantMap pluginById(const QString &id) const;
     Q_INVOKABLE bool setPluginEnabled(const QString &id, bool enabled);
@@ -70,6 +75,9 @@ signals:
     void pluginsChanged();
 
 private:
+    using ScanResult = QPair<QVariantList, QVariantList>;
+    ScanResult collectScan(const QStringList &disabledIds, const QStringList &roots) const;
+    void applyScan(const ScanResult &result);
     QStringList readDisabledList() const;
     bool writeDisabledList(const QStringList &ids) const;
 
@@ -77,4 +85,5 @@ private:
     QVariantList m_plugins;
     QVariantList m_candidates;
     QString m_pluginDir;
+    bool m_scanFinished = false;
 };

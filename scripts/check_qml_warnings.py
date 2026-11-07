@@ -197,7 +197,7 @@ def _selftest_cases() -> tuple[list[str], list[str]]:
         "TypeError: Cannot read property 'x' of null",
         "qrc:/qt/qml/NeonBoard/PluginLibraryPanel.qml:493: "
         "ReferenceError: libraryPanel is not defined",
-        "ASSERT: \"size >= 0\" in file src/taskmodel.cpp, line 123",
+        "ASSERT: \"size >= 0\" in file src/task/TaskModel.cpp, line 123",
         "FATAL: exception thrown",
         "Segmentation fault (core dumped)",
         "QQmlApplicationEngine failed to load component",

@@ -236,6 +236,7 @@
         "R5-11": "done",
         "R5-12": "done",
         "R5-13": "done",
+        "R5-14": "todo",
         "R6-01": "done",
         "R6-02": "done",
         "R6-03": "done",
@@ -5167,6 +5168,26 @@
             "stage": "R5",
             "title": "v0.1.6 发版：版本号递增与发布验收"
         },
+        "R5-14": {
+            "acceptance": [
+                "CMakeLists.txt 的 project(NeonBoard VERSION) 递增为 0.1.7，与 tag v0.1.7 一致（release.yml 的标签-源码版本一致性校验通过）",
+                "pwsh -File scripts/verify.ps1 全量档通过（CMakeLists.txt 属代码路径）",
+                "tag v0.1.7 推送成功且指向 origin/main 上的合并提交（pre-push 闸门放行）",
+                "CI release run 全绿，GitHub Release 资产齐全（NeonBoard-Setup / portable.zip / delta.zip / update.json）",
+                "release.yml 回写 update.json 至 0.1.7 并落地 origin/main（客户端 raw 读取可见新版本）"
+            ],
+            "author": "agent-codebuddy-release-session-2026-11-07",
+            "depends": [],
+            "evidence": "维护者 2026-11-07 会话指令「发个版吧」。v0.1.6（R5-13）以来主线合入的交付以 fix/chore 为主：DX-37（发布构建 sccache 缓存与自检退出码归位）、DX-60（中文 locale 依赖前缀适配）、DX-102（模块守卫）、DX-127/128（git-done 临时分支回收与冲突工单登记修复）等，无 feat，按语义化版本递增 patch 号。按先例（R5-03/08/10/13 每版一张发版卡）立卡。",
+            "id": "R5-14",
+            "note": "",
+            "scope": [
+                "CMakeLists.txt"
+            ],
+            "stage": "R5",
+            "tier": "P3",
+            "title": "v0.1.7 发版：版本号递增与发布验收"
+        },
         "R6-01": {
             "acceptance": [
                 "ctest --test-dir build -C Release -R tst_taskexec --output-on-failure",
@@ -5773,6 +5794,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "R5-14": {
+            "agent": "agent-release-017",
+            "branch": "chore/board-r5-14",
+            "claimedAt": 1794023330,
+            "head": "27acafecb4fedd985534431198da48d9a4d62486"
+        }
+    },
     "version": 1
 }

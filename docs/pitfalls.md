@@ -1905,6 +1905,23 @@
 - **判据**：负测——在 iss 注释里写 `{ 用 {app} 常量拼接 }`，
   `-ScriptOnly` 的「安装器编译闸门」必须红。
 
+### 3.24 find_program 式可选加速器在 CI 上静默失效：配置存在不等于生效
+
+- **现象**（DX-37 实测）：发布流水线的「构建 Release」长期 8m36s、占全流程 76% 墙钟，
+  而 CI 主构建（ci.yml）早已接入 sccache —— release.yml 里没有任何编译缓存步骤，
+  却没人觉得缺了什么：CMakeLists 的 `find_program(sccache)` 在 runner 上探测不到
+  就静默跳过，日志里连一行提示都没有，看起来一切正常。
+- **根因**：`find_program` 式可选加速器的失败模式是「探测不到 → 静默降级」，
+  在 CI 的干净 runner 上必然走降级分支 —— 本机装了 ≠ runner 装了。
+  「配置存在」（CMakeLists 有挂 launcher 的代码）与「真的生效」（缓存命中 > 0）之间
+  隔着安装、PATH、生成器差异三道坎，断哪道都无感知。
+- **解法**：CI 上接入加速器必须三件套：显式安装（ccache-action / `choco install`）→
+  显式传入（`-DCMAKE_<LANG>_COMPILER_LAUNCHER=sccache`，与 ci.yml 同一口径）→
+  事后核验（读 CMakeCache 的 COMPILER_LAUNCHER + `sccache --show-stats` 打命中率）。
+  加速器 fail-soft 不阻断发布，但未启用时必须打印「sccache: 未启用」级别的显式告警。
+- **判据**：release.yml 的「sccache 生效核验与命中率」步骤：launcher 缺失时打印
+  「sccache: 未启用」；命中/未命中数字每次发布都出现在日志里（口径与 DX-16 一致）。
+
 ---
 
 ## 四、界面验收与自动化

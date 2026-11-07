@@ -70,11 +70,39 @@ jobs:
         shell: pwsh
         run: choco install innosetup --yes --no-progress
 
+      - name: 编译缓存（sccache）
+        # DX-37：发布构建此前零编译缓存，冷编译占「构建 Release」约 76% 墙钟（8m36s）。
+        # 与 ci.yml 同一套 ccache-action（variant sccache）、同一个 key：CI 主构建喂热的，
+        # 发布构建直接吃；Qt 安装目录的缓存由上方 install-qt-action 的 cache: true 负责。
+        # 命中/未命中在 Post「编译缓存」日志与下方「sccache 生效核验与命中率」步骤可见。
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          variant: sccache
+          key: neonboard-sccache-${{ runner.os }}
+
       - name: 配置 CMake
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+        # launcher 与 ci.yml 同一口径显式传入：sccache 未装上时构建会当场报错，
+        # 而不是退回「干净 cl.exe」的静默冷编译（见 docs/pitfalls.md §3.24）。
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}" -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
       - name: 构建 Release
         run: cmake --build build --config Release --parallel
+
+      - name: sccache 生效核验与命中率
+        # DX-37：find_program 式可选加速器在 CI 上会静默失效（没装就直编，配置存在 ≠ 生效）。
+        # 显式核对两件事：launcher 是否真的进了 CMakeCache、命中/未命中各多少；
+        # 未启用只告警不阻断 —— 缓存是加速器，不是发布前提（fail-soft + 告警）。
+        if: always()
+        shell: pwsh
+        run: |
+          $launcher = Select-String -LiteralPath 'build\CMakeCache.txt' -Pattern '^CMAKE_(C|CXX)_COMPILER_LAUNCHER' -ErrorAction SilentlyContinue
+          if (-not $launcher) {
+            Write-Host 'sccache: 未启用（CMakeCache 里没有 COMPILER_LAUNCHER）——本次是未加速的全量冷编译' -ForegroundColor Yellow
+            exit 0
+          }
+          $launcher | ForEach-Object { Write-Host "sccache: 已启用（$($_.Line.Trim())）" }
+          if (Get-Command sccache -ErrorAction SilentlyContinue) { sccache --show-stats }
+          else { Write-Host 'sccache: 未启用（PATH 上找不到 sccache.exe）' -ForegroundColor Yellow }
 
       - name: 数据层自检
         shell: pwsh

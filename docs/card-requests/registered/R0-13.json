@@ -1,0 +1,13 @@
+{
+  "card": "R0-13",
+  "sha256": "bc07b65008d73fe7fc4cee333ee1991fd8c98c9ac30726ca95ab36f39e8b09eb",
+  "authorizedBy": "维护者会话 2026-11-07 授权（按 docs/card-requests/20261107-r0-startup-performance.md 请求单发号）",
+  "form": "docs/card-requests/20261107-r0-startup-performance.md",
+  "registeredAt": "2026-11-07T00:46:08+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R0-13",
+    "sha": "23ac1b97e8be30f325262b5a9ac2499d932cfb72"
+  }
+}

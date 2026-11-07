@@ -55,24 +55,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "DX-137",
-            "completedAt": 0,
-            "createdAt": 1794033711,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-137",
-            "note": "",
-            "orderKey": 86000,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "QML 反馈链三处：QString.isEmpty() 必抛 TypeError、逾期判定跨年失效、热力图永不重绘",
-            "updatedAt": 1794033711
-        },
-        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -5191,6 +5173,24 @@
             "updatedAt": 1794036764
         },
         {
+            "code": "DX-137",
+            "completedAt": 1794040492,
+            "createdAt": 1794033711,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-137",
+            "note": "交付：SettingsPanel 五处 isEmpty() 改 === \"\"（QString 进 QML 即 JS 字符串）；逾期判定单源化到 Overdue.js（dueAt 带年份 epoch 优先，跨年不再失效，BoardColumn 补传 model.dueAt）；ActivityHeatmap 补 onCellsChanged → requestPaint（CMake 同步把 JS 挂进 QML 模块资源 + QT_RESOURCE_ALIAS）；check_qml_pitfalls 新增 js-isEmpty 规则（自测 8 项，全目录扫描清零；致命词面单源归 check_qml_warnings）。验收：tst_taskcard_logic 五用例（跨年/未来/当天/回退口径/重绘机制）经 qmltestrunner 全绿；verify.ps1 全量通过——冒烟闸曾拦下 Overdue.js 资源缺失，属真实拦截。热力图真实组件依赖 Theme 上下文属性无法在测试引擎实例化，接线以同形夹具证明机制成立。",
+            "orderKey": 86000,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "QML 反馈链三处：QString.isEmpty() 必抛 TypeError、逾期判定跨年失效、热力图永不重绘",
+            "updatedAt": 1794040492
+        },
+        {
             "code": "R9-01",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5605,6 +5605,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T16:33:44",
+    "updated": "2026-11-07T16:34:52",
     "version": 3
 }

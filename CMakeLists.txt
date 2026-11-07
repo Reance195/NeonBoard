@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(NeonBoard VERSION 0.1.6 LANGUAGES C CXX)
+project(NeonBoard VERSION 0.1.7 LANGUAGES C CXX)
 
 # ---- DX-52：把「实际编译链路」上的 /showIncludes 前缀告诉 Ninja 依赖解析 ----
 # CMake 的编译器探测**绕开启动器**（CMAKE_DETERMINE_MSVC_SHOWINCLUDES_PREFIX 直接调 cl.exe，

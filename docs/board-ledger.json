@@ -5655,13 +5655,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-117": {
-            "agent": "agent-dx117",
-            "branch": "fix/check-scope-multicard-union",
-            "claimedAt": 1794011693,
-            "head": "01898f71df08ef08727f5f89ca308c097e589703"
-        }
-    },
+    "claims": {},
     "version": 1
 }

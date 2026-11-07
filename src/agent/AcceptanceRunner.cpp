@@ -137,8 +137,18 @@ QVariantMap AcceptanceRunner::parseItem(const QString &item, const QString &cwd)
     if (!allowed && !cwd.trimmed().isEmpty()) {
         // 白名单外但指向 cwd（仓库）内的真实文件（脚本路径）也放行——
         // 「command 走白名单脚本路径」：脚本本身在受控目录里，argv 直起无 shell。
+        // DX-134：必须解析成规范路径并确认位于 cwd 之内 —— QFileInfo 对绝对
+        // 路径原样采用，不做这个边界的话 C:\Windows\System32\cmd.exe 与 ..\.. 都能绕过。
         const QFileInfo info(QDir(cwd), program);
-        allowed = info.exists() && info.isFile();
+        // 分隔符统一成 '/' 再比前缀：canonicalFilePath 在 Windows 上的分隔符
+        // 形态随输入走，混比会漏判
+        const QString canonicalCwd =
+            QDir::fromNativeSeparators(QFileInfo(cwd).canonicalFilePath());
+        const QString canonicalProgram =
+            QDir::fromNativeSeparators(info.canonicalFilePath());
+        allowed = info.exists() && info.isFile() && !canonicalCwd.isEmpty()
+                  && !canonicalProgram.isEmpty()
+                  && canonicalProgram.startsWith(canonicalCwd + QLatin1Char('/'));
     }
     if (!allowed) {
         out.insert(QStringLiteral("rejected"), true);

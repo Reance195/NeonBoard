@@ -27,6 +27,8 @@ private slots:
     void rejectsShellSyntax();
     void rejectsNonWhitelistedProgram();
     void allowsScriptPathUnderCwd();
+    void rejectsAbsoluteProgramOutsideCwd();
+    void rejectsEscapeViaDotDot();
     void assertFileExistsHitAndMiss();
     void assertUnsupportedSyntaxFails();
     void runsCommandsFailFast();
@@ -96,6 +98,48 @@ void TestAcceptance::allowsScriptPathUnderCwd()
              QStringLiteral("tools/mytool.exe"));
     QCOMPARE(parsed.value(QStringLiteral("args")).toStringList(),
              QStringList{QStringLiteral("--check")});
+}
+
+// DX-134：fallback 对绝对路径原样采用的洞 —— 白名单外的系统程序不得借 cwd 存在性放行
+void TestAcceptance::rejectsAbsoluteProgramOutsideCwd()
+{
+#ifdef Q_OS_WIN
+    const QVariantMap parsed = m_runner.parseItem(
+        QStringLiteral("C:\\Windows\\System32\\cmd.exe /c del /s /q ."), m_dir.path());
+    QVERIFY2(parsed.value(QStringLiteral("rejected")).toBool(),
+             qPrintable(parsed.value(QStringLiteral("reason")).toString()));
+    QVERIFY(parsed.value(QStringLiteral("reason")).toString().contains(
+        QStringLiteral("白名单")));
+#else
+    QSKIP("Windows 专有：系统目录绝对路径");
+#endif
+}
+
+// DX-134：.. 越出 cwd 的写法同样必须拦下（canonical 包含判据）
+void TestAcceptance::rejectsEscapeViaDotDot()
+{
+    QDir(m_dir.path()).mkpath(QStringLiteral("sub"));
+    // cwd 之外（<temp>/tool.exe）与之内（<temp>/sub/tool.exe）各放一个同名 stub：
+    // "..\tool.exe" 以 sub 为 cwd 解析后落在 <temp>/tool.exe —— 在 cwd 之外，必须拒
+    QFile outside(m_dir.filePath(QStringLiteral("tool.exe")));
+    QVERIFY(outside.open(QIODevice::WriteOnly));
+    outside.write("stub");
+    outside.close();
+    QFile inside(m_dir.filePath(QStringLiteral("sub/tool.exe")));
+    QVERIFY(inside.open(QIODevice::WriteOnly));
+    inside.write("stub");
+    inside.close();
+
+    const QString sub = m_dir.path() + QStringLiteral("/sub");
+    const QVariantMap escaped =
+        m_runner.parseItem(QStringLiteral("..\\tool.exe"), sub);
+    QVERIFY2(escaped.value(QStringLiteral("rejected")).toBool(),
+             qPrintable(escaped.value(QStringLiteral("reason")).toString()));
+
+    // 对照：cwd 内的同名文件（不带 ..）照常放行，判据只拦「解析后出界」
+    const QVariantMap contained = m_runner.parseItem(QStringLiteral("tool.exe"), sub);
+    QVERIFY2(!contained.value(QStringLiteral("rejected")).toBool(),
+             qPrintable(contained.value(QStringLiteral("reason")).toString()));
 }
 
 void TestAcceptance::assertFileExistsHitAndMiss()

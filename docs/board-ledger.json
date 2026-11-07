@@ -1412,7 +1412,8 @@
                 "qml/components/ActivityHeatmap.qml",
                 "tests/qml/**",
                 "tests/CMakeLists.txt",
-                "scripts/check_qml_pitfalls.py"
+                "scripts/check_qml_pitfalls.py",
+                "qml/components/BoardColumn.qml"
             ],
             "stage": "DX",
             "tier": "P3",

@@ -1,0 +1,15 @@
+{
+    "id": "com.lin.scheduler",
+    "name": "定时任务",
+    "version": "1.0.0",
+    "apiVersion": 2,
+    "description": "按时间计划自动执行看板动作：定时建卡、按条件流转任务、托盘通知；错过时点自动补执行一次",
+    "category": "任务自动化",
+    "dependencies": [
+        "宿主需支持 apiVersion 2（后台常驻插件）"
+    ],
+    "main": "main.qml",
+    "background": "background.qml",
+    "permissions": ["tasks.read", "tasks.write", "notifications", "storage"],
+    "contributes": {}
+}

@@ -118,6 +118,16 @@ jobs:
           python scripts/task_gate.py selftest
           if ($LASTEXITCODE -ne 0) { throw '代登记审计自测未通过：允许/拒绝用例与预期不符' }
 
+      - name: 立卡一致性对账（DX-121）
+        shell: pwsh
+        run: |
+          # 半落地（7ee6040 实录）：回执/占位在而台账 cards 无对应卡。此检查扫
+          # docs/card-requests/registered/*.json 与 origin refs/registrations/* 双向对账：
+          # 回执文件在而卡不在 → 硬拦；孤儿占位（推占位后立卡半途失败，无回执文件）
+          # → 告警点名，补立或弃由维护者定。判定唯一实现：scripts/task_gate.py registrations。
+          python scripts/task_gate.py registrations
+          if ($LASTEXITCODE -ne 0) { throw '立卡一致性对账未通过：存在半落地卡，见上方点名' }
+
       - name: 一分支多卡自测（DX-03）
         shell: pwsh
         run: |

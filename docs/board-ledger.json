@@ -5686,6 +5686,13 @@
             "title": "启动性能收尾批次：建表延后 / 扫描后台化 / 字体回退不阻塞 / .qsb 预热"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-121": {
+            "agent": "agent-halfreg",
+            "branch": "fix/dx121-receipt-integrity",
+            "claimedAt": 1794011802,
+            "head": "20a3c435826c497cbc288cc0972c7be9f24faae6"
+        }
+    },
     "version": 1
 }

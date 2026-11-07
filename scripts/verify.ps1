@@ -459,15 +459,20 @@ if ($snapshotHash) {
 }
 if (-not (Test-Path $log)) { Fail '未生成运行日志' }
 
-$patterns = 'is not a type|is not a member|TypeError|ReferenceError|' +
-            'Unable to assign|Cannot assign|QQmlApplicationEngine failed|' +
-            '不是一种类型|不是一个类型|不存在的附加对象|没有安装|' +
-            'ASSERT|FATAL|Segmentation'
-$lines = [System.IO.File]::ReadAllLines($log, [System.Text.Encoding]::UTF8)
-$bad = $lines | Where-Object { $_ -match $patterns }
-if ($bad) {
-    $bad | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-    Fail "冒烟日志检测到致命错误（$($bad.Count) 行）"
+# 致命告警判据单源（DX-122）：形态识别实现在 scripts/check_qml_warnings.py，这里只调用
+# —— 不再自带 pattern 列表（枚举式漏检过 R11-13，见 pitfalls §4.12）。本地走棘轮口径。
+$warnScript = Join-Path $repoRoot 'scripts\check_qml_warnings.py'
+if ((Test-Path $warnScript) -and (Get-Command python -ErrorAction SilentlyContinue)) {
+    & python $warnScript --selftest
+    if ($LASTEXITCODE -ne 0) {
+        Fail "check_qml_warnings 自测未过（退出码 $LASTEXITCODE）"
+    }
+    & python $warnScript $log --base origin/main
+    if ($LASTEXITCODE -ne 0) {
+        Fail '冒烟日志检测到致命错误（check_qml_warnings 命中，见上方点名行）'
+    }
+} else {
+    Write-Host '· 跳过：未找到 check_qml_warnings.py 或 python' -ForegroundColor DarkGray
 }
 
 

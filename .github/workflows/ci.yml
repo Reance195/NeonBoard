@@ -250,13 +250,12 @@ jobs:
           $lines = [System.IO.File]::ReadAllLines($log, [System.Text.Encoding]::UTF8)
           $lines | ForEach-Object { Write-Host $_ }
 
-          # QML 与 C++ 侧的致命问题一律拦截，避免「能编译但跑不起来」
-          $patterns = 'is not a type|is not a member|TypeError|ReferenceError|' +
-                      'Unable to assign|Cannot assign|QQmlApplicationEngine failed|' +
-                      '不是一种类型|不是一个类型|不存在的附加对象|没有安装|' +
-                      'ASSERT|FATAL|Segmentation'
-          $bad = $lines | Where-Object { $_ -match $patterns }
-          if ($bad) { throw ("检测到错误日志：`n" + ($bad -join "`n")) }
+          # 致命告警判据单源（DX-122）：形态识别在 scripts/check_qml_warnings.py，
+          # CI 走严格口径 —— 主线零容忍（本地 verify 走棘轮口径）
+          python (Join-Path $PWD 'scripts\check_qml_warnings.py') --selftest
+          if ($LASTEXITCODE -ne 0) { throw "check_qml_warnings 自测未过（退出码 $LASTEXITCODE）" }
+          python (Join-Path $PWD 'scripts\check_qml_warnings.py') $log --strict
+          if ($LASTEXITCODE -ne 0) { throw '检测到错误日志（check_qml_warnings 命中，见上方点名行）' }
 
       - name: 性能基线（--smoke 的 startup / fps / mem）
         # 只告警不拦截：先积累几轮数据，确认基线稳定后再去掉 continue-on-error。

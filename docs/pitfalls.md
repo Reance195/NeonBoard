@@ -2043,6 +2043,25 @@
   （数字表、表情、图标条、序列帧）都要先问一句：**这格在图集里的设备像素位置是哪里？**
   凡是「逻辑宽度 × dpr」生成、却按逻辑宽度去采样的，都是同一类错。
 
+### 4.12 枚举式致命 pattern 会漏检：没在名单里的告警静默通过
+
+- **现象**：R11-07 引入的 `QML EmptyState: Cannot anchor to an item that isn't a parent or sibling`
+  连过 R11-08 ~ R11-12 五张卡的验收 —— 每张卡 verify 全绿、ctest 全绿、--smoke 退出码 0，
+  直到 R11-13 复盘人工翻日志才看见。名单里明明有 `Cannot assign`，只差一个词就漏了。
+- **根因**：`verify.ps1` 与 `ci.yml` 各自维护一份**完全相同**的枚举 pattern（两份实现还埋着
+  Z5 判据漂移），判据本质是「只拦已知坏法」—— 任何新形态的告警都静默通过。
+- **解法**（DX-122）：判据改**按形态识别**并收单源 —— `scripts/check_qml_warnings.py` 识别
+  崩溃形态（`ASSERT:` / `FATAL` / `Segmentation` / `QQmlApplicationEngine failed`）、JS 异常形态
+  （`TypeError:` / `ReferenceError:` 等语言级封闭集合）与 QML 定位形态
+  （`<file>.qml:<行>[:<列>]: <消息>`，引擎只对「有问题」的行打源定位，零容忍默认全拦）；
+  verify.ps1 与 ci.yml 只调用不再自带列表，脚本 `--selftest` 强制断言致命 pattern 字符串在
+  `scripts/` 与 `.github/` 下只出现一处。本地走棘轮口径（`--base origin/main`，存量不阻塞，
+  与 `check_module_deps` 同一套改动清单语义），CI 走 `--strict`（主线零容忍）。
+- **预防**：**「列出已知坏法」永远追不上「坏法的新形态」** —— 像启动日志这种「正常形态
+  稳定可描述」的判据，一律写成形态识别 + 反向证伪自测（造一条已知漏检样本喂进去，
+  检查必须红且点名该行）。只证明「当前主线命中 0」是不够的 —— 那分不清是检查写对了，
+  还是检查根本没在工作。
+
 ---
 
 ## 五、网络与远程操作

@@ -19,24 +19,6 @@
             "updatedAt": 1794027516
         },
         {
-            "code": "R0-15",
-            "completedAt": 0,
-            "createdAt": 1794027729,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R0-15",
-            "note": "",
-            "orderKey": 60672,
-            "priority": 2,
-            "stage": "R0",
-            "status": "todo",
-            "tags": [
-                "R0"
-            ],
-            "title": "首启空态残留：全新库建表延后期初始化失败无重试，官方插件自动授权可能未落地",
-            "updatedAt": 1794027729
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -4153,6 +4135,24 @@
             "updatedAt": 1793911592
         },
         {
+            "code": "R0-15",
+            "completedAt": 1794035613,
+            "createdAt": 1794027729,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R0-15",
+            "note": "交付 2026-11-07 / agent-r015 / fix/r0-15-empty-state-replay：①解法为「schemaReady 守卫跳过 + 就绪后重放」——TaskTree/TaskRunStore 构造期与 ensureGrantsBootstrapped 三处惰性调用点在空态期直接跳过（不再产出失败行），finalizeSchema 后由 nbConnectStartupReplay（StartupDefer.h 模板助手，依赖在 main.cpp 组合根实例化以过 shell L6 层序闸）统一重放 tree.reload()（尾部自带快照刷新）/ runs.startupMaintenance()（构造体抽出，语义不变）/ plugins.replayGrantsBootstrap()（新公开方法，空操作安全）；②scope 修正一笔（chore(board) 7287f08，授权=值守提示词）：补 TaskRunStore.h（配对头）、StartupDefer.h（棘轮只剩 1 行）、tests/（验收③必需）、src/board/ProjectStore.cpp（基线实测发现的第 4 处空态读，验收②日志判据字面覆盖）；③基线对照（沙箱全新库 GUI --settings 实测）：失败行 6 → 0（TaskTree no such table、TaskRunStore ×2、meta write failed ×2、ProjectStore no such table 全部消失，ProjectStore 降噪为 debug「空态读取…自愈」，非 no such table 真失败仍 qWarning）；④验收①硬判据：plugins.grants 首启即落库，8 个官方插件（agent-bridge/plan-hook/today/scheduler/agent-claude/codex/cursor/opencode）全量授权，13 张表齐全，无需二次启动；⑤验收③：tst_startupdefer 增「空态跳过→重放成功」集成例（含孤儿 run 恢复真实生效断言）、tst_pluginruntime 增「授权引导重放」例，两目标 6+15 全过，全量 ctest 41/41，老库路径（open() 直通）零改动；⑥验收④：全量 verify.ps1 EXIT 0（编译无绕行，DX-131 已合入）；pitfalls §7.7 残留段改写为根治记录。已完成 5 / 待做 0。偏差与移交：①模块守卫首版拒绝 StartupDefer.h 反向 include plugin 头（shell L6→plugin L7），模板化后依赖绑定落到组合根——层序闸抓得对，未绕过；②main.cpp 1910 行棘轮恰好用满（不得再增行）；③老库在延迟模式下链接重载从构造期推迟到 finalize 后（首帧前窗口本就不可见，无用户可见差异，tst 全绿佐证）。",
+            "orderKey": 60672,
+            "priority": 2,
+            "stage": "R0",
+            "status": "done",
+            "tags": [
+                "R0"
+            ],
+            "title": "首启空态残留：全新库建表延后期初始化失败无重试，官方插件自动授权可能未落地",
+            "updatedAt": 1794035613
+        },
+        {
             "code": "DX-92",
             "completedAt": 1793910602,
             "createdAt": 1793910088,
@@ -5605,6 +5605,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T14:47:09",
+    "updated": "2026-11-07T15:13:33",
     "version": 3
 }

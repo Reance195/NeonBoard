@@ -30,11 +30,12 @@
 
 ### 等价手敲构建命令
 
-默认走 Ninja（由 `build.ps1` 补 `-G Ninja` 并装配 MSVC 环境）；`-Generator VS` 时等价于：
+默认走 Ninja（由 `build.ps1` 补 `-G Ninja` 并装配 MSVC 环境）；`-Generator VS` 时等价于
+（`<Qt>` 按本机实际 Qt 安装位置替换，不必与示例一致）：
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
-  -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64
+  -DCMAKE_PREFIX_PATH=<Qt>/6.8.3/msvc2022_64
 cmake --build build --config Release
 ```
 

@@ -906,7 +906,7 @@ Write-Host ''
 Write-Host '后续步骤：' -ForegroundColor Cyan
 Write-Host ("  cd {0}" -f $worktree)
 Write-Host ("  . .\.agent-env.ps1")
-Write-Host ("  cmake -S . -B build -G `"Visual Studio 17 2022`" -A x64 -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64")
+Write-Host ("  cmake -S . -B build -G `"Visual Studio 17 2022`" -A x64 -DCMAKE_PREFIX_PATH=<本机Qt目录>/6.8.3/msvc2022_64  # 或走 scripts/build.ps1 自动探测")
 Write-Host ('  cmake --build build --config Release')
 Write-Host ("  pwsh -File scripts\dev-run.ps1          # 沙箱启动，不污染真实数据")
 if ($Card) { Write-Host ("  领用： {0}（进行中由台账 claims 派生并自动投递）" -f $Card) }

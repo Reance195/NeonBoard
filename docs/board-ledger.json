@@ -57,6 +57,7 @@
         "DX-141": "todo",
         "DX-142": "todo",
         "DX-143": "todo",
+        "DX-144": "todo",
         "DX-15": "done",
         "DX-16": "done",
         "DX-17": "done",
@@ -279,8 +280,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-144": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -1599,6 +1599,25 @@
             "stage": "DX",
             "tier": "P3",
             "title": "宿主与界面三处：热键注册静默失败、托盘不随 Explorer 重建、执行队列面板每秒整表重建"
+        },
+        "DX-144": {
+            "acceptance": [
+                "Invoke-MainPushWithRetry 推送被拒后的重试不再用裸 git rebase 展平合并提交，改用保留合并结构的重试（--rebase-merges 或重建 --no-ff 合并），使 main tip 恒为合并提交",
+                "pwsh -File scripts/git-done.ps1 -SelfTest 全过，DX-78「首拒重试落地」场景补一条断言：重试后落地 tip 是双父合并提交（或等价的 --no-ff 痕迹）",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过（scope 仅脚本，轻档）",
+                "不改 Push-Main 单次推送语义，不动收尾三步提交的分离 HEAD 时序（DX-26）"
+            ],
+            "author": "codebuddy-session-2026-11-08",
+            "depends": [],
+            "evidence": "2026-11-08 会话 P0 收尾实录：改动经 git-done.ps1 合并推 main，本地确实创建了 --no-ff 合并提交 c581fa6，但第一次推送被拒（并发）后 Invoke-MainPushWithRetry 在 scripts/git-done.ps1:270 执行裸 git rebase origin/main，把 c581fa6 展平丢弃；最终 origin/main tip = 265ca98（git rev-list --parents -n 1 只有单父 932a11a，git log --graph 无分叉），违反 AGENTS.md 条款 5「主分支只接受合并提交」与条款 4「必须 --no-ff」。该缺陷在每次 non-ff 重试时都会复现，是共享收尾脚本的闸门失效而非个案。维护者 2026-11-08 会话指令「B立卡」选方案 B 并授权立卡治理。",
+            "id": "DX-144",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1"
+            ],
+            "stage": "DX",
+            "tier": "P2",
+            "title": "git-done 非快进重试用裸 rebase 展平 --no-ff 合并提交，主线出现线性提交"
         },
         "DX-15": {
             "acceptance": [
@@ -6242,27 +6261,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-144": {
-            "acceptance": [
-                "Invoke-MainPushWithRetry 推送被拒后的重试不再用裸 git rebase 展平合并提交，改用保留合并结构的重试（--rebase-merges 或重建 --no-ff 合并），使 main tip 恒为合并提交",
-                "pwsh -File scripts/git-done.ps1 -SelfTest 全过，DX-78「首拒重试落地」场景补一条断言：重试后落地 tip 是双父合并提交（或等价的 --no-ff 痕迹）",
-                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过（scope 仅脚本，轻档）",
-                "不改 Push-Main 单次推送语义，不动收尾三步提交的分离 HEAD 时序（DX-26）"
-            ],
-            "author": "codebuddy-session-2026-11-08",
-            "depends": [],
-            "evidence": "2026-11-08 会话 P0 收尾实录：改动经 git-done.ps1 合并推 main，本地确实创建了 --no-ff 合并提交 c581fa6，但第一次推送被拒（并发）后 Invoke-MainPushWithRetry 在 scripts/git-done.ps1:270 执行裸 git rebase origin/main，把 c581fa6 展平丢弃；最终 origin/main tip = 265ca98（git rev-list --parents -n 1 只有单父 932a11a，git log --graph 无分叉），违反 AGENTS.md 条款 5「主分支只接受合并提交」与条款 4「必须 --no-ff」。该缺陷在每次 non-ff 重试时都会复现，是共享收尾脚本的闸门失效而非个案。维护者 2026-11-08 会话指令「B立卡」选方案 B 并授权立卡治理。",
-            "id": "DX-144",
-            "note": "",
-            "scope": [
-                "scripts/git-done.ps1"
-            ],
-            "stage": "DX",
-            "tier": "P2",
-            "title": "git-done 非快进重试用裸 rebase 展平 --no-ff 合并提交，主线出现线性提交"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-144": {
+            "agent": "agent-dx144",
+            "branch": "fix/dx144-gitdone-retry-merge",
+            "claimedAt": 1794135621,
+            "head": "fe13ab1903d83cb55850dd0a7949915c85484fbc"
+        }
+    },
     "version": 1
 }

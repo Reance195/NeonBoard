@@ -1,0 +1,13 @@
+{
+  "card": "MOD-7",
+  "sha256": "31be577d3c6af0fc762e53995591915555a9a0aaed428447146afd40c895973b",
+  "authorizedBy": "维护者 2026-11-08 会话指令「继续实现模块化」，在证据链与台账核对后选定「拆 main.cpp（推荐）」+「完整闭环（推荐）」，授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡；依据 docs/module-split-plan.md v4 §7.4 MOD-03/04",
+  "form": "docs/card-requests/20261108-mod-main-cpp-split.md",
+  "registeredAt": "2026-11-08T13:22:38+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-7",
+    "sha": "042f6d53fc8e1bb85aee3a4c2b146b13e6afc032"
+  }
+}

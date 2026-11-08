@@ -181,6 +181,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "MOD-7",
+            "completedAt": 0,
+            "createdAt": 1794144568,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-7",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "模块化续批：建立 src/app 边界并把 main.cpp 从 1910 行降到 450 行以内",
+            "updatedAt": 1794144568
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5767,6 +5785,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-08T21:22:12",
+    "updated": "2026-11-08T21:29:28",
     "version": 3
 }

@@ -6422,6 +6422,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-148": {
+            "agent": "secretp",
+            "branch": "feature/secrets-gate",
+            "claimedAt": 1794148038,
+            "head": "cb608191efff019bfc123e5f5bf047b7ef8325eb"
+        }
+    },
     "version": 1
 }

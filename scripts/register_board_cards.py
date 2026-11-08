@@ -33,6 +33,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import json
 import os
@@ -255,6 +256,92 @@ def canonical_hash(card):
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+POLICY_TIER_MAX_RE = re.compile(r"^P[0-4]$")
+
+
+def policy_authorized_by(policy):
+    """策略凭证：policy:<id>@<策略内容sha256前8位>（task_gate 按同一口径复核）。"""
+    return "policy:%s@%s" % (policy["id"], canonical_hash(policy)[:8])
+
+
+def policy_daily_count(receipt_dir, policy_id, today=None):
+    """当日已按本策略立的卡数（扫回执目录，registeredAt 的 UTC 日期）。"""
+    day = (today or datetime.now(timezone.utc).date()).isoformat()
+    count = 0
+    prefix = "policy:%s@" % policy_id
+    if not receipt_dir.is_dir():
+        return 0
+    for path in receipt_dir.glob("*.json"):
+        try:
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if str(receipt.get("authorizedBy") or "").startswith(prefix) \
+                and str(receipt.get("registeredAt") or "").startswith(day):
+            count += 1
+    return count
+
+
+def policy_violations(policies, policy_id, meta):
+    """策略边界判定的唯一实现（Z5）：返回问题列表，空 = 放行。
+
+    立卡入口（policy_guard）拿它转成 die；task_gate 的回执复核拿它做纯函数
+    校验 —— 两处共用，不许复制判定逻辑。
+    """
+    problems = []
+    policy = next((p for p in policies if p.get("id") == policy_id), None)
+    if policy is None:
+        return ["策略 '%s' 不存在（台账 authorization.policies 里没有）" % policy_id]
+    if not policy.get("enabled"):
+        return ["策略 '%s' 已停用（enabled=false）" % policy_id]
+    for key in ("tierMax", "stage", "scopeGlob", "titlePattern"):
+        if not policy.get(key):
+            return ["策略 '%s' 缺必填字段 %s" % (policy_id, key)]
+    tier_max = policy["tierMax"]
+    if not POLICY_TIER_MAX_RE.match(tier_max):
+        return ["策略 '%s' 的 tierMax=%r 非法（允许 P0..P4）" % (policy_id, tier_max)]
+    try:
+        if bp.rank(meta["tier"]) < bp.rank(tier_max):
+            problems.append("策略 '%s' 允许的最高档位是 %s，请求单 tier=%s 超档"
+                            % (policy_id, tier_max, meta["tier"]))
+    except ValueError as e:
+        problems.append("策略 '%s' 档位校验失败：%s" % (policy_id, e))
+        return problems
+    if meta["stage"] != policy["stage"]:
+        problems.append("策略 '%s' 只允许立到 stage=%s，请求单 stage=%s 不符"
+                        % (policy_id, policy["stage"], meta["stage"]))
+    scope = split_list(meta["scope"])
+    unmatched = [s for s in scope
+                 if not any(fnmatch.fnmatch(s, g) for g in policy["scopeGlob"])]
+    if unmatched:
+        problems.append("策略 '%s' 的 scope 白名单未覆盖：%s（防自扩权，R10-02 同因）"
+                        % (policy_id, "、".join(unmatched)))
+    if not re.fullmatch(policy["titlePattern"], meta["title"]):
+        problems.append("策略 '%s' 要求标题命中 %r，请求单标题 %r 不符"
+                        % (policy_id, policy["titlePattern"], meta["title"]))
+    return problems
+
+
+def policy_guard(ledger, policy_id, meta, receipt_dir):
+    """策略授权立卡闸门：任一字段超界 fail-closed 拒立（exit 2，Z4）。
+
+    策略对象定义见 docs/proposal-auto-authorization-policy.md；新增/修改/停用
+    策略属任务定义，必须由维护者走 chore(board)+授权行 —— agent 不得改策略。
+    返回写入回执的 authorizedBy 凭证。
+    """
+    policies = (ledger.get("authorization") or {}).get("policies") or []
+    problems = policy_violations(policies, policy_id, meta)
+    if problems:
+        die("策略授权立卡被拒：\n  - " + "\n  - ".join(problems), 2)
+    policy = next(p for p in policies if p.get("id") == policy_id)
+    limit = int(policy.get("maxCardsPerDay") or 3)
+    used = policy_daily_count(receipt_dir, policy_id)
+    if used >= limit:
+        die("策略 '%s' 当日已立 %d 张（熔断上限 %d）——立卡拒绝，等维护者处理"
+            % (policy_id, used, limit), 2)
+    return policy_authorized_by(policy)
+
+
 def acquire_lock(common_dir):
     """跨 worktree 文件锁：锁文件放 git 通用目录，本机所有检出共享一份。"""
     path = common_dir / "board-register.lock"
@@ -414,6 +501,55 @@ def selftest():
     check("交叉判据：无触发词的脚本引用不拦（只管声明产出的项）",
           conflicts_for("跑 scripts/board-view.py 确认渲染", []) == [])
 
+    # 策略授权立卡（policy_guard）：边界 fail-closed，超界 exit 2
+    import tempfile
+    pol = {"id": "auto-test", "enabled": True, "tierMax": "P3", "stage": "DX",
+           "scopeGlob": ["scripts/**"], "titlePattern": r"\[auto\] .+",
+           "maxCardsPerDay": 2}
+    ledger_pol = {"authorization": {"policies": [pol]}}
+    meta_ok = {"tier": "P3", "stage": "DX", "scope": "scripts/x.py;scripts/y.py",
+               "title": "[auto] 巡检"}
+
+    def guard_rejects(meta, ledger=ledger_pol):
+        try:
+            policy_guard(ledger, "auto-test", meta, Path(tempfile.mkdtemp()))
+            return False
+        except SystemExit as e:
+            return e.code == 2
+
+    with tempfile.TemporaryDirectory() as td:
+        check("策略：命中放行并生成 policy 凭证",
+              policy_guard(ledger_pol, "auto-test", meta_ok, Path(td))
+              == policy_authorized_by(pol))
+        check("策略：不存在的策略被拒",
+              guard_rejects(meta_ok, {"authorization": {"policies": []}}))
+        check("策略：停用被拒",
+              guard_rejects(meta_ok, {"authorization":
+                            {"policies": [dict(pol, enabled=False)]}}))
+        check("策略：tier 超档被拒", guard_rejects(dict(meta_ok, tier="P2")))
+        check("策略：stage 不符被拒", guard_rejects(dict(meta_ok, stage="R21")))
+        check("策略：scope 越界被拒", guard_rejects(dict(meta_ok, scope="src/main.cpp")))
+        check("策略：标题不模板被拒", guard_rejects(dict(meta_ok, title="巡检")))
+        check("策略：tierMax 非法被拒",
+              guard_rejects(meta_ok, {"authorization":
+                            {"policies": [dict(pol, tierMax="P9")]}}))
+        # 当日熔断：回执目录里已有 2 张本策略的卡 → 第 3 张拒
+        rdir = Path(td) / "r"
+        rdir.mkdir()
+        today = datetime.now(timezone.utc).date().isoformat()
+        for name in ("a.json", "b.json"):
+            (rdir / name).write_text(json.dumps({
+                "authorizedBy": policy_authorized_by(pol),
+                "registeredAt": today + "T01:00:00+00:00"}), encoding="utf-8")
+        check("策略：当日回执计数只认本策略",
+              policy_daily_count(rdir, "other-policy") == 0
+              and policy_daily_count(rdir, "auto-test") == 2)
+        try:
+            policy_guard(ledger_pol, "auto-test", meta_ok, rdir)
+            check("策略：当日超熔断被拒", False)
+        except SystemExit as e:
+            check("策略：当日超熔断被拒", e.code == 2)
+
     failures = [n for n, ok in checks if not ok]
     for name, ok in checks:
         print("  %s %s" % ("✓" if ok else "✗", name))
@@ -431,7 +567,12 @@ def main(argv=None):
         description="立卡唯一合法入口：校验请求单、跨 worktree 发号、写台账与回执、刷快照")
     ap.add_argument("--form", help="请求单路径 docs/card-requests/<YYYYMMDD>-<slug>.md")
     ap.add_argument("--authorized-by",
-                    help="授权来源（维护者会话/指令），写入回执")
+                    help="授权来源（维护者会话/指令），写入回执；--policy 模式下可省略")
+    ap.add_argument("--policy",
+                    help="策略授权立卡：按台账 authorization.policies 里的策略对象校验"
+                         "边界，回执 authorizedBy 写 policy:<id>@<sha8>（无人在场场景）")
+    ap.add_argument("--trigger",
+                    help="策略模式的触发源标识（调度 run / 值守会话 id），写入回执")
     ap.add_argument("--dry-run", action="store_true",
                     help="只推演：打印卡号与卡片/回执内容，不写任何文件")
     ap.add_argument("--allow-new-stage", action="store_true",
@@ -466,8 +607,12 @@ def main(argv=None):
         return 0
     if not args.form:
         ap.error("必须给 --form <请求单>（或 --selftest）")
-    if not args.authorized_by:
-        ap.error("必须给 --authorized-by <授权来源>（立卡必须留授权凭证）")
+    if args.policy and args.authorized_by:
+        ap.error("--policy 与 --authorized-by 二选一：策略凭证由程序从策略对象生成，"
+                 "不接受两者混用")
+    if not args.authorized_by and not args.policy:
+        ap.error("必须给 --authorized-by <授权来源>（立卡必须留授权凭证），"
+                 "或改用 --policy <策略id> 走策略授权")
 
     root = repo_root()
     form_path = Path(args.form)
@@ -477,6 +622,14 @@ def main(argv=None):
         die("找不到请求单：%s" % form_path)
     meta = parse_form(form_path.read_text(encoding="utf-8"), form_path)
     stage = meta["stage"]
+
+    # 策略授权立卡（无人在场场景）：凭证由策略对象生成，边界超界即拒（fail-closed）。
+    # 校验放在所有写盘动作之前 —— 此时台账 / 回执 / 快照都还没动，拒绝不留半截现场。
+    authorized_by = args.authorized_by
+    if args.policy:
+        policy_ledger = json.loads((root / LEDGER_REL).read_text(encoding="utf-8"))
+        authorized_by = policy_guard(policy_ledger, args.policy, meta,
+                                     root / RECEIPT_DIR_REL)
 
     conflicts = acceptance_scope_conflicts(meta)
     if conflicts:
@@ -509,8 +662,8 @@ def main(argv=None):
             print(build_roadmap_row(meta, code))
         return 0
 
-    if not args.authorized_by.strip():
-        die("--authorized-by 不能为空（立卡必须留授权来源）")
+    if authorized_by is None or not authorized_by.strip():
+        die("授权凭证为空（--authorized-by 或 --policy 二者必有其一）")
 
     out = run(["git", "rev-parse", "--git-common-dir"], root)
     if out.returncode != 0:
@@ -551,7 +704,7 @@ def main(argv=None):
                 stamp = datetime.now(timezone.utc).isoformat(timespec="microseconds")
                 res_msg = ("立卡占位 %s\n\nform: %s\nauthorizedBy: %s\nat: %s\n"
                            % (code, rel_to(root, form_path),
-                              args.authorized_by.strip(), stamp))
+                              authorized_by.strip(), stamp))
                 res_sha = run(["git", "commit-tree", base_tree, "-p", "HEAD",
                                "-m", res_msg], root).stdout.strip()
                 if not res_sha:
@@ -607,13 +760,15 @@ def main(argv=None):
         receipt = {
             "card": code,
             "sha256": digest,
-            "authorizedBy": args.authorized_by.strip(),
+            "authorizedBy": authorized_by,
             "form": rel_to(root, form_path),
             "registeredAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "tool": "scripts/register_board_cards.py",
             "mode": mode,
             "reservation": reservation,
         }
+        if args.trigger:
+            receipt["trigger"] = args.trigger
 
         cards[code] = card
         baseline[code] = "todo"
@@ -670,7 +825,7 @@ def main(argv=None):
         "  git switch main && git merge --no-ff chore/board-%s \\\n"
         "           -m \"merge: 合入 chore/board-%s\" && git push origin main\n"
         % (slug, first_add, code, LEDGER_REL,
-           RECEIPT_DIR_REL, code, code, args.authorized_by.strip(), code,
+           RECEIPT_DIR_REL, code, code, authorized_by.strip(), code,
            slug, slug)
     )
     if roadmap_added:

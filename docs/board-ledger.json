@@ -1,4 +1,7 @@
 {
+    "authorization": {
+        "policies": []
+    },
     "baseline": {
         "DX-01": "done",
         "DX-02": "done",

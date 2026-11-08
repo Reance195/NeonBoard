@@ -6263,13 +6263,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-144": {
-            "agent": "agent-dx144",
-            "branch": "fix/dx144-gitdone-retry-merge",
-            "claimedAt": 1794135621,
-            "head": "fe13ab1903d83cb55850dd0a7949915c85484fbc"
-        }
-    },
+    "claims": {},
     "version": 1
 }

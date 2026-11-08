@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-145",
-            "completedAt": 0,
-            "createdAt": 1794138944,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-145",
-            "note": "",
-            "orderKey": 40448,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "工具链版本散落 20+ 文件无单点，改一次 Qt 版本要同步多处",
-            "updatedAt": 1794138944
-        },
-        {
             "code": "DX-146",
             "completedAt": 0,
             "createdAt": 1794139007,
@@ -3370,6 +3352,24 @@
             "updatedAt": 1794136009
         },
         {
+            "code": "DX-145",
+            "completedAt": 1794144132,
+            "createdAt": 1794138944,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-145",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "工具链版本散落 20+ 文件无单点，改一次 Qt 版本要同步多处",
+            "updatedAt": 1794144132
+        },
+        {
             "code": "R0-14",
             "completedAt": 1794047953,
             "createdAt": 1794027516,
@@ -5767,6 +5767,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-08T19:56:47",
+    "updated": "2026-11-08T21:22:12",
     "version": 3
 }

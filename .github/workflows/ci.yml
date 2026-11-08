@@ -96,6 +96,14 @@ jobs:
           python scripts/check_script_hygiene.py
           if ($LASTEXITCODE -ne 0) { throw '脚本卫生检查未通过' }
 
+      - name: 工具链版本单点守门（DX-145）
+        shell: pwsh
+        run: |
+          # 版本号只许在 cmake/toolchain.cmake 声明；新增的散落硬编码在此拦下，
+          # 白名单逐条标注理由（scripts/check_toolchain_versions.py）。
+          python scripts/check_toolchain_versions.py --check
+          if ($LASTEXITCODE -ne 0) { throw '工具链版本出现未登记的重复硬编码' }
+
       - name: QML 交互陷阱静态检查（DX-102）
         shell: pwsh
         run: |
@@ -165,15 +173,20 @@ jobs:
         with:
           arch: x64
 
-      - name: 安装 Qt 6.8.3
+      - name: 读取工具链单点（cmake/toolchain.cmake）
+        id: toolchain
+        shell: pwsh
+        run: python scripts/check_toolchain_versions.py --emit-github-output >> $env:GITHUB_OUTPUT
+
+      - name: 安装 Qt（版本见 cmake/toolchain.cmake）
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
+          version: ${{ steps.toolchain.outputs.qt_version }}
           host: 'windows'
           target: 'desktop'
-          arch: 'win64_msvc2022_64'
+          arch: ${{ steps.toolchain.outputs.qt_arch }}
           # ShaderTools 是独立 addon，缺失会导致 cmake 找不到 Qt6::ShaderTools
-          modules: 'qtshadertools'
+          modules: ${{ steps.toolchain.outputs.qt_modules }}
           cache: true
           cache-key-prefix: 'neonboard-qt'
 
@@ -345,14 +358,19 @@ jobs:
         with:
           arch: x64
 
-      - name: 安装 Qt 6.8.3
+      - name: 读取工具链单点（cmake/toolchain.cmake）
+        id: toolchain
+        shell: pwsh
+        run: python scripts/check_toolchain_versions.py --emit-github-output >> $env:GITHUB_OUTPUT
+
+      - name: 安装 Qt（版本见 cmake/toolchain.cmake）
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
+          version: ${{ steps.toolchain.outputs.qt_version }}
           host: 'windows'
           target: 'desktop'
-          arch: 'win64_msvc2022_64'
-          modules: 'qtshadertools'
+          arch: ${{ steps.toolchain.outputs.qt_arch }}
+          modules: ${{ steps.toolchain.outputs.qt_modules }}
           cache: true
           cache-key-prefix: 'neonboard-qt'
 

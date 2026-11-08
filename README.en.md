@@ -41,7 +41,7 @@ A cyber-neon three-column personal kanban. **Qt 6.8 + QML + C++20**, fully local
 
 ## Building from source
 
-Requirements: Qt 6.8.3 (MSVC 2022 x64) + CMake + `qtshadertools`.
+Requirements: Qt (version pinned in cmake/toolchain.cmake) + MSVC 2022 x64 + CMake + `qtshadertools`.
 
 ```powershell
 pwsh -File scripts/build.ps1            # Ninja by default, falls back to MSVC

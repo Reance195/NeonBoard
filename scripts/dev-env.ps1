@@ -21,7 +21,7 @@
 
     缺件怎么补（全部用户级，无需管理员）：
       Qt    python -m pip install aqtinstall
-            python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 -m qtshadertools -O "$HOME\Qt"
+            python -m aqt install-qt windows desktop <NB_QT_VERSION> win64_msvc2022_64 -m qtshadertools -O "$HOME\Qt"   # 版本见 cmake/toolchain.cmake
       CMake 解压 cmake-*-windows-x86_64.zip 到 %LOCALAPPDATA%\Programs\DevTools\cmake
       Ninja 解压 ninja-win.zip 到 %LOCALAPPDATA%\Programs\DevTools\ninja
       MSVC  VS BuildTools 勾选「使用 C++ 的桌面开发」（vcvars 不可用时的兜底依赖）
@@ -34,7 +34,7 @@ param(
     # 静默：不打印清单（供 build.ps1 加载函数时使用）
     [switch]$Quiet,
 
-    # 指定 Qt 套件目录，例如 C:\Users\me\Qt\6.8.3\msvc2022_64
+    # 指定 Qt 套件目录，例如 C:\Users\me\Qt\<版本见 cmake/toolchain.cmake>\msvc2022_64
     [string]$QtRoot = ''
 )
 

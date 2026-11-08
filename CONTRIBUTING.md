@@ -24,12 +24,12 @@
 
 ## 二、提交前自检
 
-代码改动提交前，请在本地跑通：
+代码改动提交前，请在本地跑通（`<Qt>` 换成本机 Qt 安装目录，或直接走 `scripts/build.ps1` 自动探测）：
 
 ```powershell
 # 1. 编译
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
-  -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64
+  -DCMAKE_PREFIX_PATH=<Qt>/6.8.3/msvc2022_64
 cmake --build build --config Release
 
 # 2. 数据库自检

@@ -220,11 +220,12 @@ ctest --test-dir build -C Release -R taskinputparser -V  # 只跑单个用例并
 
 细节、注册表键位与未实现项（WinRT 富通知）见 [docs/windows-integration.md](docs/windows-integration.md)。
 
-VS / MSBuild 生成器（多配置，exe 落在 `build/Release/`）的手敲等价命令：
+VS / MSBuild 生成器（多配置，exe 落在 `build/Release/`）的手敲等价命令
+（`<Qt>` 换成你本机的 Qt 安装目录；走 `scripts/build.ps1` 时会自动探测，不必手传）：
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
-  -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64 -DBUILD_TESTING=ON
+  -DCMAKE_PREFIX_PATH=<Qt>/6.8.3/msvc2022_64 -DBUILD_TESTING=ON
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```

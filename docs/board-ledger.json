@@ -304,7 +304,8 @@
         "R9-05": "done",
         "MOD-7": "todo",
         "DX-147": "todo",
-        "DX-148": "todo"
+        "DX-148": "todo",
+        "R11-14": "todo"
     },
     "cards": {
         "DX-01": {
@@ -6400,6 +6401,25 @@
             "stage": "DX",
             "tier": "P1",
             "title": "宪章 §四「密钥严禁入库」零机器执行，入库闸门全靠自觉"
+        },
+        "R11-14": {
+            "acceptance": [
+                "两壳头部 ColumnLayout 内标题与副标题 Text 声明 Layout.fillWidth: true",
+                "pwsh -File scripts/verify.ps1 全量通过",
+                "沙箱启动 --smoke 无新增 QML 布局告警"
+            ],
+            "author": "维护者",
+            "depends": [],
+            "evidence": "qml.exe 最小复现实测（Qt 6.8.3）：headerRow 宽 680 下关闭键 x=508（正确 654），ColumnLayout 内 Text 补 Layout.fillWidth 后 x=654",
+            "id": "R11-14",
+            "note": "",
+            "scope": [
+                "qml/components/DialogShell.qml",
+                "qml/components/DrawerShell.qml"
+            ],
+            "stage": "R11",
+            "tier": "P2",
+            "title": "弹窗与抽屉壳头部关闭键未贴右上角"
         }
     },
     "claims": {},

@@ -6423,6 +6423,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "MOD-7": {
+            "agent": "agent-mod7",
+            "branch": "refactor/mod7-main-cpp-split",
+            "claimedAt": 1794144782,
+            "head": "1de024050fb951a9fd2787cf0ff315ce7558ef6e"
+        }
+    },
     "version": 1
 }

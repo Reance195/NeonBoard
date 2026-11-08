@@ -6375,7 +6375,9 @@
             "note": "",
             "scope": [
                 ".githooks/pre-commit",
-                ".githooks/commit-msg"
+                ".githooks/commit-msg",
+                ".githooks/pre-push",
+                ".githooks/pygate.sh"
             ],
             "stage": "DX",
             "tier": "P1",

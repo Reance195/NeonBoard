@@ -6337,13 +6337,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-145": {
-            "agent": "agent-dx145",
-            "branch": "fix/dx145-toolchain-single-source",
-            "claimedAt": 1794143569,
-            "head": "9b3fdb6441a64b467164cdc8a85ef0fe87692053"
-        }
-    },
+    "claims": {},
     "version": 1
 }

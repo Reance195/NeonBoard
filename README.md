@@ -178,7 +178,7 @@ pwsh -File scripts/release.ps1                                          # 五道
 
 ## 开发构建
 
-依赖：Qt 6.8.3 MSVC 2022 x64、Visual Studio 2022 BuildTools、CMake 3.21+。
+依赖：Qt（版本见 cmake/toolchain.cmake）、MSVC 2022 x64、Visual Studio 2022 BuildTools、CMake 3.21+。
 
 一键构建（默认 **Ninja** 生成器，增量更快、可配合 sccache；自动探测 CMake / Qt / Ninja，可选构建后自检）：
 
@@ -225,7 +225,7 @@ VS / MSBuild 生成器（多配置，exe 落在 `build/Release/`）的手敲等�
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
-  -DCMAKE_PREFIX_PATH=<Qt>/6.8.3/msvc2022_64 -DBUILD_TESTING=ON
+  -DCMAKE_PREFIX_PATH=<Qt>/<NB_QT_VERSION>/msvc2022_64 -DBUILD_TESTING=ON   # 版本见 cmake/toolchain.cmake
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
@@ -358,7 +358,7 @@ docs/themes/         6 套主题预设实机截图
 
 仓库内置 GitHub Actions 流水线（`.github/workflows/ci.yml`），推送或合并到 `main` 时自动在 `windows-2022` 上执行：
 
-1. 安装 MSVC 开发环境与 Qt 6.8.3（`install-qt-action`，含 `qtshadertools` addon）
+1. 安装 MSVC 开发环境与 Qt（版本见 `cmake/toolchain.cmake` 单点，`install-qt-action` 含 `qtshadertools` addon）
 2. `cmake -S . -B build -G "Visual Studio 17 2022" -A x64` 配置并编译 Release
 3. `NeonBoard.exe --selftest` 数据库自检
 4. `--smoke` 冒烟启动，并扫描运行日志，出现 QML / C++ 错误即判定失败
@@ -474,4 +474,4 @@ pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
 
 ## 第三方
 
-Qt 6.8.3（LGPLv3，动态链接）、SQLite（Qt SQL 驱动）。示例插件与界面代码为本项目自有。
+Qt（版本见 cmake/toolchain.cmake，LGPLv3，动态链接）、SQLite（Qt SQL 驱动）。示例插件与界面代码为本项目自有。

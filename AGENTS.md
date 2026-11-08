@@ -12,7 +12,7 @@
 ## 一、项目速览
 
 NeonBoard 是赛博霓虹风格的三列个人任务看板。
-技术栈：Qt 6.8.3（MSVC 2022 x64）+ QML + C++20，本地 SQLite 持久化。
+技术栈：Qt（版本见 cmake/toolchain.cmake 单点）+ QML + C++20，MSVC 2022 x64，本地 SQLite 持久化。
 
 | 目录 | 内容 |
 | --- | --- |

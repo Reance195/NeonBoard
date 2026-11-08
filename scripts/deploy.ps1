@@ -42,7 +42,12 @@ $windeployqtFallbacks = @()
 if ($env:QT_ROOT_DIR) {
     $windeployqtFallbacks += (Join-Path $env:QT_ROOT_DIR 'bin\windeployqt.exe')
 }
-$windeployqtFallbacks += 'C:\Qt\6.8.3\msvc2022_64\bin\windeployqt.exe'
+# 版本与套件目录取自工具链单点 cmake/toolchain.cmake（DX-145），不再写死
+$toolchainFile = Join-Path (Split-Path -Parent $PSScriptRoot) 'cmake\toolchain.cmake'
+$tcText = Get-Content -LiteralPath $toolchainFile -Raw
+$tcVersion = [regex]::Match($tcText, 'set\(NB_QT_VERSION\s+"([^"]+)"\)').Groups[1].Value
+$tcSuffix = [regex]::Match($tcText, 'set\(NB_QT_DIR_SUFFIX\s+"([^"]+)"\)').Groups[1].Value
+$windeployqtFallbacks += "C:\Qt\$tcVersion\$tcSuffix\bin\windeployqt.exe"
 
 $windeployqt = Resolve-Tool -Name 'windeployqt' -EnvVar $env:NEONBOARD_WINDEPLOYQT -Fallbacks $windeployqtFallbacks
 

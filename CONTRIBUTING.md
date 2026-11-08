@@ -29,7 +29,7 @@
 ```powershell
 # 1. 编译
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
-  -DCMAKE_PREFIX_PATH=<Qt>/6.8.3/msvc2022_64
+  -DCMAKE_PREFIX_PATH=<Qt>/<NB_QT_VERSION>/msvc2022_64   # 版本见 cmake/toolchain.cmake
 cmake --build build --config Release
 
 # 2. 数据库自检

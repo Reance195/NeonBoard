@@ -55,14 +55,19 @@ jobs:
         with:
           arch: x64
 
-      - name: 安装 Qt 6.8.3
+      - name: 读取工具链单点（cmake/toolchain.cmake）
+        id: toolchain
+        shell: pwsh
+        run: python scripts/check_toolchain_versions.py --emit-github-output >> $env:GITHUB_OUTPUT
+
+      - name: 安装 Qt（版本见 cmake/toolchain.cmake）
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
+          version: ${{ steps.toolchain.outputs.qt_version }}
           host: 'windows'
           target: 'desktop'
-          arch: 'win64_msvc2022_64'
-          modules: 'qtshadertools'
+          arch: ${{ steps.toolchain.outputs.qt_arch }}
+          modules: ${{ steps.toolchain.outputs.qt_modules }}
           cache: true
           cache-key-prefix: 'neonboard-qt'
 

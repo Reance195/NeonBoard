@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-148",
-            "completedAt": 0,
-            "createdAt": 1794144900,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-148",
-            "note": "",
-            "orderKey": 75840,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "宪章 §四「密钥严禁入库」零机器执行，入库闸门全靠自觉",
-            "updatedAt": 1794144900
-        },
-        {
             "code": "R11-14",
             "completedAt": 0,
             "createdAt": 1794146702,
@@ -4921,6 +4903,24 @@
             "updatedAt": 1793981567
         },
         {
+            "code": "DX-148",
+            "completedAt": 1794148712,
+            "createdAt": 1794144900,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-148",
+            "note": "已完成：scripts/check_secrets.py 四类模式（私钥块头/云厂AK/凭据赋值/长随机串），只扫暂存新增行，命中 exit 1 且预览脱敏；--selftest 11 例全过（fixture 全部拼接构造，含自扫源文件零命中）。.githooks/pre-commit 规则 4 复用 DX-147 nb_py_probe 单一判据；豁免面唯一 docs/secrets-allowlist.md（路径+行内容 sha256 前12位双匹配，登记表本体免扫终结哈希递归）。实测：暂存伪造私钥头/AK/赋值三行提交被拒（tmp_e2e_secrets.txt:2-4 点名模式+脱敏预览，不落库）；按格式登记 allowlist 后相同内容提交放行，测试提交已 reset 丢弃。待做：无。交付 6bb1b0b+b2e09e6。",
+            "orderKey": 75840,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "宪章 §四「密钥严禁入库」零机器执行，入库闸门全靠自觉",
+            "updatedAt": 1794148712
+        },
+        {
             "code": "DX-122",
             "completedAt": 1794016378,
             "createdAt": 1793982202,
@@ -5839,6 +5839,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-08T22:34:29",
+    "updated": "2026-11-08T22:38:32",
     "version": 3
 }

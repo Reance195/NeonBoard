@@ -1,6 +1,22 @@
 {
     "authorization": {
-        "policies": []
+        "policies": [
+            {
+                "authorizedBy": "维护者 2026-11-08 会话「可以」（提案 docs/proposal-auto-authorization-policy.md 落地步骤 3 首条实策略试运行）",
+                "createdAt": "2026-11-08",
+                "enabled": true,
+                "id": "auto-sched-build-patrol",
+                "maxCardsPerDay": 3,
+                "scopeGlob": [
+                    "scripts/**"
+                ],
+                "source": "scheduled:每日构建巡检",
+                "stage": "DX",
+                "tierMax": "P3",
+                "title": "定时构建巡检自动立卡",
+                "titlePattern": "^\\[auto\\] .+"
+            }
+        ]
     },
     "baseline": {
         "DX-01": "done",

@@ -259,6 +259,11 @@ function Push-Main {
 # 推送被拒 → fetch 重取主线 → 变基到新 origin/main → 重推，上限 3 次；
 # 变基冲突即放弃重试（现场处置由调用方裁决）。全仓只此一份重试实现——
 # 再出现第二处「撞 non-ff 退出/重试」的推送步骤，就把它改成调用本函数。
+#
+# DX-144：变基必须带 --rebase-merges。合并提交 + 收尾提交栈是**双父结构**，
+# 裸 `git rebase` 默认跳过 merge commit、把它展平成线性提交，重试后推上 main 的
+# tip 就不再是合并提交（违反 AGENTS.md 条款 4/5）。--rebase-merges 让合并结构随
+# 提交栈一起重放到新基底，落地 tip 恒为双父；-SelfTest 场景 A 有断言钉住这一点。
 function Invoke-MainPushWithRetry {
     param([int]$MaxAttempts = 3)
     for ($i = 1; $i -le $MaxAttempts; $i++) {
@@ -267,7 +272,7 @@ function Invoke-MainPushWithRetry {
         if ($i -ge $MaxAttempts) { return [pscustomobject]@{ Ok = $false; Attempts = $i } }
         Write-Host ("· 推送被拒（第 {0} 次）：重取主线变基后重试" -f $i) -ForegroundColor Yellow
         Invoke-NetGit @('fetch', 'origin', '--prune') | Out-Null
-        $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
+        $rb = Invoke-GitQuiet @('rebase', '--rebase-merges', "origin/$MainBranch")
         if ($rb.Code -ne 0) {
             Write-Host '· 推送重试：变基冲突，放弃重试' -ForegroundColor Yellow
             Invoke-GitQuiet @('rebase', '--abort') | Out-Null
@@ -825,6 +830,13 @@ if ($script:gitDoneSelfTest) {
             $bareTip = (Invoke-In $originA @('rev-parse', 'main'))[0]
             $workTip = (Invoke-In $workA @('rev-parse', 'HEAD'))[0]
             Assert-St 'A：合并已上 origin（bare main = 检出 HEAD）' ("$bareTip".Trim() -eq "$workTip".Trim())
+            # DX-144：首拒重试曾因裸 rebase 把 --no-ff 合并提交展平成线性提交，
+            # 推上 main 的 tip 退化成单父（AGENTS.md 条款 4/5 被重试路径绕过）。
+            # 这条断言钉住「重试后落地 tip 仍是双父合并提交」，修复见
+            # Invoke-MainPushWithRetry 的 --rebase-merges。
+            $tipParents = (Invoke-In $originA @('rev-list', '--parents', '-n', '1', 'main'))[0]
+            $parentCount = ("$tipParents".Trim() -split '\s+').Count - 1
+            Assert-St "A：重试后落地 tip 是双父合并提交（parents=$parentCount）" ($parentCount -ge 2)
         }
         $curA = (Invoke-In $workA @('branch', '--show-current'))[0]
         Assert-St "A：检出已归位（$curA，不在 merge/*）" ("$curA" -eq 'main')

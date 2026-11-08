@@ -184,6 +184,7 @@
         "MOD-02": "done",
         "MOD-05": "done",
         "MOD-06": "done",
+        "MOD-7": "todo",
         "R0-01": "done",
         "R0-02": "done",
         "R0-03": "done",
@@ -301,8 +302,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "MOD-7": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -3610,6 +3610,31 @@
             "stage": "MOD",
             "title": "MOD src/ 物理分层：8 个模块子目录 + 连带 5 处引用"
         },
+        "MOD-7": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全量通过（编译 → ctest → --selftest → --smoke → 模块守卫 → 看板一致性）",
+                "src/main.cpp 行数 <= 450（基线 1910）且只保留薄入口（声明 neonboardMain 并转调）",
+                "新增 src/app/ 目录含 AppMain 与 CliCommands 与 SelfTestRunner 与 AppContext 四类实现，CMakeLists.txt 的 qt_add_executable 源列表尾部追加这些 .cpp",
+                "--selftest 退出码 0 且沙箱 neonboard.log 含 SELFTEST result OK 且无 FAIL 行，SELFTEST 标签序列与重构前基线一致",
+                "逐条 CLI 退出码语义不变（成功 0 失败 2），新增一条 utility 命令后仍走无头模式不拉起 GUI",
+                "python scripts/check_module_deps.py --base origin/main 退出 0 且 LINE_LIMITS 中 src/main.cpp 上限已从 1910 同步调低到实际行数",
+                "python scripts/check_scope.py --base origin/main 退出 0"
+            ],
+            "author": "codebuddy-session-2026-11-08",
+            "depends": [],
+            "evidence": "2026-11-08 实物复测（基线 origin/main）：src/main.cpp 1910 行（LF 实测，与 check_module_deps.py 的 LINE_LIMITS 一致），CLI 派发 10 块共 848 行，其中 --selftest 独占 607 行（522-1128），setContextProperty 46 处（406-1729），return 0 共 22 处、return 2 共 23 处；--selftest 是 GUI 子系统程序，stdout 恒为空，真实输出走 qInfo 落沙箱 neonboard.log（34 行，末行 SELFTEST result OK remaining 0），故方案 v4 的「逐字节比对 stdout」不成立，改以退出码 + 日志 SELFTEST 标签序列 + result OK 作基线。docs/module-split-plan.md v4 §5 M1 目标 <=450 行，§2.2 已证「CLI 分支穿插在对象构造之间不能整体剪切」，§7.4 把 MOD-03/MOD-04 列为可穿插的下一批且从未立卡；台账 baseline 仅 MOD-02 / MOD-05 / MOD-06 / DX-18 为 done，后续批次一张卡都没有，docs/card-requests/ 下也无已递交未立的模块化请求单，路线图 §9 无 **MOD** 行。维护者 2026-11-08 会话指令「继续实现模块化」，在证据链与台账核对后选定「拆 main.cpp（推荐）」+「完整闭环（推荐）」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
+            "id": "MOD-7",
+            "note": "",
+            "scope": [
+                "src/main.cpp",
+                "src/app/**",
+                "CMakeLists.txt",
+                "scripts/check_module_deps.py"
+            ],
+            "stage": "MOD",
+            "tier": "P4",
+            "title": "模块化续批：建立 src/app 边界并把 main.cpp 从 1910 行降到 450 行以内"
+        },
         "R0-01": {
             "acceptance": [
                 "build/Release/NeonBoard.exe --selftest 退出码 0",
@@ -6336,33 +6361,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "MOD-7": {
-            "acceptance": [
-                "pwsh -File scripts/verify.ps1 全量通过（编译 → ctest → --selftest → --smoke → 模块守卫 → 看板一致性）",
-                "src/main.cpp 行数 <= 450（基线 1910）且只保留薄入口（声明 neonboardMain 并转调）",
-                "新增 src/app/ 目录含 AppMain 与 CliCommands 与 SelfTestRunner 与 AppContext 四类实现，CMakeLists.txt 的 qt_add_executable 源列表尾部追加这些 .cpp",
-                "--selftest 退出码 0 且沙箱 neonboard.log 含 SELFTEST result OK 且无 FAIL 行，SELFTEST 标签序列与重构前基线一致",
-                "逐条 CLI 退出码语义不变（成功 0 失败 2），新增一条 utility 命令后仍走无头模式不拉起 GUI",
-                "python scripts/check_module_deps.py --base origin/main 退出 0 且 LINE_LIMITS 中 src/main.cpp 上限已从 1910 同步调低到实际行数",
-                "python scripts/check_scope.py --base origin/main 退出 0"
-            ],
-            "author": "codebuddy-session-2026-11-08",
-            "depends": [],
-            "evidence": "2026-11-08 实物复测（基线 origin/main）：src/main.cpp 1910 行（LF 实测，与 check_module_deps.py 的 LINE_LIMITS 一致），CLI 派发 10 块共 848 行，其中 --selftest 独占 607 行（522-1128），setContextProperty 46 处（406-1729），return 0 共 22 处、return 2 共 23 处；--selftest 是 GUI 子系统程序，stdout 恒为空，真实输出走 qInfo 落沙箱 neonboard.log（34 行，末行 SELFTEST result OK remaining 0），故方案 v4 的「逐字节比对 stdout」不成立，改以退出码 + 日志 SELFTEST 标签序列 + result OK 作基线。docs/module-split-plan.md v4 §5 M1 目标 <=450 行，§2.2 已证「CLI 分支穿插在对象构造之间不能整体剪切」，§7.4 把 MOD-03/MOD-04 列为可穿插的下一批且从未立卡；台账 baseline 仅 MOD-02 / MOD-05 / MOD-06 / DX-18 为 done，后续批次一张卡都没有，docs/card-requests/ 下也无已递交未立的模块化请求单，路线图 §9 无 **MOD** 行。维护者 2026-11-08 会话指令「继续实现模块化」，在证据链与台账核对后选定「拆 main.cpp（推荐）」+「完整闭环（推荐）」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
-            "id": "MOD-7",
-            "note": "",
-            "scope": [
-                "src/main.cpp",
-                "src/app/**",
-                "CMakeLists.txt",
-                "scripts/check_module_deps.py"
-            ],
-            "stage": "MOD",
-            "tier": "P4",
-            "title": "模块化续批：建立 src/app 边界并把 main.cpp 从 1910 行降到 450 行以内"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-146": {
+            "agent": "agent-dx146",
+            "branch": "fix/dx146-real-component-tests",
+            "claimedAt": 1794144758,
+            "head": "dc75db906e39ed34982925ecca78dc15bb3e18b9"
+        }
+    },
     "version": 1
 }

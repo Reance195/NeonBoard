@@ -62,8 +62,9 @@ python scripts/check_scope.py --selftest                # 规范化、匹配与�
 要做历史考古、或想确认某张已结卡的 scope 是否真的覆盖过文件时，加 `--include-closed`。
 折叠只影响「看什么」，不影响退出码：被审集合里只要有目录式命中 0，仍退 1。
 
-CI 里的这一步仍是**信号**（`continue-on-error`）：存量卡还有未补 scope 的，硬门禁会一片红；
-补齐之后再摘掉。
+CI 里的这一步已是**硬门禁**（维护者 2026-11-08 拍板摘掉 `continue-on-error`）。
+`check_scope.py` 对未声明 scope 的卡与无短号提交本就直接放行，存量卡不会被挡在门外；
+存量补齐进度可用 `python scripts/check_scope.py --audit` 查看（只提示不阻断）。
 
 ## scope / acceptance 是契约，不是备注
 

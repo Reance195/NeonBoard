@@ -176,6 +176,15 @@ git branch -d feature/<简述>
    > 发号强度按项目协作形态可配（DX-105）：台账顶层 `numbering.mode` —— `remote`
    > （默认，服务端占位）/ `local`（仅本地锁+台账，零网络，适合单机/离线项目，
    > 跨机并发不受保护）；CLI `--mode` 单次覆盖。改它属任务定义，必须 chore(board)+审计行。
+   > **策略授权立卡（无人在场的定时/自动任务）**：授权可预先固化为台账顶层
+   > `authorization.policies` 里的策略对象（`id` / `enabled` / `tierMax` / `stage` /
+   > `scopeGlob` / `titlePattern` / `maxCardsPerDay`），由维护者以 chore(board)+授权行登记；
+   > 之后 `register_board_cards.py --policy <id> --form <单> --trigger <run标识>` 走与显式
+   > 代登记完全相同的发号链，仅回执 `authorizedBy` 写 `policy:<id>@<策略sha256前8位>`。
+   > 任一字段超界、策略停用/缺失、当日超熔断上限一律拒立（fail-closed，exit 2）；
+   > `task_gate` 对 `policy:` 回执复核策略内容 sha 与边界，篡改即拒。新增/修改/停用策略
+   > 本身属任务定义，必须单独 `chore(board):` 提交 + 授权/批次两行；agent 不得改策略。
+   > 设计与 Schema 详见 `docs/proposal-auto-authorization-policy.md`。
    > **手工改台账新增卡一律被拒**：`task_gate` 在
    > commit-msg 阶段核对回执，无回执 / `card` 不符 / sha256 不符 / 缺 `authorizedBy` 即拒。
    > **立卡必须声明排位档位（DX-123）**：请求单 frontmatter 写 `tier: P0..P4`，缺省或非法枚举

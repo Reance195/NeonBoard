@@ -1,0 +1,13 @@
+{
+  "card": "DX-144",
+  "sha256": "457851d466b008c23143dba7c7dd6d2f4ccb5f0397179fcc63df4be8ff39020d",
+  "authorizedBy": "维护者 2026-11-08 会话指令 B立卡 授权立卡治理 git-done 重试展平合并提交缺陷",
+  "form": "docs/card-requests/20261108-gitdone-retry-merge.md",
+  "registeredAt": "2026-11-08T10:11:14+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-144",
+    "sha": "8bb190847563748475f0213fb3f082eea0ee9fee"
+  }
+}

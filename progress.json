@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "DX-144",
+            "completedAt": 0,
+            "createdAt": 1794132674,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-144",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 非快进重试用裸 rebase 展平 --no-ff 合并提交，主线出现线性提交",
+            "updatedAt": 1794132674
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5713,6 +5731,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T18:39:13",
+    "updated": "2026-11-08T18:11:14",
     "version": 3
 }

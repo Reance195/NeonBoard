@@ -55,10 +55,10 @@ jobs:
           pwsh -NoProfile -File scripts/check-format.ps1 -Base $base
 
       - name: 任务卡范围检查（棘轮：卡片声明 scope 后才生效）
-        # 信号态。转正判据：docs/board-ledger.json 在办卡全部声明 scope。
-        # 注意 check_scope.py:475-481 对「未声明 scope 的卡」已直接放行（return 0），
-        # pitfalls 1.24「去掉就会挡住所有存量卡」的前提已过时；但收门节奏按该条仍需人拍板。
-        continue-on-error: true
+        # 已转正硬门禁（维护者 2026-11-08 拍板「把 P0 收尾」）：check_scope.py 对
+        # 未声明 scope 的卡（:475-481）与无短号提交（:459-461）本就直接放行，
+        # 摘掉 continue-on-error 不会把存量卡挡在门外，也不引入常驻红灯。
+        # 存量补齐进度仍可用 python scripts/check_scope.py --audit 查看（不阻断）。
         shell: pwsh
         run: |
           $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }

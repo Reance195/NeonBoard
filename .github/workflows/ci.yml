@@ -248,37 +248,44 @@ jobs:
           # 日志位置的唯一口径（尊重 NEONBOARD_DATA_DIR，与本地 verify.ps1 同一个函数）
           . (Join-Path $PWD 'scripts\nb-paths.ps1')
           $log = Get-NbLogFile
-          if (Test-Path $log) { Remove-Item $log -Force }
-
-          $proc = Start-Process -FilePath $exe -ArgumentList '--smoke' -PassThru
-          $deadline = (Get-Date).AddSeconds(45)
-          while (-not $proc.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 3 }
-          if (-not $proc.HasExited) {
-            Stop-Process -Id $proc.Id -Force
-            throw '冒烟启动超时（45 秒未退出）'
-          }
-          if (-not (Test-Path $log)) { throw '未生成运行日志' }
-
-          $lines = [System.IO.File]::ReadAllLines($log, [System.Text.Encoding]::UTF8)
-          $lines | ForEach-Object { Write-Host $_ }
+          $metrics = Join-Path $env:RUNNER_TEMP 'nb-perf-metrics.txt'
+          if (Test-Path $metrics) { Remove-Item $metrics -Force }
 
           # 致命告警判据单源（DX-122）：形态识别在 scripts/check_qml_warnings.py，
           # CI 走严格口径 —— 主线零容忍（本地 verify 走棘轮口径）
           python (Join-Path $PWD 'scripts\check_qml_warnings.py') --selftest
           if ($LASTEXITCODE -ne 0) { throw "check_qml_warnings 自测未过（退出码 $LASTEXITCODE）" }
-          python (Join-Path $PWD 'scripts\check_qml_warnings.py') $log --strict
-          if ($LASTEXITCODE -ne 0) { throw '检测到错误日志（check_qml_warnings 命中，见上方点名行）' }
 
-      - name: 性能基线（--smoke 的 startup / fps / mem）
-        # 只告警不拦截：基线未稳时去掉此行会真拦合入。转正判据（可执行）：
-        # docs/perf-baseline.json 连续若干轮 check-perf.ps1 无回退告警。
-        # 这是「等数据稳定」而非无限期信号 —— 稳定后去掉此行即硬门禁。
-        continue-on-error: true
+          # 3 次冷启动取 cpu 中位数（R0-11 验收口径）；单次采样噪声太大。
+          # 每轮的 METRICS 行聚合到 RUNNER_TEMP，供下一步 check-perf.ps1 判定。
+          for ($i = 1; $i -le 3; $i++) {
+            if (Test-Path $log) { Remove-Item $log -Force }
+            $proc = Start-Process -FilePath $exe -ArgumentList '--smoke' -PassThru
+            $deadline = (Get-Date).AddSeconds(45)
+            while (-not $proc.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 3 }
+            if (-not $proc.HasExited) {
+              Stop-Process -Id $proc.Id -Force
+              throw "冒烟启动超时（第 $i 次，45 秒未退出）"
+            }
+            if (-not (Test-Path $log)) { throw "未生成运行日志（第 $i 次）" }
+
+            $lines = [System.IO.File]::ReadAllLines($log, [System.Text.Encoding]::UTF8)
+            $lines | ForEach-Object { Write-Host $_ }
+            python (Join-Path $PWD 'scripts\check_qml_warnings.py') $log --strict
+            if ($LASTEXITCODE -ne 0) { throw "检测到错误日志（第 $i 次，check_qml_warnings 命中）" }
+
+            $metricLine = @($lines | Where-Object { $_ -match 'METRICS' } | Select-Object -Last 1)
+            if ($metricLine.Count -eq 0 -or -not $metricLine[0]) { throw "第 $i 次 --smoke 未输出 METRICS 行" }
+            Add-Content -Path $metrics -Value $metricLine[0] -Encoding utf8
+          }
+
+      - name: 性能判定（--smoke 的 cpu 中位数 / R0-11 绝对预算）
+        # 硬门禁：check-perf.ps1 在 cpu 中位数超 cpuBudgetMs 时 exit 1，数据不足 exit 2。
+        # 判据是 R0-11 的绝对预算（docs/perf-baseline.json 的 cpuBudgetMs），不依赖
+        # 相对基线，故无需观察期；墙钟 startup 只写 Step Summary、不产生告警。
         shell: pwsh
         run: |
-          . (Join-Path $PWD 'scripts\nb-paths.ps1')
-          $log = Get-NbLogFile
-          pwsh -NoProfile -File scripts/check-perf.ps1 -LogPath $log
+          pwsh -NoProfile -File scripts/check-perf.ps1 -LogPath (Join-Path $env:RUNNER_TEMP 'nb-perf-metrics.txt')
 
       - name: 结卡自测（DX-07）
         shell: pwsh

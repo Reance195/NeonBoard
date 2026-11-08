@@ -1,8 +1,6 @@
 {
-  "smokeCpuMs": 700,
-  "smokeStartupMs": 4000,
-  "smokeFps": 60,
-  "smokeMemMb": 200,
-  "updatedAt": "2026-10-30",
-  "note": "CI --smoke 基线。达标门 = cpu（首帧 CPU 时间）：smokeCpuMs×1.5≈1050ms 对应 R0-11 验收上限 ≤1000ms，超过即告警。墙钟 startup 受 CI runner Defender 冷扫主导（2026-10-30 实测便携包 11381ms / build-Release 6368ms，两者 cpu 均约 700ms），非应用可控，仅作信息性趋势、不作达标门。用 scripts/check-perf.ps1 -Update 刷新，或手工改本文件。"
+  "cpuBudgetMs": 1000,
+  "note": "R0-11 验收上限：--smoke 的 cpu（首帧 CPU 时间）中位数 ≤ 1000ms。这是绝对预算，不是相对基线——墙钟 startup 受 CI runner Defender 冷扫主导（2026-10-30 实测便携包 11381ms / build-Release 6368ms，两者 cpu 均约 700ms），仅作趋势观测、不参与判定（docs/pitfalls.md 4.8）。check-perf.ps1 用本文件的 cpuBudgetMs 作阈值；-Update 只把本轮中位数追加进 samples（滚动窗口，保留最近 20 条），不改预算。",
+  "samples": [],
+  "updatedAt": "2026-11-08"
 }

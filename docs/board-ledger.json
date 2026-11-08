@@ -79,6 +79,8 @@
         "DX-144": "done",
         "DX-145": "done",
         "DX-146": "todo",
+        "DX-147": "todo",
+        "DX-148": "todo",
         "DX-15": "done",
         "DX-16": "done",
         "DX-17": "done",
@@ -184,6 +186,7 @@
         "MOD-02": "done",
         "MOD-05": "done",
         "MOD-06": "done",
+        "MOD-7": "todo",
         "R0-01": "done",
         "R0-02": "done",
         "R0-03": "done",
@@ -1696,6 +1699,43 @@
             "stage": "DX",
             "tier": "P1",
             "title": "GUI 主流程只有自包含夹具与日志字符串匹配，缺真实组件回归"
+        },
+        "DX-147": {
+            "acceptance": [
+                "在 `python` 与 `python3` 均不可用的环境里（含 stub 命中但解析失败的场景），向非豁免路径做代码改动提交时，pre-commit 与 commit-msg 必须打印点名处置动作的响亮告警（指向 `. /scripts/dev-env.ps1` 与本机真 python 路径）并以非 0 退出，提交不落地——用 `PATH` 剔除真 python 的临时环境实测；纯文档/杂务路径改动在同样环境下必须照常放行（豁免面不因本改动扩大或缩小）；`pre-commit`/`commit-msg`/`pre-push` 三条钩子对「python 不可用」给出一致的判定与同一段处置文案（判据一处实现）；`pwsh -File scripts/verify.ps1 -ScriptOnly` 全过；钩子文件保持 LF 行尾、无 BOM"
+            ],
+            "author": "qodercn-session-2026-11-08",
+            "depends": [],
+            "evidence": "维护者 2026-11-08 会话指令「全做」→「授权」，采纳审计轮档位二缺口 #1 的建议。实测：本仓库工作机上 `python` 被 WindowsApps 应用执行别名占位（exit 9009 无输出），本会话首次提交即被这种「静默拒绝」咬过一次，只能靠给每条 git 命令手动前置真 python PATH 才能过闸——这正是失败模式没事先定（AGENTS.md Z4）的症状。宪章 Z4 明文「数据、安全、审计类一律 fail-closed」，§三 表格也宣称 commit-msg 拦「代码改动未关联台账短号」；但 `.githooks/commit-msg` 在 python 不可用时只打印 `⚠ 未找到 python，跳过任务关联校验` 便以 0 退出，`pre-commit` 同样跳过台账保护校验放行。同族对照：`pre-push` 已实现 fail-closed（`❌ … 已阻止推送`，exit 1）——三条钩子对同一判据给了两种答案，违反 Z14「修一处扫一族」，第一道防线在最需要它的机器上静默退化成建议。宪章「五」Z4 先例已按此登记待修（commit 493af70）。",
+            "id": "DX-147",
+            "note": "已完成：.githooks/pygate.sh 唯一判据（真实执行探测 print(1)，stub 命中判不可用）+统一响亮文案与处置；pre-commit/commit-msg 按「台账>杂务豁免>代码拦截」分流，pre-push 收口同判据（行为不变仍 fail-closed）。实测三条：无 python 时 docs-only 提交放行（⚠+exit0）；无 python 时新增 src 文件提交被 ❌ 拒且 exit1 不落库；伪造 stub python（exit 49）时 command -v 被骗过而 nb_py_probe 正确拒绝。待做：无。交付 ef6c2ef。",
+            "scope": [
+                ".githooks/pre-commit",
+                ".githooks/commit-msg",
+                ".githooks/pre-push",
+                ".githooks/pygate.sh"
+            ],
+            "stage": "DX",
+            "tier": "P1",
+            "title": "pre-commit 与 commit-msg 缺 python 时打一行警告就放行，与 pre-push 的 fail-closed 自相矛盾"
+        },
+        "DX-148": {
+            "acceptance": [
+                "新建 `scripts/check_secrets.py`：只扫描本次暂存新增行（棘轮，不回扫历史），命中私钥头（`-----BEGIN ... PRIVATE KEY`）、云厂商 AK 前缀定长串（AKIA/ASIA/LTAI 后跟 16+ 位大写字母数字）、`token|secret|password|api[_-]?key` 赋值长串、40+ 位连续 hex/base64 高熵串这四类模式即 exit 1 并点名文件、行号、模式名；`python scripts/check_secrets.py --selftest` 全过（正反例构造一律用字符串拼接，扫描器与自测不得互相命中）；`.githooks/pre-commit` 在既有检查后接入该闸，python 不可用时按 DX-147 fail-closed 口径处置；误报唯一逃生是 `docs/secrets-allowlist.md` 登记（每行：相对路径 + 行内容 sha256 前 12 位 + 理由，闸门只认名单，名单本身进 git 可评审），`--no-verify` 豁免面保持为空（`check_script_hygiene.py` 规则 B/D 不因本卡放松）；实测：暂存一个含假私钥头的文件提交被拒，登记名单后同内容可提交"
+            ],
+            "author": "qodercn-session-2026-11-08",
+            "depends": [],
+            "evidence": "维护者 2026-11-08 会话指令「全做」→「授权」，采纳审计轮档位二缺口 #2，并定下口径：误报逃生走可评审名单，不新开 --no-verify 豁免。实测：全仓执行点清单（钩子 5 文件、校验脚本 14 个、CI 三 workflow）中没有任何一条内容级密钥扫描；`.gitignore` 只按文件名拦（`.env`、`*.pem`、`*.key`），把私钥贴进 `README.md`、`board-ledger.json` 或任何被跟踪文件的路径完全无闸——这是宪章全部安全类规范里唯一纯靠散文的一条（Z4 失败模式未定、Z6 坑未沉淀成判据）。",
+            "id": "DX-148",
+            "note": "",
+            "scope": [
+                "scripts/check_secrets.py",
+                ".githooks/pre-commit",
+                "docs/secrets-allowlist.md"
+            ],
+            "stage": "DX",
+            "tier": "P1",
+            "title": "宪章 §四「密钥严禁入库」零机器执行，入库闸门全靠自觉"
         },
         "DX-15": {
             "acceptance": [
@@ -3612,6 +3652,31 @@
             ],
             "stage": "MOD",
             "title": "MOD src/ 物理分层：8 个模块子目录 + 连带 5 处引用"
+        },
+        "MOD-7": {
+            "acceptance": [
+                "pwsh -File scripts/verify.ps1 全量通过（编译 → ctest → --selftest → --smoke → 模块守卫 → 看板一致性）",
+                "src/main.cpp 行数 <= 450（基线 1910）且只保留薄入口（声明 neonboardMain 并转调）",
+                "新增 src/app/ 目录含 AppMain 与 CliCommands 与 SelfTestRunner 与 AppContext 四类实现，CMakeLists.txt 的 qt_add_executable 源列表尾部追加这些 .cpp",
+                "--selftest 退出码 0 且沙箱 neonboard.log 含 SELFTEST result OK 且无 FAIL 行，SELFTEST 标签序列与重构前基线一致",
+                "逐条 CLI 退出码语义不变（成功 0 失败 2），新增一条 utility 命令后仍走无头模式不拉起 GUI",
+                "python scripts/check_module_deps.py --base origin/main 退出 0 且 LINE_LIMITS 中 src/main.cpp 上限已从 1910 同步调低到实际行数",
+                "python scripts/check_scope.py --base origin/main 退出 0"
+            ],
+            "author": "codebuddy-session-2026-11-08",
+            "depends": [],
+            "evidence": "2026-11-08 实物复测（基线 origin/main）：src/main.cpp 1910 行（LF 实测，与 check_module_deps.py 的 LINE_LIMITS 一致），CLI 派发 10 块共 848 行，其中 --selftest 独占 607 行（522-1128），setContextProperty 46 处（406-1729），return 0 共 22 处、return 2 共 23 处；--selftest 是 GUI 子系统程序，stdout 恒为空，真实输出走 qInfo 落沙箱 neonboard.log（34 行，末行 SELFTEST result OK remaining 0），故方案 v4 的「逐字节比对 stdout」不成立，改以退出码 + 日志 SELFTEST 标签序列 + result OK 作基线。docs/module-split-plan.md v4 §5 M1 目标 <=450 行，§2.2 已证「CLI 分支穿插在对象构造之间不能整体剪切」，§7.4 把 MOD-03/MOD-04 列为可穿插的下一批且从未立卡；台账 baseline 仅 MOD-02 / MOD-05 / MOD-06 / DX-18 为 done，后续批次一张卡都没有，docs/card-requests/ 下也无已递交未立的模块化请求单，路线图 §9 无 **MOD** 行。维护者 2026-11-08 会话指令「继续实现模块化」，在证据链与台账核对后选定「拆 main.cpp（推荐）」+「完整闭环（推荐）」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
+            "id": "MOD-7",
+            "note": "",
+            "scope": [
+                "src/main.cpp",
+                "src/app/**",
+                "CMakeLists.txt",
+                "scripts/check_module_deps.py"
+            ],
+            "stage": "MOD",
+            "tier": "P4",
+            "title": "模块化续批：建立 src/app 边界并把 main.cpp 从 1910 行降到 450 行以内"
         },
         "R0-01": {
             "acceptance": [
@@ -6422,6 +6487,13 @@
             "title": "弹窗与抽屉壳头部关闭键未贴右上角"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-147": {
+            "agent": "pygate",
+            "branch": "fix/hook-python-fail-closed",
+            "claimedAt": 1794146208,
+            "head": "ae848ede70a543775097c5222c5b27360b9af528"
+        }
+    },
     "version": 1
 }

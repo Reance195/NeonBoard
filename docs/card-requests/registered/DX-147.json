@@ -1,0 +1,13 @@
+{
+  "card": "DX-147",
+  "sha256": "d7d2725e979c497c2c30d993adc9ee5b16fea8b77b643e8b0e809f0075889d33",
+  "authorizedBy": "maintainer-session-2026-11-08（指令「全做」→「授权」，批次 audit-gap-fixes）",
+  "form": "docs/card-requests/20261108-hook-fail-closed.md",
+  "registeredAt": "2026-11-08T13:34:53+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-147",
+    "sha": "17c201bedfda3ab96bc4b08e6979b07f25207481"
+  }
+}

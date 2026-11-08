@@ -19,6 +19,42 @@
             "updatedAt": 1794139007
         },
         {
+            "code": "DX-147",
+            "completedAt": 0,
+            "createdAt": 1794144893,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-147",
+            "note": "",
+            "orderKey": 70784,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "pre-commit 与 commit-msg 缺 python 时打一行警告就放行，与 pre-push 的 fail-closed 自相矛盾",
+            "updatedAt": 1794144893
+        },
+        {
+            "code": "DX-148",
+            "completedAt": 0,
+            "createdAt": 1794144900,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-148",
+            "note": "",
+            "orderKey": 75840,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "宪章 §四「密钥严禁入库」零机器执行，入库闸门全靠自觉",
+            "updatedAt": 1794144900
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5785,6 +5821,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-08T21:29:28",
+    "updated": "2026-11-08T21:35:00",
     "version": 3
 }

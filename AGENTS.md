@@ -459,7 +459,7 @@ WorkBuddy 客户端的 Worktree 开关解决**文件层隔离**，本仓库这�
 5. **快照格式不得降级**：`version` 保持 3、每卡保留 `code`；移除的卡写 `"deleted": true` 不删条目。
 6. **未提交只允许是快照**：`git-done.ps1` 只代提交 `progress.json`；存在其它未提交改动拒绝合并（exit 1）。
 7. **`--no-verify` 当前零豁免**：`.github/workflows/` 与脚本里都不许出现（`check_script_hygiene.py`
-   规则 B/D）；历史教训与完整经过见附录「十一」。
+   规则 B/D）；历史教训与完整经过见 `docs/adr/0003`。
 8. **快照只有一条写入链，CI 不参与写**：唯一写者是 `git-done` 收尾的 `Sync-BoardSnapshot`
    （fail-soft：失败只告警，不阻断已成功的合并）；`board.yml` 只是校验器。每批收尾对 main
    只推一次，中间态结构上不存在——**main tip 红灯 = 收尾真的失败了**，照提示补跑，别屏蔽。

@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-144",
-            "completedAt": 0,
-            "createdAt": 1794132674,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-144",
-            "note": "",
-            "orderKey": 40448,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "git-done 非快进重试用裸 rebase 展平 --no-ff 合并提交，主线出现线性提交",
-            "updatedAt": 1794132674
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -3334,6 +3316,24 @@
             "updatedAt": 1793903226
         },
         {
+            "code": "DX-144",
+            "completedAt": 1794136009,
+            "createdAt": 1794132674,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-144",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 非快进重试用裸 rebase 展平 --no-ff 合并提交，主线出现线性提交",
+            "updatedAt": 1794136009
+        },
+        {
             "code": "R0-14",
             "completedAt": 1794047953,
             "createdAt": 1794027516,
@@ -5731,6 +5731,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-08T18:11:14",
+    "updated": "2026-11-08T19:06:49",
     "version": 3
 }

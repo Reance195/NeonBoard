@@ -6426,9 +6426,9 @@
     "claims": {
         "DX-146": {
             "agent": "agent-dx146",
-            "branch": "fix/dx146-real-component-tests",
-            "claimedAt": 1794144758,
-            "head": "dc75db906e39ed34982925ecca78dc15bb3e18b9"
+            "branch": "fix/dx146-resume",
+            "claimedAt": 1794148417,
+            "head": "855e1d0094481d307ab8f3207c5f9769b337d9a2"
         }
     },
     "version": 1

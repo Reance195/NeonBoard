@@ -9,6 +9,9 @@
 #   3. 进度快照 progress.json 语义闸门：版本不得降级、卡片数不得减少、code 不得丢失
 # ============================================================
 
+# python 判定与处置文案的唯一实现（DX-147：与 pre-commit / commit-msg 同一判据）
+. "$(dirname "$0")/pygate.sh"
+
 remote_name="$1"
 remote_url="$2"
 main_branch="main"
@@ -169,19 +172,13 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     # ---- 规则 5：任务闸门（推主干的最后一道硬门）----
     # 本地开关都能被绕过，只有这里能挡住「手搓分支 → 手工 merge → 直推 main」。
     # 逐个校验推送范围内触及代码路径的提交：必须带任务号，且有服务端 claim ref 占位。
-    if command -v python >/dev/null 2>&1; then
+    if nb_py_probe; then
       repo_top=$(git rev-parse --show-toplevel 2>/dev/null)
       if [ -n "$repo_top" ] && [ -f "$repo_top/scripts/task_gate.py" ]; then
-        python "$repo_top/scripts/task_gate.py" push --remote "$remote_sha" --local "$local_sha" || exit 1
+        "$NB_PY" "$repo_top/scripts/task_gate.py" push --remote "$remote_sha" --local "$local_sha" || exit 1
       fi
     else
-      echo ""
-      echo "==================================================================="
-      echo " ❌ 未找到 python，无法校验任务凭据，已阻止推送到主分支。"
-      echo "==================================================================="
-      echo ""
-      echo " 任务闸门依赖 python；请先安装并确保 python 在 PATH 中。"
-      echo ""
+      nb_py_block "推送时的任务凭据校验"
       exit 1
     fi
     continue

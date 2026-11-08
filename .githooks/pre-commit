@@ -8,6 +8,9 @@
 #   3. 合并冲突解决、rebase 续行等中间态一律放行
 # ============================================================
 
+# python 判定与处置文案的唯一实现（DX-147：审计类 fail-closed，禁止静默放行）
+. "$(dirname "$0")/pygate.sh"
+
 protected_branches="main master develop"
 # workbuddy/ 由 WorkBuddy 的 Worktree Task 自动生成（~/WorkBuddy/Worktrees 下的隔离任务），
 # 分支名带随机哈希且不由人工决定；不放行的话 agent 只会被迫用 --no-verify，
@@ -98,15 +101,22 @@ fi
 # 台账 docs/board-ledger.json 里，cards（id/title/stage）与 baseline 只能由林先生在
 # 锚点区维护；agent 只能写 claims 领用登记与卡片 note 交付说明。
 # 没有这条，agent 可以先往台账塞一张卡再「合法」领用，所有领用闸门都变成自证。
-if command -v python >/dev/null 2>&1; then
+if nb_py_probe; then
   repo_top=$(git rev-parse --show-toplevel 2>/dev/null)
   if [ -n "$repo_top" ] && [ -f "$repo_top/scripts/task_gate.py" ]; then
-    python "$repo_top/scripts/task_gate.py" ledger || exit 1
+    "$NB_PY" "$repo_top/scripts/task_gate.py" ledger || exit 1
   fi
+elif nb_staged_has_ledger_change; then
+  # 台账虽在杂务路径，任务定义属审计类：验不了就不放行（宪章 Z4）。
+  nb_py_block "台账任务定义保护校验"
+  exit 1
+elif nb_staged_is_exempt; then
+  echo ""
+  echo " ⚠ python 不可用：本次仅杂务路径改动，跳过台账保护校验（代码路径与任务定义仍会被 pre-push 拦住）"
+  echo ""
 else
-  echo ""
-  echo " ⚠ 未找到 python，跳过台账保护校验（任务闸门依赖 python，请安装后重试）"
-  echo ""
+  nb_py_block "代码改动的任务闸门前置校验"
+  exit 1
 fi
 
 exit 0

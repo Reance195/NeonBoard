@@ -69,6 +69,9 @@ Makefile.*
 # AtomCode 助手本地产物（memory-locks / artifacts / local，写到仓库根）：
 # 同上，未忽略时锚点区永久带未跟踪文件，快进同步每次都被跳过
 .atomcode/
+# QoderCN 会话产物目录（写到仓库根）：
+# 同上，未忽略时锚点区永久带未跟踪文件，快进同步每次都被跳过
+.qoder/
 
 # ===== 运行时数据（本地数据库等）=====
 *.db

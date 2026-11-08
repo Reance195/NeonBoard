@@ -299,7 +299,9 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "DX-145": "todo",
+        "DX-146": "todo"
     },
     "cards": {
         "DX-01": {
@@ -6280,6 +6282,59 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "DX-145": {
+            "acceptance": [
+                "新建单点 cmake/toolchain.cmake（Qt 版本、MSVC 工具集、生成器、sccache 版本只在此声明），ci.yml / release.yml / dev-env.ps1 均从单点取值，全仓不再各自硬编码 6.8.3",
+                "新增 scripts/check_toolchain_versions.py --check 守门：全仓 6.8.3 字面量只许出现在单点与明确标注的归档/历史文档，出现新的重复硬编码即退 1；python scripts/check_toolchain_versions.py --selftest 全过",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全过（scope 无代码路径，轻档）",
+                "不改 CMakeLists.txt 里 project(VERSION) 的产品版本号单点"
+            ],
+            "author": "codebuddy-session-2026-11-08",
+            "depends": [],
+            "evidence": "工程化分析实测：全仓 grep 6.8.3 命中 20 个文件，覆盖 README.en.md / README.md / AGENTS.md / CONTRIBUTING.md / SECURITY.md / docs/announcement.md / docs/git-workflow.md / docs/plan-hook.md / docs/pitfalls.md / docs/design/ui-relayout-verify.md / docs/board-ledger.json / docs/iteration-roadmap.md / progress.json / scripts/check_ninja_deps.py / scripts/agent-init.ps1 / scripts/dev-run.ps1 / scripts/dev-env.ps1 / scripts/deploy.ps1 等，ci.yml 与 release.yml 也各自硬编码。产品版本号已收敛到 CMakeLists.txt 的 project(VERSION)（CMakeLists.txt:42-48 是单点范例），工具链版本却没有单点，违反 AGENTS.md Z5「规则只实现一次」，改一次 Qt 版本要同步 6+ 处且靠人记。维护者 2026-11-08 会话指令「按你的建议来」采纳建议 C，授权立卡并排位 P1。",
+            "id": "DX-145",
+            "note": "",
+            "scope": [
+                "CMakeLists.txt",
+                "scripts/dev-env.ps1",
+                "scripts/build.ps1",
+                "scripts/deploy.ps1",
+                ".github/workflows/ci.yml",
+                ".github/workflows/release.yml",
+                "scripts/check_toolchain_versions.py",
+                "cmake/toolchain.cmake",
+                "README.md",
+                "README.en.md",
+                "AGENTS.md",
+                "CONTRIBUTING.md",
+                "docs/git-workflow.md"
+            ],
+            "stage": "DX",
+            "tier": "P1",
+            "title": "工具链版本散落 20+ 文件无单点，改一次 Qt 版本要同步多处"
+        },
+        "DX-146": {
+            "acceptance": [
+                "新增至少 1 个基于真实 qml/components/TaskCard.qml 的 QML Test（qmltestrunner），覆盖点击/双击/拖拽事件路由，不再只靠自包含复刻夹具",
+                "scripts/gui-uia-verify.ps1 接进 ci.yml 冒烟步骤或独立 job，失败即拦合入，--smoke 日志判据保留作为补充",
+                "ctest --test-dir build -C Release --output-on-failure 全过；pwsh -File scripts/verify.ps1 -ScriptOnly 全过（scope 无代码路径，轻档）"
+            ],
+            "author": "codebuddy-session-2026-11-08",
+            "depends": [],
+            "evidence": "工程化分析实测：tests/CMakeLists.txt:604-606 的 tst_taskcard_actions 注释自承是「自包含夹具复刻」，不加载真实 qml/components/TaskCard.qml；GUI 主流程回归实际靠 ci.yml 的 --smoke 4 秒日志加 scripts/check_qml_warnings.py 字符串匹配再加人工。仓库已有 scripts/gui-uia-verify.ps1（Windows UIA 冒烟）但未接进 CI。45 个 CTest 目标里没有第二个 QML 用例。结构性缺口：真实组件的事件路由、层叠、焦点回归没有机器判据。维护者 2026-11-08 会话指令「按你的建议来」采纳建议 C，授权立卡并排位 P1。",
+            "id": "DX-146",
+            "note": "",
+            "scope": [
+                "tests/CMakeLists.txt",
+                "tests/qml",
+                ".github/workflows/ci.yml",
+                "scripts/gui-uia-verify.ps1",
+                "scripts/check_qml_warnings.py"
+            ],
+            "stage": "DX",
+            "tier": "P1",
+            "title": "GUI 主流程只有自包含夹具与日志字符串匹配，缺真实组件回归"
         }
     },
     "claims": {},

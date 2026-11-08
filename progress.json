@@ -19,6 +19,24 @@
             "updatedAt": 1794138944
         },
         {
+            "code": "DX-146",
+            "completedAt": 0,
+            "createdAt": 1794139007,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-146",
+            "note": "",
+            "orderKey": 60672,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "GUI 主流程只有自包含夹具与日志字符串匹配，缺真实组件回归",
+            "updatedAt": 1794139007
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5749,6 +5767,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-08T19:55:44",
+    "updated": "2026-11-08T19:56:47",
     "version": 3
 }

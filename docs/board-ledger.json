@@ -300,7 +300,8 @@
         "R9-03": "done",
         "R9-04": "done",
         "R9-05": "done",
-        "DX-145": "todo"
+        "DX-145": "todo",
+        "DX-146": "todo"
     },
     "cards": {
         "DX-01": {
@@ -6312,6 +6313,28 @@
             "stage": "DX",
             "tier": "P1",
             "title": "工具链版本散落 20+ 文件无单点，改一次 Qt 版本要同步多处"
+        },
+        "DX-146": {
+            "acceptance": [
+                "新增至少 1 个基于真实 qml/components/TaskCard.qml 的 QML Test（qmltestrunner），覆盖点击/双击/拖拽事件路由，不再只靠自包含复刻夹具",
+                "scripts/gui-uia-verify.ps1 接进 ci.yml 冒烟步骤或独立 job，失败即拦合入，--smoke 日志判据保留作为补充",
+                "ctest --test-dir build -C Release --output-on-failure 全过；pwsh -File scripts/verify.ps1 -ScriptOnly 全过（scope 无代码路径，轻档）"
+            ],
+            "author": "codebuddy-session-2026-11-08",
+            "depends": [],
+            "evidence": "工程化分析实测：tests/CMakeLists.txt:604-606 的 tst_taskcard_actions 注释自承是「自包含夹具复刻」，不加载真实 qml/components/TaskCard.qml；GUI 主流程回归实际靠 ci.yml 的 --smoke 4 秒日志加 scripts/check_qml_warnings.py 字符串匹配再加人工。仓库已有 scripts/gui-uia-verify.ps1（Windows UIA 冒烟）但未接进 CI。45 个 CTest 目标里没有第二个 QML 用例。结构性缺口：真实组件的事件路由、层叠、焦点回归没有机器判据。维护者 2026-11-08 会话指令「按你的建议来」采纳建议 C，授权立卡并排位 P1。",
+            "id": "DX-146",
+            "note": "",
+            "scope": [
+                "tests/CMakeLists.txt",
+                "tests/qml",
+                ".github/workflows/ci.yml",
+                "scripts/gui-uia-verify.ps1",
+                "scripts/check_qml_warnings.py"
+            ],
+            "stage": "DX",
+            "tier": "P1",
+            "title": "GUI 主流程只有自包含夹具与日志字符串匹配，缺真实组件回归"
         }
     },
     "claims": {},

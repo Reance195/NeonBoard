@@ -115,6 +115,15 @@ jobs:
           python scripts/check_qml_pitfalls.py
           if ($LASTEXITCODE -ne 0) { throw 'qml/ 发现已知交互陷阱，见上方点名行' }
 
+      - name: GUI 前台守卫自测（DX-146）
+        # gui-uia-verify.ps1 的 -SelfTest 是纯函数自测（前台句柄判定），headless 可跑；
+        # 真窗口实机验收需要前台窗口与合成输入，不在 CI 里跑，避免误触 runner 桌面。
+        # --smoke 的日志判据仍由上面的冒烟步骤保留。
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/gui-uia-verify.ps1 -SelfTest
+          if ($LASTEXITCODE -ne 0) { throw 'GUI 前台守卫自测未通过' }
+
       - name: 编译口径守卫（/utf-8，DX-53）
         shell: pwsh
         run: |

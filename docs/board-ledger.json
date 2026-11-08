@@ -6423,13 +6423,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "R11-14": {
-            "agent": "agent-cb",
-            "branch": "fix/shell-close-anchor",
-            "claimedAt": 1794147280,
-            "head": "a21ac7f533f805c2060ec1789c6eb95dd8aec007"
-        }
-    },
+    "claims": {},
     "version": 1
 }

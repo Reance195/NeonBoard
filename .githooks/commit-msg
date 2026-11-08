@@ -8,6 +8,9 @@
 #   subject：中文简述，不超过 50 字
 # ============================================================
 
+# python 判定与处置文案的唯一实现（DX-147：审计类 fail-closed，禁止静默放行）
+. "$(dirname "$0")/pygate.sh"
+
 allowed_types="feat fix chore docs refactor perf test build ci style revert merge"
 
 message_file="$1"
@@ -78,15 +81,22 @@ fi
 # ---- 规则 3：代码改动必须关联任务卡 ----
 # 豁免只看路径（docs/ scripts/ .githooks/ .github/ *.md 等），不看人怎么声明；
 # feat/fix/refactor/perf/test 即使只碰豁免路径也必须有卡。
-if command -v python >/dev/null 2>&1; then
+if nb_py_probe; then
   repo_top=$(git rev-parse --show-toplevel 2>/dev/null)
   if [ -n "$repo_top" ] && [ -f "$repo_top/scripts/task_gate.py" ]; then
-    python "$repo_top/scripts/task_gate.py" message --file "$message_file" || exit 1
+    "$NB_PY" "$repo_top/scripts/task_gate.py" message --file "$message_file" || exit 1
   fi
+elif nb_staged_is_exempt; then
+  echo ""
+  echo " ⚠ python 不可用：本次仅杂务路径改动，跳过任务关联校验（提交信息格式校验不受影响）"
+  echo ""
+elif nb_in_progress_state; then
+  echo ""
+  echo " ⚠ python 不可用：合并/rebase 续行中间态，跳过任务关联校验（该提交首次落定时已过闸门）"
+  echo ""
 else
-  echo ""
-  echo " ⚠ 未找到 python，跳过任务关联校验（任务闸门依赖 python，请安装后重试）"
-  echo ""
+  nb_py_block "代码改动任务关联校验"
+  exit 1
 fi
 
 exit 0

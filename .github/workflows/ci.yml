@@ -17,9 +17,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  # 遗留：回写取消后本 workflow 已不需要写权限（board.yml 已降为 contents: read）。
-  # 收紧权限属于实际行为变更，DX-14 的边界明确不改，故只在此留痕 —— 下次碰这文件时顺手降。
-  contents: write
+  # DX-14 边界：回写取消后本 workflow 已不需要写权限（board.yml 已是 contents: read）。
+  # 原注释约定「下次碰这文件时顺手降」——本次处理 P0 棘轮时一并兑现。
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -45,8 +45,9 @@ jobs:
         run: pwsh -NoProfile -File scripts/setup-git-hooks.ps1
 
       - name: 代码格式检查（clang-format，棘轮：只查本次改动的 C++ 文件）
-        # 先作为信号运行（非阻塞）：现存历史文件未做一次性重排，
-        # 等格式基线稳定后把 continue-on-error 去掉即为硬门禁。
+        # 信号态。转正判据（可执行）：pwsh -File scripts/check-format.ps1 -All 退出 0
+        # （存量格式基线清零）。脚本 -Base 只查本次改动文件，故去掉此行不会引入常驻红灯；
+        # 是否提前收紧由维护者拍板（docs/pitfalls.md 1.24）。
         continue-on-error: true
         shell: pwsh
         run: |
@@ -55,8 +56,9 @@ jobs:
           pwsh -NoProfile -File scripts/check-format.ps1 -Base $base
 
       - name: 任务卡范围检查（棘轮：卡片声明 scope 后才生效）
-        # 与格式检查一样先作信号：存量卡片逐步补 scope，
-        # 缺失时脚本只告警不拦截；全部补齐后去掉 continue-on-error 即硬门禁。
+        # 信号态。转正判据：docs/board-ledger.json 在办卡全部声明 scope。
+        # 注意 check_scope.py:475-481 对「未声明 scope 的卡」已直接放行（return 0），
+        # pitfalls 1.24「去掉就会挡住所有存量卡」的前提已过时；但收门节奏按该条仍需人拍板。
         continue-on-error: true
         shell: pwsh
         run: |
@@ -65,8 +67,8 @@ jobs:
 
       - name: 路径引用检查（棘轮：只报本次新增的失效引用）
         # src/ 拆目录 / 改名后，脚本 / 台账 / 文档里的原始文件路径会变成死链，编译器看不见。
-        # 存量（拆目录后未回改的历史文档）先折叠计数，只拦新增 —— 与上面两项同一口径，
-        # 存量清零后再去掉 continue-on-error 转硬门禁。
+        # 脚本 --base 只报本次新增、存量折叠成一行计数。转正判据（可执行）：
+        #   python scripts/check_path_refs.py --audit 输出「失效 0 处」。
         continue-on-error: true
         shell: pwsh
         run: |
@@ -269,7 +271,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw '检测到错误日志（check_qml_warnings 命中，见上方点名行）' }
 
       - name: 性能基线（--smoke 的 startup / fps / mem）
-        # 只告警不拦截：先积累几轮数据，确认基线稳定后再去掉 continue-on-error。
+        # 只告警不拦截：基线未稳时去掉此行会真拦合入。转正判据（可执行）：
+        # docs/perf-baseline.json 连续若干轮 check-perf.ps1 无回退告警。
+        # 这是「等数据稳定」而非无限期信号 —— 稳定后去掉此行即硬门禁。
         continue-on-error: true
         shell: pwsh
         run: |

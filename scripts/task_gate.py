@@ -29,6 +29,11 @@ import re
 import subprocess
 import sys
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+import register_board_cards  # noqa: E402  策略边界判定唯一实现（Z5），不在此复制
+
 # 豁免白名单：只有这些路径的改动才允许不领卡。
 EXEMPT_PREFIXES = ("docs/", "scripts/", ".githooks/", ".github/")
 EXEMPT_FILES = ("progress.json", ".gitignore", ".gitattributes", "LICENSE")
@@ -268,6 +273,7 @@ def cmd_message(args):
                 except ValueError:
                     receipts[code] = None
             problems += receipt_problems(old, new, receipts)
+            problems += policy_receipt_problems(old, new, receipts)
             # DX-121 半落地闸门：立卡提交的台账必须真的新增卡，且每个新增短号
             # 都能对上 origin 的发号占位（服务端占位是发号的原子事实源；
             # ls-remote 需网络 —— 与领用 fail-closed 同口径）。
@@ -451,6 +457,57 @@ def receipt_problems(old, new, receipts):
             problems.append("回执 sha256 与卡片内容不符（登记后被手工改动？）：%s" % code)
         if not receipt.get("authorizedBy"):
             problems.append("回执缺 authorizedBy（授权来源必须写入回执）：%s" % code)
+    return problems
+
+
+POLICY_AUTH_RE = re.compile(r"^policy:([\w-]+)@([0-9a-f]{8})$")
+
+
+def policy_receipt_problems(old, new, receipts):
+    """策略授权回执复核：authorizedBy 形如 policy:<id>@<sha8> 的新增卡。
+
+    三道判据（与立卡程序 policy_authorized_by 同口径）：
+      a. 凭证格式合法；
+      b. 策略在台账 authorization.policies 里且内容 sha 与凭证一致
+         （策略登记后被篡改即拒 —— 审计链断不得合入）；
+      c. 卡片本身仍在策略边界内（复用 register_board_cards.policy_violations，
+         不在此复制判定，Z5）。
+    """
+    problems = []
+    old_cards, _ = ledger_shape(old)
+    new_cards, _ = ledger_shape(new)
+    policies = (new.get("authorization") or {}).get("policies") or []
+    for code in sorted(set(new_cards) - set(old_cards)):
+        receipt = receipts.get(code)
+        if receipt is None:
+            continue  # 缺回执已由 receipt_problems 报，不重复计
+        authorized = str(receipt.get("authorizedBy") or "")
+        if not authorized.startswith("policy:"):
+            continue  # 显式代登记回执，走既有通道
+        m = POLICY_AUTH_RE.match(authorized)
+        if not m:
+            problems.append("回执 authorizedBy 的策略凭证格式非法（%r）：%s"
+                            % (authorized, code))
+            continue
+        pid, sha8 = m.group(1), m.group(2)
+        policy = next((p for p in policies if p.get("id") == pid), None)
+        if policy is None:
+            problems.append("回执引用的策略 '%s' 不在台账 authorization.policies 里：%s"
+                            % (pid, code))
+            continue
+        payload = json.dumps(policy, ensure_ascii=False, sort_keys=True,
+                             separators=(",", ":"))
+        if hashlib.sha256(payload.encode("utf-8")).hexdigest()[:8] != sha8:
+            problems.append("策略 '%s' 内容与回执凭证不符（登记后被篡改？）：%s"
+                            % (pid, code))
+            continue
+        card = (new.get("cards") or {}).get(code) or {}
+        meta = {"tier": card.get("tier", ""),
+                "stage": card.get("stage", ""),
+                "scope": ";".join(card.get("scope") or []),
+                "title": card.get("title", "")}
+        for v in register_board_cards.policy_violations(policies, pid, meta):
+            problems.append("卡片 %s 超出策略 '%s' 边界：%s" % (code, pid, v))
     return problems
 
 
@@ -1075,6 +1132,56 @@ def cmd_selftest(args):
                   False, receipt_problems(
                       dx97_old, dx97_new,
                       {"DX-02": dict(good_receipt, authorizedBy="")})))
+
+    # 策略授权回执复核（policy_receipt_problems）：凭证 sha / 策略存在 / 边界三道判据
+    policy_obj = {"id": "auto-test", "enabled": True, "tierMax": "P3", "stage": "DX",
+                  "scopeGlob": ["scripts/**"], "titlePattern": r"\[auto\] .+"}
+
+    def policy_auth_bytes(obj):
+        return "policy:%s@%s" % (
+            obj["id"],
+            hashlib.sha256(json.dumps(obj, ensure_ascii=False, sort_keys=True,
+                                      separators=(",", ":")).encode("utf-8")
+                           ).hexdigest()[:8])
+
+    pol_card = dict(receipt_card("DX-03", "[auto] 巡检"), tier="P3")
+    pol_new = {"cards": dict(dx97_new["cards"], DX_03=None, **{"DX-03": pol_card}),
+               "baseline": dict(dx97_new["baseline"], **{"DX-03": "todo"}),
+               "authorization": {"policies": [policy_obj]}}
+    pol_new["cards"].pop("DX_03", None)
+    pol_old = dx97_old
+    pol_receipt = {"card": "DX-03", "sha256": receipt_payload(pol_card),
+                   "authorizedBy": policy_auth_bytes(policy_obj),
+                   "tool": "scripts/register_board_cards.py"}
+    cases.append(("策略回执：凭证与边界都合法 → 放行",
+                  True, policy_receipt_problems(pol_old, pol_new,
+                                                {"DX-03": pol_receipt})))
+    tampered = dict(policy_obj, scopeGlob=["**"])
+    cases.append(("策略回执：策略被篡改（sha 不符）→ 拒绝",
+                  False, policy_receipt_problems(
+                      pol_old,
+                      dict(pol_new, authorization={"policies": [tampered]}),
+                      {"DX-03": pol_receipt})))
+    cases.append(("策略回执：策略不在台账 → 拒绝",
+                  False, policy_receipt_problems(
+                      pol_old, dict(pol_new, authorization={"policies": []}),
+                      {"DX-03": pol_receipt})))
+    bad_meta = dict(receipt_card("DX-03", "[auto] 巡检"), tier="P1")
+    cases.append(("策略回执：卡片超策略边界（tier 超档）→ 拒绝",
+                  False, policy_receipt_problems(
+                      pol_old,
+                      dict(pol_new, cards=dict(pol_new["cards"],
+                                               **{"DX-03": bad_meta})),
+                      {"DX-03": dict(pol_receipt, sha256=receipt_payload(bad_meta))})))
+    cases.append(("策略回执：凭证格式非法 → 拒绝",
+                  False, policy_receipt_problems(
+                      pol_old, pol_new,
+                      {"DX-03": dict(pol_receipt, authorizedBy="policy:x@zz")})))
+    cases.append(("策略回执：显式代登记回执不受策略复核影响",
+                  True, policy_receipt_problems(
+                      pol_old, dict(pol_new, authorization={"policies": []}),
+                      {"DX-03": dict(good_receipt, card="DX-03",
+                                     sha256=receipt_payload(pol_card))})))
     dx97_paths = [
         ("DX-97 路径：回执目录属于流程合法路径",
          process_paths_ok([LEDGER.replace("\\", "/"),

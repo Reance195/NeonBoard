@@ -137,7 +137,9 @@ def iter_staged_added(root):
     for raw in diff.splitlines():
         if raw.startswith("+++ b/"):
             cur = raw[6:]
-            if cur == "/dev/null":
+            if cur == "/dev/null" or cur == ALLOWLIST_PATH:
+                # 豁免登记表本体免扫：登记行的内容就是被登记行（含示例凭据），
+                # 若扫它则哈希链无限递归；其审核属性由「登记即留痕」承担。
                 cur = None
         elif raw.startswith("@@"):
             m = re.search(r"\+(\d+)(?:,(\d+))?", raw)

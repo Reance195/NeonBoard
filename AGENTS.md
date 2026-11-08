@@ -344,8 +344,8 @@ pwsh -File scripts/dev-run.ps1 -Wait      # 前台运行（配合 --smoke 等参
   `baseline`/`claims` 或单纯立卡走轻档 + derive 校验；改既有卡契约、删卡、陌生 `stage` 直接要求全量。
 - **Qt 路径不用手传**（DX-24）：`verify.ps1` 从 `build/CMakeCache.txt` 反推补 PATH。
   全量编译交 CI 兜底；发布前仍走 `scripts/release.ps1` 的 Release 构建 + `--selftest`（7.8）。
-- 数据层统一 `NeonBoard.exe --selftest`；界面改动在沙箱验收，不污染真实数据。
-  跑完应用查 `git status`：沙箱漏设 `NEONBOARD_ROADMAP` 会写脏 `progress.json`，用后还原。
+- 数据层统一 `NeonBoard.exe --selftest`；界面改动在沙箱验收，不污染真实数据
+  （沙箱写脏仓库快照由 `verify.ps1` 的 `--smoke` 前后哈希比对兜底，无需手查 `git status`）。
 
 ### 7.8 发布闸门
 

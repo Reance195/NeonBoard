@@ -50,6 +50,8 @@
 | --- | --- | --- | --- |
 | [0001](0001-task-definition-source.md) | 任务定义单源：台账管开发卡，board.db 管个人卡 | accepted | 2026-10-27 |
 | [0002](0002-run-state-and-executor-safety.md) | 运行态与看板状态分离，执行器默认关闭且受控 | accepted | 2026-10-27 |
+| [0003](0003-ci-exemption-zero.md) | CI 的 --no-verify 豁免面清零：流水线不得绕开自家闸门 | accepted（追记） | 2026-11-08 |
+| [0004](0004-snapshot-single-writer.md) | 进度快照只有一个写者：git-done 收尾写，CI 与脚本都不写 | accepted（追记） | 2026-11-08 |
 
 ## 约定
 

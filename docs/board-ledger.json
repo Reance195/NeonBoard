@@ -1708,7 +1708,7 @@
             "depends": [],
             "evidence": "维护者 2026-11-08 会话指令「全做」→「授权」，采纳审计轮档位二缺口 #1 的建议。实测：本仓库工作机上 `python` 被 WindowsApps 应用执行别名占位（exit 9009 无输出），本会话首次提交即被这种「静默拒绝」咬过一次，只能靠给每条 git 命令手动前置真 python PATH 才能过闸——这正是失败模式没事先定（AGENTS.md Z4）的症状。宪章 Z4 明文「数据、安全、审计类一律 fail-closed」，§三 表格也宣称 commit-msg 拦「代码改动未关联台账短号」；但 `.githooks/commit-msg` 在 python 不可用时只打印 `⚠ 未找到 python，跳过任务关联校验` 便以 0 退出，`pre-commit` 同样跳过台账保护校验放行。同族对照：`pre-push` 已实现 fail-closed（`❌ … 已阻止推送`，exit 1）——三条钩子对同一判据给了两种答案，违反 Z14「修一处扫一族」，第一道防线在最需要它的机器上静默退化成建议。宪章「五」Z4 先例已按此登记待修（commit 493af70）。",
             "id": "DX-147",
-            "note": "",
+            "note": "已完成：.githooks/pygate.sh 唯一判据（真实执行探测 print(1)，stub 命中判不可用）+统一响亮文案与处置；pre-commit/commit-msg 按「台账>杂务豁免>代码拦截」分流，pre-push 收口同判据（行为不变仍 fail-closed）。实测三条：无 python 时 docs-only 提交放行（⚠+exit0）；无 python 时新增 src 文件提交被 ❌ 拒且 exit1 不落库；伪造 stub python（exit 49）时 command -v 被骗过而 nb_py_probe 正确拒绝。待做：无。交付 ef6c2ef。",
             "scope": [
                 ".githooks/pre-commit",
                 ".githooks/commit-msg",

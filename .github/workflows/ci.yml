@@ -45,10 +45,9 @@ jobs:
         run: pwsh -NoProfile -File scripts/setup-git-hooks.ps1
 
       - name: 代码格式检查（clang-format，棘轮：只查本次改动的 C++ 文件）
-        # 信号态。转正判据（可执行）：pwsh -File scripts/check-format.ps1 -All 退出 0
-        # （存量格式基线清零）。脚本 -Base 只查本次改动文件，故去掉此行不会引入常驻红灯；
-        # 是否提前收紧由维护者拍板（docs/pitfalls.md 1.24）。
-        continue-on-error: true
+        # 已转正硬门禁：check-format.ps1 -Base 只查本次改动的 C++ 文件，存量不进判定，
+        # 故摘掉 continue-on-error 不会引入常驻红灯。存量格式基线清零进度仍可用
+        # pwsh -File scripts/check-format.ps1 -All 查看（不阻断）。
         shell: pwsh
         run: |
           python -m pip install --quiet clang-format
@@ -67,9 +66,9 @@ jobs:
 
       - name: 路径引用检查（棘轮：只报本次新增的失效引用）
         # src/ 拆目录 / 改名后，脚本 / 台账 / 文档里的原始文件路径会变成死链，编译器看不见。
-        # 脚本 --base 只报本次新增、存量折叠成一行计数。转正判据（可执行）：
-        #   python scripts/check_path_refs.py --audit 输出「失效 0 处」。
-        continue-on-error: true
+        # 已转正硬门禁：--base 只报本次新增、存量折叠成一行计数，摘掉
+        # continue-on-error 不会引入常驻红灯。存量清零进度仍可用
+        # python scripts/check_path_refs.py --audit 查看（不阻断）。
         shell: pwsh
         run: |
           $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }

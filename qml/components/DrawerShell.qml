@@ -91,11 +91,14 @@ Item {
                 anchors.rightMargin: Theme.dialogPadding
                 spacing: Theme.spacingMd
 
+                // 嵌套布局只有内部子项声明 fillWidth，外层 fillWidth 才会吃掉
+                // 剩余空间 —— 否则标题列收缩到 implicit 宽，右侧关闭键停在标题旁
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 0
 
                     Text {
+                        Layout.fillWidth: true
                         text: drawer.titleText
                         color: Theme.text
                         font.pixelSize: Theme.fontTitle
@@ -103,6 +106,7 @@ Item {
                     }
 
                     Text {
+                        Layout.fillWidth: true
                         visible: drawer.subtitleText.length > 0
                         text: drawer.subtitleText
                         color: Theme.muted

@@ -55,6 +55,24 @@
             "updatedAt": 1794144900
         },
         {
+            "code": "R11-14",
+            "completedAt": 0,
+            "createdAt": 1794146702,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-14",
+            "note": "",
+            "orderKey": 78368,
+            "priority": 2,
+            "stage": "R11",
+            "status": "todo",
+            "tags": [
+                "R11"
+            ],
+            "title": "弹窗与抽屉壳头部关闭键未贴右上角",
+            "updatedAt": 1794146702
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5821,6 +5839,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-08T21:35:00",
+    "updated": "2026-11-08T22:05:02",
     "version": 3
 }

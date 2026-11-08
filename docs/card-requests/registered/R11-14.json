@@ -1,0 +1,13 @@
+{
+  "card": "R11-14",
+  "sha256": "7f33bb5c14884260989b5366a2806e6697815ea79d3f86709ccd48c063f8554c",
+  "authorizedBy": "维护者会话指令：「设置和抽屉，都是这样 继续」",
+  "form": "form-r11-14.md",
+  "registeredAt": "2026-11-08T14:04:59+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R11-14",
+    "sha": "f37ff1d6e4bf9ea8e69a59c8f4ec622e8d7fb8fe"
+  }
+}

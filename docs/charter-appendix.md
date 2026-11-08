@@ -11,22 +11,19 @@
 
 ### DX-12 执行策略
 
-> 仓库里所有示例都写 `pwsh -File ...`（PowerShell 7，Windows 默认策略 RemoteSigned，
-> 本地脚本直接可跑）。若机器上只有 Windows PowerShell 5.1（默认 **Restricted**），
-> `& .\scripts\xxx.ps1` 与 dot-source 会被**静默拒绝** —— 表现为**没有任何输出 + 退出码 1**，
-> 很容易误判成「脚本坏了」。这时改用
-> `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\xxx.ps1`，
-> 或一次性 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`（只影响当前用户，不需要管理员）。
-> 判据与更多现象见 `docs/pitfalls.md` §2.11。
+> 仓库示例统一走 `pwsh -File ...`（PowerShell 7，RemoteSigned 下本地脚本直接可跑）。
+> 只有 Windows PowerShell 5.1（默认 Restricted）时脚本会被静默拒绝，改用
+> `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\xxx.ps1`，或一次性
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`（只影响当前用户，不需要管理员）。
+> 现象、判据与成因见 `docs/pitfalls.md` §2.11。
 
 ### DX-16 构建耗时与编译缓存
 
 > `build.ps1` 结尾会打印「配置 / 编译 / 合计」三段耗时与 sccache 命中率 —— 怀疑变慢时先看
 > 这三个数字，别靠体感。新 worktree 首次全量构建约 **20~30 分钟**（零缓存），这不是卡死；
 > 纯脚本 / 文档改动**不必全量**，跑 `pwsh -File scripts/verify.ps1 -ScriptOnly` 约 2 秒。
-> sccache 由 `CMakeLists.txt` 的 `find_program` 自动挂 launcher，但 winget 装的它会落在
-> PATH 之外（改了用户级 PATH，已跑的进程读不到），`build.ps1` 已自行探测并补齐；
-> 判据见 `docs/pitfalls.md` §2.12。
+> sccache 由 `CMakeLists.txt` 的 `find_program` 自动挂 launcher，`build.ps1` 负责探测补齐；
+> 现象与判据见 `docs/pitfalls.md` §2.12。
 
 ### 等价手敲构建命令
 
@@ -170,8 +167,7 @@ git branch -d feature/<简述>
 ## 「三」钩子安装背景
 
 > **`core.hooksPath` 是仓库级配置，不随 clone 传递。** 新 clone 一份必须先把它装上，
-> 否则四道钩子全部静默失效，整份宪章退化成「写在文档里的建议」——
-> 这台机器上就踩过：`core.hooksPath` 为空却无人察觉，主分支保护形同虚设。
+> 否则四道钩子全部静默失效、无人察觉，整份宪章退化成「写在文档里的建议」。
 >
 > `scripts/agent-init.ps1` 开区、`scripts/build.ps1` 构建、`.github/workflows/ci.yml`
 > 都会自动带上 `setup-git-hooks.ps1`，一般不需要手动执行；加了新机器/新 clone 也只要补一次。
@@ -210,15 +206,14 @@ git branch -d feature/<简述>
 
 ### 测试与构建的三个已踩坑（R6 实测）
 
-- **AutoMoc 吃不熟 C++11 原始字符串**：Q_OBJECT 测试文件里写 `R"(...)"`，内容含 `)"` 会提前
-  截断（报 missing ')'）；带花括号的 JSON fixture 会让 moc 不生成元代码，症状是链接期
-  `metaObject` 未解析（LNK2001），清 autogen 也未必好转。
-  **测试数据里的 JSON / 正则一律用转义字符串拼接，别用原始字符串字面量。**
-- **改公共头文件签名后报「无法解析的外部符号」**：多半不是签名写错，是旧 `*.obj` / `*_autogen`
-  没重编。删对应产物再编（如 `tst_xxx*.obj` 连同其 `*_autogen` 目录），仍走 `scripts/build.ps1`，
-  别信链接器第一眼。
-- **编辑 `.ps1` 会静默丢 UTF-8 BOM**：已由 `scripts/check_script_hygiene.py` 规则 C 在 CI
-  强制拦截（实测同一会话连续丢过两次）。改完 `.ps1` 心里没底就跑一次卫生检查。
+规则口径如下；现象、根因与识别方法以 `docs/pitfalls.md` 对应条目为唯一叙述处：
+
+- **AutoMoc 吃不熟 C++11 原始字符串**：测试数据里的 JSON / 正则一律用转义字符串拼接，
+  别用原始字符串字面量。详见 §3.3。
+- **改公共头文件签名后报「无法解析的外部符号」**：多半不是签名写错，是旧 `*.obj` /
+  `*_autogen` 没重编；删对应产物再编，仍走 `scripts/build.ps1`，别信链接器第一眼。详见 §3.4。
+- **编辑 `.ps1` 会静默丢 UTF-8 BOM**：CI 由 `scripts/check_script_hygiene.py` 规则 C 强制
+  拦截；改完 `.ps1` 心里没底就跑一次卫生检查。详见 §2.1。
 
 ---
 
@@ -395,7 +390,7 @@ pwsh -File scripts/agent-workspace.ps1 -Action Release -Agent agent-c -Scope roo
 路线图快照写脏的历史：
 
 > 路线图快照默认从 exe 目录向上找仓库根的 `progress.json`，沙箱应用会把沙箱看板状态写回仓库快照
-> （已踩过：测试卡进了仓库 `progress.json`）。`dev-run.ps1` 已把它固定到沙箱内，并默认关闭自动写回。
+> （现象与识别见 `docs/pitfalls.md` §2.16）。`dev-run.ps1` 已把它固定到沙箱内，并默认关闭自动写回。
 
 路径唯一入口的原因：
 
@@ -506,6 +501,7 @@ Qt 路径反推的原因（DX-24）：
 > **R14-01（11-03）之后连回写本身都取消了** —— 写权整体收归 `git-done`，`board.yml` 只校验、
 > 不回写，「唯一豁免」的豁免对象消失，豁免面随之清空：`.github/workflows/` 下一个
 > `--no-verify` 都不许有（`check_script_hygiene.py` 规则 D），脚本里出现同样算越权（规则 B）。
+> 当时的现象与临时解法见 `docs/pitfalls.md` §1.11。
 >
 > 教训一（仍然成立）：**给 CI 装闸门，必须同时声明 CI 的豁免面。** 钩子与流水线各自都正确，
 > 相撞处正是「CI 既是闸门的执行环境、又是闸门的受管对象」这种双重身份；装完钩子不跑一次

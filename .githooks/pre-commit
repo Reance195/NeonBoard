@@ -106,6 +106,13 @@ if nb_py_probe; then
   if [ -n "$repo_top" ] && [ -f "$repo_top/scripts/task_gate.py" ]; then
     "$NB_PY" "$repo_top/scripts/task_gate.py" ledger || exit 1
   fi
+  # ---- 规则 4：密钥防入库（DX-148）----
+  # 只扫本次暂存新增的行；豁免面唯一在 docs/secrets-allowlist.md（路径+行内容哈希双匹配）。
+  # python 不可用时不在此处兜底：台账/代码路径已被下面的 fail-closed 分支拦下，
+  # 杂务豁免分支的放行口径与 DX-147 验收保持一致（豁免面不因本改动扩大或缩小）。
+  if [ -n "$repo_top" ] && [ -f "$repo_top/scripts/check_secrets.py" ]; then
+    "$NB_PY" "$repo_top/scripts/check_secrets.py" --staged || exit 1
+  fi
 elif nb_staged_has_ledger_change; then
   # 台账虽在杂务路径，任务定义属审计类：验不了就不放行（宪章 Z4）。
   nb_py_block "台账任务定义保护校验"

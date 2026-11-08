@@ -1725,7 +1725,7 @@
             "depends": [],
             "evidence": "维护者 2026-11-08 会话指令「全做」→「授权」，采纳审计轮档位二缺口 #2，并定下口径：误报逃生走可评审名单，不新开 --no-verify 豁免。实测：全仓执行点清单（钩子 5 文件、校验脚本 14 个、CI 三 workflow）中没有任何一条内容级密钥扫描；`.gitignore` 只按文件名拦（`.env`、`*.pem`、`*.key`），把私钥贴进 `README.md`、`board-ledger.json` 或任何被跟踪文件的路径完全无闸——这是宪章全部安全类规范里唯一纯靠散文的一条（Z4 失败模式未定、Z6 坑未沉淀成判据）。",
             "id": "DX-148",
-            "note": "",
+            "note": "已完成：scripts/check_secrets.py 四类模式（私钥块头/云厂AK/凭据赋值/长随机串），只扫暂存新增行，命中 exit 1 且预览脱敏；--selftest 11 例全过（fixture 全部拼接构造，含自扫源文件零命中）。.githooks/pre-commit 规则 4 复用 DX-147 nb_py_probe 单一判据；豁免面唯一 docs/secrets-allowlist.md（路径+行内容 sha256 前12位双匹配，登记表本体免扫终结哈希递归）。实测：暂存伪造私钥头/AK/赋值三行提交被拒（tmp_e2e_secrets.txt:2-4 点名模式+脱敏预览，不落库）；按格式登记 allowlist 后相同内容提交放行，测试提交已 reset 丢弃。待做：无。交付 6bb1b0b+b2e09e6。",
             "scope": [
                 "scripts/check_secrets.py",
                 ".githooks/pre-commit",
@@ -6423,6 +6423,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-148": {
+            "agent": "secretp",
+            "branch": "feature/secrets-gate",
+            "claimedAt": 1794148038,
+            "head": "cb608191efff019bfc123e5f5bf047b7ef8325eb"
+        }
+    },
     "version": 1
 }

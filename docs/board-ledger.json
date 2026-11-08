@@ -1677,9 +1677,9 @@
         },
         "DX-146": {
             "acceptance": [
-                "新增至少 1 个基于真实 qml/components/TaskCard.qml 的 QML Test（qmltestrunner），覆盖点击/双击/拖拽事件路由，不再只靠自包含复刻夹具",
-                "scripts/gui-uia-verify.ps1 接进 ci.yml 冒烟步骤或独立 job，失败即拦合入，--smoke 日志判据保留作为补充",
-                "ctest --test-dir build -C Release --output-on-failure 全过；pwsh -File scripts/verify.ps1 -ScriptOnly 全过（scope 无代码路径，轻档）"
+                "新增 tests/tst_taskcard_real.cpp：用 QQmlEngine 注入 mock context（projectStore/taskTree/taskExtra/boardSync/taskRuns/Theme）加载真实 qml/components/TaskCard.qml，以 QSignalSpy 断言点击/双击/拖拽的信号路由；不再只靠自包含复刻夹具",
+                "scripts/gui-uia-verify.ps1 接进 ci.yml 冒烟步骤或独立 job（-SelfTest 纯函数自测，headless 可跑），失败即拦合入，--smoke 日志判据保留作为补充",
+                "ctest --test-dir build -C Release --output-on-failure 全过；pwsh -File scripts/verify.ps1 全量验收通过（scope 含 .cpp/.qml，代码类）"
             ],
             "author": "codebuddy-session-2026-11-08",
             "depends": [],
@@ -1688,7 +1688,8 @@
             "note": "",
             "scope": [
                 "tests/CMakeLists.txt",
-                "tests/qml",
+                "tests/qml/",
+                "tests/tst_taskcard_real.cpp",
                 ".github/workflows/ci.yml",
                 "scripts/gui-uia-verify.ps1",
                 "scripts/check_qml_warnings.py"
@@ -6422,6 +6423,13 @@
             "title": "弹窗与抽屉壳头部关闭键未贴右上角"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-146": {
+            "agent": "agent-dx146",
+            "branch": "fix/dx146-real-component-tests",
+            "claimedAt": 1794144758,
+            "head": "dc75db906e39ed34982925ecca78dc15bb3e18b9"
+        }
+    },
     "version": 1
 }

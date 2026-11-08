@@ -50,6 +50,7 @@ ALLOWLIST = {
     # 归档 / 历史记录：只记当时的版本，不是构建取值
     "docs/archive/": "历史归档，按定义不维护（AGENTS.md 四）",
     "docs/card-requests/": "历史请求单，描述当时基线",
+    "form-": "立卡请求单表单（流程产物，落在仓库根，非构建取值）",
     "docs/announcement.md": "发布公告，历史记录",
     "docs/plan-hook.md": "故障排查示例，非构建取值",
     "docs/iteration-roadmap.md": "路线图历史验收记录",

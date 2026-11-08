@@ -1,42 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-146",
-            "completedAt": 0,
-            "createdAt": 1794139007,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-146",
-            "note": "",
-            "orderKey": 60672,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "GUI 主流程只有自包含夹具与日志字符串匹配，缺真实组件回归",
-            "updatedAt": 1794139007
-        },
-        {
-            "code": "DX-147",
-            "completedAt": 0,
-            "createdAt": 1794144893,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-147",
-            "note": "",
-            "orderKey": 70784,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "pre-commit 与 commit-msg 缺 python 时打一行警告就放行，与 pre-push 的 fail-closed 自相矛盾",
-            "updatedAt": 1794144893
-        },
-        {
             "code": "DX-148",
             "completedAt": 0,
             "createdAt": 1794144900,
@@ -4261,6 +4225,24 @@
             "updatedAt": 1793911592
         },
         {
+            "code": "DX-146",
+            "completedAt": 1794148469,
+            "createdAt": 1794139007,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-146",
+            "note": "",
+            "orderKey": 60672,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "GUI 主流程只有自包含夹具与日志字符串匹配，缺真实组件回归",
+            "updatedAt": 1794148469
+        },
+        {
             "code": "R0-15",
             "completedAt": 1794035613,
             "createdAt": 1794027729,
@@ -4742,6 +4724,24 @@
             ],
             "title": "合并冲突退出不回滚现场：冲突路径清理临时分支与冲突态，dry-run 承诺的回滚真正兑现",
             "updatedAt": 1793975673
+        },
+        {
+            "code": "DX-147",
+            "completedAt": 1794148469,
+            "createdAt": 1794144893,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-147",
+            "note": "",
+            "orderKey": 70784,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "pre-commit 与 commit-msg 缺 python 时打一行警告就放行，与 pre-push 的 fail-closed 自相矛盾",
+            "updatedAt": 1794148469
         },
         {
             "completedAt": 1792982914,
@@ -5839,6 +5839,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-08T22:05:02",
+    "updated": "2026-11-08T22:34:29",
     "version": 3
 }

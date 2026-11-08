@@ -31,6 +31,10 @@ SKIP_DIRS = {
     ".git", ".worktrees", "build", "build-local", "build-release", "dist",
     "thirdparty", ".sandbox", "node_modules", "__pycache__", ".qoder",
     ".vs", ".qtc_clangd", ".codebuddy",
+    # 本地工具记忆目录（WorkBuddy / CodeBuddy 会话产物，不入库、非仓库源文件）。
+    # 与 scripts/check_path_refs.py 的 SKIP_DIRS 同口径；不跳过的话锚点区本地跑
+    # --check 会把记忆里的历史版本字样误报成违规（CI 干净 checkout 没有这些目录）。
+    ".workbuddy",
 }
 TEXT_SUFFIXES = {
     ".md", ".py", ".ps1", ".yml", ".yaml", ".cmake", ".txt", ".json",

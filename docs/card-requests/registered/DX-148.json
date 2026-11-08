@@ -1,0 +1,13 @@
+{
+  "card": "DX-148",
+  "sha256": "ebee115264102b3c9387051e276fc5838c5bfcc51e233b4c4c1826ea431c0228",
+  "authorizedBy": "maintainer-session-2026-11-08（指令「全做」→「授权」，批次 audit-gap-fixes）",
+  "form": "docs/card-requests/20261108-secrets-gate.md",
+  "registeredAt": "2026-11-08T13:34:59+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-148",
+    "sha": "415d87cd5fa01086af2d642c2b6b65cb8bfa85dd"
+  }
+}

@@ -6842,10 +6842,10 @@
   },
   "claims": {
     "DX-143": {
-      "agent": "agent-fxd",
+      "agent": "agent-h4",
       "branch": "fix/audit-host-ui",
-      "claimedAt": 1794044817,
-      "head": "0f8cbe7"
+      "head": "9aae3b8ef8482978428f9c2c9197cc181abdde49",
+      "claimedAt": 1794230451
     }
   },
   "version": 1

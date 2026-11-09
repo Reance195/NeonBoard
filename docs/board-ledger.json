@@ -6814,6 +6814,13 @@
       "title": "锚点区领卡把 assignment 写进 main 工作树：错位条目没人能提交还绊锚点快进"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-157": {
+      "agent": "agent-dxl",
+      "branch": "refactor/dx157-ledger-canon",
+      "head": "e36dda8398438548913b825af819f08bbd4d6b47",
+      "claimedAt": 1794224246
+    }
+  },
   "version": 1
 }

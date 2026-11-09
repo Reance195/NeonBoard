@@ -34,6 +34,10 @@ verify.ps1 读不到沙箱日志，根因都是「规则在多处各写一遍」
      处理（DX-125）：python -I 隔离模式不含脚本目录，跨模块 import 必崩（DX-84 修了
      撞崩的 board-apply.py，同类三个原样留着，第二次撞上才立这条机器判据 —— Z6）。
      无本地 import 的脚本不受影响。
+  H. scripts/ 顶层受控文件与 docs/scripts-manifest.md 双向对账（DX-151）：
+     文件存在而清单无行 = 未登记的膨胀/临时残留（宪章 §四「临时脚本用完即删」的机器眼）；
+     清单有行而文件不存在 = 孤儿条目。清单是 scripts/ 用途的唯一事实源（Z5），
+     登记行格式「| `文件名` | 一句话用途 |」，豁免面只有文件级显式行，不开通配。
 
 用法：python scripts/check_script_hygiene.py [仓库根目录]
       python scripts/check_script_hygiene.py --selftest   # 反向探针（不依赖真仓库）
@@ -97,6 +101,47 @@ COMMENT_RE = re.compile(r"^\s*(#|//|\*|/\*)")
 
 def rel(root: Path, path: Path) -> str:
     return path.relative_to(root).as_posix()
+
+
+# 规则 H（DX-151）：scripts/ 顶层受控文件 ↔ docs/scripts-manifest.md 双向对账。
+MANIFEST_REL = "docs/scripts-manifest.md"
+MANIFEST_SUFFIXES = {".ps1", ".py", ".cmd", ".bat", ".sh"}
+MANIFEST_ROW_RE = re.compile(r"^\|\s*`([^`]+)`\s*\|([^|]*)\|")
+
+
+def find_manifest_problems(root: Path) -> tuple[list[str], int]:
+    """返回 (问题清单, 对账覆盖文件数)。清单缺失本身就是违规（fail-closed）。"""
+    scripts_dir = root / "scripts"
+    if not scripts_dir.is_dir():
+        return [], 0
+    files = {p.name for p in scripts_dir.iterdir()
+             if p.is_file() and p.suffix.lower() in MANIFEST_SUFFIXES
+             and not p.name.startswith((".", "__"))}
+    mpath = root / MANIFEST_REL
+    if not mpath.is_file():
+        return ["H 缺少脚本清单 %s：scripts/ 每个受控文件一行「| `文件名` | 用途 |」" % MANIFEST_REL,
+                "   修复：按 scripts/ 现状补建清单（脚本头注释/docstring 摘录，不重写文档）"], 0
+    entries = set()
+    problems: list[str] = []
+    for line in mpath.read_text(encoding="utf-8").splitlines():
+        m = MANIFEST_ROW_RE.match(line.strip())
+        if not m:
+            continue
+        name = m.group(1).strip()
+        if not name.startswith("scripts/") and "/" not in name:
+            name = "scripts/" + name
+        entries.add(name)
+        if not m.group(2).strip():
+            problems.append("H 清单用途为空：%s" % name)
+    for name in sorted(files):
+        if "scripts/" + name not in entries:
+            problems.append("H 脚本未登记清单：scripts/%s" % name)
+            problems.append("   修复：在 %s 补一行用途；临时脚本应删除而非登记（AGENTS.md §四）" % MANIFEST_REL)
+    for e in sorted(entries):
+        base = e[len("scripts/"):] if e.startswith("scripts/") else e
+        if base not in files:
+            problems.append("H 清单条目无实体：%s（脚本已删除或改名，清单要同步）" % e)
+    return problems, len(files)
 
 
 def scan_files(root: Path):
@@ -283,6 +328,35 @@ def selftest() -> int:
         problems, hits = find_problems(root)
         check("有显式 sys.path 的本地 import 放行", not any("bad_g.py" in p for p in problems))
 
+        # 规则 H（DX-151）：scripts/ ↔ docs/scripts-manifest.md 双向对账。
+        # 清单缺失 fail-closed；未登记、无实体、用途为空三类都要被抓；对齐则零违规。
+        hp, hc = find_manifest_problems(root)
+        check("规则 H 抓到清单缺失", any(p.startswith("H ") and MANIFEST_REL in p for p in hp))
+        docs_dir = root / "docs"
+        docs_dir.mkdir()
+        (docs_dir / "scripts-manifest.md").write_text(
+            "# 清单\n\n| 文件 | 用途 |\n| --- | --- |\n"
+            "| `git-helpers.ps1` | git 取值单一实现 |\n"
+            "| `bad.py` |  |\n"
+            "| `gone.ps1` | 已删除的脚本 |\n",
+            encoding="utf-8",
+        )
+        hp, hc = find_manifest_problems(root)
+        check("规则 H 抓到未登记脚本", any("scripts/verify.ps1" in p for p in hp))
+        check("规则 H 抓到无实体条目", any("scripts/gone.ps1" in p for p in hp))
+        check("规则 H 抓到用途为空", any("bad.py" in p for p in hp))
+        check("规则 H 计数为顶层受控文件数", hc == len([p for p in (root / "scripts").iterdir()
+              if p.is_file() and p.suffix.lower() in MANIFEST_SUFFIXES]))
+        names = sorted(p.name for p in (root / "scripts").iterdir()
+                       if p.is_file() and p.suffix.lower() in MANIFEST_SUFFIXES)
+        (docs_dir / "scripts-manifest.md").write_text(
+            "# 清单\n\n| 文件 | 用途 |\n| --- | --- |\n"
+            + "".join("| `%s` | 自测占位 |\n" % n for n in names),
+            encoding="utf-8",
+        )
+        hp, _ = find_manifest_problems(root)
+        check("规则 H 对齐后零违规", not hp)
+
     if fails:
         print("自测失败 %d 项：%s" % (len(fails), "；".join(fails)))
         return 1
@@ -309,6 +383,9 @@ def main() -> int:
         return 2
 
     problems, hits = find_problems(root)
+    man_problems, man_count = find_manifest_problems(root)
+    problems += man_problems
+    hits["manifest_count"] = man_count
     if problems:
         for p in problems:
             sys.stderr.write(p + "\n")
@@ -319,8 +396,10 @@ def main() -> int:
     gc = ", ".join("%s:%d" % (n, l) for n, l, _ in hits["git_capture"]) or "零命中"
     wf = sum(1 for n, _, _ in hits["no_verify"] if n.startswith(".github/workflows/"))
     print("[脚本卫生] 通过：数据目录口径 %s；--no-verify %s（流水线 %d 处）；裸 git 取值捕获 %s"
-          "（仅限 git-helpers.ps1 与在办卡豁免面）；带 BOM 的 .ps1 共 %d 个；UTF-8 控制台封装 %d/%d"
-          % (dd, nv, wf, gc, hits["bom_ok"], hits["console_ok"], len(CONSOLE_WRAPPER_REQUIRE)))
+          "（仅限 git-helpers.ps1 与在办卡豁免面）；带 BOM 的 .ps1 共 %d 个；UTF-8 控制台封装 %d/%d；"
+          "清单对账 %d 个脚本"
+          % (dd, nv, wf, gc, hits["bom_ok"], hits["console_ok"], len(CONSOLE_WRAPPER_REQUIRE),
+             hits["manifest_count"]))
     return 0
 
 

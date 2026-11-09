@@ -258,6 +258,7 @@ set_source_files_properties(qml/components/ExecQueueDialog.qml PROPERTIES QT_RES
 set_source_files_properties(qml/components/ExecConfirmDialog.qml PROPERTIES QT_RESOURCE_ALIAS "ExecConfirmDialog.qml")
 set_source_files_properties(qml/components/ExecPanelDialog.qml PROPERTIES QT_RESOURCE_ALIAS "ExecPanelDialog.qml")
 set_source_files_properties(qml/components/NightBatchDialog.qml PROPERTIES QT_RESOURCE_ALIAS "NightBatchDialog.qml")
+set_source_files_properties(qml/components/BoardChrome.qml PROPERTIES QT_RESOURCE_ALIAS "BoardChrome.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -303,6 +304,7 @@ qt_add_qml_module(NeonBoard
     qml/components/ExecConfirmDialog.qml
     qml/components/ExecPanelDialog.qml
     qml/components/NightBatchDialog.qml
+    qml/components/BoardChrome.qml
 )
 
 qt_add_resources(NeonBoard "icons"

@@ -1,0 +1,13 @@
+{
+  "card": "MOD-14",
+  "sha256": "d1d4310611ba7e961f6b45478049c072ec81166ee1ac32106a061f9cac8b264c",
+  "authorizedBy": "维护者 2026-11-09 会话指令「迁移 execBatchDialog 弹窗」，实测更正对应 nightBatchDialog，授权 QML 批次四批立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261109-mod-night-batch-dialog.md",
+  "registeredAt": "2026-11-09T16:35:46+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-14",
+    "sha": "ea245938a48ceca4c65270d09d9375d1c75d50ab"
+  }
+}

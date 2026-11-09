@@ -325,7 +325,8 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "MOD-14": "todo"
   },
   "cards": {
     "DX-01": {
@@ -7003,6 +7004,30 @@
       "stage": "DX",
       "tier": "P2",
       "title": "claim-card 落盘按脚本自身路径定位 store、is_anchor 却判 root：口径不一致让锚点领卡条目必写锚点"
+    },
+    "MOD-14": {
+      "acceptance": [
+        "pwsh -File scripts/verify.ps1 全量通过且 --smoke 日志 QML 致命告警 0 行",
+        "新增 qml/components/NightBatchDialog.qml（壳与 content 逐字照搬，仅 hostWindow: window 改 hostWin 一处接口化）且 Main.qml 中 nightBatchDialog 段替换为带 hostWin 绑定的一处实例化（id 保留原名，Main 级 openNightBatch 函数调用不受影响）",
+        "Main.qml 行数 <= 3170（基线 3179）且 LINE_LIMITS 中 qml/Main.qml 上限同步调低到实际行数",
+        "CMakeLists 同时登记 qt_add_qml_module 源条目与 QT_RESOURCE_ALIAS 裸名",
+        "python scripts/check_module_deps.py --base origin/main 退出 0 且 python scripts/check_scope.py --base origin/main 退出 0",
+        "维护者人工复核：夜间批量弹窗打开后多选清单勾选、预估时长与「开始夜间执行」行为与迁移前一致"
+      ],
+      "author": "codebuddy-session-2026-11-09",
+      "depends": [],
+      "evidence": "2026-11-09 实测（基线 origin/main，Main.qml 3179 行）：夜间批量执行弹窗块 2793-3003 共 211 行（id: nightBatchDialog，R7-03 夜间批量），括号平衡；块内零 window. 引用，外部引用仅 hostWindow: window 一处接口化；batchList / rowMouse 为块内自声明误报；scheduler / Theme 均为 context property / 模块内组件。更正：此前会话盘点把它误标为 execBatchDialog，实际 id 是 nightBatchDialog，以本实测为准。MOD-11/12/13 已验证整 Dialog 迁移模式与三个坑（QT_RESOURCE_ALIAS 裸名、body 起点勿含 id 行与壳闭括号——本卡迁移脚本已按 Z6 修正切片、组件根须显式 property var 声明），本卡直接沿用。维护者 2026-11-09 会话指令「迁移 execBatchDialog 弹窗」，按实测更正对应到 nightBatchDialog，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
+      "id": "MOD-14",
+      "note": "",
+      "scope": [
+        "qml/Main.qml",
+        "qml/components/**",
+        "CMakeLists.txt",
+        "scripts/check_module_deps.py"
+      ],
+      "stage": "MOD",
+      "tier": "P4",
+      "title": "MOD QML 批次四批：夜间批量执行弹窗整迁 components/NightBatchDialog"
     }
   },
   "claims": {},

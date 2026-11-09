@@ -696,6 +696,8 @@ function Invoke-ClaimRefCleanup {
     # for-each-ref 可靠枚举整命名空间（git show-ref 的 pattern 匹配对松散引用不稳定，会漏列）
     $refs = @(& git for-each-ref --format='%(objectname) %(refname)' 'refs/claims/*' 2>$null)
     if ($refs.Count -eq 0) { return }
+    # DX-149：本函数释放的占位对应卡，收尾后其接手现场（assignment）一并移除
+    $releasedCodes = @()
     $originMain = $null
     try { $originMain = (Invoke-Git rev-parse --verify -q "origin/$Main").Trim() } catch { $originMain = $null }
     if (-not $originMain) {
@@ -720,11 +722,12 @@ function Invoke-ClaimRefCleanup {
         $code = $ref -replace '^refs/claims/',''
         $isAnc = $false
         try { & git merge-base --is-ancestor $sha ('origin/' + $Main) 2>$null; $isAnc = ($LASTEXITCODE -eq 0) } catch { $isAnc = $false }
-        if ($isAnc) { Release-ClaimRef $ref; continue }
+        if ($isAnc) { Release-ClaimRef $ref; $releasedCodes += $code; continue }
         # 未合入：仅当该 code 在台账中登记过、且其认领分支已不存在（孤儿 / 历史残留）时才释放；
         # 台账未登记的 code（可能是其它机制认领的活动卡）一律保守保留，绝不误删。
         if ($claimBranches.ContainsKey($code) -and (Test-ClaimBranchGone $claimBranches[$code])) {
             Release-ClaimRef $ref
+            $releasedCodes += $code
         }
     }
     # DX-90：rebase 重写占位（判据 1 打不中）+ 台账投影已清空（判据 2 打不中）的死角，
@@ -744,6 +747,16 @@ function Invoke-ClaimRefCleanup {
     }
     if ($relRes.Code -ne 0) {
         Write-Host ('· 僵尸占位释放：脚本失败（退出码 {0}），留待下次收尾或 CI 巡检点名' -f $relRes.Code) -ForegroundColor Yellow
+    }
+    # DX-149：占位已释放的卡，接手现场（assignment）随之移除（唯一写者 assignment-store，
+    # 旁路失败只告警——assignments 不参与任何闸门判定）
+    $goneAll = @($releasedCodes + $relCodes) | Select-Object -Unique | Where-Object { $_ }
+    if (-not $DryRun -and $goneAll.Count -gt 0) {
+        foreach ($gone in $goneAll) {
+            $null = Invoke-Cmd -File 'python' -CmdArgs @(
+                (Join-Path $repoRoot 'scripts\assignment-store.py'), 'remove', '--code', $gone)
+        }
+        Write-Host ('✓ 接手现场清理：assignment 移除 {0}' -f ($goneAll -join '、')) -ForegroundColor DarkGray
     }
 }
 

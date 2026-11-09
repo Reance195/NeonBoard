@@ -43,6 +43,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 CODE = r"(?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+)"
@@ -145,6 +146,53 @@ def classify_claim(baseline, is_ancestor_of_main, referenced_refs):
                 "（判据 B：分支 rebase 重写后典型残留）")
     return ("keep", "虽 done 但仍被 %d 个分支引用，在办分支的闸门还要用它放行"
             % len(referenced_refs))
+
+
+# 接手点名双档阈值（DX-149 拍板项 2）：沿用既有口径——
+# 30 分钟（check-worktree-activity.ps1 默认）判「疑似中断」、
+# 240 分钟（agent-workspace.ps1 -StaleMinutes 默认）判「陈旧占用」。
+HANDOFF_STALLED_MINUTES = 30
+HANDOFF_STALE_MINUTES = 240
+
+
+def classify_handoff(baseline, updated_at, branch_last_commit, now_ts,
+                     stalled_minutes=HANDOFF_STALLED_MINUTES,
+                     stale_minutes=HANDOFF_STALE_MINUTES,
+                     has_branch=True):
+    """接手三态判定（DX-149，判活的单一实现；assignment-store / --audit-handoff 共用）。
+
+    baseline            : 台账 baseline 值（None = 台账无登记）
+    updated_at          : assignment 心跳时间戳（无记录为 0）
+    branch_last_commit  : 认领分支最后提交时间戳（分支不存在/取不到为 0）
+    now_ts              : 当前时间戳
+    has_branch          : 认领分支是否仍存在（本地 heads 或远端 origin）
+
+    返回 (verdict, detail)，verdict ∈ {'active','stalled','stale','orphan','skip'}：
+    - active : 30 分钟内有动静（心跳或提交），别碰；
+    - stalled: 30~240 分钟无动静，疑似中断——先确认对方是否真停，勿自动接手；
+    - stale  : 超 240 分钟无动静，陈旧占用——维护者授权后可走 handoff.ps1 接手；
+    - orphan : 占位尚存但认领分支已不存在（DX-138/DX-141 型残留）；
+    - skip   : 无法判定（台账无登记 / done 卡归僵尸巡检 / 时间事实全缺），保守不点名。
+
+    判据钉死「读哪份事实、哪个时点」（Z15）：活动性取 max(心跳, 分支最后提交)——
+    心跳可被节流（assignment-store 30 分钟），提交是 git 硬事实；两者取新者防误判
+    「刚提交完没来得及心跳」的 agent。
+    """
+    if baseline is None:
+        return ("skip", "台账无此卡的 baseline 登记，无法判定")
+    if "done" in str(baseline).lower():
+        return ("skip", "卡已 done，占位处置归僵尸巡检（classify_claim），不在接手点名范围")
+    if not has_branch:
+        return ("orphan", "占位尚存但认领分支已不存在（历史残留）")
+    ref_ts = max(int(updated_at or 0), int(branch_last_commit or 0))
+    if ref_ts <= 0:
+        return ("skip", "无心跳也无分支提交时间，无法判定活动性")
+    age_minutes = (now_ts - ref_ts) / 60.0
+    if age_minutes <= stalled_minutes:
+        return ("active", "最近 %.0f 分钟内有动静" % age_minutes)
+    if age_minutes <= stale_minutes:
+        return ("stalled", "%.0f 分钟无动静，疑似中断（先确认勿自动接手）" % age_minutes)
+    return ("stale", "%.0f 分钟无动静，陈旧占用（授权后可接手）" % age_minutes)
 
 
 def _git_lines(*args):
@@ -257,6 +305,173 @@ def release_zombies():
     return 0
 
 
+def audit_handoff(json_output=False):
+    """DX-149 接手点名巡检：全量扫描服务端 refs/claims/*，结合 assignment 现场
+    （心跳 / branch / nextStep）与分支提交事实，输出三态清单。
+
+    与 audit_zombies 的分工：僵尸巡检管「done 卡的残留占位」，本巡检管
+    「未 done 卡的死现场」。判定唯一实现 classify_handoff；assignments 只
+    作现场信息源，绝不作为防双领依据（DX-149 边界）。
+
+    退出码：0 全部活动或保守跳过 / 1 存在 stalled/stale/orphan 点名项。
+    """
+    now = int(time.time())
+    server = _git_lines("ls-remote", "origin", "refs/claims/*")
+    if server is None:
+        sys.stderr.write("[接手巡检] origin 不可达（离线？），本轮保守跳过，不点名。\n")
+        return 0
+    try:
+        ledger_data = json.loads(LEDGER.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        sys.stderr.write("[接手巡检] 台账不可读（%s），本轮保守跳过，不点名。\n" % exc)
+        return 0
+    baseline = ledger_data.get("baseline") or {}
+    claims_proj = ledger_data.get("claims") or {}
+
+    # assignment 现场表：只读文件不 import（assignment-store.py 文件名带连字符，
+    # import 语法加载不了；读不违反「唯一写者」，写仍只能经 assignment-store.py）
+    asg_path = LEDGER.parent / "agent-assignments.json"
+    assignments = {}
+    if asg_path.exists():
+        try:
+            assignments = (json.loads(asg_path.read_text(encoding="utf-8-sig"))
+                           .get("assignments") or {})
+        except (OSError, ValueError) as exc:
+            sys.stderr.write("[接手巡检] assignments 不可读（%s），现场信息降级。\n" % exc)
+
+    # 第三级信息源：远端各分支头的台账 claims（领用投影随分支走，主线台账看不到
+    # 未合入分支的领用——DX-139 系 4 张 28h 卡曾被据此误判成孤儿）。一次性建索引。
+    remote_claims = {}
+    for ref in (_git_lines("for-each-ref", "--format=%(refname)",
+                           "refs/remotes/origin") or []):
+        if ref.endswith("/HEAD") or ref.endswith("/main"):
+            continue
+        tree = git("show", "%s:docs/board-ledger.json" % ref)
+        if tree.returncode != 0:
+            continue
+        try:
+            other = json.loads(tree.stdout.decode("utf-8", "replace"))
+        except ValueError:
+            continue
+        for oc_code, oc in (other.get("claims") or {}).items():
+            if oc and oc.get("branch") and oc_code not in remote_claims:
+                remote_claims[oc_code] = oc
+
+    # 第四级：.worktrees/* 物理现场——未推送分支的领用投影只存在本地检出台账里
+    # （DX-139 系「本地独有提交」连远端都扫不到），worktree 是最接近实况的事实源。
+    # .worktrees 只在锚点区存在（pitfalls 1.31 同款）：按 git common dir 父目录定位，
+    # 不能用本脚本检出根——从 linked worktree 里跑必扫空。
+    wt_claims = {}
+    anchor_root = LEDGER.parent.parent
+    common = git("rev-parse", "--git-common-dir")
+    if common.returncode == 0:
+        cd = common.stdout.strip()
+        cd_path = Path(cd) if Path(cd).is_absolute() else (anchor_root / cd)
+        wt_root = cd_path.parent / ".worktrees"
+    else:
+        wt_root = anchor_root / ".worktrees"
+    if wt_root.is_dir():
+        for d in sorted(wt_root.iterdir()):
+            wt_ledger = d / "docs" / "board-ledger.json"
+            if not d.is_dir() or not wt_ledger.exists():
+                continue
+            try:
+                wdata = json.loads(wt_ledger.read_text(encoding="utf-8-sig"))
+            except (OSError, ValueError):
+                continue
+            agent_id = ""
+            env_file = d / ".agent-env.ps1"
+            if env_file.exists():
+                try:
+                    mag = re.search(r"(?m)^\s*\$env:NEONBOARD_AGENT_ID\s*=\s*'([^']*)'",
+                                    env_file.read_text(encoding="utf-8-sig"))
+                    if mag:
+                        agent_id = mag.group(1)
+                except OSError:
+                    pass
+            for wc_code, wc in (wdata.get("claims") or {}).items():
+                if wc and wc.get("branch") and wc_code not in wt_claims:
+                    wt_claims[wc_code] = {"agent": agent_id or wc.get("agent", ""),
+                                          "branch": wc.get("branch", "")}
+
+    results = []
+    for line in server:
+        sha, _, ref = line.partition("\t")
+        ref = ref.strip()
+        if not ref.startswith("refs/claims/"):
+            continue
+        code = ref[len("refs/claims/"):]
+        if not code:
+            continue
+        asg = assignments.get(code) or {}
+        wcl = wt_claims.get(code) or {}
+        proj = claims_proj.get(code) or {}
+        rmt = remote_claims.get(code) or {}
+        branch = (asg.get("branch") or wcl.get("branch") or proj.get("branch")
+                  or rmt.get("branch") or "")
+        has_branch = False
+        branch_last = 0
+        if branch:
+            probe_local = git("show-ref", "--verify", "--quiet", "refs/heads/" + branch)
+            probe_remote = git("show-ref", "--verify", "--quiet",
+                               "refs/remotes/origin/" + branch)
+            has_branch = probe_local.returncode == 0 or probe_remote.returncode == 0
+            if has_branch:
+                lines = _git_lines("log", "-1", "--format=%ct", branch)
+                if lines:
+                    try:
+                        branch_last = int(lines[0])
+                    except ValueError:
+                        branch_last = 0
+        verdict, detail = classify_handoff(
+            baseline.get(code), int(asg.get("updatedAt") or 0), branch_last,
+            now, has_branch=has_branch)
+        last_activity = max(branch_last, int(asg.get("updatedAt") or 0))
+        age_min = round((now - last_activity) / 60, 1) if last_activity > 0 else None
+        suggestion = ""
+        if verdict == "stale":
+            suggestion = ("pwsh -File scripts/handoff.ps1 -Card %s -ToAgent <新agent名>"
+                          " -AuthorizedBy <授权来源>" % code)
+        elif verdict == "orphan":
+            suggestion = "git push origin --delete %s（维护者确认后清理）" % ref
+        elif verdict == "stalled":
+            suggestion = "先确认 %s 是否真停，勿自动接手" % (asg.get("agent") or "对方")
+        results.append({
+            "code": code, "verdict": verdict, "detail": detail,
+            "agent": (asg.get("agent") or wcl.get("agent") or proj.get("agent")
+                      or rmt.get("agent") or ""),
+            "branch": branch, "nextStep": asg.get("nextStep", ""),
+            "lastActivity": last_activity, "ageMinutes": age_min,
+            "suggestion": suggestion,
+        })
+
+    if json_output:
+        print(json.dumps({"checkedAt": now, "results": results},
+                         ensure_ascii=False, indent=2))
+    else:
+        labeled = {"active": "活动", "stalled": "疑似中断", "stale": "陈旧占用",
+                   "orphan": "孤儿占位", "skip": "跳过"}
+        for r in results:
+            sys.stderr.write("%-10s %-6s %s @ %s  最近活动 %s%s\n" % (
+                r["code"], labeled.get(r["verdict"], r["verdict"]),
+                r["agent"] or "?", r["branch"] or "?",
+                time.strftime("%m-%d %H:%M", time.localtime(r["lastActivity"]))
+                if r["lastActivity"] else "-",
+                ("（%s 分钟前）" % r["ageMinutes"]) if r["ageMinutes"] is not None else ""))
+            if r["nextStep"]:
+                sys.stderr.write("           ↳ %s\n" % r["nextStep"])
+            sys.stderr.write("           · %s\n" % r["detail"])
+            if r["suggestion"]:
+                sys.stderr.write("             建议：%s\n" % r["suggestion"])
+        named = [r for r in results if r["verdict"] in ("stalled", "stale", "orphan")]
+        if not named:
+            sys.stderr.write("[接手巡检] %d 条占位全部活动，无可接手项。\n" % len(results))
+        else:
+            sys.stderr.write("[接手巡检] 点名 %d 条（疑似中断/陈旧占用/孤儿占位），"
+                             "动作由人触发，不自动转移。\n" % len(named))
+    return 1 if any(r["verdict"] in ("stalled", "stale", "orphan") for r in results) else 0
+
+
 def selftest():
     """一分支多卡判定的可执行自测（DX-03）：纯函数不碰 git，任何环境可跑。
 
@@ -338,6 +553,29 @@ def selftest():
     v, _ = classify_claim("DX-84 done", True, [])
     case("baseline 带前缀的 done 写法同样识别", v == "zombie", v)
 
+    # ---- 接手三态判定（DX-149：classify_handoff 单一实现）----
+    now = 1_800_000_000
+    v, _ = classify_handoff("todo", now - 300, 0, now)
+    case("心跳 5 分钟前 → active", v == "active", v)
+    v, _ = classify_handoff("todo", 0, now - 600, now)
+    case("提交 10 分钟前 → active", v == "active", v)
+    v, _ = classify_handoff("todo", now - 3600, now - 3600, now)
+    case("60 分钟无动静 → stalled（先确认勿接手）", v == "stalled", v)
+    v, _ = classify_handoff("todo", now - 300 * 60, now - 300 * 60, now)
+    case("300 分钟无动静 → stale（可接手）", v == "stale", v)
+    v, _ = classify_handoff("todo", 0, 0, now, has_branch=False)
+    case("分支已删、占位尚存 → orphan", v == "orphan", v)
+    v, _ = classify_handoff(None, 0, 0, now)
+    case("台账无登记 → skip", v == "skip", v)
+    v, _ = classify_handoff("done", 0, 0, now)
+    case("done 卡 → skip（归僵尸巡检，不重复点名）", v == "skip", v)
+    v, _ = classify_handoff("todo", 0, 0, now)
+    case("心跳与提交时间全缺 → skip", v == "skip", v)
+    v, _ = classify_handoff("todo", now - 300 * 60, now - 300, now)
+    case("心跳旧提交新 → 按提交判 active（取新者防误判）", v == "active", v)
+    v, _ = classify_handoff("DX-84 done", 0, 0, now)
+    case("baseline 带前缀 done 同样 skip", v == "skip", v)
+
     failures = [(n, d) for n, ok, d in cases if not ok]
     for name, ok, detail in cases:
         if ok:
@@ -362,6 +600,10 @@ def main():
                         help="DX-76 巡检：全量扫描服务端 claim 占位，点名应释放的僵尸（不校验分支）")
     parser.add_argument("--release-zombies", action="store_true",
                         help="DX-90 收尾释放：对巡检判定的僵尸逐条本地释放并删服务端占位（stdout 输出释放短号）")
+    parser.add_argument("--audit-handoff", action="store_true",
+                        help="DX-149 接手点名：扫服务端占位 + assignment 现场，输出活动/疑似中断/孤儿三态清单")
+    parser.add_argument("--json", action="store_true",
+                        help="与 --audit-handoff 连用：输出 JSON（供 agent-status.ps1 等程序消费）")
     args = parser.parse_args()
 
     # Windows 管道下 stdout 默认走 ANSI 代码页，打印 ✓ / ✗ 与中文直接 GBK 崩
@@ -378,6 +620,8 @@ def main():
         return audit_zombies()
     if args.release_zombies:
         return release_zombies()
+    if args.audit_handoff:
+        return audit_handoff(json_output=args.json)
 
     log = git("log", "--format=%H%x09%s", "%s..%s" % (args.base, args.head))
     if log.returncode != 0:

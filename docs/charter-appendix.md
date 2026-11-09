@@ -344,6 +344,27 @@ pwsh -File scripts/agent-workspace.ps1 -Action Release -Agent agent-c -Scope roo
 > agent）时同样默认拒绝，同一个开关才可接管。WorkBuddy / 手工 worktree 的自动原地模式不受影响：
 > 它们本来就是 linked worktree。
 
+### 原地接手通道（DX-149）
+
+> 「agent 做到一半没后续」的在办卡（占位在、分支在、人没了）原无接手通道：三条释放口
+> 全不覆盖在办卡，`refs/claims/*` 事实上不可转移。DX-149 补齐（设计稿 §7.2 落地）：
+>
+> - **判活事实源**：`docs/agent-assignments.json`（唯一写者 `scripts/assignment-store.py`，
+>   领用时由 `claim-card.py` 建、post-commit 节流心跳刷、`git-done` / `nbflow abandon`
+>   收尾移除）。它只承载判活与接手上下文，**不参与防双领判定**——防双领唯一事实源
+>   仍是服务端 `refs/claims/*` + 台账 `claims` 投影。
+> - **三态判据**：`check_claim_refs.py::classify_handoff`（单一实现，与僵尸释放判据
+>   `classify_claim` 同文件不同域）：30 分钟内 `active`、30~240 分钟 `stalled`（先确认
+>   勿接手）、超 240 分钟 `stale`（可接手）、分支已删 `orphan`；离线/不可判定一律 `skip`。
+>   巡检入口 `--audit-handoff`（CI 可挂）与 `agent-status.ps1`「可接手清单」。
+> - **接手动作**：`scripts/handoff.ps1 -Card <短号> -ToAgent <新名> -AuthorizedBy <授权来源>`，
+>   全程非交互（bypass permissions 模式直接调用）。删旧占位 → **复用旧 worktree 与分支**
+>   （原地换 `.agent-env.ps1` 身份 + 占用登记换主，未提交在制品原样保留）→ 追加冻结主题
+>   接手领用提交 → `claim-card.py` 原子重领 → 生成 `.sandbox/artifacts/handoff.json`
+>   残局摘要。任一步失败按记录的旧占位 sha 恢复（Z13），重跑幂等收敛。
+> - **授权口径**：超时只点名、绝不自动转移（Z4）；接手必须带 `-AuthorizedBy` 凭证留痕
+>   （同代登记约定），审计留给事后复核。
+
 ---
 
 ## 「7.3」git-done 内部流程细节

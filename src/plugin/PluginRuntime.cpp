@@ -446,20 +446,25 @@ void PluginRuntime::refreshContexts()
     }
 
     const auto keys = m_contexts.keys();
+    bool activeContextGone = false;
     for (const QString &id : keys) {
         if (alive.contains(id))
             continue;
         PluginContext *context = m_contexts.take(id);
         if (!context)
             continue;
+        // DX-141：被移除的 context 即使正活跃也必须退订并释放——跳过清理的话
+        // PluginEventBus 持裸指针继续向幽灵 context 投递，且对象本身泄漏
         if (context == m_activeContext) {
             m_activeContext = nullptr;
-            continue;
+            activeContextGone = true;
         }
         if (m_bus)
             m_bus->unsubscribe(context);
         context->deleteLater();
     }
+    if (activeContextGone)
+        emit activeContextChanged();
 }
 
 void PluginRuntime::loadBackgroundPlugins()

@@ -176,7 +176,5 @@ private:
     QList<SourceJob> m_jobs;
     int m_jobIndex = 0;
     QVariantMap m_sourceResults; // spec → {index, etag, lastModified, url, fetchedAt}
-    QString m_pendingUrl;
-    QString m_pendingSha;
-    QString m_pendingDest;
+    // DX-141：下载状态随 reply 闭包携带，不再用共享成员扛并发（双飞行互相覆盖）
 };

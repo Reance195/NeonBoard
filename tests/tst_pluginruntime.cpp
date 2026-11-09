@@ -25,16 +25,20 @@
 #include "PluginEventBus.h"
 #include "PluginHost.h"
 #include "PluginLoader.h"
+#include "PluginMarket.h"
 #include "PluginRuntime.h"
 #include "TaskModel.h"
 
 #include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QDir>
 #include <QFile>
 #include <QHash>
+#include <QHostAddress>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTcpServer>
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -96,6 +100,12 @@ private slots:
     void agentBridgeBatchReconcileAndSweep();
     // R0-15：空态期 start() 的授权引导落库失败且单次闸已置位 → 就绪后重放补落库
     void grantsBootstrapReplaysAfterDeferredFinalize();
+    // DX-141：manifest 入口字段（main/background/settings/slots）不得指向插件目录外
+    void manifestEntryPathTraversalRejected();
+    // DX-141：卸载/热重载移除活跃 context 后必须退订、释放并照发 activeContextChanged
+    void removedActiveContextStopsDeliveryAndSignals();
+    // DX-141：异步下载对「只建连不发数据」的恶意主机必须在有限时间内失败收尾
+    void downloadPackageTimesOutOnSilentHost();
 };
 
 void TestPluginRuntime::officialSourceClassification()
@@ -547,6 +557,174 @@ void TestPluginRuntime::grantsBootstrapReplaysAfterDeferredFinalize()
     const QString first = db.metaValue(QStringLiteral("plugins.grants"));
     runtime.replayGrantsBootstrap();
     QCOMPARE(db.metaValue(QStringLiteral("plugins.grants")), first);
+}
+
+namespace {
+
+// DX-141：往 NEONBOARD_DATA_DIR 沙箱里写一个最小插件（manifest + 可选入口文件）
+void makePluginDir(const QString &dataDir, const QString &id, const QString &manifestJson,
+                   bool writeMain)
+{
+    const QString dir = dataDir + QStringLiteral("/plugins/") + id;
+    QVERIFY2(QDir().mkpath(dir), qPrintable(dir));
+    QFile manifest(dir + QStringLiteral("/plugin.json"));
+    QVERIFY2(manifest.open(QIODevice::WriteOnly | QIODevice::Truncate), qPrintable(id));
+    manifest.write(manifestJson.toUtf8());
+    if (writeMain) {
+        QFile main(dir + QStringLiteral("/main.qml"));
+        QVERIFY2(main.open(QIODevice::WriteOnly | QIODevice::Truncate), qPrintable(id));
+        main.write(" // minimal entry\n");
+    }
+}
+
+} // namespace
+
+// DX-141：manifest 的 main / background 是 files 落盘围栏之外的另一条引用通道——
+// ../ 或盘符写法会经 file:// 加载插件目录外的任意 QML。入口必须留在插件目录内。
+void TestPluginRuntime::manifestEntryPathTraversalRejected()
+{
+    QTemporaryDir data;
+    QVERIFY(data.isValid());
+    qputenv("NEONBOARD_DATA_DIR", data.path().toUtf8());
+
+    // 目录外的真实文件：证明拒绝依据是「路径穿越」而不是「文件不存在」
+    {
+        QFile evil(data.filePath(QStringLiteral("evil.qml")));
+        QVERIFY(evil.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        evil.write(" // evil\n");
+    }
+
+    // 合法对照：入口在插件目录内 → ok
+    makePluginDir(data.path(), QStringLiteral("com.test.good"),
+                  QStringLiteral("{\"id\":\"com.test.good\",\"name\":\"好\",\"apiVersion\":1,"
+                                 "\"main\":\"main.qml\"}"),
+                  true);
+    // ../ 穿越（目标文件真实存在）
+    makePluginDir(data.path(), QStringLiteral("com.test.evil-parent"),
+                  QStringLiteral("{\"id\":\"com.test.evil-parent\",\"name\":\"坏\",\"apiVersion\":1,"
+                                 "\"main\":\"../evil.qml\"}"),
+                  false);
+    // 盘符绝对路径
+    makePluginDir(data.path(), QStringLiteral("com.test.evil-drive"),
+                  QStringLiteral("{\"id\":\"com.test.evil-drive\",\"name\":\"坏\",\"apiVersion\":1,"
+                                 "\"main\":\"C:/Windows/win.ini\"}"),
+                  false);
+    // background 字段同样不许穿越
+    makePluginDir(data.path(), QStringLiteral("com.test.evil-bg"),
+                  QStringLiteral("{\"id\":\"com.test.evil-bg\",\"name\":\"坏\",\"apiVersion\":1,"
+                                 "\"main\":\"main.qml\",\"background\":\"../evil.qml\"}"),
+                  true);
+
+    PluginLoader loader(nullptr);
+    loader.scan();
+
+    const QVariantMap good = loader.pluginById(QStringLiteral("com.test.good"));
+    QVERIFY2(good.value(QStringLiteral("status")).toString() == QLatin1String("ok"),
+             qPrintable(good.value(QStringLiteral("error")).toString()));
+    QVERIFY(!good.value(QStringLiteral("mainUrl")).toString().isEmpty());
+
+    const QVariantMap parent = loader.pluginById(QStringLiteral("com.test.evil-parent"));
+    QCOMPARE(parent.value(QStringLiteral("status")).toString(), QStringLiteral("error"));
+    QVERIFY2(parent.value(QStringLiteral("error")).toString()
+                 .contains(QStringLiteral("入口文件不存在")),
+             qPrintable(parent.value(QStringLiteral("error")).toString()));
+    QVERIFY(parent.value(QStringLiteral("mainUrl")).toString().isEmpty());
+
+    const QVariantMap drive = loader.pluginById(QStringLiteral("com.test.evil-drive"));
+    QCOMPARE(drive.value(QStringLiteral("status")).toString(), QStringLiteral("error"));
+    QVERIFY2(drive.value(QStringLiteral("error")).toString()
+                 .contains(QStringLiteral("入口文件不存在")),
+             qPrintable(drive.value(QStringLiteral("error")).toString()));
+
+    const QVariantMap bg = loader.pluginById(QStringLiteral("com.test.evil-bg"));
+    QCOMPARE(bg.value(QStringLiteral("status")).toString(), QStringLiteral("error"));
+    QVERIFY2(bg.value(QStringLiteral("error")).toString()
+                 .contains(QStringLiteral("后台入口文件不存在")),
+             qPrintable(bg.value(QStringLiteral("error")).toString()));
+    QVERIFY(bg.value(QStringLiteral("backgroundUrl")).toString().isEmpty());
+}
+
+// DX-141：热重载移除「正活跃」的 context 时不得跳过清理——旧实现对活跃者跳过
+// 退订与 deleteLater，PluginEventBus 持裸指针继续向幽灵 context 投递且对象泄漏；
+// activeContextChanged 也不发，面板代理永远不知道换线。
+void TestPluginRuntime::removedActiveContextStopsDeliveryAndSignals()
+{
+    QTemporaryDir data;
+    QVERIFY(data.isValid());
+    qputenv("NEONBOARD_DATA_DIR", data.path().toUtf8());
+
+    makePluginDir(data.path(), QStringLiteral("com.test.hello"),
+                  QStringLiteral("{\"id\":\"com.test.hello\",\"name\":\"你好\",\"apiVersion\":1,"
+                                 "\"main\":\"main.qml\"}"),
+                  true);
+
+    PluginLoader loader(nullptr);
+    loader.scan();
+    QVERIFY(!loader.pluginById(QStringLiteral("com.test.hello")).isEmpty());
+
+    PluginEventBus bus;
+    PluginRuntime runtime(&loader, &bus, nullptr, nullptr, nullptr);
+    PluginContext *context = runtime.contextFor(QStringLiteral("com.test.hello"));
+    QVERIFY(context != nullptr);
+    runtime.setActiveContext(context);
+
+    PluginHost host(&runtime);
+    QSignalSpy eventSpy(&host, &PluginHost::eventReceived);
+    QSignalSpy activeSpy(&runtime, &PluginRuntime::activeContextChanged);
+    // 直接在总线层给 context 订阅（host.subscribe 需要 events 授权链路，
+    // 本用例的焦点是「context 移除后的退订与投递」，不走授权）
+    bus.subscribe(context, {QStringLiteral("task.updated")});
+    bus.publish(QStringLiteral("task.updated"), {});
+    QCOMPARE(eventSpy.count(), 1); // 基线：活跃 context 正常收投递
+
+    // 「卸载」：移除插件目录后热重载（reload = 重扫 + refreshContexts）
+    QVERIFY(QDir(data.path() + QStringLiteral("/plugins/com.test.hello")).removeRecursively());
+    runtime.reload();
+
+    // 活跃 context 被移除：退订 + 释放 + activeContextChanged 照发
+    QCOMPARE(activeSpy.count(), 1);
+    QCOMPARE(runtime.activeContext(), static_cast<PluginContext *>(nullptr));
+    // deleteLater 尚未冲刷，指针仍有效：必须已从事件总线退订
+    QVERIFY2(bus.subscriptions(context).isEmpty(), "幽灵 context 必须已从事件总线退订");
+
+    // 代理换线到空：事件不再向已移除的 context 穿透；冲刷 deleteLater 不得崩溃
+    bus.publish(QStringLiteral("task.updated"), {});
+    QCOMPARE(eventSpy.count(), 1);
+    QTest::qWait(0);
+    QCOMPARE(eventSpy.count(), 1);
+}
+
+// DX-141：异步下载此前完全无超时——恶意服务器只建连不发数据即可让「正在下载…」
+// 永久挂起。看门狗与 blocking 下载同源（kDownloadTimeoutMs）：
+// 对一个 accept 后永不回话的本机服务端发起下载，必须在有限时间内失败收尾。
+void TestPluginRuntime::downloadPackageTimesOutOnSilentHost()
+{
+    QTcpServer server;
+    QVERIFY2(server.listen(QHostAddress::LocalHost), qPrintable(server.errorString()));
+    // 只监听不 accept 也行：TCP 握手由内核完成，连接建立但永远等不到响应字节
+
+    PluginMarket market;
+    const QString dest = QDir::temp().absoluteFilePath(
+        QStringLiteral("nb-test-download-%1.neon").arg(QCoreApplication::applicationPid()));
+    QFile::remove(dest);
+
+    QSignalSpy spy(&market, &PluginMarket::packageReady);
+    QElapsedTimer timer;
+    timer.start();
+    market.downloadPackage(
+        QStringLiteral("http://127.0.0.1:%1/pkg.neon").arg(server.serverPort()),
+        QString(), dest);
+    QVERIFY2(spy.wait(45000), "异步下载必须以失败收尾，而不是永久挂起");
+    const qint64 elapsed = timer.elapsed();
+    // 过早成功/失败都说明看门狗没挂在正确的超时窗口上（kDownloadTimeoutMs = 30s）
+    QVERIFY2(elapsed >= 20000,
+             qPrintable(QStringLiteral("过早收尾（%1 ms）：看门狗窗口不对").arg(elapsed)));
+    QVERIFY2(elapsed < 45000,
+             qPrintable(QStringLiteral("收尾过慢（%1 ms）").arg(elapsed)));
+    QCOMPARE(spy.count(), 1);
+    QCOMPARE(spy.at(0).at(1).toBool(), false);
+    QVERIFY(!QFile::exists(dest));
+    QFile::remove(dest);
 }
 
 QTEST_MAIN(TestPluginRuntime)

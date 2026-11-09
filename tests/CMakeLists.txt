@@ -103,18 +103,22 @@ target_link_libraries(tst_pluginlibrary PRIVATE
 neonboard_add_test(tst_pluginruntime
     ${NB_DIR_CORE}/Database.cpp
     ${NB_DIR_CORE}/AppPaths.cpp
+    ${NB_DIR_CORE}/SafePaths.cpp
     ${NB_DIR_TASK}/TaskModel.cpp
     ${NB_DIR_TASK}/TaskInputParser.cpp
     ${NB_DIR_PLUGIN}/PluginLoader.cpp
     ${NB_DIR_PLUGIN}/PluginContext.cpp
     ${NB_DIR_PLUGIN}/PluginEventBus.cpp
     ${NB_DIR_PLUGIN}/PluginHost.cpp
+    ${NB_DIR_PLUGIN}/PluginMarket.cpp
     ${NB_DIR_PLUGIN}/PluginRuntime.cpp
     ${NB_DIR_SHELL}/TrayController.cpp
     # R17-01：TrayController 的菜单皮取自 MenuSkin 的令牌，链接闭包要跟上
     ${NB_DIR_THEME}/MenuSkin.cpp
 )
-target_link_libraries(tst_pluginruntime PRIVATE Qt6::Sql Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Widgets)
+# DX-141：下载超时用例编入 PluginMarket（链接闭包沿 tst_pluginlibrary 的编法）
+target_link_libraries(tst_pluginruntime PRIVATE
+    Qt6::Sql Qt6::Network Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Widgets)
 # R16-01：QML 用例按编译期烘焙的绝对路径加载真实示例文件（与 CWD 无关）
 target_compile_definitions(tst_pluginruntime PRIVATE
     NB_TEST_SAMPLE_DIR="${CMAKE_SOURCE_DIR}/plugins-samples/today"

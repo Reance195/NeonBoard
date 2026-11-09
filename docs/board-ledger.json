@@ -1837,7 +1837,7 @@
             "depends": [],
             "evidence": "维护者 2026-11-09 指令「1。授权」，采纳审计轮遗留缺口 #6。实测：宪章 §7.1 规定「占用登记是强制的（DX-05）：开区即登记、收尾即释放、自检即体检」，但体检只查已登记项的自洽（锚点/工作区/登记三者），`agent-workspace.ps1 -Action Check` 不比对 `git worktree list`：任何绕过 `agent-init.ps1` 的手工 `git worktree add` 开出的工作区对占用体系完全不可见——同名分支检出、沙箱变量缺失、收尾泄漏都无从点破，「开区即登记」目前只对走正门的人成立（Z5：登记是唯一事实源，却有第二条开区路径不写它；Z6：本会话实录过清理残留目录时靠人肉数 worktree）。",
             "id": "DX-152",
-            "note": "",
+            "note": "交付 1b28450：Check 第 3 项把 linked worktree（锚点除外）缺占用登记从告警升级为硬冲突，点名「未登记 worktree：<路径>」（含 .worktrees 之外开出的，按目录名回退判键）；Status 增未登记标注行、退出码不变。三场景实测：登记齐全 Check exit 0；手工 git worktree add dx152-probe 后 Check exit 3 且点名，Status 标未登记（exit 0）；git worktree remove 后恢复 exit 0。BOM/语法/卫生/verify -ScriptOnly 全过，未动 agent-init 与登记格式。",
             "scope": [
                 "scripts/agent-workspace.ps1"
             ],

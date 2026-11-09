@@ -466,6 +466,36 @@ function Release-WorkspaceClaim {
     }
 }
 
+# DX-155：调 agent-workspace.ps1 -Action Drain（空壳清扫 + 待清理清单收敛）。
+# drain 的判定逻辑只在 agent-workspace.ps1 一处实现（Z5），这里只是子进程接线；
+# fail-soft：任何失败只转述输出，绝不阻断已经成功的合并（Z4）。
+function Invoke-WorkspaceDrain {
+    param([string]$WsScript, [string]$GitCwd, [string]$Register = '')
+    if (-not (Test-Path -LiteralPath $WsScript)) { return $false }
+    $pwshExe = 'powershell'
+    $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($pwshCmd) { $pwshExe = $pwshCmd.Source }
+    $callArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $WsScript, '-Action', 'Drain')
+    if ($Register) { $callArgs += @('-Register', $Register) }
+    $out = @()
+    $code = 1
+    Push-Location $GitCwd
+    try {
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $out = @(& $pwshExe @callArgs 2>&1)
+            $code = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+    } finally {
+        Pop-Location
+    }
+    foreach ($line in $out) { Write-Host ("   {0}" -f $line) -ForegroundColor DarkGray }
+    return ($code -eq 0)
+}
+
 # 合并推送成功后，把锚点区快进到最新 main —— 否则维护者回到根目录看到的还是旧代码。
 # 只做 fast-forward：锚点有本地提交 / 非 main / 未跟踪文件 / 受控文件之外的改动时一律跳过。
 # 受控文件（progress.json 与 docs/iteration-roadmap.md）允许临时 stash 后还原，不丢数据。
@@ -770,6 +800,12 @@ if ($PSScriptRoot) {
     }
 }
 $repoRoot = if ($scriptRepoRoot) { $scriptRepoRoot } else { Get-NbToplevel }
+
+# DX-155：收尾入口先 drain 再干活 —— 把以往自回收失败遗留的空壳收敛掉。
+# 判定与删除只在 agent-workspace.ps1 -Action Drain 一处实现，非空目录永不删。
+if ($repoRoot) {
+    [void](Invoke-WorkspaceDrain -WsScript (Join-Path $repoRoot 'scripts\agent-workspace.ps1') -GitCwd $repoRoot)
+}
 
 
 # ---------- 检出漂移守卫（DX-49）----------
@@ -1722,10 +1758,20 @@ if ($Mode -eq 'remote') {
         if ($selfRm.Code -eq 0) {
             Write-Host '✓ 已回收当前 worktree' -ForegroundColor Green
         } else {
-            # 不无脑 --force：失败多半是句柄占用（终端 / 应用还站在里面），硬删会留下
-            # 半删除尸体（DX-93）。只告警并给出可直接复制的收敛命令。
+            # DX-155：不无脑 --force（硬删留半删除尸体，DX-93），也不再只印手工命令——
+            # 把路径登记进待清理清单，下次 agent-init 开区 / git-done 收尾入口的 drain
+            # 自动收敛（此刻目录内容已被 git 删光，只剩句柄挡着的空目录，句柄一放即可直删）。
+            # 登记脚本优先锚点区（本检出可能已被删掉一半），锚点没有再退回本检出。
             Write-Host ("· 未能自动回收当前 worktree：{0}" -f $selfWorktreePending) -ForegroundColor Yellow
-            Write-Host ("  手工：git worktree remove {0}" -f $selfWorktreePending) -ForegroundColor Yellow
+            $wsDrainScript = Join-Path $cwdHome 'scripts\agent-workspace.ps1'
+            if (-not (Test-Path -LiteralPath $wsDrainScript)) {
+                $wsDrainScript = Join-Path $repoRoot 'scripts\agent-workspace.ps1'
+            }
+            if (Invoke-WorkspaceDrain -WsScript $wsDrainScript -GitCwd $cwdHome -Register $selfWorktreePending) {
+                Write-Host ('  已登记待清理清单，下次开区 / 收尾自动清扫；也可立即执行：pwsh -File scripts/agent-workspace.ps1 -Action Drain') -ForegroundColor Yellow
+            } else {
+                Write-Host ("  登记失败，手工：git worktree remove {0}" -f $selfWorktreePending) -ForegroundColor Yellow
+            }
         }
     }
     Write-Host "`n✓ 合并完成：$Branch → origin/$MainBranch" -ForegroundColor Green

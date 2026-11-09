@@ -2019,7 +2019,7 @@
       ],
       "evidence": "维护者 2026-11-09 指令「登记新卡」。实测：`git-done.ps1:1644` DX-120 延后回收段让 pwsh 自己 Set-Location 让位后 `git worktree remove` 本 worktree，但句柄实际在启动它的父 shell 进程里（Windows 不允许删除任何进程 CWD 所在目录），非 force 口径（DX-93 教训，正确）下每次都停在最后一刀；失败后只打印手工命令，无 pending 登记、无后续收敛入口——2026-11-09 清点 `.worktrees/` 得 34 目录，其中 28 个是「0 文件、无 .git 注册」的空壳（会话实录：gapsb/gapsc 收尾同样报「未能自动回收」，事后由父 shell 让位才 rm 掉），残留两周不可见、无人追责。",
       "id": "DX-155",
-      "note": "",
+      "note": "已完成：pending-worktrees.json（数据目录，键=绝对路径幂等登记）+ agent-workspace.ps1 单处 drain（三判据全过直删空壳，缺一保留记原因，非空永不删，不引入 --force）；agent-init 开区与 git-done 收尾入口先 drain；Check 增「待清理清单 N 项 / 空壳 M 个」汇总行不加退出码。实测：8 个历史空壳收敛、假路径登记/清空/收敛三场景、agent-init 入口接线（probe-entry-husk 被清扫）全过；verify -ScriptOnly 绿。交付 ff64fd7。",
       "scope": [
         "scripts/git-done.ps1",
         "scripts/agent-init.ps1",
@@ -6765,6 +6765,13 @@
       "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-155": {
+      "agent": "sweep155",
+      "branch": "chore/pending-worktree-sweep",
+      "claimedAt": 1794195855,
+      "head": "2fb16d315bc6b76d51909577ba02f3d1440cce41"
+    }
+  },
   "version": 1
 }

@@ -86,6 +86,7 @@
         "DX-150": "done",
         "DX-151": "done",
         "DX-152": "done",
+        "DX-153": "todo",
         "DX-16": "done",
         "DX-17": "done",
         "DX-18": "done",
@@ -309,8 +310,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-153": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -1845,6 +1845,24 @@
             "stage": "DX",
             "tier": "P2",
             "title": "手工 git worktree add 绕过占用登记，-Action Check 发现不了未登记 worktree"
+        },
+        "DX-153": {
+            "acceptance": [
+                "pwsh -File scripts/git-done.ps1 -SelfTest 退出码 0（既有 A/B 场景断言不回归）",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 通过",
+                "源码断言：结单预判调用位于删功能分支之前，原「重跑收尾并加 -Close」提示改为真实出路（grep 可判定）"
+            ],
+            "author": "维护者",
+            "depends": [],
+            "evidence": "R11-14 实测：git-done 对账提示「重跑收尾并加 -Close」发出时功能分支已在 1250 行删除（提示在 1472 行），补跑被 964 行「分支不存在」exit 1 拒，claim 已清理，补结通道关闭",
+            "id": "DX-153",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1"
+            ],
+            "stage": "DX",
+            "tier": "P2",
+            "title": "git-done 结单预判前移，-Close 补跑提示改可执行"
         },
         "DX-16": {
             "acceptance": [
@@ -6513,26 +6531,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-153": {
-            "acceptance": [
-                "pwsh -File scripts/git-done.ps1 -SelfTest 退出码 0（既有 A/B 场景断言不回归）",
-                "pwsh -File scripts/verify.ps1 -ScriptOnly 通过",
-                "源码断言：结单预判调用位于删功能分支之前，原「重跑收尾并加 -Close」提示改为真实出路（grep 可判定）"
-            ],
-            "author": "维护者",
-            "depends": [],
-            "evidence": "R11-14 实测：git-done 对账提示「重跑收尾并加 -Close」发出时功能分支已在 1250 行删除（提示在 1472 行），补跑被 964 行「分支不存在」exit 1 拒，claim 已清理，补结通道关闭",
-            "id": "DX-153",
-            "note": "",
-            "scope": [
-                "scripts/git-done.ps1"
-            ],
-            "stage": "DX",
-            "tier": "P2",
-            "title": "git-done 结单预判前移，-Close 补跑提示改可执行"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-153": {
+            "agent": "agent-cb2",
+            "branch": "fix/gitdone-close-hint",
+            "claimedAt": 1794190998,
+            "head": "7752396603e3749493bcc00d4e188506bd5d12b4"
+        }
+    },
     "version": 1
 }

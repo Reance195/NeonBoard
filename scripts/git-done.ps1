@@ -182,6 +182,27 @@ function New-MergeCommitBody {
             "卡片：{3}") -f $Branch, $commitCount, $fileCount, $cardsLine
 }
 
+# 结单预判（DX-153）：领用卡里哪些在分支区间内没写 #<短号>=done 标记。
+# 调用点在删分支 / 回收 worktree 之前 —— 补结提示只有在分支还在时才可执行；
+# 提示发出去就删分支，等于给一条死路（R11-14 收尾实测：重跑被「分支不存在」
+# 拒绝，claim 已清理，补结通道关闭）。判据口径与 --close-cards 的 =done 标记
+# 一致（subject+body 都认），但这里只影响提示与时机，结卡判定唯一实现仍在
+# derive_board_status.py（Z5）。正则只匹配 ASCII 的 =done，中文经控制台代码页
+# 转码不影响命中 —— 与 New-MergeCommitBody 的卡号提取同款手法与风险面。
+function Get-MissedDonePreview {
+    param([string[]]$Codes, [string]$MainBranch, [string]$Branch)
+    if ($Codes.Count -eq 0) { return @() }
+    $lines = @(Invoke-GitQuiet @('log', '--pretty=%s%n%b', ("origin/{0}..{1}" -f $MainBranch, $Branch)))
+    $doneCodes = @()
+    foreach ($line in $lines) {
+        foreach ($m in [regex]::Matches([string]$line, '#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)=done')) {
+            $c = $m.Groups[1].Value
+            if ($doneCodes -notcontains $c) { $doneCodes += $c }
+        }
+    }
+    return @($Codes | Where-Object { $doneCodes -notcontains $_ })
+}
+
 # 冲突退出回滚现场（DX-107）：合并撞冲突时，不把 merge/* 临时分支、未合并冲突态和
 # 「停在临时分支上的检出」留给下一条命令。所有动作都是非破坏性的 —— abort 用
 # `git merge --abort`（等价 reset --merge，保留用户未提交改动），归位用 switch，
@@ -1170,6 +1191,21 @@ if ($Mode -eq 'remote') {
         Write-Host ("✓ 合并在本地完成（合并提交 {0}，将随收尾一次推送 origin/{1}）" -f $mergedCommit.Substring(0, 7), $MainBranch) -ForegroundColor Green
     }
 
+    # ---- 结单预判（DX-153）：在删分支 / 回收 worktree 之前给可执行的补结提示 ----
+    # 用户已传 -Close（显式确认）时无需预判；演练（-DryRun）无人在场，提示无意义。
+    # 预判非空时此刻中断重跑仍来得及：本地临时分支残留由下次重跑自动清理（DX-78）。
+    if ($claimedCodes.Count -gt 0 -and $closeList.Count -eq 0 -and -not $DryRun) {
+        $preMissed = Get-MissedDonePreview -Codes $claimedCodes -MainBranch $MainBranch -Branch $Branch
+        if ($preMissed.Count -gt 0) {
+            Write-Host ''
+            Write-Host ("⚠ 结单预判：本次领用的 {0} 张卡在分支提交里没有 #<短号>=done 标记：{1}" -f `
+                $preMissed.Count, ($preMissed -join '、')) -ForegroundColor Yellow
+            Write-Host '    已做完想本次结掉：现在中断（Ctrl+C，本地临时分支由重跑自动清理），' -ForegroundColor Yellow
+            Write-Host ('    重跑并加 -Close {0} —— 此刻分支还在，补跑可执行。' -f ($preMissed -join ',')) -ForegroundColor Yellow
+            Write-Host '    确实没做完：直接继续收尾，卡留在看板由人结（ADR 0002）。' -ForegroundColor Yellow
+        }
+    }
+
     # ---- 4. 清理：先回收 worktree（解除分支占用），再删分支 ----
     # DX-120：$wtPath 的反查已提前到 switch -c 之前（见上），此处只做判定与执行。
     $recycleAgent = ''
@@ -1469,7 +1505,11 @@ if ($Mode -eq 'remote') {
                     Write-Host ("    {0}  （台账里查不到这张卡）" -f $code) -ForegroundColor Yellow
                 }
             }
-            Write-Host '    做完了只是没写标记：重跑收尾并加 -Close <短号,...>；' -ForegroundColor Yellow
+            # DX-153：走到这里功能分支已随收尾删除，「重跑加 -Close」不可执行
+            # （R11-14 实测：重跑被「分支不存在」拒绝）。提示必须给真实出路。
+            Write-Host '    分支已随本次收尾删除，「重跑收尾并加 -Close」已不可行。补结两条出路：' -ForegroundColor Yellow
+            Write-Host '      1) 看板上点「标为已办结」（ADR 0002：程序不自动改列，验收通过给人拍板）；' -ForegroundColor Yellow
+            Write-Host '      2) 重新领用后带 -Close 重跑收尾（--stuck-codes 会持续点名未标记的卡）。' -ForegroundColor Yellow
             Write-Host '    确实没做完：让卡留在 todo，下次接着领。' -ForegroundColor Yellow
         }
     }

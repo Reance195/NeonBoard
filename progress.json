@@ -73,24 +73,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-11",
-            "completedAt": 0,
-            "createdAt": 1794231655,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-11",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD QML 批次首批：执行队列弹窗整迁 components/ExecQueueDialog",
-            "updatedAt": 1794231655
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5659,6 +5641,24 @@
             "updatedAt": 1794230196
         },
         {
+            "code": "MOD-11",
+            "completedAt": 1794233067,
+            "createdAt": 1794231655,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-11",
+            "note": "已完成 5 / 待做 0 —— 五条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行（迁移前首跑曾命中 Main.qml:3507 Type ExecQueueDialog unavailable，修复后清零）、模块守卫与范围检查通过；Main.qml 4132 → 3674（验收线 <=3700）；LINE_LIMITS 同步调低 4131 → 3674。\n\n交付：qml/components/ExecQueueDialog.qml（壳与 content 整体迁移，块体逐字照搬，id 保留原名，Main 与其它调用点零改动）；CMake 登记 qt_add_qml_module 源条目 + QT_RESOURCE_ALIAS 裸名。\n\n关键坑与更正：① 新 QML 组件必须在 CMake 同时登记源条目与 QT_RESOURCE_ALIAS 裸名——漏配后者会使 qmldir 带目录前缀（qml/components/ExecQueueDialog.qml），运行时 Type ExecQueueDialog unavailable，首跑 --smoke 当场抓到并修复；该路径同时把 CMakeLists.txt 凭证扩入 scope（DX-10 通道）；② 弹窗打开路径的绑定错误 --smoke 4 秒窗口测不到（弹窗未打开不实例化 content），请维护者人工复核（--exec-queue 启动参数或界面按钮）；③ 过程踩坑：切块时 body 起点误含原 id 行导致 Property value set multiple times（qmlcachegen 当场抓到）。\n\nnextStep：其余三张执行域弹窗（execConfirmDialog / execPanelDialog / execBatchDialog，合计约 370 行）与主内容层 Item（933-1851，919 行，耦合最深，含 NeonBackground 与拖拽层）的拆分批次；十个手工 alias 的收敛随之推进。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD QML 批次首批：执行队列弹窗整迁 components/ExecQueueDialog",
+            "updatedAt": 1794233067
+        },
+        {
             "code": "MOD-7",
             "completedAt": 1794190034,
             "createdAt": 1794144568,
@@ -6091,6 +6091,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T21:40:55",
+    "updated": "2026-11-09T22:04:27",
     "version": 3
 }

@@ -311,7 +311,8 @@ function Invoke-MainPushWithRetry {
     return [pscustomobject]@{ Ok = $false; Attempts = $MaxAttempts }
 }
 
-# 收尾时序断言（DX-50）：三步自动提交（claims 清理 / 结卡 / 快照）必须发生在分离 HEAD 上 ——
+# 收尾时序断言（DX-50）：四步自动提交（claims 清理 / 结卡 / 快照 / 接手现场清理）必须发生在
+# 分离 HEAD 上 ——
 # pre-commit 规则 1 禁止在 main 直接提交，DX-20 的回归正是归位提前导致三步全被自家钩子拒掉。
 function Assert-DryCloseStep {
     param([string]$Step)
@@ -726,8 +727,6 @@ function Invoke-ClaimRefCleanup {
     # for-each-ref 可靠枚举整命名空间（git show-ref 的 pattern 匹配对松散引用不稳定，会漏列）
     $refs = @(& git for-each-ref --format='%(objectname) %(refname)' 'refs/claims/*' 2>$null)
     if ($refs.Count -eq 0) { return }
-    # DX-149：本函数释放的占位对应卡，收尾后其接手现场（assignment）一并移除
-    $releasedCodes = @()
     $originMain = $null
     try { $originMain = (Invoke-Git rev-parse --verify -q "origin/$Main").Trim() } catch { $originMain = $null }
     if (-not $originMain) {
@@ -752,12 +751,11 @@ function Invoke-ClaimRefCleanup {
         $code = $ref -replace '^refs/claims/',''
         $isAnc = $false
         try { & git merge-base --is-ancestor $sha ('origin/' + $Main) 2>$null; $isAnc = ($LASTEXITCODE -eq 0) } catch { $isAnc = $false }
-        if ($isAnc) { Release-ClaimRef $ref; $releasedCodes += $code; continue }
+        if ($isAnc) { Release-ClaimRef $ref; continue }
         # 未合入：仅当该 code 在台账中登记过、且其认领分支已不存在（孤儿 / 历史残留）时才释放；
         # 台账未登记的 code（可能是其它机制认领的活动卡）一律保守保留，绝不误删。
         if ($claimBranches.ContainsKey($code) -and (Test-ClaimBranchGone $claimBranches[$code])) {
             Release-ClaimRef $ref
-            $releasedCodes += $code
         }
     }
     # DX-90：rebase 重写占位（判据 1 打不中）+ 台账投影已清空（判据 2 打不中）的死角，
@@ -777,16 +775,6 @@ function Invoke-ClaimRefCleanup {
     }
     if ($relRes.Code -ne 0) {
         Write-Host ('· 僵尸占位释放：脚本失败（退出码 {0}），留待下次收尾或 CI 巡检点名' -f $relRes.Code) -ForegroundColor Yellow
-    }
-    # DX-149：占位已释放的卡，接手现场（assignment）随之移除（唯一写者 assignment-store，
-    # 旁路失败只告警——assignments 不参与任何闸门判定）
-    $goneAll = @($releasedCodes + $relCodes) | Select-Object -Unique | Where-Object { $_ }
-    if (-not $DryRun -and $goneAll.Count -gt 0) {
-        foreach ($gone in $goneAll) {
-            $null = Invoke-Cmd -File 'python' -CmdArgs @(
-                (Join-Path $repoRoot 'scripts\assignment-store.py'), 'remove', '--code', $gone)
-        }
-        Write-Host ('✓ 接手现场清理：assignment 移除 {0}' -f ($goneAll -join '、')) -ForegroundColor DarkGray
     }
 }
 
@@ -847,6 +835,9 @@ function Test-CheckoutDrift {
 #     合并提交 pin 在重建的 merge/* 分支上（DX-116：补推指引的落点必须真实存在）。
 #   回执口径（DX-116）：A 的回执 pushed=true/head 记已落地提交；B 的回执 pushed=false、head 置空、
 #     mergedInto 不写 origin/main、恢复信息记 localHead/localBranch —— 推送没落地就不得虚报。
+#   D 接手现场清理代提交（DX-161）：演练仓库种下过期领用登记 + 接手现场条目，收尾后断言
+#     assignments.json 中已释放卡的条目已被提交移除上 origin/main、清理提交非空；
+#     场景 A 无可清条目，负断言其历史上不存在清理提交（无变更不产生空提交）。
 # 不触真 origin、不仓库外留文件。依赖 git / pwsh / python（claim 闸门的 task_gate.py）。
 if ($script:gitDoneSelfTest) {
     $ErrorActionPreference = 'Stop'
@@ -1000,6 +991,63 @@ if ($script:gitDoneSelfTest) {
         } else {
             Assert-St 'C：回执存在（fix-selftest-c-*.json）' $false
         }
+
+        # ---- 场景 D：接手现场清理代提交（DX-161）----
+        # DX-149 的 assignment 移除原本不落提交，worktree 回收即丢（DX-143 实录：
+        # main 永久残留 done 卡条目）。演练仓库种下「分支已不存在的过期领用登记 +
+        # 该卡的接手现场条目」（条目由唯一写者 assignment-store 生成，与生产同构），
+        # 收尾后断言：条目已被**提交**移除上 origin/main、清理提交非空；
+        # 场景 A 的仓无可清条目，负断言其历史上不存在清理提交（无变更不产生空提交）。
+        $originD = Join-Path $tmpRoot 'd-origin.git'
+        Invoke-Cmd -File 'git' -CmdArgs @('init', '-q', '--bare', $originD) | Out-Null
+        $workD = Join-Path $tmpRoot 'd-work'
+        New-StWorkRepo -Work $workD -OriginPath $originD
+        $ledgerD = Join-Path $workD 'docs\board-ledger.json'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $ledgerD) -Force | Out-Null
+        # 台账种子必须无 BOM（release-claims 用裸 utf-8 读，BOM 会让 json.loads 拒读）
+        $ledgerSeed = @'
+{
+  "claims": {
+    "DX-998": {
+      "agent": "agent-selftest",
+      "branch": "fix/selftest-d",
+      "claimedAt": "2026-11-09T00:00:00+00:00"
+    }
+  }
+}
+'@
+        [System.IO.File]::WriteAllText($ledgerD, $ledgerSeed, (New-Object System.Text.UTF8Encoding($false)))
+        $null = Invoke-Cmd -File 'python' -CmdArgs @(
+            (Join-Path $workD 'scripts\assignment-store.py'), 'upsert',
+            '--code', 'DX-998', '--agent', 'agent-selftest', '--branch', 'fix/selftest-d',
+            '--stage', 'seeding', '--next-step', 'selftest seed')
+        Invoke-In $workD @('add', '-A') | Out-Null
+        Invoke-In $workD @('commit', '-q', '-m', 'chore: seed ledger claim + assignment') | Out-Null
+        Invoke-In $workD @('switch', '-c', 'fix/selftest-d') | Out-Null
+        Add-Content -LiteralPath (Join-Path $workD 'README.md') -Value 'feature line d' -Encoding utf8
+        Invoke-In $workD @('commit', '-q', '-am', 'docs: feature d') | Out-Null
+        $resD = Invoke-Cmd -File 'pwsh' -CmdArgs @('-NoProfile', '-File', (Join-Path $workD 'scripts\git-done.ps1'), '-Branch', 'fix/selftest-d')
+        $outD = $resD.Output -join "`n"
+        Assert-St 'D：退出码 0' ($resD.Code -eq 0)
+        if ($resD.Code -eq 0) {
+            Assert-St 'D：接手现场清理步可见' ($outD -match '接手现场清理')
+            # 收尾时分支已删 → release-claims 清掉过期登记 → $goneCodes 命中 DX-998 →
+            # assignment-store remove 落进独立提交、随单次推送上 origin/main。
+            $asgMain = (Invoke-In $originD @('show', 'main:docs/agent-assignments.json')) -join "`n"
+            Assert-St 'D：origin/main 的 assignments.json 已无 DX-998 条目' ($asgMain -notmatch 'DX-998')
+            Assert-St 'D：assignments.json 结构仍在（移除而非误删整文件）' ($asgMain -match '"assignments"')
+            $asgSha = (Invoke-In $originD @('log', '-1', '--format=%H', '--grep=chore(assign)', 'main'))[0]
+            Assert-St "D：清理以独立 chore(assign) 提交落地（$("$asgSha".Substring(0, [Math]::Min(7, "$asgSha".Length)))）" ("$asgSha" -match '^[0-9a-f]{40}$')
+            if ("$asgSha" -match '^[0-9a-f]{40}$') {
+                $asgFiles = (Invoke-In $originD @('show', '--name-only', '--format=', $asgSha)) -join "`n"
+                Assert-St 'D：清理提交非空（触及 assignments.json）' ($asgFiles -match 'agent-assignments')
+            }
+        }
+        $curD = (Invoke-In $workD @('branch', '--show-current'))[0]
+        Assert-St "D：检出已归位（$curD）" ("$curD" -eq 'main')
+        # 无空提交负断言：场景 A 的仓没有任何可清条目，历史上不得出现清理提交。
+        $logA = (Invoke-In $originA @('log', '--format=%s', 'main')) -join "`n"
+        Assert-St 'A：无可清条目不产生空清理提交' ($logA -notmatch 'chore\(assign\)')
     } finally {
         if (Test-Path -LiteralPath $tmpRoot) { Remove-Item -Recurse -Force $tmpRoot -ErrorAction SilentlyContinue }
     }
@@ -1381,7 +1429,7 @@ if ($Mode -eq 'remote') {
     Release-WorkspaceClaim -Root $repoRoot -Agent $recycleAgent -Scope $recycleScope
 
     # 解除临时分支占用：先**无条件**脱离分支（DX-26）。
-    # 收尾还有三步自动提交（claims 清理 / 结卡 / 快照），它们必须不在受保护分支上做 ——
+    # 收尾还有四步自动提交（claims 清理 / 结卡 / 快照 / 接手现场清理），它们必须不在受保护分支上做 ——
     # pre-commit 规则 1 禁止在 main 直接提交，而锚点区此刻若还停在 main 上，三步必被自家
     # 钩子拒掉。这正是 DX-20 把「归位」提前到提交之前造成的回归：一天内两次收尾、六次
     # 提交全失败，每次都留 staged 脏文件（回滚只还工作区不撤暂存区）。分离 HEAD 读不到
@@ -1503,6 +1551,50 @@ if ($Mode -eq 'remote') {
     # DX-96：返回值 =「本次是否产生了待推提交」；是则计入收尾单次补推。
     $snapPending = Sync-BoardSnapshot -RepoRoot $repoRoot -MainBranch $MainBranch
     if ($snapPending) { $hasCloseoutCommit = $true }
+
+    # ---- 接手现场清理代提交（DX-161）----
+    # DX-149 曾把 assignment 移除挂在收尾之后的 Invoke-ClaimRefCleanup 里，但那里只改
+    # 工作树文件、不落任何提交 —— worktree 一回收变更即丢，done 卡条目永久残留 main
+    # （DX-143 实录：origin/main 的 assignments.json 至今留着已释放卡的条目）。
+    # 移除必须落进收尾提交栈：本批占位将释放的卡（release-claims 清掉的 $goneCodes +
+    # 本次结掉的 $closedCodes）先经唯一写者 assignment-store 移除条目，文件有实质变更
+    # 才独立提交，与 claims 清理 / 结卡 / 快照同段（分离 HEAD）、随收尾单次推送、
+    # 推送失败时随整栈一起回滚 —— 无变更不产生空提交。
+    # scope 用 assign 而非 board：任务闸门对 chore(<流程 scope>) 触及流程路径之外文件
+    # （assignments 不在 PROCESS_PATHS）的提交一律要求可持证短号，而被清理的卡按定义
+    # 占位已释放、无 claim ref 可持 —— 非流程 scope 才能让这条机械投影提交在任何
+    # 收尾（含无领卡的杂务收尾）都过得了 commit-msg 与 pre-push 双闸门。
+    $asgCodes = @($goneCodes + $closedCodes) | Select-Object -Unique | Where-Object { $_ }
+    if ($asgCodes.Count -gt 0) {
+        if ($DryRun) {
+            Write-Host '  [dry-run] 桩：assignment-store remove + 接手现场清理提交（演练不落盘）' -ForegroundColor DarkCyan
+            Assert-DryCloseStep -Step '接手现场清理提交'
+        } else {
+            foreach ($asgCode in $asgCodes) {
+                $null = Invoke-Cmd -File 'python' -CmdArgs @(
+                    (Join-Path $repoRoot 'scripts\assignment-store.py'), 'remove', '--code', $asgCode)
+            }
+            $asgDirty = @((Invoke-Git status --porcelain -- docs/agent-assignments.json) |
+                Where-Object { $_ -match 'agent-assignments' })
+            if ($asgDirty.Count -gt 0) {
+                Assert-DryCloseStep -Step '接手现场清理提交'
+                Invoke-GitQuiet @('add', 'docs/agent-assignments.json') | Out-Null
+                $asgBody = "对象：本批占位已释放 / 已结卡的接手现场（assignment）条目移除，落进收尾提交（DX-161）。`n`n" +
+                           "自动来源：git-done.ps1 收尾的 assignment-store.py remove。"
+                $asgCommit = Invoke-GitQuiet @('commit', '-m', ('chore(assign): 清理过期接手现场 {0}' -f ($asgCodes -join '、')), '-m', $asgBody)
+                if ($asgCommit.Code -ne 0) {
+                    Write-Host '· 接手现场清理：提交失败，移除已撤销，留待下次收尾再清' -ForegroundColor Yellow
+                    $asgCommit.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+                    # 必须连暂存区一起撤（DX-26）：工作树里残留的移除既不落库也会挡 worktree 回收。
+                    Invoke-GitQuiet @('restore', '--staged', '--worktree', '--', 'docs/agent-assignments.json') | Out-Null
+                } else {
+                    # DX-106：留在本地，随合并+收尾单次推送；是否 landed 由这次推送统一裁定。
+                    $hasCloseoutCommit = $true
+                    Write-Host ('✓ 接手现场清理：{0} 的条目已随收尾提交（随收尾一次性补推）' -f ($asgCodes -join '、')) -ForegroundColor Green
+                }
+            }
+        }
+    }
 
     # ---- 合并+收尾单次推送（DX-106，A2b）----
     # 合并提交与清理登记 / 结卡 / 快照的提交全部落在本地后，对 main 只推**一次**：

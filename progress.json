@@ -73,24 +73,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-14",
-            "completedAt": 0,
-            "createdAt": 1794242146,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-14",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD QML 批次四批：夜间批量执行弹窗整迁 components/NightBatchDialog",
-            "updatedAt": 1794242146
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5785,6 +5767,24 @@
             "updatedAt": 1794237602
         },
         {
+            "code": "MOD-14",
+            "completedAt": 1794243493,
+            "createdAt": 1794242146,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-14",
+            "note": "QML批次四批：夜间批量执行弹窗nightBatchDialog（211行，R7-03，块2793-3003含7行头注释）整迁components/NightBatchDialog.qml，壳与content逐字照搬，id保留原名，Main零改动；接口面仅hostWin一个property（hostWindow: window接口化）。Main.qml 3179→2964，LINE_LIMITS同步调低，CMake双登记。更正：此前盘点误标execBatchDialog，实测id为nightBatchDialog，卡面与evidence已按实测更正。脚本级修复：MOD-12/13三连复现的块尾双包坑按Z6在迁移脚本切片层根治（body=lines[shell+1:en-1]），本卡一次成型；另修掉实现脚本首版漏回溯DialogShell行与CMake find落点撞alias行的两个当场坑。verify全量绿：ctest 45/45、--selftest/--smoke退出码0、QML致命告警0行、check_module_deps/check_scope通过。已完成X/待做Y：Main.qml弹窗批次已清（ExecQueue/ExecConfirm/ExecPanel/NightBatch四张）；待做=主内容层Item（约919行，耦合最深）、execCwdDialog迁移评估、十条手工alias收敛。人工复核：夜间批量弹窗打开态（多选勾选/预估时长/开始夜间执行）--smoke测不到。授权来源：维护者2026-11-09会话指令「迁移 execBatchDialog 弹窗」按实测对应本卡。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD QML 批次四批：夜间批量执行弹窗整迁 components/NightBatchDialog",
+            "updatedAt": 1794243493
+        },
+        {
             "code": "MOD-7",
             "completedAt": 1794190034,
             "createdAt": 1794144568,
@@ -6217,6 +6217,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T00:35:46",
+    "updated": "2026-11-10T00:58:13",
     "version": 3
 }

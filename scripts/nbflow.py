@@ -842,6 +842,18 @@ def handoff_path(worktree: str) -> Path:
     return Path(worktree) / ".sandbox" / "artifacts" / "handoff.json"
 
 
+def assignment_store(*argv: str) -> None:
+    """旁路调用 assignment-store（DX-149 唯一写者）。失败只提示，不影响主流程——
+    assignments 不参与任何闸门判定。"""
+    store = Path(__file__).resolve().parent / "assignment-store.py"
+    try:
+        code, _ = run([sys.executable, str(store), *argv], capture=True)
+        if code != 0:
+            out("  · assignment-store 更新失败（旁路，不阻断）：exit %d" % code)
+    except OSError:
+        out("  · assignment-store 不可达（旁路，不阻断）")
+
+
 def report_path(worktree: str) -> Path:
     return Path(worktree) / ".sandbox" / "artifacts" / "run-report.json"
 
@@ -978,6 +990,15 @@ def check_report(acceptance: list[str], results: dict, verify_exit: int,
     return problems
 
 
+def assignment_store(*argv: str, dry: bool = False) -> None:
+    """旁路调用 assignment-store（DX-149 唯一写者）。失败只提示，不影响主流程——
+    assignments 不参与任何闸门判定。dry-run 纯化（DX-65）：只打印不执行。"""
+    store = Path(__file__).resolve().parent / "assignment-store.py"
+    code, _ = run([sys.executable, str(store), *argv], capture=True, dry=dry)
+    if not dry and code != 0:
+        out("  · assignment-store 更新失败（旁路，不阻断）：exit %d" % code)
+
+
 def cmd_report(ctx: Ctx, state: dict, args) -> int:
     card = args.card.upper()
     sess = state["sessions"].get(card)
@@ -1042,6 +1063,9 @@ def cmd_report(ctx: Ctx, state: dict, args) -> int:
             out("      - %s：%s" % (k, results[k].get("evidence", "")))
     transition(ctx, state, card, "reported", report=str(rp),
                nextStep=rep["nextStep"], allPass=True, deferred=len(rep["deferred"]))
+    # DX-149：报告完成即把 nextStep 刷进 assignment（§7.2「收工必写剩余工作」强制项）
+    assignment_store("heartbeat", "--code", card, "--force", "--stage", "报告完成",
+                     "--next-step", rep["nextStep"] or "", dry=ctx.dry_run)
     return 0
 
 
@@ -1143,6 +1167,8 @@ def cmd_abandon(ctx: Ctx, state: dict, args) -> int:
             dry=ctx.dry_run)
     transition(ctx, state, card, "abandoned", reason=args.reason,
                nextStep="服务端占位已释放；台账 claims 投影由下次 agent-init 判失效清理")
+    # DX-149：弃卡即清接手现场（占位已释放，assignment 无存在意义）
+    assignment_store("remove", "--code", card, dry=ctx.dry_run)
     out("%s %s 已弃卡并释放占位（原因：%s）"
         % ("[演练] 未执行 ·" if ctx.dry_run else "✓", card, args.reason))
     return 0

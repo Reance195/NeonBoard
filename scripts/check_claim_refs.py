@@ -36,6 +36,16 @@
     python scripts/check_claim_refs.py --audit-zombies
 
 退出码：0 干净或保守跳过（离线）/ 1 存在应释放的僵尸占位 / 2 用法或仓库错误。
+
+现场定位模式（DX-159）：
+
+    python scripts/check_claim_refs.py --locate DX-139
+
+四级查找（assignments → .worktrees 物理检出台账 → 主线台账 claims → 远端分支头台账），
+stdout 输出 JSON（agent / branch / worktree / nextStep / source / level）。
+查找实现 locate_claim_site 是唯一实现：--audit-handoff 与 handoff.ps1 都消费它（Z5）。
+全部信息源在本地（远端分支头台账读本地 refs/remotes 镜像），离线可用。
+退出码：0 命中任一级 / 1 四级全空 / 2 用法或仓库错误。
 """
 
 import argparse
@@ -305,42 +315,32 @@ def release_zombies():
     return 0
 
 
-def audit_handoff(json_output=False):
-    """DX-149 接手点名巡检：全量扫描服务端 refs/claims/*，结合 assignment 现场
-    （心跳 / branch / nextStep）与分支提交事实，输出三态清单。
+def _handoff_indexes():
+    """收集接手现场定位的辅助信息源（DX-159：--locate 与 audit_handoff 共用的唯一收集实现）。
 
-    与 audit_zombies 的分工：僵尸巡检管「done 卡的残留占位」，本巡检管
-    「未 done 卡的死现场」。判定唯一实现 classify_handoff；assignments 只
-    作现场信息源，绝不作为防双领依据（DX-149 边界）。
+    返回 (assignments, wt_claims, wt_by_agent, remote_claims)：
+    - assignments    docs/agent-assignments.json（心跳现场；只读文件不 import——
+                     assignment-store.py 文件名带连字符加载不了；读不违反「唯一写者」，
+                     写仍只能经 assignment-store.py）
+    - wt_claims      .worktrees/*/ 物理检出台账的 claims（未推送分支的领用投影只存在
+                     本地检出台账里——DX-139 系「本地独有提交」连远端都扫不到），
+                     条目带 worktree 绝对路径
+    - wt_by_agent    agent 名 → worktree 绝对路径（读 .agent-env.ps1；与旧 handoff.ps1
+                     的 .worktrees 扫描同判据，实现收敛到本函数）
+    - remote_claims  远端各分支头台账的 claims（领用投影随分支走，主线台账看不到
+                     未合入分支的领用——DX-139 系 4 张 28h 卡曾被据此误判成孤儿）
 
-    退出码：0 全部活动或保守跳过 / 1 存在 stalled/stale/orphan 点名项。
+    单项不可读时降级为空表并告警，不抛错（巡检与定位都不因现场残缺而崩）。
     """
-    now = int(time.time())
-    server = _git_lines("ls-remote", "origin", "refs/claims/*")
-    if server is None:
-        sys.stderr.write("[接手巡检] origin 不可达（离线？），本轮保守跳过，不点名。\n")
-        return 0
-    try:
-        ledger_data = json.loads(LEDGER.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        sys.stderr.write("[接手巡检] 台账不可读（%s），本轮保守跳过，不点名。\n" % exc)
-        return 0
-    baseline = ledger_data.get("baseline") or {}
-    claims_proj = ledger_data.get("claims") or {}
-
-    # assignment 现场表：只读文件不 import（assignment-store.py 文件名带连字符，
-    # import 语法加载不了；读不违反「唯一写者」，写仍只能经 assignment-store.py）
-    asg_path = LEDGER.parent / "agent-assignments.json"
     assignments = {}
+    asg_path = LEDGER.parent / "agent-assignments.json"
     if asg_path.exists():
         try:
             assignments = (json.loads(asg_path.read_text(encoding="utf-8-sig"))
                            .get("assignments") or {})
         except (OSError, ValueError) as exc:
-            sys.stderr.write("[接手巡检] assignments 不可读（%s），现场信息降级。\n" % exc)
+            sys.stderr.write("[接手定位] assignments 不可读（%s），现场信息降级。\n" % exc)
 
-    # 第三级信息源：远端各分支头的台账 claims（领用投影随分支走，主线台账看不到
-    # 未合入分支的领用——DX-139 系 4 张 28h 卡曾被据此误判成孤儿）。一次性建索引。
     remote_claims = {}
     for ref in (_git_lines("for-each-ref", "--format=%(refname)",
                            "refs/remotes/origin") or []):
@@ -357,11 +357,10 @@ def audit_handoff(json_output=False):
             if oc and oc.get("branch") and oc_code not in remote_claims:
                 remote_claims[oc_code] = oc
 
-    # 第四级：.worktrees/* 物理现场——未推送分支的领用投影只存在本地检出台账里
-    # （DX-139 系「本地独有提交」连远端都扫不到），worktree 是最接近实况的事实源。
     # .worktrees 只在锚点区存在（pitfalls 1.31 同款）：按 git common dir 父目录定位，
     # 不能用本脚本检出根——从 linked worktree 里跑必扫空。
     wt_claims = {}
+    wt_by_agent = {}
     anchor_root = LEDGER.parent.parent
     common = git("rev-parse", "--git-common-dir")
     if common.returncode == 0:
@@ -372,12 +371,7 @@ def audit_handoff(json_output=False):
         wt_root = anchor_root / ".worktrees"
     if wt_root.is_dir():
         for d in sorted(wt_root.iterdir()):
-            wt_ledger = d / "docs" / "board-ledger.json"
-            if not d.is_dir() or not wt_ledger.exists():
-                continue
-            try:
-                wdata = json.loads(wt_ledger.read_text(encoding="utf-8-sig"))
-            except (OSError, ValueError):
+            if not d.is_dir():
                 continue
             agent_id = ""
             env_file = d / ".agent-env.ps1"
@@ -389,10 +383,106 @@ def audit_handoff(json_output=False):
                         agent_id = mag.group(1)
                 except OSError:
                     pass
+            if agent_id and agent_id not in wt_by_agent:
+                wt_by_agent[agent_id] = str(d)
+            wt_ledger = d / "docs" / "board-ledger.json"
+            if not wt_ledger.exists():
+                continue
+            try:
+                wdata = json.loads(wt_ledger.read_text(encoding="utf-8-sig"))
+            except (OSError, ValueError):
+                continue
             for wc_code, wc in (wdata.get("claims") or {}).items():
                 if wc and wc.get("branch") and wc_code not in wt_claims:
                     wt_claims[wc_code] = {"agent": agent_id or wc.get("agent", ""),
-                                          "branch": wc.get("branch", "")}
+                                          "branch": wc.get("branch", ""),
+                                          "worktree": str(d)}
+    return assignments, wt_claims, wt_by_agent, remote_claims
+
+
+def locate_claim_site(code, assignments, wt_claims, claims_proj, remote_claims,
+                      wt_by_agent=None):
+    """领用现场四级查找的单一实现（DX-159，Z5）。
+
+    优先级与 audit_handoff 既有口径完全一致，不引入新判据：
+      1 assignments   docs/agent-assignments.json（心跳现场）
+      2 worktrees     .worktrees/*/ 物理检出台账
+      3 ledger        主线台账 claims 投影
+      4 remote        远端各分支头台账 claims
+
+    返回 dict：code / located / source / level / agent / branch / worktree / nextStep。
+    - source/level 记命中的最高优先级信息源（level 0 = 四级全空）；
+    - 字段按同一优先级取第一个非空值，低级只补高级缺的字段；
+    - worktree 可由 wt_by_agent（.agent-env 的 agent 名物理扫描）兜底补齐。
+    """
+    levels = (
+        ("assignments", assignments.get(code) or {}),
+        ("worktrees", wt_claims.get(code) or {}),
+        ("ledger", claims_proj.get(code) or {}),
+        ("remote", remote_claims.get(code) or {}),
+    )
+    site = {"code": code, "located": False, "source": "", "level": 0,
+            "agent": "", "branch": "", "worktree": "", "nextStep": ""}
+    for idx, (name, entry) in enumerate(levels, start=1):
+        if entry and not site["source"]:
+            site["source"], site["level"] = name, idx
+        for key in ("agent", "branch", "worktree", "nextStep"):
+            if not site[key] and entry.get(key):
+                site[key] = str(entry[key])
+    if not site["worktree"] and wt_by_agent and site["agent"]:
+        hit = wt_by_agent.get(site["agent"])
+        if hit:
+            site["worktree"] = hit
+    site["located"] = bool(site["level"])
+    return site
+
+
+def locate(code):
+    """DX-159 --locate：对单张卡跑四级查找，stdout 输出 JSON（handoff.ps1 消费）。
+
+    退出码：0 命中任一级 / 1 四级全空 / 2 用法或仓库错误。
+    """
+    code = (code or "").lstrip("#").upper()
+    if not re.fullmatch(CODE, code):
+        sys.stderr.write("[接手定位] 短号格式不合法：%s\n" % code)
+        return 2
+    try:
+        ledger_data = json.loads(LEDGER.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        sys.stderr.write("[接手定位] 台账不可读（%s）。\n" % exc)
+        return 2
+    assignments, wt_claims, wt_by_agent, remote_claims = _handoff_indexes()
+    site = locate_claim_site(code, assignments, wt_claims,
+                             ledger_data.get("claims") or {}, remote_claims,
+                             wt_by_agent=wt_by_agent)
+    print(json.dumps(site, ensure_ascii=False, indent=2))
+    return 0 if site["located"] else 1
+
+
+def audit_handoff(json_output=False):
+    """DX-149 接手点名巡检：全量扫描服务端 refs/claims/*，结合 assignment 现场
+    （心跳 / branch / nextStep）与分支提交事实，输出三态清单。
+
+    与 audit_zombies 的分工：僵尸巡检管「done 卡的残留占位」，本巡检管
+    「未 done 卡的死现场」。判定唯一实现 classify_handoff；现场定位唯一实现
+    locate_claim_site（DX-159，与 --locate / handoff.ps1 共用，不保留第二份遍历）；
+    assignments 只作现场信息源，绝不作为防双领依据（DX-149 边界）。
+
+    退出码：0 全部活动或保守跳过 / 1 存在 stalled/stale/orphan 点名项。
+    """
+    now = int(time.time())
+    server = _git_lines("ls-remote", "origin", "refs/claims/*")
+    if server is None:
+        sys.stderr.write("[接手巡检] origin 不可达（离线？），本轮保守跳过，不点名。\n")
+        return 0
+    try:
+        ledger_data = json.loads(LEDGER.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        sys.stderr.write("[接手巡检] 台账不可读（%s），本轮保守跳过，不点名。\n" % exc)
+        return 0
+    baseline = ledger_data.get("baseline") or {}
+    claims_proj = ledger_data.get("claims") or {}
+    assignments, wt_claims, wt_by_agent, remote_claims = _handoff_indexes()
 
     results = []
     for line in server:
@@ -404,11 +494,9 @@ def audit_handoff(json_output=False):
         if not code:
             continue
         asg = assignments.get(code) or {}
-        wcl = wt_claims.get(code) or {}
-        proj = claims_proj.get(code) or {}
-        rmt = remote_claims.get(code) or {}
-        branch = (asg.get("branch") or wcl.get("branch") or proj.get("branch")
-                  or rmt.get("branch") or "")
+        site = locate_claim_site(code, assignments, wt_claims, claims_proj,
+                                 remote_claims, wt_by_agent=wt_by_agent)
+        branch = site["branch"]
         has_branch = False
         branch_last = 0
         if branch:
@@ -438,9 +526,8 @@ def audit_handoff(json_output=False):
             suggestion = "先确认 %s 是否真停，勿自动接手" % (asg.get("agent") or "对方")
         results.append({
             "code": code, "verdict": verdict, "detail": detail,
-            "agent": (asg.get("agent") or wcl.get("agent") or proj.get("agent")
-                      or rmt.get("agent") or ""),
-            "branch": branch, "nextStep": asg.get("nextStep", ""),
+            "agent": site["agent"],
+            "branch": branch, "nextStep": site["nextStep"],
             "lastActivity": last_activity, "ageMinutes": age_min,
             "suggestion": suggestion,
         })
@@ -576,6 +663,38 @@ def selftest():
     v, _ = classify_handoff("DX-84 done", 0, 0, now)
     case("baseline 带前缀 done 同样 skip", v == "skip", v)
 
+    # ---- 领用现场四级查找（DX-159：locate_claim_site 单一实现）----
+    asg1 = {"agent": "agent-a", "branch": "feature/t1",
+            "worktree": ".worktrees/wt-a", "nextStep": "交接话"}
+    site = locate_claim_site("DX-1", {"DX-1": asg1}, {}, {}, {})
+    case("一级 assignment 命中：字段齐全",
+         site["level"] == 1 and site["source"] == "assignments"
+         and site["branch"] == "feature/t1" and site["worktree"] == ".worktrees/wt-a"
+         and site["nextStep"] == "交接话", str(site))
+
+    site = locate_claim_site(
+        "DX-2", {}, {},
+        {"DX-2": {"agent": "agent-b", "branch": "feature/t2", "worktree": "E:/x/.worktrees/wt-b"}},
+        {}, wt_by_agent={"agent-b": "E:/x/.worktrees/wt-b"})
+    case("三级主线台账命中，worktree 由 agent 名物理扫描兜底",
+         site["level"] == 3 and site["branch"] == "feature/t2"
+         and site["worktree"].endswith("wt-b"), str(site))
+
+    site = locate_claim_site(
+        "DX-3", {}, {"DX-3": {"agent": "agent-c", "branch": "feature/t3", "worktree": "wt-c"}},
+        {"DX-3": {"agent": "agent-c", "branch": "stale/branch"}}, {})
+    case("二级 worktree 台账命中优先于三级主线台账（不引入新判据）",
+         site["level"] == 2 and site["branch"] == "feature/t3", str(site))
+
+    site = locate_claim_site("DX-4", {}, {}, {}, {})
+    case("四级全空 → located=false、level=0",
+         site["located"] is False and site["level"] == 0, str(site))
+
+    site = locate_claim_site("DX-5", {"DX-5": {"agent": "agent-e"}}, {},
+                             {"DX-5": {"branch": "feature/t5"}}, {})
+    case("一级缺 branch 由三级补齐（字段级回退）",
+         site["level"] == 1 and site["branch"] == "feature/t5", str(site))
+
     failures = [(n, d) for n, ok, d in cases if not ok]
     for name, ok, detail in cases:
         if ok:
@@ -602,6 +721,9 @@ def main():
                         help="DX-90 收尾释放：对巡检判定的僵尸逐条本地释放并删服务端占位（stdout 输出释放短号）")
     parser.add_argument("--audit-handoff", action="store_true",
                         help="DX-149 接手点名：扫服务端占位 + assignment 现场，输出活动/疑似中断/孤儿三态清单")
+    parser.add_argument("--locate", metavar="CODE",
+                        help="DX-159 领用现场四级查找（assignments → .worktrees → 主线台账 → 远端分支头台账），"
+                             "stdout 输出 JSON；与 audit_handoff / handoff.ps1 共用 locate_claim_site")
     parser.add_argument("--json", action="store_true",
                         help="与 --audit-handoff 连用：输出 JSON（供 agent-status.ps1 等程序消费）")
     args = parser.parse_args()
@@ -620,6 +742,8 @@ def main():
         return audit_zombies()
     if args.release_zombies:
         return release_zombies()
+    if args.locate:
+        return locate(args.locate)
     if args.audit_handoff:
         return audit_handoff(json_output=args.json)
 

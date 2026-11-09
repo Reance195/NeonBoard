@@ -14,6 +14,8 @@
     - 不删分支、不删 worktree、不 stash、不 checkout --ours/--theirs；
       未提交在制品原样留给接手者。
     - assignments 只经 assignment-store.py（唯一写者）读写，不参与防双领判定。
+    - 现场定位走 check_claim_refs.py --locate 四级查找（DX-159，与 audit_handoff
+      共用 locate_claim_site 单一实现），PS 侧不保留第二份查找（Z5）。
 
     用法：
       pwsh -File scripts/handoff.ps1 -Card DX-139 -ToAgent agent-b -AuthorizedBy "维护者 2026-11-08 会话指令"
@@ -61,8 +63,12 @@ $script:pyExe = Find-Python
 
 function Invoke-Selftest {
     # 自建临时 git 仓库（bare origin + seed + 旧 agent 的 linked worktree），
-    # 实跑一次接手并断言：占位重领 / 未提交改动保留 / 身份与占用换主 /
-    # 残局摘要字段齐全 / 闸门放行 / 重跑幂等 / 缺凭证与离线 fail-closed。
+    # 实跑接手并断言。双场景（DX-159）：
+    #   场景 1：有 assignment 条目 + 主线台账 claims（DX-149 既有全链路断言）；
+    #   场景 2：登记只在 worktree 物理台账（无 assignment）——--locate 四级查找定位，
+    #           后者不再需要预登记。
+    # 断言：占位重领 / 未提交改动保留 / 身份与占用换主 / 残局摘要字段齐全 /
+    # 闸门放行 / 重跑幂等 / 缺凭证与离线 fail-closed。
     # 依据产物断言（Z8），全程不触真实 origin 与真实台账。
     $ErrorActionPreference = 'Continue'
     $failures = New-Object System.Collections.Generic.List[string]
@@ -82,12 +88,12 @@ function Invoke-Selftest {
         param([string]$Path, [string]$Text)
         [System.IO.File]::WriteAllText($Path, $Text, (New-Object System.Text.UTF8Encoding($false)))
     }
-
-    try {
-        Write-Host "selftest 现场：$tmp" -ForegroundColor DarkCyan
-        # ---- 1) bare origin + seed 检出 + 最小台账 ----
-        $originGit = Join-Path $tmp 'origin.git'
-        $seed = Join-Path $tmp 'seed'
+    # 自建临时接手现场（bare origin + seed 检出 + 旧 agent 的 linked worktree + 领用占位），
+    # 场景 1 / 场景 2 共用（DX-159）；差异部分（台账 claims 落点、assignment 登记）由场景自备。
+    function New-SelftestFixture {
+        param([string]$Root, [string]$Code, [string]$WtName, [string]$Branch)
+        $originGit = Join-Path $Root 'origin.git'
+        $seed = Join-Path $Root 'seed'
         $null = & git init --bare -q $originGit
         $null = & git clone -q $originGit $seed
         Assert-ST 'seed clone 成功' ((Test-Path $seed) -eq $true)
@@ -98,7 +104,8 @@ function Invoke-Selftest {
         New-Item -ItemType Directory -Force -Path $docsDir | Out-Null
         # 与真仓一致：.sandbox 不入库（否则残局摘要会被算进未提交改动）
         Set-Content -LiteralPath (Join-Path $seed '.gitignore') -Value '.sandbox/' -Encoding Ascii
-        $ledgerJson = '{"baseline": {"DX-999": "todo"}, "cards": {"DX-999": {"acceptance": ["验收A：能跑", "验收B：能停"], "id": "u-selftest", "stage": "DX", "title": "自测卡"}}, "claims": {}}'
+        $ledgerJson = ('{"baseline": {"' + $Code + '": "todo"}, "cards": {"' + $Code +
+            '": {"acceptance": ["验收A：能跑", "验收B：能停"], "id": "u-selftest", "stage": "DX", "title": "自测卡"}}, "claims": {}}')
         Write-Utf8NoBom (Join-Path $docsDir 'board-ledger.json') $ledgerJson
         $null = & git -C $seed add .
         $null = & git -C $seed commit -q -m 'chore(selftest): 最小台账'
@@ -106,37 +113,52 @@ function Invoke-Selftest {
         $null = & git -C $seed branch -M main
         $null = & git -C $seed push -q origin main
         Assert-ST 'seed main 推送成功' ($LASTEXITCODE -eq 0)
-
-        # ---- 2) 复制被测脚本（按仓库约定：脚本按自身路径定位仓库） ----
+        # ---- 复制被测脚本（按仓库约定：脚本按自身路径定位仓库） ----
         $seedScripts = Join-Path $seed 'scripts'
         New-Item -ItemType Directory -Force -Path $seedScripts | Out-Null
-        foreach ($f in 'handoff.ps1', 'assignment-store.py', 'claim-card.py', 'nb_paths.py',
-                 'agent-workspace.ps1', 'git-helpers.ps1', 'check_claim_refs.py') {
+        foreach ($f in 'handoff.ps1', 'assignment-store.py', 'claim-card.py', 'board_ledger_json.py',
+                 'nb_paths.py', 'agent-workspace.ps1', 'git-helpers.ps1', 'nb-paths.ps1',
+                 'check_claim_refs.py') {
             Copy-Item (Join-Path $PSScriptRoot $f) $seedScripts -Force
         }
         Assert-ST '被测脚本已复制' ((Test-Path (Join-Path $seedScripts 'handoff.ps1')) -eq $true)
-
-        # ---- 3) 模拟旧 agent 现场：linked worktree + 领用占位 + 脏工作树 ----
-        $wtA = Join-Path $seed '.worktrees\wt-a'
-        $null = & git -C $seed worktree add -q $wtA -b feature/t1
+        # ---- 旧 agent 现场：linked worktree + .agent-env 身份 + 领用占位 ----
+        $wt = Join-Path $seed ('.worktrees\' + $WtName)
+        $null = & git -C $seed worktree add -q $wt -b $Branch
         Assert-ST '旧 agent worktree 建成' ($LASTEXITCODE -eq 0)
         # 逐行拼接（不用 here-string：PS 5.1 对 LF 行尾的 here-string 解析不可靠；
         # 单引号拼接防 $env: 被当环境变量展开）
         $envLines = @(
             '# selftest 模拟 agent-init 产物',
-            ('$env:NEONBOARD_DATA_DIR = ''' + $wtA + '\.sandbox'''),
-            ('$env:NEONBOARD_INSTANCE = ''wt-a'''),
+            ('$env:NEONBOARD_DATA_DIR = ''' + $wt + '\.sandbox'''),
+            ('$env:NEONBOARD_INSTANCE = ''' + $WtName + ''''),
             ('$env:NEONBOARD_AGENT_ID = ''agent-a'''),
-            ('$env:NB_SESSION_ARTIFACT_DIR = ''' + $wtA + '\.sandbox\artifacts''')
+            ('$env:NB_SESSION_ARTIFACT_DIR = ''' + $wt + '\.sandbox\artifacts''')
         )
-        Write-Utf8NoBom (Join-Path $wtA '.agent-env.ps1') ($envLines -join "`r`n")
-        $null = & git -C $wtA commit --allow-empty -q -m 'chore(claim): 领取 #DX-999 实施任务'
-        $null = & git -C $wtA push -q origin HEAD:refs/claims/DX-999
-        $oldSha = (& git -C $wtA ls-remote origin refs/claims/DX-999) -replace '\s.*$', ''
+        Write-Utf8NoBom (Join-Path $wt '.agent-env.ps1') ($envLines -join "`r`n")
+        $null = & git -C $wt commit --allow-empty -q -m ('chore(claim): 领取 #' + $Code + ' 实施任务')
+        $null = & git -C $wt push -q origin ('HEAD:refs/claims/' + $Code)
+        $oldSha = (& git -C $wt ls-remote origin ('refs/claims/' + $Code)) -replace '\s.*$', ''
         Assert-ST '旧占位已推（非空 sha）' ($oldSha -match '^[0-9a-f]{40}$') $oldSha
+        return @{ Seed = $seed; SeedScripts = $seedScripts; DocsDir = $docsDir;
+                  Worktree = $wt; WtName = $WtName; OldSha = $oldSha }
+    }
+
+    try {
+        Write-Host "selftest 现场：$tmp" -ForegroundColor DarkCyan
+        # ============================================================
+        # 场景 1（DX-149 既有全链路）：有 assignment 条目 + 主线台账 claims
+        # ============================================================
+        $s1 = Join-Path $tmp 's1-with-assignment'
+        New-Item -ItemType Directory -Force -Path $s1 | Out-Null
+        $fx = New-SelftestFixture -Root $s1 -Code 'DX-999' -WtName 'wt-a' -Branch 'feature/t1'
+        $seed = $fx.Seed
+        $seedScripts = $fx.SeedScripts
+        $wtA = $fx.Worktree
+        $oldSha = $fx.OldSha
         Set-Content -LiteralPath (Join-Path $wtA 'draft-wip.txt') -Value '半成品内容，必须原样保留' -Encoding UTF8
         # 台账 claims 投影（模拟 agent-init 登记）
-        $ledgerPath = Join-Path $docsDir 'board-ledger.json'
+        $ledgerPath = Join-Path $fx.DocsDir 'board-ledger.json'
         $ledger = Get-Content -LiteralPath $ledgerPath -Raw -Encoding UTF8 | ConvertFrom-Json
         $claimEntry = [pscustomobject]@{ agent = 'agent-a'; branch = 'feature/t1'; head = ''; claimedAt = 0 }
         $ledger | Add-Member -Force -MemberType NoteProperty -Name claims -Value ([pscustomobject]@{ })
@@ -207,6 +229,47 @@ function Invoke-Selftest {
         & pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $seedScripts 'handoff.ps1') `
             -Card DX-999 -ToAgent agent-c -AuthorizedBy 'x' -Origin (Join-Path $tmp 'no-such-origin.git')
         Assert-ST 'origin 不可达 → exit 5' ($LASTEXITCODE -eq 5) "exit=$LASTEXITCODE"
+
+        # ============================================================
+        # 场景 2（DX-159）：登记只在 worktree 物理台账——无 assignment、主线台账无 claims。
+        # handoff.ps1 经 --locate 四级查找定位（第二级命中），不再需要预登记。
+        # ============================================================
+        $s2 = Join-Path $tmp 's2-wt-ledger-only'
+        New-Item -ItemType Directory -Force -Path $s2 | Out-Null
+        $fx2 = New-SelftestFixture -Root $s2 -Code 'DX-998' -WtName 'wt-b' -Branch 'feature/t2'
+        $wtB = $fx2.Worktree
+        Set-Content -LiteralPath (Join-Path $wtB 'draft-wip2.txt') -Value '场景二半成品内容' -Encoding UTF8
+        # 登记只写 worktree 物理台账（不入主线台账、不登记 assignment）
+        $wtLedgerPath = Join-Path $wtB 'docs\board-ledger.json'
+        $wtLedger = Get-Content -LiteralPath $wtLedgerPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $wtLedger | Add-Member -Force -MemberType NoteProperty -Name claims -Value ([pscustomobject]@{ })
+        $wtLedger.claims | Add-Member -Force -MemberType NoteProperty -Name 'DX-998' -Value `
+            ([pscustomobject]@{ agent = 'agent-a'; branch = 'feature/t2'; head = ''; claimedAt = 0 })
+        Write-Utf8NoBom $wtLedgerPath (ConvertTo-Json $wtLedger -Depth 8)
+        Push-Location $fx2.Seed
+        $locOut = & $script:pyExe (Join-Path $fx2.SeedScripts 'check_claim_refs.py') --locate DX-998
+        $locRc = $LASTEXITCODE
+        Pop-Location
+        Assert-ST '场景2：--locate 直接定位（exit 0）' ($locRc -eq 0) "exit=$locRc"
+        $loc = ($locOut -join "`n") | ConvertFrom-Json
+        Assert-ST '场景2：--locate 来源级=worktrees 且 agent/branch 正确' `
+            (($loc.source -eq 'worktrees') -and ($loc.agent -eq 'agent-a') -and ($loc.branch -eq 'feature/t2')) `
+            ($loc | ConvertTo-Json -Depth 2)
+        & pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $fx2.SeedScripts 'handoff.ps1') `
+            -Card DX-998 -ToAgent agent-b -AuthorizedBy 'selftest 授权（无 assignment 现场）'
+        $rc2 = $LASTEXITCODE
+        Assert-ST '场景2：无 assignment 也能接手 exit 0' ($rc2 -eq 0) "exit=$rc2"
+        Assert-ST '场景2：未提交在制品原样保留' ((Test-Path (Join-Path $wtB 'draft-wip2.txt')) -eq $true)
+        $envText2 = [System.IO.File]::ReadAllText((Join-Path $wtB '.agent-env.ps1'), [System.Text.Encoding]::UTF8)
+        Assert-ST '场景2：身份已换 agent-b' (($envText2 -match "NEONBOARD_AGENT_ID\s*=\s*'agent-b'") -eq $true)
+        $newSha2 = ((& git -C $wtB ls-remote origin refs/claims/DX-998) -replace '\s.*$', '')
+        Assert-ST '场景2：占位已重领且 sha 变化' (($newSha2 -match '^[0-9a-f]{40}$') -and ($newSha2 -ne $fx2.OldSha)) "$($fx2.OldSha) -> $newSha2"
+        $handoffPath2 = Join-Path $wtB '.sandbox\artifacts\handoff.json'
+        Assert-ST '场景2：残局摘要已生成' ((Test-Path $handoffPath2) -eq $true)
+        $ho2 = Get-Content $handoffPath2 -Raw -Encoding UTF8 | ConvertFrom-Json
+        Assert-ST '场景2：摘要记录接手双方与分支' `
+            (($ho2.previousAgent -eq 'agent-a') -and ($ho2.agent -eq 'agent-b') -and ($ho2.branch -eq 'feature/t2')) `
+            ($ho2 | ConvertTo-Json -Depth 2)
     }
     catch {
         Write-Host "✗ selftest 异常：$($_.Exception.Message)" -ForegroundColor Red
@@ -290,54 +353,52 @@ if (-not $oldClaimSha) {
 }
 Write-Host "→ 接手 $code：旧占位 $claimRef @ $($oldClaimSha.Substring(0,7))" -ForegroundColor Cyan
 
-# ---------- 定位现场（assignments 优先，台账 claims 回退） ----------
-$asg = Read-Assignment -Code $code
+# ---------- 定位现场（DX-159：改调 check_claim_refs.py --locate，四级查找单一实现） ----------
+# 四级：assignments → .worktrees 物理检出台账 → 主线台账 claims → 远端分支头台账，
+# 与 audit_handoff 共用 locate_claim_site（Z5）；PS 侧不再保留第二份查找。
+# --locate 信息源全在本地、离线可用；联网 fail-closed 由上面的 origin 可达性检查承担。
+# $ledger 仍要读：残局摘要的卡信息（acceptance）以主线台账为准。
 $ledger = Get-LedgerJson -Path (Join-Path $repoRoot 'docs\board-ledger.json')
-$proj = $null
-if ($ledger -and $ledger.claims) {
-    $prop = $ledger.claims.PSObject.Properties[$code]
-    if ($prop) { $proj = $prop.Value }
+Push-Location $repoRoot
+try {
+    $ErrorActionPreference = 'Continue'
+    $locateOut = & $script:pyExe (Join-Path $PSScriptRoot 'check_claim_refs.py') --locate $code 2>$null
+    $locateRc = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
+} finally {
+    Pop-Location
 }
-$oldAgent = if ($asg -and $asg.agent) { $asg.agent } elseif ($proj -and $proj.agent) { $proj.agent } else { '' }
-$branch = if ($asg -and $asg.branch) { $asg.branch } elseif ($proj -and $proj.branch) { $proj.branch } else { '' }
-$oldNextStep = if ($asg -and $asg.nextStep) { [string]$asg.nextStep } else { '' }
-if (-not $branch) {
-    Write-Host "✗ 无法定位 $code 的认领分支（assignments 与台账 claims 均无）" -ForegroundColor Red
+$site = $null
+if ($locateRc -eq 0 -and $locateOut) {
+    try { $site = ($locateOut -join "`n") | ConvertFrom-Json } catch { $site = $null }
+}
+if (-not $site -or -not $site.located -or -not $site.branch) {
+    Write-Host "✗ 无法定位 $code 的领用现场（--locate 四级查找无命中：assignments / .worktrees 物理台账 / 主线台账 / 远端分支头台账）" -ForegroundColor Red
     exit 2
 }
+$oldAgent = [string]$site.agent
+$branch = [string]$site.branch
+$oldNextStep = [string]$site.nextStep
 $branchCheck = Invoke-GitQuiet -Cwd $repoRoot -GitArgs @('show-ref', '--verify', '--quiet', "refs/heads/$branch")
 if ($branchCheck.Code -ne 0) {
     Write-Host "✗ 认领分支 $branch 不在本地（orphan 残留应走占位清理，不是接手）" -ForegroundColor Red
     exit 2
 }
 
-# ---------- 找旧 worktree（拍板项 1：复用，不新建） ----------
+# ---------- 找旧 worktree（拍板项 1：复用，不新建；路径由 --locate 给出） ----------
 $wtPath = $null
-if ($asg -and $asg.worktree) {
-    $candidate = $asg.worktree
+if ($site.worktree) {
+    $candidate = [string]$site.worktree
     if (-not [System.IO.Path]::IsPathRooted($candidate)) { $candidate = Join-Path $repoRoot $candidate }
     if (Test-Path (Join-Path $candidate '.agent-env.ps1')) { $wtPath = $candidate }
 }
 if (-not $wtPath) {
-    $worktreesRoot = Join-Path $repoRoot '.worktrees'
-    if (Test-Path $worktreesRoot) {
-        foreach ($dir in (Get-ChildItem -LiteralPath $worktreesRoot -Directory)) {
-            $envFile = Join-Path $dir.FullName '.agent-env.ps1'
-            if (-not (Test-Path $envFile)) { continue }
-            $envText = [System.IO.File]::ReadAllText($envFile, [System.Text.Encoding]::UTF8)
-            # 单引号模式串（同换身份步骤：双引号转义后 $ 变行尾锚，永不匹配）
-            $m = [regex]::Match($envText, '(?m)^\s*\$env:NEONBOARD_AGENT_ID\s*=\s*''([^'']*)''')
-            if ($m.Success -and $m.Groups[1].Value -eq $oldAgent) { $wtPath = $dir.FullName; break }
-        }
-    }
-}
-if (-not $wtPath) {
-    Write-Host "✗ 找不到 $oldAgent 的旧 worktree（.agent-env.ps1 缺失）——拍板项 1 要求复用旧区，请先人工找回现场" -ForegroundColor Red
-    Write-Host "  已尝试：assignment.worktree=$($asg -and $asg.worktree) → $(if ($asg -and $asg.worktree) { Join-Path $repoRoot $asg.worktree })；fallback 扫 $(Join-Path $repoRoot '.worktrees')/*/ 的 NEONBOARD_AGENT_ID=$oldAgent" -ForegroundColor DarkGray
+    Write-Host "✗ 找不到 $oldAgent 的旧 worktree（--locate 给出的现场路径缺失或无 .agent-env.ps1）——拍板项 1 要求复用旧区，请先人工找回现场" -ForegroundColor Red
+    Write-Host "  --locate 来源级：$($site.source)（level $($site.level)），worktree='$($site.worktree)'" -ForegroundColor DarkGray
     exit 2
 }
 $wtLeaf = Split-Path -Leaf $wtPath
-Write-Host "  现场：$oldAgent @ $wtPath（分支 $branch）" -ForegroundColor DarkGray
+Write-Host "  现场：$oldAgent @ $wtPath（分支 $branch，定位来源 $($site.source)）" -ForegroundColor DarkGray
 
 # ---------- 快照现场事实（Z15：动第一下之前先记录） ----------
 $oldHead = (Invoke-GitQuiet -Cwd $wtPath -GitArgs @('rev-parse', 'HEAD')).Output[0]

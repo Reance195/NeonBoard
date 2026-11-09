@@ -1,0 +1,13 @@
+{
+  "card": "DX-152",
+  "sha256": "099507142371101aa04e964649440a97c7c65059fe381ff439230aa8caff8b80",
+  "authorizedBy": "维护者 2026-11-09 会话指令「1。授权」（审计遗留缺口 #3/#4/#6 批次）",
+  "form": "docs/card-requests/20261109-unregistered-worktree.md",
+  "registeredAt": "2026-11-09T02:07:04+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-152",
+    "sha": "f03d509c52cd0b6ccbfabe774171048de08d0b56"
+  }
+}

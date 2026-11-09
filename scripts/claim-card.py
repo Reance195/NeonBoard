@@ -87,10 +87,50 @@ def selftest():
         case("非检出目录保守判 True（宁可少写不写错位置）",
              is_anchor_checkout(os.path.join(td, "no-such-dir")) is True)
 
+        # 第四例（DX-162）：「脚本在锚点检出、root 为其 linked worktree」——
+        # 落盘位置必须唯一由 root 决定。构造：seed 为锚点，把 claim-card /
+        # assignment-store 及依赖复制到锚点侧 scripts/，以 root=wt1 调锚点侧
+        # 脚本领卡；断言条目落 wt1 侧 docs/agent-assignments.json，锚点侧零写入。
+        # 修复前条目会写进锚点（_store 与 REPO_ROOT 都按脚本路径解析）——这正是
+        # DX-158 自测暴露不了的脚本/检出分离场景（1.50 同款盲区）。
+        if os.path.isdir(wt):
+            import shutil
+            anchor_scripts = os.path.join(seed, "scripts")
+            os.makedirs(anchor_scripts, exist_ok=True)
+            for _dep in ("claim-card.py", "assignment-store.py", "board_ledger_json.py"):
+                shutil.copy(os.path.join(SCRIPT_DIR, _dep), os.path.join(anchor_scripts, _dep))
+            origin = os.path.join(td, "origin.git")
+            subprocess.run(["git", "init", "-q", "--bare", origin], capture_output=True)
+            subprocess.run(["git", "-C", seed, "remote", "add", "origin", origin],
+                           capture_output=True)
+            os.makedirs(os.path.join(wt, "docs"), exist_ok=True)
+            with open(os.path.join(wt, "docs", "board-ledger.json"), "w",
+                      encoding="utf-8", newline="\n") as fh:
+                fh.write(blj.dump_ledger({
+                    "cards": {"DX-999": {"id": "dx999", "title": "自测卡",
+                                         "stage": "DX", "tier": "P2"}},
+                    "claims": {},
+                }))
+            r4 = subprocess.run(
+                [sys.executable, os.path.join(anchor_scripts, "claim-card.py"),
+                 wt, "DX-999", "agent-x", "b1", os.path.join(td, "board.db")],
+                capture_output=True)
+            _detail4 = (r4.stdout + r4.stderr).decode("utf-8", "replace").strip()
+            _root_store = os.path.join(wt, "docs", "agent-assignments.json")
+            _ok_store = False
+            if os.path.exists(_root_store):
+                with open(_root_store, encoding="utf-8") as _fh:
+                    _ok_store = "DX-999" in _fh.read()
+            case("脚本在锚点、root 为 linked worktree：条目落 root 侧",
+                 r4.returncode == 0 and _ok_store, _detail4)
+            case("脚本侧（锚点）零写入",
+                 not os.path.exists(os.path.join(seed, "docs", "agent-assignments.json")),
+                 os.path.join(seed, "docs"))
+
     if failures:
         sys.stderr.write("claim-card 锚点判定自测失败 %d 例\n" % len(failures))
         return 1
-    print("claim-card 锚点判定自测通过")
+    print("claim-card 锚点判定与落盘定位自测通过")
     return 0
 
 
@@ -352,9 +392,13 @@ os.replace(tmp, ledger)
 # 本脚本只调它的子命令；旁路失败只告警，绝不阻断领用（assignments 不参与防双领判定）。
 # DX-158：锚点区检出（main）不落——assignments 随分支提交，锚点无处落地，写进 main
 # 工作树只会制造无人能提交的死数据并绊锚点快进；现场定位由台账 claims / worktree 级兜底。
+# DX-162：upsert 一律显式传 --root，落盘位置唯一由 root 检出决定——脚本自身在哪个
+# 检出（锚点/工作区）不再影响落盘，消除「脚本在锚点、root 是 linked worktree」时
+# 条目必写锚点的第三形态。
 _store = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assignment-store.py")
 _wt_match = re.search(r"[\\/]\.worktrees[\\/]([^\\/]+)$", root)
 _sub = [sys.executable, _store, "upsert",
+        "--root", root,
         "--code", code, "--agent", agent, "--branch", branch,
         "--stage", "开区",
         "--next-step", "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1"]

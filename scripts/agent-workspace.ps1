@@ -162,6 +162,15 @@ switch ($Action) {
             $age = [int](Get-EntryAgeMinutes $entry)
             Write-Host ("  {0,-20} : {1}  (pid {2}, {3} 分钟前)  {4}" -f $key, $entry.agent, $entry.pid, $age, $entry.task) -ForegroundColor Yellow
         }
+        # DX-152：登记之外存在的 linked worktree 标注未登记；Status 只做展示，不改退出码
+        $wtList = @(Get-WorktreeList)
+        for ($i = 1; $i -lt $wtList.Count; $i++) {
+            $n = Get-WorktreeScopeName -Path $wtList[$i].Path
+            if (-not $n) { $n = Split-Path $wtList[$i].Path -Leaf }
+            if (-not $state.ContainsKey("worktree:$n")) {
+                Write-Host ("  {0,-20} : 未登记（{1}）" -f "worktree:$n", $wtList[$i].Path) -ForegroundColor Red
+            }
+        }
         Write-Host ("  状态文件 : {0}" -f (Get-StatePath)) -ForegroundColor DarkGray
 
         # 预览实例登记（由 PreviewHub 写入，这里只做展示，不重复解析逻辑）
@@ -182,8 +191,8 @@ switch ($Action) {
 
     'Check' {
         # 隔离自检（DX-05 验收）：锚点区 / 各工作区 / 占用登记三者必须自洽。
-        # 硬失败（exit 3）只留给「两个会话真的在同一份检出里」这类会互相覆盖的情形；
-        # 登记缺项与僵尸占用属于卫生问题，只告警，不拦流程。
+        # 硬失败（exit 3）覆盖「两个会话真的在同一份检出里」与「linked worktree 没有占用登记」
+        # （DX-152：开区即登记是强制的，绕过正门的 worktree 必须点名）；僵尸占用仍只告警。
         $problems = New-Object System.Collections.Generic.List[string]
         $warnings = New-Object System.Collections.Generic.List[string]
         $state = Read-State
@@ -213,17 +222,20 @@ switch ($Action) {
             $problems.Add(("分支 '{0}' 被 {1} 个检出同时占用" -f $group.Name, $group.Count))
         }
 
-        # 3) 每个 .worktrees/<名> 必须有独立 .sandbox，且登记过占用
+        # 3) 每个 linked worktree（锚点除外）必须有占用登记；.worktrees 下的还必须有独立 .sandbox。
+        #    DX-152：登记缺失从告警升级为硬冲突——手工 git worktree add 绕过正门同样要点名。
         $liveNames = @()
-        foreach ($wt in $worktrees) {
+        for ($i = 1; $i -lt $worktrees.Count; $i++) {
+            $wt = $worktrees[$i]
             $name = Get-WorktreeScopeName -Path $wt.Path
-            if (-not $name) { continue }
+            $underWorktreesDir = [bool]$name
+            if (-not $name) { $name = Split-Path $wt.Path -Leaf }
             $liveNames += $name
-            if (-not (Test-Path -LiteralPath (Join-Path $wt.Path '.sandbox'))) {
+            if ($underWorktreesDir -and -not (Test-Path -LiteralPath (Join-Path $wt.Path '.sandbox'))) {
                 $problems.Add(("工作区 '{0}' 缺独立 .sandbox（运行时数据会与别人共用）" -f $name))
             }
             if (-not $state.ContainsKey("worktree:$name")) {
-                $warnings.Add(("工作区 '{0}' 没有占用登记（旧工作区，或没走 agent-init）" -f $name))
+                $problems.Add(("未登记 worktree：{0}（未走 agent-init 开区，占用体系不可见；补登记或回收由维护者拍板）" -f $wt.Path))
             }
         }
 

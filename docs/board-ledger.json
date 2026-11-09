@@ -7018,7 +7018,7 @@
       "depends": [],
       "evidence": "2026-11-09 实测（基线 origin/main，Main.qml 3179 行）：夜间批量执行弹窗块 2793-3003 共 211 行（id: nightBatchDialog，R7-03 夜间批量），括号平衡；块内零 window. 引用，外部引用仅 hostWindow: window 一处接口化；batchList / rowMouse 为块内自声明误报；scheduler / Theme 均为 context property / 模块内组件。更正：此前会话盘点把它误标为 execBatchDialog，实际 id 是 nightBatchDialog，以本实测为准。MOD-11/12/13 已验证整 Dialog 迁移模式与三个坑（QT_RESOURCE_ALIAS 裸名、body 起点勿含 id 行与壳闭括号——本卡迁移脚本已按 Z6 修正切片、组件根须显式 property var 声明），本卡直接沿用。维护者 2026-11-09 会话指令「迁移 execBatchDialog 弹窗」，按实测更正对应到 nightBatchDialog，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
       "id": "MOD-14",
-      "note": "",
+      "note": "QML批次四批：夜间批量执行弹窗nightBatchDialog（211行，R7-03，块2793-3003含7行头注释）整迁components/NightBatchDialog.qml，壳与content逐字照搬，id保留原名，Main零改动；接口面仅hostWin一个property（hostWindow: window接口化）。Main.qml 3179→2964，LINE_LIMITS同步调低，CMake双登记。更正：此前盘点误标execBatchDialog，实测id为nightBatchDialog，卡面与evidence已按实测更正。脚本级修复：MOD-12/13三连复现的块尾双包坑按Z6在迁移脚本切片层根治（body=lines[shell+1:en-1]），本卡一次成型；另修掉实现脚本首版漏回溯DialogShell行与CMake find落点撞alias行的两个当场坑。verify全量绿：ctest 45/45、--selftest/--smoke退出码0、QML致命告警0行、check_module_deps/check_scope通过。已完成X/待做Y：Main.qml弹窗批次已清（ExecQueue/ExecConfirm/ExecPanel/NightBatch四张）；待做=主内容层Item（约919行，耦合最深）、execCwdDialog迁移评估、十条手工alias收敛。人工复核：夜间批量弹窗打开态（多选勾选/预估时长/开始夜间执行）--smoke测不到。授权来源：维护者2026-11-09会话指令「迁移 execBatchDialog 弹窗」按实测对应本卡。",
       "scope": [
         "qml/Main.qml",
         "qml/components/**",

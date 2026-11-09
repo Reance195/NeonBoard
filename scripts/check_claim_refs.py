@@ -328,12 +328,71 @@ def audit_handoff(json_output=False):
     baseline = ledger_data.get("baseline") or {}
     claims_proj = ledger_data.get("claims") or {}
 
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    try:
-        import assignment_store
-        assignments = assignment_store.load_store().get("assignments") or {}
-    except SystemExit:
-        assignments = {}
+    # assignment 现场表：只读文件不 import（assignment-store.py 文件名带连字符，
+    # import 语法加载不了；读不违反「唯一写者」，写仍只能经 assignment-store.py）
+    asg_path = LEDGER.parent / "agent-assignments.json"
+    assignments = {}
+    if asg_path.exists():
+        try:
+            assignments = (json.loads(asg_path.read_text(encoding="utf-8-sig"))
+                           .get("assignments") or {})
+        except (OSError, ValueError) as exc:
+            sys.stderr.write("[接手巡检] assignments 不可读（%s），现场信息降级。\n" % exc)
+
+    # 第三级信息源：远端各分支头的台账 claims（领用投影随分支走，主线台账看不到
+    # 未合入分支的领用——DX-139 系 4 张 28h 卡曾被据此误判成孤儿）。一次性建索引。
+    remote_claims = {}
+    for ref in (_git_lines("for-each-ref", "--format=%(refname)",
+                           "refs/remotes/origin") or []):
+        if ref.endswith("/HEAD") or ref.endswith("/main"):
+            continue
+        tree = git("show", "%s:docs/board-ledger.json" % ref)
+        if tree.returncode != 0:
+            continue
+        try:
+            other = json.loads(tree.stdout.decode("utf-8", "replace"))
+        except ValueError:
+            continue
+        for oc_code, oc in (other.get("claims") or {}).items():
+            if oc and oc.get("branch") and oc_code not in remote_claims:
+                remote_claims[oc_code] = oc
+
+    # 第四级：.worktrees/* 物理现场——未推送分支的领用投影只存在本地检出台账里
+    # （DX-139 系「本地独有提交」连远端都扫不到），worktree 是最接近实况的事实源。
+    # .worktrees 只在锚点区存在（pitfalls 1.31 同款）：按 git common dir 父目录定位，
+    # 不能用本脚本检出根——从 linked worktree 里跑必扫空。
+    wt_claims = {}
+    anchor_root = LEDGER.parent.parent
+    common = git("rev-parse", "--git-common-dir")
+    if common.returncode == 0:
+        cd = common.stdout.strip()
+        cd_path = Path(cd) if Path(cd).is_absolute() else (anchor_root / cd)
+        wt_root = cd_path.parent / ".worktrees"
+    else:
+        wt_root = anchor_root / ".worktrees"
+    if wt_root.is_dir():
+        for d in sorted(wt_root.iterdir()):
+            wt_ledger = d / "docs" / "board-ledger.json"
+            if not d.is_dir() or not wt_ledger.exists():
+                continue
+            try:
+                wdata = json.loads(wt_ledger.read_text(encoding="utf-8-sig"))
+            except (OSError, ValueError):
+                continue
+            agent_id = ""
+            env_file = d / ".agent-env.ps1"
+            if env_file.exists():
+                try:
+                    mag = re.search(r"(?m)^\s*\$env:NEONBOARD_AGENT_ID\s*=\s*'([^']*)'",
+                                    env_file.read_text(encoding="utf-8-sig"))
+                    if mag:
+                        agent_id = mag.group(1)
+                except OSError:
+                    pass
+            for wc_code, wc in (wdata.get("claims") or {}).items():
+                if wc and wc.get("branch") and wc_code not in wt_claims:
+                    wt_claims[wc_code] = {"agent": agent_id or wc.get("agent", ""),
+                                          "branch": wc.get("branch", "")}
 
     results = []
     for line in server:
@@ -345,8 +404,11 @@ def audit_handoff(json_output=False):
         if not code:
             continue
         asg = assignments.get(code) or {}
+        wcl = wt_claims.get(code) or {}
         proj = claims_proj.get(code) or {}
-        branch = asg.get("branch") or proj.get("branch") or ""
+        rmt = remote_claims.get(code) or {}
+        branch = (asg.get("branch") or wcl.get("branch") or proj.get("branch")
+                  or rmt.get("branch") or "")
         has_branch = False
         branch_last = 0
         if branch:
@@ -376,7 +438,8 @@ def audit_handoff(json_output=False):
             suggestion = "先确认 %s 是否真停，勿自动接手" % (asg.get("agent") or "对方")
         results.append({
             "code": code, "verdict": verdict, "detail": detail,
-            "agent": asg.get("agent") or proj.get("agent") or "",
+            "agent": (asg.get("agent") or wcl.get("agent") or proj.get("agent")
+                      or rmt.get("agent") or ""),
             "branch": branch, "nextStep": asg.get("nextStep", ""),
             "lastActivity": last_activity, "ageMinutes": age_min,
             "suggestion": suggestion,

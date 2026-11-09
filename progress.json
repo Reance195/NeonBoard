@@ -37,6 +37,24 @@
             "updatedAt": 1794224159
         },
         {
+            "code": "DX-158",
+            "completedAt": 0,
+            "createdAt": 1794225431,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-158",
+            "note": "",
+            "orderKey": 80264,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "锚点区领卡把 assignment 写进 main 工作树：错位条目没人能提交还绊锚点快进",
+            "updatedAt": 1794225431
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -6037,6 +6055,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T19:35:59",
+    "updated": "2026-11-09T19:57:11",
     "version": 3
 }

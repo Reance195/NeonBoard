@@ -1,0 +1,13 @@
+{
+  "card": "DX-158",
+  "sha256": "bae8e87702423e1f8ae8116bf456cda888eb104bc667c784f4edab03b27a5a38",
+  "authorizedBy": "维护者 2026-11-09 会话指令「立」（DX-149 残留第 2 条：锚点领卡写脏 assignments）",
+  "form": "docs/card-requests/20261109-anchor-claim-assignment.md",
+  "registeredAt": "2026-11-09T11:57:10+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-158",
+    "sha": "499b95de30e928906c73078931c23ebc6521e38d"
+  }
+}

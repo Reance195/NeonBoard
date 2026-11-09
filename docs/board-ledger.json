@@ -316,7 +316,8 @@
     "R9-03": "done",
     "R9-04": "done",
     "R9-05": "done",
-    "DX-157": "todo"
+    "DX-157": "todo",
+    "DX-158": "todo"
   },
   "cards": {
     "DX-01": {
@@ -6789,6 +6790,28 @@
       "stage": "DX",
       "tier": "P2",
       "title": "DX 台账 canon 序列化收敛单点：五处手写复制改走共享模块并写后自校验"
+    },
+    "DX-158": {
+      "acceptance": [
+        "python scripts/claim-card.py --selftest 全过，锚点检出判定（git-dir 与 git-common-dir 同值 → 锚点）对锚点区判 True、对 linked worktree 判 False，判定为唯一实现",
+        "claim-card 领用流程在锚点检出执行时跳过 assignment upsert 并打印点名告警（旁路、不阻断领用、退出码不变），非锚点（linked worktree / 普通 clone）行为不变",
+        "锚点 docs/agent-assignments.json 还原为 origin/main 版本（移除 DX-157 错位条目；agent-dxl 现场由台账 claims 与 audit worktree 级兜底，不损失定位能力），git status 对该文件恢复干净",
+        "docs/pitfalls.md 补条目记录根因（assignments 随分支提交 vs 锚点检出 main 无处落地）与处置",
+        "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+      ],
+      "author": "maintainer-session-2026-11-09",
+      "depends": [],
+      "evidence": "维护者 2026-11-09 会话指令「立」（针对 DX-149 交付后残留第 2 条）。实录：agent-dxl 于锚点区领 DX-157 后，锚点 docs/agent-assignments.json 出现未提交修改（DX-157 条目，agent-dxl/branch=refactor/dx157-ledger-canon）——claim-card.py 的 assignment upsert 按 root 定位存储，root=锚点（git-dir == common-dir，-ForceAnchor / nbflow dispatch 场景）时写入的是 main 工作树；assignments 设计为「随分支提交」，锚点检出 main 且 pre-commit 禁止 main 提交，该条目成为无人能提交的死数据，并使锚点快进在 ff-only 时可能撞脏文件（git-done 锚点同步跳过）。DX-149 的 audit 四级信息源（worktree 台账 claims / 远端分支头 / assignments）可完整兜底定位，锚点缺 assignment 条目不损失接手能力。",
+      "id": "DX-158",
+      "note": "",
+      "scope": [
+        "scripts/claim-card.py",
+        "docs/agent-assignments.json",
+        "docs/pitfalls.md"
+      ],
+      "stage": "DX",
+      "tier": "P2",
+      "title": "锚点区领卡把 assignment 写进 main 工作树：错位条目没人能提交还绊锚点快进"
     }
   },
   "claims": {},

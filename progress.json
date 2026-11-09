@@ -199,6 +199,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "MOD-8",
+            "completedAt": 0,
+            "createdAt": 1794191209,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-8",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD M1d 对象构造工厂：AppMain.cpp 构造区收敛为三个构造单元",
+            "updatedAt": 1794191209
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5929,6 +5947,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T10:25:30",
+    "updated": "2026-11-09T10:26:49",
     "version": 3
 }

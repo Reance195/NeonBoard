@@ -6533,13 +6533,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-153": {
-            "agent": "agent-cb2",
-            "branch": "fix/gitdone-close-hint",
-            "claimedAt": 1794190998,
-            "head": "7752396603e3749493bcc00d4e188506bd5d12b4"
-        }
-    },
+    "claims": {},
     "version": 1
 }

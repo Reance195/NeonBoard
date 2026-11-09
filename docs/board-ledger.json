@@ -6957,13 +6957,6 @@
       "title": "MOD QML 批次二批：执行前确认弹窗整迁 components/ExecConfirmDialog"
     }
   },
-  "claims": {
-    "DX-159": {
-      "agent": "agent-dx159",
-      "branch": "fix/handoff-locate-unify",
-      "head": "41f465a5ed3f585c1f70964f863ec633a30614e1",
-      "claimedAt": 1794234025
-    }
-  },
+  "claims": {},
   "version": 1
 }

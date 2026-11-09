@@ -6574,13 +6574,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-154": {
-            "agent": "agent-cb3",
-            "branch": "fix/gitdone-output-unwrap",
-            "claimedAt": 1794191887,
-            "head": "1788f34f6cca339af8da3dd858bb34338652df47"
-        }
-    },
+    "claims": {},
     "version": 1
 }

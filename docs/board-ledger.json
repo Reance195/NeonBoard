@@ -317,7 +317,8 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "MOD-10": "todo"
   },
   "cards": {
     "DX-01": {
@@ -6813,6 +6814,30 @@
       "stage": "DX",
       "tier": "P2",
       "title": "锚点区领卡把 assignment 写进 main 工作树：错位条目没人能提交还绊锚点快进"
+    },
+    "MOD-10": {
+      "acceptance": [
+        "pwsh -File scripts/verify.ps1 全量通过（编译 → ctest → --selftest → --smoke → 模块守卫 → 看板一致性）",
+        "--selftest 退出码 0 且沙箱日志 SELFTEST 标签序列与基线一致（末行 result OK remaining 0，无 FAIL）",
+        "src/app/CliHandlers.h 定义 runDataMode 与 runSyncMode 与 runEmitHook 与 runFileAssoc 与 runPluginReport 五个命令函数及 LateCliRunner 结构（HookEventQueue 作成员随结构体活到 main 退出，run 以 std::optional<int> 返回：nullopt 未命中继续、值即进程退出码），AppMain.cpp 各 CLI 块改由调用点原位的函数调用接管，四个散点构造与调用点次序保持",
+        "逐条 CLI 退出码语义不变（成功 0 失败 2），抽出的命令在无头模式下行为与基线一致（--assoc-status 与 --plugin-report 与 --market-sources 退出码抽验）",
+        "AppMain.cpp 行数 <= 620（基线 1105）且 LINE_LIMITS 同步调低到实际行数",
+        "python scripts/check_module_deps.py --base origin/main 退出 0 且 python scripts/check_scope.py --base origin/main 退出 0"
+      ],
+      "author": "codebuddy-session-2026-11-09",
+      "depends": [],
+      "evidence": "2026-11-09 实测（基线 origin/main，AppMain.cpp 1105 行）：CLI 派发块合计约 600 行仍嵌在装配函数里，逐块依赖分析（花括号配对切块 + 标识符对照声明表，含 MOD-8 别名行）结论——早期组 dataMode（约 60 行，依赖 database/taskStore/dataPort）、syncMode（约 60 行，依赖 roadmap/taskStore/taskTree/taskUndo/database）、emit-hook（约 30 行，同域）、assoc/file-assoc（约 25 行，无对象依赖）四块之间穿插 boardColumns/dragFeel/keyMove/projectStore 四个散点构造（MOD-8 论证留 AppMain）；晚期组 plugin-report（约 100 行，依赖 database/taskStore/taskExtra/tray）之后构造 HookEventQueue（约 6 行，常驻对象、GUI 段 hookQueue.start(1000) 仍用），随后 market-* / install-plugin-url / preview-* / update-* / run-summary / import-ledger 合计约 330 行依赖高度重叠（pluginMarket/pluginLibrary/pluginEventBus/previewHub/updateManager/taskRuns/ledgerImport）。MOD-7 立卡时已证「CLI 块不能统一后移」，MOD-9 的 wirePluginAnnouncements 已验证「函数 + 引用参数 + 调用点原位」模式安全。维护者 2026-11-09 会话指令「开始 CLI 派发块抽取」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
+      "id": "MOD-10",
+      "note": "",
+      "scope": [
+        "src/main.cpp",
+        "src/app/**",
+        "CMakeLists.txt",
+        "scripts/check_module_deps.py"
+      ],
+      "stage": "MOD",
+      "tier": "P4",
+      "title": "MOD CLI 派发块抽取：AppMain 的六组命令处理迁入 CliHandlers"
     }
   },
   "claims": {},

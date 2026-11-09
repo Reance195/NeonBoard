@@ -508,7 +508,7 @@ pwsh -File scripts/build.ps1 -SelfTest  # 装好后再构建
 
 | 组件 | 装法 | 解析位置 |
 | --- | --- | --- |
-| Qt 6（msvc2022_64） | `pip install aqtinstall`；`python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 -m qtshadertools -O "$HOME\Qt"` | `C:\Qt\<版本>`、`$HOME\Qt\<版本>`（aqt 默认）、`%LOCALAPPDATA%\Qt` |
+| Qt 6（msvc2022_64） | `pip install aqtinstall`；`python -m aqt install-qt windows desktop <NB_QT_VERSION> win64_msvc2022_64 -m qtshadertools -O "$HOME\Qt"`（版本见 `cmake/toolchain.cmake`） | `C:\Qt\<版本>`、`$HOME\Qt\<版本>`（aqt 默认）、`%LOCALAPPDATA%\Qt` |
 | CMake | 解压官方 zip 到 `%LOCALAPPDATA%\Programs\DevTools\cmake` | 同上目录，外加 PATH、VS 自带、`Program Files\CMake` |
 | Ninja | 解压 `ninja-win.zip` 到 `%LOCALAPPDATA%\Programs\DevTools\ninja` | 同上 |
 | MSVC | VS BuildTools 勾选「使用 C++ 的桌面开发」 | vswhere 结果、`C:\BuildTools`、`%LOCALAPPDATA%\Programs\VSBuildTools` |

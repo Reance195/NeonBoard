@@ -17,9 +17,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  # 遗留：回写取消后本 workflow 已不需要写权限（board.yml 已降为 contents: read）。
-  # 收紧权限属于实际行为变更，DX-14 的边界明确不改，故只在此留痕 —— 下次碰这文件时顺手降。
-  contents: write
+  # DX-14 边界：回写取消后本 workflow 已不需要写权限（board.yml 已是 contents: read）。
+  # 原注释约定「下次碰这文件时顺手降」——本次处理 P0 棘轮时一并兑现。
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -45,9 +45,9 @@ jobs:
         run: pwsh -NoProfile -File scripts/setup-git-hooks.ps1
 
       - name: 代码格式检查（clang-format，棘轮：只查本次改动的 C++ 文件）
-        # 先作为信号运行（非阻塞）：现存历史文件未做一次性重排，
-        # 等格式基线稳定后把 continue-on-error 去掉即为硬门禁。
-        continue-on-error: true
+        # 已转正硬门禁：check-format.ps1 -Base 只查本次改动的 C++ 文件，存量不进判定，
+        # 故摘掉 continue-on-error 不会引入常驻红灯。存量格式基线清零进度仍可用
+        # pwsh -File scripts/check-format.ps1 -All 查看（不阻断）。
         shell: pwsh
         run: |
           python -m pip install --quiet clang-format
@@ -55,9 +55,10 @@ jobs:
           pwsh -NoProfile -File scripts/check-format.ps1 -Base $base
 
       - name: 任务卡范围检查（棘轮：卡片声明 scope 后才生效）
-        # 与格式检查一样先作信号：存量卡片逐步补 scope，
-        # 缺失时脚本只告警不拦截；全部补齐后去掉 continue-on-error 即硬门禁。
-        continue-on-error: true
+        # 已转正硬门禁（维护者 2026-11-08 拍板「把 P0 收尾」）：check_scope.py 对
+        # 未声明 scope 的卡（:475-481）与无短号提交（:459-461）本就直接放行，
+        # 摘掉 continue-on-error 不会把存量卡挡在门外，也不引入常驻红灯。
+        # 存量补齐进度仍可用 python scripts/check_scope.py --audit 查看（不阻断）。
         shell: pwsh
         run: |
           $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
@@ -65,9 +66,9 @@ jobs:
 
       - name: 路径引用检查（棘轮：只报本次新增的失效引用）
         # src/ 拆目录 / 改名后，脚本 / 台账 / 文档里的原始文件路径会变成死链，编译器看不见。
-        # 存量（拆目录后未回改的历史文档）先折叠计数，只拦新增 —— 与上面两项同一口径，
-        # 存量清零后再去掉 continue-on-error 转硬门禁。
-        continue-on-error: true
+        # 已转正硬门禁：--base 只报本次新增、存量折叠成一行计数，摘掉
+        # continue-on-error 不会引入常驻红灯。存量清零进度仍可用
+        # python scripts/check_path_refs.py --audit 查看（不阻断）。
         shell: pwsh
         run: |
           $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
@@ -95,6 +96,23 @@ jobs:
           python scripts/check_script_hygiene.py
           if ($LASTEXITCODE -ne 0) { throw '脚本卫生检查未通过' }
 
+      - name: README 同步提示（DX-150，警告级不阻断）
+        # 宪章 §五 硬性约定 6 的机器执行者：qml/ 或 shaders/ 有改动而范围内 README.md
+        # 未同步时点名提交并打 ::warning::。体验类按 Z4 fail-soft + 必须告警，
+        # 不做阻断闸门（升级阻断需另行立卡）。
+        shell: pwsh
+        run: |
+          $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
+          python scripts/check_readme_sync.py --base $base
+
+      - name: 工具链版本单点守门（DX-145）
+        shell: pwsh
+        run: |
+          # 版本号只许在 cmake/toolchain.cmake 声明；新增的散落硬编码在此拦下，
+          # 白名单逐条标注理由（scripts/check_toolchain_versions.py）。
+          python scripts/check_toolchain_versions.py --check
+          if ($LASTEXITCODE -ne 0) { throw '工具链版本出现未登记的重复硬编码' }
+
       - name: QML 交互陷阱静态检查（DX-102）
         shell: pwsh
         run: |
@@ -105,6 +123,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'QML 陷阱静态检查自测未通过' }
           python scripts/check_qml_pitfalls.py
           if ($LASTEXITCODE -ne 0) { throw 'qml/ 发现已知交互陷阱，见上方点名行' }
+
+      - name: GUI 前台守卫自测（DX-146）
+        # gui-uia-verify.ps1 的 -SelfTest 是纯函数自测（前台句柄判定），headless 可跑；
+        # 真窗口实机验收需要前台窗口与合成输入，不在 CI 里跑，避免误触 runner 桌面。
+        # --smoke 的日志判据仍由上面的冒烟步骤保留。
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/gui-uia-verify.ps1 -SelfTest
+          if ($LASTEXITCODE -ne 0) { throw 'GUI 前台守卫自测未通过' }
 
       - name: 编译口径守卫（/utf-8，DX-53）
         shell: pwsh
@@ -164,15 +191,20 @@ jobs:
         with:
           arch: x64
 
-      - name: 安装 Qt 6.8.3
+      - name: 读取工具链单点（cmake/toolchain.cmake）
+        id: toolchain
+        shell: pwsh
+        run: python scripts/check_toolchain_versions.py --emit-github-output >> $env:GITHUB_OUTPUT
+
+      - name: 安装 Qt（版本见 cmake/toolchain.cmake）
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
+          version: ${{ steps.toolchain.outputs.qt_version }}
           host: 'windows'
           target: 'desktop'
-          arch: 'win64_msvc2022_64'
+          arch: ${{ steps.toolchain.outputs.qt_arch }}
           # ShaderTools 是独立 addon，缺失会导致 cmake 找不到 Qt6::ShaderTools
-          modules: 'qtshadertools'
+          modules: ${{ steps.toolchain.outputs.qt_modules }}
           cache: true
           cache-key-prefix: 'neonboard-qt'
 
@@ -247,35 +279,44 @@ jobs:
           # 日志位置的唯一口径（尊重 NEONBOARD_DATA_DIR，与本地 verify.ps1 同一个函数）
           . (Join-Path $PWD 'scripts\nb-paths.ps1')
           $log = Get-NbLogFile
-          if (Test-Path $log) { Remove-Item $log -Force }
-
-          $proc = Start-Process -FilePath $exe -ArgumentList '--smoke' -PassThru
-          $deadline = (Get-Date).AddSeconds(45)
-          while (-not $proc.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 3 }
-          if (-not $proc.HasExited) {
-            Stop-Process -Id $proc.Id -Force
-            throw '冒烟启动超时（45 秒未退出）'
-          }
-          if (-not (Test-Path $log)) { throw '未生成运行日志' }
-
-          $lines = [System.IO.File]::ReadAllLines($log, [System.Text.Encoding]::UTF8)
-          $lines | ForEach-Object { Write-Host $_ }
+          $metrics = Join-Path $env:RUNNER_TEMP 'nb-perf-metrics.txt'
+          if (Test-Path $metrics) { Remove-Item $metrics -Force }
 
           # 致命告警判据单源（DX-122）：形态识别在 scripts/check_qml_warnings.py，
           # CI 走严格口径 —— 主线零容忍（本地 verify 走棘轮口径）
           python (Join-Path $PWD 'scripts\check_qml_warnings.py') --selftest
           if ($LASTEXITCODE -ne 0) { throw "check_qml_warnings 自测未过（退出码 $LASTEXITCODE）" }
-          python (Join-Path $PWD 'scripts\check_qml_warnings.py') $log --strict
-          if ($LASTEXITCODE -ne 0) { throw '检测到错误日志（check_qml_warnings 命中，见上方点名行）' }
 
-      - name: 性能基线（--smoke 的 startup / fps / mem）
-        # 只告警不拦截：先积累几轮数据，确认基线稳定后再去掉 continue-on-error。
-        continue-on-error: true
+          # 3 次冷启动取 cpu 中位数（R0-11 验收口径）；单次采样噪声太大。
+          # 每轮的 METRICS 行聚合到 RUNNER_TEMP，供下一步 check-perf.ps1 判定。
+          for ($i = 1; $i -le 3; $i++) {
+            if (Test-Path $log) { Remove-Item $log -Force }
+            $proc = Start-Process -FilePath $exe -ArgumentList '--smoke' -PassThru
+            $deadline = (Get-Date).AddSeconds(45)
+            while (-not $proc.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 3 }
+            if (-not $proc.HasExited) {
+              Stop-Process -Id $proc.Id -Force
+              throw "冒烟启动超时（第 $i 次，45 秒未退出）"
+            }
+            if (-not (Test-Path $log)) { throw "未生成运行日志（第 $i 次）" }
+
+            $lines = [System.IO.File]::ReadAllLines($log, [System.Text.Encoding]::UTF8)
+            $lines | ForEach-Object { Write-Host $_ }
+            python (Join-Path $PWD 'scripts\check_qml_warnings.py') $log --strict
+            if ($LASTEXITCODE -ne 0) { throw "检测到错误日志（第 $i 次，check_qml_warnings 命中）" }
+
+            $metricLine = @($lines | Where-Object { $_ -match 'METRICS' } | Select-Object -Last 1)
+            if ($metricLine.Count -eq 0 -or -not $metricLine[0]) { throw "第 $i 次 --smoke 未输出 METRICS 行" }
+            Add-Content -Path $metrics -Value $metricLine[0] -Encoding utf8
+          }
+
+      - name: 性能判定（--smoke 的 cpu 中位数 / R0-11 绝对预算）
+        # 硬门禁：check-perf.ps1 在 cpu 中位数超 cpuBudgetMs 时 exit 1，数据不足 exit 2。
+        # 判据是 R0-11 的绝对预算（docs/perf-baseline.json 的 cpuBudgetMs），不依赖
+        # 相对基线，故无需观察期；墙钟 startup 只写 Step Summary、不产生告警。
         shell: pwsh
         run: |
-          . (Join-Path $PWD 'scripts\nb-paths.ps1')
-          $log = Get-NbLogFile
-          pwsh -NoProfile -File scripts/check-perf.ps1 -LogPath $log
+          pwsh -NoProfile -File scripts/check-perf.ps1 -LogPath (Join-Path $env:RUNNER_TEMP 'nb-perf-metrics.txt')
 
       - name: 结卡自测（DX-07）
         shell: pwsh
@@ -335,14 +376,19 @@ jobs:
         with:
           arch: x64
 
-      - name: 安装 Qt 6.8.3
+      - name: 读取工具链单点（cmake/toolchain.cmake）
+        id: toolchain
+        shell: pwsh
+        run: python scripts/check_toolchain_versions.py --emit-github-output >> $env:GITHUB_OUTPUT
+
+      - name: 安装 Qt（版本见 cmake/toolchain.cmake）
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
+          version: ${{ steps.toolchain.outputs.qt_version }}
           host: 'windows'
           target: 'desktop'
-          arch: 'win64_msvc2022_64'
-          modules: 'qtshadertools'
+          arch: ${{ steps.toolchain.outputs.qt_arch }}
+          modules: ${{ steps.toolchain.outputs.qt_modules }}
           cache: true
           cache-key-prefix: 'neonboard-qt'
 

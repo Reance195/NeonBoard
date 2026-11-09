@@ -35,6 +35,11 @@ import sys
 import tempfile
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+import board_ledger_json as blj  # noqa: E402  台账 canon 序列化唯一实现（Z5），判据与写者同源
+
 REPO = Path(__file__).resolve().parent.parent
 LEDGER_REL = "docs/board-ledger.json"
 
@@ -194,7 +199,7 @@ def run_merge(dry_run: bool) -> int:
         return 0
 
     target = REPO / LEDGER_REL
-    target.write_text(json.dumps(merged, ensure_ascii=False, indent=4, sort_keys=True) + "\n",
+    target.write_text(blj.dump_ledger(merged),
                       encoding="utf-8", newline="\n")
     print(f"✓ 台账已三路合并：cards {len(ours['cards'])} → {len(merged['cards'])}"
           f"（从 theirs 收入 {len(from_theirs)} 张：{'、'.join(from_theirs) or '无'}）")

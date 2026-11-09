@@ -178,7 +178,7 @@ pwsh -File scripts/release.ps1                                          # 五道
 
 ## 开发构建
 
-依赖：Qt 6.8.3 MSVC 2022 x64、Visual Studio 2022 BuildTools、CMake 3.21+。
+依赖：Qt（版本见 cmake/toolchain.cmake）、MSVC 2022 x64、Visual Studio 2022 BuildTools、CMake 3.21+。
 
 一键构建（默认 **Ninja** 生成器，增量更快、可配合 sccache；自动探测 CMake / Qt / Ninja，可选构建后自检）：
 
@@ -220,11 +220,12 @@ ctest --test-dir build -C Release -R taskinputparser -V  # 只跑单个用例并
 
 细节、注册表键位与未实现项（WinRT 富通知）见 [docs/windows-integration.md](docs/windows-integration.md)。
 
-VS / MSBuild 生成器（多配置，exe 落在 `build/Release/`）的手敲等价命令：
+VS / MSBuild 生成器（多配置，exe 落在 `build/Release/`）的手敲等价命令
+（`<Qt>` 换成你本机的 Qt 安装目录；走 `scripts/build.ps1` 时会自动探测，不必手传）：
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
-  -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64 -DBUILD_TESTING=ON
+  -DCMAKE_PREFIX_PATH=<Qt>/<NB_QT_VERSION>/msvc2022_64 -DBUILD_TESTING=ON   # 版本见 cmake/toolchain.cmake
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
@@ -357,7 +358,7 @@ docs/themes/         6 套主题预设实机截图
 
 仓库内置 GitHub Actions 流水线（`.github/workflows/ci.yml`），推送或合并到 `main` 时自动在 `windows-2022` 上执行：
 
-1. 安装 MSVC 开发环境与 Qt 6.8.3（`install-qt-action`，含 `qtshadertools` addon）
+1. 安装 MSVC 开发环境与 Qt（版本见 `cmake/toolchain.cmake` 单点，`install-qt-action` 含 `qtshadertools` addon）
 2. `cmake -S . -B build -G "Visual Studio 17 2022" -A x64` 配置并编译 Release
 3. `NeonBoard.exe --selftest` 数据库自检
 4. `--smoke` 冒烟启动，并扫描运行日志，出现 QML / C++ 错误即判定失败
@@ -454,7 +455,7 @@ pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
 
 ## 已知限制
 
-- 首次运行受磁盘与页缓存影响，主界面加载约 5–9 秒；之后热启动稳定在 1.2–1.4 秒。Splash 会先显示
+- 首次运行受磁盘与页缓存影响，主界面加载约 5–9 秒；之后热启动稳定在 1.2–1.4 秒。R0-14 运行时裁剪后便携包仅随 51 个 DLL（60.5 MB，较此前 -26.4%），同机冷态实测 startup 中位 -14%；Splash 会先显示
 - 快速录入解析只识别中文与阿拉伯数字的常见写法（今天 / 明天 / 后天 / 下周三 / 15:00 / 3点半 / 下午3点 / #标签 / !1-!3），不解析英文日期与自然语言长句
 - 手工改 `progress.json` 时请同步抬高该条目的 `updatedAt`，否则会以看板版本为准
 - 撤销栈只保留最近 50 步；插件写入与路线图快照同步不进入撤销栈（避免同步动作污染用户撤销历史）；提醒时间的设置/清除同样不进撤销栈（侧表元数据，与插件写入同口径）
@@ -473,4 +474,4 @@ pwsh -File scripts/publish-market.ps1 -PluginPath plugins\plan-hook `
 
 ## 第三方
 
-Qt 6.8.3（LGPLv3，动态链接）、SQLite（Qt SQL 驱动）。示例插件与界面代码为本项目自有。
+Qt（版本见 cmake/toolchain.cmake，LGPLv3，动态链接）、SQLite（Qt SQL 驱动）。示例插件与界面代码为本项目自有。

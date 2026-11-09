@@ -42,7 +42,12 @@ $windeployqtFallbacks = @()
 if ($env:QT_ROOT_DIR) {
     $windeployqtFallbacks += (Join-Path $env:QT_ROOT_DIR 'bin\windeployqt.exe')
 }
-$windeployqtFallbacks += 'C:\Qt\6.8.3\msvc2022_64\bin\windeployqt.exe'
+# 版本与套件目录取自工具链单点 cmake/toolchain.cmake（DX-145），不再写死
+$toolchainFile = Join-Path (Split-Path -Parent $PSScriptRoot) 'cmake\toolchain.cmake'
+$tcText = Get-Content -LiteralPath $toolchainFile -Raw
+$tcVersion = [regex]::Match($tcText, 'set\(NB_QT_VERSION\s+"([^"]+)"\)').Groups[1].Value
+$tcSuffix = [regex]::Match($tcText, 'set\(NB_QT_DIR_SUFFIX\s+"([^"]+)"\)').Groups[1].Value
+$windeployqtFallbacks += "C:\Qt\$tcVersion\$tcSuffix\bin\windeployqt.exe"
 
 $windeployqt = Resolve-Tool -Name 'windeployqt' -EnvVar $env:NEONBOARD_WINDEPLOYQT -Fallbacks $windeployqtFallbacks
 
@@ -76,6 +81,9 @@ $ErrorActionPreference = 'Continue'
 # 只留 Basic（quickcontrols2basic / *basicstyleimpl 不在排除列表，默认保留）。
 $wdqtArgs = @(
     '--release', '--qmldir', (Join-Path $root 'qml'), '--compiler-runtime',
+    # R0-14：QSG_RHI_BACKEND 默认 d3d11（main.cpp 未设环境变量时强制），
+    # 软件 OpenGL 后备（opengl32sw.dll 约 20MB）永不加载，不随包。
+    '--no-opengl-sw',
     '--no-quickcontrols2fusion', '--no-quickcontrols2fusionstyleimpl',
     '--no-quickcontrols2imagine', '--no-quickcontrols2imaginestyleimpl',
     '--no-quickcontrols2material', '--no-quickcontrols2materialstyleimpl',
@@ -87,6 +95,30 @@ $wdqtArgs = @(
 $deployExit = $LASTEXITCODE
 $ErrorActionPreference = $previousErrorAction
 if ($deployExit -ne 0) { throw "windeployqt failed: $deployExit" }
+
+# R0-14：运行时裁剪。只删「运行期从不加载」的件，每一项都有运行期证据，不是拍脑袋：
+#   qmltooling/       = qmldbg_* QML 调试器插件，只在 QT_QML_DEBUG 调试会话激活，生产路径碰不到；
+#   sqldrivers        = 代码只用 QSQLITE（Database.cpp addDatabase），mimer/odbc/psql 无处可加载；
+#   QuickEffects      = qml/ 里零 import QtQuick.Effects；
+#   QuickShapes       = qml/ 里零 import QtQuick.Shapes；
+#   LabsFolderListModel = qml/ 里零 import（check_dist 最小集注释也明确不含它）。
+# Qt6Network.dll 与 tls/ 不在裁剪之列：单实例机制（QLocalServer）启动期就要 Network，
+# DELAYLOAD 已被 LNK1194 否决（见 docs/iteration-roadmap.md §3.1），它们是活依赖。
+$pruneItems = @(
+    @{ Path = Join-Path $dist 'qmltooling'; Desc = 'qmltooling (qmldbg_* 调试器插件)' },
+    @{ Path = Join-Path $dist 'sqldrivers\qsqlmimer.dll'; Desc = 'sqldrivers/qsqlmimer' },
+    @{ Path = Join-Path $dist 'sqldrivers\qsqlodbc.dll'; Desc = 'sqldrivers/qsqlodbc' },
+    @{ Path = Join-Path $dist 'sqldrivers\qsqlpsql.dll'; Desc = 'sqldrivers/qsqlpsql' },
+    @{ Path = Join-Path $dist 'Qt6QuickEffects.dll'; Desc = 'Qt6QuickEffects' },
+    @{ Path = Join-Path $dist 'Qt6QuickShapes.dll'; Desc = 'Qt6QuickShapes' },
+    @{ Path = Join-Path $dist 'Qt6LabsFolderListModel.dll'; Desc = 'Qt6LabsFolderListModel' }
+)
+foreach ($item in $pruneItems) {
+    if (Test-Path -LiteralPath $item.Path) {
+        Remove-Item -LiteralPath $item.Path -Recurse -Force
+        Write-Host "Pruned runtime-dead item: $($item.Desc)"
+    }
+}
 
 # windeployqt 的 --no-<style> 只排除样式 DLL，QtQuick/Controls 下各样式的 QML 模块目录
 # 仍会被 --qmldir 扫描带进来（FluentWinUI3 一个就 5.9MB / 836 文件）。既然只用 Basic，

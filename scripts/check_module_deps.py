@@ -77,12 +77,18 @@ CLASS_MODULE = {
 
 CLASS_TO_MODULE = {name: mod for mod, names in CLASS_MODULE.items() for name in names}
 
-# ---- 行数上限：先设「不得增加」------------------------------------------------
-# 这两个文件是方案点名的「拆过又涨回来」的受害者（§2.2 / §2.4）。
-# 棘轮口径：只许减，不许增；减下来之后把这里的数字一起调低（脚本会提示）。
+# ---- 行数上限：只许减，不许增（上限取当前实际行数，不冻结历史峰值）--------------
+# 方案 §2.2 / §2.4 点名的「拆过又涨回来」受害者：Main.qml 曾涨回 4260 行、
+# main.cpp 1910 行。此前把 4260（历史坏状态）设成上限，等于把技术债合法化：
+# 只要不碰这两个文件，守卫永远绿，check_limits 每次都白提示「可一并调低」。
+#
+# 口径：上限 = 当前实际行数。任何一轮拆分把文件降下来后，必须同步把这些数字
+# 调低（脚本在 actual < limit 时会点名提示），否则「只许减不许增」失去意义。
+# SettingsPanel.qml 是同一类巨型 QML 组件，一并纳入。
 LINE_LIMITS = {
-    "src/main.cpp": 1910,
-    "qml/Main.qml": 4260,
+    "src/main.cpp": 6,
+    "qml/Main.qml": 4131,
+    "qml/components/SettingsPanel.qml": 2072,
 }
 
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s+"([^"]+)"')

@@ -92,6 +92,35 @@ if ($scriptRepoRoot) {
     if (-not $repoRoot) { throw '当前目录不是 Git 仓库' }
 }
 
+# DX-155：开区入口先 drain 再干活 —— 上一轮 git-done 自回收失败留下的空壳在这里收敛。
+# 判定与删除只在 agent-workspace.ps1 -Action Drain 一处实现（Z5）；非空目录永不删，
+# fail-soft：清扫失败绝不阻断开区（Z4），旧版脚本无 -Action Drain 时也只是转述报错。
+$wsDrainScript = Join-Path $repoRoot 'scripts\agent-workspace.ps1'
+if (Test-Path -LiteralPath $wsDrainScript) {
+    $wsDrainExe = 'powershell'
+    $wsDrainCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($wsDrainCmd) { $wsDrainExe = $wsDrainCmd.Source }
+    $drainOut = @()
+    $drainCode = 1
+    Push-Location $repoRoot
+    try {
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $drainOut = @(& $wsDrainExe -NoProfile -ExecutionPolicy Bypass -File $wsDrainScript -Action Drain 2>&1)
+            $drainCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+    } finally {
+        Pop-Location
+    }
+    foreach ($line in $drainOut) { Write-Host ("   {0}" -f $line) -ForegroundColor DarkGray }
+    if ($drainCode -ne 0) {
+        Write-Host '· 入口 drain 失败（不阻断开区），可手工 pwsh -File scripts/agent-workspace.ps1 -Action Drain' -ForegroundColor Yellow
+    }
+}
+
 # ---------- 检出漂移守卫（DX-49）----------
 # 多会话并行时，终端 / Bash 工具的 CWD 会在锚点区与各 worktree 之间静默漂移：调用方以为
 # 站在树 A，脚本却按自身路径作用于树 B（§7.3 的定位设计），两棵树不一致时此前没有任何
@@ -906,7 +935,7 @@ Write-Host ''
 Write-Host '后续步骤：' -ForegroundColor Cyan
 Write-Host ("  cd {0}" -f $worktree)
 Write-Host ("  . .\.agent-env.ps1")
-Write-Host ("  cmake -S . -B build -G `"Visual Studio 17 2022`" -A x64 -DCMAKE_PREFIX_PATH=C:/Qt/6.8.3/msvc2022_64")
+Write-Host ("  cmake -S . -B build -G `"Visual Studio 17 2022`" -A x64 -DCMAKE_PREFIX_PATH=<本机Qt目录>/6.8.3/msvc2022_64  # 或走 scripts/build.ps1 自动探测")
 Write-Host ('  cmake --build build --config Release')
 Write-Host ("  pwsh -File scripts\dev-run.ps1          # 沙箱启动，不污染真实数据")
 if ($Card) { Write-Host ("  领用： {0}（进行中由台账 claims 派生并自动投递）" -f $Card) }

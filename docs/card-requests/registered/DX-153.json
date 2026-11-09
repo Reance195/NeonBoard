@@ -1,0 +1,13 @@
+{
+  "card": "DX-153",
+  "sha256": "2c837708ef4e69531cc5f5f98081d8520ab9b8d424dd6330e0099253101cd337",
+  "authorizedBy": "维护者会话指令：「立卡修缺陷 1」",
+  "form": "form-gitdone-close.md",
+  "registeredAt": "2026-11-09T02:21:40+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-153",
+    "sha": "c44b55abad99796b932ad96e7b1bf2fd50e25653"
+  }
+}

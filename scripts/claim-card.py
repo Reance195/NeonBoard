@@ -30,6 +30,79 @@ import subprocess
 import sys
 import time
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+import board_ledger_json as blj  # noqa: E402  台账 canon 序列化唯一实现（Z5），判据与写者同源
+
+
+def is_anchor_checkout(root):
+    """root 是否锚点区检出（git-dir 与 git-common-dir 同值，DX-158 判定唯一实现）。
+
+    锚点区检出的是 main（pre-commit 禁止 main 提交），assignments「随分支提交」的
+    设计在这里无处落地——据此跳过 assignment upsert（DX-158）。
+    读不到 git 事实（非检出/异常环境）时保守返回 True：宁可少写，不写错位置。
+    """
+    def _rev(*args):
+        r = subprocess.run(["git", "-C", root] + list(args), capture_output=True)
+        return r.stdout.decode("utf-8", "replace").strip() if r.returncode == 0 else None
+    git_dir = _rev("rev-parse", "--absolute-git-dir")
+    common = _rev("rev-parse", "--git-common-dir")
+    if not git_dir or not common:
+        return True
+    if not os.path.isabs(common):
+        common = os.path.abspath(os.path.join(root, common))
+    return os.path.normcase(os.path.abspath(git_dir)) == os.path.normcase(common)
+
+
+def selftest():
+    """DX-158：锚点判定可执行自测（临时仓库，不碰本仓任何检出）。"""
+    import tempfile
+    failures = []
+
+    def case(name, ok, detail=""):
+        print(("  ✓ " if ok else "  ✗ ") + name + (("（实测：%s）" % detail) if detail and not ok else ""))
+        if not ok:
+            failures.append(name)
+
+    with tempfile.TemporaryDirectory() as td:
+        seed = os.path.join(td, "seed")
+        r = subprocess.run(["git", "init", "-q", seed], capture_output=True)
+        if r.returncode != 0:
+            print("  ✗ selftest 临时仓库创建失败：%s" % r.stderr.decode("utf-8", "replace"))
+            return 1
+        with open(os.path.join(seed, "README.md"), "w", encoding="utf-8") as fh:
+            fh.write("selftest\n")
+        subprocess.run(["git", "-C", seed, "add", "."], capture_output=True)
+        subprocess.run(["git", "-C", seed, "-c", "user.name=s", "-c", "user.email=s@s",
+                        "commit", "-q", "-m", "init"], capture_output=True)
+        case("独立检出（锚点）判 True", is_anchor_checkout(seed) is True)
+        wt = os.path.join(td, "wt1")
+        r = subprocess.run(["git", "-C", seed, "worktree", "add", "-q", wt, "-b", "b1"],
+                           capture_output=True)
+        if r.returncode == 0:
+            case("linked worktree 判 False", is_anchor_checkout(wt) is False)
+        else:
+            case("linked worktree 判 False", False, r.stderr.decode("utf-8", "replace"))
+        case("非检出目录保守判 True（宁可少写不写错位置）",
+             is_anchor_checkout(os.path.join(td, "no-such-dir")) is True)
+
+    if failures:
+        sys.stderr.write("claim-card 锚点判定自测失败 %d 例\n" % len(failures))
+        return 1
+    print("claim-card 锚点判定自测通过")
+    return 0
+
+
+if "--selftest" in sys.argv:
+    # ✓/✗ 与中文在 GBK 控制台直接崩（§2.6 同款），与 check_claim_refs.py 同口径
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+    sys.exit(selftest())
+
 # ---------- 解析入参 ----------
 if len(sys.argv) < 5:
     sys.stderr.write("用法：claim-card.py <root> <短号> <agent> <branch> [board.db]\n")
@@ -269,10 +342,41 @@ data["claims"][code] = {
     "head": head_sha,
     "claimedAt": int(time.time()),
 }
+# 键序=登记序（与 register_board_cards.py 追加写口径一致）；sort_keys 会把全台账
+# 按键重排，领用 diff 即污染所有卡片行，密钥闸门按新增行扫描时会被整本 prose 误拦。
 with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
-    json.dump(data, fh, indent=4, sort_keys=True, ensure_ascii=False)
-    fh.write("\n")
+    fh.write(blj.dump_ledger(data))
 os.replace(tmp, ledger)
+
+# DX-149：领用现场落 assignments（接手上下文事实源）。唯一写者 assignment-store.py，
+# 本脚本只调它的子命令；旁路失败只告警，绝不阻断领用（assignments 不参与防双领判定）。
+# DX-158：锚点区检出（main）不落——assignments 随分支提交，锚点无处落地，写进 main
+# 工作树只会制造无人能提交的死数据并绊锚点快进；现场定位由台账 claims / worktree 级兜底。
+_store = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assignment-store.py")
+_wt_match = re.search(r"[\\/]\.worktrees[\\/]([^\\/]+)$", root)
+_sub = [sys.executable, _store, "upsert",
+        "--code", code, "--agent", agent, "--branch", branch,
+        "--stage", "开区",
+        "--next-step", "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1"]
+if _wt_match:
+    _sub += ["--worktree", ".worktrees/" + _wt_match.group(1)]
+_sid = os.environ.get("NEONBOARD_SESSION_ID") or os.environ.get("NB_SESSION_ID")
+if _sid:
+    _sub += ["--session-id", _sid]
+if is_anchor_checkout(root):
+    sys.stderr.write("[领用] 锚点区检出（main）不落 assignment（随分支提交无处落地，DX-158）；"
+                     "现场定位由台账 claims / worktree 级兜底\n")
+elif not os.path.exists(_store):
+    sys.stderr.write("[领用] assignment-store 不存在（旁路，不阻断领用）：%s\n" % _store)
+else:
+    try:
+        _run = subprocess.run(_sub, capture_output=True)
+        if _run.returncode != 0:
+            sys.stderr.write("[领用] assignment 现场登记失败（旁路，不阻断领用）：exit %d\n"
+                             % _run.returncode)
+    except OSError as _exc:
+        sys.stderr.write("[领用] assignment-store 不可达（旁路，不阻断领用）：%s\n" % _exc)
+
 print("[领用] %s ← %s（%s %s）已登记，合并/放弃分支后自动失效%s"
       % (code, branch, agent, "",
          ("，父任务 %s 未被认领" % parent_code) if parent_code else ""))

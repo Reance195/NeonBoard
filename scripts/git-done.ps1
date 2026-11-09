@@ -149,14 +149,19 @@ function Remove-MergedBranch {
 # 不编造。台账读不到时不过滤（退化为全收，与派生器的分层口径一致）。
 function New-MergeCommitBody {
     param([string]$Branch, [string]$MainBranch)
-    $commitLines = @(Invoke-GitQuiet @('log', '--pretty=%s%n%b', ("origin/{0}..{1}" -f $MainBranch, $Branch)) |
+    # DX-154：Invoke-GitQuiet 返回 {Code,Output}，取 .Output 必须括号包住调用 ——
+    # PS 命令模式下 `f @args .Output` 把 `.Output` 当额外参数传给 git（同
+    # `Write-Host $x.Length` 的坑），697dc92 起两处中招：正则扫对象/错误字符串
+    # 恒不命中，提交数 / 文件数 / 卡片段全为假数据（f58a162 实测）。156 行
+    # rev-list 先存变量再取 .Output，一直正确，可对照。
+    $commitLines = @((Invoke-GitQuiet @('log', '--pretty=%s%n%b', ("origin/{0}..{1}" -f $MainBranch, $Branch))).Output |
         Where-Object { $_ -and $_.ToString().Trim() -ne '' })
     $commitCount = 0
     $countRes = Invoke-GitQuiet @('rev-list', '--count', ("origin/{0}..{1}" -f $MainBranch, $Branch))
     if ($countRes.Code -eq 0 -and $countRes.Output.Count -gt 0) {
         [void][int]::TryParse($countRes.Output[0].ToString().Trim(), [ref]$commitCount)
     }
-    $fileRes = Invoke-GitQuiet @('diff', '--name-only', ("origin/{0}...{1}" -f $MainBranch, $Branch))
+    $fileRes = (Invoke-GitQuiet @('diff', '--name-only', ("origin/{0}...{1}" -f $MainBranch, $Branch))).Output
     $fileCount = @($fileRes | Where-Object { $_ -and $_.ToString().Trim() -ne '' }).Count
 
     $known = @()
@@ -180,6 +185,30 @@ function New-MergeCommitBody {
             "验收：以分支提交内 #短号=done 标记与 verify 口径为准，合并后 derive --check 校验台账一致性。`n" +
             "影响：main 快进纳入本次分支改动，构建与测试由 CI 兜底。`n" +
             "卡片：{3}") -f $Branch, $commitCount, $fileCount, $cardsLine
+}
+
+# 结单预判（DX-153）：领用卡里哪些在分支区间内没写 #<短号>=done 标记。
+# 调用点在删分支 / 回收 worktree 之前 —— 补结提示只有在分支还在时才可执行；
+# 提示发出去就删分支，等于给一条死路（R11-14 收尾实测：重跑被「分支不存在」
+# 拒绝，claim 已清理，补结通道关闭）。判据口径与 --close-cards 的 =done 标记
+# 一致（subject+body 都认），但这里只影响提示与时机，结卡判定唯一实现仍在
+# derive_board_status.py（Z5）。正则只匹配 ASCII 的 =done，中文经控制台代码页
+# 转码不影响命中。Invoke-GitQuiet 返回 {Code,Output}，取 .Output 必须用括号包住
+# 调用 —— PS 命令模式下 `f @args .Output` 会把 `.Output` 当额外参数传给 git
+#（DX-154 selftest 实测，同 `Write-Host $x.Length` 的坑），正则扫不到提交信息，
+# 预判恒误报。156 行 rev-list 一直是「先存变量再取 .Output」，同理可对照。
+function Get-MissedDonePreview {
+    param([string[]]$Codes, [string]$MainBranch, [string]$Branch)
+    if ($Codes.Count -eq 0) { return @() }
+    $lines = @((Invoke-GitQuiet @('log', '--pretty=%s%n%b', ("origin/{0}..{1}" -f $MainBranch, $Branch))).Output)
+    $doneCodes = @()
+    foreach ($line in $lines) {
+        foreach ($m in [regex]::Matches([string]$line, '#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)=done')) {
+            $c = $m.Groups[1].Value
+            if ($doneCodes -notcontains $c) { $doneCodes += $c }
+        }
+    }
+    return @($Codes | Where-Object { $doneCodes -notcontains $_ })
 }
 
 # 冲突退出回滚现场（DX-107）：合并撞冲突时，不把 merge/* 临时分支、未合并冲突态和
@@ -259,6 +288,11 @@ function Push-Main {
 # 推送被拒 → fetch 重取主线 → 变基到新 origin/main → 重推，上限 3 次；
 # 变基冲突即放弃重试（现场处置由调用方裁决）。全仓只此一份重试实现——
 # 再出现第二处「撞 non-ff 退出/重试」的推送步骤，就把它改成调用本函数。
+#
+# DX-144：变基必须带 --rebase-merges。合并提交 + 收尾提交栈是**双父结构**，
+# 裸 `git rebase` 默认跳过 merge commit、把它展平成线性提交，重试后推上 main 的
+# tip 就不再是合并提交（违反 AGENTS.md 条款 4/5）。--rebase-merges 让合并结构随
+# 提交栈一起重放到新基底，落地 tip 恒为双父；-SelfTest 场景 A 有断言钉住这一点。
 function Invoke-MainPushWithRetry {
     param([int]$MaxAttempts = 3)
     for ($i = 1; $i -le $MaxAttempts; $i++) {
@@ -267,7 +301,7 @@ function Invoke-MainPushWithRetry {
         if ($i -ge $MaxAttempts) { return [pscustomobject]@{ Ok = $false; Attempts = $i } }
         Write-Host ("· 推送被拒（第 {0} 次）：重取主线变基后重试" -f $i) -ForegroundColor Yellow
         Invoke-NetGit @('fetch', 'origin', '--prune') | Out-Null
-        $rb = Invoke-GitQuiet @('rebase', "origin/$MainBranch")
+        $rb = Invoke-GitQuiet @('rebase', '--rebase-merges', "origin/$MainBranch")
         if ($rb.Code -ne 0) {
             Write-Host '· 推送重试：变基冲突，放弃重试' -ForegroundColor Yellow
             Invoke-GitQuiet @('rebase', '--abort') | Out-Null
@@ -430,6 +464,36 @@ function Release-WorkspaceClaim {
     if ($code -ne 0) {
         Write-Host ("· 工作区占用未释放（{0}，退出码 {1}），不影响已完成的合并" -f $scope, $code) -ForegroundColor Yellow
     }
+}
+
+# DX-155：调 agent-workspace.ps1 -Action Drain（空壳清扫 + 待清理清单收敛）。
+# drain 的判定逻辑只在 agent-workspace.ps1 一处实现（Z5），这里只是子进程接线；
+# fail-soft：任何失败只转述输出，绝不阻断已经成功的合并（Z4）。
+function Invoke-WorkspaceDrain {
+    param([string]$WsScript, [string]$GitCwd, [string]$Register = '')
+    if (-not (Test-Path -LiteralPath $WsScript)) { return $false }
+    $pwshExe = 'powershell'
+    $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($pwshCmd) { $pwshExe = $pwshCmd.Source }
+    $callArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $WsScript, '-Action', 'Drain')
+    if ($Register) { $callArgs += @('-Register', $Register) }
+    $out = @()
+    $code = 1
+    Push-Location $GitCwd
+    try {
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $out = @(& $pwshExe @callArgs 2>&1)
+            $code = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+    } finally {
+        Pop-Location
+    }
+    foreach ($line in $out) { Write-Host ("   {0}" -f $line) -ForegroundColor DarkGray }
+    return ($code -eq 0)
 }
 
 # 合并推送成功后，把锚点区快进到最新 main —— 否则维护者回到根目录看到的还是旧代码。
@@ -662,6 +726,8 @@ function Invoke-ClaimRefCleanup {
     # for-each-ref 可靠枚举整命名空间（git show-ref 的 pattern 匹配对松散引用不稳定，会漏列）
     $refs = @(& git for-each-ref --format='%(objectname) %(refname)' 'refs/claims/*' 2>$null)
     if ($refs.Count -eq 0) { return }
+    # DX-149：本函数释放的占位对应卡，收尾后其接手现场（assignment）一并移除
+    $releasedCodes = @()
     $originMain = $null
     try { $originMain = (Invoke-Git rev-parse --verify -q "origin/$Main").Trim() } catch { $originMain = $null }
     if (-not $originMain) {
@@ -686,11 +752,12 @@ function Invoke-ClaimRefCleanup {
         $code = $ref -replace '^refs/claims/',''
         $isAnc = $false
         try { & git merge-base --is-ancestor $sha ('origin/' + $Main) 2>$null; $isAnc = ($LASTEXITCODE -eq 0) } catch { $isAnc = $false }
-        if ($isAnc) { Release-ClaimRef $ref; continue }
+        if ($isAnc) { Release-ClaimRef $ref; $releasedCodes += $code; continue }
         # 未合入：仅当该 code 在台账中登记过、且其认领分支已不存在（孤儿 / 历史残留）时才释放；
         # 台账未登记的 code（可能是其它机制认领的活动卡）一律保守保留，绝不误删。
         if ($claimBranches.ContainsKey($code) -and (Test-ClaimBranchGone $claimBranches[$code])) {
             Release-ClaimRef $ref
+            $releasedCodes += $code
         }
     }
     # DX-90：rebase 重写占位（判据 1 打不中）+ 台账投影已清空（判据 2 打不中）的死角，
@@ -711,6 +778,16 @@ function Invoke-ClaimRefCleanup {
     if ($relRes.Code -ne 0) {
         Write-Host ('· 僵尸占位释放：脚本失败（退出码 {0}），留待下次收尾或 CI 巡检点名' -f $relRes.Code) -ForegroundColor Yellow
     }
+    # DX-149：占位已释放的卡，接手现场（assignment）随之移除（唯一写者 assignment-store，
+    # 旁路失败只告警——assignments 不参与任何闸门判定）
+    $goneAll = @($releasedCodes + $relCodes) | Select-Object -Unique | Where-Object { $_ }
+    if (-not $DryRun -and $goneAll.Count -gt 0) {
+        foreach ($gone in $goneAll) {
+            $null = Invoke-Cmd -File 'python' -CmdArgs @(
+                (Join-Path $repoRoot 'scripts\assignment-store.py'), 'remove', '--code', $gone)
+        }
+        Write-Host ('✓ 接手现场清理：assignment 移除 {0}' -f ($goneAll -join '、')) -ForegroundColor DarkGray
+    }
 }
 
 # 仓库根按**脚本自身路径**定位（脚本在 <repo>/scripts/ 下），不按当前工作目录 ——
@@ -723,6 +800,12 @@ if ($PSScriptRoot) {
     }
 }
 $repoRoot = if ($scriptRepoRoot) { $scriptRepoRoot } else { Get-NbToplevel }
+
+# DX-155：收尾入口先 drain 再干活 —— 把以往自回收失败遗留的空壳收敛掉。
+# 判定与删除只在 agent-workspace.ps1 -Action Drain 一处实现，非空目录永不删。
+if ($repoRoot) {
+    [void](Invoke-WorkspaceDrain -WsScript (Join-Path $repoRoot 'scripts\agent-workspace.ps1') -GitCwd $repoRoot)
+}
 
 
 # ---------- 检出漂移守卫（DX-49）----------
@@ -815,7 +898,7 @@ if ($script:gitDoneSelfTest) {
         New-StWorkRepo -Work $workA -OriginPath $originA
         Invoke-In $workA @('switch', '-c', 'fix/selftest-a') | Out-Null
         Add-Content -LiteralPath (Join-Path $workA 'README.md') -Value 'feature line a' -Encoding utf8
-        Invoke-In $workA @('commit', '-q', '-am', 'docs: feature a') | Out-Null
+        Invoke-In $workA @('commit', '-q', '-am', 'docs: feature a #DX-999=done') | Out-Null
         $resA = Invoke-Cmd -File 'pwsh' -CmdArgs @('-NoProfile', '-File', (Join-Path $workA 'scripts\git-done.ps1'), '-Branch', 'fix/selftest-a', '-StubPushFailures', '1')
         $outA = $resA.Output -join "`n"
         Assert-St 'A：退出码 0' ($resA.Code -eq 0)
@@ -825,6 +908,19 @@ if ($script:gitDoneSelfTest) {
             $bareTip = (Invoke-In $originA @('rev-parse', 'main'))[0]
             $workTip = (Invoke-In $workA @('rev-parse', 'HEAD'))[0]
             Assert-St 'A：合并已上 origin（bare main = 检出 HEAD）' ("$bareTip".Trim() -eq "$workTip".Trim())
+            # DX-144：首拒重试曾因裸 rebase 把 --no-ff 合并提交展平成线性提交，
+            # 推上 main 的 tip 退化成单父（AGENTS.md 条款 4/5 被重试路径绕过）。
+            # 这条断言钉住「重试后落地 tip 仍是双父合并提交」，修复见
+            # Invoke-MainPushWithRetry 的 --rebase-merges。
+            $tipParents = (Invoke-In $originA @('rev-list', '--parents', '-n', '1', 'main'))[0]
+            $parentCount = ("$tipParents".Trim() -split '\s+').Count - 1
+            Assert-St "A：重试后落地 tip 是双父合并提交（parents=$parentCount）" ($parentCount -ge 2)
+            # DX-154：合并正文四段（DX-101）的提交数 / 文件数 / 卡片段曾因 Invoke-GitQuiet
+            # 未取 .Output 恒为假数据（f58a162 实测「0 个文件改动」「卡片：无」）。Z6：
+            # 产物级断言钉住取值正确 —— feature 提交改 1 个文件并带 #DX-999=done 标记。
+            $bodyA = (Invoke-In $originA @('log', '-1', '--format=%b', 'main')) -join "`n"
+            Assert-St 'A：合并正文文件数非 0（非恒 0 假数据）' ($bodyA -match '1 个文件改动')
+            Assert-St 'A：合并正文卡片段命中分支标记' ($bodyA -match '卡片：#DX-999')
         }
         $curA = (Invoke-In $workA @('branch', '--show-current'))[0]
         Assert-St "A：检出已归位（$curA，不在 merge/*）" ("$curA" -eq 'main')
@@ -879,6 +975,31 @@ if ($script:gitDoneSelfTest) {
         }
         $pinB = Invoke-Cmd -File 'git' -CmdArgs @('-C', $workB, 'rev-parse', '--verify', '--quiet', 'refs/heads/merge/fix-selftest-b')
         Assert-St 'B：合并提交已 pin 到 merge/fix-selftest-b（补推落点真实存在）' ($pinB.Code -eq 0)
+
+        # ---- 场景 C：-Close 挂起时 explicit 出路提示（DX-156）----
+        # B 验证默认（=done 标记）路径的「自动补结」承诺不变；C 带 -Close 且推送全拒，
+        # 验证提示不再给「自动补结」的空头承诺（R11-14 同款误导），并给出可执行出路。
+        $originC = Join-Path $tmpRoot 'c-origin.git'
+        Invoke-Cmd -File 'git' -CmdArgs @('init', '-q', '--bare', $originC) | Out-Null
+        $workC = Join-Path $tmpRoot 'c-work'
+        New-StWorkRepo -Work $workC -OriginPath $originC
+        Invoke-In $workC @('switch', '-c', 'fix/selftest-c') | Out-Null
+        Add-Content -LiteralPath (Join-Path $workC 'README.md') -Value 'feature line c' -Encoding utf8
+        Invoke-In $workC @('commit', '-q', '-am', 'chore(claim): 领取 #DX-988 实施任务') | Out-Null
+        $resC = Invoke-Cmd -File 'pwsh' -CmdArgs @('-NoProfile', '-File', (Join-Path $workC 'scripts\git-done.ps1'), '-Branch', 'fix/selftest-c', '-Close', 'DX-988', '-StubPushFailures', '99')
+        $outC = $resC.Output -join "`n"
+        Assert-St 'C：退出码非 0' ($resC.Code -ne 0)
+        Assert-St 'C：explicit 挂起不给「自动补结」空头承诺' ($outC -match '不会被下次收尾自动补结')
+        Assert-St 'C：explicit 出路提示（重跑带 -Close 或看板点结）' ($outC -match '重跑收尾再带 -Close')
+        $curC = (Invoke-In $workC @('branch', '--show-current'))[0]
+        Assert-St "C：检出不在 merge/*（$curC）" ("$curC" -notlike 'merge/*')
+        $rcC = Read-StReceipt -Work $workC -BranchSlug 'fix-selftest-c'
+        if ($null -ne $rcC) {
+            Assert-St 'C：回执 closeMode=explicit' ("$($rcC.closeMode)" -eq 'explicit')
+            Assert-St 'C：回执 claimed 记 DX-988' ("$($rcC.claimed)" -match 'DX-988')
+        } else {
+            Assert-St 'C：回执存在（fix-selftest-c-*.json）' $false
+        }
     } finally {
         if (Test-Path -LiteralPath $tmpRoot) { Remove-Item -Recurse -Force $tmpRoot -ErrorAction SilentlyContinue }
     }
@@ -1158,6 +1279,21 @@ if ($Mode -eq 'remote') {
         Write-Host ("✓ 合并在本地完成（合并提交 {0}，将随收尾一次推送 origin/{1}）" -f $mergedCommit.Substring(0, 7), $MainBranch) -ForegroundColor Green
     }
 
+    # ---- 结单预判（DX-153）：在删分支 / 回收 worktree 之前给可执行的补结提示 ----
+    # 用户已传 -Close（显式确认）时无需预判；演练（-DryRun）无人在场，提示无意义。
+    # 预判非空时此刻中断重跑仍来得及：本地临时分支残留由下次重跑自动清理（DX-78）。
+    if ($claimedCodes.Count -gt 0 -and $closeList.Count -eq 0 -and -not $DryRun) {
+        $preMissed = Get-MissedDonePreview -Codes $claimedCodes -MainBranch $MainBranch -Branch $Branch
+        if ($preMissed.Count -gt 0) {
+            Write-Host ''
+            Write-Host ("⚠ 结单预判：本次领用的 {0} 张卡在分支提交里没有 #<短号>=done 标记：{1}" -f `
+                $preMissed.Count, ($preMissed -join '、')) -ForegroundColor Yellow
+            Write-Host '    已做完想本次结掉：现在中断（Ctrl+C，本地临时分支由重跑自动清理），' -ForegroundColor Yellow
+            Write-Host ('    重跑并加 -Close {0} —— 此刻分支还在，补跑可执行。' -f ($preMissed -join ',')) -ForegroundColor Yellow
+            Write-Host '    确实没做完：直接继续收尾，卡留在看板由人结（ADR 0002）。' -ForegroundColor Yellow
+        }
+    }
+
     # ---- 4. 清理：先回收 worktree（解除分支占用），再删分支 ----
     # DX-120：$wtPath 的反查已提前到 switch -c 之前（见上），此处只做判定与执行。
     $recycleAgent = ''
@@ -1431,8 +1567,18 @@ if ($Mode -eq 'remote') {
     if ($claimedCodes.Count -gt 0) {
         Write-Host ''
         if ($ccPending.Count -gt 0) {
-            Write-Host ("· 结单对账：本次领用 {0} 张、已结 {1} 张、挂起 {2} 张（{3}）——挂起的 baseline 未落，待下次合并再结" -f `
-                $claimedCodes.Count, $ccLanded.Count, $ccPending.Count, ($ccPending -join '、')) -ForegroundColor Yellow
+            # DX-156：挂起卡的补结出路按确认方式分说 —— =done 标记在合并提交里，
+            # 下次 --close-cards 扫全历史可寻回；-Close 显式确认只活在本次收尾，
+            # 下次收尾的领用名单里没有这张卡，「自动补结」对它就是空头支票。
+            $pendExplicit = @($ccPending | Where-Object { $closeList -contains $_ })
+            if ($pendExplicit.Count -gt 0) {
+                Write-Host ("· 结单对账：本次领用 {0} 张、已结 {1} 张、挂起 {2} 张（{3}）——挂起的 baseline 未落" -f `
+                    $claimedCodes.Count, $ccLanded.Count, $ccPending.Count, ($ccPending -join '、')) -ForegroundColor Yellow
+                Write-Host ("    其中 {0} 是 -Close 显式确认，下次收尾不会继承：补推成功后重跑收尾再带 -Close，或看板点结（ADR 0002）" -f ($pendExplicit -join '、')) -ForegroundColor Yellow
+            } else {
+                Write-Host ("· 结单对账：本次领用 {0} 张、已结 {1} 张、挂起 {2} 张（{3}）——挂起的 baseline 未落，待下次合并再结" -f `
+                    $claimedCodes.Count, $ccLanded.Count, $ccPending.Count, ($ccPending -join '、')) -ForegroundColor Yellow
+            }
         } elseif ($missedCodes.Count -eq 0) {
             Write-Host ("✓ 结单对账：本次领用的 {0} 张已全部结掉（{1}）" -f `
                 $claimedCodes.Count, ($claimedCodes -join '、')) -ForegroundColor Green
@@ -1457,7 +1603,11 @@ if ($Mode -eq 'remote') {
                     Write-Host ("    {0}  （台账里查不到这张卡）" -f $code) -ForegroundColor Yellow
                 }
             }
-            Write-Host '    做完了只是没写标记：重跑收尾并加 -Close <短号,...>；' -ForegroundColor Yellow
+            # DX-153：走到这里功能分支已随收尾删除，「重跑加 -Close」不可执行
+            # （R11-14 实测：重跑被「分支不存在」拒绝）。提示必须给真实出路。
+            Write-Host '    分支已随本次收尾删除，「重跑收尾并加 -Close」已不可行。补结两条出路：' -ForegroundColor Yellow
+            Write-Host '      1) 看板上点「标为已办结」（ADR 0002：程序不自动改列，验收通过给人拍板）；' -ForegroundColor Yellow
+            Write-Host '      2) 重新领用后带 -Close 重跑收尾（--stuck-codes 会持续点名未标记的卡）。' -ForegroundColor Yellow
             Write-Host '    确实没做完：让卡留在 todo，下次接着领。' -ForegroundColor Yellow
         }
     }
@@ -1582,7 +1732,14 @@ if ($Mode -eq 'remote') {
         # 指引才真正可执行；回执 localHead/localBranch 同步留痕。
         Write-Host "`n✗ 推送未落地：合并提交保留在本地分支 $tmp 上，恢复后补推：" -ForegroundColor Red
         Write-Host "   git push origin $tmp`:$MainBranch" -ForegroundColor Yellow
-        Write-Host "   推送成功后清理：git branch -d $tmp；挂起的结卡（closePending）由下次合并收尾自动补结" -ForegroundColor Yellow
+        if ($closeMode -eq 'explicit') {
+            # DX-156：-Close 显式确认不跨收尾继承（下次收尾的领用名单里没有这张卡），
+            # 「自动补结」对这条路径是空头支票 —— 提示必须给真实出路。
+            Write-Host "   推送成功后清理：git branch -d $tmp；挂起的结卡（closePending）不会被下次收尾自动补结 ——" -ForegroundColor Yellow
+            Write-Host "   -Close 确认不跨收尾继承：补推成功后重跑收尾再带 -Close，或看板点结（ADR 0002）" -ForegroundColor Yellow
+        } else {
+            Write-Host "   推送成功后清理：git branch -d $tmp；挂起的结卡（closePending）由下次合并收尾自动补结" -ForegroundColor Yellow
+        }
         exit 1
     }
 
@@ -1601,10 +1758,20 @@ if ($Mode -eq 'remote') {
         if ($selfRm.Code -eq 0) {
             Write-Host '✓ 已回收当前 worktree' -ForegroundColor Green
         } else {
-            # 不无脑 --force：失败多半是句柄占用（终端 / 应用还站在里面），硬删会留下
-            # 半删除尸体（DX-93）。只告警并给出可直接复制的收敛命令。
+            # DX-155：不无脑 --force（硬删留半删除尸体，DX-93），也不再只印手工命令——
+            # 把路径登记进待清理清单，下次 agent-init 开区 / git-done 收尾入口的 drain
+            # 自动收敛（此刻目录内容已被 git 删光，只剩句柄挡着的空目录，句柄一放即可直删）。
+            # 登记脚本优先锚点区（本检出可能已被删掉一半），锚点没有再退回本检出。
             Write-Host ("· 未能自动回收当前 worktree：{0}" -f $selfWorktreePending) -ForegroundColor Yellow
-            Write-Host ("  手工：git worktree remove {0}" -f $selfWorktreePending) -ForegroundColor Yellow
+            $wsDrainScript = Join-Path $cwdHome 'scripts\agent-workspace.ps1'
+            if (-not (Test-Path -LiteralPath $wsDrainScript)) {
+                $wsDrainScript = Join-Path $repoRoot 'scripts\agent-workspace.ps1'
+            }
+            if (Invoke-WorkspaceDrain -WsScript $wsDrainScript -GitCwd $cwdHome -Register $selfWorktreePending) {
+                Write-Host ('  已登记待清理清单，下次开区 / 收尾自动清扫；也可立即执行：pwsh -File scripts/agent-workspace.ps1 -Action Drain') -ForegroundColor Yellow
+            } else {
+                Write-Host ("  登记失败，手工：git worktree remove {0}" -f $selfWorktreePending) -ForegroundColor Yellow
+            }
         }
     }
     Write-Host "`n✓ 合并完成：$Branch → origin/$MainBranch" -ForegroundColor Green

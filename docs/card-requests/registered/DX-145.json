@@ -1,0 +1,13 @@
+{
+  "card": "DX-145",
+  "sha256": "49d51b01b5c14b713b2d258ed6ce54d88c55a9e22e0601f35a333cbf0fae9433",
+  "authorizedBy": "维护者 2026-11-08 会话指令 按你的建议来 采纳建议 C 授权立卡排位 P1",
+  "form": "docs/card-requests/20261108-toolchain-single-source.md",
+  "registeredAt": "2026-11-08T11:55:43+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-145",
+    "sha": "4ac450f4af2ada4d157b67c8104d0d3b67ebcb4e"
+  }
+}

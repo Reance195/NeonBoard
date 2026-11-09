@@ -33,6 +33,21 @@ if [ -f "$msg_file" ] && grep -Eq '#[A-Za-z][A-Za-z0-9]*' "$msg_file"; then
     has_marker=1
 fi
 
+# ---------- 3) 领用心跳（DX-149） ----------
+# 当前分支有 assignment 条目时刷新 updatedAt。assignment-store 内部有 30 分钟节流
+# （不每次提交都刷台账），stage 变化 / 显式 checkpoint 由 agent 侧 --force 提交。
+# 纯旁路：失败静默，永不影响提交（本钩子恒 0 退出）。
+branch_now=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || branch_now=""
+if [ -n "$branch_now" ] && [ "$branch_now" != "HEAD" ] && [ -f "$root/scripts/assignment-store.py" ]; then
+    hb_py=""
+    if command -v python3 >/dev/null 2>&1; then hb_py=python3
+    elif command -v python >/dev/null 2>&1; then hb_py=python
+    fi
+    if [ -n "$hb_py" ]; then
+        "$hb_py" "$root/scripts/assignment-store.py" heartbeat --branch "$branch_now" >/dev/null 2>&1 || true
+    fi
+fi
+
 if [ -z "$changed_progress" ] && [ "$has_marker" -eq 0 ]; then
     exit 0
 fi

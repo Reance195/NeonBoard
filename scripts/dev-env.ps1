@@ -21,7 +21,7 @@
 
     缺件怎么补（全部用户级，无需管理员）：
       Qt    python -m pip install aqtinstall
-            python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 -m qtshadertools -O "$HOME\Qt"
+            python -m aqt install-qt windows desktop <NB_QT_VERSION> win64_msvc2022_64 -m qtshadertools -O "$HOME\Qt"   # 版本见 cmake/toolchain.cmake
       CMake 解压 cmake-*-windows-x86_64.zip 到 %LOCALAPPDATA%\Programs\DevTools\cmake
       Ninja 解压 ninja-win.zip 到 %LOCALAPPDATA%\Programs\DevTools\ninja
       MSVC  VS BuildTools 勾选「使用 C++ 的桌面开发」（vcvars 不可用时的兜底依赖）
@@ -34,7 +34,7 @@ param(
     # 静默：不打印清单（供 build.ps1 加载函数时使用）
     [switch]$Quiet,
 
-    # 指定 Qt 套件目录，例如 C:\Users\me\Qt\6.8.3\msvc2022_64
+    # 指定 Qt 套件目录，例如 C:\Users\me\Qt\<版本见 cmake/toolchain.cmake>\msvc2022_64
     [string]$QtRoot = ''
 )
 
@@ -181,6 +181,39 @@ function Test-NeonBoardQtRoot {
     return ((Test-Path -LiteralPath $deploy) -and (Test-Path -LiteralPath $config))
 }
 
+# git：PATH -> 用户级 Git for Windows -> Program Files
+function Find-NeonBoardGitDir {
+    $command = Get-Command git.exe -ErrorAction SilentlyContinue
+    if ($command) { return $null }
+
+    foreach ($candidate in @(
+        (Join-Path $env:LOCALAPPDATA 'Programs\Git\cmd'),
+        (Join-Path $env:ProgramFiles 'Git\cmd')
+    )) {
+        if (Test-Path -LiteralPath (Join-Path $candidate 'git.exe')) { return $candidate }
+    }
+    return $null
+}
+
+# python：PATH 上若只有 WindowsApps 的商店假指针（运行即 9009 或弹商店），同样视为缺件。
+# build.ps1 的 DX-52 前缀探针依赖 python（check_ninja_deps.py --extract-prefix），
+# 钩子安装与任务闸门依赖 git —— 这两件缺了不是警告，是探针硬失败 / 钩子静默不装。
+function Find-NeonBoardPythonDir {
+    $command = Get-Command python.exe -ErrorAction SilentlyContinue
+    if ($command -and $command.Source -notlike '*WindowsApps*') { return $null }
+
+    $base = Join-Path $env:LOCALAPPDATA 'Programs\Python'
+    if (-not (Test-Path -LiteralPath $base)) { return $null }
+
+    $hit = Get-ChildItem -LiteralPath $base -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^Python\d' } |
+        Sort-Object Name -Descending | Select-Object -First 1
+    if ($hit -and (Test-Path -LiteralPath (Join-Path $hit.FullName 'python.exe'))) {
+        return $hit.FullName
+    }
+    return $null
+}
+
 # Qt 套件：-QtRoot -> NEONBOARD_QT_ROOT -> QT_ROOT -> C:\Qt / ~/Qt / DevTools 下的 <版本>\msvc*_64
 function Resolve-NeonBoardQtRoot {
     param([string]$Explicit = '')
@@ -225,6 +258,10 @@ function Get-DevEnvReport {
         Ninja = Find-NeonBoardDevTool -Name 'ninja.exe'
     }
     try { $report.Qt = Resolve-NeonBoardQtRoot -Explicit $QtRoot } catch { $report.Qt = $null }
+    $gitDir = Find-NeonBoardGitDir
+    $pythonDir = Find-NeonBoardPythonDir
+    $report.Git = if ($gitDir) { Join-Path $gitDir 'git.exe' } elseif (Get-Command git.exe -ErrorAction SilentlyContinue) { (Get-Command git.exe).Source } else { $null }
+    $report.Python = if ($pythonDir) { Join-Path $pythonDir 'python.exe' } elseif ($command = Get-Command python.exe -ErrorAction SilentlyContinue) { $command.Source } else { $null }
     return [pscustomobject]$report
 }
 
@@ -240,6 +277,8 @@ function Show-DevEnvReport {
     Write-Detail ('CMake : ' + $(if ($report.CMake) { $report.CMake } else { '未找到' }))
     Write-Detail ('Ninja : ' + $(if ($report.Ninja) { $report.Ninja } else { '未找到' }))
     Write-Detail ('Qt    : ' + $(if ($report.Qt) { $report.Qt } else { '未找到' }))
+    Write-Detail ('Git   : ' + $(if ($report.Git) { $report.Git } else { '未找到' }))
+    Write-Detail ('Python: ' + $(if ($report.Python) { $report.Python } else { '未找到' }))
 
     $missing = @()
     if (-not $report.Msvc) { $missing += 'MSVC（VS BuildTools 的 C++ 工作负载）' }
@@ -300,6 +339,12 @@ function Initialize-NeonBoardDevEnv {
         $env:NEONBOARD_QT_ROOT = $qt
         Add-PathFront (Join-Path $qt 'bin')
     }
+
+    # git / python 兜底：探测到用户级安装就挂 PATH（钩子安装、DX-52 前缀探针都依赖它们）
+    $gitDir = Find-NeonBoardGitDir
+    if ($gitDir) { Add-PathFront $gitDir }
+    $pythonDir = Find-NeonBoardPythonDir
+    if ($pythonDir) { Add-PathFront $pythonDir }
 
     if (-not $Quiet) {
         Write-Host '构建环境已装配' -ForegroundColor Green

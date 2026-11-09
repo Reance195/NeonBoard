@@ -299,16 +299,20 @@
 - **根因**：`check_scope.py` 只挂在 `.github/workflows/ci.yml`（任务卡范围检查那一步），
   且带着 `continue-on-error: true` —— 棘轮期只作信号不阻断；`git-done.ps1` 合并前跑的是
   **领用闸门**（短号有没有持证），不是范围闸门。两者覆盖面不同，却容易被当成同一道门。
-- **判据**：`grep -n check_scope scripts/git-done.ps1 .githooks/*` 为空 = 本地与推送期都不查；
+- **判据（当时）**：`grep -n check_scope scripts/git-done.ps1 .githooks/*` 为空 = 本地与推送期都不查；
   CI 那一步的 `continue-on-error` 存在 = 主线上的红线也只是一行日志。
-- **这意味着什么**：条款 6 里「`scope` 决定 agent 被允许改哪些路径」目前只是**评审可见的声明**，
+- **这意味着什么（当时）**：条款 6 里「`scope` 决定 agent 被允许改哪些路径」只是**评审可见的声明**，
   不是硬门。R16-05 那次是正当改动（测试夹具跟着实现走），所以无人受伤；
   但同一道缺席的门，也放行过一次真正的误改（R10-02 立卡漏写三个必需路径，
   agent 两次自补 `scope` 做完，见 1.19）。
-- **收紧的前提**：直接去掉 `continue-on-error` 或把 `check_scope` 接进 `git-done`，
-  会立刻把所有历史存量卡（未补 scope 或补得不全）挡在合并门外 —— 这是「先清存量再收门」的
-  老次序，需要人拍板节奏，不由 agent 自行决定。存量清零前，改卡片 scope 仍要走
-  `chore(board)` + 授权/批次两行（1.19），因为**门越松，声明就越要留痕**。
+- **现状（2026-11-08，已解决）**：维护者拍板「把 P0 收尾」，`.github/workflows/ci.yml`
+  的范围检查步骤已摘掉 `continue-on-error`，越界即拦合入；`docs/task-card.md` 的口径同步改写。
+  `git-done` / 钩子侧仍不查范围（覆盖面不同），但 CI 的硬门已足以守住条款 6。
+- **当时的「收紧前提」为何过时**：原文担心「去掉 `continue-on-error` 会把所有未补 scope 的
+  历史存量卡挡在门外」—— `check_scope.py` 后来加了 scopeless 放行（`:475-481` 对未声明
+  scope 的卡直接 `return 0`，`:459-461` 无短号也跳过），存量卡根本不进越界判定，
+  因此收门不需要先清存量。1.19 的 `chore(board)` + 授权/批次两行是**改卡片 scope**
+  这类任务定义变更的凭证要求，与 CI 门是否硬无关，照旧适用。
 
 ### 1.25 领用幂等门只看分支历史：占位释放后同一张卡再也领不回来
 
@@ -868,6 +872,34 @@
 
 ---
 ## 二、脚本与编码（PowerShell / Python）
+
+### 1.48 新写 handoff.ps1 一轮踩四坑：here-string / 正则转义 / 变量误展开 / GBK 解码（DX-149）
+
+- **现象**（2026-11-09 DX-149 实现实录，`handoff.ps1` 首版四连败）：
+  ① Write 工具产出的 `.ps1` 是 LF 行尾，PS 5.1 解析器对 LF 行尾的 **here-string 失灵**，
+  `@'...'@` 整段被当代码，Parser 报 22 个错且行号错乱（根因排查绕了很久，归零靠把
+  文件规范成 CRLF + 换掉 here-string）；② 双引号字符串里写正则 `` "(?m)^(\s*`$env:...)" ``，
+  反引号转义后 .NET 收到的是**裸 `$`**（regex 语义 = 行尾锚），模式永不匹配——
+  「换 agent 身份」静默无效（`.agent-env.ps1` 原样未改，还打印了成功）；③ selftest 里
+  用双引号拼 `"\$env:NEONBOARD_DATA_DIR = ..."`，**`$env:` 被当作环境变量展开成空串**，
+  生成的行变成 `\ = '...'`；④ `assignment-store.py list --json` 输出 UTF-8 中文，PS 按约定
+  用 `[Console]::OutputEncoding`（GBK）解码子进程 stdout，中文值破坏 JSON 结构，
+  `ConvertFrom-Json` 抛错被 catch 吞掉后 `Read-Assignment` 恒返回 null。
+- **根因**：四个坑同源于「PowerShell 5.1 的字符串与编码规则与直觉相反」，且失败全是
+  **静默的**（regex 不匹配不报错、JSON catch 吞掉、变量展开成空串），只有产物断言
+  （selftest 的 Assert-ST 清单 + 保留失败现场）才把它们点名。
+- **解法（DX-149）**：① 新 `.ps1` 一律先规范成 **CRLF + UTF-8 BOM** 再语法解析
+  （`.gitattributes` 对 .ps1 的 CRLF 约定正是为此）；② 正则模式串用**单引号字符串**
+  （本仓 `agent-workspace.ps1::Get-AgentEnvId` 的既有写法就是正解，新代码抄它别自创）；
+  ③ 拼 `$env:` 字面行用单引号拼接；④ 程序消费的子进程输出必须**纯 ASCII**
+  （`--json` 输出 `ensure_ascii=True`，与 `derive_board_status --emit-claimed` 同口径），
+  或在脚本顶部 `[Console]::OutputEncoding = UTF8`——后者同时治「git 中文提交主题比对恒假」
+  （§2.20 同族：那边是管道捕获，这边是原生捕获，同一根因两种入口）。
+  另有一坑顺带收录：`agent-workspace.ps1` 按**调用方 cwd** 定位 common dir，从别的检出
+  调它会把占用登记写到错误的仓库去——外部调用必须先 `Push-Location` 到目标 worktree。
+- **预防**：selftest 断言清单 + 「失败现场保留不删」是本轮唯一能快速定位的手段
+  （Z8/Z9），新流程脚本一律照此办理；`.ps1` 首版落盘后先做 `Parser::ParseFile` 语法
+  解析再跑行为；正则里出现 `$` 一律单引号串。
 
 ### 2.1 `.ps1` 少了 UTF-8 BOM，整份脚本报「批处理式」语法错
 
@@ -1601,6 +1633,26 @@
   `branch -d` 没错、DX-106 也没错，错的是两者叠起来后判据恒假且失败被吞。
   静默失败比报错更贵：45 支垃圾是两天才被人肉盘点出来的。
 
+### 2.37 锚点区领卡把 assignment 写进 main 工作树：随分支提交的设计在锚点无处落地（DX-158）
+
+- **现象**（2026-11-09 DX-157 实录）：agent-dxl 在锚点区领卡（nbflow dispatch /
+  `agent-init -ForceAnchor` 场景，`claim-card.py` 的 root = 锚点检出）后，锚点
+  `docs/agent-assignments.json` 出现未提交修改——DX-149 的领用 upsert 按 root 定位存储，
+  写进的是 main 工作树。`assignments` 设计为「随分支提交」，锚点检出 main 且钩子禁止
+  main 直接提交：条目成为无人能提交的死数据，还会在锚点快进 `--ff-only` 时撞脏文件。
+- **根因**：DX-149 只覆盖了开发区 worktree / 普通 clone 的领用路径，没考虑「root 是
+  锚点检出」这一例外（与 1.31「.worktrees 只在锚点存在」同一族的位置意识缺失——
+  那条是「从 worktree 扫不到锚点」，这条是「从锚点写脏 main」）。
+- **解法（DX-158）**：`claim-card.py::is_anchor_checkout`（git-dir 与 git-common-dir
+  同值 → 锚点，判定唯一实现，`--selftest` 三例：锚点 True / linked worktree False /
+  非检出保守 True 宁可少写不写错位置）；锚点领卡跳过 assignment upsert 并**点名告警**
+  （旁路不阻断领用，Z4 体验类 fail-soft 必须告警），现场定位由 audit 的台账 claims /
+  worktree 级兜底（DX-149 四级信息源），能力不缺。锚点错位条目（DX-157）还原为
+  origin/main 版本——移除的是本机制自己写错位置的数据。
+- **预防**：给「按 root 定位的旁路写入」补一条判据：**root 是锚点检出时，随分支提交
+  的文件一律不写**；新增旁路写入路径时先问「这个检出有没有分支可随」（锚点答案永远是
+  没有）。
+
 ---
 
 ## 三、构建与 Qt / QML
@@ -2267,6 +2319,35 @@
 - **教训**：**「启动瞬间读到的 count」不是事实，是快照。** 凡是要拿它做判断的地方，
   都得回答一个问题：数据后来变了，这个判断会跟着变吗？
 
+### 6.5 启动冷 I/O 的部署侧收敛：DELAYLOAD 不可行，运行时裁剪落地（原 7.6，R0-14）
+
+- **历史诊断**（2026-10-30，§7.6 原文）：CI 口径 `startup=6010ms / cpu=702ms`，分段
+  `app 15 → engine 310 → loaded 5316`——瓶颈是便携包的冷 I/O，不是 QML 树构建。
+  样式半标注已由 R0-11（`8e52812`）落实（windeployqt 只随 Basic + QML 样式目录裁剪）；
+  DLL 侧的「CMake DELAYLOAD」原计划由 R0-14 兑现。
+- **DELAYLOAD 在本仓库不可行，是 MSVC 的硬边界不是实现问题**：Qt 的 `Q_OBJECT`
+  静态元对象是 `__declspec(dllimport)` **数据符号**，链接器明确拒绝延迟加载数据符号 ——
+  `link /DELAYLOAD:Qt6Network.dll` 直接 `LNK1194: 无法延迟加载 Qt6Network.dll，原因在于
+  数据符号 QLocalServer::staticMetaObject 的导入`。QLocalServer/QLocalSocket（单实例机制，
+  主程序与 NeonBoardHost 都在启动期调用，属 QtNetwork 模块）就堵死在这。逐模块对照结论：
+  Quick / Qml / QuickControls2 / Sql / Gui / Core 首帧链路必需，Widgets 在 `QApplication`
+  实例化即用，Network 有数据符号 + 启动期调用 —— **「可延后加载的 Qt 模块」是空集**。
+  完整对照与实测见 `docs/iteration-roadmap.md` §3.1（R0-14）。
+- **真正落地的是运行时裁剪**（`scripts/deploy.ps1`，R0-14）：只删「运行期从不加载」的件，
+  每项都有运行期证据 —— qmltooling 11 个 `qmldbg_*`（调试器插件，生产路径碰不到）、
+  3 个非 SQLite 的 sqldrivers（代码只用 `QSQLITE`）、`Qt6QuickEffects` / `Qt6QuickShapes` /
+  `Qt6LabsFolderListModel`（qml/ 里零 import）、`opengl32sw.dll`（`QSG_RHI_BACKEND`
+  默认强制 d3d11，软件 GL 后备永不加载，windeployqt `--no-opengl-sw`）。合计
+  **DLL 69 → 51、包体 82.3 → 60.5 MB（-26.4%）**；同机冷态（新数据目录，`--smoke --settings`）
+  startup 中位 1603 → 1377 ms（-14%），热态持平（页缓存暖，收益看不见，属预期）。
+- **坑**：bash（Git Bash）直接调 Inno Setup 的 GUI 安装程序，`/VERYSILENT` + `/LOG` 全部
+  传对却**静默卡住不退出**（两次各 4–5 分钟超时）；换 PowerShell `Start-Process -Wait`
+  同参数秒装完成。给安装器做无人值守冒烟一律走 PowerShell，别用 bash 直接调。
+- **教训**：验收项里写「改 /DELAYLOAD」时，先做一个最小链接实验再写方案 ——
+  数据符号这条边界在 Qt 模块上是普遍的（每个模块都有 Q_OBJECT 数据导入），
+  只有纯函数接口的 DLL 才可能 delay。方案失败不是白做：LNK1194 的原始输出
+  就是「这条路线到此为止」的机器可查证据。
+
 ---
 
 ## 七、尚无解决方案（需人拍板）
@@ -2275,6 +2356,8 @@
 > 原 7.1 的漂移检查与代登记（1.14）、原 7.2 未推送成果警告（1.15）、原 7.3 root 占用让路（1.16）、
 > 原 7.7 产物落点变量（1.17）、代登记位置死锁（1.18）；现 7.1 的结卡权亦已解决 ——
 > 结卡改为合入即自动结（DX-07），条目保留在本节仅因为它是本轮决策的记录，不再有「等谁拍板」的成分。
+> 原 7.6 的启动冷 I/O 治本已由 R0-14 落地（样式半标注先由 R0-11 `8e52812` 落实，
+> 运行时裁剪 + DELAYLOAD 不可行结论见 6.5），条目随之迁出。
 
 ### 7.1 结卡权：已解决 —— 合入 `#短号=done` 即自动结（DX-07）
 
@@ -2342,20 +2425,6 @@
 - **卡在哪**：「会话产物一律写到仓库外的显式目录」这条约定要落地，得先定**由谁注入**
   （`.agent-env.ps1`？工具自身配置？）以及**只认默认路径的工具能不能挪**。没人拍板之前，
   只能维持「发现一个、点名一个」，名单本身就是我方的一项负债。
-
-### 7.6 R0-11 冷启动：指标与减法已落地，治本改动不在卡 scope 内
-
-- **现状**（2026-10-30 诊断定案）：启动 `startup=6010ms / cpu=702ms`，分段 `app 15 → engine 310 →
-  loaded 5316`——瓶颈是 portable 包带 7 套 QML 样式 + 35 个 Qt DLL 的冷 I/O，不是 QML 树构建。
-  卡 scope 内能做的已做完：`Metrics` 增 `startupCpuMs`、splash 五处 330ms→160ms 总预算
-  （`NEONBOARD_SPLASH_BUDGET` 可覆盖，预算用尽仍保证进度条重绘）。
-- **真正解法在哪**：`scripts/deploy.ps1` 只随包 Basic 样式 + CMake 改 DELAYLOAD 链接，预计能砍掉
-  大头冷加载。但这是**部署行为改动**，不在 R0-11 声明的 scope（`src/core/Metrics.*` / `src/main.cpp`）内，
-  不能顺手做。
-- **需要谁拍板**：扩 R0-11 的 scope（`scope`/`acceptance` 改动按 1.19 要单独 `chore(board)` + 授权行），
-  还是另立一张卡。拍板前该卡保持未结，由认领会话继续持有。
-
----
 
 ### 7.7 R0-13 启动性能收尾：四项改动的实施坑与残留（2026-11-07）
 

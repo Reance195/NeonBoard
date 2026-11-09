@@ -62,8 +62,9 @@ python scripts/check_scope.py --selftest                # 规范化、匹配与�
 要做历史考古、或想确认某张已结卡的 scope 是否真的覆盖过文件时，加 `--include-closed`。
 折叠只影响「看什么」，不影响退出码：被审集合里只要有目录式命中 0，仍退 1。
 
-CI 里的这一步仍是**信号**（`continue-on-error`）：存量卡还有未补 scope 的，硬门禁会一片红；
-补齐之后再摘掉。
+CI 里的这一步已是**硬门禁**（维护者 2026-11-08 拍板摘掉 `continue-on-error`）。
+`check_scope.py` 对未声明 scope 的卡与无短号提交本就直接放行，存量卡不会被挡在门外；
+存量补齐进度可用 `python scripts/check_scope.py --audit` 查看（只提示不阻断）。
 
 ## scope / acceptance 是契约，不是备注
 
@@ -182,6 +183,23 @@ pwsh -File scripts/agent-init.ps1 -Agent <名> -Branch <分支> -Card <短号>
 **立卡 → 实现分开两条分支**不是形式主义。合并成一条会丢掉 `chore(claim): 领取 #<短号>`
 那条领用提交：开区时卡还不存在，`-Card` 只能填 `none`，`refs/claims/<短号>` 也就没挂，
 收尾时 `check_claim_refs.py` 会拦（dxp2 的现场）。
+
+## 策略授权立卡（无人在场的定时/自动任务）
+
+授权可预先固化为台账顶层 `authorization.policies` 里的**策略对象**，由维护者以
+`chore(board):` + 授权/批次两行登记（属任务定义）；之后定时任务/值守会话走：
+
+```powershell
+python scripts/register_board_cards.py --policy <策略id> --form <请求单> --trigger <调度run标识>
+```
+
+发号、占位、回执链路与显式代登记**完全相同**，仅回执 `authorizedBy` 写
+`policy:<id>@<策略内容sha256前8位>`（附 `trigger` 字段）。策略字段：
+`id` / `enabled` / `tierMax` / `stage` / `scopeGlob` / `titlePattern` / `maxCardsPerDay`。
+任一字段超界、策略停用或缺失、当日超熔断上限一律拒立（fail-closed，exit 2）；
+`task_gate` 对 `policy:` 回执复核策略内容 sha 与边界，篡改即拒。
+**agent 不得新增、修改或停用策略**——策略是授权本身，改策略必须由维护者执行。
+完整 Schema 与设计权衡见 `docs/proposal-auto-authorization-policy.md`。
 
 ## 配套工具
 

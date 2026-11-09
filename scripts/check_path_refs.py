@@ -214,6 +214,15 @@ def selftest() -> int:
 
 
 def main(argv: list[str]) -> int:
+    # Windows 管道 / CI runner 下 stdout 默认走 ANSI 代码页（cp1252/cp936 随镜像漂移），
+    # 打印「棘轮（base=…）：本次新增 0 处失效（存量 N 处折叠）」这类中文行直接
+    # UnicodeEncodeError 崩给闸门自己看（2026-11-09 CI 实测：检查通过、打印炸掉红灯）。
+    # 与 task_gate.py / check_scope.py / check_claim_refs.py 同口径（Z14 补全族最后一处漏网）。
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
     ap = argparse.ArgumentParser(
         description="校验仓库内对 src/ 文件的硬编码引用是否仍然存在")
     ap.add_argument("--base", default="",

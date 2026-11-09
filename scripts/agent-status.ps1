@@ -149,6 +149,52 @@ else {
 }
 Write-Host ""
 
+# ---- 5. 可接手清单（DX-149）----
+# 判定与建议命令出自 check_claim_refs.py --audit-handoff（单一实现），这里只做展示：
+# 活动 / 疑似中断 / 陈旧占用 / 孤儿占位；动作由人触发，本脚本绝不自动接手。
+Write-Host "【可接手清单】（占位巡检）" -ForegroundColor Yellow
+$AuditScript = Join-Path $PSScriptRoot 'check_claim_refs.py'
+if (-not (Test-Path $AuditScript)) {
+    Write-Host "  ⚠ 找不到 check_claim_refs.py，跳过" -ForegroundColor Yellow
+}
+else {
+    $py = 'python'
+    $pyCmd = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $pyCmd -or $pyCmd.Source -like '*WindowsApps*') {
+        $pyLocal = Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312\python.exe'
+        if (Test-Path $pyLocal) { $py = $pyLocal }
+    }
+    $auditOut = @(& $py $AuditScript --audit-handoff --json 2>$null)
+    if ($LASTEXITCODE -eq 2) {
+        Write-Host "  ⚠ 接手巡检不可用（用法/仓库错误）" -ForegroundColor Yellow
+    }
+    else {
+        try { $audit = ($auditOut -join "`n") | ConvertFrom-Json } catch { $audit = $null }
+        if (-not $audit -or -not $audit.results) {
+            Write-Host "  · 占位巡检无输出（离线或无 claim 占位）" -ForegroundColor DarkGray
+        }
+        else {
+            $named = @($audit.results | Where-Object { $_.verdict -in 'stalled','stale','orphan' })
+            $label = @{ active = '活动'; stalled = '疑似中断'; stale = '陈旧占用'; orphan = '孤儿占位'; skip = '跳过' }
+            if ($named.Count -eq 0) {
+                Write-Host ("  ✓ {0} 条占位全部活动，无可接手项" -f $audit.results.Count) -ForegroundColor Green
+            }
+            else {
+                Write-Host ("  ⚠ 点名 {0} 条（共 {1} 条占位）：" -f $named.Count, $audit.results.Count) -ForegroundColor Yellow
+                foreach ($r in $named) {
+                    $when = if ($r.ageMinutes) { "{0} 分钟前" -f [math]::Round($r.ageMinutes) } else { '-' }
+                    Write-Host ("    [{0}] {1}  agent={2}  分支={3}  最近活动 {4}" -f `
+                        $label[$r.verdict], $r.code, $r.agent, $r.branch, $when) -ForegroundColor Cyan
+                    if ($r.nextStep) { Write-Host ("      ↳ {0}" -f $r.nextStep) -ForegroundColor Gray }
+                    if ($r.suggestion) { Write-Host ("      建议：{0}" -f $r.suggestion) -ForegroundColor Yellow }
+                }
+                Write-Host "  接手动作由人触发（授权后 handoff.ps1），不自动转移。" -ForegroundColor DarkGray
+            }
+        }
+    }
+}
+Write-Host ""
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host " 提示：只对超过阈值的 worktree 采取行动" -ForegroundColor Gray
 Write-Host "========================================" -ForegroundColor Cyan

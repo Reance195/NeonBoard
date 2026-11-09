@@ -1,22 +1,22 @@
 {
     "items": [
         {
-            "code": "R0-14",
+            "code": "R11-14",
             "completedAt": 0,
-            "createdAt": 1794027516,
+            "createdAt": 1794146702,
             "deleted": false,
             "dueAt": 0,
-            "id": "R0-14",
+            "id": "R11-14",
             "note": "",
-            "orderKey": 40448,
+            "orderKey": 78368,
             "priority": 2,
-            "stage": "R0",
+            "stage": "R11",
             "status": "todo",
             "tags": [
-                "R0"
+                "R11"
             ],
-            "title": "部署侧依赖收敛：CMake DELAYLOAD 精简随包 DLL，并纠偏 pitfalls §7.6 的过时前提",
-            "updatedAt": 1794027516
+            "title": "弹窗与抽屉壳头部关闭键未贴右上角",
+            "updatedAt": 1794146702
         },
         {
             "code": "DX-119",
@@ -179,6 +179,24 @@
             ],
             "title": "发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头",
             "updatedAt": 1794023716
+        },
+        {
+            "code": "MOD-10",
+            "completedAt": 0,
+            "createdAt": 1794227657,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-10",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD CLI 派发块抽取：AppMain 的六组命令处理迁入 CliHandlers",
+            "updatedAt": 1794227657
         },
         {
             "code": "R0-01",
@@ -3316,6 +3334,24 @@
             "updatedAt": 1793903572
         },
         {
+            "code": "DX-149",
+            "completedAt": 1794193757,
+            "createdAt": 1794189946,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-149",
+            "note": "",
+            "orderKey": 39184,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "在办卡僵尸占位无接手通道：补判活事实源与显式授权的原地接手",
+            "updatedAt": 1794193757
+        },
+        {
             "code": "DX-69",
             "completedAt": 1793903226,
             "createdAt": 1793901942,
@@ -3332,6 +3368,60 @@
             ],
             "title": "启动闪屏百分比读数在高 DPI 下乱码：数字图集按逻辑像素采样",
             "updatedAt": 1793903226
+        },
+        {
+            "code": "DX-144",
+            "completedAt": 1794136009,
+            "createdAt": 1794132674,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-144",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 非快进重试用裸 rebase 展平 --no-ff 合并提交，主线出现线性提交",
+            "updatedAt": 1794136009
+        },
+        {
+            "code": "DX-145",
+            "completedAt": 1794144132,
+            "createdAt": 1794138944,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-145",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "工具链版本散落 20+ 文件无单点，改一次 Qt 版本要同步多处",
+            "updatedAt": 1794144132
+        },
+        {
+            "code": "R0-14",
+            "completedAt": 1794047953,
+            "createdAt": 1794027516,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R0-14",
+            "note": "R0-14 交付说明（与验收项逐条对应）：① DELAYLOAD 对照写 §3.1 —— dumpbin 基线 8 个静态导入模块逐一评估（Quick/Qml/QuickControls2/Sql/Gui/Core 首帧必需；Widgets 在 QApplication 实例化即用；Network 由单实例 QLocalServer 启动期调用），/DELAYLOAD:Qt6Network.dll 实测被 LNK1194 硬拒（Q_OBJECT 静态元对象是 dllimport 数据符号，MSVC delayimp 不支持数据符号）——「可延后加载的 Qt 模块」为空集，原始错误输出已入档 §3.1 与 pitfalls §6.5，该路线机器可查地到此为止。② 便携包核验：运行时裁剪落地（qmltooling 调试器 11 + 非 sqlite sqldrivers 3 + 零 import 的 QuickEffects/QuickShapes/Labs 3 + opengl32sw 1），DLL 69→51、包体 82.3→60.5MB（-26.4%）；check_dist 22 项最小集两边都过且最小集不含被裁项，自检无需改动（deploy 退出码 0）。③ selftest/smoke 退出码 0、致命 QML 告警 0。④ Inno 静默装入干净目录：51 DLL 与便携包一致、安装目录 --selftest 退出码 0（附带坑：bash 调 Setup 静默卡死，PowerShell Start-Process 秒装，已记 pitfalls §6.5）。⑤ 冷启动 5hot/3cold 中位写 §3.1：cold startup 1603→1377ms（-14%）不劣化，hot 持平（页缓存暖，属预期）。⑥ pitfalls §7.6 迁出「尚无解决方案」节为 §6.5（样式半标注标 R0-11 8e52812、运行时裁剪标 R0-14），节头说明追加迁移记录；README 已知限制首条按新实测更新。⑦ verify.ps1 全量通过（worktree，UTF-8 会话；无控制台后台会话会撞 DX-131 前缀闸门，chcp 65001 后过）。验收口径偏差如实声明：验收第 1 条字面「改 /DELAYLOAD 链接」以「评估 + 机器证据 + 不可行结论入档」交付 —— 数据符号边界是 MSVC 硬约束，非实现质量缺陷。",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "R0",
+            "status": "done",
+            "tags": [
+                "R0"
+            ],
+            "title": "部署侧依赖收敛：CMake DELAYLOAD 精简随包 DLL，并纠偏 pitfalls §7.6 的过时前提",
+            "updatedAt": 1794047953
         },
         {
             "completedAt": 1792748226,
@@ -4135,6 +4225,24 @@
             "updatedAt": 1793911592
         },
         {
+            "code": "DX-146",
+            "completedAt": 1794148469,
+            "createdAt": 1794139007,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-146",
+            "note": "",
+            "orderKey": 60672,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "GUI 主流程只有自包含夹具与日志字符串匹配，缺真实组件回归",
+            "updatedAt": 1794148469
+        },
+        {
             "code": "R0-15",
             "completedAt": 1794035613,
             "createdAt": 1794027729,
@@ -4618,6 +4726,24 @@
             "updatedAt": 1793975673
         },
         {
+            "code": "DX-147",
+            "completedAt": 1794148469,
+            "createdAt": 1794144893,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-147",
+            "note": "",
+            "orderKey": 70784,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "pre-commit 与 commit-msg 缺 python 时打一行警告就放行，与 pre-push 的 fail-closed 自相矛盾",
+            "updatedAt": 1794148469
+        },
+        {
             "completedAt": 1792982914,
             "createdAt": 1792981705,
             "deleted": false,
@@ -4795,6 +4921,24 @@
             "updatedAt": 1793981567
         },
         {
+            "code": "DX-148",
+            "completedAt": 1794148712,
+            "createdAt": 1794144900,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-148",
+            "note": "已完成：scripts/check_secrets.py 四类模式（私钥块头/云厂AK/凭据赋值/长随机串），只扫暂存新增行，命中 exit 1 且预览脱敏；--selftest 11 例全过（fixture 全部拼接构造，含自扫源文件零命中）。.githooks/pre-commit 规则 4 复用 DX-147 nb_py_probe 单一判据；豁免面唯一 docs/secrets-allowlist.md（路径+行内容 sha256 前12位双匹配，登记表本体免扫终结哈希递归）。实测：暂存伪造私钥头/AK/赋值三行提交被拒（tmp_e2e_secrets.txt:2-4 点名模式+脱敏预览，不落库）；按格式登记 allowlist 后相同内容提交放行，测试提交已 reset 丢弃。待做：无。交付 6bb1b0b+b2e09e6。",
+            "orderKey": 75840,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "宪章 §四「密钥严禁入库」零机器执行，入库闸门全靠自觉",
+            "updatedAt": 1794148712
+        },
+        {
             "code": "DX-122",
             "completedAt": 1794016378,
             "createdAt": 1793982202,
@@ -4939,6 +5083,96 @@
             "updatedAt": 1793251716
         },
         {
+            "code": "DX-150",
+            "completedAt": 1794190329,
+            "createdAt": 1794190124,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-150",
+            "note": "已完成：scripts/check_readme_sync.py（--base 读 origin/main..HEAD 增量，qml//shaders/ 命中且范围无 README.md 改动 → 逐提交点名 + ::warning::，退出码恒 0）+ ci.yml「README 同步提示（DX-150）」步骤。实测：--selftest 四场景全过（临时仓库：UI+README 同改=静默、纯 shaders 改动=点名 1 提交、src 改动=静默、report 恒 0）；本分支 --base origin/main 实跑 exit 0 无误报（范围无界面提交，符合预期）。待做：无（升级阻断需另行立卡）。交付 1ab0887。",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "宪章硬性约定 6「界面行为改动同步 README」无机器执行，靠代理自觉",
+            "updatedAt": 1794190329
+        },
+        {
+            "code": "DX-153",
+            "completedAt": 1794191130,
+            "createdAt": 1794190946,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-153",
+            "note": "",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 结单预判前移，-Close 补跑提示改可执行",
+            "updatedAt": 1794191130
+        },
+        {
+            "code": "DX-154",
+            "completedAt": 1794192828,
+            "createdAt": 1794191657,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-154",
+            "note": "",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 三处 git 输出未解包，合并正文与结单预判失真",
+            "updatedAt": 1794192828
+        },
+        {
+            "code": "DX-155",
+            "completedAt": 1794196998,
+            "createdAt": 1794193037,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-155",
+            "note": "已完成：pending-worktrees.json（数据目录，键=绝对路径幂等登记）+ agent-workspace.ps1 单处 drain（三判据全过直删空壳，缺一保留记原因，非空永不删，不引入 --force）；agent-init 开区与 git-done 收尾入口先 drain；Check 增「待清理清单 N 项 / 空壳 M 个」汇总行不加退出码。实测：8 个历史空壳收敛、假路径登记/清空/收敛三场景、agent-init 入口接线（probe-entry-husk 被清扫）全过；verify -ScriptOnly 绿。交付 ff64fd7。",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 回收「删自己脚下」必败且不复发：待删清单无人 drain，空壳残留两周攒出 28 个",
+            "updatedAt": 1794196998
+        },
+        {
+            "code": "DX-157",
+            "completedAt": 1794225562,
+            "createdAt": 1794224159,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-157",
+            "note": "已完成 5 / 待做 0 —— 五条验收全部满足，且实际验收档位从严：scope 凭证扩入 docs/scripts-manifest.md（hygiene 规则 H 要求登记新脚本）触发 DX-25 契约变更判档，按规则升全量档执行——verify.ps1 全量绿（ctest 45/45、--selftest 与 --smoke 退出码 0、致命告警 0 行、模块守卫过），第 5 条的轻档字面被全量覆盖，卡面留待维护者裁定是否更正措辞。\n\n交付：新建 scripts/board_ledger_json.py（dump_ledger / is_canonical / --selftest 9 例）；task_gate 台账格式判据改走 is_canonical（判据与实现同源，本地 canon 复制删除，selftest 57 例不破）；register / derive 结卡 / claim-card / merge_board 四个台账写点落盘改走 dump_ledger（selftest 37 例不破）；现行台账 is_canonical 为 True（等价替换，台账内容零变化）；board_ledger_json.py 已按 hygiene 规则 H 登记 scripts-manifest。\n\n语义边界（实施中澄清）：排版判据（indent=2 / 尾换行 / 转义）能抓住写点漂移，键序=登记序由 writers 经 dump_ledger 的登记序口径保证——sort 重排文本 round-trip 后自身成立，判据抓不到键序（与 task_gate 既定语义一致，selftest 断言据此对齐，未改判据行为）。\n\n残留：① 全量 verify 期间 tests 编译瞬态失败 2 次（tst_workflowpresets / tst_workflow 目标，与 MOD-9 同款），增量重跑即绿，疑似并行构建偶发，建议另立卡排查；② claim-card.py 的 import 区由本卡新增 sys.path 注入（与 task_gate / derive 既有模式一致）。",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 台账 canon 序列化收敛单点：五处手写复制改走共享模块并写后自校验",
+            "updatedAt": 1794225562
+        },
+        {
             "code": "R10-02",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -4973,6 +5207,78 @@
             ],
             "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移",
             "updatedAt": 1793987436
+        },
+        {
+            "code": "DX-151",
+            "completedAt": 1794190671,
+            "createdAt": 1794190124,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-151",
+            "note": "交付 d5880e7：check_script_hygiene.py 新增规则 H（find_manifest_problems 独立于 find_problems，清单缺失 fail-closed；未登记/无实体/用途为空三类违规）+ docs/scripts-manifest.md 全量 56 行如实摘录；自测 6 探针全绿，真实仓对账 56 个脚本零违规，verify -ScriptOnly 通过。",
+            "orderKey": 80264,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "scripts/ 目录无清单事实源，脚本膨胀与临时脚本残留不可见",
+            "updatedAt": 1794190671
+        },
+        {
+            "code": "DX-156",
+            "completedAt": 1794194571,
+            "createdAt": 1794193187,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-156",
+            "note": "",
+            "orderKey": 80264,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 挂起结卡的补结出路按确认方式分说",
+            "updatedAt": 1794194571
+        },
+        {
+            "code": "DX-158",
+            "completedAt": 1794225806,
+            "createdAt": 1794225431,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-158",
+            "note": "",
+            "orderKey": 80264,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "锚点区领卡把 assignment 写进 main 工作树：错位条目没人能提交还绊锚点快进",
+            "updatedAt": 1794225806
+        },
+        {
+            "code": "DX-152",
+            "completedAt": 1794190865,
+            "createdAt": 1794190124,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-152",
+            "note": "交付 1b28450：Check 第 3 项把 linked worktree（锚点除外）缺占用登记从告警升级为硬冲突，点名「未登记 worktree：<路径>」（含 .worktrees 之外开出的，按目录名回退判键）；Status 增未登记标注行、退出码不变。三场景实测：登记齐全 Check exit 0；手工 git worktree add dx152-probe 后 Check exit 3 且点名，Status 标未登记（exit 0）；git worktree remove 后恢复 exit 0。BOM/语法/卫生/verify -ScriptOnly 全过，未动 agent-init 与登记格式。",
+            "orderKey": 80580,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "手工 git worktree add 绕过占用登记，-Action Check 发现不了未登记 worktree",
+            "updatedAt": 1794190865
         },
         {
             "code": "R10-03",
@@ -5333,6 +5639,60 @@
             ],
             "title": "交互回归判据与 GUI 实机验收通道沉淀",
             "updatedAt": 1794023071
+        },
+        {
+            "code": "MOD-7",
+            "completedAt": 1794190034,
+            "createdAt": 1794144568,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-7",
+            "note": "已完成 7 / 待做 0 —— 七条验收全部满足。verify.ps1 全量绿：ctest 44/44、--selftest 与 --smoke 退出码 0（致命告警 0 行）、模块守卫与范围检查通过。\n\n交付：main.cpp 1910 → 6 行薄入口（neonboardMain 转调）；src/app/ 四类实现——AppMain.cpp（原函数体一字未改）、SelfTestRunner.cpp（--selftest 605 行原样迁入，SelfTestDeps 指针结构 + 函数内 auto& 别名，零文本改写）、CliCommands.cpp（31 条命令表反推 utilityMode，smoke/sync/data 三组手写判定并入单点）、AppContext.cpp（42 个上下文对象表驱动注入）；LINE_LIMITS 中 main.cpp 上限 1910 → 6 同步调低。\n\n残留与 nextStep：① M1d 对象构造工厂未做——约 1100 行构造区仍在 AppMain.cpp，构造次序敏感（「必须声明在 QQmlApplicationEngine 之前」注释是硬约束），留待下批；② 路线图 §9 无 **MOD** 行，MOD 卡在阶段条不可见，增行属维护者拍板项（方案 P5）；③ A/B 实测 --market-sources / --plugin-report / --update-sources 存在非确定性退出崩溃（0xC0000409，输出完成后），重构前旧 exe 同样复现，非本卡引入，建议另立卡排查退出竞态。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "模块化续批：建立 src/app 边界并把 main.cpp 从 1910 行降到 450 行以内",
+            "updatedAt": 1794190034
+        },
+        {
+            "code": "MOD-8",
+            "completedAt": 1794192962,
+            "createdAt": 1794191209,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-8",
+            "note": "已完成 5 / 待做 0 —— 五条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0（致命告警 0 行）、模块守卫与范围检查通过；--selftest 沙箱日志 SELFTEST 标签序列与基线 22/22 逐标签一致（result OK remaining 0）；AppMain.cpp 1302 → 1250（验收线 <=1250）。\n\n交付：src/app/AppObjects.h/.cpp 三个构造单元（Early 21 个核心对象 / Ui 6 个界面外壳 / Plugins 9 个插件更新），成员声明顺序与构造参数逐字照搬；两段逐行声明区改由工厂构造 + 引用别名接管；原穿插的 scanAsync / 启动重放 / declaredAgents 刷新 / 实例标签 / 版本日志集中到构造之后；setTaskExtra / setPresets 移入工厂构造体末尾（CardDetail 构造只存指针，首次消费在运行期）。\n\n保序决策与残留：① taskStore 与条件 load 留在装配处原位——load 必须早于 taskAudit 信号挂接（拆进工厂会让 load 信号被 audit 收到，task_event 记录变多）；② Metrics first-frame 接线捕获 main 局部 boot，留 AppMain；③ boardColumns / dragFeel / keyMove / projectStore 四个散点声明留在 CLI 块之间原位；④ QML 注入区与 CLI 派发块仍在 AppMain（1250 行），属后续批次（M1c 装配器 / 其余 CLI 抽取）的 nextStep。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD M1d 对象构造工厂：AppMain.cpp 构造区收敛为三个构造单元",
+            "updatedAt": 1794192962
+        },
+        {
+            "code": "MOD-9",
+            "completedAt": 1794196102,
+            "createdAt": 1794193821,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-9",
+            "note": "已完成 5 / 待做 0 —— 五条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0（致命告警 0 行）、模块守卫与范围检查通过；--selftest 沙箱日志 SELFTEST 标签序列与基线 22/22 逐标签一致（result OK remaining 0）；--smoke 日志可见接线全部生效（Backup ready / BOOT attached / JUMPLIST applied / firstframe cpu）；AppMain.cpp 1250 → 1105（验收线 <=1105）。\n\n交付：src/app/AppWiring.h/.cpp——BackgroundWiring 构造单元（三个常驻 QTimer 作成员随结构体活到 main 退出，lambda 捕 this 经成员引用访问 main 栈对象）、wirePluginAnnouncements（scanAsync / 启动重放 / declaredAgents 刷新 / 实例标签 / 版本日志）、wireShellActions（热键安装 / 提醒调度启动 / dispatch / 托盘热键统计更新退出接线 / 跳转列表，dispatch 以 std::function 返回交还调用方，splashStage 作为参数传入——它是捕获 splash 与 pump 预算的 main 局部 lambda）。\n\n保序决策与残留：① hotkey.install 与 reminderScheduler.start 随 wireShellActions 收编（原夹在 splashStage 之间，传入 splashStage 后次序逐字保持）；② silentStart / splash 显示序列 / startupCheck / smoke 计时 / exec 仍留 AppMain（强依赖 splash 与启动收尾局部量）；③ Metrics metrics 声明提前到 BackgroundWiring 构造之前（原在轮询接线段中间，构造轻且与轮询无交互）；④ QML 注入区与 CLI 派发块仍在 AppMain（1105 行），属后续批次；⑤ 过程实测 register_board_cards.py / derive_board_status.py 写台账仍用 indent=4，而主线规范已是 indent=2（DX-156），格式漂移曾触发 pygate 密钥误报并造成一次 6671 行重排——共享脚本在 scope 外，建议另立卡把台账写盘格式收敛为单点。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD M1c 装配器抽取：AppMain 三段接线区收敛进 AppWiring",
+            "updatedAt": 1794196102
         },
         {
             "code": "R9-02",
@@ -5713,6 +6073,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-07T17:38:36",
+    "updated": "2026-11-09T20:34:17",
     "version": 3
 }

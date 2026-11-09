@@ -611,3 +611,13 @@ set_tests_properties(tst_taskcard_actions PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
     ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
 
+# DX-146：加载真实 qml/components/TaskCard.qml 的交互回归。
+# 组件依赖引擎级 context property（Theme/Motion/六个门面），QML 侧无法注入，
+# 故用 C++ harness 注入 mock，再用 QTest 合成点击/双击/拖拽断言信号路由。
+neonboard_add_test(tst_taskcard_real)
+target_link_libraries(tst_taskcard_real PRIVATE Qt6::Qml Qt6::Quick Qt6::Gui)
+target_compile_definitions(tst_taskcard_real PRIVATE
+    NB_QML_TASKCARD_PATH="${CMAKE_SOURCE_DIR}/qml/components/TaskCard.qml")
+set_tests_properties(tst_taskcard_real PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+

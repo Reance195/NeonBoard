@@ -797,6 +797,17 @@ CARD = re.compile(r"#((?:[A-Za-z]{1,4}\d*-\d+)|(?:M\d+))")
 
 ### 7.2 卡片执行态与接手机制（派发后要看得见、断得了）
 
+> **【已落地 · DX-149（2026-11-09）】** 本节设计的接手机制已按维护者拍板实现：
+> 判活事实源 = `docs/agent-assignments.json`（独立文件方案 B，唯一写者
+> `scripts/assignment-store.py`）；5 字段简化为 assignment 条目（agent / sessionId /
+> branch / worktree / stage / progress / updatedAt / nextStep / handoffFrom）；
+> 三态判据单一实现在 `check_claim_refs.py::classify_handoff`（30 / 240 分钟双档沿用
+> 既有口径）；接手协议 6 步固化为 `scripts/handoff.ps1`（复用旧 worktree + 原地换身份，
+> 未提交在制品保留，残局摘要落 `.sandbox/artifacts/handoff.json`）；「收工必写 nextStep」
+> 由 `nbflow report` 强制落 assignment、post-commit 心跳节流维持活性。「先跑 acceptance
+> 再信 stage」（第 5 步）写进接手输出与 handoff.json 的话术。实施细节与授权口径见
+> `docs/charter-appendix.md`「原地接手通道（DX-149）」。以下为原设计文本，保留存档。
+
 > 需求：卡片分下去后要能回答三个问题——**谁在跑**（哪个 agent / 哪个 session）、
 > **跑到哪了**（进度）、**断了谁接**（另一个 session 能带着上下文接手，而不是从头来）。
 

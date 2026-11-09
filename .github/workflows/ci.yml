@@ -96,6 +96,15 @@ jobs:
           python scripts/check_script_hygiene.py
           if ($LASTEXITCODE -ne 0) { throw '脚本卫生检查未通过' }
 
+      - name: README 同步提示（DX-150，警告级不阻断）
+        # 宪章 §五 硬性约定 6 的机器执行者：qml/ 或 shaders/ 有改动而范围内 README.md
+        # 未同步时点名提交并打 ::warning::。体验类按 Z4 fail-soft + 必须告警，
+        # 不做阻断闸门（升级阻断需另行立卡）。
+        shell: pwsh
+        run: |
+          $base = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') { "origin/$($env:GITHUB_BASE_REF)" } else { 'HEAD~1' }
+          python scripts/check_readme_sync.py --base $base
+
       - name: 工具链版本单点守门（DX-145）
         shell: pwsh
         run: |

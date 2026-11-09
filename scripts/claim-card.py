@@ -30,6 +30,11 @@ import subprocess
 import sys
 import time
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+import board_ledger_json as blj  # noqa: E402  台账 canon 序列化唯一实现（Z5），判据与写者同源
+
 # ---------- 解析入参 ----------
 if len(sys.argv) < 5:
     sys.stderr.write("用法：claim-card.py <root> <短号> <agent> <branch> [board.db]\n")
@@ -272,8 +277,7 @@ data["claims"][code] = {
 # 键序=登记序（与 register_board_cards.py 追加写口径一致）；sort_keys 会把全台账
 # 按键重排，领用 diff 即污染所有卡片行，密钥闸门按新增行扫描时会被整本 prose 误拦。
 with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
-    json.dump(data, fh, indent=2, ensure_ascii=False)
-    fh.write("\n")
+    fh.write(blj.dump_ledger(data))
 os.replace(tmp, ledger)
 
 # DX-149：领用现场落 assignments（接手上下文事实源）。唯一写者 assignment-store.py，

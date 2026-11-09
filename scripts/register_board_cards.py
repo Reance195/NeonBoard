@@ -47,6 +47,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 import board_priority as bp  # noqa: E402  排位规则唯一实现（DX-123），档位枚举与校验不在此复制（Z5）
+import board_ledger_json as blj  # noqa: E402  台账 canon 序列化唯一实现（Z5），判据与写者同源
 
 LEDGER_REL = "docs/board-ledger.json"
 ROADMAP_REL = "docs/iteration-roadmap.md"
@@ -774,9 +775,7 @@ def main(argv=None):
         baseline[code] = "todo"
         ledger["cards"] = cards
         ledger["baseline"] = baseline
-        ledger_path.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8")
+        ledger_path.write_text(blj.dump_ledger(ledger), encoding="utf-8")
 
         receipt_dir = root / RECEIPT_DIR_REL
         receipt_dir.mkdir(parents=True, exist_ok=True)

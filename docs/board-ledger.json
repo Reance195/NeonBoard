@@ -6636,13 +6636,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-156": {
-            "agent": "agent-cb5",
-            "branch": "fix/gitdone-pending-outcome-hint",
-            "claimedAt": 1794193949,
-            "head": "3e99271dbd1b62e9e9e10ac79d3940101a06248a"
-        }
-    },
+    "claims": {},
     "version": 1
 }

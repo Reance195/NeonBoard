@@ -37,24 +37,6 @@
             "updatedAt": 1794146702
         },
         {
-            "code": "DX-151",
-            "completedAt": 0,
-            "createdAt": 1794190124,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-151",
-            "note": "",
-            "orderKey": 80264,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "scripts/ 目录无清单事实源，脚本膨胀与临时脚本残留不可见",
-            "updatedAt": 1794190124
-        },
-        {
             "code": "DX-152",
             "completedAt": 0,
             "createdAt": 1794190124,
@@ -5155,6 +5137,24 @@
             "updatedAt": 1793987436
         },
         {
+            "code": "DX-151",
+            "completedAt": 1794190671,
+            "createdAt": 1794190124,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-151",
+            "note": "交付 d5880e7：check_script_hygiene.py 新增规则 H（find_manifest_problems 独立于 find_problems，清单缺失 fail-closed；未登记/无实体/用途为空三类违规）+ docs/scripts-manifest.md 全量 56 行如实摘录；自测 6 探针全绿，真实仓对账 56 个脚本零违规，verify -ScriptOnly 通过。",
+            "orderKey": 80264,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "scripts/ 目录无清单事实源，脚本膨胀与临时脚本残留不可见",
+            "updatedAt": 1794190671
+        },
+        {
             "code": "R10-03",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5911,6 +5911,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T10:12:09",
+    "updated": "2026-11-09T10:17:51",
     "version": 3
 }

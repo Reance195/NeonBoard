@@ -19,24 +19,6 @@
             "updatedAt": 1794146702
         },
         {
-            "code": "DX-158",
-            "completedAt": 0,
-            "createdAt": 1794225431,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-158",
-            "note": "",
-            "orderKey": 80264,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "锚点区领卡把 assignment 写进 main 工作树：错位条目没人能提交还绊锚点快进",
-            "updatedAt": 1794225431
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5245,6 +5227,24 @@
             "updatedAt": 1794194571
         },
         {
+            "code": "DX-158",
+            "completedAt": 1794225806,
+            "createdAt": 1794225431,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-158",
+            "note": "",
+            "orderKey": 80264,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "锚点区领卡把 assignment 写进 main 工作树：错位条目没人能提交还绊锚点快进",
+            "updatedAt": 1794225806
+        },
+        {
             "code": "DX-152",
             "completedAt": 1794190865,
             "createdAt": 1794190124,
@@ -6055,6 +6055,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T19:59:22",
+    "updated": "2026-11-09T20:03:26",
     "version": 3
 }

@@ -73,6 +73,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "MOD-13",
+            "completedAt": 0,
+            "createdAt": 1794235947,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-13",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD QML 批次三批：执行结果面板弹窗整迁 components/ExecPanelDialog",
+            "updatedAt": 1794235947
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6163,6 +6181,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T22:45:35",
+    "updated": "2026-11-09T22:52:27",
     "version": 3
 }

@@ -269,8 +269,10 @@ data["claims"][code] = {
     "head": head_sha,
     "claimedAt": int(time.time()),
 }
+# 键序=登记序（与 register_board_cards.py 追加写口径一致）；sort_keys 会把全台账
+# 按键重排，领用 diff 即污染所有卡片行，密钥闸门按新增行扫描时会被整本 prose 误拦。
 with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
-    json.dump(data, fh, indent=4, sort_keys=True, ensure_ascii=False)
+    json.dump(data, fh, indent=2, ensure_ascii=False)
     fh.write("\n")
 os.replace(tmp, ledger)
 

@@ -18,7 +18,7 @@ claims 与 note（AGENTS.md §7.2.1），台账保护钩子对这种改动放行
     在仓库内执行；台账固定 <repo>/docs/board-ledger.json，仓库根按脚本自身位置定位。
 输出：实际删除的短号，一行一个；无输出 = 无可删（调用方据此决定是否产生提交）。
 退出码：0 正常 / 2 台账不存在或 JSON 非法。
-写回格式与 claim-card.py 完全一致（indent=4 / sort_keys / ensure_ascii=False /
+写回格式与 claim-card.py 完全一致（indent=2 / 键序=登记序 / ensure_ascii=False /
 LF + 尾换行），两条写入路径不能互相把对方的格式搅乱（否则下次 diff 全是空格噪声）。
 """
 
@@ -99,7 +99,7 @@ def main() -> int:
         data["claims"] = claims
         tmp = str(LEDGER) + ".tmp"
         with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
-            json.dump(data, fh, indent=4, sort_keys=True, ensure_ascii=False)
+            json.dump(data, fh, indent=2, ensure_ascii=False)
             fh.write("\n")
         os.replace(tmp, str(LEDGER))
         for code in removed:

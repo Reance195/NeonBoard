@@ -1270,7 +1270,7 @@ def main():
             ledger["baseline"] = dict(sorted(baseline_out.items()))
             tmp = ledger_path + ".tmp"
             with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
-                json.dump(ledger, fh, indent=4, sort_keys=True, ensure_ascii=False)
+                json.dump(ledger, fh, indent=2, ensure_ascii=False)
                 fh.write("\n")
             os.replace(tmp, ledger_path)
             for code in changed:

@@ -326,7 +326,7 @@ def serialize(ledger: dict) -> str:
     不用 sort_keys：主线台账由 register_board_cards.py 追加写，键序是「登记序」
     而非字典序，排序会把既有卡的行在 diff 里伪装成改写（DX-96 depends 重排的根源）。
     """
-    return json.dumps(ledger, indent=4, ensure_ascii=False) + "\n"
+    return json.dumps(ledger, indent=2, ensure_ascii=False) + "\n"
 
 
 def build_plan(ledger: dict, cards: dict) -> tuple:

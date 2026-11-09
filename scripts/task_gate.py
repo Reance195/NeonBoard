@@ -161,6 +161,24 @@ def flow_scope_beyond_paths(kind, scope, paths):
     )
 
 
+def ledger_format_problems(raw):
+    """台账永久格式约定（维护者 2026-11-09 裁定）：indent=2 / 键序=登记序 / LF + 尾换行。
+
+    round-trip 对比是唯一能抓住任何写点漂移的判据（写点有六处，逐个正则盯格式必漏）；
+    格式漂移的危害实测过：claim-card 的 sort_keys 把整本台账变成新增行，密钥闸门按
+    新增行扫描即全线误拦。JSON 本身非法不在本函数职责（别的闸门与工具会报）。"""
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return []
+    canon = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    if raw == canon:
+        return []
+    return ["台账格式漂移：docs/board-ledger.json 必须与 json.dumps(indent=2, "
+            "ensure_ascii=False) + 尾换行 完全一致（键序=登记序，禁止 sort_keys 重排；"
+            "用正门 writers 重写后再提交，勿手工排版）"]
+
+
 def read_ledger(src):
     """src 可以是 git 修订表达式（HEAD / :index）或磁盘路径。"""
     if os.path.sep in src or src.startswith("."):
@@ -243,6 +261,14 @@ def cmd_message(args):
     # 结论：位置不是凭证，**内容才是**。改成「任何检出里都能代登记，但必须带完整审计行」，
     # 由提交信息本身证明授权来源；cmd_ledger 相应只拦「没有审计凭证的定义变更」。
     if LEDGER.replace("\\", "/") in staged:
+        raw_ledger = git("show", ":0:" + LEDGER.replace("\\", "/"))
+        if raw_ledger.returncode == 0:
+            fmt_problems = ledger_format_problems(raw_ledger.stdout)
+            if fmt_problems:
+                sys.stderr.write("[任务闸门] 台账格式（永久约定，维护者 2026-11-09 裁定）：\n")
+                for line in fmt_problems:
+                    sys.stderr.write("  - %s\n" % line)
+                return 1
         try:
             old = read_ledger("HEAD")
             new = read_ledger(":0")
@@ -1207,6 +1233,24 @@ def cmd_selftest(args):
     ]
     for name, ok in dx105:
         cases.append((name, True, [] if ok else ["numbering 审计断言失败"]))
+
+    # 台账格式 round-trip 判据（永久约定：indent=2 / LF / 尾换行）
+    canon_ledger = json.dumps(base, ensure_ascii=False, indent=2) + "\n"
+    fmt_cases = [
+        ("格式：canonical indent=2 → 放行",
+         ledger_format_problems(canon_ledger) == []),
+        ("格式：indent=4 → 拦截",
+         ledger_format_problems(json.dumps(base, ensure_ascii=False, indent=4) + "\n") != []),
+        ("格式：键序漂移 round-trip 抓不到（判据只管排版；键序靠 writers 登记序口径）→ 放行",
+         ledger_format_problems(
+             json.dumps(base, ensure_ascii=False, indent=2, sort_keys=True) + "\n") == []),
+        ("格式：缺尾换行 → 拦截",
+         ledger_format_problems(canon_ledger.rstrip("\n")) != []),
+        ("格式：JSON 非法不在本判据职责 → 放行",
+         ledger_format_problems("{not json") == []),
+    ]
+    for name, ok in fmt_cases:
+        cases.append((name, True, [] if ok else ["格式判据断言失败"]))
 
     failures = []
     for name, expect_ok, problems in cases:

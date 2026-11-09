@@ -729,6 +729,45 @@ private slots:
         QVERIFY(backupFile.open(QIODevice::ReadOnly));
         QCOMPARE(QString::fromUtf8(backupFile.readAll()), QStringLiteral("old-content"));
     }
+
+    // DX-142：多源竞速判胜必须含清单有效性——captive portal / CDN 错误页的
+    // 200 非空载荷此前会永久压过随后到达的真源，且解析失败直接整体报错。
+    // 两个本地文件源竞速：坏载荷先发，好的那个必须接管（回退其余源）。
+    void raceWinnerInvalidPayloadFallsBackToOtherSource()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        // 缓存与设置全部隔离到沙箱（cachePath / QSettings 都从 dataDir 推）
+        qputenv("NEONBOARD_DATA_DIR", QDir(dir.path()).filePath(QStringLiteral("sandbox")).toUtf8());
+
+        const QString bad = dir.filePath(QStringLiteral("bad.json"));
+        {
+            QFile f(bad);
+            QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            f.write("<html>captcha portal error page</html>"); // 非 JSON 的 200 响应
+        }
+        const QString good = dir.filePath(QStringLiteral("good.json"));
+        {
+            QFile f(good);
+            QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            // 两种安装形态都给产物：测试机装没装 NeonBoard 都能判 available
+            f.write("{\"version\":1,\"latest\":\"9.9.9\",\"notes\":\"takeover\","
+                    "\"artifacts\":["
+                    "{\"kind\":\"setup\",\"url\":\"Setup.exe\",\"sha256\":\"aa\",\"size\":1},"
+                    "{\"kind\":\"portable\",\"url\":\"portable.zip\",\"sha256\":\"bb\",\"size\":2}"
+                    "]}");
+        }
+
+        UpdateManager manager;
+        manager.setUpdateSource(bad);           // 先发坏源：旧判据（非空即胜）会拿它整体报错
+        QVERIFY(manager.addUpdateSource(good)); // 真清单随后
+
+        QString error;
+        QVERIFY2(manager.checkBlocking(20000, &error), qPrintable(error));
+        QCOMPARE(manager.state(), QStringLiteral("available"));
+        QCOMPARE(manager.latestVersion(), QStringLiteral("9.9.9"));
+        QVERIFY(manager.updateAvailable());
+    }
 };
 
 // GUILESS：本用例只测纯逻辑，不需要 QApplication（与项目其它单测保持一致）

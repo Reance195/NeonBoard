@@ -117,6 +117,7 @@ private slots:
     void tombstoneIgnoresCardsWithHomeElsewhere();
     void realDeleteStillAppliesForHomeFile();
     void sameRepoTwoProjectsDoNotKillEachOther();
+    void failedImportDoesNotConsumeMtime();
 
 private:
     QString globalPath() const { return m_dir.filePath(QStringLiteral("global-%1.json").arg(m_seq)); }
@@ -377,6 +378,49 @@ void TestRoadmapSync::sameRepoTwoProjectsDoNotKillEachOther()
     QCOMPARE(m_model->count(), 2);
     QCOMPARE(m_projects->projectOfTask(t1), p1);
     QCOMPARE(m_projects->projectOfTask(t2), p2);
+}
+
+// DX-142：poll 的 mtime 只能在导入成功后记账——先记后导入的话，坏 JSON 触发的
+// 导入失败会把这次变更吞掉。用 setFileTime 把修好后的文件按回失败时刻的 mtime：
+// 修复前该文件永远不会被再导入（mtime 已被失败消费），修复后必须导入。
+void TestRoadmapSync::failedImportDoesNotConsumeMtime()
+{
+    // mtime 判定是 1 秒粒度：三次写入若落在同一秒，goodMtime == badMtime，
+    // 回滚后的 mtime 会与 entry.lastMtime 相同而被跳过。三步全部显式打点，
+    // 拉开到不同秒，只考察「失败是否消费 mtime」这一个变量。
+    const qint64 base =
+        QDateTime::currentSecsSinceEpoch() - 300;
+    const auto stamp = [](const QString &path, qint64 secs) {
+        QFile stampFile(path);
+        QVERIFY(stampFile.open(QIODevice::ReadWrite));
+        QVERIFY(stampFile.setFileTime(
+            QDateTime::fromSecsSinceEpoch(secs), QFileDevice::FileModificationTime));
+        stampFile.close();
+        QCOMPARE(QFileInfo(path).lastModified().toSecsSinceEpoch(), secs);
+    };
+
+    writeGlobal({makeItem(QStringLiteral("T1"), QStringLiteral("任务一"), QStringLiteral("todo"), 100)});
+    stamp(globalPath(), base);
+    const qint64 goodMtime = base;
+    m_sync->poll();
+    QCOMPARE(m_model->count(), 1);
+
+    // 覆盖成坏 JSON（mtime 前进）：poll 导入失败，看板内容不受影响
+    writeSnapshot(globalPath(), QStringLiteral("{oops"));
+    stamp(globalPath(), base + 60);
+    const qint64 badMtime = base + 60;
+    m_sync->poll();
+    QCOMPARE(m_model->count(), 1);
+
+    // 修好文件（快照是全量语义，T1 保留），再把 mtime 按回坏 JSON 那一刻
+    //（模拟「失败后文件未再变化」）
+    writeGlobal({makeItem(QStringLiteral("T1"), QStringLiteral("任务一"), QStringLiteral("todo"), 100),
+                 makeItem(QStringLiteral("T2"), QStringLiteral("任务二"), QStringLiteral("todo"), 200)});
+    stamp(globalPath(), badMtime);
+
+    // 同一个 mtime（坏 JSON 那次的）必须还能触发导入——失败不消费变更
+    m_sync->poll();
+    QCOMPARE(m_model->count(), 2);
 }
 
 QTEST_MAIN(TestRoadmapSync)

@@ -781,40 +781,49 @@ void PluginMarket::downloadPackage(const QString &url, const QString &sha256, co
         return;
     }
 
-    m_pendingUrl = url;
-    m_pendingSha = sha256.trimmed().toLower();
-    m_pendingDest = destFile;
+    // DX-141：状态随 reply 闭包携带，不再共享 m_pending* 成员——两次安装重叠时
+    // 后一次会覆盖前一次的 sha/dest，前一包拿后一包的校验值、写后者的临时文件
+    const QString pendingSha = sha256.trimmed().toLower();
 
     QNetworkRequest request{QUrl(url)};
     request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("NeonBoard-PluginMarket"));
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
+    // DX-141：异步路径此前完全无超时——恶意/被劫持服务器只建连不发数据即可让
+    // 「正在下载…」永久挂起。看门狗与 blocking 下载同源（kDownloadTimeoutMs）
+    request.setTransferTimeout(kDownloadTimeoutMs);
     QNetworkReply *reply = m_network->get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    QTimer *watchdog = new QTimer(reply);
+    watchdog->setSingleShot(true);
+    connect(watchdog, &QTimer::timeout, reply, &QNetworkReply::abort);
+    watchdog->start(kDownloadTimeoutMs);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, pendingSha, destFile, watchdog]() {
+        watchdog->stop();
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
-            emit packageReady(m_pendingDest, false,
+            emit packageReady(destFile, false,
                               QStringLiteral("下载失败：%1").arg(reply->errorString()));
             return;
         }
         const QByteArray payload = reply->readAll();
-        if (!m_pendingSha.isEmpty()) {
+        if (!pendingSha.isEmpty()) {
             const QString actual =
                 QString::fromLatin1(QCryptographicHash::hash(payload, QCryptographicHash::Sha256).toHex());
-            if (actual != m_pendingSha) {
-                emit packageReady(m_pendingDest, false,
+            if (actual != pendingSha) {
+                emit packageReady(destFile, false,
                                   QStringLiteral("校验失败：SHA-256 不匹配"));
                 return;
             }
         }
-        QFile file(m_pendingDest);
+        QFile file(destFile);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            emit packageReady(m_pendingDest, false, QStringLiteral("无法写入临时文件"));
+            emit packageReady(destFile, false, QStringLiteral("无法写入临时文件"));
             return;
         }
         file.write(payload);
         file.close();
-        emit packageReady(m_pendingDest, true, QStringLiteral("下载完成"));
+        emit packageReady(destFile, true, QStringLiteral("下载完成"));
     });
 }
 

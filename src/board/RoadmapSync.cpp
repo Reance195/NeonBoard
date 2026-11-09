@@ -677,8 +677,10 @@ void RoadmapSync::poll()
         const qint64 mtime = info.lastModified().toSecsSinceEpoch();
         if (mtime == entry.lastMtime)
             continue;
-        entry.lastMtime = mtime;
-        importEntry(entry, false);
+        // DX-142：导入成功才记 mtime——先记后导入的话，外部写一半 / 坏 JSON
+        // 触发的导入失败会把这次变更吞掉，直到文件再次被外部改动
+        if (importEntry(entry, false))
+            entry.lastMtime = mtime;
     }
 }
 

@@ -619,26 +619,39 @@ void UpdateManager::startRequest(const QString &url, Purpose purpose)
 
 void UpdateManager::onManifestReplyFinished(QNetworkReply *reply)
 {
-    if (!reply || !m_activeManifestReplies.contains(reply))
+    if (!reply)
         return;
-    
+
+    // DX-142：全路径 deleteLater——竞速胜者会清空列表，被清理的 reply 重入时
+    // 走不到旧代码的 deleteLater，常驻进程每次检查泄漏 N 个对象
     reply->deleteLater();
-    m_activeManifestReplies.removeOne(reply);
-    
+    if (!m_activeManifestReplies.removeOne(reply))
+        return; // 已被胜者清理（abort 触发的 finished）：直接收尾
+
     const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     const bool networkError = reply->error() != QNetworkReply::NoError;
     const QByteArray payload = reply->readAll();
-    
+
     // 成功：取消其他请求，处理清单
     if (!networkError && status < 400 && !payload.isEmpty()) {
-        // 取消其他活动的请求
-        for (QNetworkReply *other : m_activeManifestReplies) {
-            if (other->isRunning())
-                other->abort();
+        // DX-142：判胜必须含内容有效性——captive portal / CDN 错误页的 200 非
+        // 空载荷会永久压过随后到达的真源，且此前胜者解析失败直接整体报错
+        QString parseError;
+        if (parseManifest(payload, &parseError).valid()) {
+            // 先复制并清空列表再 abort：直连信号下 abort() 会同步触发其它 reply
+            // 的 finished 重入本函数，边遍历边 removeOne 是迭代器失效（UB）
+            const QList<QNetworkReply*> others = m_activeManifestReplies;
+            m_activeManifestReplies.clear();
+            for (QNetworkReply *other : others) {
+                if (other->isRunning())
+                    other->abort();
+            }
+            handleManifest(payload, reply->url().toString());
+            return;
         }
-        m_activeManifestReplies.clear();
-        handleManifest(payload, reply->url().toString());
-        return;
+        qWarning().noquote() << "UpdateManager: 清单解析失败，让位其余源/缓存"
+                             << parseError;
+        // 落到下面的失败处理：等其余源或降级缓存
     }
     
     // 失败：检查是否所有请求都失败了
@@ -814,6 +827,11 @@ bool UpdateManager::useCachedManifest()
     const qint64 fetchedAt = static_cast<qint64>(root.value(QStringLiteral("fetchedAt")).toDouble());
     const QByteArray raw = root.value(QStringLiteral("manifest")).toString().toUtf8();
     if (raw.isEmpty())
+        return false;
+
+    // DX-142：缓存 TTL 接线——kCacheTtlSeconds 此前定义后从未引用，缓存无限期使用
+    const qint64 age = QDateTime::currentSecsSinceEpoch() - fetchedAt;
+    if (fetchedAt > 0 && age > kCacheTtlSeconds)
         return false;
 
     QString parseError;

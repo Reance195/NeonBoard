@@ -2,6 +2,7 @@
 
 #include "AppPaths.h"
 #include "Database.h"
+#include "SafePaths.h"
 
 #include <QDebug>
 #include <QDesktopServices>
@@ -299,8 +300,24 @@ PluginLoader::ScanResult PluginLoader::collectScan(const QStringList &disabledId
                 plugin[QStringLiteral("error")] =
                     QStringLiteral("不支持的 apiVersion: %1").arg(apiVersion);
             } else {
+                // DX-141：manifest 的入口字段是 files 落盘围栏之外的另一条引用
+                // 通道——../ 或盘符写法会加载插件目录外的任意 QML。安全相对路径
+                // 直接放行，其余形态解析后必须仍落在插件目录之内。
+                const auto entryInsideDir = [](const QString &dir,
+                                               const QString &relative) -> bool {
+                    if (SafePaths::isSafeRelativePath(relative))
+                        return true;
+                    const QFileInfo info(dir + QLatin1Char('/') + relative);
+                    const QString canonical = info.canonicalFilePath();
+                    const QString canonicalDir = QFileInfo(dir).canonicalFilePath();
+                    return !canonical.isEmpty() && !canonicalDir.isEmpty()
+                           && QDir::fromNativeSeparators(canonical).startsWith(
+                               QDir::fromNativeSeparators(canonicalDir) + QLatin1Char('/'));
+                };
+
                 const QFileInfo mainInfo(pluginDir + QLatin1Char('/') + main);
-                if (mainInfo.exists() && mainInfo.isFile()) {
+                if (mainInfo.exists() && mainInfo.isFile()
+                    && entryInsideDir(pluginDir, main)) {
                     plugin[QStringLiteral("mainUrl")] =
                         QUrl::fromLocalFile(mainInfo.absoluteFilePath()).toString();
                 } else if (mainDeclared) {
@@ -312,7 +329,8 @@ PluginLoader::ScanResult PluginLoader::collectScan(const QStringList &disabledId
 
                 if (!background.isEmpty() && plugin[QStringLiteral("status")] == QStringLiteral("ok")) {
                     const QFileInfo backgroundInfo(pluginDir + QLatin1Char('/') + background);
-                    if (!backgroundInfo.exists() || !backgroundInfo.isFile()) {
+                    if (!backgroundInfo.exists() || !backgroundInfo.isFile()
+                        || !entryInsideDir(pluginDir, background)) {
                         plugin[QStringLiteral("status")] = QStringLiteral("error");
                         plugin[QStringLiteral("error")] =
                             QStringLiteral("后台入口文件不存在: %1").arg(background);
@@ -324,7 +342,9 @@ PluginLoader::ScanResult PluginLoader::collectScan(const QStringList &disabledId
 
                 // 设置页与槽位文件必须落盘存在，缺失视同入口缺失（整插件异常）
                 if (plugin[QStringLiteral("status")] == QStringLiteral("ok")) {
-                    const auto surfaceUrl = [&pluginDir](const QString &relative) -> QString {
+                    const auto surfaceUrl = [&pluginDir, &entryInsideDir](const QString &relative) -> QString {
+                        if (!entryInsideDir(pluginDir, relative))
+                            return QString();
                         const QFileInfo info(pluginDir + QLatin1Char('/') + relative);
                         if (!info.exists() || !info.isFile())
                             return QString();

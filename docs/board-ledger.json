@@ -6815,13 +6815,6 @@
       "title": "锚点区领卡把 assignment 写进 main 工作树：错位条目没人能提交还绊锚点快进"
     }
   },
-  "claims": {
-    "DX-158": {
-      "agent": "agent-dx158",
-      "branch": "fix/anchor-claim-assignment",
-      "head": "d93f922c365b85a702fd51cd1ff2ea939af64ef2",
-      "claimedAt": 1794225493
-    }
-  },
+  "claims": {},
   "version": 1
 }

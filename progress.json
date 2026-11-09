@@ -91,24 +91,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-12",
-            "completedAt": 0,
-            "createdAt": 1794234057,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-12",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD QML 批次二批：执行前确认弹窗整迁 components/ExecConfirmDialog",
-            "updatedAt": 1794234057
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5731,6 +5713,24 @@
             "updatedAt": 1794233067
         },
         {
+            "code": "MOD-12",
+            "completedAt": 1794235493,
+            "createdAt": 1794234057,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-12",
+            "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行（首跑曾命中 editorLoader 非法赋值——组件根缺 property 声明，补声明后清零）、模块守卫与范围检查通过；Main.qml 3675 → 3441（验收线 <=3450）；LINE_LIMITS 同步调低。\n\n交付：qml/components/ExecConfirmDialog.qml（壳与 content 整体迁移，块体逐字照搬，id 保留原名）；接口面两个 property——hostWin（原 window：壳的 hostWindow 与确认后跳转）、editorLoader（原 taskEditorLoader：cwd 可信联动）；CMake 双登记（MOD-11 教训前置，scope 立卡即含 CMakeLists.txt）。\n\n过程踩坑（均已当场修复）：① 块切分 body 起点含壳闭括号 → 组件文件多一个 }（qmlcachegen 当场抓）；② 组件根缺 property var 声明 → 外部赋值非法（--smoke 当场抓）；③ 主线高频推进使 git-done 推送变基冲突 fail-soft 留本地，经临时 worktree 重做合并后补推（c4319cb）。\n\nnote 单独提交已按 DX-113 执行（MOD-11 的混提交瑕疵不再重复）。\n\nnextStep：execPanelDialog / execBatchDialog（约 280 行）与主内容层 Item（933-1851，919 行，耦合最深）；QML 批次完成后续项：十个手工 alias 收敛。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD QML 批次二批：执行前确认弹窗整迁 components/ExecConfirmDialog",
+            "updatedAt": 1794235493
+        },
+        {
             "code": "MOD-7",
             "completedAt": 1794190034,
             "createdAt": 1794144568,
@@ -6163,6 +6163,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T22:40:02",
+    "updated": "2026-11-09T22:44:53",
     "version": 3
 }

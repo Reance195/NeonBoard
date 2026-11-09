@@ -460,6 +460,7 @@ feat(board): 支持列内精确插位 #R1-04=done
 | **R18** | 多项目接入 | 项目管理界面（设置面板创建 / 重命名 / 删除 + 详情抽屉归属下拉）、项目 ↔ 仓库绑定（可空 repo_path + 每项目独立监听 progress.json / 自动归属 / 写回隔离）、无台账仓库一键脚手架接入 | 程序内把任意仓库纳入面板监控，无需手工搭脚手架与双实例；未绑定项目行为与旧版完全一致 | **进行中（0/3）**：R18-01 ~ R18-03 已立卡，待实现 |
 | **R19** | 执行链复盘 | 角色链 workflow 新增 retro 复盘角色：qa / 失败收口之后自动拉起复盘 agent，产出「问题清单 → 根因 → 程序化对策」三段式交接物（R19-01） | 六条内置预设含 retro 步（qa 后、orchestrator 前，小规模可裁）；链失败时 retro 仍执行且其失败 fail-soft；retro handoff 落盘并被 buildSummary「复盘结论」段引用 | **完成（1/1）**：R19-01 已交付（`feat(workflow): 角色链新增 retro 复盘步骤与复盘结论收口` #R19-1）—— TaskExec / WorkflowPresets / WorkflowRunner 三侧落地，失败链仍复盘且 failed 结论不变（fail-soft），verify.ps1 全量通过 ✅ |
 | **R20** | 定时任务插件 | 定时任务插件：按时间计划自动建卡、流转任务、发提醒 | pwsh -File scripts/verify.ps1 全过（全量档：编译 → ctest → --selftest → --smoke → 模块守卫 → 看板一致性） | **待办**：R20-1 已立卡，待实现 |
+| **MOD** | 架构分层 | src 八模块子目录 + src/app 装配层（main.cpp 5 行薄入口 / AppObjects / AppWiring / CliHandlers / CliCommands / AppContext / SelfTestRunner），Main.qml 区块批次迁入 components | pwsh -File scripts/verify.ps1 全过（全量档）且 python scripts/check_module_deps.py --base origin/main 退出 0 | **进行中**：MOD-02 / MOD-05 / MOD-06 / MOD-7 / MOD-8 / MOD-9 / DX-157 / MOD-10 已结；QML 批次（Main.qml 区块迁 components）与后续拆分继续 |
 
 ### 9.1 R6 派发器（全部落地，9/9）
 

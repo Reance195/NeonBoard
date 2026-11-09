@@ -217,6 +217,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "MOD-9",
+            "completedAt": 0,
+            "createdAt": 1794193821,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-9",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD M1c 装配器抽取：AppMain 三段接线区收敛进 AppWiring",
+            "updatedAt": 1794193821
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6001,6 +6019,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T11:09:17",
+    "updated": "2026-11-09T11:10:21",
     "version": 3
 }

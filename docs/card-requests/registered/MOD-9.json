@@ -1,0 +1,13 @@
+{
+  "card": "MOD-9",
+  "sha256": "be60a8e16561bc55ff71b74d5419c96eb1e30935375bacc92c41ff586fd391fb",
+  "authorizedBy": "维护者 2026-11-09 会话指令「建议后续处理 M1c 装配器抽取」（承接 MOD-8 交付说明 nextStep ④），授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡；依据 docs/module-split-plan.md v4 §5 M1c",
+  "form": "docs/card-requests/20261109-mod-app-wiring.md",
+  "registeredAt": "2026-11-09T03:06:11+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-9",
+    "sha": "cd7fd5e0a0e7dd2e970b162032dec8e225360f26"
+  }
+}

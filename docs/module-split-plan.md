@@ -18,6 +18,20 @@
 > **agent**只在交给它的边界内执行具体内容、回报进度（§7.0）。
 > 换言之 `agent-init.ps1` / `git-done.ps1` 的**调用方是派发程序，不是人、也不是 agent 自己**。
 
+> **落地状态（2026-11-09 销账补充）**：本方案是 2026-10-30 快照，正文数字不随后续维护改写；
+> 现状以 `docs/iteration-roadmap.md` §9 MOD 行与台账为准。截至 2026-11-09：
+> - **C++ 侧批次全部结卡**：MOD-02 路径解耦 / MOD-05 守卫接 CI / MOD-06 物理分层 /
+>   MOD-7 拆 `main.cpp` / MOD-8 对象构造工厂 / MOD-9 装配器 / MOD-10 CLI 派发块 / DX-157
+>   台账序列化单点——`main.cpp` 1910 → 5 行，`src/app/` 落地六类装配文件；
+> - **QML 侧批次全部结卡**（MOD-11 ~ MOD-16）：四张执行域弹窗、标题栏 + 主看板区、
+>   霓虹背景包裹层迁入 `qml/components/`，`Main.qml` 4132 → 2404 行（LINE_LIMITS 棘轮同步）；
+> - **M4 收官口径更正**：M4b 未按「URI 子模块」路径执行——保留单模块 + 逐文件
+>   `QT_RESOURCE_ALIAS`（新增组件同步 2 处的约定不变）；「手工 alias」的转发模式已消除，
+>   全仓现存 6 条 `property alias` 均为组件必要接口（BoardChrome ×3 / NeonBackgroundLayer ×1 /
+>   DialogShell、DrawerShell 的 default 内容注入 ×2），Loader 字符串 `source:` 为惰性加载设计保留；
+> - M4a 原目标 ≤1200 行未达成、也不再适用：窗口级函数 / 状态是 Main 的编排本体，
+>   内联实现已全部迁出，2404 行即薄壳终态。
+
 ---
 
 ## 0. 一页速览（决策者读这段就够）
@@ -156,6 +170,9 @@ CLI 分支穿插在对象构造之间（479–504 在构造前，1227–1630 在
 | `DeltaUpdate` / `BsdiffWrapper` / `thirdparty/*` | L90–100（`NeonBoard`）与 L259–265（`neonboard-delta-tool`） |
 
 ### 2.4 QML 侧：拆过，又涨回来了
+
+> **落地状态（2026-11-09）**：本节数字为快照口径，现状见篇首「落地状态」——
+> Main.qml 2404 行，转发 alias 已消除。
 
 `qml/Main.qml` **4260 行**，而台账「组件拆分 1605→1180」那张卡早已 `done`。
 `CMakeLists.txt` 有 **31 条**手工 `QT_RESOURCE_ALIAS`（L137–167），新增组件要同步改 2 处。
@@ -526,6 +543,10 @@ target_link_libraries(nb_plugin PUBLIC nb_core nb_task nb_shell)
 `build-delta.ps1` 产出的 delta 包可被 `--update` 正常消费。
 
 ### M4 —— QML 模块化（顺序已反转）
+
+> **落地状态（2026-11-09）**：已按修正口径收官，见篇首「落地状态」——
+> MOD-11 ~ MOD-16 结卡，Main.qml 2404 行；M4b 的 URI 子模块未执行，
+> 保留单模块 + 逐文件 `QT_RESOURCE_ALIAS` 约定。
 
 **M4b 先做**：`NeonBoard.Core` / `NeonBoard.Components` / `NeonBoard.Theme` 各带 `qmldir`，
 从根上消除 31 条手工 alias。

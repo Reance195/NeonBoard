@@ -19,6 +19,60 @@
             "updatedAt": 1794146702
         },
         {
+            "code": "DX-159",
+            "completedAt": 0,
+            "createdAt": 1794233826,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-159",
+            "note": "",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "handoff.ps1 现场定位只有两级信息源：领用投影在未推分支台账时接手被拒",
+            "updatedAt": 1794233826
+        },
+        {
+            "code": "DX-160",
+            "completedAt": 0,
+            "createdAt": 1794233841,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-160",
+            "note": "",
+            "orderKey": 80264,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "宪章「认领分支必须推 origin」与 pre-push 禁推未合并分支自相矛盾：实战三撞",
+            "updatedAt": 1794233841
+        },
+        {
+            "code": "DX-161",
+            "completedAt": 0,
+            "createdAt": 1794233850,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-161",
+            "note": "",
+            "orderKey": 80580,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "收尾的 assignment 移除是工作树操作不落提交：done 卡条目永久残留 main",
+            "updatedAt": 1794233850
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -6091,6 +6145,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T22:04:27",
+    "updated": "2026-11-09T22:17:30",
     "version": 3
 }

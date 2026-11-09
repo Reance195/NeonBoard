@@ -55,42 +55,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "DX-138",
-            "completedAt": 0,
-            "createdAt": 1794044277,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-138",
-            "note": "",
-            "orderKey": 84992,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "ScopeMatcher 三处判定缺陷：中文路径 octal 不反转义、git 失败 fail-open、diff 单向",
-            "updatedAt": 1794044277
-        },
-        {
-            "code": "DX-139",
-            "completedAt": 0,
-            "createdAt": 1794044284,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-139",
-            "note": "",
-            "orderKey": 85504,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "agent 日志脱敏两处漏配与 triage 启动失败报成功",
-            "updatedAt": 1794044284
-        },
-        {
             "code": "DX-141",
             "completedAt": 0,
             "createdAt": 1794044300,
@@ -5389,6 +5353,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "DX-138",
+            "completedAt": 1794230010,
+            "createdAt": 1794044277,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-138",
+            "note": "",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "ScopeMatcher 三处判定缺陷：中文路径 octal 不反转义、git 失败 fail-open、diff 单向",
+            "updatedAt": 1794230010
+        },
+        {
             "code": "DX-37",
             "completedAt": 1794021910,
             "createdAt": 1793816382,
@@ -5477,6 +5459,24 @@
             ],
             "title": "插件包信任链三洞：盘符路径穿越、卸载目录逃逸、manifest.id 未比对",
             "updatedAt": 1794036764
+        },
+        {
+            "code": "DX-139",
+            "completedAt": 1794230010,
+            "createdAt": 1794044284,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-139",
+            "note": "",
+            "orderKey": 85504,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "agent 日志脱敏两处漏配与 triage 启动失败报成功",
+            "updatedAt": 1794230010
         },
         {
             "code": "DX-128",
@@ -6073,6 +6073,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T21:06:39",
+    "updated": "2026-11-09T21:13:30",
     "version": 3
 }

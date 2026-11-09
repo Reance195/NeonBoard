@@ -130,7 +130,7 @@ ApplicationWindow {
         window.focusTotal = 0
         tray.setFocusRemaining(0)
         if (completed) {
-            background.burst()
+            neonBgLayer.background.burst()
             tray.showMessage("专注结束", "这一轮已完成，起身活动一下")
         }
     }
@@ -884,7 +884,7 @@ ApplicationWindow {
         }
         // 完成任务时背景爆发一次能量脉冲
         function onTaskCompleted(id) {
-            background.burst()
+            neonBgLayer.background.burst()
         }
     }
 
@@ -930,22 +930,10 @@ ApplicationWindow {
         border.color: Theme.border
         clip: true
 
-        Item {
+        NeonBackgroundLayer {
+            id: neonBgLayer
             anchors.fill: parent
-
-            NeonBackground {
-                id: background
-                anchors.fill: parent
-                active: window.active
-                visible: !noBackground
-                iState: Math.min(1, taskStore.doingCount / 6)
-                iFocus: window.focusMode ? 1 : 0
-            }
-
-            Rectangle {
-                anchors.fill: parent
-                color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.28)
-            }
+            hostWin: window
         }
 
         // 专注模式提示：背景已压暗成追光，告知退出方式

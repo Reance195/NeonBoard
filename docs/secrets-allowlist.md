@@ -32,3 +32,8 @@
 
 | 路径 | 行内容 sha256 前 12 位 | 理由 |
 | --- | --- | --- |
+| docs/board-ledger.json | b671e7d1133d | 台账 note 技术文本（产物清单含 FluentWinUI3 等样式名连串），非凭据（DX-156 闸门误报登记） |
+| docs/board-ledger.json | 58e421d488ed | 台账 note 技术文本（启动耗时毫秒数字串），非凭据（DX-156 闸门误报登记） |
+| docs/board-ledger.json | ba6b3d9e5830 | 台账 note 技术文本（QML 样式目录名连串），非凭据（DX-156 闸门误报登记） |
+| docs/board-ledger.json | c0d74748dbe9 | 台账 note 技术文本（DLL 与样式计数串），非凭据（DX-156 闸门误报登记） |
+| docs/board-ledger.json | 18805c3f8555 | 台账 note 技术文本（commit 短号序列串），非凭据（DX-156 闸门误报登记） |

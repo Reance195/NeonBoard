@@ -594,7 +594,9 @@ QVariantMap TaskModel::removeTask(const QString &id)
         {QStringLiteral("dueAt"), task.dueAt},
         {QStringLiteral("createdAt"), task.createdAt},
         {QStringLiteral("updatedAt"), task.updatedAt},
-        {QStringLiteral("completedAt"), task.completedAt}
+        {QStringLiteral("completedAt"), task.completedAt},
+        // DX-140：带上列归属——否则撤销删除固定落默认列，自定义列里删卡再撤销会「复活」到错误列
+        {QStringLiteral("columnId"), task.columnId}
     };
     if (!deleteTask(id))
         return {};
@@ -617,7 +619,14 @@ QString TaskModel::restoreTask(const QVariantMap &task)
         && restored.status != QLatin1String("done")) {
         restored.status = QStringLiteral("todo");
     }
-    restored.columnId = m_database->defaultColumnForStatus(restored.status);
+    // DX-140：撤销快照带列就还原原列；列已被删或状态不匹配则退回默认列
+    //（口径与 restorePlacement 一致）。老的撤销记录没有该字段，行为不变。
+    const QString snapshotColumn = task.value(QStringLiteral("columnId")).toString();
+    if (!snapshotColumn.isEmpty()
+        && m_database->columnStatus(snapshotColumn) == restored.status)
+        restored.columnId = snapshotColumn;
+    else
+        restored.columnId = m_database->defaultColumnForStatus(restored.status);
     restored.priority = qBound(0, task.value(QStringLiteral("priority")).toInt(), 3);
     restored.tags = normalizeTags(task.value(QStringLiteral("tags")).toString());
     restored.orderKey = task.value(QStringLiteral("orderKey")).toLongLong();
@@ -1035,9 +1044,17 @@ bool TaskModel::renumberColumn(const QString &columnId)
             db.rollback();
             return false;
         }
-        m_tasks[row].orderKey = key;
     }
-    return db.commit();
+    // DX-140：内存只在 commit 成功后落——先改内存后 commit、失败不回滚内存，
+    // 模型与 DB 会从此漂移（拖动看似成功，重启后顺序回到旧值）
+    if (!db.commit()) {
+        qWarning() << "TaskModel: renumberColumn commit failed:" << db.lastError().text();
+        db.rollback();
+        return false;
+    }
+    for (int i = 0; i < rows.size(); ++i)
+        m_tasks[rows.at(i)].orderKey = static_cast<qint64>(i + 1) * 1024;
+    return true;
 }
 
 bool TaskModel::moveTaskToEnd(const QString &id, const QString &status)
@@ -1115,7 +1132,11 @@ bool TaskModel::renumberStatus(const QString &status)
             rows.append(i);
     }
     std::sort(rows.begin(), rows.end(), [this](int left, int right) {
-        return m_tasks.at(left).orderKey < m_tasks.at(right).orderKey;
+        // DX-140：与 renumberColumn 同一套 tiebreak（order_key 相同时按 id）——
+        // 两处对同一状态的重排结果才能与展示顺序一致
+        if (m_tasks.at(left).orderKey != m_tasks.at(right).orderKey)
+            return m_tasks.at(left).orderKey < m_tasks.at(right).orderKey;
+        return m_tasks.at(left).id < m_tasks.at(right).id;
     });
 
     QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
@@ -1134,9 +1155,16 @@ bool TaskModel::renumberStatus(const QString &status)
             db.rollback();
             return false;
         }
-        m_tasks[row].orderKey = key;
     }
-    return db.commit();
+    // DX-140：与 renumberColumn 同口径——内存只在 commit 成功后落
+    if (!db.commit()) {
+        qWarning() << "TaskModel: renumber commit failed:" << db.lastError().text();
+        db.rollback();
+        return false;
+    }
+    for (int i = 0; i < rows.size(); ++i)
+        m_tasks[rows.at(i)].orderKey = static_cast<qint64>(i + 1) * 1024;
+    return true;
 }
 
 QString TaskModel::normalizeTags(const QString &tags)

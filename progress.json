@@ -91,24 +91,6 @@
             "updatedAt": 1794044284
         },
         {
-            "code": "DX-140",
-            "completedAt": 0,
-            "createdAt": 1794044292,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-140",
-            "note": "",
-            "orderKey": 85760,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "task 存储完整性四处：reorder 无事务、撤销删除丢列、renumber 失败内存漂移、removeRowFor 吞错",
-            "updatedAt": 1794044292
-        },
-        {
             "code": "DX-141",
             "completedAt": 0,
             "createdAt": 1794044300,
@@ -5533,6 +5515,24 @@
             "updatedAt": 1794038390
         },
         {
+            "code": "DX-140",
+            "completedAt": 1794229599,
+            "createdAt": 1794044292,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-140",
+            "note": "",
+            "orderKey": 85760,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "task 存储完整性四处：reorder 无事务、撤销删除丢列、renumber 失败内存漂移、removeRowFor 吞错",
+            "updatedAt": 1794229599
+        },
+        {
             "code": "DX-134",
             "completedAt": 1794039854,
             "createdAt": 1794033571,
@@ -6073,6 +6073,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T20:34:17",
+    "updated": "2026-11-09T21:06:39",
     "version": 3
 }

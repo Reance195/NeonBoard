@@ -1,0 +1,13 @@
+{
+  "card": "MOD-11",
+  "sha256": "e7172d14f34463d05b740dae6c2911cf87fc00e64da7d1b9ff7f47d880ef768e",
+  "authorizedBy": "维护者 2026-11-09 会话指令「剩余仅 QML 批次（Main.qml 3946 行 URI 化 + 拆分）与 §9 补 MOD 阶段行 执行」（§9 MOD 行已先行合并），授权 QML 批次首批立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261109-mod-exec-queue-dialog.md",
+  "registeredAt": "2026-11-09T13:40:54+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-11",
+    "sha": "8980ddaf2dcdcc469bfb4330ced2bd156d0f9dbc"
+  }
+}

@@ -252,7 +252,11 @@ void TaskExec::removeRowFor(const QString &taskId)
     QSqlQuery query(db);
     query.prepare(QStringLiteral("DELETE FROM task_exec WHERE task_id = ?"));
     query.addBindValue(taskId);
-    query.exec();
+    if (!query.exec())
+        // DX-140：与 TaskExtra::removeRowFor 对齐——清行失败必须可见。残留行会让
+        // 撤销复活的同 UUID 卡悄然带回旧执行定义（goal/acceptance/cwd）
+        qWarning() << "TaskExec: remove row failed for" << taskId << ":"
+                   << query.lastError().text();
     // R7-03：步骤覆盖项跟着一起清，别留下指向已删卡的 meta 垃圾
     m_database->removeMetaValue(stepsKey(taskId));
     bump();

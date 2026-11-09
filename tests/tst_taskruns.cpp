@@ -29,6 +29,7 @@ private slots:
     void orphanRunBecomesBlocked();
     void costSummaryAggregates();
     void schemaVersionStaysAtV2();
+    void reorderFailsAtomicallyOnSecondUpdateFailure();
 
 private:
     QTemporaryDir m_dir;
@@ -188,6 +189,41 @@ void TestTaskRuns::orphanRunBecomesBlocked()
     QCOMPARE(blocked.value(QStringLiteral("status")).toString(), QStringLiteral("blocked"));
     QVERIFY(blocked.value(QStringLiteral("lastError")).toString().contains(
         QStringLiteral("进程中断")));
+}
+
+// DX-140：reorder 的两条 UPDATE 必须同事务——第二条失败（触发器 RAISE 注入）时
+// 第一条必须回滚，不能留下两条同 position 的 waiting 行
+void TestTaskRuns::reorderFailsAtomicallyOnSecondUpdateFailure()
+{
+    const QString runA = m_store->enqueue(QStringLiteral("task-r1"))
+                            .value(QStringLiteral("runId")).toString();
+    const QString runB = m_store->enqueue(QStringLiteral("task-r2"))
+                            .value(QStringLiteral("runId")).toString();
+    QVERIFY(!runA.isEmpty() && !runB.isEmpty());
+    const int posA0 = m_store->run(runA).value(QStringLiteral("position")).toInt();
+    const int posB0 = m_store->run(runB).value(QStringLiteral("position")).toInt();
+    QVERIFY(posA0 != posB0);
+
+    // 注入：runB 的 position 更新一成功就 abort——正好卡在两条 UPDATE 之间
+    QSqlDatabase db = QSqlDatabase::database(m_db->connectionName());
+    QSqlQuery trigger(db);
+    QVERIFY(trigger.exec(QStringLiteral(
+        "CREATE TRIGGER fail_swap2 BEFORE UPDATE ON task_run "
+        "WHEN NEW.id = '%1' AND NEW.position <> OLD.position "
+        "BEGIN SELECT RAISE(ABORT, 'injected'); END").arg(runB)));
+
+    // 把 B 往队头挪：swap1 更新 B（成功），swap2 更新 A（被触发器拦截）
+    QVERIFY(!m_store->reorder(runB, -1));
+
+    trigger.exec(QStringLiteral("DROP TRIGGER fail_swap2"));
+    // 两条 position 都原样：失败整体回滚，没有半套状态
+    QCOMPARE(m_store->run(runA).value(QStringLiteral("position")).toInt(), posA0);
+    QCOMPARE(m_store->run(runB).value(QStringLiteral("position")).toInt(), posB0);
+
+    // 回滚后功能正常：同样的 reorder 现在成功
+    QVERIFY(m_store->reorder(runB, -1));
+    QCOMPARE(m_store->run(runB).value(QStringLiteral("position")).toInt(), posA0);
+    QCOMPARE(m_store->run(runA).value(QStringLiteral("position")).toInt(), posB0);
 }
 
 void TestTaskRuns::schemaVersionStaysAtV2()

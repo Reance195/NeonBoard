@@ -679,7 +679,8 @@ bool TaskRunStore::reorder(const QString &runId, int delta)
 {
     if (runId.isEmpty() || delta == 0)
         return false;
-    const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
+    // DX-140：事务三件套（transaction/commit/rollback）需要非 const 连接
+    QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
     if (!db.isOpen())
         return false;
 
@@ -705,18 +706,36 @@ bool TaskRunStore::reorder(const QString &runId, int delta)
     const QString otherId = neighbor.value(0).toString();
     const int otherPosition = neighbor.value(1).toInt();
 
+    // 两条 UPDATE 必须同事务（DX-140）：半途失败会留下两条同 position 的 waiting 行，
+    // 队列顺序退化为 rowid 兜底；失败也必须告警，不静默
+    if (!db.transaction()) {
+        qWarning() << "TaskRunStore: reorder transaction failed:"
+                   << db.lastError().text();
+        return false;
+    }
     QSqlQuery swap(db);
     swap.prepare(QStringLiteral("UPDATE task_run SET position = ? WHERE id = ?"));
     swap.addBindValue(otherPosition);
     swap.addBindValue(runId);
-    if (!swap.exec())
+    if (!swap.exec()) {
+        qWarning() << "TaskRunStore: reorder swap failed:" << swap.lastError().text();
+        db.rollback();
         return false;
+    }
     QSqlQuery swap2(db);
     swap2.prepare(QStringLiteral("UPDATE task_run SET position = ? WHERE id = ?"));
     swap2.addBindValue(position);
     swap2.addBindValue(otherId);
-    if (!swap2.exec())
+    if (!swap2.exec()) {
+        qWarning() << "TaskRunStore: reorder swap2 failed:" << swap2.lastError().text();
+        db.rollback();
         return false;
+    }
+    if (!db.commit()) {
+        qWarning() << "TaskRunStore: reorder commit failed:" << db.lastError().text();
+        db.rollback();
+        return false;
+    }
     bump();
     return true;
 }

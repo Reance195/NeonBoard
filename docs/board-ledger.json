@@ -322,7 +322,8 @@
     "R9-05": "done",
     "DX-159": "todo",
     "DX-160": "todo",
-    "DX-161": "todo"
+    "DX-161": "todo",
+    "MOD-12": "todo"
   },
   "cards": {
     "DX-01": {
@@ -6930,6 +6931,30 @@
       "stage": "DX",
       "tier": "P2",
       "title": "收尾的 assignment 移除是工作树操作不落提交：done 卡条目永久残留 main"
+    },
+    "MOD-12": {
+      "acceptance": [
+        "pwsh -File scripts/verify.ps1 全量通过且 --smoke 日志 QML 致命告警 0 行",
+        "新增 qml/components/ExecConfirmDialog.qml（壳与 content 逐字照搬，仅 hostWindow: window 改 hostWin、taskEditorLoader 改 editorLoader 两处接口化）且 Main.qml 中 execConfirmDialog 段替换为带 hostWin 与 editorLoader 绑定的一处实例化（id 保留原名）",
+        "Main.qml 行数 <= 3450（基线 3675）且 LINE_LIMITS 中 qml/Main.qml 上限同步调低到实际行数",
+        "CMakeLists 同时登记 qt_add_qml_module 源条目与 QT_RESOURCE_ALIAS 裸名（MOD-11 教训前置）",
+        "python scripts/check_module_deps.py --base origin/main 退出 0 且 python scripts/check_scope.py --base origin/main 退出 0",
+        "维护者人工复核：执行前确认弹窗（对任一卡点执行）字段渲染与确认/取消交互与迁移前一致"
+      ],
+      "author": "codebuddy-session-2026-11-09",
+      "depends": [],
+      "evidence": "2026-11-09 实测（基线 origin/main，Main.qml 3675 行）：execConfirmDialog（R6-03 执行前确认弹窗）块 2777-3012 共 236 行，括号平衡；外部引用仅三处——hostWindow: window（壳头）、taskEditorLoader.item.execNotice（content 内 cwd 可信联动）、window.openExecPanel（确认后跳面板）；另有一处 background: null 是属性赋值误报非 id 引用。接口面 = 两个 property（hostWin / editorLoader），Main 实例化绑定两行即可，调用点零改动。MOD-11 已验证整 Dialog 迁移模式与其两个坑（QT_RESOURCE_ALIAS 裸名登记、body 起点勿含 id 行），本卡直接沿用。维护者 2026-11-09 会话指令「下一张自包含弹窗卡：MOD-12 迁 execConfirmDialog」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
+      "id": "MOD-12",
+      "note": "",
+      "scope": [
+        "qml/Main.qml",
+        "qml/components/**",
+        "CMakeLists.txt",
+        "scripts/check_module_deps.py"
+      ],
+      "stage": "MOD",
+      "tier": "P4",
+      "title": "MOD QML 批次二批：执行前确认弹窗整迁 components/ExecConfirmDialog"
     }
   },
   "claims": {},

@@ -55,6 +55,7 @@ private slots:
     void batWrapperAbsolutePathLaunches();
     void cmdWrapperRejectsMultilinePrompt();
     void cmdWrapperRejectsPercentExpansion();
+    void desensitizeRedactsBearerJwt();
     void cmdWrapperRejectsDoubleQuotePrompt();
     void graceTimeoutSettlesBlocked();
     void realAgentProbeIfEnabled();
@@ -483,6 +484,34 @@ void TestTaskRunner::graceTimeoutSettlesBlocked()
 #else
     QSKIP("Windows 专有：taskkill/命令行载体");
 #endif
+}
+
+// DX-139：Authorization: Bearer <JWT> 必须整串脱敏——旧正则只捕获到 "Bearer" 一词，
+// JWT（base64url）不被 prefixed / longHex 兜底正则命中，明文凭据落 runs/<id>.log
+void TestTaskRunner::desensitizeRedactsBearerJwt()
+{
+    // 常规形态：键名 + Bearer + 三段 JWT，令牌段必须消失
+    const QString jwt = QStringLiteral(
+        "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c");
+    const QString redacted = TaskRunner::desensitize(jwt);
+    QVERIFY2(!redacted.contains(QStringLiteral("eyJhbGciOiJIUzI1NiJ9")),
+             qPrintable(redacted));
+    QVERIFY2(!redacted.contains(QStringLiteral("SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c")),
+             qPrintable(redacted));
+    QVERIFY(redacted.contains(QStringLiteral("[已脱敏]")));
+
+    // 小写 bearer / 无 Bearer 前缀的裸令牌不回归
+    const QString lower = TaskRunner::desensitize(
+        QStringLiteral("token=Bearer abc.def.ghi-more"));
+    QVERIFY(!lower.contains(QStringLiteral("abc.def.ghi-more")));
+
+    // 普通 authorization 键值对（无 Bearer 前缀）不回归
+    QVERIFY(!TaskRunner::desensitize(QStringLiteral("authorization: abc123secret"))
+                 .contains(QStringLiteral("abc123secret")));
+
+    // 对照：普通单词不受影响（不误伤正文）
+    QCOMPARE(TaskRunner::desensitize(QStringLiteral("hello world")),
+             QStringLiteral("hello world"));
 }
 
 void TestTaskRunner::realAgentProbeIfEnabled()

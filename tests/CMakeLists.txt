@@ -365,6 +365,8 @@ neonboard_add_test(tst_triage
     ${NB_DIR_AGENT}/AgentProfile.cpp
     ${NB_DIR_CORE}/ScopeMatcher.cpp
     ${NB_DIR_AGENT}/TriageRunner.cpp
+    ${NB_DIR_AGENT}/TaskRunner.cpp
+    ${NB_DIR_TASK}/TaskRunStore.cpp
 )
 target_link_libraries(tst_triage PRIVATE Qt6::Sql)
 

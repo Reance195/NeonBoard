@@ -67,6 +67,11 @@ public:
     // 静态纯函数，供测试直接调。
     static QString failureSummary(const QByteArray &log, const QString &lastError);
 
+    // 日志脱敏（DX-139 公开为静态纯函数，沿 failureSummary 先例）：token / api key /
+    // Bearer 令牌（含 JWT）替换为占位符，避免凭据随 runs/<id>.log 与 triage raw 外泄。
+    // TriageRunner 落库 raw 前也走这一份实现（Z5）。
+    static QString desensitize(const QString &text);
+
 signals:
     // 一段增量日志（stdout+stderr 合并），UI 可据此流式上屏。
     void logAppended(const QString &runId, const QString &text);
@@ -118,8 +123,6 @@ private:
     void onProcessFinished(Process &p, int exitCode);
     void settle(Process &p, const QString &status, const QVariantMap &detail);
     void accumulate(Process &p, const QByteArray &chunk);
-    // 日志脱敏：token / api key / 长十六进制串替换为占位符，避免凭据随 runs/<id>.log 外泄。
-    static QString desensitize(const QString &text);
     // 把已启动的进程挂进 Job Object（仅 Windows 生效），建立失败不影响主流程。
     static void attachJob(Process &p);
     // 终止整棵进程树：先 Job Object，退化为 QProcess::kill。

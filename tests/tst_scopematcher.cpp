@@ -56,6 +56,10 @@ private slots:
     void checkHitAndViolation();
     void emptyScopeSkips();
     void nonGitDirSkips();
+    void nonGitDirFailsClosed();
+    void baselineCaptureFailsClosed();
+    void porcelainOctalUnescaped();
+    void vanishedBaselineEntriesCounted();
     void preExistingDirtNotCounted();
 
 private:
@@ -195,13 +199,97 @@ void TestScopeMatcher::nonGitDirSkips()
 {
     if (!m_hasGit)
         QSKIP("无 git");
-    // 非 git 目录：git status 失败 → skipped，不判 blocked
+    // 非 git 目录、scope 为空 → 这是「没得查」的跳过，不是「查不了」的放行
+    const QString plain = m_dir.filePath(QStringLiteral("plain"));
+    QVERIFY(QDir().mkpath(plain));
+    const QVariantMap r =
+        m_matcher.check(plain, QVariantList{}, QVariantList{});
+    QVERIFY(r.value(QStringLiteral("ok")).toBool());
+    QVERIFY(r.value(QStringLiteral("skipped")).toBool());
+}
+
+// DX-138：git 失败必须 fail-closed——「跳过检查」会把 .git 被删 / index.lock 残留
+// / git 超时都当放行，安全边界不能 fail-open（旧实现返回 ok:true+skipped）
+void TestScopeMatcher::nonGitDirFailsClosed()
+{
+    if (!m_hasGit)
+        QSKIP("无 git");
     const QString plain = m_dir.filePath(QStringLiteral("plain"));
     QVERIFY(QDir().mkpath(plain));
     const QVariantMap r =
         m_matcher.check(plain, QVariantList{}, QVariantList{QStringLiteral("src/**")});
-    QVERIFY(r.value(QStringLiteral("ok")).toBool());
-    QVERIFY(r.value(QStringLiteral("skipped")).toBool());
+    QVERIFY2(!r.value(QStringLiteral("ok")).toBool(),
+             qPrintable(r.value(QStringLiteral("reason")).toString()));
+    QVERIFY(!r.value(QStringLiteral("skipped")).toBool());
+    // 失败原因可读且进 violations，verdict 侧的「越界改动：」行直接可见
+    QVERIFY(!r.value(QStringLiteral("violations")).toList().isEmpty());
+    QVERIFY(r.value(QStringLiteral("reason")).toString().contains(QStringLiteral("git")));
+}
+
+// DX-138：captureBaseline 路径同样 fail-closed——git 失败给可观察的失败态
+// （ok:false + error），消费方（triage 基线、workflow baseline）拿不到静默空基线
+void TestScopeMatcher::baselineCaptureFailsClosed()
+{
+    if (!m_hasGit)
+        QSKIP("无 git");
+    const QString plain = m_dir.filePath(QStringLiteral("plain"));
+    QVERIFY(QDir().mkpath(plain));
+    const QVariantMap r = m_matcher.captureBaseline(plain);
+    QVERIFY2(!r.value(QStringLiteral("ok")).toBool(),
+             qPrintable(r.value(QStringLiteral("error")).toString()));
+    QVERIFY(!r.value(QStringLiteral("error")).toString().isEmpty());
+    QVERIFY(!r.contains(QStringLiteral("lines")));
+}
+
+// DX-138：porcelain 对非 ASCII 路径的 C 风格转义必须反转义成真实名字，
+// 否则中文文件名的合法改动永远匹配不上 scope glob（整体假阳性）
+void TestScopeMatcher::porcelainOctalUnescaped()
+{
+    // 数据驱动核心断言在 pathFromPorcelain：带引号 + 八进制转义 → 真实中文名。
+    // git 默认 core.quotepath 对 "文档.md"（UTF-8 E6 96 87 E6 A1 A3）的输出形态。
+    const QString line = QStringLiteral(
+        " M \"docs/\\346\\226\\207\\346\\241\\243.md\"");
+    QCOMPARE(ScopeMatcher::pathFromPorcelain(line),
+             QStringLiteral("docs/文档.md"));
+
+    // 反转义后的真实中文名要能命中中文 scope glob（卡片里写的是真实字符）
+    QVERIFY(ScopeMatcher::matches(QStringLiteral("docs/文档.md"),
+                                  QStringList{QStringLiteral("docs/文*")}));
+    // 转义形态的字面串命中不了中文 glob —— 正是修复前的整体假阳性失效模式
+    QVERIFY(!ScopeMatcher::matches(QStringLiteral("docs/\\346\\226\\207\\346\\241\\243.md"),
+                                   QStringList{QStringLiteral("docs/文*")}));
+}
+
+// DX-138：双向比对——基线有、之后消失（还原用户改动 / 删 untracked）同样是改动
+void TestScopeMatcher::vanishedBaselineEntriesCounted()
+{
+    if (!m_hasGit)
+        QSKIP("无 git");
+    QDir(m_repo).mkpath(QStringLiteral("src"));
+    QVERIFY(writeFile(m_repo + QStringLiteral("/src/dirt.txt")));
+    const QVariantList base =
+        m_matcher.captureBaseline(m_repo).value(QStringLiteral("lines")).toList();
+    QVERIFY(!base.isEmpty()); // 基线里有这条 untracked 脏文件
+
+    // agent 把它删了：状态条目从 porcelain 里消失，但改动真实发生
+    QVERIFY(QFile::remove(m_repo + QStringLiteral("/src/dirt.txt")));
+    const QVariantMap r = m_matcher.check(
+        m_repo, base, QVariantList{QStringLiteral("docs/**")});
+    QVERIFY2(!r.value(QStringLiteral("ok")).toBool(),
+             qPrintable(r.value(QStringLiteral("reason")).toString()));
+    const QStringList violations = r.value(QStringLiteral("violations")).toStringList();
+    QVERIFY2(violations.contains(QStringLiteral("src/dirt.txt")),
+             qPrintable(violations.join(QStringLiteral(","))));
+
+    // 对照：scope 覆盖到它就不算违规（方向正确性）
+    QVERIFY(writeFile(m_repo + QStringLiteral("/src/dirt.txt")));
+    const QVariantList base2 =
+        m_matcher.captureBaseline(m_repo).value(QStringLiteral("lines")).toList();
+    QVERIFY(QFile::remove(m_repo + QStringLiteral("/src/dirt.txt")));
+    const QVariantMap r2 = m_matcher.check(
+        m_repo, base2, QVariantList{QStringLiteral("src/**")});
+    QVERIFY2(r2.value(QStringLiteral("ok")).toBool(),
+             qPrintable(r2.value(QStringLiteral("reason")).toString()));
 }
 
 void TestScopeMatcher::preExistingDirtNotCounted()

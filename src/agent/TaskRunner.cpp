@@ -84,9 +84,12 @@ QString lossyPayloadReason(const QString &program, const QString &prompt)
 // 宁可多脱一点也不能让凭据落进日志——诊断时看占位符就够判断是哪一类了。
 const QRegularExpression &credentialPattern()
 {
+    // DX-139：键名之后允许先吞一个 "bearer"（Authorization: Bearer <JWT> 形态），
+    // 否则 \S+ 只捕获到 "Bearer" 一词，真正的令牌原样留在日志里——
+    // JWT 是 base64url，不被 prefixed / longHex 两条兜底正则命中。
     static const QRegularExpression re(
         QStringLiteral(
-            R"((?:api[_-]?key|token|secret|passwd|password|authorization|bearer)(\s*[=:]\s*)(\S+))"),
+            R"((?:api[_-]?key|token|secret|passwd|password|authorization|bearer)(\s*[=:]\s*)(?:bearer\s+)?(\S+))"),
         QRegularExpression::CaseInsensitiveOption);
     return re;
 }

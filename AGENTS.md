@@ -275,7 +275,9 @@ cd .worktrees/agent-c
 - **领用硬门在服务端**：`refs/claims/<短号>` 非强推占位、Ruleset 禁强推与删除、离线 fail-closed；
   本地台账 `claims` 只是投影。CI 领用闸门（`scripts/check_claim_refs.py`）校验 ref 存在且指向分支历史。
 - **认领唯一入口是 `agent-init -Card`，禁止手工 `git update-ref refs/claims/*` 绕过**；
-  认领分支**必须推 origin**（否则 claim ref 远端不可达，闸门无法校验）。占位释放、失效登记
+  认领分支**不单独推送**（pre-push 规则 1 会拒：未合并进 main 的分支禁推）；claim 占位 ref
+  `refs/claims/<短号>` 由 `agent-init` 领用时原子推送保证远端可达（红线实质不变），
+  认领分支成果的远端可达性由 `git-done` 合并推 main 兑现。占位释放、失效登记
   与台账过期登记清理均由 `git-done.ps1` 收尾自动完成；判据细节见附录「7.2.1」。
 - 一分支多卡合法（DX-03）：分支上每个短号必须各自持证；补领
   `agent-init -InPlace -Card <另一张卡>`（已领自动跳过）；实现早于领用只告警不阻断，

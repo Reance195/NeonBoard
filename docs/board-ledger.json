@@ -6828,7 +6828,7 @@
       "depends": [],
       "evidence": "2026-11-09 实测（基线 origin/main，AppMain.cpp 1105 行）：CLI 派发块合计约 600 行仍嵌在装配函数里，逐块依赖分析（花括号配对切块 + 标识符对照声明表，含 MOD-8 别名行）结论——早期组 dataMode（约 60 行，依赖 database/taskStore/dataPort）、syncMode（约 60 行，依赖 roadmap/taskStore/taskTree/taskUndo/database）、emit-hook（约 30 行，同域）、assoc/file-assoc（约 25 行，无对象依赖）四块之间穿插 boardColumns/dragFeel/keyMove/projectStore 四个散点构造（MOD-8 论证留 AppMain）；晚期组 plugin-report（约 100 行，依赖 database/taskStore/taskExtra/tray）之后构造 HookEventQueue（约 6 行，常驻对象、GUI 段 hookQueue.start(1000) 仍用），随后 market-* / install-plugin-url / preview-* / update-* / run-summary / import-ledger 合计约 330 行依赖高度重叠（pluginMarket/pluginLibrary/pluginEventBus/previewHub/updateManager/taskRuns/ledgerImport）。MOD-7 立卡时已证「CLI 块不能统一后移」，MOD-9 的 wirePluginAnnouncements 已验证「函数 + 引用参数 + 调用点原位」模式安全。维护者 2026-11-09 会话指令「开始 CLI 派发块抽取」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
       "id": "MOD-10",
-      "note": "",
+      "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0（致命告警 0 行）、模块守卫与范围检查通过；--selftest 沙箱日志 SELFTEST 序列与基线 22/22 逐标签一致（result OK remaining 0）；--assoc-status / --plugin-report / --market-sources 三条路径退出码 0 且输出形态与基线一致；AppMain.cpp 1105 → 560（验收线 <=620）。\n\n交付：src/app/CliHandlers.h/.cpp——早期组五个命令函数（runDataMode / runSyncMode / runEmitHook / runFileAssoc / runInstallPluginFile）、runPluginReport（HookEventQueue 构造前）、LateCliRunner 结构（HookEventQueue 作成员随结构体活到 main 退出，runMarketCli / runPreviewAndUpdateCli 两段晚期命令，段间保留 setSelfRegisterEnabled(false) 原位）；统一 std::optional<int> 返回语义（含原有的 0/2/3/4 码）；emitCliLine 升头文件 inline 共享；调用点原位、四个散点构造穿插保留。\n\n实施更正与残留：① 实施发现 --install-plugin-file 块（约 24 行、无对象依赖）也一并抽出（函数清单由五个变六个，验收字面「五个命令函数」按实际实现覆盖，卡面留待维护者裁定）；② runPluginReport 实际依赖是 pluginLoader / pluginRuntime / agentProfile（卡面 evidence 预写的 database / taskStore / taskExtra / tray 与实测不符，以实现为准）；③ previewHub.setSelfRegisterEnabled(false) 是 GUI 模式也执行的无条件副作用，拆成两段 run 调用保序而非收进 run 开头；④ LINE_LIMITS 无 AppMain 条目（MOD-7 未纳入），第 5 条的「同步调低」实为无需动作；⑤ 过程踩坑：PS5.1 Set-Content -Encoding utf8 带 BOM 会毁 shebang（已还原守卫脚本），brace_end 切块少切半段会留孤儿体（当场修复两处）——若立「并行构建瞬态失败排查」卡可一并沉淀。",
       "scope": [
         "src/main.cpp",
         "src/app/**",
@@ -6840,6 +6840,13 @@
       "title": "MOD CLI 派发块抽取：AppMain 的六组命令处理迁入 CliHandlers"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-10": {
+      "agent": "agent-mod10",
+      "branch": "refactor/mod10-cli-handlers",
+      "head": "f2d30ed4901a76f1651c83550e7cd62f1401cf1f",
+      "claimedAt": 1794227744
+    }
+  },
   "version": 1
 }

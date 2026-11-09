@@ -1,0 +1,13 @@
+{
+  "card": "MOD-16",
+  "sha256": "fd8af2c5f3baef530b72af4fb080bfcb0d360b1937f11d1d1f02509bc9f4d19c",
+  "authorizedBy": "维护者 2026-11-09 会话指令「继续迁移 NeonBackground 包裹层」，授权 QML 批次六批立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261109-mod-neon-background-layer.md",
+  "registeredAt": "2026-11-09T17:58:58+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-16",
+    "sha": "651601b151449d03b812bc40a6afecf02935f51e"
+  }
+}

@@ -6932,6 +6932,13 @@
       "title": "收尾的 assignment 移除是工作树操作不落提交：done 卡条目永久残留 main"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-159": {
+      "agent": "agent-dx159",
+      "branch": "fix/handoff-locate-unify",
+      "head": "41f465a5ed3f585c1f70964f863ec633a30614e1",
+      "claimedAt": 1794234025
+    }
+  },
   "version": 1
 }

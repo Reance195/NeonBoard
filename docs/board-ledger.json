@@ -81,6 +81,7 @@
         "DX-146": "done",
         "DX-147": "done",
         "DX-148": "done",
+        "DX-149": "todo",
         "DX-15": "done",
         "DX-16": "done",
         "DX-17": "done",
@@ -305,8 +306,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-149": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -1735,6 +1735,43 @@
             "stage": "DX",
             "tier": "P1",
             "title": "宪章 §四「密钥严禁入库」零机器执行，入库闸门全靠自觉"
+        },
+        "DX-149": {
+            "acceptance": [
+                "python scripts/assignment-store.py selftest 全过（upsert / heartbeat / remove / list / stale 幂等、文件锁、写回格式稳定）",
+                "python scripts/check_claim_refs.py --selftest 全过且新增 handoff verdict 用例（未 done + 占位超阈值无活动引用 + 分支最后提交超阈值 → 点名；离线或不可判定 → skip；活动卡与 done 卡原判据不回归）",
+                "python scripts/check_claim_refs.py --audit-handoff 与 pwsh -File scripts/agent-status.ps1 的可接手清单能区分「活动 / 疑似中断 / 孤儿占位」三类，逐卡给出 code / baseline / branch / 最后提交时间 / 陈旧时长 / nextStep / 建议命令，且不误点名 2026-11-08 新领的 DX-146 与 MOD-7",
+                "pwsh -File scripts/handoff.ps1 -Card <code> -ToAgent <agent> -AuthorizedBy <来源> -DryRun 只输出将执行的步骤、不改任何 ref / 文件 / 占用登记；缺 -AuthorizedBy 或 origin 不可达时以非 0 退出且不动服务端占位；全程非交互、无任何确认提示（bypass permissions 模式可直接调用）",
+                "在 handoff.ps1 -Selftest 自建的临时 git 仓库里实跑一次接手：删旧 refs/claims/<code> → 不删分支、不删 worktree、未提交改动保留 → 原地改写 .agent-env.ps1 的 NEONBOARD_AGENT_ID、释放 worktree:<old> 占用并登记 worktree:<new> → 追加主题严格为「chore(claim): 领取 #<code> 实施任务」的提交（「接手自」写进 body）→ claim-card.py 原子重推占位成功，python scripts/check_claim_refs.py --base origin/main --head HEAD 放行",
+                "接手产物 .sandbox/artifacts/handoff.json（复用 nbflow.py:842 路径约定）含相对 origin/main 的 diff 文件清单、最近 5 条提交、git status --porcelain 未提交清单、卡 acceptance 清单、旧 nextStep；旧 nextStep 为空时仍生成且字段齐全",
+                "任一步失败按记录的旧占位 sha 恢复 refs/claims/<code>（Z13 可重入），重跑 handoff.ps1 幂等收敛、不产生重复 claim 提交、不重复删 ref",
+                "post-commit 只在 stage 变化 / 完成一项 acceptance / 显式 checkpoint 时刷新 updatedAt 与 nextStep（不每次提交刷台账）；nbflow.py report、git-done.ps1 收尾、nbflow.py abandon 分别 remove 对应 assignment；docs/agent-assignments.json 只由 scripts/assignment-store.py 写，不进 progress.json、不进 board.db、不参与 refs/claims 防双领判定",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+            ],
+            "author": "maintainer-session-2026-11-08",
+            "depends": [],
+            "evidence": "维护者 2026-11-08 会话指令「1服用，2都可以，3，独立」（1=复用旧 worktree 保未提交改动；3=独立事实源不写进台账 claims；2=授权通道不挑，由实现方按 fail-closed 定）。现场实测：origin 挂 8 条 refs/claims（DX-138~143 / DX-146 / MOD-7），origin/main 台账这 8 张卡 baseline 全为 todo；agent-fxa/fxb/fxc/fxd（DX-139/140/142/143）4 个 worktree 各只有一条 chore(claim) 提交、占用登记自 2026-11-07 17:43 起约 28 小时无实现；DX-138/DX-141 占位尚存而 worktree 已不存在；全仓 .worktrees/ 下无任何 handoff.json，nbflow state.json 里这些卡 nextStep 全空。死锁根因：refs/claims 非强推原子占位（claim-card.py:122），agent-init.ps1:348-363 见 ref 存在即 exit 3；释放口 git-done.ps1:688-700 要求「占位已合入 main 或认领分支已删」，check_claim_refs.py:138-139 classify_claim 只认 baseline=done，claim-card.py:184-196 claim_is_stale 要求「分支已删且占位已释放」——在办卡三条全不满足，claim 记录又只有 agent/branch/head/claimedAt 四字段（claim-card.py:266-271）无心跳无 nextStep。设计稿 docs/module-split-plan.md:798-879 §7.2 已完整给出 5 字段、接手协议 6 步与载体选型，状态为「待拍板 P7」未落地。拍板项 2 维护者补充澄清（2026-11-08）：非「超时自动放权」——agent 一律运行于 bypass permissions on 模式，授权不设交互式审批门，凭会话内指令执行、由命令凭证留痕审计。",
+            "id": "DX-149",
+            "note": "",
+            "scope": [
+                "docs/agent-assignments.json",
+                "scripts/assignment-store.py",
+                "scripts/handoff.ps1",
+                "scripts/claim-card.py",
+                "scripts/check_claim_refs.py",
+                "scripts/agent-init.ps1",
+                "scripts/agent-status.ps1",
+                "scripts/agent-workspace.ps1",
+                "scripts/git-done.ps1",
+                "scripts/nbflow.py",
+                ".githooks/post-commit",
+                "docs/module-split-plan.md",
+                "docs/pitfalls.md",
+                "docs/charter-appendix.md"
+            ],
+            "stage": "DX",
+            "tier": "P1",
+            "title": "在办卡僵尸占位无接手通道：补判活事实源与显式授权的原地接手"
         },
         "DX-15": {
             "acceptance": [
@@ -6422,52 +6459,8 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-149": {
-            "acceptance": [
-                "python scripts/assignment-store.py selftest 全过（upsert / heartbeat / remove / list / stale 幂等、文件锁、写回格式稳定）",
-                "python scripts/check_claim_refs.py --selftest 全过且新增 handoff verdict 用例（未 done + 占位超阈值无活动引用 + 分支最后提交超阈值 → 点名；离线或不可判定 → skip；活动卡与 done 卡原判据不回归）",
-                "python scripts/check_claim_refs.py --audit-handoff 与 pwsh -File scripts/agent-status.ps1 的可接手清单能区分「活动 / 疑似中断 / 孤儿占位」三类，逐卡给出 code / baseline / branch / 最后提交时间 / 陈旧时长 / nextStep / 建议命令，且不误点名 2026-11-08 新领的 DX-146 与 MOD-7",
-                "pwsh -File scripts/handoff.ps1 -Card <code> -ToAgent <agent> -AuthorizedBy <来源> -DryRun 只输出将执行的步骤、不改任何 ref / 文件 / 占用登记；缺 -AuthorizedBy 或 origin 不可达时以非 0 退出且不动服务端占位；全程非交互、无任何确认提示（bypass permissions 模式可直接调用）",
-                "在 handoff.ps1 -Selftest 自建的临时 git 仓库里实跑一次接手：删旧 refs/claims/<code> → 不删分支、不删 worktree、未提交改动保留 → 原地改写 .agent-env.ps1 的 NEONBOARD_AGENT_ID、释放 worktree:<old> 占用并登记 worktree:<new> → 追加主题严格为「chore(claim): 领取 #<code> 实施任务」的提交（「接手自」写进 body）→ claim-card.py 原子重推占位成功，python scripts/check_claim_refs.py --base origin/main --head HEAD 放行",
-                "接手产物 .sandbox/artifacts/handoff.json（复用 nbflow.py:842 路径约定）含相对 origin/main 的 diff 文件清单、最近 5 条提交、git status --porcelain 未提交清单、卡 acceptance 清单、旧 nextStep；旧 nextStep 为空时仍生成且字段齐全",
-                "任一步失败按记录的旧占位 sha 恢复 refs/claims/<code>（Z13 可重入），重跑 handoff.ps1 幂等收敛、不产生重复 claim 提交、不重复删 ref",
-                "post-commit 只在 stage 变化 / 完成一项 acceptance / 显式 checkpoint 时刷新 updatedAt 与 nextStep（不每次提交刷台账）；nbflow.py report、git-done.ps1 收尾、nbflow.py abandon 分别 remove 对应 assignment；docs/agent-assignments.json 只由 scripts/assignment-store.py 写，不进 progress.json、不进 board.db、不参与 refs/claims 防双领判定",
-                "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
-            ],
-            "author": "maintainer-session-2026-11-08",
-            "depends": [],
-            "evidence": "维护者 2026-11-08 会话指令「1服用，2都可以，3，独立」（1=复用旧 worktree 保未提交改动；3=独立事实源不写进台账 claims；2=授权通道不挑，由实现方按 fail-closed 定）。现场实测：origin 挂 8 条 refs/claims（DX-138~143 / DX-146 / MOD-7），origin/main 台账这 8 张卡 baseline 全为 todo；agent-fxa/fxb/fxc/fxd（DX-139/140/142/143）4 个 worktree 各只有一条 chore(claim) 提交、占用登记自 2026-11-07 17:43 起约 28 小时无实现；DX-138/DX-141 占位尚存而 worktree 已不存在；全仓 .worktrees/ 下无任何 handoff.json，nbflow state.json 里这些卡 nextStep 全空。死锁根因：refs/claims 非强推原子占位（claim-card.py:122），agent-init.ps1:348-363 见 ref 存在即 exit 3；释放口 git-done.ps1:688-700 要求「占位已合入 main 或认领分支已删」，check_claim_refs.py:138-139 classify_claim 只认 baseline=done，claim-card.py:184-196 claim_is_stale 要求「分支已删且占位已释放」——在办卡三条全不满足，claim 记录又只有 agent/branch/head/claimedAt 四字段（claim-card.py:266-271）无心跳无 nextStep。设计稿 docs/module-split-plan.md:798-879 §7.2 已完整给出 5 字段、接手协议 6 步与载体选型，状态为「待拍板 P7」未落地。拍板项 2 维护者补充澄清（2026-11-08）：非「超时自动放权」——agent 一律运行于 bypass permissions on 模式，授权不设交互式审批门，凭会话内指令执行、由命令凭证留痕审计。",
-            "id": "DX-149",
-            "note": "",
-            "scope": [
-                "docs/agent-assignments.json",
-                "scripts/assignment-store.py",
-                "scripts/handoff.ps1",
-                "scripts/claim-card.py",
-                "scripts/check_claim_refs.py",
-                "scripts/agent-init.ps1",
-                "scripts/agent-status.ps1",
-                "scripts/agent-workspace.ps1",
-                "scripts/git-done.ps1",
-                "scripts/nbflow.py",
-                ".githooks/post-commit",
-                "docs/module-split-plan.md",
-                "docs/pitfalls.md",
-                "docs/charter-appendix.md"
-            ],
-            "stage": "DX",
-            "tier": "P1",
-            "title": "在办卡僵尸占位无接手通道：补判活事实源与显式授权的原地接手"
         }
     },
-    "claims": {
-        "MOD-7": {
-            "agent": "agent-mod7",
-            "branch": "refactor/mod7-main-cpp-split",
-            "claimedAt": 1794144782,
-            "head": "1de024050fb951a9fd2787cf0ff315ce7558ef6e"
-        }
-    },
+    "claims": {},
     "version": 1
 }

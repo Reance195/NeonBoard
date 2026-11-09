@@ -3818,7 +3818,7 @@
             "depends": [],
             "evidence": "2026-11-09 实物复测（基线 origin/main）：MOD-7 已把 main.cpp 降到 5 行薄入口，但 src/app/AppMain.cpp 仍有 1302 行，其中两段逐行对象声明区（253-327 共 22 个核心对象、566-606 共 15 个界面/插件对象）直接嵌在装配函数里，中间穿插 open 逻辑、deferredSchema 分支、menu-preview return 点与 5 处接线调用，构造单元无法独立审视与测试。方案 docs/module-split-plan.md v4 §5 M1d 明确此项为「对象构造工厂」，MOD-7 交付说明把它列为 nextStep 第一项。穿插安全性已核实：CardDetail 构造只存指针不读 taskUndo.taskExtra()（CardDetail.cpp:54-60），TaskUndo::setTaskExtra 与 WorkflowRunner::setPresets 均为运行时才消费的指针注入，移入工厂构造体末尾不改变任何可观察行为。维护者 2026-11-09 会话指令「继续做 M1d 构造工厂拆分」（承接 MOD-7 交付说明 nextStep ①），授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
             "id": "MOD-8",
-            "note": "",
+            "note": "已完成 5 / 待做 0 —— 五条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0（致命告警 0 行）、模块守卫与范围检查通过；--selftest 沙箱日志 SELFTEST 标签序列与基线 22/22 逐标签一致（result OK remaining 0）；AppMain.cpp 1302 → 1250（验收线 <=1250）。\n\n交付：src/app/AppObjects.h/.cpp 三个构造单元（Early 21 个核心对象 / Ui 6 个界面外壳 / Plugins 9 个插件更新），成员声明顺序与构造参数逐字照搬；两段逐行声明区改由工厂构造 + 引用别名接管；原穿插的 scanAsync / 启动重放 / declaredAgents 刷新 / 实例标签 / 版本日志集中到构造之后；setTaskExtra / setPresets 移入工厂构造体末尾（CardDetail 构造只存指针，首次消费在运行期）。\n\n保序决策与残留：① taskStore 与条件 load 留在装配处原位——load 必须早于 taskAudit 信号挂接（拆进工厂会让 load 信号被 audit 收到，task_event 记录变多）；② Metrics first-frame 接线捕获 main 局部 boot，留 AppMain；③ boardColumns / dragFeel / keyMove / projectStore 四个散点声明留在 CLI 块之间原位；④ QML 注入区与 CLI 派发块仍在 AppMain（1250 行），属后续批次（M1c 装配器 / 其余 CLI 抽取）的 nextStep。",
             "scope": [
                 "src/app/**",
                 "CMakeLists.txt"

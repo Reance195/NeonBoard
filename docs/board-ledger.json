@@ -6971,7 +6971,7 @@
       "depends": [],
       "evidence": "2026-11-09 实测（基线 origin/main，Main.qml 3675 行）：execPanelDialog（R6-06 执行结果面板弹窗）块 2784-3045 共 262 行，括号平衡；外部引用仅一处——window.openExecQueue（确认后跳队列），另有一处 background: null 经核实是属性赋值误报非 id 引用；content 引用的 taskRuns / costSummary 等均为 context property。接口面 = hostWin 一个 property。MOD-11 / MOD-12 已验证整 Dialog 迁移模式与三个坑（QT_RESOURCE_ALIAS 裸名、body 起点勿含 id 行与壳闭括号、组件根须显式 property var 声明），本卡直接沿用。维护者 2026-11-09 会话指令「下一张卡：迁移 execPanelDialog 弹窗」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
       "id": "MOD-13",
-      "note": "",
+      "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行、模块守卫与范围检查通过；Main.qml 3675 → 3420（验收线 <=3420）；LINE_LIMITS 同步调低。\n\n交付：qml/components/ExecPanelDialog.qml（壳与 content 整体迁移，块体逐字照搬，id 保留原名）；接口面仅一个 property——hostWin（原 window：壳的 hostWindow 与确认后跳队列）；CMake 双登记（MOD-11/12 教训前置，scope 立卡即含 CMakeLists.txt）。\n\n过程踩坑（均已当场修复）：① 块尾 `}` 多包一层（MOD-12 同款第三例，qmlcachegen 当场抓）；② tests 编译瞬态批量失败一次（MOD-9/12 同款第四例），增量重跑即绿——四例同模式强烈建议立「并行构建瞬态失败排查」卡。\n\nnote 单独提交已按 DX-113 执行。\n\nnextStep：execBatchDialog（约 130 行，QML 批次收尾）与主内容层 Item（933-1851，919 行，耦合最深，含 NeonBackground 与拖拽层）。",
       "scope": [
         "qml/Main.qml",
         "qml/components/**",

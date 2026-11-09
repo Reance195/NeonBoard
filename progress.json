@@ -73,24 +73,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-13",
-            "completedAt": 0,
-            "createdAt": 1794235947,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-13",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD QML 批次三批：执行结果面板弹窗整迁 components/ExecPanelDialog",
-            "updatedAt": 1794235947
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5767,6 +5749,24 @@
             "updatedAt": 1794235493
         },
         {
+            "code": "MOD-13",
+            "completedAt": 1794237602,
+            "createdAt": 1794235947,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-13",
+            "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行、模块守卫与范围检查通过；Main.qml 3675 → 3420（验收线 <=3420）；LINE_LIMITS 同步调低。\n\n交付：qml/components/ExecPanelDialog.qml（壳与 content 整体迁移，块体逐字照搬，id 保留原名）；接口面仅一个 property——hostWin（原 window：壳的 hostWindow 与确认后跳队列）；CMake 双登记（MOD-11/12 教训前置，scope 立卡即含 CMakeLists.txt）。\n\n过程踩坑（均已当场修复）：① 块尾 `}` 多包一层（MOD-12 同款第三例，qmlcachegen 当场抓）；② tests 编译瞬态批量失败一次（MOD-9/12 同款第四例），增量重跑即绿——四例同模式强烈建议立「并行构建瞬态失败排查」卡。\n\nnote 单独提交已按 DX-113 执行。\n\nnextStep：execBatchDialog（约 130 行，QML 批次收尾）与主内容层 Item（933-1851，919 行，耦合最深，含 NeonBackground 与拖拽层）。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD QML 批次三批：执行结果面板弹窗整迁 components/ExecPanelDialog",
+            "updatedAt": 1794237602
+        },
+        {
             "code": "MOD-7",
             "completedAt": 1794190034,
             "createdAt": 1794144568,
@@ -6199,6 +6199,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T23:04:35",
+    "updated": "2026-11-09T23:20:02",
     "version": 3
 }

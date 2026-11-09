@@ -305,9 +305,13 @@ pwsh -File scripts/agent-workspace.ps1 -Action Release -Agent agent-c -Scope roo
   agent 运行环境**必须具备 origin 写权限**；本地存在 `refs/claims/*` **不构成**有效认领，必须以
   `git ls-remote origin refs/claims/<短号>` 服务端可达为准。离线 / 无写权限时认领直接失败，
   不得降级为「仅本地占位」。
-- **worktree 分支必须推 origin**：认领的 `fix/*` / `feature/*` 分支必须推送到 origin —— 不仅为 CI，
-  更为 claim ref 指向的 commit object 在 origin 可达；否则 `ls-remote` 引用的提交在 origin 不可达，
-  CI 领用闸门（`check_claim_refs.py`）无法校验（`feature/onboarding`（R4-07）从未推 origin 即为一例）。
+- **认领分支不单独推送，claim 占位 ref 远端可达是硬要求**：pre-push 规则 1 禁推「未合并进 main」
+  的分支（`refs/claims/*` / `refs/registrations/*` 占位豁免），认领的 `fix/*` / `feature/*` 分支
+  **不单独推 origin**；claim ref `refs/claims/<短号>` 由 `agent-init` 领用时原子推送（失败即
+  `exit 3`），其指向的提交对象随 ref 上服务端，可达性由占位 ref 自身保证——红线实质不放松；
+  认领分支成果的远端可达性由 `git-done` 合并推 main 兑现。直接 `git push origin <认领分支>` 会被
+  规则 1 拦下：DX-138~143 批次实录，agent-h1/h2/h3 三个接手 agent 按旧文档「必须推 origin」行事
+  三次撞同一拦截（合并提交 `8e3607f` / `c603783` / `2d41474`），均未绕行、改走 git-done 完成交付。
   `agent-init.ps1` 开区时会扫 `.worktrees/*`，把「有提交不在任何 origin 引用可达范围内」的工作区
   **列名警告**（`03b4424`）——警告只负责让人看见，回收决定仍归人，不自动删（§7.10）。
 - **合并后必须释放占位**：`git-done.ps1` 的 `Invoke-ClaimRefCleanup` 在推送成功后按两条判据释放：

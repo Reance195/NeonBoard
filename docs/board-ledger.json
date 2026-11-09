@@ -6899,7 +6899,7 @@
       "depends": [],
       "evidence": "维护者 2026-11-09 会话指令「把三个尾巴立成小卡」（尾巴 2）。实录（DX-138~143 接手批次）：三个接手 agent 按派工指令「git push origin <认领分支>」全部被 pre-push 规则 1 拒（推送未合并进 main 的分支），三次撞同一处后各自改走 git-done 合并推送完成交付——语义实际是「claim 占位 ref（refs/claims/<短号>）由 agent-init 推送保证远端可达；认领分支本身的可达性由 git-done 合并推送兑现」。AGENTS.md §7.2.1 现行措辞「认领分支必须推 origin（否则 claim ref 远端不可达，闸门无法校验）」与钩子行为矛盾：claim ref 的可达性从来由占位 ref 自己保证，与分支是否单独推送无关。Z6：同一处实战三撞，必须变成文档判据。",
       "id": "DX-160",
-      "note": "",
+      "note": "交付说明（DX-160，agent-dx160，2026-11-09）：宪章与两份流程文档的「认领分支必须推 origin」已统一为与 pre-push 规则 1 一致口径——认领分支不单独推送（规则 1 会拒）；claim 占位 ref refs/claims/<短号> 由 agent-init 领用时原子推送保证远端可达（红线实质不变）；成果可达性由 git-done 合并推 main 兑现。逐处清单：① AGENTS.md §7.2.1（原 278 行）「认领分支必须推 origin（否则 claim ref 远端不可达，闸门无法校验）」→「认领分支不单独推送（pre-push 规则 1 会拒）+ 占位 ref 原子推送保证可达（红线不变）+ 成果由合并推 main 兑现」；② docs/charter-appendix.md「7.2.1」七条硬约束第三条（原 308-312 行）「worktree 分支必须推 origin」整条改写，并收录 DX-138~143 批次 agent-h1/h2/h3 三撞 pre-push 规则 1 实录（合并提交 8e3607f/c603783/2d41474，均未绕行）；③ docs/git-workflow.md（原 179 行）体检项括注「宪章 §7.2.1 要求认领分支必须推 origin」→「认领分支不单独推送——规则 1 禁推未合并分支，成果可达性由 git-done 合并推 main 兑现」；④ docs/module-split-plan.md：grep「认领分支」「推 origin」「必须推」「推送.*分支」「7.2.1」「git push」逐模式扫描，争议表述 0 处命中（仅 refs/claims 占位 ref 机制描述与 git-done 推送描述，与红线一致），无需改动。scope 外同语义命中（只记录不越界改）：docs/pitfalls.md §1.15 根因（原 168 行）仍引旧口径，建议后续卡跟进；docs/pitfalls.md §5.2（2281 行）讲占位 ref 可达、与新口径一致无需改；docs/agent-memory-review-20261105.md 86 行为历史复盘记录，不改。验收：pwsh -File scripts/verify.ps1 -ScriptOnly 退出码 0（范围检查 4 改动全落 DX-160 scope）。",
       "scope": [
         "AGENTS.md",
         "docs/charter-appendix.md",
@@ -6957,6 +6957,13 @@
       "title": "MOD QML 批次二批：执行前确认弹窗整迁 components/ExecConfirmDialog"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-160": {
+      "agent": "agent-dx160",
+      "branch": "docs/claim-branch-push-semantics",
+      "head": "724789deea5e24244e2150f0aa95d0dd1487d70e",
+      "claimedAt": 1794234053
+    }
+  },
   "version": 1
 }

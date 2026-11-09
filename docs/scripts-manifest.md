@@ -9,6 +9,7 @@
 | `agent-init.ps1` | 为某个 agent 创建独立工作区 |
 | `agent-status.ps1` | Agent 状态汇总脚本：整合 worktree 活跃度、当前分支、待办事项。 |
 | `agent-workspace.ps1` | NeonBoard 多代理工作区占用登记 |
+| `assignment-store.py` | docs/agent-assignments.json 的唯一写者：接手判活事实存储（DX-149）。 |
 | `board-apply.py` | 建卡请求的预演器与落盘器（默认 dry-run）。 |
 | `board-view.py` | 把台账 + 建卡计划渲染成一张只读 HTML 面板。 |
 | `board_priority.py` | 立卡排位规则的唯一实现（DX-123）。 |
@@ -42,6 +43,7 @@
 | `format.ps1` | format.ps1 —— 用 clang-format 就地格式化源码 |
 | `git-done.ps1` | NeonBoard 多代理合并助手 —— 合并分支回主分支并清理 |
 | `git-helpers.ps1` | git-helpers.ps1 —— git 符号引用取值的空值安全封装（单一实现，DX-63） |
+| `handoff.ps1` | 在办卡原址接手：判活事实源与接手三态巡检（DX-149）。 |
 | `gui-uia-verify.ps1` | gui-uia-verify.ps1 —— GUI 实机验收通道（DX-102） |
 | `install-agent-adapters.ps1` | install-agent-adapters.ps1 —— 把 NeonBoard 适配器装到本机各 agent 的配置目录 |
 | `make_icon.py` | 生成应用图标（PIL 绘制霓虹圆环，输出 .ico/.png 预览） |

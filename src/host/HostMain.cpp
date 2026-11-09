@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QDebug>
 #include <QList>
 #include <QProcess>
 #include <QSettings>
@@ -21,6 +22,13 @@ namespace {
 
 constexpr UINT kTrayMessage = WM_APP + 1;
 constexpr UINT_PTR kIdleTimerId = 1;
+
+// DX-143：Explorer 重启会广播 TaskbarCreated，托盘图标必须跟着重建，否则永久消失
+UINT taskbarCreatedMessage()
+{
+    static const UINT msg = RegisterWindowMessageW(L"TaskbarCreated");
+    return msg;
+}
 constexpr int kHotkeyId = 1;
 constexpr int kIdleCheckMs = 2000;
 constexpr int kIdleTicksBeforeStop = 30;
@@ -244,6 +252,11 @@ void showTrayMenu()
 
 LRESULT CALLBACK hostWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    if (msg == taskbarCreatedMessage()) {
+        // DX-143：Explorer 重启后重建托盘图标（g_trayIcon 的配置原样复用）
+        Shell_NotifyIconW(NIM_ADD, &g_trayIcon);
+        return 0;
+    }
     switch (msg) {
     case WM_HOTKEY:
         if (wParam == kHotkeyId)
@@ -336,7 +349,12 @@ int main(int argc, char **argv)
     wcscpy_s(g_trayIcon.szTip, L"NeonBoard");
     Shell_NotifyIconW(NIM_ADD, &g_trayIcon);
 
-    RegisterHotKey(g_hostWindow, kHotkeyId, MOD_CONTROL | MOD_SHIFT, VK_SPACE);
+    if (!RegisterHotKey(g_hostWindow, kHotkeyId, MOD_CONTROL | MOD_SHIFT, VK_SPACE)) {
+        // DX-143：注册失败必须可见——HUD 仍在宣传这个快捷键，静默失败等于骗人；
+        // 托盘与二次启动唤起不依赖热键，降级可用
+        qWarning() << "HostMain: 全局热键 Ctrl+Shift+Space 注册失败（可能被其他程序占用），"
+                      "托盘与二次启动唤起仍可用";
+    }
     SetTimer(g_hostWindow, kIdleTimerId, kIdleCheckMs, nullptr);
 
     // 宿主只负责「常驻 + 唤起」，不区分动作：收到任何二次启动请求都把看板亮出来

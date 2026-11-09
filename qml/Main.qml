@@ -3561,10 +3561,10 @@ MouseArea {
         property string notice: ""
 
         function refresh() {
-            rows = scheduler.queueView(100)
-            concurrencyCount = scheduler.concurrency
-            queuePaused = scheduler.paused
-            estimateSec = scheduler.estimateRemainingSec(300)
+            // DX-143：数组整体赋值会触发 ListView 全量 reset（delegate 每秒销毁重建、running 频闪、滚动回跳），仅内容真变化才赋值；标量直赋开销可忽略
+            const nr = scheduler.queueView(100), nc = scheduler.concurrency, np = scheduler.paused, ne = scheduler.estimateRemainingSec(300)
+            if (JSON.stringify(nr) !== JSON.stringify(rows)) rows = nr
+            if (concurrencyCount !== nc) concurrencyCount = nc; if (queuePaused !== np) queuePaused = np; if (estimateSec !== ne) estimateSec = ne
         }
 
         // 秒 → 「12 分 30 秒」/「约 01:20 完成」

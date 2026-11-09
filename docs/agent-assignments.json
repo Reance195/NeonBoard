@@ -1,4 +1,21 @@
 {
-    "assignments": {},
+    "assignments": {
+        "DX-143": {
+            "agent": "agent-h4",
+            "branch": "fix/audit-host-ui",
+            "claimedAt": 1794230452,
+            "handoffFrom": "",
+            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
+            "progress": {
+                "done": 0,
+                "total": 0
+            },
+            "sessionId": "",
+            "stage": "开区",
+            "updatedAt": 1794230452,
+            "worktree": ".worktrees/agent-fxd"
+        }
+    },
+    "updatedAt": 1794230452,
     "version": 1
 }

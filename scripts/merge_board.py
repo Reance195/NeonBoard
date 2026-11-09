@@ -194,7 +194,7 @@ def run_merge(dry_run: bool) -> int:
         return 0
 
     target = REPO / LEDGER_REL
-    target.write_text(json.dumps(merged, ensure_ascii=False, indent=4, sort_keys=True) + "\n",
+    target.write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n",
                       encoding="utf-8", newline="\n")
     print(f"✓ 台账已三路合并：cards {len(ours['cards'])} → {len(merged['cards'])}"
           f"（从 theirs 收入 {len(from_theirs)} 张：{'、'.join(from_theirs) or '无'}）")

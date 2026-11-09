@@ -775,7 +775,7 @@ def main(argv=None):
         ledger["cards"] = cards
         ledger["baseline"] = baseline
         ledger_path.write_text(
-            json.dumps(ledger, ensure_ascii=False, indent=4) + "\n",
+            json.dumps(ledger, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8")
 
         receipt_dir = root / RECEIPT_DIR_REL

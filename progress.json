@@ -199,24 +199,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-9",
-            "completedAt": 0,
-            "createdAt": 1794193821,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-9",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD M1c 装配器抽取：AppMain 三段接线区收敛进 AppWiring",
-            "updatedAt": 1794193821
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5641,6 +5623,24 @@
             "updatedAt": 1794192962
         },
         {
+            "code": "MOD-9",
+            "completedAt": 1794196102,
+            "createdAt": 1794193821,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-9",
+            "note": "已完成 5 / 待做 0 —— 五条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0（致命告警 0 行）、模块守卫与范围检查通过；--selftest 沙箱日志 SELFTEST 标签序列与基线 22/22 逐标签一致（result OK remaining 0）；--smoke 日志可见接线全部生效（Backup ready / BOOT attached / JUMPLIST applied / firstframe cpu）；AppMain.cpp 1250 → 1105（验收线 <=1105）。\n\n交付：src/app/AppWiring.h/.cpp——BackgroundWiring 构造单元（三个常驻 QTimer 作成员随结构体活到 main 退出，lambda 捕 this 经成员引用访问 main 栈对象）、wirePluginAnnouncements（scanAsync / 启动重放 / declaredAgents 刷新 / 实例标签 / 版本日志）、wireShellActions（热键安装 / 提醒调度启动 / dispatch / 托盘热键统计更新退出接线 / 跳转列表，dispatch 以 std::function 返回交还调用方，splashStage 作为参数传入——它是捕获 splash 与 pump 预算的 main 局部 lambda）。\n\n保序决策与残留：① hotkey.install 与 reminderScheduler.start 随 wireShellActions 收编（原夹在 splashStage 之间，传入 splashStage 后次序逐字保持）；② silentStart / splash 显示序列 / startupCheck / smoke 计时 / exec 仍留 AppMain（强依赖 splash 与启动收尾局部量）；③ Metrics metrics 声明提前到 BackgroundWiring 构造之前（原在轮询接线段中间，构造轻且与轮询无交互）；④ QML 注入区与 CLI 派发块仍在 AppMain（1105 行），属后续批次；⑤ 过程实测 register_board_cards.py / derive_board_status.py 写台账仍用 indent=4，而主线规范已是 indent=2（DX-156），格式漂移曾触发 pygate 密钥误报并造成一次 6671 行重排——共享脚本在 scope 外，建议另立卡把台账写盘格式收敛为单点。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD M1c 装配器抽取：AppMain 三段接线区收敛进 AppWiring",
+            "updatedAt": 1794196102
+        },
+        {
             "code": "R9-02",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -6019,6 +6019,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T11:22:51",
+    "updated": "2026-11-09T11:48:22",
     "version": 3
 }

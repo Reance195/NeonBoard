@@ -199,24 +199,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-8",
-            "completedAt": 0,
-            "createdAt": 1794191209,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-8",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD M1d 对象构造工厂：AppMain.cpp 构造区收敛为三个构造单元",
-            "updatedAt": 1794191209
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5587,6 +5569,24 @@
             "updatedAt": 1794190034
         },
         {
+            "code": "MOD-8",
+            "completedAt": 1794192962,
+            "createdAt": 1794191209,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-8",
+            "note": "已完成 5 / 待做 0 —— 五条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0（致命告警 0 行）、模块守卫与范围检查通过；--selftest 沙箱日志 SELFTEST 标签序列与基线 22/22 逐标签一致（result OK remaining 0）；AppMain.cpp 1302 → 1250（验收线 <=1250）。\n\n交付：src/app/AppObjects.h/.cpp 三个构造单元（Early 21 个核心对象 / Ui 6 个界面外壳 / Plugins 9 个插件更新），成员声明顺序与构造参数逐字照搬；两段逐行声明区改由工厂构造 + 引用别名接管；原穿插的 scanAsync / 启动重放 / declaredAgents 刷新 / 实例标签 / 版本日志集中到构造之后；setTaskExtra / setPresets 移入工厂构造体末尾（CardDetail 构造只存指针，首次消费在运行期）。\n\n保序决策与残留：① taskStore 与条件 load 留在装配处原位——load 必须早于 taskAudit 信号挂接（拆进工厂会让 load 信号被 audit 收到，task_event 记录变多）；② Metrics first-frame 接线捕获 main 局部 boot，留 AppMain；③ boardColumns / dragFeel / keyMove / projectStore 四个散点声明留在 CLI 块之间原位；④ QML 注入区与 CLI 派发块仍在 AppMain（1250 行），属后续批次（M1c 装配器 / 其余 CLI 抽取）的 nextStep。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD M1d 对象构造工厂：AppMain.cpp 构造区收敛为三个构造单元",
+            "updatedAt": 1794192962
+        },
+        {
             "code": "R9-02",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5965,6 +5965,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T10:53:48",
+    "updated": "2026-11-09T10:56:02",
     "version": 3
 }

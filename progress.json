@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-149",
-            "completedAt": 0,
-            "createdAt": 1794189946,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-149",
-            "note": "",
-            "orderKey": 39184,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "在办卡僵尸占位无接手通道：补判活事实源与显式授权的原地接手",
-            "updatedAt": 1794189946
-        },
-        {
             "code": "R11-14",
             "completedAt": 0,
             "createdAt": 1794146702,
@@ -3370,6 +3352,24 @@
             "updatedAt": 1793903572
         },
         {
+            "code": "DX-149",
+            "completedAt": 1794193757,
+            "createdAt": 1794189946,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-149",
+            "note": "",
+            "orderKey": 39184,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "在办卡僵尸占位无接手通道：补判活事实源与显式授权的原地接手",
+            "updatedAt": 1794193757
+        },
+        {
             "code": "DX-69",
             "completedAt": 1793903226,
             "createdAt": 1793901942,
@@ -6001,6 +6001,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T10:59:47",
+    "updated": "2026-11-09T11:09:17",
     "version": 3
 }

@@ -6765,6 +6765,13 @@
       "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-155": {
+      "agent": "sweep155",
+      "branch": "chore/pending-worktree-sweep",
+      "claimedAt": 1794195855,
+      "head": "2fb16d315bc6b76d51909577ba02f3d1440cce41"
+    }
+  },
   "version": 1
 }

@@ -7005,6 +7005,13 @@
       "title": "claim-card 落盘按脚本自身路径定位 store、is_anchor 却判 root：口径不一致让锚点领卡条目必写锚点"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-13": {
+      "agent": "agent-mod13",
+      "branch": "refactor/mod13-exec-panel-dialog",
+      "head": "7fed63d1f918a91c9a8ee83f4e6341b335afb566",
+      "claimedAt": 1794236024
+    }
+  },
   "version": 1
 }

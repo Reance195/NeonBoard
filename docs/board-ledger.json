@@ -7005,13 +7005,6 @@
       "title": "claim-card 落盘按脚本自身路径定位 store、is_anchor 却判 root：口径不一致让锚点领卡条目必写锚点"
     }
   },
-  "claims": {
-    "DX-162": {
-      "agent": "agent-dx162",
-      "branch": "fix/claim-card-store-root",
-      "head": "762397ef2f95b6b1fdd6a21646036fae472a22da",
-      "claimedAt": 1794236144
-    }
-  },
+  "claims": {},
   "version": 1
 }

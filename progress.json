@@ -55,42 +55,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "DX-141",
-            "completedAt": 0,
-            "createdAt": 1794044300,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-141",
-            "note": "",
-            "orderKey": 85888,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "插件网络与生命周期四处：异步下载无超时、并发下载状态污染、活跃 context 泄漏、manifest 入口路径穿越",
-            "updatedAt": 1794044300
-        },
-        {
-            "code": "DX-142",
-            "completedAt": 0,
-            "createdAt": 1794044307,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-142",
-            "note": "",
-            "orderKey": 85952,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "同步三处：更新竞速状态机重入与 reply 泄漏、ThemeMarket 先删后 rename、RoadmapSync poll 吞变更",
-            "updatedAt": 1794044307
-        },
-        {
             "code": "DX-143",
             "completedAt": 0,
             "createdAt": 1794044316,
@@ -5533,6 +5497,24 @@
             "updatedAt": 1794039854
         },
         {
+            "code": "DX-141",
+            "completedAt": 1794230232,
+            "createdAt": 1794044300,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-141",
+            "note": "",
+            "orderKey": 85888,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "插件网络与生命周期四处：异步下载无超时、并发下载状态污染、活跃 context 泄漏、manifest 入口路径穿越",
+            "updatedAt": 1794230232
+        },
+        {
             "code": "DX-135",
             "completedAt": 1794040424,
             "createdAt": 1794033597,
@@ -5549,6 +5531,24 @@
             ],
             "title": "QProcess FailedToStart 黑洞族：预览构建/打包队列与领用同步的状态机永久卡死",
             "updatedAt": 1794040424
+        },
+        {
+            "code": "DX-142",
+            "completedAt": 1794230232,
+            "createdAt": 1794044307,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-142",
+            "note": "",
+            "orderKey": 85952,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "同步三处：更新竞速状态机重入与 reply 泄漏、ThemeMarket 先删后 rename、RoadmapSync poll 吞变更",
+            "updatedAt": 1794230232
         },
         {
             "code": "DX-136",
@@ -6073,6 +6073,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T21:16:36",
+    "updated": "2026-11-09T21:17:12",
     "version": 3
 }

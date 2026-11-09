@@ -7055,13 +7055,6 @@
       "title": "MOD QML 批次五批：标题栏与主看板区整迁 components/BoardChrome"
     }
   },
-  "claims": {
-    "MOD-15": {
-      "agent": "agent-mod15",
-      "branch": "refactor/mod15-board-chrome",
-      "head": "218f2f179e4063dcf3cfb956973eac7f1cfb6084",
-      "claimedAt": 1794245305
-    }
-  },
+  "claims": {},
   "version": 1
 }

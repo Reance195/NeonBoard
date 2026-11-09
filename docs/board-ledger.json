@@ -72,7 +72,7 @@
     "DX-138": "todo",
     "DX-139": "todo",
     "DX-14": "done",
-    "DX-140": "todo",
+    "DX-140": "done",
     "DX-141": "todo",
     "DX-142": "todo",
     "DX-143": "todo",
@@ -196,6 +196,7 @@
     "MOD-02": "done",
     "MOD-05": "done",
     "MOD-06": "done",
+    "MOD-10": "todo",
     "MOD-7": "done",
     "MOD-8": "done",
     "MOD-9": "done",
@@ -317,8 +318,7 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done",
-    "MOD-10": "todo"
+    "R9-05": "done"
   },
   "cards": {
     "DX-01": {

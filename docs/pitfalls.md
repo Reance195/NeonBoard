@@ -939,6 +939,29 @@
   清单必须随被复制脚本的依赖变化同步更新**；验收手段是让 -Selftest 在 main 上常绿
   （Z10：常驻红灯必须处理，否则真回归会被淹没在既有红里）。
 
+### 1.51 脚本定位口径 ≠ 检出参数口径：assignment 落盘跟随脚本所在检出，锚点领卡必脏锚点（DX-162）
+
+- **现象**（2026-11-09 MOD-10 / MOD-11 / DX-159 预开区三连实录）：在锚点区跑 `agent-init`
+  （领卡语义是「在锚点建 `.worktrees/<agent>`」），锚点 `docs/agent-assignments.json`
+  三次被写脏——领用条目落进锚点工作树，挡锚点快进，人工还原三次。
+- **根因**：同一件事用了两套定位口径。claim-card 的 `_store` 按**脚本自身路径**定位
+  （脚本在锚点 `scripts/` → assignment-store 也是锚点侧），assignment-store 的
+  `REPO_ROOT` 亦按其自身路径解析 = 锚点；而 `is_anchor_checkout(root)` 判的是
+  **root 参数**（= 新 worktree）→ 判定「非锚点、要落盘」，落盘却落到锚点。
+  DX-158 的 selftest 三例全过也拦不住：自测环境里脚本与检出同仓，暴露不了
+  「脚本在锚点、root 是 linked worktree」的分离场景（1.50 同款自测盲区）。
+- **解法（DX-162）**：assignment-store 新增 `--root <检出路径>` 覆盖 REPO_ROOT
+  （显式 `--root` 优先于 `NB_ASSIGNMENTS_PATH`；缺省仍按脚本自身路径，向后兼容），
+  claim-card 的 upsert 一律显式传 `--root <root>`——落盘位置唯一由 root 检出决定；
+  `is_anchor_checkout(root)` 判定不动。selftest 补第四例：临时仓 seed 为锚点、
+  worktree add 派生、脚本复制到锚点侧后以 root=worktree 调锚点侧脚本领卡，
+  断言条目落 root 侧且锚点侧零写入。
+- **预防**：凡「按 A 定位、按 B 判定」的代码，先回答两个口径该不该同源——
+  「落到哪」与「是不是锚点」必须都由 root 检出决定；脚本自身路径只允许用来定位
+  脚本资源（依赖模块），不允许用来定位**写入目标**。给「被复制进自测演练仓」的
+  脚本加新参数时，同时检查它的 selftest 是否需要补「脚本与检出分离」组合
+  （1.50 族的清单纪律）。
+
 ### 2.1 `.ps1` 少了 UTF-8 BOM，整份脚本报「批处理式」语法错
 
 - **现象**：Windows PowerShell 5.1 下中文字符串像被撕开，引号配对错乱；PowerShell 7 却正常。

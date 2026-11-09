@@ -28,6 +28,7 @@ THROTTLE_SECONDS（默认 30 分钟）才落盘——「不每次提交刷台账
   python scripts/assignment-store.py upsert --code DX-1 --agent a --branch b
         [--worktree W] [--session-id S] [--stage ST] [--next-step T]
         [--handoff-from OLD] [--progress-done N --progress-total M]
+        [--root 检出路径]
   python scripts/assignment-store.py heartbeat (--code DX-1 | --branch B)
         [--stage ST] [--next-step T] [--force]
   python scripts/assignment-store.py remove --code DX-1
@@ -36,8 +37,13 @@ THROTTLE_SECONDS（默认 30 分钟）才落盘——「不每次提交刷台账
         [--stale-minutes 240] [--json]
   python scripts/assignment-store.py selftest
 
-环境变量 NB_ASSIGNMENTS_PATH 可覆盖存储路径（仅供 selftest 与演练使用，
-生产路径固定 docs/agent-assignments.json）。
+--root <检出路径>（DX-162）：显式指定检出时，REPO_ROOT / 台账 / 存储路径全部改按
+该检出解析——落盘位置唯一由 root 检出决定，与脚本自身在哪个检出无关。生产调用
+（claim-card 的 upsert）一律显式传 --root；显式 --root 优先于 NB_ASSIGNMENTS_PATH
+（防遗留的演练环境变量悄悄改写生产落盘位置）。
+
+环境变量 NB_ASSIGNMENTS_PATH 可覆盖存储路径（仅供 selftest 与演练使用，不带
+--root 时生效；缺省路径按脚本自身检出解析）。
 退出码：0 成功（heartbeat 节流跳过也是 0）/ 2 用法错误 / 3 无该卡条目 /
         4 锁竞争超时 / 5 数据文件损坏。
 """
@@ -435,6 +441,24 @@ def selftest():
         case("remove 幂等", r.returncode == 0, (r.stderr or "").strip())
         case("锁文件不残留", not LOCK_PATH.exists(), str(LOCK_PATH))
 
+        # DX-162：--root 落盘到指定检出，且优先于 NB_ASSIGNMENTS_PATH
+        #（本段仍处于演练环境变量生效状态，正好钉住优先级）
+        root_b = Path(td) / "checkout-b"
+        r = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()), "upsert",
+             "--root", str(root_b),
+             "--code", "DX-998", "--agent", "agent-r", "--branch", "feature/t2"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
+        store_b = root_b / "docs" / "agent-assignments.json"
+        case("--root 落盘到指定检出（优先于 NB_ASSIGNMENTS_PATH）",
+             r.returncode == 0 and store_b.exists()
+             and "DX-998" in store_b.read_text(encoding="utf-8"),
+             ((r.stderr or r.stdout) or "").strip())
+        case("--root 时不写演练路径", "DX-998" not in STORE_PATH.read_text(encoding="utf-8"),
+             str(STORE_PATH))
+        case("--root 的锁文件不残留",
+             not (root_b / "docs" / "agent-assignments.json.lock").exists(), str(root_b))
+
         os.environ.pop("NB_ASSIGNMENTS_PATH", None)
         global_restore()
 
@@ -452,11 +476,31 @@ def global_restore():
     LOCK_PATH = STORE_PATH.parent / (STORE_PATH.name + ".lock")
 
 
+def apply_root(root):
+    """DX-162：显式 --root 时，REPO_ROOT / 台账 / 存储路径全部改按指定检出解析。
+
+    优先级：显式 --root > NB_ASSIGNMENTS_PATH > 脚本自身路径派生。--root 是
+    生产调用路径（claim-card 的 upsert 一律传），落盘位置必须唯一由 root 检出
+    决定，不被遗留的演练环境变量改写；NB_ASSIGNMENTS_PATH 在不带 --root 时
+    行为不变（selftest / 演练既有机制）。
+    """
+    global REPO_ROOT, BOARD_LEDGER, STORE_PATH, LOCK_PATH
+    REPO_ROOT = Path(root).resolve()
+    BOARD_LEDGER = REPO_ROOT / "docs" / "board-ledger.json"
+    STORE_PATH = REPO_ROOT / "docs" / "agent-assignments.json"
+    LOCK_PATH = STORE_PATH.parent / (STORE_PATH.name + ".lock")
+
+
 def main():
     parser = argparse.ArgumentParser(description="agent-assignments 唯一写者")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("upsert", help="建/更新领用现场条目")
+    # DX-162：--root 覆盖 REPO_ROOT（落盘位置唯一由 root 检出决定），缺省仍按脚本自身路径
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--root", default=None, metavar="检出路径",
+                        help="覆盖 REPO_ROOT：落盘与 git 操作改按指定检出解析（DX-162）")
+
+    p = sub.add_parser("upsert", help="建/更新领用现场条目", parents=[common])
     p.add_argument("--code", required=True)
     p.add_argument("--agent", required=True)
     p.add_argument("--branch", required=True)
@@ -469,7 +513,7 @@ def main():
     p.add_argument("--progress-total", type=int, default=None)
     p.set_defaults(func=cmd_upsert)
 
-    p = sub.add_parser("heartbeat", help="刷新 updatedAt（默认节流）")
+    p = sub.add_parser("heartbeat", help="刷新 updatedAt（默认节流）", parents=[common])
     p.add_argument("--code", default="")
     p.add_argument("--branch", default="")
     p.add_argument("--stage", default="")
@@ -477,15 +521,16 @@ def main():
     p.add_argument("--force", action="store_true")
     p.set_defaults(func=cmd_heartbeat)
 
-    p = sub.add_parser("remove", help="删除条目（幂等）")
+    p = sub.add_parser("remove", help="删除条目（幂等）", parents=[common])
     p.add_argument("--code", required=True)
     p.set_defaults(func=cmd_remove)
 
-    p = sub.add_parser("list", help="列出条目")
+    p = sub.add_parser("list", help="列出条目", parents=[common])
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_list)
 
-    p = sub.add_parser("stale", help="三态判活清单（判据唯一实现在 check_claim_refs）")
+    p = sub.add_parser("stale", help="三态判活清单（判据唯一实现在 check_claim_refs）",
+                       parents=[common])
     p.add_argument("--stalled-minutes", type=int, default=30)
     p.add_argument("--stale-minutes", type=int, default=240)
     p.add_argument("--json", action="store_true")
@@ -501,6 +546,8 @@ def main():
             pass
     if args.cmd == "selftest":
         return selftest()
+    if args.root:
+        apply_root(args.root)
     return args.func(args)
 
 

@@ -312,7 +312,8 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done"
+        "R9-05": "done",
+        "DX-156": "todo"
     },
     "cards": {
         "DX-01": {
@@ -6572,6 +6573,24 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+        },
+        "DX-156": {
+            "acceptance": [
+                "pwsh -File scripts/git-done.ps1 -SelfTest 退出码 0，含新增场景 C（-Close + 推送全拒）断言：退出码非 0、explicit 挂起提示不含「自动补结」承诺、出路提示可执行、回执 closeMode=explicit",
+                "pwsh -File scripts/verify.ps1 -ScriptOnly 通过",
+                "源码断言：推送未落地与结单对账挂起两处提示按 -Close 显式确认分说（grep 可判定）"
+            ],
+            "author": "维护者",
+            "depends": [],
+            "evidence": "推送失败回滚收尾提交后 ccPending 挂起，1597 行统一承诺「挂起的结卡由下次合并收尾自动补结」——对 =done 标记路径成立（标记在合并里，下次 --close-cards 扫全历史可寻回），对 -Close 显式确认路径不成立：下次收尾的 claimedCodes 不含该卡、无人再传 -Close，确认不跨收尾继承，只能看板点结或重跑带 -Close（DX-58/DX-116 回执口径已记 closeMode 但提示未分说）",
+            "id": "DX-156",
+            "note": "",
+            "scope": [
+                "scripts/git-done.ps1"
+            ],
+            "stage": "DX",
+            "tier": "P2",
+            "title": "git-done 挂起结卡的补结出路按确认方式分说"
         }
     },
     "claims": {},

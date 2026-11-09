@@ -127,24 +127,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-10",
-            "completedAt": 0,
-            "createdAt": 1794227657,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-10",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD CLI 派发块抽取：AppMain 的六组命令处理迁入 CliHandlers",
-            "updatedAt": 1794227657
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5641,6 +5623,24 @@
             "updatedAt": 1794023071
         },
         {
+            "code": "MOD-10",
+            "completedAt": 1794230196,
+            "createdAt": 1794227657,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-10",
+            "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0（致命告警 0 行）、模块守卫与范围检查通过；--selftest 沙箱日志 SELFTEST 序列与基线 22/22 逐标签一致（result OK remaining 0）；--assoc-status / --plugin-report / --market-sources 三条路径退出码 0 且输出形态与基线一致；AppMain.cpp 1105 → 560（验收线 <=620）。\n\n交付：src/app/CliHandlers.h/.cpp——早期组五个命令函数（runDataMode / runSyncMode / runEmitHook / runFileAssoc / runInstallPluginFile）、runPluginReport（HookEventQueue 构造前）、LateCliRunner 结构（HookEventQueue 作成员随结构体活到 main 退出，runMarketCli / runPreviewAndUpdateCli 两段晚期命令，段间保留 setSelfRegisterEnabled(false) 原位）；统一 std::optional<int> 返回语义（含原有的 0/2/3/4 码）；emitCliLine 升头文件 inline 共享；调用点原位、四个散点构造穿插保留。\n\n实施更正与残留：① 实施发现 --install-plugin-file 块（约 24 行、无对象依赖）也一并抽出（函数清单由五个变六个，验收字面「五个命令函数」按实际实现覆盖，卡面留待维护者裁定）；② runPluginReport 实际依赖是 pluginLoader / pluginRuntime / agentProfile（卡面 evidence 预写的 database / taskStore / taskExtra / tray 与实测不符，以实现为准）；③ previewHub.setSelfRegisterEnabled(false) 是 GUI 模式也执行的无条件副作用，拆成两段 run 调用保序而非收进 run 开头；④ LINE_LIMITS 无 AppMain 条目（MOD-7 未纳入），第 5 条的「同步调低」实为无需动作；⑤ 过程踩坑：PS5.1 Set-Content -Encoding utf8 带 BOM 会毁 shebang（已还原守卫脚本），brace_end 切块少切半段会留孤儿体（当场修复两处）——若立「并行构建瞬态失败排查」卡可一并沉淀。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD CLI 派发块抽取：AppMain 的六组命令处理迁入 CliHandlers",
+            "updatedAt": 1794230196
+        },
+        {
             "code": "MOD-7",
             "completedAt": 1794190034,
             "createdAt": 1794144568,
@@ -6073,6 +6073,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T21:13:30",
+    "updated": "2026-11-09T21:16:36",
     "version": 3
 }

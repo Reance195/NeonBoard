@@ -37,24 +37,6 @@
             "updatedAt": 1794146702
         },
         {
-            "code": "DX-152",
-            "completedAt": 0,
-            "createdAt": 1794190124,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-152",
-            "note": "",
-            "orderKey": 80580,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "手工 git worktree add 绕过占用登记，-Action Check 发现不了未登记 worktree",
-            "updatedAt": 1794190124
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5155,6 +5137,24 @@
             "updatedAt": 1794190671
         },
         {
+            "code": "DX-152",
+            "completedAt": 1794190865,
+            "createdAt": 1794190124,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-152",
+            "note": "交付 1b28450：Check 第 3 项把 linked worktree（锚点除外）缺占用登记从告警升级为硬冲突，点名「未登记 worktree：<路径>」（含 .worktrees 之外开出的，按目录名回退判键）；Status 增未登记标注行、退出码不变。三场景实测：登记齐全 Check exit 0；手工 git worktree add dx152-probe 后 Check exit 3 且点名，Status 标未登记（exit 0）；git worktree remove 后恢复 exit 0。BOM/语法/卫生/verify -ScriptOnly 全过，未动 agent-init 与登记格式。",
+            "orderKey": 80580,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "手工 git worktree add 绕过占用登记，-Action Check 发现不了未登记 worktree",
+            "updatedAt": 1794190865
+        },
+        {
             "code": "R10-03",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5911,6 +5911,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T10:17:51",
+    "updated": "2026-11-09T10:21:05",
     "version": 3
 }

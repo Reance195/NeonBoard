@@ -12,6 +12,7 @@
 | `agent-workspace.ps1` | NeonBoard 多代理工作区占用登记 |
 | `assignment-store.py` | docs/agent-assignments.json 的唯一写者：接手判活事实存储（DX-149）。 |
 | `board-apply.py` | 建卡请求的预演器与落盘器（默认 dry-run）。 |
+| `board_ledger_json.py` | docs/board-ledger.json 规范序列化的唯一实现（DX-157）。 |
 | `board-view.py` | 把台账 + 建卡计划渲染成一张只读 HTML 面板。 |
 | `board_priority.py` | 立卡排位规则的唯一实现（DX-123）。 |
 | `build-delta.ps1` | 生成 NeonBoard 增量升级包（R5-06：文件级 diff + bsdiff 二进制增量）。 |

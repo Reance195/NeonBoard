@@ -33,6 +33,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 import register_board_cards  # noqa: E402  策略边界判定唯一实现（Z5），不在此复制
+import board_ledger_json as blj  # noqa: E402  台账 canon 序列化唯一实现（Z5），判据与写者同源
 
 # 豁免白名单：只有这些路径的改动才允许不领卡。
 EXEMPT_PREFIXES = ("docs/", "scripts/", ".githooks/", ".github/")
@@ -171,8 +172,7 @@ def ledger_format_problems(raw):
         data = json.loads(raw)
     except ValueError:
         return []
-    canon = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
-    if raw == canon:
+    if blj.is_canonical(raw):
         return []
     return ["台账格式漂移：docs/board-ledger.json 必须与 json.dumps(indent=2, "
             "ensure_ascii=False) + 尾换行 完全一致（键序=登记序，禁止 sort_keys 重排；"

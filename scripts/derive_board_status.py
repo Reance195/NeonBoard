@@ -55,6 +55,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 import board_priority as bp  # noqa: E402  排位规则唯一实现（DX-123），档位落点与校验不在此复制（Z5）
+import board_ledger_json as blj  # noqa: E402  台账 canon 序列化唯一实现（Z5），判据与写者同源
 
 SNAPSHOT_VERSION = 3
 ORDER_STEP = 1024
@@ -1270,8 +1271,7 @@ def main():
             ledger["baseline"] = dict(sorted(baseline_out.items()))
             tmp = ledger_path + ".tmp"
             with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
-                json.dump(ledger, fh, indent=2, ensure_ascii=False)
-                fh.write("\n")
+                fh.write(blj.dump_ledger(ledger))
             os.replace(tmp, ledger_path)
             for code in changed:
                 print(code)

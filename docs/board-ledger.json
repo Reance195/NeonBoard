@@ -6863,6 +6863,13 @@
       "title": "MOD QML 批次首批：执行队列弹窗整迁 components/ExecQueueDialog"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-11": {
+      "agent": "agent-mod11",
+      "branch": "refactor/mod11-exec-queue-dialog",
+      "head": "44deb75070f9688f84e079c763208546e6474e31",
+      "claimedAt": 1794231723
+    }
+  },
   "version": 1
 }

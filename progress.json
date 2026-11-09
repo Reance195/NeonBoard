@@ -19,6 +19,24 @@
             "updatedAt": 1794146702
         },
         {
+            "code": "DX-157",
+            "completedAt": 0,
+            "createdAt": 1794224159,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-157",
+            "note": "",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 台账 canon 序列化收敛单点：五处手写复制改走共享模块并写后自校验",
+            "updatedAt": 1794224159
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -6019,6 +6037,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T12:03:18",
+    "updated": "2026-11-09T19:35:59",
     "version": 3
 }

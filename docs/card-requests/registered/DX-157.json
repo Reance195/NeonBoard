@@ -1,0 +1,13 @@
+{
+  "card": "DX-157",
+  "sha256": "b9ee85935a72d8284865cee96231fdb195025fad23ed0aa23883375f07b29e42",
+  "authorizedBy": "维护者 2026-11-09 会话指令「立卡修复 register/derive 台账 indent 缺陷」（承接 MOD-9 交付说明 nextStep ⑤ 的共享脚本格式漂移缺陷），授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261109-dx-ledger-canon-single-source.md",
+  "registeredAt": "2026-11-09T11:35:59+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-157",
+    "sha": "15d027abc8444da57d530b59398975c7f97710dc"
+  }
+}

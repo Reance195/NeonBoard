@@ -6614,13 +6614,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-149": {
-            "agent": "agent-handoff",
-            "branch": "feature/agent-handoff",
-            "claimedAt": 1794190052,
-            "head": "197696b94a61dd2bc2140f3cd2a41587d1edd746"
-        }
-    },
+    "claims": {},
     "version": 1
 }

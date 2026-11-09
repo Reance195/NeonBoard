@@ -6514,13 +6514,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-150": {
-            "agent": "gapsa",
-            "branch": "feature/readme-sync-check",
-            "claimedAt": 1794190190,
-            "head": "b793c331e14d3a46bdda6edeb7c14ee15f146dc1"
-        }
-    },
+    "claims": {},
     "version": 1
 }

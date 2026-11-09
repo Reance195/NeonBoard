@@ -924,6 +924,21 @@
   （同 `chore(claim)` 登记对 `chore(assign)` 清理的对称），且必须有一条演练仓断言钉住
   「移除真的上了 origin/main」。
 
+### 1.50 selftest 的脚本复制清单是「依赖快照」：被复制脚本加了依赖它就悄悄红（DX-159 顺修）
+
+- **现象**（2026-11-09 DX-159 交付实测）：`handoff.ps1 -Selftest` 在 main 上**已是既有红灯**
+  （与本卡改动无关）：第一条报「nb-paths.ps1 不会被识别」、第二条
+  `ModuleNotFoundError: board_ledger_json`。根因是 DX-155 给 `agent-workspace.ps1` 加了
+  `nb-paths.ps1` 点源、DX-157 给 `claim-card.py` 加了 `board_ledger_json` 导入，而
+  `handoff.ps1` selftest 的**脚本复制清单**（把被测脚本复制进临时演练仓）没跟着更新——
+  清单是依赖快照，被复制脚本每加一个依赖，清单就过时一分。
+- **解法（DX-159）**：复制清单补齐 `nb_paths.py`、`board_ledger_json.py` 等依赖文件；
+  selftest 红灯不再是「新增用例写错」而是「既有依赖漂移」，先查复制清单再怀疑自己的用例。
+- **预防**：同一族判据已有两条先例（1.31「.worktrees 只在锚点存在」、1.48「复制脚本
+  环境 ≠ 真仓环境」），本条补齐后族判据完整：**凡「复制/扫描/镜像某脚本集」的自测，
+  清单必须随被复制脚本的依赖变化同步更新**；验收手段是让 -Selftest 在 main 上常绿
+  （Z10：常驻红灯必须处理，否则真回归会被淹没在既有红里）。
+
 ### 2.1 `.ps1` 少了 UTF-8 BOM，整份脚本报「批处理式」语法错
 
 - **现象**：Windows PowerShell 5.1 下中文字符串像被撕开，引号配对错乱；PowerShell 7 却正常。

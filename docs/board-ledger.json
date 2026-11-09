@@ -315,7 +315,8 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "DX-157": "todo"
   },
   "cards": {
     "DX-01": {
@@ -6763,6 +6764,31 @@
       ],
       "stage": "R9",
       "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
+    },
+    "DX-157": {
+      "acceptance": [
+        "python scripts/board_ledger_json.py --selftest 退出 0（断言 indent=2、ensure_ascii=False、尾换行、键序保持登记序、禁 sort_keys、round-trip 幂等）",
+        "python scripts/task_gate.py selftest 退出 0（判据改走共享模块后既有断言全过）且其台账格式判据与 board_ledger_json.is_canonical 同源（grep 断言 task_gate.py 不再出现独立的 indent=2 序列化实现）",
+        "python scripts/register_board_cards.py --selftest 与 python scripts/check_script_hygiene.py 退出 0",
+        "对本仓现行 docs/board-ledger.json 跑 is_canonical 退出 0（现行文件满足规范，证明收敛是无行为变化的等价替换）",
+        "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿（scope 无代码路径，轻档）"
+      ],
+      "author": "codebuddy-session-2026-11-09",
+      "depends": [],
+      "evidence": "2026-11-09 实测（MOD-9 会话，基线 origin/main）：docs/board-ledger.json 的规范序列化（indent=2、ensure_ascii=False、尾换行、键序=登记序、禁 sort_keys）在 task_gate.py:172-179 有唯一判据（台账格式漂移报错文案），但**序列化实现本身在 5 处各自手写复制**——register_board_cards.py:778、derive_board_status.py:1273、claim-card.py:275、merge_board.py:197 四个台账写者各自 json.dumps(indent=2)，与 task_gate 的判据不同源；任何一个写者改动或新增写者都可能再漂移。该风险在 MOD-9 期间两次实际爆发：立卡 C2 提交被 pygate 以 5 行「疑似密钥」拦下（实为台账与 HEAD 的全文件重排噪声），rebase 重放又把 6671 行重排带进 main（DX-156 事后把文件拉回规范）。实测核实现行 4 个写者都已写对（indent=2），缺陷是**实现复制无单点**而非某处写错——故本卡做 Z14 修一族：canon 序列化收敛共享模块，判据与写者同源。维护者 2026-11-09 会话指令「立卡修复 register/derive 台账 indent 缺陷」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
+      "id": "DX-157",
+      "note": "",
+      "scope": [
+        "scripts/board_ledger_json.py",
+        "scripts/task_gate.py",
+        "scripts/register_board_cards.py",
+        "scripts/derive_board_status.py",
+        "scripts/claim-card.py",
+        "scripts/merge_board.py"
+      ],
+      "stage": "DX",
+      "tier": "P2",
+      "title": "DX 台账 canon 序列化收敛单点：五处手写复制改走共享模块并写后自校验"
     }
   },
   "claims": {},

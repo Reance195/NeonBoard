@@ -37,6 +37,24 @@
             "updatedAt": 1794146702
         },
         {
+            "code": "DX-154",
+            "completedAt": 0,
+            "createdAt": 1794191657,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-154",
+            "note": "",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 三处 git 输出未解包，合并正文与结单预判失真",
+            "updatedAt": 1794191657
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5947,6 +5965,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T10:26:49",
+    "updated": "2026-11-09T10:34:17",
     "version": 3
 }

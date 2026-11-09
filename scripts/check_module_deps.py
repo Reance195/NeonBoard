@@ -87,7 +87,7 @@ CLASS_TO_MODULE = {name: mod for mod, names in CLASS_MODULE.items() for name in 
 # SettingsPanel.qml 是同一类巨型 QML 组件，一并纳入。
 LINE_LIMITS = {
     "src/main.cpp": 6,
-    "qml/Main.qml": 2964,
+    "qml/Main.qml": 2416,
     "qml/components/SettingsPanel.qml": 2072,
 }
 

@@ -901,6 +901,29 @@
   （Z8/Z9），新流程脚本一律照此办理；`.ps1` 首版落盘后先做 `Parser::ParseFile` 语法
   解析再跑行为；正则里出现 `$` 一律单引号串。
 
+### 1.49 随分支提交的文件，其「收尾移除」必须同样随收尾提交，否则 worktree 回收即丢失（DX-161）
+
+- **现象**（2026-11-09 DX-143 实录）：agent-h4 的接手登记提交 `chore(claim): 登记 #DX-143 接手现场`
+  把条目随分支带进 `docs/agent-assignments.json` 并合入 main；收尾时 git-done 的 assignment
+  移除（DX-149 接入点，挂在收尾之后的占位清理里）只改了 worktree 工作树文件——
+  收尾链的代提交只覆盖 claims 清理 / 结卡 / 快照三步，assignment 清理不落任何提交。
+  worktree 回收后该变更随之丢失，origin/main 永久残留已释放卡的条目。
+- **根因**：把「移除生效」当成了「移除落库」。工作树改动不是提交，worktree 是一次性的
+  ——凡「随分支提交进 main 的文件」，对它的收尾清理若不落进收尾提交栈，就等于没清。
+  次生坑：移除挪进收尾提交栈后，提交 scope 不能沿用 `chore(board)`——任务闸门对
+  流程 scope 触及流程路径之外文件（assignments 不在 PROCESS_PATHS）的提交一律要求
+  可持证短号，而被清理的卡按定义占位已释放、无 claim ref 可持，`chore(board)` 写法
+  必被 commit-msg / pre-push 双闸门拒绝。
+- **解法（DX-161）**：assignment 移除挪到收尾段（快照步之后、单次推送之前），经唯一写者
+  `assignment-store.py remove` 移除条目，文件有实质变更才独立
+  `chore(assign): 清理过期接手现场 <短号>` 提交，与前三步同段（分离 HEAD）、随收尾
+  单次推送、推送失败随整栈回滚；无变更不产生空提交。`git-done -Selftest` 场景 D
+  以演练仓库断言「条目已被提交移除上 origin/main + 无空提交」。
+- **预防**：新增「随分支提交」的派生文件时，先回答「它的收尾清理由哪个提交承载」——
+  答不出具体提交就不许合入；收尾清理提交一律走非流程 scope 的机械投影通道
+  （同 `chore(claim)` 登记对 `chore(assign)` 清理的对称），且必须有一条演练仓断言钉住
+  「移除真的上了 origin/main」。
+
 ### 2.1 `.ps1` 少了 UTF-8 BOM，整份脚本报「批处理式」语法错
 
 - **现象**：Windows PowerShell 5.1 下中文字符串像被撕开，引号配对错乱；PowerShell 7 却正常。

@@ -83,6 +83,9 @@
         "DX-148": "done",
         "DX-149": "todo",
         "DX-15": "done",
+        "DX-150": "todo",
+        "DX-151": "todo",
+        "DX-152": "todo",
         "DX-16": "done",
         "DX-17": "done",
         "DX-18": "done",
@@ -306,10 +309,7 @@
         "R9-02": "done",
         "R9-03": "done",
         "R9-04": "done",
-        "R9-05": "done",
-        "DX-150": "todo",
-        "DX-151": "todo",
-        "DX-152": "todo"
+        "R9-05": "done"
     },
     "cards": {
         "DX-01": {
@@ -1794,6 +1794,56 @@
             ],
             "stage": "DX",
             "title": "验收口径分层：纯脚本/配置类卡片免全量编译"
+        },
+        "DX-150": {
+            "acceptance": [
+                "新建 `scripts/check_readme_sync.py`：`--base <ref>` 读指定范围内提交的改动路径，命中 `qml/` 或 `shaders/` 路径而该范围内 `README.md` 无任何改动时，逐条打印未同步提交并输出 `::warning::` 摘要，警告级退出码恒 0（不阻断，Z4 体验类口径）；`--selftest` 用临时 git 仓库覆盖三类：UI 改动+README 同改=静默、UI 改动无 README=告警且点名提交、纯非 UI 改动=静默，全过；`.github/workflows/ci.yml` 增加一步调用本脚本（对比 base 用该次 CI 的基线）；`pwsh -File scripts/verify.ps1 -ScriptOnly` 全过；不改钩子、不新增阻断闸门、不动 hygiene 规则 B/D 的零豁免面"
+            ],
+            "author": "qodercn-session-2026-11-09",
+            "depends": [],
+            "evidence": "维护者 2026-11-09 指令「1。授权」，采纳审计轮遗留缺口 #3。实测：全部钩子、verify.ps1、三个 workflow 里没有任何一处把「qml/ 或 shaders/ 有改动而 README.md 未同步」与机器判据挂钩（grep README 在 .github/workflows/ 零命中）；宪章 §五 硬性约定 6 属体验类规范，按 Z4 口径可以 fail-soft，但「必须告警」——当前连告警都没有，静默吞错即缺陷（Z6 同类坑已在多会话返工中出现：界面改动合并后 README 描述过期）。",
+            "id": "DX-150",
+            "note": "",
+            "scope": [
+                "scripts/check_readme_sync.py",
+                ".github/workflows/ci.yml"
+            ],
+            "stage": "DX",
+            "tier": "P2",
+            "title": "宪章硬性约定 6「界面行为改动同步 README」无机器执行，靠代理自觉"
+        },
+        "DX-151": {
+            "acceptance": [
+                "新增 `docs/scripts-manifest.md`：`scripts/` 下每个受控文件一行「文件名 —— 用途一句话」，存量脚本在本卡一次登记到位；`check_script_hygiene.py` 增加规则 H 双向对账：`scripts/` 里存在而清单无行 → 违规；清单有行而文件不存在 → 违规（违规输出点名文件与方向，并入既有 problems 汇总，不另起退出码通道）；清单豁免面固定且点名（如 `__pycache__`、非受控临时物仅按显式条目豁免，不开放通配）；`python scripts/check_script_hygiene.py selftest` 覆盖两类违规正反例并全过；`pwsh -File scripts/verify.ps1 -ScriptOnly` 全过（其已调用 hygiene，即规则 H 自动进本地与 CI 双闸）；规则 H 判定只实现于 hygiene 脚本一处（Z5）"
+            ],
+            "author": "qodercn-session-2026-11-09",
+            "depends": [],
+            "evidence": "维护者 2026-11-09 指令「1。授权」，采纳审计轮遗留缺口 #4。实测：`scripts/` 现有 40+ 个脚本，宪章 §四 只有一句「临时脚本用完即删，不要留在 scripts/ 里」散文约定，无任何机器对账——脚本有没有清单、清单准不准、目录里多出来的脚本是谁的、干什么的，全靠读源码；多代理并行下（§七）脚本数量只增不减，「残留」与「孤儿」两类污染对锚点同步与占用判定之外完全隐形（Z5：脚本层缺一份「存在即注册」的单一清单；Z6：新会话反复要先 ls scripts/ 猜用途）。",
+            "id": "DX-151",
+            "note": "",
+            "scope": [
+                "scripts/check_script_hygiene.py",
+                "docs/scripts-manifest.md"
+            ],
+            "stage": "DX",
+            "tier": "P2",
+            "title": "scripts/ 目录无清单事实源，脚本膨胀与临时脚本残留不可见"
+        },
+        "DX-152": {
+            "acceptance": [
+                "`-Action Check` 增补判定：`git worktree list --porcelain` 里每个 linked worktree（锚点除外），若占用登记中不存在对应 `worktree:<目录名>` 条目 → 列入硬冲突并逐个点名「未登记 worktree：<路径>」，退出码 3；`-Action Status` 对这类项标注「未登记」但维持信息性输出（Status 不新增退出码变化）；已登记项的判定行为不变（他人占用拒绝、同 agent 放行等既有语义零改动）；实测三条：当前仓库登记齐全时 Check 绿；手工 `git worktree add` 一个临时 worktree 后 Check 红且点名，`git worktree remove` 后恢复绿；`-Action Status` 在同样场景标注未登记且原有各行输出不回归；`.ps1` UTF-8 BOM 与脚本卫生检查全过；不改 `agent-init.ps1` 开区流程与登记存储格式"
+            ],
+            "author": "qodercn-session-2026-11-09",
+            "depends": [],
+            "evidence": "维护者 2026-11-09 指令「1。授权」，采纳审计轮遗留缺口 #6。实测：宪章 §7.1 规定「占用登记是强制的（DX-05）：开区即登记、收尾即释放、自检即体检」，但体检只查已登记项的自洽（锚点/工作区/登记三者），`agent-workspace.ps1 -Action Check` 不比对 `git worktree list`：任何绕过 `agent-init.ps1` 的手工 `git worktree add` 开出的工作区对占用体系完全不可见——同名分支检出、沙箱变量缺失、收尾泄漏都无从点破，「开区即登记」目前只对走正门的人成立（Z5：登记是唯一事实源，却有第二条开区路径不写它；Z6：本会话实录过清理残留目录时靠人肉数 worktree）。",
+            "id": "DX-152",
+            "note": "",
+            "scope": [
+                "scripts/agent-workspace.ps1"
+            ],
+            "stage": "DX",
+            "tier": "P2",
+            "title": "手工 git worktree add 绕过占用登记，-Action Check 发现不了未登记 worktree"
         },
         "DX-16": {
             "acceptance": [
@@ -6462,58 +6512,15 @@
             ],
             "stage": "R9",
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
-        },
-        "DX-150": {
-            "acceptance": [
-                "新建 `scripts/check_readme_sync.py`：`--base <ref>` 读指定范围内提交的改动路径，命中 `qml/` 或 `shaders/` 路径而该范围内 `README.md` 无任何改动时，逐条打印未同步提交并输出 `::warning::` 摘要，警告级退出码恒 0（不阻断，Z4 体验类口径）；`--selftest` 用临时 git 仓库覆盖三类：UI 改动+README 同改=静默、UI 改动无 README=告警且点名提交、纯非 UI 改动=静默，全过；`.github/workflows/ci.yml` 增加一步调用本脚本（对比 base 用该次 CI 的基线）；`pwsh -File scripts/verify.ps1 -ScriptOnly` 全过；不改钩子、不新增阻断闸门、不动 hygiene 规则 B/D 的零豁免面"
-            ],
-            "author": "qodercn-session-2026-11-09",
-            "depends": [],
-            "evidence": "维护者 2026-11-09 指令「1。授权」，采纳审计轮遗留缺口 #3。实测：全部钩子、verify.ps1、三个 workflow 里没有任何一处把「qml/ 或 shaders/ 有改动而 README.md 未同步」与机器判据挂钩（grep README 在 .github/workflows/ 零命中）；宪章 §五 硬性约定 6 属体验类规范，按 Z4 口径可以 fail-soft，但「必须告警」——当前连告警都没有，静默吞错即缺陷（Z6 同类坑已在多会话返工中出现：界面改动合并后 README 描述过期）。",
-            "id": "DX-150",
-            "note": "",
-            "scope": [
-                "scripts/check_readme_sync.py",
-                ".github/workflows/ci.yml"
-            ],
-            "stage": "DX",
-            "tier": "P2",
-            "title": "宪章硬性约定 6「界面行为改动同步 README」无机器执行，靠代理自觉"
-        },
-        "DX-151": {
-            "acceptance": [
-                "新增 `docs/scripts-manifest.md`：`scripts/` 下每个受控文件一行「文件名 —— 用途一句话」，存量脚本在本卡一次登记到位；`check_script_hygiene.py` 增加规则 H 双向对账：`scripts/` 里存在而清单无行 → 违规；清单有行而文件不存在 → 违规（违规输出点名文件与方向，并入既有 problems 汇总，不另起退出码通道）；清单豁免面固定且点名（如 `__pycache__`、非受控临时物仅按显式条目豁免，不开放通配）；`python scripts/check_script_hygiene.py selftest` 覆盖两类违规正反例并全过；`pwsh -File scripts/verify.ps1 -ScriptOnly` 全过（其已调用 hygiene，即规则 H 自动进本地与 CI 双闸）；规则 H 判定只实现于 hygiene 脚本一处（Z5）"
-            ],
-            "author": "qodercn-session-2026-11-09",
-            "depends": [],
-            "evidence": "维护者 2026-11-09 指令「1。授权」，采纳审计轮遗留缺口 #4。实测：`scripts/` 现有 40+ 个脚本，宪章 §四 只有一句「临时脚本用完即删，不要留在 scripts/ 里」散文约定，无任何机器对账——脚本有没有清单、清单准不准、目录里多出来的脚本是谁的、干什么的，全靠读源码；多代理并行下（§七）脚本数量只增不减，「残留」与「孤儿」两类污染对锚点同步与占用判定之外完全隐形（Z5：脚本层缺一份「存在即注册」的单一清单；Z6：新会话反复要先 ls scripts/ 猜用途）。",
-            "id": "DX-151",
-            "note": "",
-            "scope": [
-                "scripts/check_script_hygiene.py",
-                "docs/scripts-manifest.md"
-            ],
-            "stage": "DX",
-            "tier": "P2",
-            "title": "scripts/ 目录无清单事实源，脚本膨胀与临时脚本残留不可见"
-        },
-        "DX-152": {
-            "acceptance": [
-                "`-Action Check` 增补判定：`git worktree list --porcelain` 里每个 linked worktree（锚点除外），若占用登记中不存在对应 `worktree:<目录名>` 条目 → 列入硬冲突并逐个点名「未登记 worktree：<路径>」，退出码 3；`-Action Status` 对这类项标注「未登记」但维持信息性输出（Status 不新增退出码变化）；已登记项的判定行为不变（他人占用拒绝、同 agent 放行等既有语义零改动）；实测三条：当前仓库登记齐全时 Check 绿；手工 `git worktree add` 一个临时 worktree 后 Check 红且点名，`git worktree remove` 后恢复绿；`-Action Status` 在同样场景标注未登记且原有各行输出不回归；`.ps1` UTF-8 BOM 与脚本卫生检查全过；不改 `agent-init.ps1` 开区流程与登记存储格式"
-            ],
-            "author": "qodercn-session-2026-11-09",
-            "depends": [],
-            "evidence": "维护者 2026-11-09 指令「1。授权」，采纳审计轮遗留缺口 #6。实测：宪章 §7.1 规定「占用登记是强制的（DX-05）：开区即登记、收尾即释放、自检即体检」，但体检只查已登记项的自洽（锚点/工作区/登记三者），`agent-workspace.ps1 -Action Check` 不比对 `git worktree list`：任何绕过 `agent-init.ps1` 的手工 `git worktree add` 开出的工作区对占用体系完全不可见——同名分支检出、沙箱变量缺失、收尾泄漏都无从点破，「开区即登记」目前只对走正门的人成立（Z5：登记是唯一事实源，却有第二条开区路径不写它；Z6：本会话实录过清理残留目录时靠人肉数 worktree）。",
-            "id": "DX-152",
-            "note": "",
-            "scope": [
-                "scripts/agent-workspace.ps1"
-            ],
-            "stage": "DX",
-            "tier": "P2",
-            "title": "手工 git worktree add 绕过占用登记，-Action Check 发现不了未登记 worktree"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-150": {
+            "agent": "gapsa",
+            "branch": "feature/readme-sync-check",
+            "claimedAt": 1794190190,
+            "head": "b793c331e14d3a46bdda6edeb7c14ee15f146dc1"
+        }
+    },
     "version": 1
 }

@@ -19,24 +19,6 @@
             "updatedAt": 1794146702
         },
         {
-            "code": "DX-157",
-            "completedAt": 0,
-            "createdAt": 1794224159,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-157",
-            "note": "",
-            "orderKey": 79632,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 台账 canon 序列化收敛单点：五处手写复制改走共享模块并写后自校验",
-            "updatedAt": 1794224159
-        },
-        {
             "code": "DX-158",
             "completedAt": 0,
             "createdAt": 1794225431,
@@ -5173,6 +5155,24 @@
             "updatedAt": 1794196998
         },
         {
+            "code": "DX-157",
+            "completedAt": 1794225562,
+            "createdAt": 1794224159,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-157",
+            "note": "已完成 5 / 待做 0 —— 五条验收全部满足，且实际验收档位从严：scope 凭证扩入 docs/scripts-manifest.md（hygiene 规则 H 要求登记新脚本）触发 DX-25 契约变更判档，按规则升全量档执行——verify.ps1 全量绿（ctest 45/45、--selftest 与 --smoke 退出码 0、致命告警 0 行、模块守卫过），第 5 条的轻档字面被全量覆盖，卡面留待维护者裁定是否更正措辞。\n\n交付：新建 scripts/board_ledger_json.py（dump_ledger / is_canonical / --selftest 9 例）；task_gate 台账格式判据改走 is_canonical（判据与实现同源，本地 canon 复制删除，selftest 57 例不破）；register / derive 结卡 / claim-card / merge_board 四个台账写点落盘改走 dump_ledger（selftest 37 例不破）；现行台账 is_canonical 为 True（等价替换，台账内容零变化）；board_ledger_json.py 已按 hygiene 规则 H 登记 scripts-manifest。\n\n语义边界（实施中澄清）：排版判据（indent=2 / 尾换行 / 转义）能抓住写点漂移，键序=登记序由 writers 经 dump_ledger 的登记序口径保证——sort 重排文本 round-trip 后自身成立，判据抓不到键序（与 task_gate 既定语义一致，selftest 断言据此对齐，未改判据行为）。\n\n残留：① 全量 verify 期间 tests 编译瞬态失败 2 次（tst_workflowpresets / tst_workflow 目标，与 MOD-9 同款），增量重跑即绿，疑似并行构建偶发，建议另立卡排查；② claim-card.py 的 import 区由本卡新增 sys.path 注入（与 task_gate / derive 既有模式一致）。",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 台账 canon 序列化收敛单点：五处手写复制改走共享模块并写后自校验",
+            "updatedAt": 1794225562
+        },
+        {
             "code": "R10-02",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -6055,6 +6055,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T19:57:11",
+    "updated": "2026-11-09T19:59:22",
     "version": 3
 }

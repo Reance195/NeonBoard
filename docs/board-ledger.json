@@ -3666,7 +3666,7 @@
             "depends": [],
             "evidence": "2026-11-08 实物复测（基线 origin/main）：src/main.cpp 1910 行（LF 实测，与 check_module_deps.py 的 LINE_LIMITS 一致），CLI 派发 10 块共 848 行，其中 --selftest 独占 607 行（522-1128），setContextProperty 46 处（406-1729），return 0 共 22 处、return 2 共 23 处；--selftest 是 GUI 子系统程序，stdout 恒为空，真实输出走 qInfo 落沙箱 neonboard.log（34 行，末行 SELFTEST result OK remaining 0），故方案 v4 的「逐字节比对 stdout」不成立，改以退出码 + 日志 SELFTEST 标签序列 + result OK 作基线。docs/module-split-plan.md v4 §5 M1 目标 <=450 行，§2.2 已证「CLI 分支穿插在对象构造之间不能整体剪切」，§7.4 把 MOD-03/MOD-04 列为可穿插的下一批且从未立卡；台账 baseline 仅 MOD-02 / MOD-05 / MOD-06 / DX-18 为 done，后续批次一张卡都没有，docs/card-requests/ 下也无已递交未立的模块化请求单，路线图 §9 无 **MOD** 行。维护者 2026-11-08 会话指令「继续实现模块化」，在证据链与台账核对后选定「拆 main.cpp（推荐）」+「完整闭环（推荐）」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
             "id": "MOD-7",
-            "note": "",
+            "note": "已完成 7 / 待做 0 —— 七条验收全部满足。verify.ps1 全量绿：ctest 44/44、--selftest 与 --smoke 退出码 0（致命告警 0 行）、模块守卫与范围检查通过。\n\n交付：main.cpp 1910 → 6 行薄入口（neonboardMain 转调）；src/app/ 四类实现——AppMain.cpp（原函数体一字未改）、SelfTestRunner.cpp（--selftest 605 行原样迁入，SelfTestDeps 指针结构 + 函数内 auto& 别名，零文本改写）、CliCommands.cpp（31 条命令表反推 utilityMode，smoke/sync/data 三组手写判定并入单点）、AppContext.cpp（42 个上下文对象表驱动注入）；LINE_LIMITS 中 main.cpp 上限 1910 → 6 同步调低。\n\n残留与 nextStep：① M1d 对象构造工厂未做——约 1100 行构造区仍在 AppMain.cpp，构造次序敏感（「必须声明在 QQmlApplicationEngine 之前」注释是硬约束），留待下批；② 路线图 §9 无 **MOD** 行，MOD 卡在阶段条不可见，增行属维护者拍板项（方案 P5）；③ A/B 实测 --market-sources / --plugin-report / --update-sources 存在非确定性退出崩溃（0xC0000409，输出完成后），重构前旧 exe 同样复现，非本卡引入，建议另立卡排查退出竞态。",
             "scope": [
                 "src/main.cpp",
                 "src/app/**",
@@ -6461,6 +6461,13 @@
             "title": "在办卡僵尸占位无接手通道：补判活事实源与显式授权的原地接手"
         }
     },
-    "claims": {},
+    "claims": {
+        "MOD-7": {
+            "agent": "agent-mod7",
+            "branch": "refactor/mod7-main-cpp-split",
+            "claimedAt": 1794144782,
+            "head": "1de024050fb951a9fd2787cf0ff315ce7558ef6e"
+        }
+    },
     "version": 1
 }

@@ -19,24 +19,6 @@
             "updatedAt": 1794146702
         },
         {
-            "code": "DX-155",
-            "completedAt": 0,
-            "createdAt": 1794193037,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-155",
-            "note": "",
-            "orderKey": 79632,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "git-done 回收「删自己脚下」必败且不复发：待删清单无人 drain，空壳残留两周攒出 28 个",
-            "updatedAt": 1794193037
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5137,6 +5119,24 @@
             "updatedAt": 1794192828
         },
         {
+            "code": "DX-155",
+            "completedAt": 1794196998,
+            "createdAt": 1794193037,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-155",
+            "note": "已完成：pending-worktrees.json（数据目录，键=绝对路径幂等登记）+ agent-workspace.ps1 单处 drain（三判据全过直删空壳，缺一保留记原因，非空永不删，不引入 --force）；agent-init 开区与 git-done 收尾入口先 drain；Check 增「待清理清单 N 项 / 空壳 M 个」汇总行不加退出码。实测：8 个历史空壳收敛、假路径登记/清空/收敛三场景、agent-init 入口接线（probe-entry-husk 被清扫）全过；verify -ScriptOnly 绿。交付 ff64fd7。",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 回收「删自己脚下」必败且不复发：待删清单无人 drain，空壳残留两周攒出 28 个",
+            "updatedAt": 1794196998
+        },
+        {
             "code": "R10-02",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -6019,6 +6019,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T11:48:22",
+    "updated": "2026-11-09T12:03:18",
     "version": 3
 }

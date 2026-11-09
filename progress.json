@@ -55,24 +55,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "DX-143",
-            "completedAt": 0,
-            "createdAt": 1794044316,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-143",
-            "note": "",
-            "orderKey": 85984,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "宿主与界面三处：热键注册静默失败、托盘不随 Explorer 重建、执行队列面板每秒整表重建",
-            "updatedAt": 1794044316
-        },
-        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -5569,6 +5551,24 @@
             "updatedAt": 1794036764
         },
         {
+            "code": "DX-143",
+            "completedAt": 1794230521,
+            "createdAt": 1794044316,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-143",
+            "note": "",
+            "orderKey": 85984,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "宿主与界面三处：热键注册静默失败、托盘不随 Explorer 重建、执行队列面板每秒整表重建",
+            "updatedAt": 1794230521
+        },
+        {
             "code": "DX-137",
             "completedAt": 1794040492,
             "createdAt": 1794033711,
@@ -6073,6 +6073,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T21:17:12",
+    "updated": "2026-11-09T21:22:01",
     "version": 3
 }

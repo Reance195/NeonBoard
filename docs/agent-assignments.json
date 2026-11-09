@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "DX-161": {
-            "agent": "agent-dx161",
-            "branch": "fix/assignment-cleanup-commit",
-            "claimedAt": 1794235413,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794235413,
-            "worktree": ".worktrees/agent-dx161"
-        }
-    },
-    "updatedAt": 1794235458,
+    "assignments": {},
+    "updatedAt": 1794235537,
     "version": 1
 }

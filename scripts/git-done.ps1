@@ -939,6 +939,31 @@ if ($script:gitDoneSelfTest) {
         }
         $pinB = Invoke-Cmd -File 'git' -CmdArgs @('-C', $workB, 'rev-parse', '--verify', '--quiet', 'refs/heads/merge/fix-selftest-b')
         Assert-St 'B：合并提交已 pin 到 merge/fix-selftest-b（补推落点真实存在）' ($pinB.Code -eq 0)
+
+        # ---- 场景 C：-Close 挂起时 explicit 出路提示（DX-156）----
+        # B 验证默认（=done 标记）路径的「自动补结」承诺不变；C 带 -Close 且推送全拒，
+        # 验证提示不再给「自动补结」的空头承诺（R11-14 同款误导），并给出可执行出路。
+        $originC = Join-Path $tmpRoot 'c-origin.git'
+        Invoke-Cmd -File 'git' -CmdArgs @('init', '-q', '--bare', $originC) | Out-Null
+        $workC = Join-Path $tmpRoot 'c-work'
+        New-StWorkRepo -Work $workC -OriginPath $originC
+        Invoke-In $workC @('switch', '-c', 'fix/selftest-c') | Out-Null
+        Add-Content -LiteralPath (Join-Path $workC 'README.md') -Value 'feature line c' -Encoding utf8
+        Invoke-In $workC @('commit', '-q', '-am', 'chore(claim): 领取 #DX-988 实施任务') | Out-Null
+        $resC = Invoke-Cmd -File 'pwsh' -CmdArgs @('-NoProfile', '-File', (Join-Path $workC 'scripts\git-done.ps1'), '-Branch', 'fix/selftest-c', '-Close', 'DX-988', '-StubPushFailures', '99')
+        $outC = $resC.Output -join "`n"
+        Assert-St 'C：退出码非 0' ($resC.Code -ne 0)
+        Assert-St 'C：explicit 挂起不给「自动补结」空头承诺' ($outC -match '不会被下次收尾自动补结')
+        Assert-St 'C：explicit 出路提示（重跑带 -Close 或看板点结）' ($outC -match '重跑收尾再带 -Close')
+        $curC = (Invoke-In $workC @('branch', '--show-current'))[0]
+        Assert-St "C：检出不在 merge/*（$curC）" ("$curC" -notlike 'merge/*')
+        $rcC = Read-StReceipt -Work $workC -BranchSlug 'fix-selftest-c'
+        if ($null -ne $rcC) {
+            Assert-St 'C：回执 closeMode=explicit' ("$($rcC.closeMode)" -eq 'explicit')
+            Assert-St 'C：回执 claimed 记 DX-988' ("$($rcC.claimed)" -match 'DX-988')
+        } else {
+            Assert-St 'C：回执存在（fix-selftest-c-*.json）' $false
+        }
     } finally {
         if (Test-Path -LiteralPath $tmpRoot) { Remove-Item -Recurse -Force $tmpRoot -ErrorAction SilentlyContinue }
     }
@@ -1506,8 +1531,18 @@ if ($Mode -eq 'remote') {
     if ($claimedCodes.Count -gt 0) {
         Write-Host ''
         if ($ccPending.Count -gt 0) {
-            Write-Host ("· 结单对账：本次领用 {0} 张、已结 {1} 张、挂起 {2} 张（{3}）——挂起的 baseline 未落，待下次合并再结" -f `
-                $claimedCodes.Count, $ccLanded.Count, $ccPending.Count, ($ccPending -join '、')) -ForegroundColor Yellow
+            # DX-156：挂起卡的补结出路按确认方式分说 —— =done 标记在合并提交里，
+            # 下次 --close-cards 扫全历史可寻回；-Close 显式确认只活在本次收尾，
+            # 下次收尾的领用名单里没有这张卡，「自动补结」对它就是空头支票。
+            $pendExplicit = @($ccPending | Where-Object { $closeList -contains $_ })
+            if ($pendExplicit.Count -gt 0) {
+                Write-Host ("· 结单对账：本次领用 {0} 张、已结 {1} 张、挂起 {2} 张（{3}）——挂起的 baseline 未落" -f `
+                    $claimedCodes.Count, $ccLanded.Count, $ccPending.Count, ($ccPending -join '、')) -ForegroundColor Yellow
+                Write-Host ("    其中 {0} 是 -Close 显式确认，下次收尾不会继承：补推成功后重跑收尾再带 -Close，或看板点结（ADR 0002）" -f ($pendExplicit -join '、')) -ForegroundColor Yellow
+            } else {
+                Write-Host ("· 结单对账：本次领用 {0} 张、已结 {1} 张、挂起 {2} 张（{3}）——挂起的 baseline 未落，待下次合并再结" -f `
+                    $claimedCodes.Count, $ccLanded.Count, $ccPending.Count, ($ccPending -join '、')) -ForegroundColor Yellow
+            }
         } elseif ($missedCodes.Count -eq 0) {
             Write-Host ("✓ 结单对账：本次领用的 {0} 张已全部结掉（{1}）" -f `
                 $claimedCodes.Count, ($claimedCodes -join '、')) -ForegroundColor Green
@@ -1661,7 +1696,14 @@ if ($Mode -eq 'remote') {
         # 指引才真正可执行；回执 localHead/localBranch 同步留痕。
         Write-Host "`n✗ 推送未落地：合并提交保留在本地分支 $tmp 上，恢复后补推：" -ForegroundColor Red
         Write-Host "   git push origin $tmp`:$MainBranch" -ForegroundColor Yellow
-        Write-Host "   推送成功后清理：git branch -d $tmp；挂起的结卡（closePending）由下次合并收尾自动补结" -ForegroundColor Yellow
+        if ($closeMode -eq 'explicit') {
+            # DX-156：-Close 显式确认不跨收尾继承（下次收尾的领用名单里没有这张卡），
+            # 「自动补结」对这条路径是空头支票 —— 提示必须给真实出路。
+            Write-Host "   推送成功后清理：git branch -d $tmp；挂起的结卡（closePending）不会被下次收尾自动补结 ——" -ForegroundColor Yellow
+            Write-Host "   -Close 确认不跨收尾继承：补推成功后重跑收尾再带 -Close，或看板点结（ADR 0002）" -ForegroundColor Yellow
+        } else {
+            Write-Host "   推送成功后清理：git branch -d $tmp；挂起的结卡（closePending）由下次合并收尾自动补结" -ForegroundColor Yellow
+        }
         exit 1
     }
 

@@ -11,6 +11,7 @@
 #include "ThemePack.h"
 
 #include <QDir>
+#include <qt_windows.h>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -31,6 +32,7 @@ private slots:
     void offlineAfterFailedFetch();
     void catalogMarksInstalled();
     void installWritesNormalizedFile();
+    void reinstallKeepsOldPackWhenTargetLocked();
     void installRejectsInvalidPack();
     void interruptedInstallLeavesNoHalfPack();
     void uninstallRemovesOnlyThatPack();
@@ -96,6 +98,43 @@ void TestThemeMarket::cleanup()
     m_market = nullptr;
     delete m_packs;
     m_packs = nullptr;
+}
+
+// DX-142：重装已安装主题时不得「先删旧再建新」——目标被占用（rename 失败）
+// 时旧包必须原样保留。锁目标文件（只共享读）逼 rename 失败。
+void TestThemeMarket::reinstallKeepsOldPackWhenTargetLocked()
+{
+#ifdef Q_OS_WIN
+    const QVariantMap first =
+        m_market->installJson(packJson(QStringLiteral("aurora"), QStringLiteral("极光")),
+                              QStringLiteral("downloaded(1)"));
+    QVERIFY2(first.value(QStringLiteral("ok")).toBool(),
+             qPrintable(first.value(QStringLiteral("reason")).toString()));
+    const QString target = themeFile(QStringLiteral("aurora.json"));
+    QFile before(target);
+    QVERIFY(before.open(QIODevice::ReadOnly));
+    const QByteArray original = before.readAll();
+    before.close();
+
+    HANDLE lock = CreateFileW(reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(target).utf16()),
+                              GENERIC_READ, FILE_SHARE_READ, nullptr,
+                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    QVERIFY2(lock != INVALID_HANDLE_VALUE, qPrintable(target));
+
+    const QVariantMap again =
+        m_market->installJson(packJson(QStringLiteral("aurora"), QStringLiteral("极光2")),
+                              QStringLiteral("aurora(1)"));
+    CloseHandle(lock);
+
+    QVERIFY2(!again.value(QStringLiteral("ok")).toBool(),
+             qPrintable(again.value(QStringLiteral("reason")).toString()));
+    // 旧包原样：既不是半截文件，也没有被换成新内容
+    QFile after(target);
+    QVERIFY(after.open(QIODevice::ReadOnly));
+    QCOMPARE(after.readAll(), original);
+#else
+    QSKIP("Windows 专有：句柄锁");
+#endif
 }
 
 void TestThemeMarket::offlineCatalogIsNotEmpty()

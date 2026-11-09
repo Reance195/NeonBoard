@@ -278,11 +278,25 @@ QVariantMap ThemeMarket::installBytes(const QByteArray &json, const QString &fil
     // QSaveFile 已经做了「写临时 + rename」，这里再搬一次是为了把文件名
     // 规整成 <id>.json：市场下载下来的文件名五花八门，目录里必须一眼认得出是谁。
     if (temp != target) {
-        QFile::remove(target);
+        // DX-142：Windows 的 rename 不覆盖已存在文件——旧实现先删后建，
+        // rename 失败时「旧包已删、新包未落」。改成先备份，失败可回滚。
+        QString backup;
+        if (QFile::exists(target)) {
+            backup = target + QStringLiteral(".old");
+            QFile::remove(backup);
+            if (!QFile::rename(target, backup)) {
+                QFile::remove(temp);
+                return fail(QStringLiteral("无法备份旧主题文件"));
+            }
+        }
         if (!QFile::rename(temp, target)) {
+            if (!backup.isEmpty())
+                QFile::rename(backup, target); // 回滚：新包没落位，旧包必须回来
             QFile::remove(temp);
             return fail(QStringLiteral("保存失败"));
         }
+        if (!backup.isEmpty())
+            QFile::remove(backup);
     }
 
     if (m_packs)

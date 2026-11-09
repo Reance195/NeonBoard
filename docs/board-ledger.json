@@ -6957,6 +6957,13 @@
       "title": "MOD QML 批次二批：执行前确认弹窗整迁 components/ExecConfirmDialog"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-12": {
+      "agent": "agent-mod12b",
+      "branch": "refactor/mod12-exec-confirm-dialog",
+      "head": "3d75a9ebc191be184affabf25c4fb766916632ec",
+      "claimedAt": 1794234102
+    }
+  },
   "version": 1
 }

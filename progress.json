@@ -19,24 +19,6 @@
             "updatedAt": 1794146702
         },
         {
-            "code": "DX-161",
-            "completedAt": 0,
-            "createdAt": 1794233850,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-161",
-            "note": "",
-            "orderKey": 80580,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "收尾的 assignment 移除是工作树操作不落提交：done 卡条目永久残留 main",
-            "updatedAt": 1794233850
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5209,6 +5191,24 @@
             "updatedAt": 1794190865
         },
         {
+            "code": "DX-161",
+            "completedAt": 1794235535,
+            "createdAt": 1794233850,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-161",
+            "note": "",
+            "orderKey": 80580,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "收尾的 assignment 移除是工作树操作不落提交：done 卡条目永久残留 main",
+            "updatedAt": 1794235535
+        },
+        {
             "code": "R10-03",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -6163,6 +6163,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T22:44:53",
+    "updated": "2026-11-09T22:45:35",
     "version": 3
 }

@@ -37,24 +37,6 @@
             "updatedAt": 1794146702
         },
         {
-            "code": "DX-154",
-            "completedAt": 0,
-            "createdAt": 1794191657,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-154",
-            "note": "",
-            "orderKey": 79632,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "git-done 三处 git 输出未解包，合并正文与结单预判失真",
-            "updatedAt": 1794191657
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5137,6 +5119,24 @@
             "updatedAt": 1794191130
         },
         {
+            "code": "DX-154",
+            "completedAt": 1794192828,
+            "createdAt": 1794191657,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-154",
+            "note": "",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 三处 git 输出未解包，合并正文与结单预判失真",
+            "updatedAt": 1794192828
+        },
+        {
             "code": "R10-02",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5965,6 +5965,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T10:34:17",
+    "updated": "2026-11-09T10:53:48",
     "version": 3
 }

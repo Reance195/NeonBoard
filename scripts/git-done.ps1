@@ -149,14 +149,19 @@ function Remove-MergedBranch {
 # 不编造。台账读不到时不过滤（退化为全收，与派生器的分层口径一致）。
 function New-MergeCommitBody {
     param([string]$Branch, [string]$MainBranch)
-    $commitLines = @(Invoke-GitQuiet @('log', '--pretty=%s%n%b', ("origin/{0}..{1}" -f $MainBranch, $Branch)) |
+    # DX-154：Invoke-GitQuiet 返回 {Code,Output}，取 .Output 必须括号包住调用 ——
+    # PS 命令模式下 `f @args .Output` 把 `.Output` 当额外参数传给 git（同
+    # `Write-Host $x.Length` 的坑），697dc92 起两处中招：正则扫对象/错误字符串
+    # 恒不命中，提交数 / 文件数 / 卡片段全为假数据（f58a162 实测）。156 行
+    # rev-list 先存变量再取 .Output，一直正确，可对照。
+    $commitLines = @((Invoke-GitQuiet @('log', '--pretty=%s%n%b', ("origin/{0}..{1}" -f $MainBranch, $Branch))).Output |
         Where-Object { $_ -and $_.ToString().Trim() -ne '' })
     $commitCount = 0
     $countRes = Invoke-GitQuiet @('rev-list', '--count', ("origin/{0}..{1}" -f $MainBranch, $Branch))
     if ($countRes.Code -eq 0 -and $countRes.Output.Count -gt 0) {
         [void][int]::TryParse($countRes.Output[0].ToString().Trim(), [ref]$commitCount)
     }
-    $fileRes = Invoke-GitQuiet @('diff', '--name-only', ("origin/{0}...{1}" -f $MainBranch, $Branch))
+    $fileRes = (Invoke-GitQuiet @('diff', '--name-only', ("origin/{0}...{1}" -f $MainBranch, $Branch))).Output
     $fileCount = @($fileRes | Where-Object { $_ -and $_.ToString().Trim() -ne '' }).Count
 
     $known = @()
@@ -188,11 +193,14 @@ function New-MergeCommitBody {
 # 拒绝，claim 已清理，补结通道关闭）。判据口径与 --close-cards 的 =done 标记
 # 一致（subject+body 都认），但这里只影响提示与时机，结卡判定唯一实现仍在
 # derive_board_status.py（Z5）。正则只匹配 ASCII 的 =done，中文经控制台代码页
-# 转码不影响命中 —— 与 New-MergeCommitBody 的卡号提取同款手法与风险面。
+# 转码不影响命中。Invoke-GitQuiet 返回 {Code,Output}，取 .Output 必须用括号包住
+# 调用 —— PS 命令模式下 `f @args .Output` 会把 `.Output` 当额外参数传给 git
+#（DX-154 selftest 实测，同 `Write-Host $x.Length` 的坑），正则扫不到提交信息，
+# 预判恒误报。156 行 rev-list 一直是「先存变量再取 .Output」，同理可对照。
 function Get-MissedDonePreview {
     param([string[]]$Codes, [string]$MainBranch, [string]$Branch)
     if ($Codes.Count -eq 0) { return @() }
-    $lines = @(Invoke-GitQuiet @('log', '--pretty=%s%n%b', ("origin/{0}..{1}" -f $MainBranch, $Branch)))
+    $lines = @((Invoke-GitQuiet @('log', '--pretty=%s%n%b', ("origin/{0}..{1}" -f $MainBranch, $Branch))).Output)
     $doneCodes = @()
     foreach ($line in $lines) {
         foreach ($m in [regex]::Matches([string]$line, '#([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)=done')) {
@@ -841,7 +849,7 @@ if ($script:gitDoneSelfTest) {
         New-StWorkRepo -Work $workA -OriginPath $originA
         Invoke-In $workA @('switch', '-c', 'fix/selftest-a') | Out-Null
         Add-Content -LiteralPath (Join-Path $workA 'README.md') -Value 'feature line a' -Encoding utf8
-        Invoke-In $workA @('commit', '-q', '-am', 'docs: feature a') | Out-Null
+        Invoke-In $workA @('commit', '-q', '-am', 'docs: feature a #DX-999=done') | Out-Null
         $resA = Invoke-Cmd -File 'pwsh' -CmdArgs @('-NoProfile', '-File', (Join-Path $workA 'scripts\git-done.ps1'), '-Branch', 'fix/selftest-a', '-StubPushFailures', '1')
         $outA = $resA.Output -join "`n"
         Assert-St 'A：退出码 0' ($resA.Code -eq 0)
@@ -858,6 +866,12 @@ if ($script:gitDoneSelfTest) {
             $tipParents = (Invoke-In $originA @('rev-list', '--parents', '-n', '1', 'main'))[0]
             $parentCount = ("$tipParents".Trim() -split '\s+').Count - 1
             Assert-St "A：重试后落地 tip 是双父合并提交（parents=$parentCount）" ($parentCount -ge 2)
+            # DX-154：合并正文四段（DX-101）的提交数 / 文件数 / 卡片段曾因 Invoke-GitQuiet
+            # 未取 .Output 恒为假数据（f58a162 实测「0 个文件改动」「卡片：无」）。Z6：
+            # 产物级断言钉住取值正确 —— feature 提交改 1 个文件并带 #DX-999=done 标记。
+            $bodyA = (Invoke-In $originA @('log', '-1', '--format=%b', 'main')) -join "`n"
+            Assert-St 'A：合并正文文件数非 0（非恒 0 假数据）' ($bodyA -match '1 个文件改动')
+            Assert-St 'A：合并正文卡片段命中分支标记' ($bodyA -match '卡片：#DX-999')
         }
         $curA = (Invoke-In $workA @('branch', '--show-current'))[0]
         Assert-St "A：检出已归位（$curA，不在 merge/*）" ("$curA" -eq 'main')

@@ -7068,7 +7068,7 @@
       "depends": [],
       "evidence": "2026-11-09 实测（基线 origin/main，Main.qml 2416 行）：NeonBackground 包裹层 Item 块 933-949 共 17 行（NeonBackground + 28% 遮罩 Rectangle）。双向引用实测——前向仅 window.active / window.focusMode 两处（经 hostWin）；taskStore 与 noBackground 均为 C++ 注入 context property（AppMain.cpp:453，组件内直接可用）；反向引用仅 background.burst() 两处（L133 / L887 窗口级函数），经 alias background 暴露后改走实例化 id，其余 15 处 background 字样均为 background: 属性赋值误报（正则逐行核实）。块内零字符串/注释含 window.。MOD-11~15 已验证整块迁移模式与全部坑（QT_RESOURCE_ALIAS、Z6 切片、CMake 上下文锚点、组件文件必须从断言过的数据组装、合并块后全量反向核对——本卡单块迁移且反向引用已全量核对 18 项）。维护者 2026-11-09 会话指令「继续迁移 NeonBackground 包裹层」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
       "id": "MOD-16",
-      "note": "",
+      "note": "QML批次六批：霓虹背景包裹层Item（933-949，17行，NeonBackground+28%遮罩）整迁components/NeonBackgroundLayer.qml，块体逐字照搬。接口2个：hostWin（window.active/focusMode两处）、alias background（Main级2处burst()调用改走实例化id）；noBackground/taskStore为context property（AppMain.cpp:453）组件内直接可用。Main.qml 2416→2404（恰好达卡面验收线），LINE_LIMITS同步，CMake双登记。verify全量绿：ctest 45/45、--selftest/--smoke退出码0、QML致命告警0行、check_module_deps/check_scope通过。过程如实列：①实现脚本brace_end混用迭代约定（lines[i-1]迭代却按0-based返回i+1）多偏1行，span断言在写盘前拦住零污染（教训：同族函数复制粘贴时迭代/返回约定必须一致核对）；②卡面预估实例化5行实测6行（含空行分隔），行数断言差1，收紧空行后精确达标。已完成X/待做Y：QML主结构迁移六块已清（标题栏+主看板区、四张执行域弹窗、霓虹背景包裹层）；待做=FocusBadge（4行）/遮罩MouseArea/Loaders区迁移评估、十条手工alias收敛。人工复核：任务流转时霓虹背景burst脉冲、专注模式背景渐变（--smoke测不到交互态）。授权来源：维护者2026-11-09会话指令「继续迁移 NeonBackground 包裹层」。",
       "scope": [
         "qml/Main.qml",
         "qml/components/**",

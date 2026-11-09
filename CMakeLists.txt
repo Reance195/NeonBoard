@@ -180,6 +180,7 @@ qt_add_executable(NeonBoard
     src/app/SelfTestRunner.cpp
     src/app/AppObjects.cpp
     src/app/AppWiring.cpp
+    src/app/CliHandlers.cpp
 )
 
 # MOD-06：8 个模块子目录。源码里的 #include "Database.h" 一律不改写法，

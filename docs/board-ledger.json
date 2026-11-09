@@ -6514,13 +6514,6 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {
-        "DX-152": {
-            "agent": "gapsc",
-            "branch": "fix/worktree-registration-check",
-            "claimedAt": 1794190726,
-            "head": "a87527f7c522fa4a29334d8e5eed32eb339eedea"
-        }
-    },
+    "claims": {},
     "version": 1
 }

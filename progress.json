@@ -199,24 +199,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-7",
-            "completedAt": 0,
-            "createdAt": 1794144568,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-7",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "模块化续批：建立 src/app 边界并把 main.cpp 从 1910 行降到 450 行以内",
-            "updatedAt": 1794144568
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5479,6 +5461,24 @@
             "updatedAt": 1794023071
         },
         {
+            "code": "MOD-7",
+            "completedAt": 1794190034,
+            "createdAt": 1794144568,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-7",
+            "note": "已完成 7 / 待做 0 —— 七条验收全部满足。verify.ps1 全量绿：ctest 44/44、--selftest 与 --smoke 退出码 0（致命告警 0 行）、模块守卫与范围检查通过。\n\n交付：main.cpp 1910 → 6 行薄入口（neonboardMain 转调）；src/app/ 四类实现——AppMain.cpp（原函数体一字未改）、SelfTestRunner.cpp（--selftest 605 行原样迁入，SelfTestDeps 指针结构 + 函数内 auto& 别名，零文本改写）、CliCommands.cpp（31 条命令表反推 utilityMode，smoke/sync/data 三组手写判定并入单点）、AppContext.cpp（42 个上下文对象表驱动注入）；LINE_LIMITS 中 main.cpp 上限 1910 → 6 同步调低。\n\n残留与 nextStep：① M1d 对象构造工厂未做——约 1100 行构造区仍在 AppMain.cpp，构造次序敏感（「必须声明在 QQmlApplicationEngine 之前」注释是硬约束），留待下批；② 路线图 §9 无 **MOD** 行，MOD 卡在阶段条不可见，增行属维护者拍板项（方案 P5）；③ A/B 实测 --market-sources / --plugin-report / --update-sources 存在非确定性退出崩溃（0xC0000409，输出完成后），重构前旧 exe 同样复现，非本卡引入，建议另立卡排查退出竞态。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "模块化续批：建立 src/app 边界并把 main.cpp 从 1910 行降到 450 行以内",
+            "updatedAt": 1794190034
+        },
+        {
             "code": "R9-02",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5857,6 +5857,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T10:05:46",
+    "updated": "2026-11-09T10:07:14",
     "version": 3
 }

@@ -48,7 +48,12 @@ QVariantMap BoardSync::claimForTask(const QString &taskId) const
     if (code.isEmpty()) {
         const QString title = m_tasks->taskById(taskId).value("title").toString();
         for (const Claim &claim : m_claims) {
-            if (title.contains(QLatin1Char('#') + claim.code, Qt::CaseInsensitive)) {
+            // DX-143：与 taskIdForCode 同一套词边界口径（Z5）——contains 无边界，
+            // 标题 "#R1-12" 会被 code R1-1 的领用命中，标牌挂错卡
+            const QRegularExpression re(
+                QStringLiteral("#%1\\b").arg(QRegularExpression::escape(claim.code)),
+                QRegularExpression::CaseInsensitiveOption);
+            if (re.match(title).hasMatch()) {
                 code = claim.code;
                 break;
             }

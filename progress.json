@@ -181,6 +181,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "MOD-10",
+            "completedAt": 0,
+            "createdAt": 1794227657,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-10",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD CLI 派发块抽取：AppMain 的六组命令处理迁入 CliHandlers",
+            "updatedAt": 1794227657
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6055,6 +6073,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T20:03:26",
+    "updated": "2026-11-09T20:34:17",
     "version": 3
 }

@@ -1,0 +1,13 @@
+{
+  "card": "MOD-10",
+  "sha256": "a0c634df26a477579d32dea6944c5f015ea87024e81d53a85cdba50f87616eb7",
+  "authorizedBy": "维护者 2026-11-09 会话指令「开始 CLI 派发块抽取」（MOD-9 交付说明 nextStep 的 CLI 派发块批次），授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261109-mod-cli-handlers.md",
+  "registeredAt": "2026-11-09T12:34:17+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-10",
+    "sha": "0cb29f22b96ca7258f5ffd3028ea8991c3306a61"
+  }
+}

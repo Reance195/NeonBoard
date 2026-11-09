@@ -7030,13 +7030,6 @@
       "title": "MOD QML 批次四批：夜间批量执行弹窗整迁 components/NightBatchDialog"
     }
   },
-  "claims": {
-    "MOD-14": {
-      "agent": "agent-mod14",
-      "branch": "refactor/mod14-night-batch-dialog",
-      "head": "0b16509f1eb845833c9f3637826ad24ab3b243ec",
-      "claimedAt": 1794242202
-    }
-  },
+  "claims": {},
   "version": 1
 }

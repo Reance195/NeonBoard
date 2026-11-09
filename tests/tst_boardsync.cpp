@@ -100,10 +100,16 @@ void TestBoardSync::claimTitleMatchRespectsWordBoundary()
     BoardSync sync(nullptr, &model, dir.path());
     sync.refresh();
 
-    const QString longCard = model.addTask(QStringLiteral("#R1-12 长短号卡"));
+    // addTask 的快速录入解析会把「#R1-12」当标签拆走，标题里就剩不下 #短号；
+    // 先占卡再用 updateTask 原样写标题（编辑路径不走解析，与真实标牌卡一致）
+    const QString longCard = model.addTask(QStringLiteral("长短号卡"));
     QVERIFY(!longCard.isEmpty());
-    const QString shortCard = model.addTask(QStringLiteral("#R1-1 短号卡"));
+    QVERIFY(model.updateTask(longCard,
+                             QVariantMap{{QStringLiteral("title"), QStringLiteral("#R1-12 长短号卡")}}));
+    const QString shortCard = model.addTask(QStringLiteral("短号卡"));
     QVERIFY(!shortCard.isEmpty());
+    QVERIFY(model.updateTask(shortCard,
+                             QVariantMap{{QStringLiteral("title"), QStringLiteral("#R1-1 短号卡")}}));
     const QString plainCard = model.addTask(QStringLiteral("无关卡"));
     QVERIFY(!plainCard.isEmpty());
 

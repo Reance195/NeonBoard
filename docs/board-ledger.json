@@ -6957,6 +6957,13 @@
       "title": "MOD QML 批次二批：执行前确认弹窗整迁 components/ExecConfirmDialog"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-160": {
+      "agent": "agent-dx160",
+      "branch": "docs/claim-branch-push-semantics",
+      "head": "724789deea5e24244e2150f0aa95d0dd1487d70e",
+      "claimedAt": 1794234053
+    }
+  },
   "version": 1
 }

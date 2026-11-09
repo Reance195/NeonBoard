@@ -86,7 +86,7 @@ CLASS_TO_MODULE = {name: mod for mod, names in CLASS_MODULE.items() for name in 
 # 调低（脚本在 actual < limit 时会点名提示），否则「只许减不许增」失去意义。
 # SettingsPanel.qml 是同一类巨型 QML 组件，一并纳入。
 LINE_LIMITS = {
-    "src/main.cpp": 1910,
+    "src/main.cpp": 6,
     "qml/Main.qml": 4131,
     "qml/components/SettingsPanel.qml": 2072,
 }

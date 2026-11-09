@@ -19,6 +19,24 @@
             "updatedAt": 1794146702
         },
         {
+            "code": "DX-162",
+            "completedAt": 0,
+            "createdAt": 1794235997,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-162",
+            "note": "",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "claim-card 落盘按脚本自身路径定位 store、is_anchor 却判 root：口径不一致让锚点领卡条目必写锚点",
+            "updatedAt": 1794235997
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -6181,6 +6199,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T22:52:27",
+    "updated": "2026-11-09T22:53:18",
     "version": 3
 }

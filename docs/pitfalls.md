@@ -873,6 +873,34 @@
 ---
 ## 二、脚本与编码（PowerShell / Python）
 
+### 1.48 新写 handoff.ps1 一轮踩四坑：here-string / 正则转义 / 变量误展开 / GBK 解码（DX-149）
+
+- **现象**（2026-11-09 DX-149 实现实录，`handoff.ps1` 首版四连败）：
+  ① Write 工具产出的 `.ps1` 是 LF 行尾，PS 5.1 解析器对 LF 行尾的 **here-string 失灵**，
+  `@'...'@` 整段被当代码，Parser 报 22 个错且行号错乱（根因排查绕了很久，归零靠把
+  文件规范成 CRLF + 换掉 here-string）；② 双引号字符串里写正则 `` "(?m)^(\s*`$env:...)" ``，
+  反引号转义后 .NET 收到的是**裸 `$`**（regex 语义 = 行尾锚），模式永不匹配——
+  「换 agent 身份」静默无效（`.agent-env.ps1` 原样未改，还打印了成功）；③ selftest 里
+  用双引号拼 `"\$env:NEONBOARD_DATA_DIR = ..."`，**`$env:` 被当作环境变量展开成空串**，
+  生成的行变成 `\ = '...'`；④ `assignment-store.py list --json` 输出 UTF-8 中文，PS 按约定
+  用 `[Console]::OutputEncoding`（GBK）解码子进程 stdout，中文值破坏 JSON 结构，
+  `ConvertFrom-Json` 抛错被 catch 吞掉后 `Read-Assignment` 恒返回 null。
+- **根因**：四个坑同源于「PowerShell 5.1 的字符串与编码规则与直觉相反」，且失败全是
+  **静默的**（regex 不匹配不报错、JSON catch 吞掉、变量展开成空串），只有产物断言
+  （selftest 的 Assert-ST 清单 + 保留失败现场）才把它们点名。
+- **解法（DX-149）**：① 新 `.ps1` 一律先规范成 **CRLF + UTF-8 BOM** 再语法解析
+  （`.gitattributes` 对 .ps1 的 CRLF 约定正是为此）；② 正则模式串用**单引号字符串**
+  （本仓 `agent-workspace.ps1::Get-AgentEnvId` 的既有写法就是正解，新代码抄它别自创）；
+  ③ 拼 `$env:` 字面行用单引号拼接；④ 程序消费的子进程输出必须**纯 ASCII**
+  （`--json` 输出 `ensure_ascii=True`，与 `derive_board_status --emit-claimed` 同口径），
+  或在脚本顶部 `[Console]::OutputEncoding = UTF8`——后者同时治「git 中文提交主题比对恒假」
+  （§2.20 同族：那边是管道捕获，这边是原生捕获，同一根因两种入口）。
+  另有一坑顺带收录：`agent-workspace.ps1` 按**调用方 cwd** 定位 common dir，从别的检出
+  调它会把占用登记写到错误的仓库去——外部调用必须先 `Push-Location` 到目标 worktree。
+- **预防**：selftest 断言清单 + 「失败现场保留不删」是本轮唯一能快速定位的手段
+  （Z8/Z9），新流程脚本一律照此办理；`.ps1` 首版落盘后先做 `Parser::ParseFile` 语法
+  解析再跑行为；正则里出现 `$` 一律单引号串。
+
 ### 2.1 `.ps1` 少了 UTF-8 BOM，整份脚本报「批处理式」语法错
 
 - **现象**：Windows PowerShell 5.1 下中文字符串像被撕开，引号配对错乱；PowerShell 7 却正常。

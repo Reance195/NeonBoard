@@ -73,24 +73,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-15",
-            "completedAt": 0,
-            "createdAt": 1794245255,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-15",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD QML 批次五批：标题栏与主看板区整迁 components/BoardChrome",
-            "updatedAt": 1794245255
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5803,6 +5785,24 @@
             "updatedAt": 1794243493
         },
         {
+            "code": "MOD-15",
+            "completedAt": 1794246551,
+            "createdAt": 1794245255,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-15",
+            "note": "QML批次五批：titleBar（964-1086，123行）与RowLayout主看板区（1088-1519，432行）合并整迁components/BoardChrome.qml（Item根包裹，556行），块体逐字照搬，互引（focusButton↔focusMenu、锚定titleBar.bottom、聚焦菜单定位）全部内化。接口6个：hostWin（34处window.引用+heatmapCollapsed裸引用5处）、columnManagerRef、dragSpaceRef（原root，卡片拖拽坐标空间）、alias searchField/columnRepeater/themePicker（Main级clearFilters与列扫描及主题选择器引用）。Main.qml 2964→2416，LINE_LIMITS同步，CMake双登记（带上下文唯一锚点）。更正：此前盘点「主内容层Item 933-1851（919行）」实为多个兄弟块连续区段，本卡取其中最大耦合单元；NeonBackground包裹层/FocusBadge/遮罩MouseArea留Main。verify全量绿：ctest 45/45、--selftest/--smoke退出码0、QML致命告警0行、check_module_deps/check_scope通过。过程如实列：①实现脚本把改写应用在combined上但组装组件用了原始列表——47处window.未改写，--smoke抓到后补写（教训：写文件必须从断言过的同一份数据组装）；②heatmapCollapsed裸引用4行5处（一行两处）计数断言写错导致一次fixup空转；③themePicker反向引用在合并titleBar后未重查全量id，--smoke抓到ReferenceError后补alias并改写Main 5处（教训：合并块后必须对全部内部id重跑反向引用核对）；④tests并行构建瞬态失败照旧（增量重跑即绿）。已完成X/待做Y：QML主结构=titleBar+主看板区+四张执行域弹窗共五块已迁；待做=NeonBackground包裹层/遮罩MouseArea/Loaders区迁移评估、十条手工alias收敛。人工复核：标题栏拖拽/窗口按钮/专注按钮、看板列拖拽跨列、搜索过滤、项目切换、主题选择器开合（--smoke测不到交互态）。授权来源：维护者2026-11-09会话指令「继续迁移主内容层 Item」。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD QML 批次五批：标题栏与主看板区整迁 components/BoardChrome",
+            "updatedAt": 1794246551
+        },
+        {
             "code": "MOD-7",
             "completedAt": 1794190034,
             "createdAt": 1794144568,
@@ -6235,6 +6235,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T01:27:35",
+    "updated": "2026-11-10T01:49:11",
     "version": 3
 }

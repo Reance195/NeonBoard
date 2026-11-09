@@ -1820,7 +1820,7 @@
             "depends": [],
             "evidence": "维护者 2026-11-09 指令「1。授权」，采纳审计轮遗留缺口 #4。实测：`scripts/` 现有 40+ 个脚本，宪章 §四 只有一句「临时脚本用完即删，不要留在 scripts/ 里」散文约定，无任何机器对账——脚本有没有清单、清单准不准、目录里多出来的脚本是谁的、干什么的，全靠读源码；多代理并行下（§七）脚本数量只增不减，「残留」与「孤儿」两类污染对锚点同步与占用判定之外完全隐形（Z5：脚本层缺一份「存在即注册」的单一清单；Z6：新会话反复要先 ls scripts/ 猜用途）。",
             "id": "DX-151",
-            "note": "",
+            "note": "交付 d5880e7：check_script_hygiene.py 新增规则 H（find_manifest_problems 独立于 find_problems，清单缺失 fail-closed；未登记/无实体/用途为空三类违规）+ docs/scripts-manifest.md 全量 56 行如实摘录；自测 6 探针全绿，真实仓对账 56 个脚本零违规，verify -ScriptOnly 通过。",
             "scope": [
                 "scripts/check_script_hygiene.py",
                 "docs/scripts-manifest.md"

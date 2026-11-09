@@ -1633,6 +1633,26 @@
   `branch -d` 没错、DX-106 也没错，错的是两者叠起来后判据恒假且失败被吞。
   静默失败比报错更贵：45 支垃圾是两天才被人肉盘点出来的。
 
+### 2.37 锚点区领卡把 assignment 写进 main 工作树：随分支提交的设计在锚点无处落地（DX-158）
+
+- **现象**（2026-11-09 DX-157 实录）：agent-dxl 在锚点区领卡（nbflow dispatch /
+  `agent-init -ForceAnchor` 场景，`claim-card.py` 的 root = 锚点检出）后，锚点
+  `docs/agent-assignments.json` 出现未提交修改——DX-149 的领用 upsert 按 root 定位存储，
+  写进的是 main 工作树。`assignments` 设计为「随分支提交」，锚点检出 main 且钩子禁止
+  main 直接提交：条目成为无人能提交的死数据，还会在锚点快进 `--ff-only` 时撞脏文件。
+- **根因**：DX-149 只覆盖了开发区 worktree / 普通 clone 的领用路径，没考虑「root 是
+  锚点检出」这一例外（与 1.31「.worktrees 只在锚点存在」同一族的位置意识缺失——
+  那条是「从 worktree 扫不到锚点」，这条是「从锚点写脏 main」）。
+- **解法（DX-158）**：`claim-card.py::is_anchor_checkout`（git-dir 与 git-common-dir
+  同值 → 锚点，判定唯一实现，`--selftest` 三例：锚点 True / linked worktree False /
+  非检出保守 True 宁可少写不写错位置）；锚点领卡跳过 assignment upsert 并**点名告警**
+  （旁路不阻断领用，Z4 体验类 fail-soft 必须告警），现场定位由 audit 的台账 claims /
+  worktree 级兜底（DX-149 四级信息源），能力不缺。锚点错位条目（DX-157）还原为
+  origin/main 版本——移除的是本机制自己写错位置的数据。
+- **预防**：给「按 root 定位的旁路写入」补一条判据：**root 是锚点检出时，随分支提交
+  的文件一律不写**；新增旁路写入路径时先问「这个检出有没有分支可随」（锚点答案永远是
+  没有）。
+
 ---
 
 ## 三、构建与 Qt / QML

@@ -6852,17 +6852,25 @@
       "depends": [],
       "evidence": "2026-11-09 实测（基线 origin/main）：qml/Main.qml 4131 行（LINE_LIMITS 一致）。方案 v4 写的「URI 化 + 消 31 条 alias」已被 R11-9/10 提前消化——components/ 下 32 个组件均已入 qt_add_qml_module（URI NeonBoard），手工 alias 仅剩 10 条 property。剩余实质是把内联区块继续迁 components。逐块花括号配对 + 标识符核对选出首批对象：execQueueDialog（3507-3964，458 行，R7-02 执行队列弹窗）完全自包含——块内零 window 引用、引用的七个 id（execQueueList / queueHeader / queueHeaderLine / itemPulse / upMouse / downMouse / skipMouse）全部块内自声明、括号平衡，迁移接口面为零；依赖仅 context property（taskRuns / scheduler / Theme）。其余三张执行域弹窗（execConfirmDialog / execPanelDialog / execBatchDialog，合计约 370 行）与主内容层 Item（933-1851，919 行）耦合较深，留后续批次。维护者 2026-11-09 会话指令「剩余仅 QML 批次（Main.qml 3946 行 URI 化 + 拆分）与 §9 补 MOD 阶段行 执行」（§9 MOD 行已先行合并 aae4a19），据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
       "id": "MOD-11",
-      "note": "",
+      "note": "已完成 5 / 待做 0 —— 五条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行（迁移前首跑曾命中 Main.qml:3507 Type ExecQueueDialog unavailable，修复后清零）、模块守卫与范围检查通过；Main.qml 4132 → 3674（验收线 <=3700）；LINE_LIMITS 同步调低 4131 → 3674。\n\n交付：qml/components/ExecQueueDialog.qml（壳与 content 整体迁移，块体逐字照搬，id 保留原名，Main 与其它调用点零改动）；CMake 登记 qt_add_qml_module 源条目 + QT_RESOURCE_ALIAS 裸名。\n\n关键坑与更正：① 新 QML 组件必须在 CMake 同时登记源条目与 QT_RESOURCE_ALIAS 裸名——漏配后者会使 qmldir 带目录前缀（qml/components/ExecQueueDialog.qml），运行时 Type ExecQueueDialog unavailable，首跑 --smoke 当场抓到并修复；该路径同时把 CMakeLists.txt 凭证扩入 scope（DX-10 通道）；② 弹窗打开路径的绑定错误 --smoke 4 秒窗口测不到（弹窗未打开不实例化 content），请维护者人工复核（--exec-queue 启动参数或界面按钮）；③ 过程踩坑：切块时 body 起点误含原 id 行导致 Property value set multiple times（qmlcachegen 当场抓到）。\n\nnextStep：其余三张执行域弹窗（execConfirmDialog / execPanelDialog / execBatchDialog，合计约 370 行）与主内容层 Item（933-1851，919 行，耦合最深，含 NeonBackground 与拖拽层）的拆分批次；十个手工 alias 的收敛随之推进。",
       "scope": [
         "qml/Main.qml",
         "qml/components/**",
-        "scripts/check_module_deps.py"
+        "scripts/check_module_deps.py",
+        "CMakeLists.txt"
       ],
       "stage": "MOD",
       "tier": "P4",
       "title": "MOD QML 批次首批：执行队列弹窗整迁 components/ExecQueueDialog"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-11": {
+      "agent": "agent-mod11",
+      "branch": "refactor/mod11-exec-queue-dialog",
+      "head": "44deb75070f9688f84e079c763208546e6474e31",
+      "claimedAt": 1794231723
+    }
+  },
   "version": 1
 }

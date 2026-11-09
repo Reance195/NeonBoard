@@ -7080,6 +7080,13 @@
       "title": "MOD QML 批次六批：霓虹背景包裹层整迁 components/NeonBackgroundLayer"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-16": {
+      "agent": "agent-mod16",
+      "branch": "refactor/mod16-neon-bg-layer",
+      "head": "809cc45d67177041ae22985951f9d85b3d2543b6",
+      "claimedAt": 1794247190
+    }
+  },
   "version": 1
 }

@@ -37,24 +37,6 @@
             "updatedAt": 1794146702
         },
         {
-            "code": "DX-150",
-            "completedAt": 0,
-            "createdAt": 1794190124,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-150",
-            "note": "",
-            "orderKey": 79632,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "宪章硬性约定 6「界面行为改动同步 README」无机器执行，靠代理自觉",
-            "updatedAt": 1794190124
-        },
-        {
             "code": "DX-151",
             "completedAt": 0,
             "createdAt": 1794190124,
@@ -5119,6 +5101,24 @@
             "updatedAt": 1793251716
         },
         {
+            "code": "DX-150",
+            "completedAt": 1794190329,
+            "createdAt": 1794190124,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-150",
+            "note": "已完成：scripts/check_readme_sync.py（--base 读 origin/main..HEAD 增量，qml//shaders/ 命中且范围无 README.md 改动 → 逐提交点名 + ::warning::，退出码恒 0）+ ci.yml「README 同步提示（DX-150）」步骤。实测：--selftest 四场景全过（临时仓库：UI+README 同改=静默、纯 shaders 改动=点名 1 提交、src 改动=静默、report 恒 0）；本分支 --base origin/main 实跑 exit 0 无误报（范围无界面提交，符合预期）。待做：无（升级阻断需另行立卡）。交付 1ab0887。",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "宪章硬性约定 6「界面行为改动同步 README」无机器执行，靠代理自觉",
+            "updatedAt": 1794190329
+        },
+        {
             "code": "R10-02",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5911,6 +5911,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T10:08:44",
+    "updated": "2026-11-09T10:12:09",
     "version": 3
 }

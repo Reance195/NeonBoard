@@ -204,6 +204,7 @@
     "MOD-11": "done",
     "MOD-12": "done",
     "MOD-13": "done",
+    "MOD-14": "done",
     "MOD-7": "done",
     "MOD-8": "done",
     "MOD-9": "done",
@@ -325,8 +326,7 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done",
-    "MOD-14": "todo"
+    "R9-05": "done"
   },
   "cards": {
     "DX-01": {

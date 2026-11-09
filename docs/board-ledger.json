@@ -323,7 +323,8 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "MOD-13": "todo"
   },
   "cards": {
     "DX-01": {
@@ -6955,6 +6956,30 @@
       "stage": "MOD",
       "tier": "P4",
       "title": "MOD QML 批次二批：执行前确认弹窗整迁 components/ExecConfirmDialog"
+    },
+    "MOD-13": {
+      "acceptance": [
+        "pwsh -File scripts/verify.ps1 全量通过且 --smoke 日志 QML 致命告警 0 行",
+        "新增 qml/components/ExecPanelDialog.qml（壳与 content 逐字照搬，仅 hostWindow: window 改 hostWin 一处接口化）且 Main.qml 中 execPanelDialog 段替换为带 hostWin 绑定的一处实例化（id 保留原名）",
+        "Main.qml 行数 <= 3420（基线 3675）且 LINE_LIMITS 中 qml/Main.qml 上限同步调低到实际行数",
+        "CMakeLists 同时登记 qt_add_qml_module 源条目与 QT_RESOURCE_ALIAS 裸名",
+        "python scripts/check_module_deps.py --base origin/main 退出 0 且 python scripts/check_scope.py --base origin/main 退出 0",
+        "维护者人工复核：执行结果面板弹窗打开后 run 状态、耗时与成本合计渲染与迁移前一致"
+      ],
+      "author": "codebuddy-session-2026-11-09",
+      "depends": [],
+      "evidence": "2026-11-09 实测（基线 origin/main，Main.qml 3675 行）：execPanelDialog（R6-06 执行结果面板弹窗）块 2784-3045 共 262 行，括号平衡；外部引用仅一处——window.openExecQueue（确认后跳队列），另有一处 background: null 经核实是属性赋值误报非 id 引用；content 引用的 taskRuns / costSummary 等均为 context property。接口面 = hostWin 一个 property。MOD-11 / MOD-12 已验证整 Dialog 迁移模式与三个坑（QT_RESOURCE_ALIAS 裸名、body 起点勿含 id 行与壳闭括号、组件根须显式 property var 声明），本卡直接沿用。维护者 2026-11-09 会话指令「下一张卡：迁移 execPanelDialog 弹窗」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
+      "id": "MOD-13",
+      "note": "",
+      "scope": [
+        "qml/Main.qml",
+        "qml/components/**",
+        "CMakeLists.txt",
+        "scripts/check_module_deps.py"
+      ],
+      "stage": "MOD",
+      "tier": "P4",
+      "title": "MOD QML 批次三批：执行结果面板弹窗整迁 components/ExecPanelDialog"
     }
   },
   "claims": {},

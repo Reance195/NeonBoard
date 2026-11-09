@@ -1,0 +1,13 @@
+{
+  "card": "MOD-13",
+  "sha256": "d0d8e5ad029e60ecf152c584eb7a0aa7fbde39cb4959462f7938d668a19d60e7",
+  "authorizedBy": "维护者 2026-11-09 会话指令「下一张卡：迁移 execPanelDialog 弹窗」，授权 QML 批次三批立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261109-mod-exec-panel-dialog.md",
+  "registeredAt": "2026-11-09T14:52:26+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-13",
+    "sha": "e9f22df260601d788bb4c248976b5ece945eccd5"
+  }
+}

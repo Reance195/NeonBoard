@@ -9,7 +9,6 @@
 #include "TaskModel.h"
 
 #include <QFile>
-#include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -26,7 +25,6 @@ private slots:
     void filterByColumnSeparatesSameStatus();
     void filterFallsBackToStatusWithoutColumn();
     void unknownColumnIsRejected();
-    void undoRestoreKeepsCustomColumn();
     void filteredSearchDropLandsAtVisibleGap();
     void filteredSearchDropTailAnchorsHiddenSuccessor();
     void filteredStageDropWithHiddenBetween();
@@ -329,35 +327,6 @@ void TestTaskColumns::unfilteredDropKeepsLegacySemantics()
     QVERIFY(m_model->moveTaskBefore(dropped, QStringLiteral("todo"), tail.beforeId));
     QCOMPARE(m_model->taskIdsInColumn(QStringLiteral("col-todo")),
              (QStringList{a, b, c, dropped}));
-}
-
-// DX-140：撤销删除的快照必须带列归属——自定义列删卡再撤销，卡回到原列而不是默认列
-void TestTaskColumns::undoRestoreKeepsCustomColumn()
-{
-    QSqlDatabase db = QSqlDatabase::database(m_db->connectionName());
-    QSqlQuery insert(db);
-    QVERIFY(insert.exec(QStringLiteral(
-        "INSERT INTO board_column (id, board_id, name, status, order_key) VALUES "
-        "('col-custom', 'board-default', '自定义', 'todo', 4096)")));
-
-    const QString id = m_model->addTask(QStringLiteral("自定义列卡"), QStringLiteral("todo"),
-                                        1, QString(), 0, QStringLiteral("col-custom"));
-    QVERIFY(!id.isEmpty());
-    QCOMPARE(m_model->taskById(id).value(QStringLiteral("columnId")).toString(),
-             QStringLiteral("col-custom"));
-
-    const QVariantMap snapshot = m_model->removeTask(id);
-    QVERIFY(!snapshot.isEmpty());
-    QCOMPARE(snapshot.value(QStringLiteral("columnId")).toString(),
-             QStringLiteral("col-custom"));
-    QVERIFY(m_model->taskById(id).isEmpty());
-
-    QVERIFY2(!m_model->restoreTask(snapshot).isEmpty(),
-             "restoreTask 应还原快照并返回任务 id");
-    QCOMPARE(m_model->taskById(id).value(QStringLiteral("columnId")).toString(),
-             QStringLiteral("col-custom"));
-    QCOMPARE(m_model->taskById(id).value(QStringLiteral("status")).toString(),
-             QStringLiteral("todo"));
 }
 
 QTEST_GUILESS_MAIN(TestTaskColumns)

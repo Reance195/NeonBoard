@@ -16,6 +16,18 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include <algorithm>
+
+namespace {
+// DX-140：reorder 失败路径的告警捕获（qInstallMessageHandler 需要无捕获函数）
+QStringList g_swapWarnings;
+void captureSwapWarning(QtMsgType type, const QMessageLogContext &, const QString &message)
+{
+    if (type == QtWarningMsg)
+        g_swapWarnings.append(message);
+}
+} // namespace
+
 class TestTaskRuns : public QObject
 {
     Q_OBJECT
@@ -204,16 +216,27 @@ void TestTaskRuns::reorderFailsAtomicallyOnSecondUpdateFailure()
     const int posB0 = m_store->run(runB).value(QStringLiteral("position")).toInt();
     QVERIFY(posA0 != posB0);
 
-    // 注入：runB 的 position 更新一成功就 abort——正好卡在两条 UPDATE 之间
+    // 注入：runA（对手行）的 position 一变就 abort——swap1 更新 B 成功，
+    // swap2 更新 A 被拦截，正好卡在两条 UPDATE 之间
     QSqlDatabase db = QSqlDatabase::database(m_db->connectionName());
     QSqlQuery trigger(db);
     QVERIFY(trigger.exec(QStringLiteral(
         "CREATE TRIGGER fail_swap2 BEFORE UPDATE ON task_run "
         "WHEN NEW.id = '%1' AND NEW.position <> OLD.position "
-        "BEGIN SELECT RAISE(ABORT, 'injected'); END").arg(runB)));
+        "BEGIN SELECT RAISE(ABORT, 'injected'); END").arg(runA)));
 
-    // 把 B 往队头挪：swap1 更新 B（成功），swap2 更新 A（被触发器拦截）
-    QVERIFY(!m_store->reorder(runB, -1));
+    // 把 B 往队头挪：swap1 更新 B（成功），swap2 更新 A（被触发器拦截）。
+    // 告警必须可见（DX-140）：捕获 qWarning 流，确认失败路径真的告了警。
+    g_swapWarnings.clear();
+    QtMessageHandler previousHandler = qInstallMessageHandler(captureSwapWarning);
+    const bool reordered = m_store->reorder(runB, -1);
+    qInstallMessageHandler(previousHandler);
+    QVERIFY(!reordered);
+    QVERIFY2(std::any_of(g_swapWarnings.cbegin(), g_swapWarnings.cend(),
+                         [](const QString &message) {
+                             return message.contains(QLatin1String("reorder swap2 failed"));
+                         }),
+             "reorder 第二条 UPDATE 失败必须留下告警日志，不能静默");
 
     trigger.exec(QStringLiteral("DROP TRIGGER fail_swap2"));
     // 两条 position 都原样：失败整体回滚，没有半套状态

@@ -1,0 +1,13 @@
+{
+  "card": "DX-155",
+  "sha256": "af962a440e4d84c45616a52bc17ff18fc0597530d4b9f95a7fb322d8738edc9a",
+  "authorizedBy": "维护者 2026-11-09 会话指令「登记新卡」",
+  "form": "docs/card-requests/20261109-pending-worktree-sweep.md",
+  "registeredAt": "2026-11-09T02:57:17+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-155",
+    "sha": "bb4a6ff77d89c9790601b1c99a9a072637f67c08"
+  }
+}

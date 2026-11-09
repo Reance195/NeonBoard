@@ -37,6 +37,24 @@
             "updatedAt": 1794146702
         },
         {
+            "code": "DX-155",
+            "completedAt": 0,
+            "createdAt": 1794193037,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-155",
+            "note": "",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "git-done 回收「删自己脚下」必败且不复发：待删清单无人 drain，空壳残留两周攒出 28 个",
+            "updatedAt": 1794193037
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5965,6 +5983,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T10:56:02",
+    "updated": "2026-11-09T10:57:17",
     "version": 3
 }

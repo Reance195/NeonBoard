@@ -273,6 +273,28 @@ with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
     json.dump(data, fh, indent=4, sort_keys=True, ensure_ascii=False)
     fh.write("\n")
 os.replace(tmp, ledger)
+
+# DX-149：领用现场落 assignments（接手上下文事实源）。唯一写者 assignment-store.py，
+# 本脚本只调它的子命令；旁路失败只告警，绝不阻断领用（assignments 不参与防双领判定）。
+_store = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assignment-store.py")
+_wt_match = re.search(r"[\\/]\.worktrees[\\/]([^\\/]+)$", root)
+_sub = [sys.executable, _store, "upsert",
+        "--code", code, "--agent", agent, "--branch", branch,
+        "--stage", "开区",
+        "--next-step", "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1"]
+if _wt_match:
+    _sub += ["--worktree", ".worktrees/" + _wt_match.group(1)]
+_sid = os.environ.get("NEONBOARD_SESSION_ID") or os.environ.get("NB_SESSION_ID")
+if _sid:
+    _sub += ["--session-id", _sid]
+try:
+    _run = subprocess.run(_sub, capture_output=True)
+    if _run.returncode != 0:
+        sys.stderr.write("[领用] assignment 现场登记失败（旁路，不阻断领用）：exit %d\n"
+                         % _run.returncode)
+except OSError as _exc:
+    sys.stderr.write("[领用] assignment-store 不可达（旁路，不阻断领用）：%s\n" % _exc)
+
 print("[领用] %s ← %s（%s %s）已登记，合并/放弃分支后自动失效%s"
       % (code, branch, agent, "",
          ("，父任务 %s 未被认领" % parent_code) if parent_code else ""))

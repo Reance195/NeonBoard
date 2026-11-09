@@ -8,6 +8,7 @@
 #include "Database.h"
 #include "TaskExec.h"
 #include "TaskModel.h"
+#include "TaskRunner.h"
 #include "TriageRunner.h"
 
 #include <QJsonDocument>
@@ -58,6 +59,7 @@ private slots:
     void confidenceBlocksExecution();
     void promptTemplate();
     void draftPersistedInMeta();
+    void rawStoredThroughSharedDesensitize();
     void startRejectsWhenNotConfigured();
 
 private:
@@ -248,6 +250,21 @@ void TestTriage::draftPersistedInMeta()
     QVERIFY(m_triage->clearDraft(taskId));
 }
 
+// DX-139：raw 落库路径经 TaskRunner::desensitize（Z5 单一实现——TriageRunner::finish
+// 落 meta 前直接调用该公开静态函数）。真实 agent 进程不进单测，按验收口径以公开
+// 静态函数断言：JWT 形态凭据必须整串替换为占位符。
+void TestTriage::rawStoredThroughSharedDesensitize()
+{
+    const QString raw = QStringLiteral(
+        "token=Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c");
+    const QString stored = TaskRunner::desensitize(raw);
+    QVERIFY2(!stored.contains(QStringLiteral("eyJhbGciOiJIUzI1NiJ9")),
+             qPrintable(stored));
+    QVERIFY2(!stored.contains(QStringLiteral("SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c")),
+             qPrintable(stored));
+    QVERIFY(stored.contains(QStringLiteral("[已脱敏]")));
+}
+
 void TestTriage::startRejectsWhenNotConfigured()
 {
     // setExec 要求任务真实存在，先建卡
@@ -295,8 +312,10 @@ void TestTriage::startRejectsWhenNotConfigured()
     QVERIFY(m_exec->setExec(taskC, {{QStringLiteral("agent"), QStringLiteral("fake-ro")},
                                     {QStringLiteral("cwd"), m_dir.path()}}));
     r = m_triage->start(taskC);
-    QVERIFY2(r.value(QStringLiteral("ok")).toBool(),
+    // DX-139 收紧：进程拉不起来 → start 同步如实报失败，不再报假成功让异步收尾
+    QVERIFY2(!r.value(QStringLiteral("ok")).toBool(),
              qPrintable(r.value(QStringLiteral("message")).toString()));
+    QVERIFY(r.value(QStringLiteral("message")).toString().contains(QStringLiteral("启动失败")));
 
     // profile 没有只读参数 → 硬拒（自定义一个无 readonlyArgs 的 profile）
     QVERIFY(m_profiles->saveProfile({{QStringLiteral("id"), QStringLiteral("plain")},

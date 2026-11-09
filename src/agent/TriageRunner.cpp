@@ -5,6 +5,7 @@
 #include "ScopeMatcher.h"
 #include "TaskExec.h"
 #include "TaskModel.h"
+#include "TaskRunner.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -354,6 +355,13 @@ QVariantMap TriageRunner::start(const QString &taskId)
     const QStringList args =
         m_profiles->argv(effectiveAgent, /*readonly=*/true, stdinPrompt ? QString() : prompt);
     launch(*s, args.value(0), args.mid(1), cwd, prompt, stdinPrompt, timeoutSec);
+    if (!m_sessions.contains(s)) {
+        // DX-139：launch 内 waitForStarted 失败会同步 finish()（session 已移除、
+        // failed 已发），这里如实报失败而不是报假成功让调用方空等
+        bump();
+        return {{QStringLiteral("ok"), false},
+                {QStringLiteral("message"), QStringLiteral("triage 进程启动失败（详情见 triageFinished）")}};
+    }
     bump();
     return {{QStringLiteral("ok"), true}, {QStringLiteral("taskId"), taskId}};
 }
@@ -387,14 +395,30 @@ void TriageRunner::launch(Session &s, const QString &exe, const QStringList &arg
             const QString cwdNow = s.proc->workingDirectory();
 
             // 只读硬门之三：分析前后 git status 必须一致
+            if (!s.gitBaselineOk) {
+                // DX-138：分析前基线都没拿到，「只读」根本无从验证——fail-closed，
+                // 不做静默放行（triage 在无 git 环境本就不可用，失败是诚实汇报）
+                finish(s, {{QStringLiteral("ok"), false},
+                           {QStringLiteral("taskId"), s.taskId},
+                           {QStringLiteral("status"), QStringLiteral("readonly-unverifiable")},
+                           {QStringLiteral("message"),
+                            QStringLiteral("无法取得分析前 git 基线，只读门不可验证")}});
+                return;
+            }
             if (s.gitBaselineOk) {
                 bool gitOk = false;
                 const QStringList after = ScopeMatcher::porcelainStatus(cwdNow, &gitOk);
                 if (gitOk) {
                     QSet<QString> beforeSet(s.before.begin(), s.before.end());
+                    QSet<QString> afterSet(after.begin(), after.end());
                     QStringList diff;
                     for (const QString &line : after)
                         if (!beforeSet.contains(line))
+                            diff.append(ScopeMatcher::pathFromPorcelain(line));
+                    // DX-138：双向比对——基线有、之后消失（还原用户改动 / 删
+                    // untracked）同样是只读失效，只比单向会漏掉这一半
+                    for (const QString &line : s.before)
+                        if (!afterSet.contains(line))
                             diff.append(ScopeMatcher::pathFromPorcelain(line));
                     if (!diff.isEmpty()) {
                         finish(s, {{QStringLiteral("ok"), false},
@@ -485,7 +509,7 @@ void TriageRunner::launch(Session &s, const QString &exe, const QStringList &arg
                    {QStringLiteral("taskId"), s.taskId},
                    {QStringLiteral("status"), QStringLiteral("failed")},
                    {QStringLiteral("message"), QStringLiteral("分析进程启动失败：%1").arg(err)}});
-        return;
+        return; // 同步 finish 已移除 session，start() 据此如实报失败（DX-139）
     }
     if (stdinPrompt) {
         proc->write(prompt.toUtf8());
@@ -503,7 +527,9 @@ void TriageRunner::finish(Session &s, const QVariantMap &result)
         if (result.contains(QStringLiteral("problems")))
             record.insert(QStringLiteral("problems"), result.value(QStringLiteral("problems")));
         if (result.contains(QStringLiteral("raw")))
-            record.insert(QStringLiteral("raw"), result.value(QStringLiteral("raw")));
+            // DX-139：raw 直接进 board.db meta，与 runs 日志同一份脱敏口径（Z5）
+            record.insert(QStringLiteral("raw"),
+                          TaskRunner::desensitize(result.value(QStringLiteral("raw")).toString()));
         if (result.contains(QStringLiteral("message")))
             record.insert(QStringLiteral("message"), result.value(QStringLiteral("message")));
         saveDraft(s.taskId, record);

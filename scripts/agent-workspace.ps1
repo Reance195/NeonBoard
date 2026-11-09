@@ -13,16 +13,19 @@
       pwsh -File scripts/agent-workspace.ps1 -Action Claim -Agent agent-c -Scope worktree:agent-c
       pwsh -File scripts/agent-workspace.ps1 -Action Claim  -Agent agent-c -Scope root -Task "阶段条修复"
       pwsh -File scripts/agent-workspace.ps1 -Action Release -Agent agent-c -Scope root
+      pwsh -File scripts/agent-workspace.ps1 -Action Drain [-Register <绝对路径>]   # DX-155 空壳清扫
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('Claim', 'Release', 'Status', 'Check')]
+    [ValidateSet('Claim', 'Release', 'Status', 'Check', 'Drain')]
     [string]$Action = 'Status',
     [string]$Agent = '',
     # root / release / worktree:<agent 名>（DX-05：开发区占用按 agent 名登记）
     [ValidatePattern('^(root|release|worktree:[A-Za-z0-9._-]+)$')]
     [string]$Scope = 'root',
     [string]$Task = '',
+    # DX-155：-Action Drain 时把「回收失败待删」的绝对路径先登记进待清理清单再清扫
+    [string]$Register = '',
     [int]$StaleMinutes = 240
 )
 
@@ -30,6 +33,8 @@ $ErrorActionPreference = 'Stop'
 
 # git 取值统一走单一封装（DX-74：规则 E 扩到手工首行捕获后，本脚本不得再裸写）
 . (Join-Path $PSScriptRoot 'git-helpers.ps1')
+# DX-155：待清理清单落在数据目录，路径必须走 nb-paths.ps1 单点入口（宪章 §7.6，不得拼字面量）
+. (Join-Path $PSScriptRoot 'nb-paths.ps1')
 
 function Get-StatePath {
     $dir = Get-NbCommonDir -RepoPath (Get-Location).Path
@@ -144,6 +149,160 @@ function Get-WorktreeScopeName {
     param([string]$Path)
     if ($Path -match '[\\/]\.worktrees[\\/]([^\\/]+)$') { return $Matches[1] }
     return ''
+}
+
+# ---------- DX-155：待清理清单与空壳 drain ----------
+# 根因：git-done「自回收」删的是自己脚下的检出——父 shell 的句柄还握着目录，
+# Windows 连空目录的 rmdir 都拒绝，且不能 --force 硬删（会留半删除尸体，DX-93）。
+# 于是每次收尾失败都在 .worktrees/ 下留一个「0 文件、无 .git、git 侧无注册」的空壳
+# （2026-11-09 实测堆积 28 个）。修复：失败路径登记进待清理清单，agent-init 开区与
+# git-done 收尾两个入口先 drain——三判据全过才直删空目录，缺一律保留并记一行原因
+# （§7.10 回收由人拍板，非空目录永不删）。
+
+function Get-NormalizedWtPath {
+    param([string]$Path)
+    if (-not $Path) { return '' }
+    try {
+        $full = [System.IO.Path]::GetFullPath($Path)
+        $drive = [System.IO.Path]::GetPathRoot($full)
+        if ($full -eq $drive) { return '' }          # 盘根不作为候选
+        return $full.TrimEnd('\', '/').ToUpperInvariant()
+    } catch { return '' }
+}
+
+function Get-RegisteredWorktreePathSet {
+    # 判据数据源：git worktree list --porcelain 的当下输出（Z15：读事实源本身，不读投影）
+    $set = @{}
+    foreach ($wt in @(Get-WorktreeList)) {
+        $n = Get-NormalizedWtPath -Path $wt.Path
+        if ($n) { $set[$n] = $true }
+    }
+    return $set
+}
+
+function Get-HuskKeepReason {
+    # 三判据的唯一实现（Z5），Drain 与 Check 共用；返回 '' 表示是空壳、可直删。
+    param([string]$Path, [hashtable]$Registered)
+    $n = Get-NormalizedWtPath -Path $Path
+    if (-not $n) { return '路径无法规范化' }
+    if ($Registered.ContainsKey($n)) { return 'git worktree list 仍注册' }
+    if (Test-Path -LiteralPath (Join-Path $Path '.git')) { return '存在 .git 指针（真实检出）' }
+    if (@(Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue).Count -gt 0) { return '目录非空（回收由人拍板）' }
+    return ''
+}
+
+function Get-PendingSweepPath { return Join-Path (Get-NbDataDir) 'pending-worktrees.json' }
+
+function Read-PendingSweep {
+    # 键 = 绝对路径（规范化大写），值 = 一行原因。清单只是收敛辅助：
+    # 缺失 / 损坏都按空处理（fail-soft，Z4 收尾装饰类），漏登记的壳照样被 .worktrees 扫描收敛。
+    $map = [ordered]@{}
+    $path = Get-PendingSweepPath
+    if (-not (Test-Path -LiteralPath $path)) { return $map }
+    try {
+        $raw = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+        if ([string]::IsNullOrWhiteSpace($raw)) { return $map }
+        $obj = ConvertFrom-Json -InputObject $raw
+        foreach ($key in @($obj.PSObject.Properties.Name)) {
+            # PS7 的 ConvertFrom-Json '{}' 会给出一条空名伪属性，不过滤就成了幽灵清单项
+            if ([string]::IsNullOrWhiteSpace($key)) { continue }
+            $map[$key] = [string]$obj.$key
+        }
+    } catch {
+        Write-Host ("⚠ 待清理清单不可读（{0}），按空处理" -f $path) -ForegroundColor Yellow
+    }
+    return $map
+}
+
+function Write-PendingSweep {
+    param($Map)
+    $path = Get-PendingSweepPath
+    $dir = Split-Path -Parent $path
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $props = [ordered]@{}
+    foreach ($key in $Map.Keys) { $props[$key] = [string]$Map[$key] }
+    $json = if ($props.Count -gt 0) { ConvertTo-Json -InputObject ([pscustomobject]$props) -Depth 3 } else { '{}' }
+    $tmp = "$path.tmp"
+    [System.IO.File]::WriteAllText($tmp, $json, (New-Object System.Text.UTF8Encoding($false)))
+    Move-Item -LiteralPath $tmp -Destination $path -Force   # 原子替换，写坏不留半截 JSON
+}
+
+function Invoke-WorktreeHuskDrain {
+    param([string]$RegisterPath = '', [switch]$ProbeOnly)
+    # ProbeOnly：只分类不删除（Check 自检用）。返回 Deleted / Kept / Pending / Husks。
+    $out = [pscustomobject]@{ Deleted = @(); Kept = @(); Pending = 0; Husks = 0 }
+    $worktrees = @(Get-WorktreeList)
+    if ($worktrees.Count -eq 0) {
+        Write-Host '· drain 跳过：当前目录不在 Git 检出里' -ForegroundColor DarkGray
+        return $out
+    }
+    $anchorNorm = Get-NormalizedWtPath -Path $worktrees[0].Path
+    $registered = Get-RegisteredWorktreePathSet
+    $pending = Read-PendingSweep
+    if ($RegisterPath) {
+        $reg = Get-NormalizedWtPath -Path $RegisterPath
+        # 幂等登记：同路径重复登记只补一次，不倍增（键即路径，天然去重）
+        if ($reg -and -not $pending.Contains($reg)) {
+            if (-not $ProbeOnly) {
+                $pending[$reg] = ("登记 {0}（git-done 自回收失败，待入口 drain 收敛）" -f (Get-Date).ToString('s'))
+                Write-PendingSweep -Map $pending
+            }
+        }
+    }
+    # 候选 = 待清理清单每项 + 锚点 .worktrees/ 顶层目录（清单丢了也能收敛）
+    $candidates = New-Object System.Collections.Generic.List[object]
+    $seen = @{}
+    foreach ($key in @($pending.Keys)) {
+        $seen[$key] = $true
+        $candidates.Add([pscustomobject]@{ Norm = $key; Path = $key })
+    }
+    $wtRoot = Join-Path $worktrees[0].Path '.worktrees'
+    if (Test-Path -LiteralPath $wtRoot) {
+        foreach ($d in @(Get-ChildItem -LiteralPath $wtRoot -Directory -Force -ErrorAction SilentlyContinue)) {
+            $n = Get-NormalizedWtPath -Path $d.FullName
+            if (-not $n -or $n -eq $anchorNorm -or $seen.ContainsKey($n)) { continue }
+            $seen[$n] = $true
+            $candidates.Add([pscustomobject]@{ Norm = $n; Path = $d.FullName })
+        }
+    }
+    $dirty = [bool]$RegisterPath
+    foreach ($c in $candidates) {
+        if (-not (Test-Path -LiteralPath $c.Path)) {
+            # 目录已不在（手工删了或别的入口清了）：清单条目随之收敛
+            if ($pending.Contains($c.Norm)) { $pending.Remove($c.Norm); $dirty = $true }
+            continue
+        }
+        $reason = Get-HuskKeepReason -Path $c.Path -Registered $registered
+        if ($reason -eq '') {
+            $out.Husks++
+            if ($ProbeOnly) { $out.Deleted += $c.Path; continue }
+            try {
+                [System.IO.Directory]::Delete($c.Path, $false)   # 到这里必是空目录
+                $out.Deleted += $c.Path
+                if ($pending.Contains($c.Norm)) { $pending.Remove($c.Norm) }
+                $dirty = $true
+            } catch {
+                $out.Kept += ("{0} ：目录句柄仍被占用，保留" -f $c.Path)
+                if ($pending.Contains($c.Norm)) {
+                    $pending[$c.Norm] = ("保留 {0} ：句柄占用" -f (Get-Date).ToString('s')); $dirty = $true
+                }
+            }
+        } else {
+            $out.Kept += ("{0} ：{1}" -f $c.Path, $reason)
+            if ($pending.Contains($c.Norm) -and -not $ProbeOnly) {
+                $pending[$c.Norm] = ("保留 {0} ：{1}" -f (Get-Date).ToString('s'), $reason)
+                $dirty = $true
+            }
+        }
+    }
+    if (-not $ProbeOnly) {
+        if ($dirty) { Write-PendingSweep -Map $pending }
+    } else {
+        # ProbeOnly 不写清单：RegisterPath 的登记在 Check 里不生效
+        $dirty = $false
+    }
+    $out.Pending = @($pending.Keys).Count
+    return $out
 }
 
 if (-not $Agent) { $Agent = $env:NEONBOARD_AGENT_ID }
@@ -262,8 +421,13 @@ switch ($Action) {
             $warnings.Add(("仓库根散落产物 {0}（工具落错位置，会挡锚点快进，回收由人拍板）" -f $f.Name))
         }
 
+        # 6) DX-155：待清理清单与空壳只读统计（ProbeOnly，不删除、不改清单、不新增退出码；
+        #    真正的删除只发生在 agent-init / git-done 入口的 -Action Drain）
+        $drainProbe = Invoke-WorktreeHuskDrain -ProbeOnly
+
         Write-Host ("锚点区：{0}" -f $anchor) -ForegroundColor DarkGray
         Write-Host ("工作区：{0} 个（.worktrees {1} 个）" -f $worktrees.Count, @($liveNames).Count) -ForegroundColor DarkGray
+        Write-Host ("待清理清单 {0} 项 / 空壳 {1} 个" -f $drainProbe.Pending, $drainProbe.Husks) -ForegroundColor DarkGray
         foreach ($w in $warnings) { Write-Host ("⚠ {0}" -f $w) -ForegroundColor Yellow }
         foreach ($p in $problems) { Write-Host ("✗ {0}" -f $p) -ForegroundColor Red }
         if ($problems.Count -gt 0) {
@@ -272,6 +436,21 @@ switch ($Action) {
             exit 3
         }
         Write-Host ("`n✓ 隔离自检通过：{0} 个检出各自独立，{1} 项告警" -f $worktrees.Count, $warnings.Count) -ForegroundColor Green
+        exit 0
+    }
+
+    'Drain' {
+        # DX-155：两入口（agent-init 开区 / git-done 收尾）先 drain 再干活。
+        # 只删三判据全过的空壳，其余保留并记一行原因；绝不阻断调用方流程（恒 exit 0，
+        # 真出意外也按「清扫是收尾装饰、失败只告警」处理，Z4）。
+        try {
+            $r = Invoke-WorktreeHuskDrain -RegisterPath $Register
+            foreach ($p in $r.Deleted) { Write-Host ("✓ 已清扫空壳 {0}" -f $p) -ForegroundColor Green }
+            foreach ($k in $r.Kept) { Write-Host ("· 保留 {0}" -f $k) -ForegroundColor DarkGray }
+            Write-Host ("drain：清扫 {0} 个 / 保留 {1} 个 / 待清理清单剩 {2} 项" -f $r.Deleted.Count, $r.Kept.Count, $r.Pending) -ForegroundColor DarkGray
+        } catch {
+            Write-Host ("· drain 失败（不阻断主流程）：{0}" -f $_.Exception.Message) -ForegroundColor Yellow
+        }
         exit 0
     }
 

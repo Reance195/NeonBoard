@@ -1,0 +1,13 @@
+{
+  "card": "MOD-15",
+  "sha256": "4d232eb597c32c46f7b3899313989e3c68f350d1a73ddfba31aa5231b22c4a78",
+  "authorizedBy": "维护者 2026-11-09 会话指令「继续迁移主内容层 Item」，授权 QML 批次五批立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261109-mod-board-chrome.md",
+  "registeredAt": "2026-11-09T17:27:34+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-15",
+    "sha": "38dac395acd9973e5768430cf4706c5daedd2fc3"
+  }
+}

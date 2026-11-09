@@ -90,6 +90,8 @@
     "DX-154": "done",
     "DX-155": "done",
     "DX-156": "done",
+    "DX-157": "done",
+    "DX-158": "todo",
     "DX-16": "done",
     "DX-17": "done",
     "DX-18": "done",
@@ -315,9 +317,7 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done",
-    "DX-157": "todo",
-    "DX-158": "todo"
+    "R9-05": "done"
   },
   "cards": {
     "DX-01": {

@@ -1,0 +1,13 @@
+{
+  "card": "MOD-8",
+  "sha256": "57d26950d10630499c9b592dd9cc284eb0e5c61c80bf456f54627a1944e56838",
+  "authorizedBy": "维护者 2026-11-09 会话指令「继续做 M1d 构造工厂拆分」（承接 MOD-7 交付说明 nextStep ①），授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡；依据 docs/module-split-plan.md v4 §5 M1d",
+  "form": "docs/card-requests/20261109-mod-app-objects-factory.md",
+  "registeredAt": "2026-11-09T02:26:48+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-8",
+    "sha": "04969d673e498af5751e444ec0441a43fe734eef"
+  }
+}

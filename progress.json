@@ -73,6 +73,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "MOD-14",
+            "completedAt": 0,
+            "createdAt": 1794242146,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-14",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD QML 批次四批：夜间批量执行弹窗整迁 components/NightBatchDialog",
+            "updatedAt": 1794242146
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6199,6 +6217,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-09T23:20:02",
+    "updated": "2026-11-10T00:35:46",
     "version": 3
 }

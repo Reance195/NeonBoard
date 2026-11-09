@@ -1803,7 +1803,7 @@
             "depends": [],
             "evidence": "维护者 2026-11-09 指令「1。授权」，采纳审计轮遗留缺口 #3。实测：全部钩子、verify.ps1、三个 workflow 里没有任何一处把「qml/ 或 shaders/ 有改动而 README.md 未同步」与机器判据挂钩（grep README 在 .github/workflows/ 零命中）；宪章 §五 硬性约定 6 属体验类规范，按 Z4 口径可以 fail-soft，但「必须告警」——当前连告警都没有，静默吞错即缺陷（Z6 同类坑已在多会话返工中出现：界面改动合并后 README 描述过期）。",
             "id": "DX-150",
-            "note": "",
+            "note": "已完成：scripts/check_readme_sync.py（--base 读 origin/main..HEAD 增量，qml//shaders/ 命中且范围无 README.md 改动 → 逐提交点名 + ::warning::，退出码恒 0）+ ci.yml「README 同步提示（DX-150）」步骤。实测：--selftest 四场景全过（临时仓库：UI+README 同改=静默、纯 shaders 改动=点名 1 提交、src 改动=静默、report 恒 0）；本分支 --base origin/main 实跑 exit 0 无误报（范围无界面提交，符合预期）。待做：无（升级阻断需另行立卡）。交付 1ab0887。",
             "scope": [
                 "scripts/check_readme_sync.py",
                 ".github/workflows/ci.yml"

@@ -319,7 +319,10 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "DX-159": "todo",
+    "DX-160": "todo",
+    "DX-161": "todo"
   },
   "cards": {
     "DX-01": {
@@ -6862,6 +6865,71 @@
       "stage": "MOD",
       "tier": "P4",
       "title": "MOD QML 批次首批：执行队列弹窗整迁 components/ExecQueueDialog"
+    },
+    "DX-159": {
+      "acceptance": [
+        "python scripts/check_claim_refs.py 新增 --locate <短号> 子模式：四级查找（assignments → .worktrees 物理现场 → 主线台账 claims → 远端分支头台账）输出 JSON（agent / branch / worktree / nextStep / 来源级），查找实现与 audit_handoff 共用同一函数（audit_handoff 改调它，不保留第二份遍历）",
+        "handoff.ps1 的现场定位改调 --locate 消费 JSON，删除 PS 侧自带的两级查找；handoff.ps1 -Selftest 扩展双场景断言：有 assignment 条目与「登记只在 worktree 台账（无 assignment）」两种现场都能定位并完成接手，后者不再需要预登记",
+        "python scripts/check_claim_refs.py --selftest 与 handoff.ps1 -Selftest 全过",
+        "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+      ],
+      "author": "maintainer-session-2026-11-09",
+      "depends": [],
+      "evidence": "维护者 2026-11-09 会话指令「把三个尾巴立成小卡」（尾巴 1）。实录（2026-11-09 DX-138~143 接手批次）：handoff.ps1 -Card DX-139 exit 2「无法定位认领分支」——agent-fxa 的领用投影只存在于未推送分支（fix/audit-judgment-hygiene）的检出台账里，主线台账与 assignments 均无；handoff.ps1 的定位只有两级（assignments + 主线台账 claims），而同仓 check_claim_refs.py::audit_handoff 有四级（assignments / .worktrees 物理现场 / 主线台账 / 远端分支头台账）。本次靠手工 assignment-store upsert 预登记绕过——绕过成功恰证明信息 audit 侧齐全，handoff 侧缺同一份查找（Z5：同一条定位判据应只有一份实现）。",
+      "id": "DX-159",
+      "note": "",
+      "scope": [
+        "scripts/check_claim_refs.py",
+        "scripts/handoff.ps1",
+        "docs/pitfalls.md"
+      ],
+      "stage": "DX",
+      "tier": "P2",
+      "title": "handoff.ps1 现场定位只有两级信息源：领用投影在未推分支台账时接手被拒"
+    },
+    "DX-160": {
+      "acceptance": [
+        "AGENTS.md §7.2.1 的「认领分支必须推 origin」表述改为与 pre-push 规则 1 一致的口径（认领分支不单独推送——pre-push 规则 1 会拒；claim 占位 ref 由 agent-init 的原子推送保证远端可达；认领分支成果的远端可达性由 git-done 合并推 main 兑现），红线实质不放松：refs/claims/<短号> 远端可达仍是硬要求",
+        "docs/charter-appendix.md「7.2/7.2.1」节同步澄清，并收录 DX-138~143 批次三 agent 撞同一拦截的实录为依据",
+        "docs/git-workflow.md 与 docs/module-split-plan.md 中同语义表述逐处扫描并同步（grep「推 origin」「推送.*认领分支」等，逐处清单写进卡片 note，漏一处算未过）",
+        "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+      ],
+      "author": "maintainer-session-2026-11-09",
+      "depends": [],
+      "evidence": "维护者 2026-11-09 会话指令「把三个尾巴立成小卡」（尾巴 2）。实录（DX-138~143 接手批次）：三个接手 agent 按派工指令「git push origin <认领分支>」全部被 pre-push 规则 1 拒（推送未合并进 main 的分支），三次撞同一处后各自改走 git-done 合并推送完成交付——语义实际是「claim 占位 ref（refs/claims/<短号>）由 agent-init 推送保证远端可达；认领分支本身的可达性由 git-done 合并推送兑现」。AGENTS.md §7.2.1 现行措辞「认领分支必须推 origin（否则 claim ref 远端不可达，闸门无法校验）」与钩子行为矛盾：claim ref 的可达性从来由占位 ref 自己保证，与分支是否单独推送无关。Z6：同一处实战三撞，必须变成文档判据。",
+      "id": "DX-160",
+      "note": "",
+      "scope": [
+        "AGENTS.md",
+        "docs/charter-appendix.md",
+        "docs/git-workflow.md",
+        "docs/module-split-plan.md"
+      ],
+      "stage": "DX",
+      "tier": "P2",
+      "title": "宪章「认领分支必须推 origin」与 pre-push 禁推未合并分支自相矛盾：实战三撞"
+    },
+    "DX-161": {
+      "acceptance": [
+        "git-done.ps1 收尾链新增 assignment 清理代提交：占位释放的卡条目移除后若 docs/agent-assignments.json 有实质变更，随一条独立 chore 提交落地（分离 HEAD 时序，与 claims 清理/结卡/快照同段），无变更不产生空提交，DryRun 有桩不落盘",
+        "git-done.ps1 -Selftest 扩展场景：演练仓库收尾后断言 assignments.json 中已释放卡的条目已被提交移除、且无空提交",
+        "存量清理：docs/agent-assignments.json 移除 DX-143 残留条目（独立提交，body 带授权与批次两行，不与代码路径混改）",
+        "docs/pitfalls.md 补条目（随分支提交的文件其「收尾移除」必须同样随收尾提交，否则 worktree 回收即丢失）",
+        "pwsh -File scripts/verify.ps1 -ScriptOnly 全绿"
+      ],
+      "author": "maintainer-session-2026-11-09",
+      "depends": [],
+      "evidence": "维护者 2026-11-09 会话指令「把三个尾巴立成小卡」（尾巴 3）。实录（DX-143 交付）：agent-h4 的接手登记提交「chore(claim): 登记 #DX-143 接手现场」把 assignment 条目随分支带进 main；收尾时 git-done 的 assignment remove（DX-149 接入点）只改了 worktree 工作树文件——收尾链的代提交只覆盖 claims/结卡/快照三步，assignments 清理不落盘；worktree 回收后该变更丢失，origin/main 的 docs/agent-assignments.json 永久残留 done 卡条目（2026-11-09 实测 origin/main 存在 DX-143 条目，卡已 done、占位已释放）。assignments 设计为「随分支提交」，收尾清理却不在任何提交里——与台账 claims「合并/放弃分支后自动失效」的闭环不对称。",
+      "id": "DX-161",
+      "note": "",
+      "scope": [
+        "scripts/git-done.ps1",
+        "docs/agent-assignments.json",
+        "docs/pitfalls.md"
+      ],
+      "stage": "DX",
+      "tier": "P2",
+      "title": "收尾的 assignment 移除是工作树操作不落提交：done 卡条目永久残留 main"
     }
   },
   "claims": {},

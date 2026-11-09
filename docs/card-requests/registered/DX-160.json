@@ -1,0 +1,13 @@
+{
+  "card": "DX-160",
+  "sha256": "2d64f96ce1a141a6decd971cf154a7d3dc17a6539adba401e51355b8d7836a82",
+  "authorizedBy": "维护者 2026-11-09 会话指令「把三个尾巴立成小卡」（DX-149 机制债三尾巴批次）",
+  "form": "docs/card-requests/20261109-claim-branch-push-semantics.md",
+  "registeredAt": "2026-11-09T14:17:20+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-160",
+    "sha": "11497f7a745aceadff3e1fdfc9b76698d070e361"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "card": "DX-161",
+  "sha256": "785577b0f96bd6c49f908d3871f28386e00a6bc3a445abd0ad1d26407913241d",
+  "authorizedBy": "维护者 2026-11-09 会话指令「把三个尾巴立成小卡」（DX-149 机制债三尾巴批次）",
+  "form": "docs/card-requests/20261109-assignment-cleanup-commit.md",
+  "registeredAt": "2026-11-09T14:17:30+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-161",
+    "sha": "82c0a8b270adcc57f7672bb73ea195d71de3119e"
+  }
+}

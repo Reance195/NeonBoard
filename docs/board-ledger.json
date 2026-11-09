@@ -6785,7 +6785,8 @@
         "scripts/register_board_cards.py",
         "scripts/derive_board_status.py",
         "scripts/claim-card.py",
-        "scripts/merge_board.py"
+        "scripts/merge_board.py",
+        "docs/scripts-manifest.md"
       ],
       "stage": "DX",
       "tier": "P2",

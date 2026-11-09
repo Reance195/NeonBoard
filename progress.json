@@ -19,6 +19,60 @@
             "updatedAt": 1794146702
         },
         {
+            "code": "DX-150",
+            "completedAt": 0,
+            "createdAt": 1794190010,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-150",
+            "note": "",
+            "orderKey": 79632,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "宪章硬性约定 6「界面行为改动同步 README」无机器执行，靠代理自觉",
+            "updatedAt": 1794190010
+        },
+        {
+            "code": "DX-151",
+            "completedAt": 0,
+            "createdAt": 1794190017,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-151",
+            "note": "",
+            "orderKey": 80264,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "scripts/ 目录无清单事实源，脚本膨胀与临时脚本残留不可见",
+            "updatedAt": 1794190017
+        },
+        {
+            "code": "DX-152",
+            "completedAt": 0,
+            "createdAt": 1794190025,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-152",
+            "note": "",
+            "orderKey": 80580,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "手工 git worktree add 绕过占用登记，-Action Check 发现不了未登记 worktree",
+            "updatedAt": 1794190025
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -5839,6 +5893,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-08T22:38:32",
+    "updated": "2026-11-09T10:07:05",
     "version": 3
 }

@@ -1,0 +1,13 @@
+{
+  "card": "DX-151",
+  "sha256": "babd3a57677663e18f238c99e2a225560325c133e3cbb732721fdb40722c8ea3",
+  "authorizedBy": "维护者 2026-11-09 会话指令「1。授权」（审计遗留缺口 #3/#4/#6 批次）",
+  "form": "docs/card-requests/20261109-scripts-manifest.md",
+  "registeredAt": "2026-11-09T02:06:57+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-151",
+    "sha": "92f3d9af280d07c15485b798d75e555896007f10"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "card": "DX-150",
+  "sha256": "655c94447cdeb1ba58496cddfdd59f817f837f38c1a823a5b0d6fd876f8f9bb1",
+  "authorizedBy": "维护者 2026-11-09 会话指令「1。授权」（审计遗留缺口 #3/#4/#6 批次）",
+  "form": "docs/card-requests/20261109-readme-sync-check.md",
+  "registeredAt": "2026-11-09T02:06:50+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-150",
+    "sha": "e35ff783380018ebdfb0307fa9859b22f4c86eb4"
+  }
+}

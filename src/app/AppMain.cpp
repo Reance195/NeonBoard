@@ -1,4 +1,5 @@
 #include "AppMain.h"
+#include "AppObjects.h"
 
 #include "AppContext.h"
 #include "CliCommand.h"
@@ -253,78 +254,29 @@ int neonboardMain(int argc, char *argv[])
     TaskModel taskStore(&database);
     if (!deferredSchema) taskStore.load();
 
-    // 通用撤销栈：删除 / 移动 / 完成 / 编辑 四类用户操作统一可撤销
-    TaskUndo taskUndo(&taskStore);
-
-    // 主任务 / 子任务关联（边表 task_link，不动 task 表结构）
-    TaskTree taskTree(&database, &taskStore);
-
-    // 完成统计（热力图 / 连续天数 / 周吞吐）：只读任务表，不建新表
-    TaskStats taskStats(&database, &taskStore);
-
-    // 任务附加属性（提醒 / 重复）：侧表 task_extra，不动 task 表结构
-    TaskExtra taskExtra(&database, &taskStore);
-    taskUndo.setTaskExtra(&taskExtra);
-
-    // 卡片详情抽屉（R8-03）：补丁的脏检查与保存收口，避免「没改也写一次库」。
-    // 依赖顺序：要拿 taskExtra 写提醒 / 重复（侧表），所以只能排在这里而不是 TaskUndo 之后
-    CardDetail cardDetail(&taskStore, &taskExtra, &taskUndo);
-
-    // 卡片事件审计（R8-04）：侧表 task_event，不动 task 表结构、不升 user_version。
-    // 挂在 taskStore 的生命周期信号上，所以必须早于任何写入（包括自检与导入）。
-    TaskAudit taskAudit(&database, &taskStore);
-
-    // 任务执行定义（目标 / 验收 / 边界 / 执行参数）：侧表 task_exec（M0）
-    TaskExec taskExec(&database, &taskStore);
-
-    // agent profile / 总开关 / cwd 白名单：meta 表（R6-03），命令行只拼 argv
-    AgentProfile agentProfile(&database);
-
-    // 任务执行运行记录与同卡锁：侧表 task_run（R6-02），启动时回收孤儿 run
-    TaskRunStore taskRuns(&database);
-
-    // 任务执行器（R6-04）：拉起 agent 进程 / 流式日志 / 超时·终止 / 生命周期
-    TaskRunner taskRunner(&database, &taskRuns, &agentProfile, &taskExec);
-
-    // 执行队列调度器（R7-01）：FIFO + 并发≤2 + 背压 + 暂停/调序/跳过。
-    // 只负责「取队头交给 TaskRunner」，进程与门锁仍归 TaskRunner / TaskRunStore。
-    Scheduler scheduler(&database, &taskRuns, &taskRunner, &agentProfile, &taskExec, &taskStore);
-
-    // 验收器与越界检查（R6-05）：角色链每步独立验收要用（R7-03 起真正接上）
-    AcceptanceRunner acceptanceRunner;
-    ScopeMatcher scopeMatcher;
-
-    // 预设 workflow 与 orchestrator 选型（R7-04）：预设存 meta（可编辑），
-    // 按 triage estimate.size / 卡片规模选 workflow、按规模裁剪 pm/architect（qa 永不裁）。
-    WorkflowPresets workflowPresets(&database);
-
-    // 角色链 workflow 引擎（R7-03）：按步骤数组逐步拉起 agent，每步一份 handoff。
-    // 每一步仍走 TaskRunner（进程 / 超时 / 日志 / 心跳复用 R6-04）。
-    // R7-04 起接上 WorkflowPresets：卡片没选 workflow 时由 orchestrator 选型。
-    WorkflowRunner workflowRunner(&database, &taskExec, &taskRuns, &taskRunner, &agentProfile,
-                                  &scopeMatcher, &acceptanceRunner);
-    workflowRunner.setPresets(&workflowPresets);
-
-
-    // Triage 只读分析（R6-07）：草案只写 meta 表，不进台账；只读靠
-    // profile readonlyArgs + 分析前后 git status 一致两道硬门
-    TriageRunner triageRunner(&database, &agentProfile, &taskExec, &taskStore);
-
-    // 台账卡单向导入（R6-09，ADR-0001）：台账 → board.db 只补空值，
-    // 冲突/未建卡只报告；反向写台账没有代码路径
-    LedgerImport ledgerImport(&database, &taskStore, &taskExec);
-
-    // 路线图快照同步：仓库 progress.json ↔ 本地看板
-    RoadmapSync roadmap(&database, &taskStore);
-
-    // 多工作区领用同步：扫描锚点与各 worktree 台账，把「谁在领哪张卡」反映到看板
-    BoardSync boardSync(&database, &taskStore);
-
-    // 项目全景图数据源：解析 board-ledger.json + git done 标记，供侧边浮层展示
-    ProjectMap projectMap;
-
-    // 数据导入导出与自动备份
-    DataPort dataPort(&database, &taskStore);
+    // 核心对象构造单元（MOD-8）：次序见 AppObjects.h；taskStore 与条件 load 留原位（load 须早于 audit 挂接）。
+    AppObjectsEarly early{database, taskStore};
+    TaskUndo &taskUndo = early.taskUndo;
+    TaskTree &taskTree = early.taskTree;
+    TaskStats &taskStats = early.taskStats;
+    TaskExtra &taskExtra = early.taskExtra;
+    CardDetail &cardDetail = early.cardDetail;
+    TaskAudit &taskAudit = early.taskAudit;
+    TaskExec &taskExec = early.taskExec;
+    AgentProfile &agentProfile = early.agentProfile;
+    TaskRunStore &taskRuns = early.taskRuns;
+    TaskRunner &taskRunner = early.taskRunner;
+    Scheduler &scheduler = early.scheduler;
+    AcceptanceRunner &acceptanceRunner = early.acceptanceRunner;
+    ScopeMatcher &scopeMatcher = early.scopeMatcher;
+    WorkflowPresets &workflowPresets = early.workflowPresets;
+    WorkflowRunner &workflowRunner = early.workflowRunner;
+    TriageRunner &triageRunner = early.triageRunner;
+    LedgerImport &ledgerImport = early.ledgerImport;
+    RoadmapSync &roadmap = early.roadmap;
+    BoardSync &boardSync = early.boardSync;
+    ProjectMap &projectMap = early.projectMap;
+    DataPort &dataPort = early.dataPort;
 
     {
         const int exportIndex = arguments.indexOf(QStringLiteral("--export-tasks"));
@@ -563,25 +515,29 @@ int neonboardMain(int argc, char *argv[])
         if (roadmap.importAll(false)) qInfo().noquote() << "Roadmap: synced" << roadmap.path();
         if (const QString m = dataPort.backupIfNeeded(); !m.isEmpty()) qWarning().noquote() << "Backup failed" << m;
     });
-    UiSettings uiSettings;
-    // 外部主题包（R8-01）：启动即扫描 themes/ 目录。
-    // 坏包只跳过并记一行日志，绝不拦住启动 —— 主题是锦上添花，不是启动前置条件。
-    ThemePack themePacks;
-    // 主题包市场（R8-02）：目录内置在客户端，断网也能浏览；安装走原子替换。
-    // 依赖 themePacks 才能判断「这个包装了没」，所以必须排在它后面。
-    ThemeMarket themeMarket(&themePacks);
-    WindowController windowController;
-    Hotkey hotkey;
-    TrayController tray(hosted);
+    AppObjectsUi ui{hosted};  // 界面外壳构造单元（MOD-8），声明见 AppObjects.h
+    UiSettings &uiSettings = ui.uiSettings;
+    ThemePack &themePacks = ui.themePacks;
+    ThemeMarket &themeMarket = ui.themeMarket;
+    WindowController &windowController = ui.windowController;
+    Hotkey &hotkey = ui.hotkey;
+    TrayController &tray = ui.tray;
     // 预览出图（验收用）：托盘菜单离屏抓成 PNG，不弹到屏幕上（逻辑在 TrayController 里）。
     if (const int menuPreviewCode = tray.handleMenuPreview(arguments); menuPreviewCode >= 0)
         return menuPreviewCode;
-    // 提醒调度器：30s 轮询，托盘通知 + 窗口辉光；启动后先查一轮补发漏提醒
-    ReminderScheduler reminderScheduler(&taskExtra, &tray);
-    PluginLoader pluginLoader(&database);
+    // 插件与更新构造单元（MOD-8）：原穿插的 scanAsync / 启动重放 / declaredAgents
+    // 刷新 / 实例标签 / 版本日志集中到构造之后——被调对象构造期间不读这些结果。
+    AppObjectsPlugins plugins{database, taskStore, taskExtra, tray};
+    ReminderScheduler &reminderScheduler = plugins.reminderScheduler;
+    PluginLoader &pluginLoader = plugins.pluginLoader;
+    PluginEventBus &pluginEventBus = plugins.pluginEventBus;
+    PluginRuntime &pluginRuntime = plugins.pluginRuntime;
+    PluginHost &pluginHost = plugins.pluginHost;
+    PluginMarket &pluginMarket = plugins.pluginMarket;
+    PluginLibrary &pluginLibrary = plugins.pluginLibrary;
+    PreviewHub &previewHub = plugins.previewHub;
+    UpdateManager &updateManager = plugins.updateManager;
     pluginLoader.scanAsync();
-    PluginEventBus pluginEventBus;
-    PluginRuntime pluginRuntime(&pluginLoader, &pluginEventBus, &database, &taskStore, &tray);
     nbConnectStartupReplay(deferredSchema, &database, &Database::schemaFinalized, &taskTree, &taskRuns, &pluginRuntime, &app);
 
     // R9-01：把插件声明的 agent profile 注入 AgentProfile（三层合并里的 L1）。
@@ -595,15 +551,7 @@ int neonboardMain(int argc, char *argv[])
     QObject::connect(&pluginRuntime, &PluginRuntime::surfacesChanged, &agentProfile,
                      refreshDeclaredAgents);
     refreshDeclaredAgents();
-
-    PluginHost pluginHost(&pluginRuntime);
-    PluginMarket pluginMarket;
-    PluginLibrary pluginLibrary(&pluginLoader, &pluginMarket, &pluginRuntime, &database);
-    // 预览中心：发现各 agent 工作区，一键构建并启动隔离的预览实例
-    PreviewHub previewHub;
     tray.setInstanceLabel(previewHub.instanceLabel());
-    // 软件更新：清单拉取 → 版本比较 → 下载校验 → 安装 / 便携版自替换
-    UpdateManager updateManager;
     qInfo().noquote() << "Update: version" << updateManager.currentVersion()
                       << "kind" << updateManager.installKind();
 

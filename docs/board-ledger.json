@@ -6514,6 +6514,13 @@
             "title": "R9 官方插件 agent-codex：stdin 接 NUL 与启用前置"
         }
     },
-    "claims": {},
+    "claims": {
+        "DX-151": {
+            "agent": "gapsb",
+            "branch": "chore/scripts-manifest",
+            "claimedAt": 1794190381,
+            "head": "1abca3add80566656db528186671c58834c5c42f"
+        }
+    },
     "version": 1
 }

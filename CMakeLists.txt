@@ -256,6 +256,7 @@ set_source_files_properties(qml/components/DialogShell.qml PROPERTIES QT_RESOURC
 set_source_files_properties(qml/components/DrawerShell.qml PROPERTIES QT_RESOURCE_ALIAS "DrawerShell.qml")
 set_source_files_properties(qml/components/ExecQueueDialog.qml PROPERTIES QT_RESOURCE_ALIAS "ExecQueueDialog.qml")
 set_source_files_properties(qml/components/ExecConfirmDialog.qml PROPERTIES QT_RESOURCE_ALIAS "ExecConfirmDialog.qml")
+set_source_files_properties(qml/components/ExecPanelDialog.qml PROPERTIES QT_RESOURCE_ALIAS "ExecPanelDialog.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -299,6 +300,7 @@ qt_add_qml_module(NeonBoard
         qml/components/DrawerShell.qml
     qml/components/ExecQueueDialog.qml
     qml/components/ExecConfirmDialog.qml
+    qml/components/ExecPanelDialog.qml
 )
 
 qt_add_resources(NeonBoard "icons"

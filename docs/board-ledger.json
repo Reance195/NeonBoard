@@ -338,7 +338,8 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "MOD-27": "todo"
   },
   "cards": {
     "DX-01": {
@@ -7323,6 +7324,30 @@
       "stage": "MOD",
       "tier": "P4",
       "title": "MOD 拆分成果棘轮：迁移产出的 15 个组件文件登记 LINE_LIMITS"
+    },
+    "MOD-27": {
+      "acceptance": [
+        "新增 docs/retro/20261110-qml-governance-retro.md，三段式结构（问题清单 / 根因 / 程序化对策）覆盖 MOD-17~26 十卡过程实录且每条对策标注「已程序化 / 待程序化 / 仅纪律」类别",
+        "docs/pitfalls.md 新增条目覆盖至少三条已程序化对策（迁移脚本根开根闭成对纪律 / 立卡与实施同分支须先领用 / 后台长任务超时截断续跑），每条含判据与实录引用",
+        "复盘文档与 pitfalls 条目无互相矛盾表述，卡 note 结卡时引用复盘文档路径",
+        "pwsh -File scripts/verify.ps1 -ScriptOnly 通过（纯 docs 改动）",
+        "维护者人工复核：复盘对策条目认可，待程序化项有去向"
+      ],
+      "author": "codebuddy-session-2026-11-10",
+      "depends": [
+        "[]"
+      ],
+      "evidence": "2026-11-10 维护者会话。MOD-17~26 十卡（Main.qml 主内容整迁 / SettingsPanel 六分页+三件套+两弹窗拆分 / alias 收敛 / 棘轮登记）已全部 baseline=done，过程实录踩坑 9 类，按 R19-1 建立的「问题清单 → 根因 → 程序化对策」三段式要求做系列复盘，沉淀进 docs/retro/ 复盘文档并把可机器判据的对策入册 docs/pitfalls.md（Z6：踩坑两次沉淀成机器判据）。素材全部来自本会话台账卡 note 与交付记录（MOD-17~26 note 已逐卡留痕）。维护者 2026-11-10 会话指令「选 1，给 QML 治理系列立复盘卡」，据此授权立卡、领用、实施、verify、rebase、推 origin/main 与结卡。",
+      "id": "MOD-27",
+      "note": "",
+      "scope": [
+        "docs/retro/**",
+        "docs/pitfalls.md",
+        "docs/card-requests/**"
+      ],
+      "stage": "MOD",
+      "tier": "P3",
+      "title": "MOD QML 治理系列复盘：MOD-17~26 十卡三段式复盘与对策入册"
     }
   },
   "claims": {},

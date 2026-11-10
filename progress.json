@@ -55,24 +55,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-27",
-            "completedAt": 0,
-            "createdAt": 1794307245,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-27",
-            "note": "",
-            "orderKey": 84992,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD QML 治理系列复盘：MOD-17~26 十卡三段式复盘与对策入册",
-            "updatedAt": 1794307245
-        },
-        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -5407,6 +5389,24 @@
             "updatedAt": 1794021910
         },
         {
+            "code": "MOD-27",
+            "completedAt": 1794307501,
+            "createdAt": 1794307245,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-27",
+            "note": "",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD QML 治理系列复盘：MOD-17~26 十卡三段式复盘与对策入册",
+            "updatedAt": 1794307501
+        },
+        {
             "code": "R1-8",
             "completedAt": 1794034029,
             "createdAt": 1794027516,
@@ -6451,6 +6451,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T18:40:45",
+    "updated": "2026-11-10T18:45:01",
     "version": 3
 }

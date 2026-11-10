@@ -7437,6 +7437,13 @@
       "title": "v0.1.8 发版：版本号递增与发布验收"
     }
   },
-  "claims": {},
+  "claims": {
+    "R5-15": {
+      "agent": "releaser",
+      "branch": "chore/release-v018",
+      "head": "06905a507153640196886a27ed907f00f766af2e",
+      "claimedAt": 1794330353
+    }
+  },
   "version": 1
 }

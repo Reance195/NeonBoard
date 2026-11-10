@@ -73,6 +73,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "MOD-20",
+            "completedAt": 0,
+            "createdAt": 1794293654,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-20",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD SettingsPanel 拆分三批：热键分页整迁 components/HotkeyPage",
+            "updatedAt": 1794293654
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6307,6 +6325,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T14:48:49",
+    "updated": "2026-11-10T14:54:14",
     "version": 3
 }

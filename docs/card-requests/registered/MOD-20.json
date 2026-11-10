@@ -1,0 +1,13 @@
+{
+  "card": "MOD-20",
+  "sha256": "642d4bc0d3db7cb2cb209ca2348c5499e6cf907228117e5f42931700f32d08ce",
+  "authorizedBy": "维护者 2026-11-10 会话指令「领下一卡：SettingsPanel 分页拆分之热键」，授权 SettingsPanel 拆分三批立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261110-mod-settings-hotkey-page.md",
+  "registeredAt": "2026-11-10T06:54:14+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-20",
+    "sha": "1161a5acb74d175ddc5e5282071118844535e265"
+  }
+}

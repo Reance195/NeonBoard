@@ -73,6 +73,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "MOD-17",
+            "completedAt": 0,
+            "createdAt": 1794278756,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-17",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD QML 批次七批：任务编辑器内联组件整迁 components/TaskEditorDialog",
+            "updatedAt": 1794278756
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6253,6 +6271,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T02:19:00",
+    "updated": "2026-11-10T10:45:56",
     "version": 3
 }

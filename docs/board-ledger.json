@@ -7130,6 +7130,13 @@
       "title": "MOD SettingsPanel 拆分首批：内联控件三件套提取 components（DataButton / NeonComboBox / NeonField）"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-18": {
+      "agent": "agent-mod18",
+      "branch": "refactor/mod18-settings-inline-controls",
+      "head": "6dc56bc6539af63a0ffb8b51b08129098f544a95",
+      "claimedAt": 1794281887
+    }
+  },
   "version": 1
 }

@@ -7205,6 +7205,13 @@
       "title": "MOD SettingsPanel 拆分四批：插件分页整迁 components/PluginPage"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-21": {
+      "agent": "agent-mod21",
+      "branch": "refactor/mod21-plugin-page",
+      "head": "4ce0d546d510221895c7505f3c752c1356678ae3",
+      "claimedAt": 1794296883
+    }
+  },
   "version": 1
 }

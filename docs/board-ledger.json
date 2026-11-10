@@ -7280,13 +7280,6 @@
       "title": "MOD SettingsPanel 拆分收官批：外观分页整迁 components/AppearancePage"
     }
   },
-  "claims": {
-    "MOD-24": {
-      "agent": "agent-mod24",
-      "branch": "refactor/mod24-appearance-page",
-      "head": "00082f2047e5c6aff08a4969481a968588933186",
-      "claimedAt": 1794301713
-    }
-  },
+  "claims": {},
   "version": 1
 }

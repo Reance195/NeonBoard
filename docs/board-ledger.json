@@ -7284,7 +7284,7 @@
       "acceptance": [
         "pwsh -File scripts/verify.ps1 全量通过且 --smoke 日志 QML 致命告警 0 行",
         "NeonBackgroundLayer 新增 function burst() 且删 background alias；BoardChrome 新增 function clearSearch() / function columnItems() / readonly property bool themePickerOpen / function openThemePicker() / function closeThemePicker() 且删三 alias；Main.qml 11 处伸手调用点全部改走新接口，grep 断言 \\bbackground\\.burst|\\bsearchField\\.|\\bthemePicker\\.|\\bcolumnRepeater\\. 在 Main.qml 零命中",
-        "Main.qml 行数不增（基线 274，LINE_LIMITS 同步核对）且 check_module_deps 提示可下调时一并调低",
+        "Main.qml 行数不增（实际基线 1512，立卡时误写 274 为 SettingsPanel 旧值；本条意图为收敛不使 Main 变长）且 LINE_LIMITS 同步核对，check_module_deps 提示可下调时一并调低",
         "python scripts/check_module_deps.py --base origin/main 退出 0 且 python scripts/check_scope.py --base origin/main 退出 0",
         "维护者人工复核：换肤涟漪（拖卡/完成时背景爆发）、搜索清空、外观抽屉开关、键盘跨列导航行为与迁移前一致"
       ],

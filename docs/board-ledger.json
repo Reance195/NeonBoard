@@ -7325,6 +7325,13 @@
       "title": "MOD 拆分成果棘轮：迁移产出的 15 个组件文件登记 LINE_LIMITS"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-26": {
+      "agent": "agent-mod26reg",
+      "branch": "chore/board-register-mod26",
+      "head": "0560b7cfc4fdcaafdc298c2dcc6e7aeff770f3a1",
+      "claimedAt": 1794304418
+    }
+  },
   "version": 1
 }

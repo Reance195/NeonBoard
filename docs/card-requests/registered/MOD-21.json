@@ -1,0 +1,13 @@
+{
+  "card": "MOD-21",
+  "sha256": "9043e8deceee2737f524c921dc9b7663c9d67526015df79f6a7e41edb63e9122",
+  "authorizedBy": "维护者 2026-11-10 会话指令「领下一卡：插件页拆分」，授权 SettingsPanel 拆分四批立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261110-mod-settings-plugin-page.md",
+  "registeredAt": "2026-11-10T07:46:13+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-21",
+    "sha": "c21498bd0c2a17b6600e984ec766e9d62f879e1a"
+  }
+}

@@ -5917,7 +5917,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "MOD-22",
-            "note": "",
+            "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行；模块守卫与范围检查通过；SettingsPanel.qml 928 → 480（验收线 <=490）；LINE_LIMITS 同步调低。\n\n交付：qml/components/ExecPage.qml（464 行）——执行页 ColumnLayout + profile 系函数段（editProfile / splitArgs / 两个模式表）+ profileEditor Dialog 整块迁入，块体逐字照搬。因 execSettingsHint 与 editProfile 均在迁移单元内互写，MOD-21 note 预判的「跨页提示接口化」自然消解——整单元迁移使跨页耦合变组件内作用域，接口面仅 hostShell（contentItem/width）与 visible；CMake 双登记；接手现场分车 chore(claim)。\n\n过程踩坑（已当场修复）：删除段切片漏了执行页根闭一行（与新模板「根闭由模板追加」相对偶的「删除段根闭须随段走」没对齐），SettingsPanel 深度 -1 被平衡校验当场抓出，删孤立 } 修复。至此迁移脚本纪律完整成对：body 切片不含根开/根闭，删除段含被迁块的根开/根闭。\n\nnote 单独提交已按 DX-113 执行。\n\nnextStep（SettingsPanel 拆分收官两批，均为独立卡）：关于（现约 207 行）/ 外观（约 76 行）。两批完成后 SettingsPanel 只剩壳 + navRail + 分页实例化区（预计 <300 行），SettingsPanel 治理系列即可销账。行号已漂移，立卡前需重新勘界。",
             "orderKey": 87040,
             "priority": 2,
             "stage": "MOD",
@@ -5926,7 +5926,7 @@
                 "MOD"
             ],
             "title": "MOD SettingsPanel 拆分五批：执行分页与 profileEditor 整迁 components/ExecPage",
-            "updatedAt": 1794299305
+            "updatedAt": 1794299482
         },
         {
             "code": "MOD-7",
@@ -6361,6 +6361,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T16:28:25",
+    "updated": "2026-11-10T16:31:22",
     "version": 3
 }

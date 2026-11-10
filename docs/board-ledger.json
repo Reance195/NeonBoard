@@ -7180,6 +7180,13 @@
       "title": "MOD SettingsPanel 拆分三批：热键分页整迁 components/HotkeyPage"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-20": {
+      "agent": "agent-mod20",
+      "branch": "refactor/mod20-hotkey-page",
+      "head": "6a28257ad4aabaa8ac2d26f6f3795fc28e64b13a",
+      "claimedAt": 1794293723
+    }
+  },
   "version": 1
 }

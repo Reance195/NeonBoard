@@ -7413,6 +7413,13 @@
       "title": "多板切换：板选择器与建删改 + 切板上下文按板隔离"
     }
   },
-  "claims": {},
+  "claims": {
+    "R21-1": {
+      "agent": "cleaner",
+      "branch": "feature/multiboard-switch",
+      "head": "81add844c4eac9d71627ff0aa596eda94a918f17",
+      "claimedAt": 1794328677
+    }
+  },
   "version": 1
 }

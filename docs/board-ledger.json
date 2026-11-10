@@ -7230,6 +7230,13 @@
       "title": "MOD SettingsPanel 拆分五批：执行分页与 profileEditor 整迁 components/ExecPage"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-22": {
+      "agent": "agent-mod22",
+      "branch": "refactor/mod22-exec-page",
+      "head": "63be6088defc7320ecbcaa4c25f8223a80b4651a",
+      "claimedAt": 1794298301
+    }
+  },
   "version": 1
 }

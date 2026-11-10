@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "MOD-17": {
-            "agent": "agent-mod17",
-            "branch": "refactor/mod17-task-editor-dialog",
-            "claimedAt": 1794278839,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794278839,
-            "worktree": ".worktrees/agent-mod17"
-        }
-    },
-    "updatedAt": 1794278839,
+    "assignments": {},
+    "updatedAt": 1794280424,
     "version": 1
 }

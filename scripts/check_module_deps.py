@@ -88,7 +88,7 @@ CLASS_TO_MODULE = {name: mod for mod, names in CLASS_MODULE.items() for name in 
 LINE_LIMITS = {
     "src/main.cpp": 6,
     "qml/Main.qml": 1512,
-    "qml/components/SettingsPanel.qml": 1250,
+    "qml/components/SettingsPanel.qml": 928,
 }
 
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s+"([^"]+)"')

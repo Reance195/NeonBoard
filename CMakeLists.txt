@@ -266,6 +266,7 @@ set_source_files_properties(qml/components/NeonComboBox.qml PROPERTIES QT_RESOUR
 set_source_files_properties(qml/components/NeonField.qml PROPERTIES QT_RESOURCE_ALIAS "NeonField.qml")
 set_source_files_properties(qml/components/DataBackupPage.qml PROPERTIES QT_RESOURCE_ALIAS "DataBackupPage.qml")
 set_source_files_properties(qml/components/HotkeyPage.qml PROPERTIES QT_RESOURCE_ALIAS "HotkeyPage.qml")
+set_source_files_properties(qml/components/PluginPage.qml PROPERTIES QT_RESOURCE_ALIAS "PluginPage.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -319,6 +320,7 @@ qt_add_qml_module(NeonBoard
     qml/components/NeonField.qml
     qml/components/DataBackupPage.qml
     qml/components/HotkeyPage.qml
+    qml/components/PluginPage.qml
 )
 
 qt_add_resources(NeonBoard "icons"

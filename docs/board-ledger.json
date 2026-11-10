@@ -7303,6 +7303,13 @@
       "title": "MOD 手工 alias 收敛：Main 对组件内部元素的伸手改为语义接口"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-25": {
+      "agent": "agent-mod25",
+      "branch": "refactor/mod25-alias-convergence",
+      "head": "6c14aff135eb173f9f41f5bd34b97caed50038f0",
+      "claimedAt": 1794303033
+    }
+  },
   "version": 1
 }

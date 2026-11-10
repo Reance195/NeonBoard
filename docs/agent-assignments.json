@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "R5-15": {
-            "agent": "releaser",
-            "branch": "chore/release-v018",
-            "claimedAt": 1794330353,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794330353,
-            "worktree": ".worktrees/releaser"
-        }
-    },
-    "updatedAt": 1794331439,
+    "assignments": {},
+    "updatedAt": 1794324367,
     "version": 1
 }

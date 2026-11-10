@@ -1,0 +1,13 @@
+{
+  "card": "MOD-19",
+  "sha256": "d9c0224d34a75e23bc60e2e817bffedc24a7064abb6f09f32e43ab6b461e5b27",
+  "authorizedBy": "维护者 2026-11-10 会话指令「领下一卡：SettingsPanel 分页拆分之数据与备份」，授权 SettingsPanel 拆分二批立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261110-mod-settings-data-page.md",
+  "registeredAt": "2026-11-10T06:30:22+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-19",
+    "sha": "11149959a6ded539a800da45775c459356f38f54"
+  }
+}

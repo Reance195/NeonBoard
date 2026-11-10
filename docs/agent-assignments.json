@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "R11-14": {
-            "agent": "agent-r1114",
-            "branch": "fix/r1114-shell-close-key",
-            "claimedAt": 1794310543,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794310543,
-            "worktree": ".worktrees/agent-r1114"
-        }
-    },
-    "updatedAt": 1794310543,
+    "assignments": {},
+    "updatedAt": 1794312125,
     "version": 1
 }

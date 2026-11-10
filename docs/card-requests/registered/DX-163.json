@@ -1,0 +1,13 @@
+{
+  "card": "DX-163",
+  "sha256": "058727310337eb8c2d557a5f96b2aadbc62919829a28b7bc5951b1eb72d548e8",
+  "authorizedBy": "维护者 2026-11-10 会话指令「立卡修 P0：补 CMake 双登记」",
+  "form": "docs/card-requests/20261110-dx-appearance-page-cmake.md",
+  "registeredAt": "2026-11-10T14:24:23+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-163",
+    "sha": "fdb8b6a037af655399d222d65ed03a10a08c8e1a"
+  }
+}

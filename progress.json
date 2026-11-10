@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "DX-163",
+            "completedAt": 0,
+            "createdAt": 1794320665,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-163",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "补 CMake 双登记 AppearancePage.qml 并加 qml 登记齐套机器判据",
+            "updatedAt": 1794320665
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -6451,6 +6469,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T20:03:56",
+    "updated": "2026-11-10T22:24:25",
     "version": 3
 }

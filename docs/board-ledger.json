@@ -7105,13 +7105,6 @@
       "title": "MOD QML 批次七批：任务编辑器内联组件整迁 components/TaskEditorDialog"
     }
   },
-  "claims": {
-    "MOD-17": {
-      "agent": "agent-mod17",
-      "branch": "refactor/mod17-task-editor-dialog",
-      "head": "aec2f5cc17ea984af4aa78ce1a77049583ed8fe3",
-      "claimedAt": 1794278839
-    }
-  },
+  "claims": {},
   "version": 1
 }

@@ -1,0 +1,13 @@
+{
+  "card": "R0-16",
+  "sha256": "11a4b5fc10e1d20245060a4a7182b9bc245957a7e451b17cb4f59a4c6f763e82",
+  "authorizedBy": "维护者 CodeBuddy 会话 2026-11-11，AskUserQuestion 批次授权：启动性能收尾二批",
+  "form": "docs/card-requests/20261111-r0-16-startup-batch2.md",
+  "registeredAt": "2026-11-10T19:55:31+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R0-16",
+    "sha": "d5c8278ec1616a2554911f626c23632492980381"
+  }
+}

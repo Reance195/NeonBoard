@@ -342,7 +342,8 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "R0-16": "todo"
   },
   "cards": {
     "DX-01": {
@@ -7435,6 +7436,39 @@
       "stage": "R5",
       "tier": "P3",
       "title": "v0.1.8 发版：版本号递增与发布验收"
+    },
+    "R0-16": {
+      "acceptance": [
+        "冷态实测沿用 R0-13 的冷/热双口径与轮次方法（同机、改动前后各多轮取中位数）：首次运行（BOOT shown 口径）中位数相对改动前收敛 ≥50%，绝对值若仍未达 <3 s，剩余差距量化写进 roadmap §10（Z9 诚实边界）",
+        "QML 树构建（engine→loaded）中位数 <800 ms；若实现后仍不达标，实测数据与瓶颈分析如实写进 roadmap §3.1，不虚报达成",
+        "启动路径新增 / 延后动作均有既有 BOOT 探针或新增计时行可证（Z8）；预热必须与既有启动路径并行，不得同步等待拉长 BOOT→首帧总时长（§R0 既有约束）",
+        "竞态面不回归：插件后台装载注入时序、提醒启动补发、首次引导判定（shouldOnboard，R13）行为不变；涉及时序改动在 tests/ 补用例覆盖「数据源未就绪」空态 / 就绪信号路径",
+        "pwsh -File scripts/verify.ps1 全量通过（编译 + ctest + --selftest + --smoke 退出码 0，致命 QML 告警 0 行）",
+        "docs/iteration-roadmap.md §3.1 / §10 回填前后实测数据；过程踩坑补 docs/pitfalls.md 条目"
+      ],
+      "author": "codebuddy-session-2026-11-11",
+      "depends": [
+        "R0-13",
+        "R0-14"
+      ],
+      "evidence": "roadmap §10 仅剩两个 ⬜ 指标：首次运行 5–9 s（目标 <3 s，冷页缓存）、QML 树构建 781–1851 ms（min 781，目标 <800 ms）。批次一 R0-13 已收口建表延后 / 扫描后台化 / 字体回退不阻塞 / .qsb 预热（部分），R0-14 已用 DELAYLOAD 精简随包 DLL；R0-12 打包瘦样式路线已弃单。剩余冷态差距来自进程冷页（exe + Qt DLL + qrc 资源首次读入），运行时侧未做预热；QML 树构建中位数仍超目标一倍，Main.qml 现存 1350 行、23 处按需加载点，首帧前同步实例化的面未再审计过。",
+      "id": "R0-16",
+      "note": "",
+      "scope": [
+        "qml/Main.qml",
+        "src/main.cpp",
+        "src/app/AppMain.cpp",
+        "src/app/AppWiring.cpp",
+        "src/shell/",
+        "CMakeLists.txt",
+        "scripts/check_module_deps.py",
+        "tests/",
+        "docs/iteration-roadmap.md",
+        "docs/pitfalls.md"
+      ],
+      "stage": "R0",
+      "tier": "P1",
+      "title": "启动性能收尾二批：首次运行冷态收敛与 QML 树构建 <800ms"
     }
   },
   "claims": {},

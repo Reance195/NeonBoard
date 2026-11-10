@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "R0-16",
+            "completedAt": 0,
+            "createdAt": 1794340531,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R0-16",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "R0",
+            "status": "todo",
+            "tags": [
+                "R0"
+            ],
+            "title": "启动性能收尾二批：首次运行冷态收敛与 QML 树构建 <800ms",
+            "updatedAt": 1794340531
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -6505,6 +6523,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-11T01:41:51",
+    "updated": "2026-11-11T03:55:31",
     "version": 3
 }

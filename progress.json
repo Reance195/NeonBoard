@@ -5971,7 +5971,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "MOD-25",
-            "note": "",
+            "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行；模块守卫与范围检查通过。\n\n交付：删 4 个手工 alias（BoardChrome searchField/columnRepeater/themePicker、NeonBackgroundLayer background）；组件新增语义接口——burst() / clearSearch() / columnItems() / themePickerOpen(readonly) / openThemePicker() / closeThemePicker()；Main.qml 11 处伸手调用点全部改走新接口（columnItems 变薄委托），伸手引用 grep 零命中（机器判据）；Main.qml 1512 → 1504（LINE_LIMITS 同步调低）；DialogShell/DrawerShell 架构性 default alias 不动。\n\n过程纪要：① 立卡时 acceptance[2] 基线误写 274（SettingsPanel 旧值串写，Main.qml 实际 1512），已按 chore(board) 提交 6bf17b4 修正为事实值并保留原意；② 228 行注释随接口名同步更新；③ grep 机器判据需跳过注释行，注释文本同步更新后清零。\n\nnote 单独提交已按 DX-113 执行。\n\nQML 治理系列终盘（MOD-11~25，15 批）：Main.qml 4260 → 1504、SettingsPanel.qml 2072 → 185，六个分页组件 + 三个公共控件 + 六个整迁弹层 + BoardChrome/NeonBackgroundLayer 语义接口全部落地，手工 alias 清零。后续可选项：拆出组件文件的 LINE_LIMITS 棘轮逐批下调、R19-1 复盘流程沉淀。",
             "orderKey": 87040,
             "priority": 2,
             "stage": "MOD",
@@ -5980,7 +5980,7 @@
                 "MOD"
             ],
             "title": "MOD 手工 alias 收敛：Main 对组件内部元素的伸手改为语义接口",
-            "updatedAt": 1794304109
+            "updatedAt": 1794304199
         },
         {
             "code": "MOD-7",
@@ -6415,6 +6415,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T17:48:29",
+    "updated": "2026-11-10T17:49:59",
     "version": 3
 }

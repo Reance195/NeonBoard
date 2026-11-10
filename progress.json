@@ -5989,7 +5989,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "MOD-26",
-            "note": "",
+            "note": "已完成 5 / 待做 0 —— 五条验收全部满足。verify.ps1 -ScriptOnly 轻档过（纯 scripts 改动）；check_module_deps --base origin/main 退 0（行数上限 18 个文件均未超）；check_scope 退 0；15 个登记值由脚本实测 splitlines 生成，与文件逐一相等。\n\n交付：LINE_LIMITS 新增 15 条（BoardChrome 599 / TaskEditorDialog 905 / ExecQueueDialog 467 / DataBackupPage 596 / ExecPage 464 / PluginPage 335 / AboutPage 214 / ExecPanelDialog 272 / NightBatchDialog 227 / ExecConfirmDialog 248 / HotkeyPage 133 / AppearancePage 97 / NeonComboBox 76 / DataButton 32 / NeonField 18），棘轮「不得增加」语义锁死拆分成果，后续只降不升。\n\n过程踩坑（已当场修复）：git-done -Close 被拒——立卡后直接在立卡分支实施、跳过了领用，结卡只对「领了、做完、没写 =done」开口；agent-init -InPlace 原地补领用（需显式 -Agent 名）后分车 chore(claim) 再收尾即过。教训：立卡与实施同分支时，实施前必须先领用。\n\nnote 单独提交已按 DX-113 执行。\n\nQML 治理系列终盘（MOD-11~26，16 批）：Main.qml 4260 → 1504、SettingsPanel.qml 2072 → 185，组件化产出全部纳入 LINE_LIMITS 棘轮（共 18 项在管）。",
             "orderKey": 87040,
             "priority": 2,
             "stage": "MOD",
@@ -5998,7 +5998,7 @@
                 "MOD"
             ],
             "title": "MOD 拆分成果棘轮：迁移产出的 15 个组件文件登记 LINE_LIMITS",
-            "updatedAt": 1794304442
+            "updatedAt": 1794304531
         },
         {
             "code": "MOD-7",
@@ -6433,6 +6433,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T17:54:02",
+    "updated": "2026-11-10T17:55:31",
     "version": 3
 }

@@ -7350,6 +7350,13 @@
       "title": "MOD QML 治理系列复盘：MOD-17~26 十卡三段式复盘与对策入册"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-27": {
+      "agent": "agent-mod27",
+      "branch": "docs/mod27-retro",
+      "head": "50a787a2b784c198eba35dbffb0a346e49a1ea6d",
+      "claimedAt": 1794307321
+    }
+  },
   "version": 1
 }

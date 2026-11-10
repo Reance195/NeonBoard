@@ -1,0 +1,13 @@
+{
+  "card": "R21-1",
+  "sha256": "2695438aa9dc15577786fe7a685de4c37ec89be601f138bdf1559b1df5275be8",
+  "authorizedBy": "维护者 2026-11-10 会话指令「领下一张卡片或立新卡」，选项答复「多板切换（推荐）」",
+  "form": "docs/card-requests/20261110-r21-multiboard-switch.md",
+  "registeredAt": "2026-11-10T16:35:37+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R21-1",
+    "sha": "f9c8ff6a81c41790f6f3ca5f626a5eb4fa22d6b3"
+  }
+}

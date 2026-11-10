@@ -55,6 +55,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "R21-1",
+            "completedAt": 0,
+            "createdAt": 1794328537,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R21-1",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "R21",
+            "status": "todo",
+            "tags": [
+                "R21"
+            ],
+            "title": "多板切换：板选择器与建删改 + 切板上下文按板隔离",
+            "updatedAt": 1794328537
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6469,6 +6487,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T23:26:05",
+    "updated": "2026-11-11T00:35:37",
     "version": 3
 }

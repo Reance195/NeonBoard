@@ -73,24 +73,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-25",
-            "completedAt": 0,
-            "createdAt": 1794302970,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-25",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD 手工 alias 收敛：Main 对组件内部元素的伸手改为语义接口",
-            "updatedAt": 1794302970
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5983,6 +5965,24 @@
             "updatedAt": 1794302778
         },
         {
+            "code": "MOD-25",
+            "completedAt": 1794304109,
+            "createdAt": 1794302970,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-25",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD 手工 alias 收敛：Main 对组件内部元素的伸手改为语义接口",
+            "updatedAt": 1794304109
+        },
+        {
             "code": "MOD-7",
             "completedAt": 1794190034,
             "createdAt": 1794144568,
@@ -6415,6 +6415,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T17:29:30",
+    "updated": "2026-11-10T17:48:29",
     "version": 3
 }

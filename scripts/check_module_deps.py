@@ -23,6 +23,11 @@ A. 依赖方向：模块只能依赖**层号更小**的模块。`task`(L1) → `
      - 分层后：路径即归属（`src/task/TaskModel.cpp` → `task`）；
      - 分层前：查 CLASS_MODULE 映射表（55 个类，逐字来自方案 §3.1）。
 B. 行数上限：LINE_LIMITS 里的文件不得超过记录值（先设「不得增加」，只报不改）。
+C. QML 登记齐套（DX-163，全树口径，不吃棘轮）：`qml/` 下每个磁盘 .qml/.js 必须
+   在 CMakeLists.txt 双登记 —— `qt_add_qml_module` 源条目 + `set_source_files_properties`
+   的 `QT_RESOURCE_ALIAS` 裸名。缺任一，构建产物 qrc 里就没有这个文件：编译不报错，
+   运行时 QML 类型解析失败（MOD-24 整迁 AppearancePage 漏登记，设置面板外观分页
+   静默打不开，verify / CI 全部漏过 —— 本判据即为该坑的机器化）。
 
 用法
 ----
@@ -218,6 +223,49 @@ def check_limits() -> tuple[list[str], list[str]]:
     return over, hints
 
 
+# ---- C. QML 登记齐套（DX-163）------------------------------------------------
+QML_MODULE_RE = re.compile(r"qt_add_qml_module\(\s*NeonBoard\b.*?\)", re.DOTALL)
+QML_PATH_RE = re.compile(r"\bqml/[\w./-]+\.(?:qml|js)\b")
+ALIAS_BLOCK_RE = re.compile(r"^\s*set_source_files_properties\(([^)]*)\)", re.MULTILINE)
+
+
+def qml_registration_problems(cmake_text: str, disk_qml: list[str]) -> list[str]:
+    """DX-163：qml/ 磁盘文件必须双登记（纯函数，便于自测）。
+
+    双登记 = `qt_add_qml_module` 源条目（决定产物 qrc 里有没有这个文件）
+    + `QT_RESOURCE_ALIAS` 裸名（决定模块根别名能不能解析）。缺任一即报。
+    """
+    module = QML_MODULE_RE.search(cmake_text)
+    if module is None:
+        return ["CMakeLists.txt 里找不到 qt_add_qml_module(NeonBoard ...) 块，"
+                "无法校验 QML 登记齐套"]
+    module_files = set(QML_PATH_RE.findall(module.group(0)))
+    alias_files: set[str] = set()
+    for m in ALIAS_BLOCK_RE.finditer(cmake_text):
+        if "QT_RESOURCE_ALIAS" in m.group(1):
+            alias_files.update(QML_PATH_RE.findall(m.group(1)))
+    problems: list[str] = []
+    for rel in sorted(disk_qml):
+        missing = []
+        if rel not in module_files:
+            missing.append("qt_add_qml_module 源条目")
+        if rel not in alias_files:
+            missing.append("set_source_files_properties QT_RESOURCE_ALIAS 裸名")
+        if missing:
+            problems.append("%s 未登记进 qml 模块（缺 %s）——构建产物 qrc 无此文件，"
+                            "运行时类型解析失败" % (rel, " 与 ".join(missing)))
+    return problems
+
+
+def disk_qml_files() -> list[str]:
+    """qml/ 树下的 .qml/.js 磁盘文件（相对仓库根，posix 风格）。"""
+    root = REPO_ROOT / "qml"
+    if not root.is_dir():
+        return []
+    return sorted(p.relative_to(REPO_ROOT).as_posix()
+                  for p in root.rglob("*") if p.suffix in (".qml", ".js"))
+
+
 def selftest() -> int:
     cases: list[tuple[str, bool]] = []
 
@@ -243,6 +291,29 @@ def selftest() -> int:
     incs = scan_includes(Path(__file__))
     check("自扫描不把 <...> 当项目头文件",
           all(not t.startswith("<") for _, t in incs))
+
+    # DX-163：QML 登记齐套判据
+    cmake_ok = (
+        'set_source_files_properties(qml/A.qml PROPERTIES QT_RESOURCE_ALIAS "A.qml")\n'
+        "qt_add_qml_module(NeonBoard\n    URI NeonBoard\n    QML_FILES\n"
+        "        qml/A.qml\n)\n"
+    )
+    check("登记齐套：双登记不报", qml_registration_problems(cmake_ok, ["qml/A.qml"]) == [])
+    cmake_no_alias = cmake_ok.replace(
+        'set_source_files_properties(qml/A.qml PROPERTIES QT_RESOURCE_ALIAS "A.qml")\n', "")
+    probs = qml_registration_problems(cmake_no_alias, ["qml/A.qml"])
+    check("登记齐套：缺 QT_RESOURCE_ALIAS 报错并指名",
+          len(probs) == 1 and "QT_RESOURCE_ALIAS" in probs[0])
+    cmake_no_source = cmake_ok.replace("        qml/A.qml\n", "")
+    probs = qml_registration_problems(cmake_no_source, ["qml/A.qml"])
+    check("登记齐套：缺源条目报错并指名",
+          len(probs) == 1 and "qt_add_qml_module 源条目" in probs[0])
+    probs = qml_registration_problems(cmake_ok, ["qml/B.qml"])
+    check("登记齐套：磁盘多出的未登记文件报错",
+          len(probs) == 1 and "qml/B.qml" in probs[0])
+    probs = qml_registration_problems("", ["qml/A.qml"])
+    check("登记齐套：找不到模块块时单独报错",
+          len(probs) == 1 and "qt_add_qml_module" in probs[0])
 
     failed = [name for name, ok in cases if not ok]
     for name, ok in cases:
@@ -278,6 +349,10 @@ def main() -> int:
 
     dep_problems, edges, skipped = check_deps(files)
     limit_problems, hints = check_limits()
+    # DX-163：QML 登记齐套是全树口径，与 diff 无关，每次都查
+    reg_problems = qml_registration_problems(
+        (REPO_ROOT / "CMakeLists.txt").read_text(encoding="utf-8", errors="replace"),
+        disk_qml_files())
 
     if args.verbose:
         print("判定 %d 个改动文件：" % len(files))
@@ -288,7 +363,7 @@ def main() -> int:
     for hint in hints:
         print("· " + hint, file=sys.stderr)
 
-    problems = dep_problems + limit_problems
+    problems = dep_problems + limit_problems + reg_problems
     if problems:
         print("✗ 模块守卫未通过：", file=sys.stderr)
         for p in problems:
@@ -302,8 +377,10 @@ def main() -> int:
 
     src_files = sum(1 for f in files if in_scope(f) and module_of(f))
     print("✓ 模块守卫通过：%d 个改动文件（src/ 下可归属 %d 个、跳过 %d 个），"
-          "判定 %d 条模块边；行数上限 %d 个文件均未超"
-          % (len(files), src_files, skipped, edges, len(LINE_LIMITS)))
+          "判定 %d 条模块边；行数上限 %d 个文件均未超；"
+          "qml/ 磁盘 %d 个文件登记齐套"
+          % (len(files), src_files, skipped, edges, len(LINE_LIMITS),
+             len(disk_qml_files())))
     return 0
 
 

@@ -7373,13 +7373,6 @@
       "title": "补 CMake 双登记 AppearancePage.qml 并加 qml 登记齐套机器判据"
     }
   },
-  "claims": {
-    "DX-163": {
-      "agent": "cleaner",
-      "branch": "test/appearance-page-review",
-      "head": "a6aba3fd282c1c70f7992695119818992b229664",
-      "claimedAt": 1794324319
-    }
-  },
+  "claims": {},
   "version": 1
 }

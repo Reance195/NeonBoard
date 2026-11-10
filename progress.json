@@ -5935,7 +5935,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "MOD-23",
-            "note": "",
+            "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行；模块守卫与范围检查通过；SettingsPanel.qml 480 → 274（验收线 <=285）；LINE_LIMITS 同步调低。\n\n交付：qml/components/AboutPage.qml（214 行）——分页 6 ColumnLayout（版本信息 / 更新设置）整块迁入，块体逐字照搬，仅 visible 行移实例化处；updateManager 为上下文属性直接可用；CMake 双登记；接手现场分车 chore(claim)。迁移纪律成对执行，一次通过零踩坑。\n\nnote 单独提交已按 DX-113 执行。\n\nnextStep（SettingsPanel 拆分收官批）：外观分页（现约 76 行，位于 174-256 区间，立卡前重新勘界）。该批完成后 SettingsPanel 只剩壳 + navRail + 实例化区（预计 ~200 行），治理系列即可销账；此外 Main.qml 274 行（LINE_LIMITS 在管）与十个手工 alias 收敛仍在队列。",
             "orderKey": 87040,
             "priority": 2,
             "stage": "MOD",
@@ -5944,7 +5944,7 @@
                 "MOD"
             ],
             "title": "MOD SettingsPanel 拆分六批：关于分页整迁 components/AboutPage",
-            "updatedAt": 1794300636
+            "updatedAt": 1794300726
         },
         {
             "code": "MOD-7",
@@ -6379,6 +6379,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T16:50:36",
+    "updated": "2026-11-10T16:52:06",
     "version": 3
 }

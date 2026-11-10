@@ -73,6 +73,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "MOD-24",
+            "completedAt": 0,
+            "createdAt": 1794301648,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-24",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD SettingsPanel 拆分收官批：外观分页整迁 components/AppearancePage",
+            "updatedAt": 1794301648
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6379,6 +6397,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T16:52:06",
+    "updated": "2026-11-10T17:07:28",
     "version": 3
 }

@@ -1,0 +1,13 @@
+{
+  "card": "R5-15",
+  "sha256": "de9bbba7efd21758e7532dadaf621f2efef60f8b9170900198b83f8e59fca1d4",
+  "authorizedBy": "维护者会话 2026-11-11",
+  "form": "docs/card-requests/20261111-r5-release-v018.md",
+  "registeredAt": "2026-11-10T17:02:12+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R5-15",
+    "sha": "98efb8293e11861aa0d1a3cfd700df5f7a5a31b7"
+  }
+}

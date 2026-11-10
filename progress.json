@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "R11-14",
-            "completedAt": 0,
-            "createdAt": 1794146702,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R11-14",
-            "note": "",
-            "orderKey": 78368,
-            "priority": 2,
-            "stage": "R11",
-            "status": "todo",
-            "tags": [
-                "R11"
-            ],
-            "title": "弹窗与抽屉壳头部关闭键未贴右上角",
-            "updatedAt": 1794146702
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -4921,6 +4903,24 @@
             "updatedAt": 1793207091
         },
         {
+            "code": "R11-14",
+            "completedAt": 1794312123,
+            "createdAt": 1794146702,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R11-14",
+            "note": "",
+            "orderKey": 78368,
+            "priority": 2,
+            "stage": "R11",
+            "status": "done",
+            "tags": [
+                "R11"
+            ],
+            "title": "弹窗与抽屉壳头部关闭键未贴右上角",
+            "updatedAt": 1794312123
+        },
+        {
             "code": "DX-111",
             "completedAt": 1794017721,
             "createdAt": 1793980354,
@@ -6451,6 +6451,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T18:46:35",
+    "updated": "2026-11-10T20:02:03",
     "version": 3
 }

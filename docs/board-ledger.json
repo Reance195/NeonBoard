@@ -4979,7 +4979,7 @@
       "depends": [],
       "evidence": "qml.exe 最小复现实测（Qt 6.8.3）：headerRow 宽 680 下关闭键 x=508（正确 654），ColumnLayout 内 Text 补 Layout.fillWidth 后 x=654",
       "id": "R11-14",
-      "note": "",
+      "note": "已完成 3 / 待做 0 —— 三条验收全部满足。\n\n归属如实记：代码修复实为 2026-11-08 会话完成（70f099e fix(ui): 弹窗与抽屉头部关闭键贴右上角 #R11-14，两壳标题/副标题 Text 补 Layout.fillWidth: true），但该会话漏结卡，baseline 悬空 todo（DX-62 描述的「交付未投 done 标记」缺陷实例）。本卡 2026-11-10 领用时发现重复，零代码改动，仅做验收与补结：① 两壳现状均含 fillWidth（代码事实）；② qml.exe offscreen 探针复测（照立卡 evidence 方法，1:1 复刻头部层级）：headerRow 宽 684 下关闭键右缘 684 = 贴右上角（缺陷态应停在标题旁 ≈126）；③ verify.ps1 全量绿（ctest 45/45、--selftest 0、--smoke 0、致命告警 0 行、模块守卫 18 文件未超）。\n\n探针方法论备注：复刻头部层级必须照真实结构（根 Item → header Item(anchors) → headerRow），外层误用 ColumnLayout 会使 anchors 失效、探针假红；贴边判据是关闭键右缘 ≈ headerRow.width（margin 已在 Layout 分配内扣减），不要再减一次 margin。\n\nnote 单独提交已按 DX-113 执行。",
       "scope": [
         "qml/components/DialogShell.qml",
         "qml/components/DrawerShell.qml"

@@ -336,7 +336,8 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "MOD-25": "todo"
   },
   "cards": {
     "DX-01": {
@@ -7278,6 +7279,28 @@
       "stage": "MOD",
       "tier": "P4",
       "title": "MOD SettingsPanel 拆分收官批：外观分页整迁 components/AppearancePage"
+    },
+    "MOD-25": {
+      "acceptance": [
+        "pwsh -File scripts/verify.ps1 全量通过且 --smoke 日志 QML 致命告警 0 行",
+        "NeonBackgroundLayer 新增 function burst() 且删 background alias；BoardChrome 新增 function clearSearch() / function columnItems() / readonly property bool themePickerOpen / function openThemePicker() / function closeThemePicker() 且删三 alias；Main.qml 11 处伸手调用点全部改走新接口，grep 断言 \\bbackground\\.burst|\\bsearchField\\.|\\bthemePicker\\.|\\bcolumnRepeater\\. 在 Main.qml 零命中",
+        "Main.qml 行数不增（基线 274，LINE_LIMITS 同步核对）且 check_module_deps 提示可下调时一并调低",
+        "python scripts/check_module_deps.py --base origin/main 退出 0 且 python scripts/check_scope.py --base origin/main 退出 0",
+        "维护者人工复核：换肤涟漪（拖卡/完成时背景爆发）、搜索清空、外观抽屉开关、键盘跨列导航行为与迁移前一致"
+      ],
+      "author": "codebuddy-session-2026-11-10",
+      "depends": [],
+      "evidence": "2026-11-10 实测（基线 origin/main）：MOD-11~24 迁移批次遗留 4 个「仅为 Main 伸手」的 alias——BoardChrome.qml:14-16（searchField / columnRepeater / themePicker）与 NeonBackgroundLayer.qml:9（background）；Main.qml 消费点共 11 处：neonBgLayer.background.burst()（133/887）、boardChrome.searchField.text=\"\"（525/580）、boardChrome.themePicker.open 读写（217/230/391/948/1044）、boardChrome.columnRepeater.count/itemAt（169-170，columnItems() 被 Main 8 处调用）。git grep 确认四 alias 消费方仅 Main。收敛方案（Z5 单一出口）：组件加语义接口——NeonBackgroundLayer 加 function burst() 并删 background alias；BoardChrome 加 function clearSearch() / function columnItems() / readonly property bool themePickerOpen / function openThemePicker() / function closeThemePicker() 并删三 alias；Main 11 处调用点改走新接口。DialogShell/DrawerShell 的 default property alias 为架构性，不动。MOD-12 note 所记「十个手工 alias」为 2026-11-09 时点口径，现行实测为 4 alias / 11 消费点。维护者 2026-11-10 会话指令「领卡：十个手工 alias 收敛」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
+      "id": "MOD-25",
+      "note": "",
+      "scope": [
+        "qml/Main.qml",
+        "qml/components/**",
+        "scripts/check_module_deps.py"
+      ],
+      "stage": "MOD",
+      "tier": "P4",
+      "title": "MOD 手工 alias 收敛：Main 对组件内部元素的伸手改为语义接口"
     }
   },
   "claims": {},

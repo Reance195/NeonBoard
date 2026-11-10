@@ -7407,6 +7407,7 @@
         "qml/components/ColumnManager.qml",
         "qml/components/BoardColumn.qml",
         "CMakeLists.txt",
+        "scripts/check_module_deps.py",
         "tests/**"
       ],
       "stage": "R21",

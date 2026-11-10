@@ -73,24 +73,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-18",
-            "completedAt": 0,
-            "createdAt": 1794281814,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-18",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD SettingsPanel 拆分首批：内联控件三件套提取 components（DataButton / NeonComboBox / NeonField）",
-            "updatedAt": 1794281814
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5857,6 +5839,24 @@
             "updatedAt": 1794280629
         },
         {
+            "code": "MOD-18",
+            "completedAt": 1794282914,
+            "createdAt": 1794281814,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-18",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD SettingsPanel 拆分首批：内联控件三件套提取 components（DataButton / NeonComboBox / NeonField）",
+            "updatedAt": 1794282914
+        },
+        {
             "code": "MOD-7",
             "completedAt": 1794190034,
             "createdAt": 1794144568,
@@ -6289,6 +6289,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T11:36:54",
+    "updated": "2026-11-10T11:55:14",
     "version": 3
 }

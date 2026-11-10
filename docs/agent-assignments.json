@@ -1,5 +1,21 @@
 {
-    "assignments": {},
-    "updatedAt": 1794300638,
+    "assignments": {
+        "MOD-24": {
+            "agent": "agent-mod24",
+            "branch": "refactor/mod24-appearance-page",
+            "claimedAt": 1794301714,
+            "handoffFrom": "",
+            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
+            "progress": {
+                "done": 0,
+                "total": 0
+            },
+            "sessionId": "",
+            "stage": "开区",
+            "updatedAt": 1794301714,
+            "worktree": ".worktrees/agent-mod24"
+        }
+    },
+    "updatedAt": 1794301714,
     "version": 1
 }

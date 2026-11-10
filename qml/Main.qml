@@ -130,7 +130,7 @@ ApplicationWindow {
         window.focusTotal = 0
         tray.setFocusRemaining(0)
         if (completed) {
-            neonBgLayer.background.burst()
+            neonBgLayer.burst()
             tray.showMessage("专注结束", "这一轮已完成，起身活动一下")
         }
     }
@@ -164,15 +164,7 @@ ApplicationWindow {
 
     // 已实例化的列（列清单来自数据库，顺序即界面顺序）。
     // 不用固定 id 引用：列是可以增删的，写死 todoColumn 之类的引用会在加列后失效。
-    function columnItems() {
-        var out = []
-        for (var i = 0; i < boardChrome.columnRepeater.count; ++i) {
-            var item = boardChrome.columnRepeater.itemAt(i)
-            if (item)
-                out.push(item)
-        }
-        return out
-    }
+    function columnItems() { return boardChrome.columnItems() }
 
     // 键盘导航：把焦点交给指定列并选中首张卡（左右方向键跨列）
     function focusColumn(targetIndex) {
@@ -214,7 +206,7 @@ ApplicationWindow {
     }
 
     function closeAppearancePanel() {
-        boardChrome.themePicker.open = false
+        boardChrome.closeThemePicker()
         if (appearanceLoader.item)
             appearanceLoader.item.visible = false
     }
@@ -225,9 +217,9 @@ ApplicationWindow {
     }
 
     // 外观抽屉开合同步：标题栏的主题三点按钮发 appearanceRequested 过来，
-    // 这里按 themePicker.open 的值开合抽屉（抽屉自己关掉时也会走这里）。
+    // 这里按 themePickerOpen 的值开合抽屉（抽屉自己关掉时也会走这里）。
     function syncAppearancePanel() {
-        if (!boardChrome.themePicker.open) {
+        if (!boardChrome.themePickerOpen) {
             if (appearanceLoader.item)
                 appearanceLoader.item.visible = false
             return
@@ -388,7 +380,7 @@ ApplicationWindow {
         raise()
         requestActivate()
         closeAllPanels()
-        boardChrome.themePicker.open = true
+        boardChrome.openThemePicker()
         syncAppearancePanel()
     }
 
@@ -522,7 +514,7 @@ ApplicationWindow {
 
     // 跳转到指定任务：清除过滤 → 定位到所在列 → 高亮闪烁
     function jumpToTask(taskId) {
-        boardChrome.searchField.text = ""
+        boardChrome.clearSearch()
         window.setStageFilter("")
         // 项目范围也要清：目标卡若属于别的项目，留在项目视图里它就被过滤掉了，
         // flashTask 找不到行，跳转会静默失败。
@@ -577,7 +569,7 @@ ApplicationWindow {
     }
 
     // 一键清除筛选：搜索词、里程碑、项目范围三处一起复位
-    function clearFilters() { boardChrome.searchField.text = ""; setStageFilter(""); setProjectFilter("") }
+    function clearFilters() { boardChrome.clearSearch(); setStageFilter(""); setProjectFilter("") }
 
     function refreshStageData() {
         // 阶段顺序由 projectMap 给出（读路线图 §9 的行序，只读一份 md、不跑 git）；
@@ -884,7 +876,7 @@ ApplicationWindow {
         }
         // 完成任务时背景爆发一次能量脉冲
         function onTaskCompleted(id) {
-            neonBgLayer.background.burst()
+            neonBgLayer.burst()
         }
     }
 
@@ -945,7 +937,7 @@ ApplicationWindow {
         MouseArea {
             anchors.fill: parent
             z: 5
-            visible: boardChrome.themePicker.open
+            visible: boardChrome.themePickerOpen
             onClicked: window.closeAppearancePanel()
         }
 
@@ -1041,7 +1033,7 @@ ApplicationWindow {
                 item.closeRequested.connect(function() {
                     window.closeAppearancePanel()
                 })
-                item.visible = boardChrome.themePicker.open
+                item.visible = boardChrome.themePickerOpen
             }
         }
 

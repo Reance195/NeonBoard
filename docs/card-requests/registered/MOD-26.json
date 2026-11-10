@@ -1,0 +1,13 @@
+{
+  "card": "MOD-26",
+  "sha256": "4723846d56374ad25a1a7e46295f0af2b80999fe867a72426b73f34bb3905ee1",
+  "authorizedBy": "维护者 2026-11-10 会话指令「开立 MOD-26 棘轮下调卡」，授权棘轮登记立卡、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261110-mod-line-ratchet.md",
+  "registeredAt": "2026-11-10T09:52:12+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-26",
+    "sha": "4d9f2150c1c067efd5c076a2e0ecfeb2ceeaf3a8"
+  }
+}

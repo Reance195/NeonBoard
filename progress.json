@@ -73,24 +73,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-19",
-            "completedAt": 0,
-            "createdAt": 1794292223,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-19",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD SettingsPanel 拆分二批：数据与备份分页整迁 components/DataBackupPage",
-            "updatedAt": 1794292223
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5875,6 +5857,24 @@
             "updatedAt": 1794282993
         },
         {
+            "code": "MOD-19",
+            "completedAt": 1794293243,
+            "createdAt": 1794292223,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-19",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD SettingsPanel 拆分二批：数据与备份分页整迁 components/DataBackupPage",
+            "updatedAt": 1794293243
+        },
+        {
             "code": "MOD-7",
             "completedAt": 1794190034,
             "createdAt": 1794144568,
@@ -6307,6 +6307,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T14:30:23",
+    "updated": "2026-11-10T14:47:23",
     "version": 3
 }

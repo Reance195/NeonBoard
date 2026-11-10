@@ -7393,6 +7393,7 @@
         "src/core/Database.cpp",
         "src/core/UiSettings.h",
         "src/core/UiSettings.cpp",
+        "src/app/AppMain.cpp",
         "src/board/BoardColumns.h",
         "src/board/BoardColumns.cpp",
         "src/task/TaskUndo.h",

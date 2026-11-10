@@ -7,7 +7,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "DX-163",
-            "note": "",
+            "note": "2026-11-10 交付（fix/appearance-page-cmake，合并 90e4a5d）：CMakeLists.txt 双登记补齐 + check_module_deps.py 全树登记齐套判据（selftest 新增 6 用例）。验收 5/6 机判通过：verify.ps1 全量 rc=0（ctest 45/45、--selftest 退出 0、--smoke QML 致命告警 0 行）、产物 NeonBoard_raw_qml_0.qrc 第 21 行含 AppearancePage.qml alias、红测证明修复前 HEAD 的 CMakeLists 被新判据拦截并指名两处缺失面。待办 1/6：维护者人工复核沙箱实例设置面板「外观与动效」分页渲染（ADR 0002，复核通过后看板点结）。",
             "orderKey": 40448,
             "priority": 2,
             "stage": "DX",
@@ -16,7 +16,7 @@
                 "DX"
             ],
             "title": "补 CMake 双登记 AppearancePage.qml 并加 qml 登记齐套机器判据",
-            "updatedAt": 1794320665
+            "updatedAt": 1794322906
         },
         {
             "code": "DX-119",
@@ -6469,6 +6469,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T22:24:25",
+    "updated": "2026-11-10T23:01:46",
     "version": 3
 }

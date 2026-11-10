@@ -5395,7 +5395,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "MOD-27",
-            "note": "",
+            "note": "已完成 5 / 待做 0 —— 五条验收全部满足。verify.ps1 -ScriptOnly 轻档过（纯 docs 改动）；check_scope 退 0。\n\n交付：docs/retro/20261110-qml-governance-retro.md（三段式复盘，本卡复盘结论的事实源）——问题清单 9 条（每条带实录卡号：台账状态误判两连 / 后台超时截断三实录 / 迁移脚本根闭括号坑三现 / FolderDialog 无 parent / assignments 混车 / 立卡实施同分支跳领用 / acceptance 基线笔误 / 勘界白名单漏网 / 瞬时网络失败）→ 根因四类（事实源纪律缺失 / 工具运行时约束 / 流程步骤顺序错误 / 模板判据缺失）→ 程序化对策 10 条（已程序化 7、待程序化 3 个去向、仅纪律 1）。pitfalls.md 追加 7.8 / 7.9 / 7.10 三条对策入册。\n\n待程序化三项（另立卡候选）：拆出组件大文件续拆、verify 后台超时自动续跑封装、台账可选项推荐核对脚本化。\n\nnote 单独提交已按 DX-113 执行。",
             "orderKey": 84992,
             "priority": 2,
             "stage": "MOD",
@@ -5404,7 +5404,7 @@
                 "MOD"
             ],
             "title": "MOD QML 治理系列复盘：MOD-17~26 十卡三段式复盘与对策入册",
-            "updatedAt": 1794307501
+            "updatedAt": 1794307595
         },
         {
             "code": "R1-8",
@@ -6451,6 +6451,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T18:45:01",
+    "updated": "2026-11-10T18:46:35",
     "version": 3
 }

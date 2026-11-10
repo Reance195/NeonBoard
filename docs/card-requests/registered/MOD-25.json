@@ -1,0 +1,13 @@
+{
+  "card": "MOD-25",
+  "sha256": "a68e8a230d3573864cc19bb0907bb7bb7fa88191b40fe540b49ad251f2736263",
+  "authorizedBy": "维护者 2026-11-10 会话指令「领卡：十个手工 alias 收敛」，授权 QML 治理收尾立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261110-mod-alias-convergence.md",
+  "registeredAt": "2026-11-10T09:29:29+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-25",
+    "sha": "2737afb2c2734bab0f9dfad222aa9f2629f4aae1"
+  }
+}

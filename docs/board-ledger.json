@@ -7168,7 +7168,7 @@
       "depends": [],
       "evidence": "2026-11-10 实测（基线 origin/main，SettingsPanel.qml 1374 行，LINE_LIMITS 同值）：分页 1「热键与自动化」ColumnLayout 位于 197-313 共 117 行（含 ①全局热键 与 ②开机与提醒 两小节）；专属数据 shortcuts readonly property 位于 51-59 共 9 行（块外零引用）。双向引用面全扫（MOD-19 教训：正则全扫非白名单）：块内仅 panel.page（visible 一行，移实例化处）与 panel.shortcuts（随迁后转组件内作用域）；块内唯一 id shortcutRow 无块外引用；hotkey / tray 均为 C++ 上下文属性（AppMain.cpp:393-394），组件可直接用；块内类型仅需 QtQuick / QtQuick.Controls（Switch）/ QtQuick.Layouts。接口面 = 实例化处 visible 绑定一行，无其它 property。维护者 2026-11-10 会话指令「领下一卡：SettingsPanel 分页拆分之热键」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
       "id": "MOD-20",
-      "note": "",
+      "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行；模块守卫与范围检查通过；SettingsPanel.qml 1374 → 1250（验收线 <=1260）；LINE_LIMITS 同步调低。\n\n交付：qml/components/HotkeyPage.qml（133 行）——分页 1 ColumnLayout（①全局热键 + ②开机与提醒）与专属 shortcuts 属性整块迁入，块体逐字照搬，仅两处接口化（panel.shortcuts→shortcuts / visible 行移实例化处）；hotkey / tray 为上下文属性直接可用；CMake 双登记；接手现场分车 chore(claim)。\n\n过程踩坑（已当场修复）：迁移脚本第三次踩「块根闭括号既入 body 又追加一次」的坑（MOD-18 同款），括号平衡校验当场抓出。该坑已在迁移脚本族复现三次，下批起脚本模板改为 body 切片不含根闭行、追加根闭由模板统一负责。\n\nnote 单独提交已按 DX-113 执行。\n\nnextStep（SettingsPanel 拆分后续批次，均为独立卡）：插件（现约 285 行）/ 执行+profileEditor（约 204 + 222，profileEditor 需接口化 execSettingsHint 跨页提示）/ 关于（约 208）/ 外观（约 80）。行号已因本卡漂移，立卡前需重新勘界。",
       "scope": [
         "qml/components/SettingsPanel.qml",
         "qml/components/**",

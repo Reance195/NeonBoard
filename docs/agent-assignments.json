@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "MOD-25": {
-            "agent": "agent-mod25",
-            "branch": "refactor/mod25-alias-convergence",
-            "claimedAt": 1794303034,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794303034,
-            "worktree": ".worktrees/agent-mod25"
-        }
-    },
-    "updatedAt": 1794303034,
+    "assignments": {},
+    "updatedAt": 1794304111,
     "version": 1
 }

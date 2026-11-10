@@ -7403,6 +7403,7 @@
         "src/task/TaskFilterModel.cpp",
         "qml/Main.qml",
         "qml/components/BoardChrome.qml",
+        "qml/components/BoardSwitcher.qml",
         "qml/components/ColumnManager.qml",
         "qml/components/BoardColumn.qml",
         "CMakeLists.txt",

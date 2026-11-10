@@ -7363,7 +7363,7 @@
       "depends": [],
       "evidence": "2026-11-10 会话全仓清理扫描实证：MOD-24 交付提交 3909366（已在 origin/main）只含 AppearancePage.qml 新建、SettingsPanel 瘦身与 check_module_deps.py 共三个文件，未触及 CMakeLists.txt —— MOD-24 请求单验收第 4 条「CMakeLists 同时登记 qt_add_qml_module 源条目与 QT_RESOURCE_ALIAS 裸名（MOD-11 教训前置）」未兑现。后果：SettingsPanel.qml:163 实例化 AppearancePage，而构建产物 qrc 中无此文件，运行时 QML 类型解析失败，设置面板「外观与动效」分页打不开；构建不报错，--smoke 4 秒窗口不点开设置分页，verify 与 CI 全部漏过。判据缺口：check_module_deps.py 只做 diff 棘轮与行数上限（LINE_LIMITS 甚至已收录 qml/components/AppearancePage.qml: 97 仍漏），全仓没有「qml/ 磁盘文件必须登记进 qml 模块」的自动校验。维护者 2026-11-10 会话指令「立卡修 P0：补 CMake 双登记」，据此授权立卡、领用、实施、verify、rebase、推 origin/main。",
       "id": "DX-163",
-      "note": "",
+      "note": "2026-11-10 交付（fix/appearance-page-cmake，合并 90e4a5d）：CMakeLists.txt 双登记补齐 + check_module_deps.py 全树登记齐套判据（selftest 新增 6 用例）。验收 5/6 机判通过：verify.ps1 全量 rc=0（ctest 45/45、--selftest 退出 0、--smoke QML 致命告警 0 行）、产物 NeonBoard_raw_qml_0.qrc 第 21 行含 AppearancePage.qml alias、红测证明修复前 HEAD 的 CMakeLists 被新判据拦截并指名两处缺失面。待办 1/6：维护者人工复核沙箱实例设置面板「外观与动效」分页渲染（ADR 0002，复核通过后看板点结）。",
       "scope": [
         "CMakeLists.txt",
         "scripts/check_module_deps.py"

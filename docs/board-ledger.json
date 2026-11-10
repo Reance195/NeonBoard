@@ -7388,7 +7388,7 @@
       "depends": [],
       "evidence": "路线图 §4「多板切换」是 P0.5 表格唯一未开工项（「R4-03 的后续」，规模 M）。数据层 R4-03 已就位：board / board_column 表与默认三列已建（Database.cpp:491-554，schema v2）、Database::boards() 与 boardColumns(boardId) 读取 API 已有（Database.h:47-48）、task.column_id 隐式归属板。但界面与写路径全部硬编码默认板：BoardColumns::reload() 写死 m_database->defaultBoardId()（BoardColumns.cpp:173），Database::addColumn() 写死 defaultBoardId()（Database.cpp:669）；板 CRUD（建 / 改名 / 删）零实现；当前板无持久化。立卡时台账快照实况：356 done + 3 张弃单墓碑，0 张可领卡，看板清空。维护者 2026-11-10 会话指令「领下一张卡片或立新卡」，选项答复「多板切换（推荐）」，据此授权立卡、领用、实施、verify、rebase、推 origin/main 与结卡。方案取舍：撤销栈按板隔离采用「撤销操作跨板时直接跳过该步并给出提示」的简单口径，不做分段栈；删板采用「板内有卡拒删并提示先迁卡」的 fail-closed 口径，不做自动迁移。",
       "id": "R21-1",
-      "note": "",
+      "note": "2026-11-10 交付（feature/multiboard-switch，合并 5460825）：多板切换全量 —— Database 板 CRUD（createBoard 事务自带默认三列 / renameBoard / deleteBoard fail-closed）、BoardColumns 按当前板读写（拔除 BoardColumns.cpp:173 与 Database.cpp:669 两处 defaultBoardId 硬编码）、UiSettings 当前板持久化、TaskUndo 按板打戳跨板跳过、BoardSwitcher.qml 标题栏板选择器（CMake 双登记）。验收 7/7：verify.ps1 全量 rc=0（ctest 45/45 含新增 6 个双板用例、--smoke QML 致命告警 0 行、模块守卫 53 个 qml 登记齐套）、user_version 未动、维护者 2026-11-10 沙箱双板切换与建删改肉眼复核通过。过程留痕：3 次 scope 补充提交（BoardSwitcher 新文件 / check_module_deps 行数棘轮 / AppMain 装配路径）+ BoardChrome 棘轮 599→604 + BoardSwitcher 登记 211，均为闸门拦出后按宪章单独 chore(board) 补的。",
       "scope": [
         "src/core/Database.h",
         "src/core/Database.cpp",
@@ -7437,6 +7437,13 @@
       "title": "v0.1.8 发版：版本号递增与发布验收"
     }
   },
-  "claims": {},
+  "claims": {
+    "R21-1": {
+      "agent": "cleaner",
+      "branch": "test/multiboard-review",
+      "head": "3d5854ef3a92eaf3cd6a4fac27aec546b3eacbc9",
+      "claimedAt": 1794331287
+    }
+  },
   "version": 1
 }

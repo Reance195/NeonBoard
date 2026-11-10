@@ -73,6 +73,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "MOD-22",
+            "completedAt": 0,
+            "createdAt": 1794298228,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-22",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD SettingsPanel 拆分五批：执行分页与 profileEditor 整迁 components/ExecPage",
+            "updatedAt": 1794298228
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6343,6 +6361,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T16:05:17",
+    "updated": "2026-11-10T16:10:28",
     "version": 3
 }

@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "DX-163": {
-            "agent": "cleaner",
-            "branch": "fix/appearance-page-cmake",
-            "claimedAt": 1794320898,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794320898,
-            "worktree": ".worktrees/cleaner"
-        }
-    },
-    "updatedAt": 1794320898,
+    "assignments": {},
+    "updatedAt": 1794322752,
     "version": 1
 }

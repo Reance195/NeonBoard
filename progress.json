@@ -7,7 +7,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "R0-16",
-            "note": "",
+            "note": "交付说明（2026-11-11，CodeBuddy 会话）：两个指标一达一负，机制零代码上线。\n\n## 结论\n1. QML 树构建 <800ms：达成。基线（origin/main f3e7507，Release，--smoke --settings，本机多轮取中位）hot 中位 552ms（543–557）/ cold（每轮新数据目录）中位 552ms，首轮 841ms 为 QML 磁盘缓存首编译。R0-10 时代的 781–1851ms 是旧机旧口径数据；R0-10 按需加载 + R0-13 延后化累计效果已达目标，无需再动 QML 结构（Main.qml 顶在 LINE_LIMITS 1504，不动是对的）。\n2. 首次运行冷页：负结果。实现了 exe+DLL+qml/plugins 顺序预读（StartupDefer.h 双预算 detached 线程，NEONBOARD_NO_PREWARM 开关），部署包交错 A/B 8 轮（每冷轮前内存压力驱逐页缓存）：预热开冷态 startup 中位 4241ms vs 关 3691ms，无一轮反超——预热线程与主线程缺页争抢，NVMe 上 Windows 需求分页预读已高效。机制撤除（净代码 diff = 0），判据与两个实施坑入 pitfalls 7.11，roadmap §10 已回填差距量化。5–9s 原始口径本机不可复现（近似冷页中位 3.7s），真实冷启动需 HDD / 冷盘机器或 CI 口径复测。\n\n## 验收对照\n- 条款1（收敛≥50%）：未达，按 Z9 如实回填 roadmap §10（负结果 + 差距）。\n- 条款2（树构建<800ms）：达成（基线即达标），§10 回填。\n- 条款3：无新增启动动作上线（机制撤除），不适用。\n- 条款4：无时序改动，插件装载 / 提醒补发 / shouldOnboard 行为零变化，不新增 tests（据实写明）。\n- 条款5：verify.ps1 全量通过（45/45 ctest、--selftest / --smoke 退出码 0、致命 QML 告警 0、模块守卫 / 行数棘轮 / qml 登记齐套过）。\n- 条款6：roadmap §3.1 / §10 回填 ✓；pitfalls 7.11 ✓。\n\n## 待复核\n冷启动指标按「负结果收口 + 保留 ⬜」还是另立卡走 CI / 真机口径复测——由维护者拍板（本次不打 =done）。\n",
             "orderKey": 40448,
             "priority": 2,
             "stage": "R0",
@@ -16,7 +16,7 @@
                 "R0"
             ],
             "title": "启动性能收尾二批：首次运行冷态收敛与 QML 树构建 <800ms",
-            "updatedAt": 1794340531
+            "updatedAt": 1794343115
         },
         {
             "code": "DX-119",
@@ -6523,6 +6523,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-11T03:55:31",
+    "updated": "2026-11-11T04:38:35",
     "version": 3
 }

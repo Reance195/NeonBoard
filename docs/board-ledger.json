@@ -7350,13 +7350,6 @@
       "title": "MOD QML 治理系列复盘：MOD-17~26 十卡三段式复盘与对策入册"
     }
   },
-  "claims": {
-    "R11-14": {
-      "agent": "agent-r1114",
-      "branch": "fix/r1114-shell-close-key",
-      "head": "27d66cfa88cde311ade68c8f8552f257695250d8",
-      "claimedAt": 1794310543
-    }
-  },
+  "claims": {},
   "version": 1
 }

@@ -1,0 +1,13 @@
+{
+  "card": "MOD-27",
+  "sha256": "6ceb106a2c9893cdfc55963b25e977235f9bc74c2b085ad7a3290dfafe8d3f74",
+  "authorizedBy": "维护者 2026-11-10 会话指令「选 1，给 QML 治理系列立复盘卡」，授权 QML 治理复盘立卡、领用、实施、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261110-mod-qml-governance-retro.md",
+  "registeredAt": "2026-11-10T10:40:39+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-27",
+    "sha": "e5e1406aaab43fd857ef43e07082e283337e6207"
+  }
+}

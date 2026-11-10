@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "DX-163": {
-            "agent": "cleaner",
-            "branch": "test/appearance-page-review",
-            "claimedAt": 1794324319,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794324319,
-            "worktree": ".worktrees/cleaner"
-        }
-    },
-    "updatedAt": 1794324319,
+    "assignments": {},
+    "updatedAt": 1794324367,
     "version": 1
 }

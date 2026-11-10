@@ -5953,7 +5953,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "MOD-24",
-            "note": "",
+            "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行；模块守卫与范围检查通过；SettingsPanel.qml 274 → 185（验收线 <=195）；LINE_LIMITS 同步调低。\n\n交付：qml/components/AppearancePage.qml（97 行）——分页 3 ColumnLayout 与专属只读属性段（currentThemeName / currentQualityName）整块迁入，块体逐字照搬，仅两处接口化（panel.current*→组件内作用域 / visible 行移实例化处）；CMake 双登记；接手现场分车 chore(claim)。迁移纪律成对执行一次通过，零踩坑。\n\nnote 单独提交已按 DX-113 执行。\n\n系列销账小结（MOD-11~24，14 批）：SettingsPanel.qml 2072 → 185（-91%），六个分页组件（HotkeyPage / DataBackupPage / AppearancePage / ExecPage / PluginPage / AboutPage）、三个公共控件（DataButton / NeonComboBox / NeonField）、两个专属弹窗（随页）全部组件化，SettingsPanel 只剩壳 + navRail + 实例化区。Main.qml 同期 4260 → 274。QML 治理后续可选项：十个手工 alias 收敛、SettingsPanel 拆出的组件文件行数棘轮（LINE_LIMITS 逐批下调）。",
             "orderKey": 87040,
             "priority": 2,
             "stage": "MOD",
@@ -5962,7 +5962,7 @@
                 "MOD"
             ],
             "title": "MOD SettingsPanel 拆分收官批：外观分页整迁 components/AppearancePage",
-            "updatedAt": 1794302680
+            "updatedAt": 1794302778
         },
         {
             "code": "MOD-7",
@@ -6397,6 +6397,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T17:24:40",
+    "updated": "2026-11-10T17:26:18",
     "version": 3
 }

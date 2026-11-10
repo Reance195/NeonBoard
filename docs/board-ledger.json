@@ -7255,13 +7255,6 @@
       "title": "MOD SettingsPanel 拆分六批：关于分页整迁 components/AboutPage"
     }
   },
-  "claims": {
-    "MOD-23": {
-      "agent": "agent-mod23",
-      "branch": "refactor/mod23-about-page",
-      "head": "7cfee97bd47cc5a53447bb5c578edaf2e63fe763",
-      "claimedAt": 1794299699
-    }
-  },
+  "claims": {},
   "version": 1
 }

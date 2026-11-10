@@ -461,6 +461,7 @@ feat(board): 支持列内精确插位 #R1-04=done
 | **R19** | 执行链复盘 | 角色链 workflow 新增 retro 复盘角色：qa / 失败收口之后自动拉起复盘 agent，产出「问题清单 → 根因 → 程序化对策」三段式交接物（R19-01） | 六条内置预设含 retro 步（qa 后、orchestrator 前，小规模可裁）；链失败时 retro 仍执行且其失败 fail-soft；retro handoff 落盘并被 buildSummary「复盘结论」段引用 | **完成（1/1）**：R19-01 已交付（`feat(workflow): 角色链新增 retro 复盘步骤与复盘结论收口` #R19-1）—— TaskExec / WorkflowPresets / WorkflowRunner 三侧落地，失败链仍复盘且 failed 结论不变（fail-soft），verify.ps1 全量通过 ✅ |
 | **R20** | 定时任务插件 | 定时任务插件：按时间计划自动建卡、流转任务、发提醒 | pwsh -File scripts/verify.ps1 全过（全量档：编译 → ctest → --selftest → --smoke → 模块守卫 → 看板一致性） | **完成（1/1）**：R20-1 官方 QML 插件 plugins/scheduler 已交付结卡（结卡 `e6d3e4f`，2026-11-07 feature/scheduler-plugin）✅ |
 | **MOD** | 架构分层 | src 八模块子目录 + src/app 装配层（main.cpp 5 行薄入口 / AppObjects / AppWiring / CliHandlers / CliCommands / AppContext / SelfTestRunner），Main.qml 区块批次迁入 components | pwsh -File scripts/verify.ps1 全过（全量档）且 python scripts/check_module_deps.py --base origin/main 退出 0 | **已完成**：C++ 侧 MOD-02 / MOD-05 / MOD-06 / MOD-7 / MOD-8 / MOD-9 / MOD-10 与 DX-157 已结（main.cpp 1910→5 行）；QML 侧 MOD-11 ~ MOD-16 已结（四张执行域弹窗 + 标题栏/主看板区 + 霓虹背景层迁 components，Main.qml 4132→2404）；转发 alias 收敛完成（余 6 条均为组件必要接口，见 module-split-plan.md 篇首落地状态） |
+| **R21** | 多板切换 | 多板切换：板选择器与建删改 + 切板上下文按板隔离 | pwsh -File scripts/verify.ps1 全量通过且 --smoke QML 致命告警 0 行 | **待办**：R21-1 已立卡，待实现 |
 
 ### 9.1 R6 派发器（全部落地，9/9）
 

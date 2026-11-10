@@ -7268,7 +7268,7 @@
       "depends": [],
       "evidence": "2026-11-10 实测（基线 origin/main，SettingsPanel.qml 274 行，LINE_LIMITS 同值）：分页 3「外观与动效」ColumnLayout 位于 174-254 共 81 行；专属数据段 = currentThemeName / currentQualityName 两只读属性（52-60，9 行），块外零引用（仅分页内 204/222 使用，panel. 前缀随迁转组件内作用域）。双向引用面正则全扫：块内仅 panel.page（visible 一行）、panel.currentThemeName、panel.currentQualityName 三处；块内无 id；块内引用的块外顶层声明为零（Theme 单例 + qualityNames 等均为 Theme 成员）。接口面 = visible 绑定一行，无其它 property。本批为 SettingsPanel 拆分系列收官批：完成后 SettingsPanel 仅剩壳 + navRail + 六个分页实例化区。维护者 2026-11-10 会话指令「领下一卡：外观分页拆分」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
       "id": "MOD-24",
-      "note": "",
+      "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行；模块守卫与范围检查通过；SettingsPanel.qml 274 → 185（验收线 <=195）；LINE_LIMITS 同步调低。\n\n交付：qml/components/AppearancePage.qml（97 行）——分页 3 ColumnLayout 与专属只读属性段（currentThemeName / currentQualityName）整块迁入，块体逐字照搬，仅两处接口化（panel.current*→组件内作用域 / visible 行移实例化处）；CMake 双登记；接手现场分车 chore(claim)。迁移纪律成对执行一次通过，零踩坑。\n\nnote 单独提交已按 DX-113 执行。\n\n系列销账小结（MOD-11~24，14 批）：SettingsPanel.qml 2072 → 185（-91%），六个分页组件（HotkeyPage / DataBackupPage / AppearancePage / ExecPage / PluginPage / AboutPage）、三个公共控件（DataButton / NeonComboBox / NeonField）、两个专属弹窗（随页）全部组件化，SettingsPanel 只剩壳 + navRail + 实例化区。Main.qml 同期 4260 → 274。QML 治理后续可选项：十个手工 alias 收敛、SettingsPanel 拆出的组件文件行数棘轮（LINE_LIMITS 逐批下调）。",
       "scope": [
         "qml/components/SettingsPanel.qml",
         "qml/components/**",

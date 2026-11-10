@@ -382,7 +382,7 @@ feat(board): 支持列内精确插位 #R1-04=done
 | 命令面板 | Super Productivity / Kanri | **已完成（R1-3）**：`Ctrl+K` 呼出；一条输入框聚合新建任务、按标题跳转到卡片（定位并高亮闪烁）、切换 6 套主题、按阶段过滤、打开插件库 / 设置 / 外观面板；`↑↓` 选择、`Enter` 执行、`Esc` 关闭 | S–M |
 | 列内精确插位 | ~~现状“落列尾”（已知限制）~~ | **已完成（R1-1）**：`moveTaskBefore(id, status, beforeId)` 按目标卡片 id 精确插入；`taskIdsInStatus()` 提供与界面一致的 order_key 排序；拖拽时用霓虹横线实时标出落点 | S |
 | 通用撤销 | ~~现状只撤销删除~~ | **已完成（R1-6）**：`src/TaskUndo` 撤销栈统一收口删除 / 移动 / 完成 / 恢复 / 拖拽改位 / 编辑保存六类用户操作，`Ctrl+Z` 或提示条「撤销」逐步回退（上限 50 步）；回退走 `TaskModel::restorePlacement`（状态 + 列内位置 + 完成时间）与 `restoreSnapshot`（字段快照）；插件写入与路线图快照同步不进栈 | M |
-| 多板切换 | Kanri / Focalboard | **未开工（R4-03 的后续）**：`board` 表与 `board_column.board_id` 已就位、`BoardColumns` 按板读列，但界面只有一个默认板。待做：板选择器、建板 / 改名 / 删板、切板上下文（列集合 / 任务过滤 / 撤销栈按板隔离）、快速录入与拖拽落点的归属判定 | M |
+| 多板切换 | Kanri / Focalboard | **已完成（R21-1）**：标题栏板选择器（`BoardSwitcher`）+ 板 CRUD（建板自带默认三列 / 改名 / 删板 fail-closed）+ 切板上下文按板隔离（列集合 / 顶栏统计 / 录入落列 / 拖拽落点跟随当前板，撤销不跨板）+ 当前板持久化（删当前板回退默认板）；老库单板行为不变，不升 user_version | M |
 | 首启动引导 | Kanri / Super Productivity | **已完成（R4-07）**：空板且从未完成过引导时弹三步说明（录任务 → 拖列 → 装插件），可一键载入三张示例卡试拖拽、点「周报 / 会议记录 / Bug」模板预填新建面板；「跳过」也算完成，之后不再打扰，已用一年、看板不空的老用户换机重装也不会被挡（判定收在 `UiSettings::shouldOnboard`，有单测）；命令面板「重看新手引导」可随时回看 | S |
 
 ## 5. P1 炫酷记忆点
@@ -461,7 +461,7 @@ feat(board): 支持列内精确插位 #R1-04=done
 | **R19** | 执行链复盘 | 角色链 workflow 新增 retro 复盘角色：qa / 失败收口之后自动拉起复盘 agent，产出「问题清单 → 根因 → 程序化对策」三段式交接物（R19-01） | 六条内置预设含 retro 步（qa 后、orchestrator 前，小规模可裁）；链失败时 retro 仍执行且其失败 fail-soft；retro handoff 落盘并被 buildSummary「复盘结论」段引用 | **完成（1/1）**：R19-01 已交付（`feat(workflow): 角色链新增 retro 复盘步骤与复盘结论收口` #R19-1）—— TaskExec / WorkflowPresets / WorkflowRunner 三侧落地，失败链仍复盘且 failed 结论不变（fail-soft），verify.ps1 全量通过 ✅ |
 | **R20** | 定时任务插件 | 定时任务插件：按时间计划自动建卡、流转任务、发提醒 | pwsh -File scripts/verify.ps1 全过（全量档：编译 → ctest → --selftest → --smoke → 模块守卫 → 看板一致性） | **完成（1/1）**：R20-1 官方 QML 插件 plugins/scheduler 已交付结卡（结卡 `e6d3e4f`，2026-11-07 feature/scheduler-plugin）✅ |
 | **MOD** | 架构分层 | src 八模块子目录 + src/app 装配层（main.cpp 5 行薄入口 / AppObjects / AppWiring / CliHandlers / CliCommands / AppContext / SelfTestRunner），Main.qml 区块批次迁入 components | pwsh -File scripts/verify.ps1 全过（全量档）且 python scripts/check_module_deps.py --base origin/main 退出 0 | **已完成**：C++ 侧 MOD-02 / MOD-05 / MOD-06 / MOD-7 / MOD-8 / MOD-9 / MOD-10 与 DX-157 已结（main.cpp 1910→5 行）；QML 侧 MOD-11 ~ MOD-16 已结（四张执行域弹窗 + 标题栏/主看板区 + 霓虹背景层迁 components，Main.qml 4132→2404）；转发 alias 收敛完成（余 6 条均为组件必要接口，见 module-split-plan.md 篇首落地状态） |
-| **R21** | 多板切换 | 多板切换：板选择器与建删改 + 切板上下文按板隔离 | pwsh -File scripts/verify.ps1 全量通过且 --smoke QML 致命告警 0 行 | **待办**：R21-1 已立卡，待实现 |
+| **R21** | 多板切换 | 多板切换：板选择器与建删改 + 切板上下文按板隔离 | pwsh -File scripts/verify.ps1 全量通过且 --smoke QML 致命告警 0 行 | **完成（1/1）**：R21-1 已交付（`8d48fd6`）—— 标题栏板选择器 / 建·删·改 fail-closed / 切板上下文按板隔离 / 撤销不跨板 / 当前板持久化，tst_boardcolumns 新增 6 个双板用例，verify 全量 rc=0 ✅ |
 
 ### 9.1 R6 派发器（全部落地，9/9）
 

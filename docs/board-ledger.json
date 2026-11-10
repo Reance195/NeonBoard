@@ -7339,7 +7339,7 @@
       ],
       "evidence": "2026-11-10 维护者会话。MOD-17~26 十卡（Main.qml 主内容整迁 / SettingsPanel 六分页+三件套+两弹窗拆分 / alias 收敛 / 棘轮登记）已全部 baseline=done，过程实录踩坑 9 类，按 R19-1 建立的「问题清单 → 根因 → 程序化对策」三段式要求做系列复盘，沉淀进 docs/retro/ 复盘文档并把可机器判据的对策入册 docs/pitfalls.md（Z6：踩坑两次沉淀成机器判据）。素材全部来自本会话台账卡 note 与交付记录（MOD-17~26 note 已逐卡留痕）。维护者 2026-11-10 会话指令「选 1，给 QML 治理系列立复盘卡」，据此授权立卡、领用、实施、verify、rebase、推 origin/main 与结卡。",
       "id": "MOD-27",
-      "note": "",
+      "note": "已完成 5 / 待做 0 —— 五条验收全部满足。verify.ps1 -ScriptOnly 轻档过（纯 docs 改动）；check_scope 退 0。\n\n交付：docs/retro/20261110-qml-governance-retro.md（三段式复盘，本卡复盘结论的事实源）——问题清单 9 条（每条带实录卡号：台账状态误判两连 / 后台超时截断三实录 / 迁移脚本根闭括号坑三现 / FolderDialog 无 parent / assignments 混车 / 立卡实施同分支跳领用 / acceptance 基线笔误 / 勘界白名单漏网 / 瞬时网络失败）→ 根因四类（事实源纪律缺失 / 工具运行时约束 / 流程步骤顺序错误 / 模板判据缺失）→ 程序化对策 10 条（已程序化 7、待程序化 3 个去向、仅纪律 1）。pitfalls.md 追加 7.8 / 7.9 / 7.10 三条对策入册。\n\n待程序化三项（另立卡候选）：拆出组件大文件续拆、verify 后台超时自动续跑封装、台账可选项推荐核对脚本化。\n\nnote 单独提交已按 DX-113 执行。",
       "scope": [
         "docs/retro/**",
         "docs/pitfalls.md",

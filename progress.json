@@ -73,24 +73,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "R21-1",
-            "completedAt": 0,
-            "createdAt": 1794328537,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R21-1",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "R21",
-            "status": "todo",
-            "tags": [
-                "R21"
-            ],
-            "title": "多板切换：板选择器与建删改 + 切板上下文按板隔离",
-            "updatedAt": 1794328537
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6127,6 +6109,24 @@
             "updatedAt": 1794196102
         },
         {
+            "code": "R21-1",
+            "completedAt": 1794331428,
+            "createdAt": 1794328537,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R21-1",
+            "note": "2026-11-10 交付（feature/multiboard-switch，合并 5460825）：多板切换全量 —— Database 板 CRUD（createBoard 事务自带默认三列 / renameBoard / deleteBoard fail-closed）、BoardColumns 按当前板读写（拔除 BoardColumns.cpp:173 与 Database.cpp:669 两处 defaultBoardId 硬编码）、UiSettings 当前板持久化、TaskUndo 按板打戳跨板跳过、BoardSwitcher.qml 标题栏板选择器（CMake 双登记）。验收 7/7：verify.ps1 全量 rc=0（ctest 45/45 含新增 6 个双板用例、--smoke QML 致命告警 0 行、模块守卫 53 个 qml 登记齐套）、user_version 未动、维护者 2026-11-10 沙箱双板切换与建删改肉眼复核通过。过程留痕：3 次 scope 补充提交（BoardSwitcher 新文件 / check_module_deps 行数棘轮 / AppMain 装配路径）+ BoardChrome 棘轮 599→604 + BoardSwitcher 登记 211，均为闸门拦出后按宪章单独 chore(board) 补的。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "R21",
+            "status": "done",
+            "tags": [
+                "R21"
+            ],
+            "title": "多板切换：板选择器与建删改 + 切板上下文按板隔离",
+            "updatedAt": 1794331428
+        },
+        {
             "code": "R9-02",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -6505,6 +6505,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-11T01:02:15",
+    "updated": "2026-11-11T01:23:48",
     "version": 3
 }

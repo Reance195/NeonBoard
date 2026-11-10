@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "MOD-20": {
-            "agent": "agent-mod20",
-            "branch": "refactor/mod20-hotkey-page",
-            "claimedAt": 1794293723,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794293723,
-            "worktree": ".worktrees/agent-mod20"
-        }
-    },
-    "updatedAt": 1794293723,
+    "assignments": {},
+    "updatedAt": 1794294710,
     "version": 1
 }

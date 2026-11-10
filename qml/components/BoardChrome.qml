@@ -79,6 +79,11 @@ MouseArea {
                 font.bold: true
                 font.letterSpacing: 2.2
             }
+
+            // 多板切换（R21-1）：板名按钮 + 切板 / 建删改面板，紧贴标题
+            BoardSwitcher {
+                anchors.verticalCenter: parent.verticalCenter
+            }
         }
 
         WindowButtons {

@@ -123,6 +123,88 @@ void BoardColumns::setProjectStore(ProjectStore *store)
     applyProjectScope();
 }
 
+// ---- 多板切换（R21-1）--------------------------------------------------------
+
+bool BoardColumns::boardExists(const QString &boardId) const
+{
+    if (!m_database || boardId.isEmpty())
+        return false;
+    const QVariantList list = m_database->boards();
+    for (const QVariant &entry : list) {
+        if (entry.toMap().value(QStringLiteral("id")).toString() == boardId)
+            return true;
+    }
+    return false;
+}
+
+void BoardColumns::setBoardId(const QString &boardId)
+{
+    if (!m_database)
+        return;
+    // 不存在的板回退默认板： persisted 板可能已被别处（另一实例 / 外部工具）删掉；
+    // 当前值也不可用时同样回退，保证 boardId() 总指向一块真实存在的板。
+    QString resolved = boardId;
+    if (!boardExists(resolved)) {
+        resolved = boardExists(m_boardId) ? m_boardId : m_database->defaultBoardId();
+    }
+    if (m_boardId == resolved)
+        return;
+    m_boardId = resolved;
+    emit boardIdChanged();
+    reload();
+}
+
+QVariantList BoardColumns::boards() const
+{
+    return m_database ? m_database->boards() : QVariantList();
+}
+
+QString BoardColumns::createBoard(const QString &name)
+{
+    if (!m_database)
+        return {};
+    QString error;
+    const QString id = m_database->createBoard(name, &error);
+    if (id.isEmpty()) {
+        setLastError(error);
+        return {};
+    }
+    setLastError(QString());
+    emit boardsChanged();
+    return id;
+}
+
+bool BoardColumns::renameBoard(const QString &boardId, const QString &name)
+{
+    if (!m_database)
+        return false;
+    QString error;
+    if (!m_database->renameBoard(boardId, name, &error)) {
+        setLastError(error);
+        return false;
+    }
+    setLastError(QString());
+    emit boardsChanged();
+    return true;
+}
+
+bool BoardColumns::deleteBoard(const QString &boardId)
+{
+    if (!m_database)
+        return false;
+    QString error;
+    if (!m_database->deleteBoard(boardId, &error)) {
+        setLastError(error);
+        return false;
+    }
+    setLastError(QString());
+    emit boardsChanged();
+    // 删的是当前板：回退默认板（setBoardId 内部会重读列集合）
+    if (m_boardId == boardId)
+        setBoardId(m_database->defaultBoardId());
+    return true;
+}
+
 void BoardColumns::applyProjectScope()
 {
     // 集合查在这里而不是过滤模型里：过滤模型只管行过滤，不碰数据库。
@@ -170,7 +252,10 @@ void BoardColumns::reload()
     if (!m_database || !m_tasks)
         return;
 
-    QVariantList rows = m_database->boardColumns(m_database->defaultBoardId());
+    // R21-1：按当前板读列集合；尚未指定板时维持老行为落默认板
+    QVariantList rows = m_database->boardColumns(m_boardId.isEmpty()
+                                                     ? m_database->defaultBoardId()
+                                                     : m_boardId);
     if (rows.isEmpty()) {
         // 看板表读不出来（老库迁移异常 / 被外部工具清空）：退化成「一状态一列」，
         // 让界面还能用；columnId 为空时过滤器回退按 status 过滤。
@@ -279,7 +364,8 @@ QString BoardColumns::addColumn(const QString &name, const QString &status)
     if (!m_database)
         return {};
     QString error;
-    const QString id = m_database->addColumn(name, status, &error);
+    // 落到当前板（R21-1）；板未指定时库侧回退默认板
+    const QString id = m_database->addColumn(name, status, &error, m_boardId);
     if (id.isEmpty()) {
         setLastError(error);
         return {};

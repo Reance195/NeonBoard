@@ -4,6 +4,7 @@
 #include <QStringList>
 #include <QVariantMap>
 #include <QVector>
+#include <functional>
 
 class TaskModel;
 class TaskExtra;
@@ -22,6 +23,13 @@ public:
 
     // 注入任务附加属性门面：撤销「完成」时连带删除重复任务派生的下一期卡
     void setTaskExtra(TaskExtra *extra);
+
+    // 多板隔离（R21-1）：注入「当前板」取值口。打戳用 —— 操作发生时人在哪块板，
+    // 这条撤销记录就属于哪块板；撤销时其它板的步直接跳过并提示。
+    // 未注入时维持老行为（全部可撤销），既有调用方与测试不感知。
+    void setBoardProvider(std::function<QString()> provider);
+    // 切板后调用：canUndo / lastAction 依赖当前板，需要重新对外广播
+    void reevaluate();
 
     // 以下方法执行操作并记录一条可撤销记录
     Q_INVOKABLE bool deleteTask(const QString &id);
@@ -67,6 +75,7 @@ private:
     struct Entry {
         Kind kind = Kind::Edited;
         QString id;
+        QString boardId;
         QVariantMap payload;
     };
 
@@ -75,6 +84,7 @@ private:
 
     TaskModel *m_tasks = nullptr;
     TaskExtra *m_extra = nullptr;
+    std::function<QString()> m_boardProvider;
     QVector<Entry> m_stack;
     QString m_lastAction;
 };

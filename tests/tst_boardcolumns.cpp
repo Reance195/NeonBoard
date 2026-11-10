@@ -38,6 +38,14 @@ private slots:
     void moveColumnReordersAndStopsAtEdges();
     void removeColumnMigratesCards();
 
+    // 多板切换（R21-1）：建删改 / 切板 / 隔离 / 回退
+    void createBoardAddsDefaultColumns();
+    void switchBoardFollowsColumns();
+    void renameBoardUpdatesList();
+    void deleteBoardFailsClosed();
+    void deletingCurrentBoardFallsBackToDefault();
+    void undoIsolatedPerBoard();
+
     // 阶段条（DX-04）
     void stageListCoversEveryStage();
     void stageStatsRecognizesNonRStages();
@@ -45,6 +53,7 @@ private slots:
 private:
     TaskFilterModel *columnModel(int row) const;
     QStringList columnIds() const;
+    QString boardColumnIdOf(const QString &boardId, const QString &status) const;
 
     QTemporaryDir m_dir;
     Database *m_db = nullptr;
@@ -193,6 +202,17 @@ QStringList TestBoardColumns::columnIds() const
     for (int i = 0; i < m_columns->rowCount(); ++i)
         ids.append(m_columns->index(i, 0).data(BoardColumns::IdRole).toString());
     return ids;
+}
+
+QString TestBoardColumns::boardColumnIdOf(const QString &boardId, const QString &status) const
+{
+    const QVariantList columns = m_db->boardColumns(boardId);
+    for (const QVariant &entry : columns) {
+        const QVariantMap map = entry.toMap();
+        if (map.value(QStringLiteral("status")).toString() == status)
+            return map.value(QStringLiteral("id")).toString();
+    }
+    return QString();
 }
 
 void TestBoardColumns::listsDatabaseColumns()
@@ -345,6 +365,175 @@ void TestBoardColumns::undoRestoresColumn()
     const QVariantMap restored = m_model->taskById(id);
     QCOMPARE(restored.value(QStringLiteral("columnId")).toString(), QStringLiteral("col-todo"));
     QCOMPARE(restored.value(QStringLiteral("status")).toString(), QStringLiteral("todo"));
+}
+
+// ---- 多板切换（R21-1）--------------------------------------------------------
+
+// 建板自带默认三列（todo / doing / done 各一），board 列表同步可见
+void TestBoardColumns::createBoardAddsDefaultColumns()
+{
+    const QVariantList before = m_db->boards();
+    const QString id = m_columns->createBoard(QStringLiteral("  工作  "));
+    QVERIFY(!id.isEmpty());
+    QVERIFY(m_columns->lastError().isEmpty());
+    QCOMPARE(m_db->boards().size(), before.size() + 1);
+
+    const QVariantList columns = m_db->boardColumns(id);
+    QCOMPARE(columns.size(), 3);
+    QCOMPARE(boardColumnIdOf(id, QStringLiteral("todo")).isEmpty(), false);
+    QCOMPARE(boardColumnIdOf(id, QStringLiteral("doing")).isEmpty(), false);
+    QCOMPARE(boardColumnIdOf(id, QStringLiteral("done")).isEmpty(), false);
+
+    // 空名拒绝
+    QVERIFY(m_columns->createBoard(QStringLiteral("   ")).isEmpty());
+    QVERIFY(!m_columns->lastError().isEmpty());
+}
+
+// 切板后列集合与录入落列全部跟随当前板；列管理落到当前板而不是默认板
+void TestBoardColumns::switchBoardFollowsColumns()
+{
+    const QString boardB = m_columns->createBoard(QStringLiteral("乙板"));
+    QVERIFY(!boardB.isEmpty());
+    const QString defaultTodo = m_columns->columnIdForStatus(QStringLiteral("todo"));
+
+    m_columns->setBoardId(boardB);
+    QCOMPARE(m_columns->boardId(), boardB);
+
+    // 列集合换成乙板的列：id 全部不属于默认板三列
+    const QString bTodo = boardColumnIdOf(boardB, QStringLiteral("todo"));
+    QVERIFY(!bTodo.isEmpty());
+    QVERIFY(!columnIds().contains(defaultTodo));
+    QCOMPARE(m_columns->columnIdForStatus(QStringLiteral("todo")), bTodo);
+
+    // 按状态录入落乙板的列（快速录入的落列口就是 columnIdForStatus）
+    const QString card = m_model->addTask(QStringLiteral("乙板卡"), QStringLiteral("todo"),
+                                          1, QString(), 0, m_columns->columnIdForStatus(QStringLiteral("todo")));
+    QVERIFY(!card.isEmpty());
+    QCOMPARE(columnModel(0)->count(), 1);
+
+    // 新增列落到乙板：默认板的列数不变
+    QVERIFY(!m_columns->addColumn(QStringLiteral("乙板补充列"), QStringLiteral("doing")).isEmpty());
+    QCOMPARE(m_db->boardColumns(boardB).size(), 4);
+    QCOMPARE(m_db->boardColumns(QStringLiteral("board-default")).size(), 3);
+
+    // 切回默认板：列集合还原
+    m_columns->setBoardId(QStringLiteral("board-default"));
+    QCOMPARE(m_columns->columnIdForStatus(QStringLiteral("todo")), defaultTodo);
+    // 乙板的卡不出现在默认板的列里
+    QCOMPARE(columnModel(0)->count(), 0);
+}
+
+void TestBoardColumns::renameBoardUpdatesList()
+{
+    const QString id = m_columns->createBoard(QStringLiteral("旧名"));
+    QVERIFY(!id.isEmpty());
+    QVERIFY(m_columns->renameBoard(id, QStringLiteral("新名")));
+    bool found = false;
+    for (const QVariant &entry : m_db->boards()) {
+        const QVariantMap map = entry.toMap();
+        if (map.value(QStringLiteral("id")).toString() == id) {
+            QCOMPARE(map.value(QStringLiteral("name")).toString(), QStringLiteral("新名"));
+            found = true;
+        }
+    }
+    QVERIFY(found);
+    // 空名与不存在的板都拒绝
+    QVERIFY(!m_columns->renameBoard(id, QStringLiteral("  ")));
+    QVERIFY(!m_columns->lastError().isEmpty());
+    QVERIFY(!m_columns->renameBoard(QStringLiteral("board-none"), QStringLiteral("随便")));
+    QVERIFY(!m_columns->lastError().isEmpty());
+}
+
+// 删板 fail-closed：默认板拒删、板内有卡拒删，清空后才能删
+void TestBoardColumns::deleteBoardFailsClosed()
+{
+    const QString boardB = m_columns->createBoard(QStringLiteral("待删板"));
+    QVERIFY(!boardB.isEmpty());
+
+    // 默认板不可删（迁移回填与「当前板回退」的锚点）
+    QVERIFY(!m_columns->deleteBoard(QStringLiteral("board-default")));
+    QVERIFY(!m_columns->lastError().isEmpty());
+
+    const QString bTodo = boardColumnIdOf(boardB, QStringLiteral("todo"));
+    const QString card = m_model->addTask(QStringLiteral("占位卡"), QStringLiteral("todo"),
+                                          1, QString(), 0, bTodo);
+    QVERIFY(!card.isEmpty());
+    QVERIFY(!m_columns->deleteBoard(boardB));
+    QVERIFY(m_columns->lastError().contains(QStringLiteral("请先移走")));
+
+    // 卡清掉后可删
+    QVERIFY(!m_model->removeTask(card).isEmpty());
+    QVERIFY(m_columns->deleteBoard(boardB));
+    bool found = false;
+    for (const QVariant &entry : m_db->boards())
+        found |= entry.toMap().value(QStringLiteral("id")).toString() == boardB;
+    QVERIFY(!found);
+    QCOMPARE(m_db->boardColumns(boardB).size(), 0);
+}
+
+// 删掉当前所在板：自动回退默认板并重读列集合
+void TestBoardColumns::deletingCurrentBoardFallsBackToDefault()
+{
+    const QString boardB = m_columns->createBoard(QStringLiteral("临别板"));
+    QVERIFY(!boardB.isEmpty());
+    m_columns->setBoardId(boardB);
+    QCOMPARE(m_columns->boardId(), boardB);
+
+    QVERIFY(m_columns->deleteBoard(boardB));
+    QCOMPARE(m_columns->boardId(), QStringLiteral("board-default"));
+    QCOMPARE(m_columns->columnIdForStatus(QStringLiteral("todo")),
+             boardColumnIdOf(QStringLiteral("board-default"), QStringLiteral("todo")));
+}
+
+// 撤销按板隔离：切板后撤销不作用另一板的卡片，跨板步被跳过并提示
+void TestBoardColumns::undoIsolatedPerBoard()
+{
+    TaskUndo undo(m_model);
+    undo.setBoardProvider([this]() { return m_columns->boardId(); });
+
+    // 打戳依赖 boardColumns.boardId()：init() 只 reload 不 setBoardId，
+    // 这里显式落到默认板，保证后续每条撤销步都带上真实板号
+    m_columns->setBoardId(QStringLiteral("board-default"));
+
+    // 默认板上放一张卡并移动（产生一条属于默认板的撤销步）
+    const QString defaultCard = m_model->addTask(QStringLiteral("默认板卡"), QStringLiteral("todo"),
+                                                 1, QString(), 0,
+                                                 boardColumnIdOf(QStringLiteral("board-default"), QStringLiteral("todo")));
+    QVERIFY(!defaultCard.isEmpty());
+    QVERIFY(undo.moveTaskToColumn(defaultCard,
+                                  boardColumnIdOf(QStringLiteral("board-default"), QStringLiteral("done"))));
+
+    const QString boardB = m_columns->createBoard(QStringLiteral("隔离板"));
+    QVERIFY(!boardB.isEmpty());
+    m_columns->setBoardId(boardB);
+
+    // 乙板上放卡并移动：这条撤销步属于乙板
+    const QString bCard = m_model->addTask(QStringLiteral("乙板卡"), QStringLiteral("todo"),
+                                           1, QString(), 0,
+                                           boardColumnIdOf(boardB, QStringLiteral("todo")));
+    QVERIFY(!bCard.isEmpty());
+    QVERIFY(undo.moveTaskToColumn(bCard, boardColumnIdOf(boardB, QStringLiteral("done"))));
+
+    // 当前在乙板：撤销只回滚乙板的移动，默认板的卡不受影响
+    QCOMPARE(m_model->taskById(bCard).value(QStringLiteral("status")).toString(), QStringLiteral("done"));
+    QCOMPARE(m_model->taskById(defaultCard).value(QStringLiteral("status")).toString(), QStringLiteral("done"));
+    QVERIFY(undo.undo());
+    QCOMPARE(m_model->taskById(bCard).value(QStringLiteral("status")).toString(), QStringLiteral("todo"));
+    QCOMPARE(m_model->taskById(defaultCard).value(QStringLiteral("status")).toString(), QStringLiteral("done"));
+
+    // 乙板的撤销步已耗尽：不可撤销（跨板步不算）
+    QVERIFY(!undo.canUndo());
+
+    // 切回默认板：跨过乙板的空栈后能撤销默认板的移动；跨板步不会回滚乙板卡
+    m_columns->setBoardId(QStringLiteral("board-default"));
+    QVERIFY(undo.canUndo());
+    QString undoneText;
+    connect(&undo, &TaskUndo::undone, this, [&undoneText](const QString &text) {
+        undoneText = text;
+    });
+    QVERIFY(undo.undo());
+    QCOMPARE(m_model->taskById(defaultCard).value(QStringLiteral("status")).toString(), QStringLiteral("todo"));
+    QCOMPARE(m_model->taskById(bCard).value(QStringLiteral("status")).toString(), QStringLiteral("todo"));
 }
 
 void TestBoardColumns::addColumnAppendsToBoard()

@@ -12,6 +12,8 @@
 #include <QSqlQuery>
 #include <QUuid>
 #include <QVariantMap>
+#include <array>
+#include <utility>
 
 // SQLite 文件头固定为 "SQLite format 3\0"；随机字节 / 空文件不满足，用于区分
 //「文件坏了」和「打不开但文件还在」（后者可能是权限问题，不能擅自动备份）。
@@ -643,6 +645,157 @@ QString Database::columnStatus(const QString &columnId) const
     return query.value(0).toString();
 }
 
+bool Database::boardExists(const QString &boardId) const
+{
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral("SELECT 1 FROM board WHERE id = ?"));
+    query.addBindValue(boardId);
+    return query.exec() && query.next();
+}
+
+QString Database::createBoard(const QString &name, QString *error)
+{
+    const QString cleanName = name.trimmed();
+    if (cleanName.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("看板名不能为空");
+        return {};
+    }
+
+    qint64 lastKey = 0;
+    QSqlQuery keyQuery(m_db);
+    if (keyQuery.exec(QStringLiteral("SELECT COALESCE(MAX(order_key), 0) FROM board"))
+        && keyQuery.next()) {
+        lastKey = keyQuery.value(0).toLongLong();
+    }
+
+    // id 用短随机后缀，与 addColumn 的列 id 同一套路（Database.cpp addColumn 注释）
+    const QString id = QStringLiteral("board-")
+            + QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+
+    // 板 + 默认三列一起落库：半块板（有板无列）会让切板后界面退化成合成列，
+    // 事务保证「要么完整、要么不出现」。
+    if (!exec(QStringLiteral("BEGIN"), error))
+        return {};
+    QSqlQuery boardQuery(m_db);
+    boardQuery.prepare(QStringLiteral(
+        "INSERT INTO board (id, name, order_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"));
+    boardQuery.addBindValue(id);
+    boardQuery.addBindValue(cleanName);
+    boardQuery.addBindValue(lastKey + 1024);
+    boardQuery.addBindValue(now);
+    boardQuery.addBindValue(now);
+    if (!boardQuery.exec()) {
+        if (error)
+            *error = boardQuery.lastError().text();
+        exec(QStringLiteral("ROLLBACK"));
+        return {};
+    }
+
+    const std::array<std::pair<const char *, int>, 3> columns{
+        std::make_pair("todo", 1024), std::make_pair("doing", 2048), std::make_pair("done", 3072)};
+    QSqlQuery columnQuery(m_db);
+    columnQuery.prepare(QStringLiteral(
+        "INSERT INTO board_column (id, board_id, name, status, order_key, created_at, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)"));
+    for (const auto &[status, orderKey] : columns) {
+        columnQuery.addBindValue(QStringLiteral("col-")
+                                 + QUuid::createUuid().toString(QUuid::WithoutBraces).left(8));
+        columnQuery.addBindValue(id);
+        columnQuery.addBindValue(QString::fromUtf8(status));
+        columnQuery.addBindValue(QString::fromUtf8(status));
+        columnQuery.addBindValue(orderKey);
+        columnQuery.addBindValue(now);
+        columnQuery.addBindValue(now);
+        if (!columnQuery.exec()) {
+            if (error)
+                *error = columnQuery.lastError().text();
+            exec(QStringLiteral("ROLLBACK"));
+            return {};
+        }
+    }
+    if (!exec(QStringLiteral("COMMIT"), error)) {
+        exec(QStringLiteral("ROLLBACK"));
+        return {};
+    }
+    return id;
+}
+
+bool Database::renameBoard(const QString &boardId, const QString &name, QString *error)
+{
+    const QString cleanName = name.trimmed();
+    if (cleanName.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("看板名不能为空");
+        return false;
+    }
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral("UPDATE board SET name = ?, updated_at = ? WHERE id = ?"));
+    query.addBindValue(cleanName);
+    query.addBindValue(QDateTime::currentSecsSinceEpoch());
+    query.addBindValue(boardId);
+    if (!query.exec()) {
+        if (error)
+            *error = query.lastError().text();
+        return false;
+    }
+    if (query.numRowsAffected() == 0) {
+        if (error)
+            *error = QStringLiteral("看板不存在");
+        return false;
+    }
+    return true;
+}
+
+bool Database::deleteBoard(const QString &boardId, QString *error)
+{
+    // 默认板是迁移回填与「当前板被删回退」的锚点，不可删
+    if (boardId == defaultBoardId()) {
+        if (error)
+            *error = QStringLiteral("默认看板不可删除");
+        return false;
+    }
+    // 板内仍有卡片：fail-closed 拒删，任务不能无声消失
+    QSqlQuery countQuery(m_db);
+    countQuery.prepare(QStringLiteral(
+        "SELECT COUNT(*) FROM task t "
+        "JOIN board_column c ON c.id = t.column_id WHERE c.board_id = ?"));
+    countQuery.addBindValue(boardId);
+    if (countQuery.exec() && countQuery.next() && countQuery.value(0).toInt() > 0) {
+        if (error)
+            *error = QStringLiteral("看板内还有 %1 张卡片，请先移走再删除")
+                         .arg(countQuery.value(0).toInt());
+        return false;
+    }
+
+    if (!exec(QStringLiteral("BEGIN"), error))
+        return false;
+    QSqlQuery columnsQuery(m_db);
+    columnsQuery.prepare(QStringLiteral("DELETE FROM board_column WHERE board_id = ?"));
+    columnsQuery.addBindValue(boardId);
+    if (!columnsQuery.exec()) {
+        if (error)
+            *error = columnsQuery.lastError().text();
+        exec(QStringLiteral("ROLLBACK"));
+        return false;
+    }
+    QSqlQuery boardQuery(m_db);
+    boardQuery.prepare(QStringLiteral("DELETE FROM board WHERE id = ?"));
+    boardQuery.addBindValue(boardId);
+    if (!boardQuery.exec()) {
+        if (error)
+            *error = boardQuery.lastError().text();
+        exec(QStringLiteral("ROLLBACK"));
+        return false;
+    }
+    if (!exec(QStringLiteral("COMMIT"), error)) {
+        exec(QStringLiteral("ROLLBACK"));
+        return false;
+    }
+    return true;
+}
+
 namespace {
 // 三态是任务语义（完成判定 / 撤销 / 提醒都按它走），列只是同一状态的分段
 bool isValidStatus(const QString &status)
@@ -653,7 +806,8 @@ bool isValidStatus(const QString &status)
 }
 } // namespace
 
-QString Database::addColumn(const QString &name, const QString &status, QString *error)
+QString Database::addColumn(const QString &name, const QString &status, QString *error,
+                            const QString &boardId)
 {
     const QString cleanName = name.trimmed();
     if (cleanName.isEmpty()) {
@@ -666,8 +820,19 @@ QString Database::addColumn(const QString &name, const QString &status, QString 
             *error = QStringLiteral("未知状态：%1").arg(status);
         return {};
     }
-    const QString boardId = defaultBoardId();
-    if (boardId.isEmpty()) {
+    // R21-1：多板共用本入口 —— 显式传板用显式板（先验存在，别把列挂到幽灵板上），
+    // 不传维持老行为落默认板（Z3：既有调用方不感知本次改动）。
+    QString targetBoard = boardId;
+    if (!targetBoard.isEmpty()) {
+        if (!boardExists(targetBoard)) {
+            if (error)
+                *error = QStringLiteral("看板不存在");
+            return {};
+        }
+    } else {
+        targetBoard = defaultBoardId();
+    }
+    if (targetBoard.isEmpty()) {
         if (error)
             *error = QStringLiteral("没有可用的看板");
         return {};
@@ -677,7 +842,7 @@ QString Database::addColumn(const QString &name, const QString &status, QString 
     QSqlQuery keyQuery(m_db);
     keyQuery.prepare(QStringLiteral(
         "SELECT COALESCE(MAX(order_key), 0) FROM board_column WHERE board_id = ?"));
-    keyQuery.addBindValue(boardId);
+    keyQuery.addBindValue(targetBoard);
     if (keyQuery.exec() && keyQuery.next())
         lastKey = keyQuery.value(0).toLongLong();
 
@@ -691,7 +856,7 @@ QString Database::addColumn(const QString &name, const QString &status, QString 
         "INSERT INTO board_column (id, board_id, name, status, order_key, created_at, updated_at) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)"));
     query.addBindValue(id);
-    query.addBindValue(boardId);
+    query.addBindValue(targetBoard);
     query.addBindValue(cleanName);
     query.addBindValue(status);
     query.addBindValue(lastKey + 1024);

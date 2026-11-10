@@ -16,6 +16,18 @@ void TaskUndo::setTaskExtra(TaskExtra *extra)
     m_extra = extra;
 }
 
+void TaskUndo::setBoardProvider(std::function<QString()> provider)
+{
+    m_boardProvider = std::move(provider);
+}
+
+void TaskUndo::reevaluate()
+{
+    // canUndo 是绑定属性（NOTIFY changed），当前板变了要重广播一次，
+    // 否则切到没有可撤销步的板后按钮还亮着。
+    emit changed();
+}
+
 bool TaskUndo::deleteTask(const QString &id)
 {
     if (!m_tasks)
@@ -149,8 +161,30 @@ bool TaskUndo::undo()
 {
     if (m_stack.isEmpty() || !m_tasks)
         return false;
+
+    // 多板隔离（R21-1）：从栈顶跳过属于其它板的步。打戳为空的旧条目
+    // （未注入 provider 时的存量 / 测试）不做隔离，维持老行为。
+    int skipped = 0;
+    if (m_boardProvider) {
+        const QString currentBoard = m_boardProvider();
+        if (!currentBoard.isEmpty()) {
+            while (!m_stack.isEmpty() && !m_stack.last().boardId.isEmpty()
+                   && m_stack.last().boardId != currentBoard) {
+                m_stack.removeLast();
+                ++skipped;
+            }
+        }
+    }
+    if (m_stack.isEmpty()) {
+        m_lastAction.clear();
+        emit changed();
+        return false;
+    }
+
     const Entry entry = m_stack.takeLast();
-    const QString description = entry.payload.value(QStringLiteral("description")).toString();
+    QString description = entry.payload.value(QStringLiteral("description")).toString();
+    if (skipped > 0)
+        description += QStringLiteral("（已跳过 %1 步其他看板的操作）").arg(skipped);
     if (!revert(entry)) {
         m_stack.append(entry);
         return false;
@@ -173,7 +207,19 @@ void TaskUndo::clear()
 
 bool TaskUndo::canUndo() const
 {
-    return !m_stack.isEmpty();
+    if (m_stack.isEmpty())
+        return false;
+    if (!m_boardProvider)
+        return true;
+    // 当前板没有任何可撤销步时不亮撤销（跨板步会在 undo 时被跳过，提前挡掉）
+    const QString currentBoard = m_boardProvider();
+    if (currentBoard.isEmpty())
+        return true;
+    for (const Entry &entry : m_stack) {
+        if (entry.boardId.isEmpty() || entry.boardId == currentBoard)
+            return true;
+    }
+    return false;
 }
 
 QString TaskUndo::lastAction() const
@@ -187,6 +233,9 @@ void TaskUndo::push(Kind kind, const QString &id, const QVariantMap &payload, co
     entry.kind = kind;
     entry.id = id;
     entry.payload = payload;
+    // 操作发生时人在哪块板，这条记录就属于哪块板（R21-1 撤销隔离的打戳点）
+    if (m_boardProvider)
+        entry.boardId = m_boardProvider();
     entry.payload.insert(QStringLiteral("description"), description);
     m_stack.append(entry);
     while (m_stack.size() > 50)

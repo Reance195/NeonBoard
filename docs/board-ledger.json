@@ -7394,6 +7394,7 @@
         "src/core/Database.cpp",
         "src/core/UiSettings.h",
         "src/core/UiSettings.cpp",
+        "src/app/AppMain.cpp",
         "src/board/BoardColumns.h",
         "src/board/BoardColumns.cpp",
         "src/task/TaskUndo.h",
@@ -7404,9 +7405,11 @@
         "src/task/TaskFilterModel.cpp",
         "qml/Main.qml",
         "qml/components/BoardChrome.qml",
+        "qml/components/BoardSwitcher.qml",
         "qml/components/ColumnManager.qml",
         "qml/components/BoardColumn.qml",
         "CMakeLists.txt",
+        "scripts/check_module_deps.py",
         "tests/**"
       ],
       "stage": "R21",
@@ -7434,6 +7437,13 @@
       "title": "v0.1.8 发版：版本号递增与发布验收"
     }
   },
-  "claims": {},
+  "claims": {
+    "R21-1": {
+      "agent": "cleaner",
+      "branch": "feature/multiboard-switch",
+      "head": "81add844c4eac9d71627ff0aa596eda94a918f17",
+      "claimedAt": 1794328677
+    }
+  },
   "version": 1
 }

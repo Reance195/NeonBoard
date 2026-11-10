@@ -46,6 +46,11 @@ public:
     QString defaultBoardId() const;
     QVariantList boards() const;
     QVariantList boardColumns(const QString &boardId) const;
+    // 板管理（R21-1）：建板自带默认三列；默认板与板内仍有卡片的板拒删（fail-closed，
+    // 原因走 error），避免「任务无处可去」与迁移回填引用的列被连根拔掉。
+    QString createBoard(const QString &name, QString *error = nullptr);
+    bool renameBoard(const QString &boardId, const QString &name, QString *error = nullptr);
+    bool deleteBoard(const QString &boardId, QString *error = nullptr);
     QString defaultColumnForStatus(const QString &status) const;
     // columnId → status（列 → 三态）；未知列返回空串
     QString columnStatus(const QString &columnId) const;
@@ -53,7 +58,9 @@ public:
     // ---- 列管理（R4-03）：增 / 改名 / 调序 / 删 ----
     // 删除前必须把该列的卡片迁到同状态的另一列；某状态只剩一列时不允删，
     // 否则这种状态的卡片会无处可去（界面看起来像「任务消失」）。
-    QString addColumn(const QString &name, const QString &status, QString *error = nullptr);
+    // boardId 为空时落到默认板（R21-1 起多板共用本入口，BoardColumns 传当前板）。
+    QString addColumn(const QString &name, const QString &status, QString *error = nullptr,
+                      const QString &boardId = QString());
     bool renameColumn(const QString &columnId, const QString &name, QString *error = nullptr);
     // delta = -1 左移 / +1 右移；越界返回 false 且不改任何数据
     bool moveColumn(const QString &columnId, int delta, QString *error = nullptr);
@@ -80,6 +87,7 @@ private:
     void closeConnection();
     bool integrityOk(QString *reason) const;
     bool recoverCorrupt(const QString &reason, QString *error);
+    bool boardExists(const QString &boardId) const;
     // schema 版本：0 = 空库，逐级迁移到 kSchemaVersion；高于当前版本直接拒绝打开。
     int userVersion() const;
     bool ensureSchema(QString *error);

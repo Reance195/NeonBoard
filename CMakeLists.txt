@@ -260,6 +260,7 @@ set_source_files_properties(qml/components/ExecConfirmDialog.qml PROPERTIES QT_R
 set_source_files_properties(qml/components/ExecPanelDialog.qml PROPERTIES QT_RESOURCE_ALIAS "ExecPanelDialog.qml")
 set_source_files_properties(qml/components/NightBatchDialog.qml PROPERTIES QT_RESOURCE_ALIAS "NightBatchDialog.qml")
 set_source_files_properties(qml/components/BoardChrome.qml PROPERTIES QT_RESOURCE_ALIAS "BoardChrome.qml")
+set_source_files_properties(qml/components/BoardSwitcher.qml PROPERTIES QT_RESOURCE_ALIAS "BoardSwitcher.qml")
 set_source_files_properties(qml/components/NeonBackgroundLayer.qml PROPERTIES QT_RESOURCE_ALIAS "NeonBackgroundLayer.qml")
 set_source_files_properties(qml/components/TaskEditorDialog.qml PROPERTIES QT_RESOURCE_ALIAS "TaskEditorDialog.qml")
 set_source_files_properties(qml/components/DataButton.qml PROPERTIES QT_RESOURCE_ALIAS "DataButton.qml")
@@ -317,6 +318,7 @@ qt_add_qml_module(NeonBoard
     qml/components/ExecPanelDialog.qml
     qml/components/NightBatchDialog.qml
     qml/components/BoardChrome.qml
+    qml/components/BoardSwitcher.qml
     qml/components/NeonBackgroundLayer.qml
     qml/components/TaskEditorDialog.qml
     qml/components/DataButton.qml

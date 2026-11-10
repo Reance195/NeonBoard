@@ -335,6 +335,13 @@ int neonboardMain(int argc, char *argv[])
                          metrics, boot, app, deferredSchema};
     AppObjectsUi ui{hosted};  // 界面外壳构造单元（MOD-8），声明见 AppObjects.h
     UiSettings &uiSettings = ui.uiSettings;
+    // 多板切换（R21-1）：恢复上次所在板；切板写回设置，并让撤销栈重新对当前板估可用性。
+    // setBoardId 对已不存在的板自动回退默认板，重跑安全。
+    boardColumns.setBoardId(uiSettings.currentBoard());
+    QObject::connect(&boardColumns, &BoardColumns::boardIdChanged, &uiSettings,
+                     [&uiSettings, &boardColumns]() { uiSettings.setCurrentBoard(boardColumns.boardId()); });
+    taskUndo.setBoardProvider([&boardColumns]() { return boardColumns.boardId(); });
+    QObject::connect(&boardColumns, &BoardColumns::boardIdChanged, &taskUndo, &TaskUndo::reevaluate);
     ThemePack &themePacks = ui.themePacks;
     ThemeMarket &themeMarket = ui.themeMarket;
     WindowController &windowController = ui.windowController;

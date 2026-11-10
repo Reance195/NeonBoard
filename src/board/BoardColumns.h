@@ -5,6 +5,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVector>
+#include <QVariantList>
 
 class Database;
 class ProjectStore;
@@ -27,6 +28,11 @@ class BoardColumns : public QAbstractListModel
     // 项目范围（R10-02）：空串 = 全局汇总，非空 = 只看该项目。
     // 与 stage 同为「视图状态」—— 只影响各列模型显示什么，不写 task 表。
     Q_PROPERTY(QString project READ project WRITE setProject NOTIFY projectChanged)
+    // 当前板（R21-1 多板切换）：列集合、列管理、统计、录入落列全部跟随它。
+    // 空串 = 尚未指定，按默认板读；setBoardId 对不存在的板回退默认板。
+    Q_PROPERTY(QString boardId READ boardId WRITE setBoardId NOTIFY boardIdChanged)
+    // 板清单（R21-1）：板选择器 / 板 CRUD 后界面据此刷新。板的事实源是 board 表。
+    Q_PROPERTY(QVariantList boards READ boards NOTIFY boardsChanged)
     Q_PROPERTY(int count READ count NOTIFY columnsChanged)
     // 顶栏统计片用：按「状态」汇总（同状态的多个列相加）
     Q_PROPERTY(int todoCount READ todoCount NOTIFY countsChanged)
@@ -64,6 +70,15 @@ public:
     // 注入项目门面并立刻转给已有列模型；新列由 createColumnModel 自行接上。
     void setProjectStore(ProjectStore *store);
 
+    // ---- 多板切换（R21-1）----
+    QString boardId() const { return m_boardId; }
+    void setBoardId(const QString &boardId);
+    QVariantList boards() const;
+    // 板 CRUD：写库 + 广播 boardsChanged；删掉当前板时回退默认板。失败走 lastError。
+    Q_INVOKABLE QString createBoard(const QString &name);
+    Q_INVOKABLE bool renameBoard(const QString &boardId, const QString &name);
+    Q_INVOKABLE bool deleteBoard(const QString &boardId);
+
     int count() const { return static_cast<int>(m_columns.size()); }
     int todoCount() const { return countForStatus(QStringLiteral("todo")); }
     int doingCount() const { return countForStatus(QStringLiteral("doing")); }
@@ -94,6 +109,8 @@ signals:
     void searchChanged();
     void stageChanged();
     void projectChanged();
+    void boardIdChanged();
+    void boardsChanged();
     void countsChanged();
     void lastErrorChanged();
 
@@ -104,6 +121,9 @@ private:
         QString status;
         TaskFilterModel *model = nullptr;
     };
+
+    // 板 id 是否真实存在（R21-1）：setBoardId 回退判据的单一实现
+    bool boardExists(const QString &boardId) const;
 
     TaskFilterModel *createColumnModel(const QString &columnId, const QString &status);
     void clearColumns();
@@ -119,6 +139,7 @@ private:
     QString m_search;
     QString m_stage;
     QString m_project;
+    QString m_boardId;
     ProjectStore *m_projects = nullptr;
     QString m_lastError;
 };

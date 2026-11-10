@@ -94,7 +94,9 @@ LINE_LIMITS = {
     "src/main.cpp": 6,
     "qml/Main.qml": 1504,
     "qml/components/SettingsPanel.qml": 185,
-    "qml/components/BoardChrome.qml": 599,
+    "qml/components/BoardChrome.qml": 604,
+    # R21-1：多板切换器，标题栏新组件（新建即登记，不给增量留空间）
+    "qml/components/BoardSwitcher.qml": 211,
     "qml/components/TaskEditorDialog.qml": 905,
     "qml/components/ExecQueueDialog.qml": 467,
     "qml/components/DataBackupPage.qml": 596,

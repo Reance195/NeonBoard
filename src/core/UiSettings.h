@@ -13,6 +13,8 @@ class UiSettings : public QObject
     Q_PROPERTY(int quality READ quality WRITE setQuality NOTIFY qualityChanged)
     Q_PROPERTY(bool reducedMotion READ reducedMotion WRITE setReducedMotion NOTIFY reducedMotionChanged)
     Q_PROPERTY(bool onboardingDone READ onboardingDone WRITE setOnboardingDone NOTIFY onboardingDoneChanged)
+    // R21-1：上次所在板。空串 = 从未切换过（落默认板）。
+    Q_PROPERTY(QString currentBoard READ currentBoard WRITE setCurrentBoard NOTIFY currentBoardChanged)
 
 public:
     explicit UiSettings(QObject *parent = nullptr);
@@ -30,6 +32,9 @@ public:
     bool onboardingDone() const;
     void setOnboardingDone(bool done);
 
+    QString currentBoard() const;
+    void setCurrentBoard(const QString &boardId);
+
     // 是否该弹引导：未完成过 且 看板为空。判定放 C++ 而不是 QML，
     // 是为了让「线上到底该不该弹」有单测可覆盖，而不是只能靠肉眼点。
     Q_INVOKABLE bool shouldOnboard(int taskCount) const;
@@ -39,6 +44,7 @@ signals:
     void qualityChanged();
     void reducedMotionChanged();
     void onboardingDoneChanged();
+    void currentBoardChanged();
 
 private:
     QSettings m_settings;
@@ -46,4 +52,5 @@ private:
     int m_quality;
     bool m_reducedMotion;
     bool m_onboardingDone;
+    QString m_currentBoard;
 };

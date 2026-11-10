@@ -13,6 +13,7 @@ UiSettings::UiSettings(QObject *parent)
     , m_quality(m_settings.value(QStringLiteral("appearance/quality"), 1).toInt())
     , m_reducedMotion(m_settings.value(QStringLiteral("appearance/reducedMotion"), false).toBool())
     , m_onboardingDone(m_settings.value(QStringLiteral("ui/onboardingDone"), false).toBool())
+    , m_currentBoard(m_settings.value(QStringLiteral("ui/currentBoard"), QString()).toString())
 {
 }
 
@@ -83,4 +84,18 @@ bool UiSettings::shouldOnboard(int taskCount) const
     //   2) 看板是空的 —— 老用户即使换机重装也不该被三步说明挡住，
     //      他们的看板一开始就有卡片。
     return !m_onboardingDone && taskCount == 0;
+}
+
+QString UiSettings::currentBoard() const
+{
+    return m_currentBoard;
+}
+
+void UiSettings::setCurrentBoard(const QString &boardId)
+{
+    if (boardId == m_currentBoard)
+        return;
+    m_currentBoard = boardId;
+    m_settings.setValue(QStringLiteral("ui/currentBoard"), boardId);
+    emit currentBoardChanged();
 }

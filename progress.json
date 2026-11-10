@@ -5899,7 +5899,7 @@
             "deleted": false,
             "dueAt": 0,
             "id": "MOD-21",
-            "note": "",
+            "note": "已完成 6 / 待做 0 —— 六条验收全部满足。verify.ps1 全量绿：ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行；模块守卫与范围检查通过；SettingsPanel.qml 1250 → 928（验收线 <=935）；LINE_LIMITS 同步调低。\n\n交付：qml/components/PluginPage.qml（335 行）——分页 5 ColumnLayout（①已装插件 / ②市场源管理 / ③设置页签注入）整块迁入，块体逐字照搬，仅两处接口化（panel.openLibraryRequested→组件根同名 signal、visible 行移实例化处，实例化处 onOpenLibraryRequested 转发面板信号）；pluginLoader / pluginRuntime / pluginLibrary 为上下文属性直接可用；CMake 双登记；接手现场分车 chore(claim)。\n\n过程纪要：迁移脚本首次按新模板跑通（body 切片不含根闭行、根闭由模板统一追加），括号平衡一次通过——MOD-18/20 两现的块根闭括号坑已由模板根治（Z6 闭环）。\n\nnote 单独提交已按 DX-113 执行。\n\nnextStep（SettingsPanel 拆分收官批次，均为独立卡）：执行页+profileEditor（现约 200 + 220，profileEditor 需接口化 execSettingsHint 跨页提示，最重）/ 关于（约 207）/ 外观（约 76）。行号已因本卡漂移，立卡前需重新勘界。",
             "orderKey": 87040,
             "priority": 2,
             "stage": "MOD",
@@ -5908,7 +5908,7 @@
                 "MOD"
             ],
             "title": "MOD SettingsPanel 拆分四批：插件分页整迁 components/PluginPage",
-            "updatedAt": 1794297824
+            "updatedAt": 1794297917
         },
         {
             "code": "MOD-7",
@@ -6343,6 +6343,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T16:03:44",
+    "updated": "2026-11-10T16:05:17",
     "version": 3
 }

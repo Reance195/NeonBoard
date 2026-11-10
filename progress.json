@@ -73,24 +73,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "MOD-26",
-            "completedAt": 0,
-            "createdAt": 1794304332,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "MOD-26",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "MOD",
-            "status": "todo",
-            "tags": [
-                "MOD"
-            ],
-            "title": "MOD 拆分成果棘轮：迁移产出的 15 个组件文件登记 LINE_LIMITS",
-            "updatedAt": 1794304332
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6001,6 +5983,24 @@
             "updatedAt": 1794304199
         },
         {
+            "code": "MOD-26",
+            "completedAt": 1794304442,
+            "createdAt": 1794304332,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-26",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "done",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD 拆分成果棘轮：迁移产出的 15 个组件文件登记 LINE_LIMITS",
+            "updatedAt": 1794304442
+        },
+        {
             "code": "MOD-7",
             "completedAt": 1794190034,
             "createdAt": 1794144568,
@@ -6433,6 +6433,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T17:52:12",
+    "updated": "2026-11-10T17:54:02",
     "version": 3
 }

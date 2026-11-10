@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "MOD-22": {
-            "agent": "agent-mod22",
-            "branch": "refactor/mod22-exec-page",
-            "claimedAt": 1794298301,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794298301,
-            "worktree": ".worktrees/agent-mod22"
-        }
-    },
-    "updatedAt": 1794298301,
+    "assignments": {},
+    "updatedAt": 1794299307,
     "version": 1
 }

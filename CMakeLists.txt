@@ -261,6 +261,9 @@ set_source_files_properties(qml/components/NightBatchDialog.qml PROPERTIES QT_RE
 set_source_files_properties(qml/components/BoardChrome.qml PROPERTIES QT_RESOURCE_ALIAS "BoardChrome.qml")
 set_source_files_properties(qml/components/NeonBackgroundLayer.qml PROPERTIES QT_RESOURCE_ALIAS "NeonBackgroundLayer.qml")
 set_source_files_properties(qml/components/TaskEditorDialog.qml PROPERTIES QT_RESOURCE_ALIAS "TaskEditorDialog.qml")
+set_source_files_properties(qml/components/DataButton.qml PROPERTIES QT_RESOURCE_ALIAS "DataButton.qml")
+set_source_files_properties(qml/components/NeonComboBox.qml PROPERTIES QT_RESOURCE_ALIAS "NeonComboBox.qml")
+set_source_files_properties(qml/components/NeonField.qml PROPERTIES QT_RESOURCE_ALIAS "NeonField.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -309,6 +312,9 @@ qt_add_qml_module(NeonBoard
     qml/components/BoardChrome.qml
     qml/components/NeonBackgroundLayer.qml
     qml/components/TaskEditorDialog.qml
+    qml/components/DataButton.qml
+    qml/components/NeonComboBox.qml
+    qml/components/NeonField.qml
 )
 
 qt_add_resources(NeonBoard "icons"

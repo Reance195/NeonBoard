@@ -7155,6 +7155,13 @@
       "title": "MOD SettingsPanel 拆分二批：数据与备份分页整迁 components/DataBackupPage"
     }
   },
-  "claims": {},
+  "claims": {
+    "MOD-19": {
+      "agent": "agent-mod19",
+      "branch": "refactor/mod19-data-backup-page",
+      "head": "12a4b54203cdbc9ac659e3b514c35e265fabef94",
+      "claimedAt": 1794292291
+    }
+  },
   "version": 1
 }

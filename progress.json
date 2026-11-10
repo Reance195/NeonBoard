@@ -73,6 +73,24 @@
             "updatedAt": 1794023716
         },
         {
+            "code": "MOD-23",
+            "completedAt": 0,
+            "createdAt": 1794299630,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "MOD-23",
+            "note": "",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "MOD",
+            "status": "todo",
+            "tags": [
+                "MOD"
+            ],
+            "title": "MOD SettingsPanel 拆分六批：关于分页整迁 components/AboutPage",
+            "updatedAt": 1794299630
+        },
+        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -6361,6 +6379,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-10T16:31:22",
+    "updated": "2026-11-10T16:33:50",
     "version": 3
 }

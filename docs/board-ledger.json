@@ -7437,6 +7437,13 @@
       "title": "v0.1.8 发版：版本号递增与发布验收"
     }
   },
-  "claims": {},
+  "claims": {
+    "R21-1": {
+      "agent": "cleaner",
+      "branch": "test/multiboard-review",
+      "head": "3d5854ef3a92eaf3cd6a4fac27aec546b3eacbc9",
+      "claimedAt": 1794331287
+    }
+  },
   "version": 1
 }

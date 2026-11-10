@@ -334,7 +334,8 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "MOD-23": "todo"
   },
   "cards": {
     "DX-01": {
@@ -7228,6 +7229,30 @@
       "stage": "MOD",
       "tier": "P4",
       "title": "MOD SettingsPanel 拆分五批：执行分页与 profileEditor 整迁 components/ExecPage"
+    },
+    "MOD-23": {
+      "acceptance": [
+        "pwsh -File scripts/verify.ps1 全量通过且 --smoke 日志 QML 致命告警 0 行",
+        "新增 qml/components/AboutPage.qml（分页 ColumnLayout 块体逐字照搬，仅 visible 行移实例化处）且 SettingsPanel 中 269-477 分页段删除并替换为带 visible 绑定的一处实例化",
+        "SettingsPanel.qml 行数 <= 285（基线 480）且 LINE_LIMITS 中 qml/components/SettingsPanel.qml 上限同步调低到实际行数",
+        "CMakeLists 同时登记 qt_add_qml_module 源条目与 QT_RESOURCE_ALIAS 裸名（MOD-11 教训前置）",
+        "python scripts/check_module_deps.py --base origin/main 退出 0 且 python scripts/check_scope.py --base origin/main 退出 0",
+        "维护者人工复核：关于页（版本信息 / 更新设置与自动检查开关）字段渲染与交互与迁移前一致"
+      ],
+      "author": "codebuddy-session-2026-11-10",
+      "depends": [],
+      "evidence": "2026-11-10 实测（基线 origin/main，SettingsPanel.qml 480 行，LINE_LIMITS 同值）：分页 6「关于」ColumnLayout 位于 269-477 共 209 行（含版本信息 / 更新设置等小节，updateManager 等为上下文属性）。双向引用面正则全扫：块内仅 panel.page（visible 一行，移实例化处）；块内唯一 id incompleteHint 无块外引用；块内引用的块外顶层声明为零。接口面 = visible 绑定一行，无其它 property。维护者 2026-11-10 会话指令「领下一卡：关于页拆分」，据此授权立卡、领用、实现、verify、rebase、推 origin/main 与结卡。",
+      "id": "MOD-23",
+      "note": "",
+      "scope": [
+        "qml/components/SettingsPanel.qml",
+        "qml/components/**",
+        "CMakeLists.txt",
+        "scripts/check_module_deps.py"
+      ],
+      "stage": "MOD",
+      "tier": "P4",
+      "title": "MOD SettingsPanel 拆分六批：关于分页整迁 components/AboutPage"
     }
   },
   "claims": {},

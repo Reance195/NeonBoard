@@ -6,14 +6,39 @@ import QtQuick.Layouts
 // 标题栏 + 主看板区（MOD-15 自 Main.qml 原样迁入）：
 // hostWin = 宿主窗口（原 window）；columnManagerRef = 原 columnManager 面板；
 // dragSpaceRef = 原 root Rectangle（卡片拖拽坐标空间）。
-// searchField / columnRepeater 经 alias 暴露（Main 级 clearFilters 与列扫描引用）。
+// MOD-25 收敛：Main 不再摸内部元素——搜索清空 / 列项扫描 / 外观抽屉开关
+// 走下方语义接口（原 searchField / columnRepeater / themePicker alias 已删）。
 Item {
     property var hostWin
     property var columnManagerRef
     property Item dragSpaceRef
-    property alias searchField: searchField
-    property alias columnRepeater: columnRepeater
-    property alias themePicker: themePicker
+
+    // ---- 语义接口（原手工 alias，MOD-25）----
+
+    // 清空搜索框（原 Main 直接 searchField.text = ""）
+    function clearSearch() {
+        searchField.text = ""
+    }
+
+    // 已实例化的列项（原 Main 遍历 columnRepeater.itemAt；顺序即界面顺序）
+    function columnItems() {
+        var out = []
+        for (var i = 0; i < columnRepeater.count; ++i) {
+            var item = columnRepeater.itemAt(i)
+            if (item)
+                out.push(item)
+        }
+        return out
+    }
+
+    // 外观抽屉开关（原 Main 读写 themePicker.open）
+    readonly property bool themePickerOpen: themePicker.open
+    function openThemePicker() {
+        themePicker.open = true
+    }
+    function closeThemePicker() {
+        themePicker.open = false
+    }
 
     Rectangle {
         id: titleBar

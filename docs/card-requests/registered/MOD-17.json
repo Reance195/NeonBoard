@@ -1,0 +1,13 @@
+{
+  "card": "MOD-17",
+  "sha256": "e2bccb5ade8c85910b005fc6fa5809080ff0b98a4ddb1e24fe96dd46f94e7584",
+  "authorizedBy": "维护者 2026-11-10 会话指令「领 MOD-12 后续：主内容层 Item 整迁」，授权 QML 批次七批立卡、领用、实现、verify、rebase、推 origin/main 与结卡",
+  "form": "docs/card-requests/20261110-mod-task-editor-dialog.md",
+  "registeredAt": "2026-11-10T02:45:56+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/MOD-17",
+    "sha": "f88bdfab59b38ea9f6b0f61af35f03a07eb06e23"
+  }
+}

@@ -89,6 +89,21 @@ LINE_LIMITS = {
     "src/main.cpp": 6,
     "qml/Main.qml": 1504,
     "qml/components/SettingsPanel.qml": 185,
+    "qml/components/BoardChrome.qml": 599,
+    "qml/components/TaskEditorDialog.qml": 905,
+    "qml/components/ExecQueueDialog.qml": 467,
+    "qml/components/DataBackupPage.qml": 596,
+    "qml/components/ExecPage.qml": 464,
+    "qml/components/PluginPage.qml": 335,
+    "qml/components/AboutPage.qml": 214,
+    "qml/components/ExecPanelDialog.qml": 272,
+    "qml/components/NightBatchDialog.qml": 227,
+    "qml/components/ExecConfirmDialog.qml": 248,
+    "qml/components/HotkeyPage.qml": 133,
+    "qml/components/AppearancePage.qml": 97,
+    "qml/components/NeonComboBox.qml": 76,
+    "qml/components/DataButton.qml": 32,
+    "qml/components/NeonField.qml": 18,
 }
 
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s+"([^"]+)"')

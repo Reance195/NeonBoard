@@ -1,5 +1,21 @@
 {
-    "assignments": {},
-    "updatedAt": 1794304111,
+    "assignments": {
+        "MOD-26": {
+            "agent": "agent-mod26reg",
+            "branch": "chore/board-register-mod26",
+            "claimedAt": 1794304418,
+            "handoffFrom": "",
+            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
+            "progress": {
+                "done": 0,
+                "total": 0
+            },
+            "sessionId": "",
+            "stage": "开区",
+            "updatedAt": 1794304418,
+            "worktree": ".worktrees/agent-mod26reg"
+        }
+    },
+    "updatedAt": 1794304418,
     "version": 1
 }

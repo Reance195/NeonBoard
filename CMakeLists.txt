@@ -264,6 +264,7 @@ set_source_files_properties(qml/components/TaskEditorDialog.qml PROPERTIES QT_RE
 set_source_files_properties(qml/components/DataButton.qml PROPERTIES QT_RESOURCE_ALIAS "DataButton.qml")
 set_source_files_properties(qml/components/NeonComboBox.qml PROPERTIES QT_RESOURCE_ALIAS "NeonComboBox.qml")
 set_source_files_properties(qml/components/NeonField.qml PROPERTIES QT_RESOURCE_ALIAS "NeonField.qml")
+set_source_files_properties(qml/components/DataBackupPage.qml PROPERTIES QT_RESOURCE_ALIAS "DataBackupPage.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -315,6 +316,7 @@ qt_add_qml_module(NeonBoard
     qml/components/DataButton.qml
     qml/components/NeonComboBox.qml
     qml/components/NeonField.qml
+    qml/components/DataBackupPage.qml
 )
 
 qt_add_resources(NeonBoard "icons"

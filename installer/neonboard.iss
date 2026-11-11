@@ -9,13 +9,28 @@
 #define MyAppExeName "NeonBoard.exe"
 #define MyAppHostName "NeonBoardHost.exe"
 
+; /DSandboxAppId 切换「沙箱验证版」：独立的 AppId 与程序组名，装进沙箱目录
+; （verify / agent 实验等 /DIR= 沙箱场景）时写的是自己的卸载注册表键，
+; 不会接管宿主机正式版的 HKCU 卸载项与开始菜单组 —— 同 AppId 下 Inno 会
+; 原地覆盖注册（2026-11-11 实录：worktree 回收后宿主快捷方式全失效，表现为
+; 「应用被卸载」）。正式发布不传该开关，产物语义与无开关时完全一致。
+; 注意：src/update/UpdateManager.cpp 靠正式 AppId 判安装形态，沙箱 GUID 必须与之不同。
+#ifdef SandboxAppId
+  #define MyAppId "{5D2E9B41-3C7A-4F86-9E01-6B4A8C2D7F13}"
+  #define MyAppName "NeonBoard Sandbox"
+#else
+  #define MyAppId "{8E3B6A2C-9F4D-4C1A-9B7E-2D5F6A8C1E30}"
+  #define MyAppName "NeonBoard"
+#endif
+
 [Setup]
-AppId={{8E3B6A2C-9F4D-4C1A-9B7E-2D5F6A8C1E30}
+; 注意双大括号：ISPP 展开后是 {{8E3B…}，Inno 才会把首字符解成字面 { 而不是常量名
+AppId={{#MyAppId}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={localappdata}\Programs\NeonBoard
-DefaultGroupName=NeonBoard
+DefaultDirName={localappdata}\Programs\{#MyAppName}
+DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist

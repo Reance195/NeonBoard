@@ -203,7 +203,19 @@ if ($ScriptOnly) {
                 $isccOut | Select-Object -Last 12 | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
                 Fail "安装器 iss 编译失败（ISCC 退出码 $LASTEXITCODE）：[Code] 段错误发布时才炸，必须现在拦下"
             }
-            Write-Host '  ✓ iss 真编译通过（临时假 payload，[Code] 段编译期无错）' -ForegroundColor DarkGray
+            Write-Host '  ✓ iss 真编译通过（正式版变体，临时假 payload，[Code] 段编译期无错）' -ForegroundColor DarkGray
+            # 沙箱变体（/DSandboxAppId，DX-164）同样真编译一次：两个 #ifdef 分支都要保住
+            # 「编译期无错」，否则沙箱验证构建（agent / 实验装进 .sandbox）坏了照样漏到发布时才炸。
+            $eap = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try { $isccOutSb = & $iscc (Join-Path $gate 'installer\neonboard.iss') "/O$outDir" '/DMyAppVersion=0.0.0-gate' '/DSandboxAppId=1' 2>&1 } finally {
+                $ErrorActionPreference = $eap
+            }
+            if ($LASTEXITCODE -ne 0) {
+                $isccOutSb | Select-Object -Last 12 | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+                Fail "沙箱变体 iss 编译失败（ISCC 退出码 $LASTEXITCODE）：#ifdef SandboxAppId 分支有编译期错误"
+            }
+            Write-Host '  ✓ iss 真编译通过（沙箱变体 /DSandboxAppId，独立 AppId 与程序组）' -ForegroundColor DarkGray
         } finally {
             if (Test-Path -LiteralPath $gate) { Remove-Item -Recurse -Force $gate }
         }

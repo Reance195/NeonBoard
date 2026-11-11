@@ -2409,6 +2409,29 @@
   只有纯函数接口的 DLL 才可能 delay。方案失败不是白做：LNK1194 的原始输出
   就是「这条路线到此为止」的机器可查证据。
 
+### 6.6 沙箱里跑正式 Setup /DIR= 会劫持宿主注册：表现为「应用总被卸载」（DX-164）
+
+- **现象**（2026-11-11 实录）：某会话验证安装包时把正式 `Setup.exe /DIR=<worktree>\.sandbox\install-clean\app`
+  装进沙箱；worktree 按 §7.2 回收后，宿主「NeonBoard 总是莫名其妙被卸载」——开始菜单快捷方式
+  指向失效沙箱路径、HKCU 卸载项 `InstallLocation`/`UninstallString` 指向失效沙箱、
+  `DisplayVersion` 被顶成沙箱版本。程序本体与数据从未被删。
+- **根因**：沙箱安装与正式版共用 Inno AppId `{8E3B6A2C-…}`，同一 AppId 下 Inno 直接
+  **原地覆盖** HKCU 卸载项与开始菜单组（组名也同为 `NeonBoard`）。沙箱「影响本机」的
+  通道不是文件，是注册——`/DIR=` 只改 `{app}`，改不了 AppId。
+- **修复**（本机已执行）：把 `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{8E3B6A2C-…}_is1`
+  的 `InstallLocation` / `UninstallString` 指回 `%LOCALAPPDATA%\Programs\NeonBoard`，
+  重建开始菜单 `NeonBoard.lnk`（→ `NeonBoardHost.exe --open`）与 `Uninstall NeonBoard.lnk`。
+  **判据**：版本以 `%LOCALAPPDATA%\Programs\NeonBoard\install-receipt.json` 为准——
+  exe 的 `VersionInfo` 为空，不可用作判据；不要照抄注册表里被劫持后的 `DisplayVersion`。
+- **解法 / 预防**（已进代码）：`installer/neonboard.iss` 新增 `/DSandboxAppId` 编译期开关，
+  沙箱变体用独立固定 GUID `{5D2E9B41-…}` 与组名 `NeonBoard Sandbox`，写自己的注册表键，
+  从结构上断开劫持通道；`verify.ps1` 的 ISCC 闸门对两个变体各真编译一次（DX-164）。
+  以后往沙箱装安装包**必须用沙箱变体**：`iscc /DSandboxAppId=1` 出包，或直接用 verify 闸门
+  的假 payload 编译，**不许把正式 Setup /DIR= 进沙箱**（Z1：隔离靠 AppId 本身，不靠事后清理）。
+- **教训**：**「不污染宿主」这类约定，只要还存在一条不设防的命令就能绕过，就不算有保证。**
+  沙箱化的对象要枚举全部写点——文件（§7.6 做了）、数据库（hooks.db vs board.db 做了）、
+  注册表与全局快捷方式（这条补上）——漏一类就是下一次「莫名其妙」。
+
 ---
 
 ## 七、尚无解决方案（需人拍板）

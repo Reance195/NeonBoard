@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "DX-164",
+            "completedAt": 0,
+            "createdAt": 1794399811,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-164",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "沙箱安装注册隔离：/DSandboxAppId 编译期开关 + 沙箱劫持宿主注册沉淀",
+            "updatedAt": 1794399811
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -6523,6 +6541,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-11T12:21:50",
+    "updated": "2026-11-11T20:23:31",
     "version": 3
 }

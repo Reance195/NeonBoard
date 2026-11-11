@@ -1,0 +1,13 @@
+{
+  "card": "DX-164",
+  "sha256": "32498c394fc2bebaf597917001941c9ae3dd4760621757c4450717c424e2cf3c",
+  "authorizedBy": "维护者会话 2026-11-11 明确指令「立卡吧，两件事一起做掉」",
+  "form": "docs/card-requests/20261111-sandbox-install-isolation.md",
+  "registeredAt": "2026-11-11T12:23:22+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-164",
+    "sha": "b46961ee0577925bd849027116e9b46444181b49"
+  }
+}

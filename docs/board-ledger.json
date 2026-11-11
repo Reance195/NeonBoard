@@ -7493,13 +7493,6 @@
       "title": "沙箱安装注册隔离：/DSandboxAppId 编译期开关 + 沙箱劫持宿主注册沉淀"
     }
   },
-  "claims": {
-    "DX-164": {
-      "agent": "agent-dx164",
-      "branch": "fix/sandbox-install-isolation",
-      "head": "d78c4937acb86456190aad6a941bb8a6f386031c",
-      "claimedAt": 1794399904
-    }
-  },
+  "claims": {},
   "version": 1
 }

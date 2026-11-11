@@ -7471,13 +7471,6 @@
       "title": "启动性能收尾二批：首次运行冷态收敛与 QML 树构建 <800ms"
     }
   },
-  "claims": {
-    "R0-16": {
-      "agent": "agent-cb",
-      "branch": "chore/r0-16-close",
-      "head": "b0ba1b843a7954cce332abb8334289ad67aa58f0",
-      "claimedAt": 1794370857
-    }
-  },
+  "claims": {},
   "version": 1
 }

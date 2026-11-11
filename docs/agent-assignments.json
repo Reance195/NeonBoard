@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "R0-16": {
-            "agent": "agent-cb",
-            "branch": "chore/r0-16-close",
-            "claimedAt": 1794370858,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794370858,
-            "worktree": ".worktrees/agent-cb"
-        }
-    },
-    "updatedAt": 1794370858,
+    "assignments": {},
+    "updatedAt": 1794370912,
     "version": 1
 }

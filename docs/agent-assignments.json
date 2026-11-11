@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "DX-164": {
-            "agent": "agent-dx164",
-            "branch": "fix/sandbox-install-isolation",
-            "claimedAt": 1794399904,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794399904,
-            "worktree": ".worktrees/agent-dx164"
-        }
-    },
-    "updatedAt": 1794399904,
+    "assignments": {},
+    "updatedAt": 1794400999,
     "version": 1
 }

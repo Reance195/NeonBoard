@@ -1,5 +1,21 @@
 {
-    "assignments": {},
-    "updatedAt": 1794400999,
+    "assignments": {
+        "DX-165": {
+            "agent": "agent-fix",
+            "branch": "fix/opencode-stdin-null",
+            "claimedAt": 1794551148,
+            "handoffFrom": "",
+            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
+            "progress": {
+                "done": 0,
+                "total": 0
+            },
+            "sessionId": "",
+            "stage": "开区",
+            "updatedAt": 1794551148,
+            "worktree": ".worktrees/agent-fix"
+        }
+    },
+    "updatedAt": 1794551148,
     "version": 1
 }

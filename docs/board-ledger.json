@@ -7503,7 +7503,7 @@
       "depends": [],
       "evidence": "2026-11-13 真实端到端验证实测（沙箱 harness + 本机 opencode CLI，三轮定位）。opencode（Bun 运行时）启动即读 stdin：TaskRunner 按 R9-05「都没声明 → 不碰，交给子进程继承」时，子进程拿到无效句柄 → 秒退 exit 126 `EUNKNOWN: unknown error, read`，run 结算 blocked。裸调对照（stdin 接空文件）exit 0 正常完成真实 LLM 回合；经 L2 覆盖层 saveProfile 给 opencode 设 stdin:\"null\" 后全链通过（run passed / acceptance 1/1 / scope 无越界 / verdict passed，产物由真 agent 落盘）。GUI 无控制台场景同型炸（GUI 进程无有效 stdin）。R9-05 的 stdin:\"null\"（setStandardInputFile NUL）机制即为此设计，codex 先例同因（docs/agent-profile.md §stdin）。内置三条中 opencode 是唯一被实测确认启动即读 stdin 的；claude / cursor-agent 无此症状，不动。",
       "id": "DX-165",
-      "note": "",
+      "note": "已交付：9361586 fix(agent) 内置 opencode profile 补 stdin:\"null\"（makeBuiltin 参数化，claude / cursor-agent 保持未声明）。验收三项全过——① tst_agentprofile 新断言（opencode stdin==null、claude stdin==空串）随全量 45/45 绿；② verify.ps1 全量 exit 0（编译 + ctest 45 + --selftest + --smoke + 模块守卫）；③ docs/agent-profile.md 内置表补 stdin 列。实测依据见 evidence 字段（E2E harness 三轮定位，2026-11-13）。",
       "scope": [
         "src/agent/AgentProfile.cpp",
         "tests/tst_agentprofile.cpp",
@@ -7514,6 +7514,13 @@
       "title": "内置 opencode profile 缺 stdin:\"null\"，执行器拉起即 EUNKNOWN read 退出 126"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-165": {
+      "agent": "agent-fix",
+      "branch": "chore/dx165-close",
+      "head": "f0fb8df3febf89829b53f9fbbf38f249748b2ae0",
+      "claimedAt": 1794553008
+    }
+  },
   "version": 1
 }

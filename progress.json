@@ -19,24 +19,6 @@
             "updatedAt": 1794399811
         },
         {
-            "code": "DX-165",
-            "completedAt": 0,
-            "createdAt": 1794550957,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-165",
-            "note": "",
-            "orderKey": 60672,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "内置 opencode profile 缺 stdin:\"null\"，执行器拉起即 EUNKNOWN read 退出 126",
-            "updatedAt": 1794550957
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -4171,6 +4153,24 @@
             "updatedAt": 1794148469
         },
         {
+            "code": "DX-165",
+            "completedAt": 1794553083,
+            "createdAt": 1794550957,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-165",
+            "note": "已交付：9361586 fix(agent) 内置 opencode profile 补 stdin:\"null\"（makeBuiltin 参数化，claude / cursor-agent 保持未声明）。验收三项全过——① tst_agentprofile 新断言（opencode stdin==null、claude stdin==空串）随全量 45/45 绿；② verify.ps1 全量 exit 0（编译 + ctest 45 + --selftest + --smoke + 模块守卫）；③ docs/agent-profile.md 内置表补 stdin 列。实测依据见 evidence 字段（E2E harness 三轮定位，2026-11-13）。",
+            "orderKey": 60672,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "内置 opencode profile 缺 stdin:\"null\"，执行器拉起即 EUNKNOWN read 退出 126",
+            "updatedAt": 1794553083
+        },
+        {
             "code": "R0-15",
             "completedAt": 1794035613,
             "createdAt": 1794027729,
@@ -6559,6 +6559,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-13T14:22:37",
+    "updated": "2026-11-13T14:58:03",
     "version": 3
 }

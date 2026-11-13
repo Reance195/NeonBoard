@@ -7514,13 +7514,6 @@
       "title": "内置 opencode profile 缺 stdin:\"null\"，执行器拉起即 EUNKNOWN read 退出 126"
     }
   },
-  "claims": {
-    "DX-165": {
-      "agent": "agent-fix",
-      "branch": "chore/dx165-close",
-      "head": "f0fb8df3febf89829b53f9fbbf38f249748b2ae0",
-      "claimedAt": 1794553008
-    }
-  },
+  "claims": {},
   "version": 1
 }

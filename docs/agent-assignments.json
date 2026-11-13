@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "DX-165": {
-            "agent": "agent-fix",
-            "branch": "chore/dx165-close",
-            "claimedAt": 1794553008,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794553008,
-            "worktree": ".worktrees/agent-fix"
-        }
-    },
-    "updatedAt": 1794553008,
+    "assignments": {},
+    "updatedAt": 1794553086,
     "version": 1
 }

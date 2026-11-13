@@ -1,0 +1,13 @@
+{
+  "card": "DX-165",
+  "sha256": "664f19c102dbdf2634ca4274e2a2fd7815194154a929e352665ac4df11679b36",
+  "authorizedBy": "维护者会话指令 2026-11-13：「为内置 opencode profile 补 stdin:null 并立卡」",
+  "form": "docs/card-requests/20261113-dx-opencode-stdin-null.md",
+  "registeredAt": "2026-11-13T06:22:28+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-165",
+    "sha": "a5e76a9fdb4853cba0e3c6468708bc72ffd1c9ed"
+  }
+}

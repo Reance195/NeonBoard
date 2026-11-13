@@ -19,6 +19,24 @@
             "updatedAt": 1794399811
         },
         {
+            "code": "DX-165",
+            "completedAt": 0,
+            "createdAt": 1794550957,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-165",
+            "note": "",
+            "orderKey": 60672,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "内置 opencode profile 缺 stdin:\"null\"，执行器拉起即 EUNKNOWN read 退出 126",
+            "updatedAt": 1794550957
+        },
+        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -6541,6 +6559,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-11T20:23:31",
+    "updated": "2026-11-13T14:22:37",
     "version": 3
 }

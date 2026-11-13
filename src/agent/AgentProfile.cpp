@@ -48,7 +48,7 @@ bool profileRunnable(const QVariantMap &profile)
 
 QVariantMap makeBuiltin(const QString &id, const QString &displayName, const QString &exe,
                         const QStringList &args, const QStringList &readonlyArgs,
-                        const QString &output)
+                        const QString &output, const QString &stdinMode = QString())
 {
     return {
         {QStringLiteral("id"), id},
@@ -63,7 +63,7 @@ QVariantMap makeBuiltin(const QString &id, const QString &displayName, const QSt
         // 字段集必须与 normalizeProfile 的输出**逐键相同**：sameProfile 序列化整个 map 比较，
         // 少一个键就会让「与下层等价」永远判假，于是每条都留覆盖、插件改了也跟不上。
         {QStringLiteral("enabled"), true},
-        {QStringLiteral("stdin"), QString()},
+        {QStringLiteral("stdin"), stdinMode},
     };
 }
 
@@ -285,7 +285,10 @@ QVariantList AgentProfile::builtinProfiles()
                     QStringLiteral("opencode"),
                     {QStringLiteral("run"), QStringLiteral("--format"), QStringLiteral("json")},
                     {QStringLiteral("--agent"), QStringLiteral("plan")},
-                    QStringLiteral("json")),
+                    QStringLiteral("json"),
+                    // DX-165：opencode（Bun）启动即读 stdin，QProcess 未重定向时
+                    // 子进程拿无效句柄秒退 126（EUNKNOWN read）。接 NUL 读到 EOF。
+                    QStringLiteral("null")),
         makeBuiltin(QStringLiteral("claude"), QStringLiteral("Claude Code"),
                     QStringLiteral("claude"),
                     {QStringLiteral("-p"), QStringLiteral("--output-format"),

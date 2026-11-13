@@ -63,11 +63,11 @@ PATH 会变、盘会拔，写进 meta 就成了谎话。
 
 ### 内置 profile
 
-| id | 命令行 | 只读追加 | output | promptMode |
-| --- | --- | --- | --- | --- |
-| `opencode` | `opencode run --format json <prompt>` | `--agent plan`（内置，1.19.0 实测） | `json` | `arg` |
-| `claude` | `claude -p --output-format stream-json <prompt>` | `--permission-mode plan` | `stream-json` | `arg` |
-| `cursor-agent` | `cursor-agent -p --output-format stream-json <prompt>` | `--plan` | `stream-json` | `arg` |
+| id | 命令行 | 只读追加 | output | promptMode | stdin |
+| --- | --- | --- | --- | --- | --- |
+| `opencode` | `opencode run --format json <prompt>` | `--agent plan`（内置，1.19.0 实测） | `json` | `arg` | `"null"`（DX-165：opencode 启动即读 stdin，不接 NUL 会在子进程 stdin 无效时秒退 126 `EUNKNOWN: unknown error, read`——2026-11-13 端到端实测） |
+| `claude` | `claude -p --output-format stream-json <prompt>` | `--permission-mode plan` | `stream-json` | `arg` | 未声明 |
+| `cursor-agent` | `cursor-agent -p --output-format stream-json <prompt>` | `--plan` | `stream-json` | `arg` | 未声明 |
 
 ## 已验证的 CLI 事实（本机实测，2026-10-27）
 

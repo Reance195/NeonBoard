@@ -156,6 +156,13 @@ void TestAgentProfile::builtins()
     QCOMPARE(opencode.value(QStringLiteral("defaultTimeoutMin")).toInt(), 30);
     QCOMPARE(opencode.value(QStringLiteral("env")).toMap().value(QStringLiteral("NO_COLOR")).toString(),
              QStringLiteral("1"));
+    // DX-165：opencode 启动即读 stdin，内置即接 NUL（否则 QProcess 未重定向时
+    // 子进程拿无效句柄秒退 126 EUNKNOWN read）
+    QCOMPARE(opencode.value(QStringLiteral("stdin")).toString(), QStringLiteral("null"));
+    // 其余内置 profile 未声明 stdin，仍为空串（与 "null" 可区分）
+    QCOMPARE(m_profile->profileOf(QStringLiteral("claude"))
+                 .value(QStringLiteral("stdin")).toString(),
+             QString());
 }
 
 void TestAgentProfile::argvAssembly()
@@ -546,7 +553,8 @@ void TestAgentProfile::stdinField()
     QVERIFY(m_profile->profileOf(QStringLiteral("typo-stdin")).isEmpty());
 
     // 没声明的是空串而不是 "null"：执行器据此判断要不要接 NUL，两种值必须能区分
-    QCOMPARE(m_profile->profileOf(QStringLiteral("opencode")).value(QStringLiteral("stdin")).toString(),
+    // （DX-165 后 opencode 内置即 "null"，用 claude 做未声明样例）
+    QCOMPARE(m_profile->profileOf(QStringLiteral("claude")).value(QStringLiteral("stdin")).toString(),
              QString());
 }
 

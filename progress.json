@@ -1,42 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-164",
-            "completedAt": 0,
-            "createdAt": 1794399811,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-164",
-            "note": "",
-            "orderKey": 40448,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "沙箱安装注册隔离：/DSandboxAppId 编译期开关 + 沙箱劫持宿主注册沉淀",
-            "updatedAt": 1794399811
-        },
-        {
-            "code": "DX-166",
-            "completedAt": 0,
-            "createdAt": 1794632322,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-166",
-            "note": "",
-            "orderKey": 60672,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "流程类提交夹带实现路径无闸门，及本轮仓库卫生遗留清理",
-            "updatedAt": 1794632322
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -3316,6 +3280,24 @@
             "updatedAt": 1794324365
         },
         {
+            "code": "DX-164",
+            "completedAt": 1794634150,
+            "createdAt": 1794399811,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-164",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "沙箱安装注册隔离：/DSandboxAppId 编译期开关 + 沙箱劫持宿主注册沉淀",
+            "updatedAt": 1794634150
+        },
+        {
             "code": "R0-14",
             "completedAt": 1794047953,
             "createdAt": 1794027516,
@@ -4187,6 +4169,24 @@
             ],
             "title": "内置 opencode profile 缺 stdin:\"null\"，执行器拉起即 EUNKNOWN read 退出 126",
             "updatedAt": 1794553083
+        },
+        {
+            "code": "DX-166",
+            "completedAt": 1794634150,
+            "createdAt": 1794632322,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-166",
+            "note": "",
+            "orderKey": 60672,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "流程类提交夹带实现路径无闸门，及本轮仓库卫生遗留清理",
+            "updatedAt": 1794634150
         },
         {
             "code": "R0-15",
@@ -6577,6 +6577,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-14T12:58:42",
+    "updated": "2026-11-14T13:29:10",
     "version": 3
 }

@@ -7543,6 +7543,13 @@
       "title": "流程类提交夹带实现路径无闸门，及本轮仓库卫生遗留清理"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-166": {
+      "agent": "agent-dx166",
+      "branch": "feature/agent-dx166",
+      "head": "3dfe7e63710ad300aeb09eece08862e1c1e60da8",
+      "claimedAt": 1794632473
+    }
+  },
   "version": 1
 }

@@ -1,5 +1,5 @@
 ---
-state: proposed
+state: closed
 card: MOD-9
 stage: MOD
 tier: P4

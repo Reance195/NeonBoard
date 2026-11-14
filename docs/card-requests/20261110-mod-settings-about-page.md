@@ -1,5 +1,5 @@
 ---
-state: proposed
+state: closed
 card: MOD-23
 stage: MOD
 tier: P4

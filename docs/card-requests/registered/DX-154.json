@@ -2,7 +2,7 @@
   "card": "DX-154",
   "sha256": "bf65808c8cc240e7e9f1d68a3755b2b2eb802ce22e39b981a4ecb90b49d0d947",
   "authorizedBy": "维护者会话指令：「授权」（授权立卡修三处 .Output 解包缺陷）",
-  "form": "form-gitdone-output.md",
+  "form": "docs/card-requests/20261109-gitdone-output.md",
   "registeredAt": "2026-11-09T02:34:16+00:00",
   "tool": "scripts/register_board_cards.py",
   "mode": "remote",

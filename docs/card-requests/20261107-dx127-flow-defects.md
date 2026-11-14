@@ -1,5 +1,5 @@
 ---
-state: proposed
+state: closed
 card: DX-128
 stage: DX
 tier: P3

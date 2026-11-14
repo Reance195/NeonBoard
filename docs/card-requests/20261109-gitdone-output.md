@@ -1,4 +1,6 @@
 ---
+state: approved
+card: DX-154
 title: git-done 三处 git 输出未解包，合并正文与结单预判失真
 stage: DX
 scope: scripts/git-done.ps1

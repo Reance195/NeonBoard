@@ -1,4 +1,6 @@
 ---
+state: approved
+card: DX-156
 title: git-done 挂起结卡的补结出路按确认方式分说
 stage: DX
 scope: scripts/git-done.ps1

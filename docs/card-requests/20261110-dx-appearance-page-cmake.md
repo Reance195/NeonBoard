@@ -1,5 +1,5 @@
 ---
-state: proposed
+state: closed
 card: DX-163
 stage: DX
 tier: P0

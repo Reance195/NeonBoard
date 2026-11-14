@@ -288,7 +288,7 @@ Rectangle {
     // 解析拖拽落点：yInColumn 为列内坐标，返回 { beforeId, anchorId, below, lineY, viewY, onLine }
     // beforeId 为空串表示插到列尾；anchorId 为空串表示没有卡可锚（空列）
     //
-    // 几何本身在 src/DragFeel.cpp（纯函数、单测覆盖）：这里只做 QML 独有的两件事 ——
+    // 几何本身在 src/shell/DragFeel.cpp（纯函数、单测覆盖）：这里只做 QML 独有的两件事 ——
     // 把视口 y 换算成内容 y，以及把线的位置换算回视口给绘制用。
     function resolveDrop(yInColumn) {
         var pt = list.mapFromItem(column, 0, yInColumn)

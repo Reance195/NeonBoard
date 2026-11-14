@@ -162,6 +162,23 @@ def flow_scope_beyond_paths(kind, scope, paths):
     )
 
 
+def flow_impl_paths(kind, scope, paths):
+    """流程类提交夹带的**实现路径**（DX-166）：返回被夹带的非豁免路径列表。
+
+    DX-164 实录：f68f4f2 以 chore(board) 之名夹带 installer/neonboard.iss 等实现，
+    subject 带 #DX-164 就顺理成章过了 claim 校验；而 audit_problems 只在「改了台账
+    任务定义」时才跑，这次没改定义，于是实现提交从未存在过 —— 没有 #DX-164=done，
+    baseline 永远 todo，卡还能被再领一遍重做。
+
+    只拦 kind=chore + scope∈FLOW_SCOPES 且 diff 触及非豁免路径的组合；
+    docs/、scripts/ 等既有白名单仍放行（领用登记、结卡、快照同步不受影响），
+    普通实现提交（fix/feat/...）也不受限制。判定只此一处，cmd_message / cmd_push 共用。
+    """
+    if kind != "chore" or scope not in FLOW_SCOPES:
+        return []
+    return code_files(paths)
+
+
 def ledger_format_problems(raw):
     """台账永久格式约定（维护者 2026-11-09 裁定）：indent=2 / 键序=登记序 / LF + 尾换行。
 
@@ -252,6 +269,21 @@ def cmd_message(args):
     # 的流程提交按普通提交校验
     if process_commit_exempt(kind, scope, staged):
         return 0
+
+    # DX-166：流程类提交不得夹带实现路径。带 #短号 也不能洗白 —— 立卡与实现
+    # 必须分成两条提交，否则「实现提交」从未存在，done 标记与结卡链路一起断掉。
+    impl_paths = flow_impl_paths(kind, scope, staged)
+    if impl_paths:
+        sys.stderr.write(
+            "[任务闸门] 流程类提交夹带实现路径（chore(%s)）：\n" % scope
+        )
+        for path in impl_paths[:8]:
+            sys.stderr.write("  - %s\n" % path)
+        sys.stderr.write(
+            "  请把实现拆成独立提交（feat/fix/refactor 等）并带 #短号；\n"
+            "  流程提交只允许改台账、进度快照与立卡回执。\n"
+        )
+        return 1
 
     # 代登记审计（DX-06 + DX-07）：只要这次提交改了台账**任务定义**，就必须留下凭证。
     #
@@ -801,6 +833,14 @@ def cmd_push(args):
         # 的流程提交按普通提交校验
         if process_commit_exempt(kind, scope, paths):
             continue
+        # DX-166：与 commit-msg 同口径，流程类提交夹带实现路径直接拒（推送兜底）
+        impl_paths = flow_impl_paths(kind, scope, paths)
+        if impl_paths:
+            problems.append(
+                "%s %s：流程类提交夹带实现路径（%s），实现必须独立成提交"
+                % (sha[:7], subject, "、".join(impl_paths[:3]))
+            )
+            continue
         # DX-51：流程 scope 越面时不吃「非代码路径 → 跳过」的杂务兜底
         if not code_files(paths) and not flow_scope_beyond_paths(kind, scope, paths):
             continue
@@ -1122,6 +1162,23 @@ def cmd_selftest(args):
          flow_scope_beyond_paths("chore", "board", ["docs/board-ledger.json"]) is False),
         ("越面兜底：非流程类型不受影响",
          flow_scope_beyond_paths("feat", "x", ["docs/a.md"]) is False),
+        # ---- DX-166：流程类提交夹带实现路径（f68f4f2 形态）----
+        ("DX-166：chore(board) 夹带 installer/ 实现 → 点名拒绝",
+         flow_impl_paths("chore", "board", ["installer/neonboard.iss"])
+         == ["installer/neonboard.iss"]),
+        ("DX-166：chore(claim) 夹带 qml/ 实现 → 点名拒绝",
+         flow_impl_paths("chore", "claim", ["qml/Main.qml"]) == ["qml/Main.qml"]),
+        ("DX-166：纯流程路径（台账 + 快照 + 回执）→ 放行",
+         flow_impl_paths("chore", "board",
+                         ["docs/board-ledger.json", "progress.json",
+                          "docs/card-requests/registered/DX-1.json"]) == []),
+        ("DX-166：白名单脚本 / 文档仍放行，不误伤合法流程提交",
+         flow_impl_paths("chore", "board",
+                         ["scripts/verify.ps1", "docs/pitfalls.md"]) == []),
+        ("DX-166：普通实现提交不受限（fix 类型带实现路径合法）",
+         flow_impl_paths("fix", "gate", ["installer/neonboard.iss"]) == []),
+        ("DX-166：docs(board) 收录请求单不受新判据影响",
+         flow_impl_paths("docs", "board", ["installer/neonboard.iss"]) == []),
     ]
     for name, ok in dx51:
         cases.append((name, True, [] if ok else ["flow 豁免收口断言失败"]))

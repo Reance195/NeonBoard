@@ -393,7 +393,7 @@ Dialog {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 52
                 visible: editor.tabIndex === 1
-                placeholderText: "边界：每行一条路径 glob（如 src/TaskModel.cpp）"
+                placeholderText: "边界：每行一条路径 glob（如 src/task/TaskModel.cpp）"
                 placeholderTextColor: Theme.muted
                 color: Theme.text
                 font.pixelSize: 11

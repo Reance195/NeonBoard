@@ -1,0 +1,13 @@
+{
+  "card": "DX-166",
+  "sha256": "26d4b924ce069c044940ac598b22b4239368397c531152de7b8b625e5e1430b4",
+  "authorizedBy": "维护者会话 2026-11-14：『接受你的建议』，授权本批治理修复并确认全部执行并推送",
+  "form": "docs/card-requests/20261114-governance-cleanup.md",
+  "registeredAt": "2026-11-14T04:58:41+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-166",
+    "sha": "6fd1d3f8b1971844aab68d24eb4015855961ed30"
+  }
+}

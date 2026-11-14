@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-107
 stage: DX
 title: 合并冲突退出不回滚现场：冲突路径清理临时分支与冲突态，dry-run 承诺的回滚真正兑现
 author: agent-c

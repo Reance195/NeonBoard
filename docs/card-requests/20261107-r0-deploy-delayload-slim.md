@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: R0-14
 stage: R0
 tier: P2
 title: 部署侧依赖收敛：CMake DELAYLOAD 精简随包 DLL，并纠偏 pitfalls §7.6 的过时前提

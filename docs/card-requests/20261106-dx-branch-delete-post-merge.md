@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-109
 stage: DX
 title: 单次推送下 branch -d 恒拒：分支删除判据换锚点，收尾不再残留已合并分支
 author: agent-c

@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: rejected
+card: DX-119
 stage: DX
 title: nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9
 author: agent-flowguard

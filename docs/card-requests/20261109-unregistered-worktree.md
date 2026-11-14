@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-152
 stage: DX
 tier: P2
 title: 手工 git worktree add 绕过占用登记，-Action Check 发现不了未登记 worktree

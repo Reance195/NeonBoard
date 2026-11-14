@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-129
 stage: DX
 tier: P3
 title: 弃单终态投影快照 deleted 墓碑：看板不再显示已弃单卡，重开自动恢复

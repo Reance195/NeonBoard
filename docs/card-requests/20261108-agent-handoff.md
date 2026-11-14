@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-149
 stage: DX
 tier: P1
 title: 在办卡僵尸占位无接手通道：补判活事实源与显式授权的原地接手

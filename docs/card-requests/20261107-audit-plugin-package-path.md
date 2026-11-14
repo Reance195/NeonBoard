@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-132
 stage: DX
 tier: P3
 title: 插件包信任链三洞：盘符路径穿越、卸载目录逃逸、manifest.id 未比对

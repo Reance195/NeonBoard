@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-116
 stage: DX
 title: git-done 推送失败仍打印「合并完成」且回执记录未落地 head：收尾总结按推送事实打印
 author: agent-flowguard

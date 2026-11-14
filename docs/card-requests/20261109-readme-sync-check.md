@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-150
 stage: DX
 tier: P2
 title: 宪章硬性约定 6「界面行为改动同步 README」无机器执行，靠代理自觉

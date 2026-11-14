@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-148
 stage: DX
 tier: P1
 title: 宪章 §四「密钥严禁入库」零机器执行，入库闸门全靠自觉

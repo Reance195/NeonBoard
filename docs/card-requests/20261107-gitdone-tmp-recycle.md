@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-128
 stage: DX
 tier: P3
 title: git-done 临时分支 merge/* 静默残留：单次推送前 branch -d 的 upstream 判据恒假

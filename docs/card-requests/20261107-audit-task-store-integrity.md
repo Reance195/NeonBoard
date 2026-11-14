@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-140
 stage: DX
 tier: P3
 title: task 存储完整性四处：reorder 无事务、撤销删除丢列、renumber 失败内存漂移、removeRowFor 吞错

@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-164
 stage: DX
 tier: P2
 title: 沙箱安装注册隔离：/DSandboxAppId 编译期开关 + 沙箱劫持宿主注册沉淀

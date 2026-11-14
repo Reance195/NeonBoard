@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-155
 stage: DX
 tier: P2
 title: git-done 回收「删自己脚下」必败且不复发：待删清单无人 drain，空壳残留两周攒出 28 个

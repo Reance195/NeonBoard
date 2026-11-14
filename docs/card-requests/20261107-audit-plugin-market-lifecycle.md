@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-141
 stage: DX
 tier: P3
 title: 插件网络与生命周期四处：异步下载无超时、并发下载状态污染、活跃 context 泄漏、manifest 入口路径穿越

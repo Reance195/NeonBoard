@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-135
 stage: DX
 tier: P3
 title: QProcess FailedToStart 黑洞族：预览构建/打包队列与领用同步的状态机永久卡死

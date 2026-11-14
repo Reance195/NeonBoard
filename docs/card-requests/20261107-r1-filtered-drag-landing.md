@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: R1-8
 stage: R1
 tier: P3
 title: 过滤态拖拽落点按可见顺序计算：搜索 / 阶段过滤下指示线与落库顺序一致

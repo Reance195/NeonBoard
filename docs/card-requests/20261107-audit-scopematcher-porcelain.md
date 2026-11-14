@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-138
 stage: DX
 tier: P3
 title: ScopeMatcher 三处判定缺陷：中文路径 octal 不反转义、git 失败 fail-open、diff 单向

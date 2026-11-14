@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-166
 stage: DX
 tier: P2
 title: 流程类提交夹带实现路径无闸门，及本轮仓库卫生遗留清理

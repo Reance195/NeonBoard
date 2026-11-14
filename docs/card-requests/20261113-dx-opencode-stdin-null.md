@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-165
 stage: DX
 tier: P2
 title: 内置 opencode profile 缺 stdin:"null"，执行器拉起即 EUNKNOWN read 退出 126

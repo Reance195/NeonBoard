@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-161
 stage: DX
 tier: P2
 title: 收尾的 assignment 移除是工作树操作不落提交：done 卡条目永久残留 main

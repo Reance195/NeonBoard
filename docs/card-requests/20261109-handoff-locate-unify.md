@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-159
 stage: DX
 tier: P2
 title: handoff.ps1 现场定位只有两级信息源：领用投影在未推分支台账时接手被拒

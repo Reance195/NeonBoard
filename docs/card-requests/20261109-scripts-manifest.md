@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-151
 stage: DX
 tier: P2
 title: scripts/ 目录无清单事实源，脚本膨胀与临时脚本残留不可见

@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: R0-15
 stage: R0
 tier: P2
 title: 首启空态残留：全新库建表延后期初始化失败无重试，官方插件自动授权可能未落地

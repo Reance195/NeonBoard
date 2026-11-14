@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-110
 stage: DX
 title: 锚点快进永久跳过：立卡 roadmap 行收进立卡提交，锚点同步脏文件判据与分类修正
 author: agent-c

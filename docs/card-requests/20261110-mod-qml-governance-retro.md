@@ -1,5 +1,5 @@
 ---
-state: proposed
+state: closed
 card: MOD-27
 stage: MOD
 tier: P3

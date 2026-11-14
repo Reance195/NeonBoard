@@ -1,5 +1,5 @@
 ---
-state: proposed
+state: closed
 card: DX-144
 stage: DX
 tier: P2

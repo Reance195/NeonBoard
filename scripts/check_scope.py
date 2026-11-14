@@ -45,6 +45,10 @@ ALWAYS_ALLOWED = [
     # 立卡程序产物（DX-98）：请求单与回执由 register_board_cards.py 生成，
     # 是「立卡」这个动作自身的产物，不算任何一张实现卡的越界。
     "docs/card-requests/**",
+    # 开区占用投影（DX-166）：agent-init.ps1 每次领卡都会写它，属流程自身产物，
+    # 不属于任何一张实现卡的 scope。漏了这一条，每张卡做全量范围检查都会越界
+    # （CI 走 --base HEAD~1 增量口径，所以历史上一直没暴露）。
+    "docs/agent-assignments.json",
 ]
 
 
@@ -411,6 +415,14 @@ def selftest() -> int:
         == ["A-1"],
     )
     check("空分支名（detached）不触发 claims 检测", detect_cards_from_claims({"A-1": {"branch": "fix/x"}}, "") == [])
+    check(
+        "DX-166：开区占用投影属流程产物，不算越界",
+        scope_violations(["scripts/task_gate.py"], ["docs/agent-assignments.json"]) == [],
+    )
+    check(
+        "DX-166：反向证伪——未登记的 docs 文件仍算越界",
+        scope_violations(["scripts/task_gate.py"], ["docs/other.json"]) == ["docs/other.json"],
+    )
 
     if failures:
         print("✗ 自检失败：", file=sys.stderr)

@@ -1,4 +1,6 @@
 ---
+state: approved
+card: DX-153
 title: git-done 结单预判前移，-Close 补跑提示改可执行
 stage: DX
 scope: scripts/git-done.ps1

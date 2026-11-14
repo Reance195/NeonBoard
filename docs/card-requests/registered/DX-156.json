@@ -2,7 +2,7 @@
   "card": "DX-156",
   "sha256": "f8a4dca2e3b95700b9920c149efd0788d8cb12c580fb41f8d7eff4fd83c68927",
   "authorizedBy": "维护者会话指令：「修」（授权修深挖报告缺陷 2：挂起结卡补结出路分说）",
-  "form": "form-gitdone-pending.md",
+  "form": "docs/card-requests/20261109-gitdone-pending.md",
   "registeredAt": "2026-11-09T02:58:20+00:00",
   "tool": "scripts/register_board_cards.py",
   "mode": "remote",

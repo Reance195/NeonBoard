@@ -37,24 +37,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "R5-16",
-            "completedAt": 0,
-            "createdAt": 1794661003,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "R5-16",
-            "note": "",
-            "orderKey": 84992,
-            "priority": 2,
-            "stage": "R5",
-            "status": "todo",
-            "tags": [
-                "R5"
-            ],
-            "title": "v0.1.9 发版：版本号递增与发布验收",
-            "updatedAt": 1794661003
-        },
-        {
             "code": "R0-12",
             "completedAt": 0,
             "createdAt": 1793825191,
@@ -5569,6 +5551,24 @@
             "updatedAt": 1794332511
         },
         {
+            "code": "R5-16",
+            "completedAt": 1794662180,
+            "createdAt": 1794661003,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "R5-16",
+            "note": "",
+            "orderKey": 84992,
+            "priority": 2,
+            "stage": "R5",
+            "status": "done",
+            "tags": [
+                "R5"
+            ],
+            "title": "v0.1.9 发版：版本号递增与发布验收",
+            "updatedAt": 1794662180
+        },
+        {
             "code": "R11-03",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -6613,6 +6613,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-14T20:56:43",
+    "updated": "2026-11-14T21:16:20",
     "version": 3
 }

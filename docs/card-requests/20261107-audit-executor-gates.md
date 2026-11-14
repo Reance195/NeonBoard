@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-134
 stage: DX
 tier: P3
 title: agent 执行器三洞：超时宽限定时器 UAF、cmd 包装器引号注入、验收白名单绝对路径绕过

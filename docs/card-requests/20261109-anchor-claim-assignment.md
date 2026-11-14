@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-158
 stage: DX
 tier: P2
 title: 锚点区领卡把 assignment 写进 main 工作树：错位条目没人能提交还绊锚点快进

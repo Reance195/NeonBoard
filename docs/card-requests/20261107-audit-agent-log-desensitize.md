@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-139
 stage: DX
 tier: P3
 title: agent 日志脱敏两处漏配与 triage 启动失败报成功

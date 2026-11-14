@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-131
 stage: DX
 tier: P1
 title: 依赖前缀交接 UTF-8 会话失真：探针把 GBK 前缀解成 U+FFFD，全量 verify 编译步骤在本机必拦

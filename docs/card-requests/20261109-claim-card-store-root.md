@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-162
 stage: DX
 tier: P2
 title: claim-card 落盘按脚本自身路径定位 store、is_anchor 却判 root：口径不一致让锚点领卡条目必写锚点

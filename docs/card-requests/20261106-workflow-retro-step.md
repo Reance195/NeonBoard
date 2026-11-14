@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: R19-1
 stage: R19
 title: workflow 新增 retro 复盘步骤：agent 干完活后自省并沉淀程序化对策
 author: agent-retro

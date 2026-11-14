@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-142
 stage: DX
 tier: P3
 title: 同步三处：更新竞速状态机重入与 reply 泄漏、ThemeMarket 先删后 rename、RoadmapSync poll 吞变更

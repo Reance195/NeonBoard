@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-136
 stage: DX
 tier: P3
 title: 自更新增量链三洞：delta.json 路径穿越、增量 sha256 fail-open、version 拼路径 + 回滚毁备份

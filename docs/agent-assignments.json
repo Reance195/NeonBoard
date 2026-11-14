@@ -1,5 +1,21 @@
 {
-    "assignments": {},
-    "updatedAt": 1794634161,
+    "assignments": {
+        "DX-167": {
+            "agent": "agent-dx167",
+            "branch": "feature/agent-dx167",
+            "claimedAt": 1794636937,
+            "handoffFrom": "",
+            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
+            "progress": {
+                "done": 0,
+                "total": 0
+            },
+            "sessionId": "",
+            "stage": "开区",
+            "updatedAt": 1794636937,
+            "worktree": ".worktrees/agent-dx167"
+        }
+    },
+    "updatedAt": 1794636937,
     "version": 1
 }

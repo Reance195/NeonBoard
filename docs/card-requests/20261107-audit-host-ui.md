@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-143
 stage: DX
 tier: P3
 title: 宿主与界面三处：热键注册静默失败、托盘不随 Explorer 重建、执行队列面板每秒整表重建

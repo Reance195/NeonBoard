@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-111
 stage: DX
 title: 弃单卡没有结案通道：DX-43/R0-12 永挂 todo 且可被重新领用
 author: agent-flowguard

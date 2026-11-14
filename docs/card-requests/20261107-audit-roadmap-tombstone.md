@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-133
 stage: DX
 tier: P3
 title: RoadmapSync 墓碑误删：卡的「家」迁移被当成删除，看板卡片永久丢失

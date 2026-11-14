@@ -406,6 +406,52 @@ def dump_receipt(receipt):
     return json.dumps(receipt, ensure_ascii=False, indent=2) + "\n"
 
 
+def stamp_form(form_path, code):
+    """DX-167：立卡成功后把「已受理」写回请求单 frontmatter。
+
+    根因：立卡程序过去只写 registered/<code>.json 回执，请求单自身仍是
+    state: proposed 且往往连 card 字段都没有，于是「已交付但仍待受理」的假积压
+    越攒越多，清单与看板都无法据 state 判断真实积压。这里补上受理事实；
+    结卡后的终态（closed / rejected）由 task_gate registrations 对账提示回写。
+
+    只改 frontmatter 的 state / card 两行：已有则更新（不重复插入），缺失则补在
+    前面；正文原样保留。用 bytes 写，避免 Windows 把 LF 换成 CRLF；已是目标内容
+    时不写（幂等，重放立卡不产生二次 diff）。返回是否实际改动。
+    """
+    raw = form_path.read_text(encoding="utf-8-sig")
+    lines = raw.replace("\r\n", "\n").split("\n")
+    if not lines or lines[0].strip() != "---":
+        return False
+    end = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            end = i
+            break
+    if end is None:
+        return False
+    head = lines[1:end]
+    state_i = next((i for i, l in enumerate(head)
+                    if re.match(r"^state\s*:", l)), None)
+    card_i = next((i for i, l in enumerate(head)
+                   if re.match(r"^card\s*:", l)), None)
+    if state_i is None:
+        head.insert(0, "state: approved")
+        state_i = 0
+        if card_i is not None:
+            card_i += 1
+    else:
+        head[state_i] = "state: approved"
+    if card_i is None:
+        head.insert(state_i + 1, "card: %s" % code)
+    else:
+        head[card_i] = "card: %s" % code
+    new = "\n".join(lines[:1] + head + lines[end:])
+    if new == raw:
+        return False
+    form_path.write_bytes(new.encode("utf-8"))
+    return True
+
+
 def selftest():
     """纯函数断言（DX-99）：占位集解析、发号避开已占号、换号收敛。"""
     checks = []
@@ -550,6 +596,27 @@ def selftest():
             check("策略：当日超熔断被拒", False)
         except SystemExit as e:
             check("策略：当日超熔断被拒", e.code == 2)
+
+    # ---- DX-167：立卡回写请求单受理状态（3 例）----
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        fp = Path(td) / "form.md"
+        fp.write_text("---\nstate: proposed\nstage: DX\ntitle: t\n---\n\n## 目标\nx\n",
+                      encoding="utf-8")
+        changed = stamp_form(fp, "DX-9")
+        out = fp.read_text(encoding="utf-8")
+        check("立卡回写：补上 state: approved 与 card 字段",
+              changed and "\nstate: approved\n" in out and "\ncard: DX-9\n" in out)
+        check("立卡回写：重复调用幂等，不产生二次写入",
+              stamp_form(fp, "DX-9") is False)
+        fp.write_text("---\nstate: proposed\ncard: DX-8\nstage: DX\n---\n\n## 目标\nx\n",
+                      encoding="utf-8")
+        stamp_form(fp, "DX-9")
+        out2 = fp.read_text(encoding="utf-8")
+        check("立卡回写：已有 card 字段只更新不重复插入",
+              out2.count("card:") == 1 and "\ncard: DX-9\n" in out2)
+    check("立卡回写：dry-run 不触及（main 在写入前 return）",
+          "if args.dry_run:" in Path(__file__).read_text(encoding="utf-8"))
 
     failures = [n for n, ok in checks if not ok]
     for name, ok in checks:
@@ -781,6 +848,15 @@ def main(argv=None):
         receipt_dir.mkdir(parents=True, exist_ok=True)
         (receipt_dir / ("%s.json" % code)).write_text(
             dump_receipt(receipt), encoding="utf-8")
+        # DX-167：受理事实必须与台账/回执同批落盘，否则请求单永远停在 proposed。
+        # 放在所有关键写入之后；失败只告警，不因请求单写不进去就把已立好的卡推翻。
+        try:
+            if stamp_form(form_path, code):
+                print("[立卡程序] 请求单已回写受理状态：%s（state: approved / card: %s）"
+                      % (rel_to(root, form_path), code))
+        except OSError as exc:
+            print("[立卡程序] 警告：请求单受理状态回写失败（%s），请手工补 state/card：%s"
+                  % (exc, rel_to(root, form_path)), file=sys.stderr)
         if roadmap_added:
             # newline=""：不让 Windows 把 LF 换成 CRLF（.gitattributes 固定 eol=lf）。
             with open(roadmap_path, "w", encoding="utf-8", newline="") as fh:

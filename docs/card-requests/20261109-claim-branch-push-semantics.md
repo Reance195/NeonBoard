@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-160
 stage: DX
 tier: P2
 title: 宪章「认领分支必须推 origin」与 pre-push 禁推未合并分支自相矛盾：实战三撞

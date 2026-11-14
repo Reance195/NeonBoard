@@ -694,6 +694,78 @@ def audit_problems(kind, scope, message, code_paths, definition_changes):
     return problems
 
 
+FORM_DIR = os.path.dirname(RECEIPT_DIR)
+
+
+def read_card_request_forms(root=FORM_DIR):
+    """读 docs/card-requests/*.md 的 frontmatter，返回 {文件名: 字段字典}。"""
+    forms = {}
+    if not os.path.isdir(root):
+        return forms
+    for name in sorted(os.listdir(root)):
+        if not name.endswith(".md"):
+            continue
+        try:
+            with open(os.path.join(root, name), encoding="utf-8-sig") as fh:
+                text = fh.read(8192)
+        except OSError:
+            continue
+        lines = text.replace("\r\n", "\n").split("\n")
+        if not lines or lines[0].strip() != "---":
+            continue
+        meta = {}
+        for line in lines[1:]:
+            if line.strip() == "---":
+                break
+            m = re.match(r"^(\w+)\s*:\s*(.*)$", line)
+            if m and m.group(1) not in meta:
+                meta[m.group(1)] = m.group(2).strip()
+        forms[name] = meta
+    return forms
+
+
+def card_request_state_problems(cards, baseline, forms, receipts):
+    """DX-167：请求单 state ↔ 台账事实对账（纯函数，selftest 直测，不联网）。
+
+    只判 state: proposed（「尚未受理」）：一旦台账已有对应卡，这个状态就是假的，
+    按卡的当前状态给出应回写值（todo→approved / done→closed /
+    abandoned|rejected→rejected）。已有 card 字段优先按卡号查；历史请求单没写
+    card 时用 title 精确匹配兜底——立卡程序过去不回写，44 份假积压正是这个形态。
+
+    查不到卡且无回执的计入 pending（真未受理，只报数不硬拦）；有回执而卡不在
+    已由原有 DX-121 判据硬拦，这里不重复报。返回 (problems, pending)。
+    """
+    cards = cards or {}
+    baseline = baseline or {}
+    receipts = receipts or {}
+    by_title = {}
+    for code, card in cards.items():
+        if isinstance(card, dict) and card.get("title"):
+            by_title[card["title"]] = code
+    problems, pending = [], []
+    for name, meta in sorted((forms or {}).items()):
+        if meta.get("state") != "proposed":
+            continue
+        code = meta.get("card") or ""
+        if code not in cards:
+            code = by_title.get(meta.get("title") or "", "")
+        if code:
+            state = str(baseline.get(code, "")).partition(" ")[0]
+            if state == "done":
+                want = "closed"
+            elif state in ("abandoned", "rejected"):
+                want = "rejected"
+            else:
+                want = "approved"
+            problems.append(
+                "请求单 %s 仍为 state: proposed，但台账已有对应卡 %s（baseline=%s）："
+                "立卡时应回写 state: approved / card: %s，结卡后应回写 state: %s"
+                % (name, code, state or "?", code, want))
+        elif meta.get("card") not in receipts:
+            pending.append(name)
+    return problems, pending
+
+
 def cmd_registrations(args):
     """DX-121：回执/占位 ↔ 台账卡片 双向一致性对账（半落地 7ee6040 防回归）。
 
@@ -707,6 +779,8 @@ def cmd_registrations(args):
     哈希漂移，全量硬闸必误报历史在办/已结卡；新增时刻的强校验在 commit-msg 的
     receipt_problems（对新增卡）与 registration_ref_problems（对 origin 占位）处，
     那里才是「登记后即被改」能被确证的时机。占位核对需联网（fail-closed，与领用同口径）。
+    DX-167 扩：同批核「请求单 state ↔ 台账事实」，state: proposed 却已有对应卡即硬拦
+    （应回写 approved / closed / rejected）；查不到卡且无回执的计入真未受理只报数。
     """
     try:
         with open(LEDGER.replace("\\", "/"), encoding="utf-8") as fh:
@@ -743,18 +817,27 @@ def cmd_registrations(args):
             warnings.append("占位 refs/registrations/%s 在而台账无此卡、也无回执文件："
                             "立卡半途失败的孤儿占位（DX-118 形态），补立或弃由维护者定"
                             % code)
+    # DX-167：同一处对账里再核「请求单 state ↔ 台账事实」，拦住「已立卡/已交付
+    # 却仍写 proposed」的假积压。CI 已有本步骤，不需要新增 workflow。
+    forms = read_card_request_forms()
+    state_problems, pending = card_request_state_problems(
+        cards, ledger.get("baseline"), forms, receipts)
+    problems.extend(state_problems)
     if warnings:
         for line in warnings:
             sys.stderr.write("[任务闸门] 告警：%s\n" % line)
     if problems:
         for line in problems:
             sys.stderr.write("[任务闸门] %s\n" % line)
-        sys.stderr.write("[任务闸门] 立卡半落地（DX-121）：回执文件在而台账卡不在。"
-                         "补落卡片定义（重放 register_board_cards.py 或按台账冲突"
-                         "语义合并保留程序写入的卡）后重跑本检查。\n")
+        sys.stderr.write(
+            "[任务闸门] 立卡一致性对账未通过：%d 条。回执在而卡不在按 7ee6040 语义"
+            "补落卡片定义；请求单 state 滞后按台账事实回写 state/card 后重跑本检查。\n"
+            % len(problems))
         return 1
-    print("[任务闸门] 立卡一致性对账通过：回执 %d / 占位 %d / 台账卡 %d（孤儿占位告警 %d）"
-          % (len(receipts), len(placeholder_codes), len(cards), len(warnings)))
+    print("[任务闸门] 立卡一致性对账通过：回执 %d / 占位 %d / 台账卡 %d "
+          "（孤儿占位告警 %d / 请求单 %d，其中真未受理 %d）"
+          % (len(receipts), len(placeholder_codes), len(cards), len(warnings),
+             len(forms), len(pending)))
     return 0
 
 
@@ -1308,6 +1391,44 @@ def cmd_selftest(args):
     ]
     for name, ok in fmt_cases:
         cases.append((name, True, [] if ok else ["格式判据断言失败"]))
+
+    # ---- DX-167：请求单 state ↔ 台账事实对账（7 例）----
+    cr_cards = {
+        "DX-1": {"title": "已交付"},
+        "DX-2": {"title": "在办"},
+        "DX-3": {"title": "已弃"},
+    }
+    cr_base = {"DX-1": "done", "DX-2": "todo", "DX-3": "abandoned"}
+
+    def cr_problems(forms, receipts=None):
+        return card_request_state_problems(cr_cards, cr_base, forms, receipts or {})
+
+    p, pend = cr_problems({"a.md": {"state": "proposed", "card": "DX-1",
+                                    "title": "已交付"}})
+    cases.append(("请求单状态：proposed + 卡已 done → 报且指向 closed",
+                  True, [] if (len(p) == 1 and "closed" in p[0]) else ["未判为状态滞后"]))
+    p, pend = cr_problems({"a.md": {"state": "proposed", "card": "DX-3",
+                                    "title": "已弃"}})
+    cases.append(("请求单状态：proposed + 卡 abandoned → 报且指向 rejected",
+                  True, [] if (len(p) == 1 and "rejected" in p[0]) else ["未判为弃单"]))
+    p, pend = cr_problems({"a.md": {"state": "proposed", "card": "DX-2",
+                                    "title": "在办"}})
+    cases.append(("请求单状态：proposed + 卡 todo → 报且指向 approved",
+                  True, [] if (len(p) == 1 and "approved" in p[0]) else ["未判为已受理未回写"]))
+    p, pend = cr_problems({"a.md": {"state": "proposed", "title": "已交付"}})
+    cases.append(("请求单状态：无 card 字段按 title 精确匹配 → 仍报（44 份形态）",
+                  True, [] if len(p) == 1 else ["title 兜底失效"]))
+    p, pend = cr_problems({"a.md": {"state": "proposed", "title": "没人立过卡"}})
+    cases.append(("请求单状态：真未受理（无卡无回执）→ 不硬拦且计入 pending",
+                  True, [] if (not p and pend == ["a.md"]) else ["误报真未受理"]))
+    p, pend = cr_problems({"a.md": {"state": "approved", "card": "DX-1",
+                                    "title": "已交付"}})
+    cases.append(("请求单状态：approved 已受理 → 不报（终态未回写不属本判据）",
+                  True, [] if not p else ["误报已受理"]))
+    p, pend = cr_problems({"a.md": {"state": "closed", "card": "DX-1",
+                                    "title": "已交付"}})
+    cases.append(("请求单状态：closed 终态 → 不报",
+                  True, [] if not p else ["误报终态"]))
 
     failures = []
     for name, expect_ok, problems in cases:

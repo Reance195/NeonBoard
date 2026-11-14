@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-120
 stage: DX
 title: git-done 从自身 worktree 收尾后残留 detached 工作区：反查失效且无回收闭环
 author: maintainer-session-2026-11-06

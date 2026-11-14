@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: R21-1
 stage: R21
 tier: P4
 title: 多板切换：板选择器与建删改 + 切板上下文按板隔离

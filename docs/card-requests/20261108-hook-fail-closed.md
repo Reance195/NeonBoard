@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-147
 stage: DX
 tier: P1
 title: pre-commit 与 commit-msg 缺 python 时打一行警告就放行，与 pre-push 的 fail-closed 自相矛盾

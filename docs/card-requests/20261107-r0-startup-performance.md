@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: R0-13
 stage: R0
 tier: P0
 title: 启动性能收尾批次：建表延后 / 扫描后台化 / 字体回退不阻塞 / .qsb 预热

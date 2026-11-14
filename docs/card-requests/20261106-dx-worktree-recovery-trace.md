@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-112
 stage: DX
 title: 工作区回收静默失败无追踪：nbflow 临时区 Permission denied 与 .worktrees 未注册目录靠人肉发现
 author: agent-flowguard

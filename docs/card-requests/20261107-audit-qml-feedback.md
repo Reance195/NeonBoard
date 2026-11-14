@@ -1,5 +1,6 @@
 ---
-state: proposed
+state: closed
+card: DX-137
 stage: DX
 tier: P3
 title: QML 反馈链三处：QString.isEmpty() 必抛 TypeError、逾期判定跨年失效、热力图永不重绘

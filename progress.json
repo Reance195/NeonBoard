@@ -1,24 +1,6 @@
 {
     "items": [
         {
-            "code": "DX-167",
-            "completedAt": 0,
-            "createdAt": 1794636843,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-167",
-            "note": "",
-            "orderKey": 40448,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "立卡程序不回写请求单状态，44 份已完成卡的请求单永久挂 proposed 造成假积压",
-            "updatedAt": 1794636843
-        },
-        {
             "code": "DX-119",
             "completedAt": 0,
             "createdAt": 1793980819,
@@ -3316,6 +3298,24 @@
             "updatedAt": 1794634150
         },
         {
+            "code": "DX-167",
+            "completedAt": 1794638479,
+            "createdAt": 1794636843,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-167",
+            "note": "",
+            "orderKey": 40448,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "立卡程序不回写请求单状态，44 份已完成卡的请求单永久挂 proposed 造成假积压",
+            "updatedAt": 1794638479
+        },
+        {
             "code": "R0-14",
             "completedAt": 1794047953,
             "createdAt": 1794027516,
@@ -6595,6 +6595,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-14T14:14:03",
+    "updated": "2026-11-14T14:41:19",
     "version": 3
 }

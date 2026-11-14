@@ -7591,6 +7591,13 @@
       "title": "v0.1.9 发版：版本号递增与发布验收"
     }
   },
-  "claims": {},
+  "claims": {
+    "R5-16": {
+      "agent": "agent-r5-16",
+      "branch": "feature/agent-r5-16",
+      "head": "7eded7650789b20fcaf605e3e0fa922456e35a7a",
+      "claimedAt": 1794661106
+    }
+  },
   "version": 1
 }

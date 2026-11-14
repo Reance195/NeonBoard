@@ -7570,13 +7570,6 @@
       "title": "立卡程序不回写请求单状态，44 份已完成卡的请求单永久挂 proposed 造成假积压"
     }
   },
-  "claims": {
-    "DX-167": {
-      "agent": "agent-dx167",
-      "branch": "feature/agent-dx167",
-      "head": "10acd9e8ca46d2d5e911a09adf901fc29e87f6cd",
-      "claimedAt": 1794636936
-    }
-  },
+  "claims": {},
   "version": 1
 }

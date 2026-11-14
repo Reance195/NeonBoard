@@ -1,5 +1,21 @@
 {
-    "assignments": {},
-    "updatedAt": 1794638493,
+    "assignments": {
+        "R5-16": {
+            "agent": "agent-r5-16",
+            "branch": "feature/agent-r5-16",
+            "claimedAt": 1794661107,
+            "handoffFrom": "",
+            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
+            "progress": {
+                "done": 0,
+                "total": 0
+            },
+            "sessionId": "",
+            "stage": "开区",
+            "updatedAt": 1794661107,
+            "worktree": ".worktrees/agent-r5-16"
+        }
+    },
+    "updatedAt": 1794661107,
     "version": 1
 }

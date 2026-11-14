@@ -1,0 +1,13 @@
+{
+  "card": "R5-16",
+  "sha256": "151babcd6a76d7d0a006d06dc25c4dbb15ffada89370bc8dab1f7764cd233846",
+  "authorizedBy": "维护者会话 2026-11-14：『那就发个版』，授权 v0.1.9 发版并完整执行推送",
+  "form": "docs/card-requests/20261114-r5-release-v019.md",
+  "registeredAt": "2026-11-14T12:56:42+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/R5-16",
+    "sha": "05b1a475f7281cc9b7f27754b560e8de30785ce2"
+  }
+}

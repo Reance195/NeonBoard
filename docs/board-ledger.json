@@ -7549,14 +7549,14 @@
         "python scripts/register_board_cards.py --selftest 全过，且新增用例覆盖「立卡后回写 state: approved 与 card 字段」「--dry-run 不写请求单」「请求单已有 card 字段时只更新不重复插入」",
         "python scripts/task_gate.py selftest 全过，且新增用例覆盖「卡已 done 但请求单仍 proposed 判为状态滞后」「无 card 无回执的真未受理请求单不误报」",
         "python scripts/task_gate.py registrations 退出码 0，且能点名并硬拦状态滞后请求单",
-        "44 份已完成卡的请求单按标题精确匹配回写（done→state: closed，abandoned→state: rejected）并补齐 card 字段，R20-01 保持 proposed 不动",
+        "45 份已完成卡的请求单按标题精确匹配回写（done→state: closed，abandoned→state: rejected）并补齐 card 字段；卡号笔误的 20261107-r20-01.md 对齐为 R20-1 后同样回写 closed",
         "python scripts/check_scope.py --base origin/main 与 python scripts/check_path_refs.py --base origin/main 退出码 0",
         "pwsh -File scripts/verify.ps1 -ScriptOnly 退出码 0",
         "不新增脚本文件、不改 CI workflow、--no-verify 豁免面保持为空"
       ],
       "author": "maintainer-session-2026-11-14",
       "depends": [],
-      "evidence": "2026-11-14 承接上一轮治理（#DX-166）后的对账实录。上一轮把「45 份 state=proposed 且无回执的请求单」判为「无客观依据判定已处理、按 Z12 不动」，该判断有误：以标题与 docs/board-ledger.json 的 cards.title 做精确匹配，44 份无 card 字段的请求单全部 1.00 命中且 baseline 全为 done（唯一例外 DX-119 为 abandoned），即它们早已立卡并交付，只是请求单自身没写 card 字段。根因两处：① scripts/register_board_cards.py 立卡成功只在 registered/<code>.json 写回执（含 form 路径），从不回写请求单 frontmatter 的 state / card，导致「受理」这个事实在请求单上不可见；② scripts/task_gate.py registrations 只做「回执/占位 ↔ 台账 cards」双向对账，完全不读请求单 state，于是漂移无人发现、CI 全绿。上一轮按「有 card 字段 + 有回执 + 卡 done」自动回写的 27 份恰好漏掉这一整类。剩余 1 份 docs/card-requests/20261107-r20-01.md 写了 card: R20-01 但台账无卡、registered/ 无回执，是唯一真实未受理项（P4 定时任务插件）。假积压的代价：看板与请求单清单无法据 state 判断真实积压，维护者需逐份人肉反查台账才能分辨，且每次审计都会重复得出「45 张待办」的错误结论。",
+      "evidence": "2026-11-14 承接上一轮治理（#DX-166）后的对账实录。上一轮把「45 份 state=proposed 且无回执的请求单」判为「无客观依据判定已处理、按 Z12 不动」，该判断有误：以标题与 docs/board-ledger.json 的 cards.title 做精确匹配，44 份无 card 字段的请求单全部 1.00 命中且 baseline 全为 done（唯一例外 DX-119 为 abandoned），即它们早已立卡并交付，只是请求单自身没写 card 字段。根因两处：① scripts/register_board_cards.py 立卡成功只在 registered/<code>.json 写回执（含 form 路径），从不回写请求单 frontmatter 的 state / card，导致「受理」这个事实在请求单上不可见；② scripts/task_gate.py registrations 只做「回执/占位 ↔ 台账 cards」双向对账，完全不读请求单 state，于是漂移无人发现、CI 全绿。上一轮按「有 card 字段 + 有回执 + 卡 done」自动回写的 27 份恰好漏掉这一整类。复核补充：20261107-r20-01.md 写的 card: R20-01 是卡号笔误，台账实际为 R20-1（title 完全一致、baseline=done、回执在），故 45 份全部是假积压，不存在真未受理项；本次一并对齐回写。假积压的代价：看板与请求单清单无法据 state 判断真实积压，维护者需逐份人肉反查台账才能分辨，且每次审计都会重复得出「45 张待办」的错误结论。",
       "id": "DX-167",
       "note": "",
       "scope": [

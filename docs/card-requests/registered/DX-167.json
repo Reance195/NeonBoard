@@ -1,0 +1,13 @@
+{
+  "card": "DX-167",
+  "sha256": "783b5bdcdc34b2003cbca9fc64b6e89b8949107c25ee560591d06c46a7ba4a79",
+  "authorizedBy": "维护者会话 2026-11-14：『你选一个』，授权自主选定请求单并完整执行推送",
+  "form": "docs/card-requests/20261114-card-request-state-sync.md",
+  "registeredAt": "2026-11-14T06:14:02+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-167",
+    "sha": "d5a64edae1bad8da9d2be9c6c79dd0d0abcc1bc5"
+  }
+}

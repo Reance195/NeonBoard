@@ -7536,7 +7536,8 @@
         "form-*.md",
         "docs/card-requests/*",
         "docs/card-requests/registered/*.json",
-        "docs/agent-plugin-open-issues.md"
+        "docs/agent-plugin-open-issues.md",
+        "scripts/check_scope.py"
       ],
       "stage": "DX",
       "tier": "P2",

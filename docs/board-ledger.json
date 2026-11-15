@@ -7702,6 +7702,13 @@
       "title": "v0.1.10 发版：版本号递增、内置更新摘要与发布验收"
     }
   },
-  "claims": {},
+  "claims": {
+    "R5-17": {
+      "agent": "agent-r5-17",
+      "branch": "chore/release-v0110",
+      "head": "b14b7db07990990e6868fc5f260a19ac81958d6a",
+      "claimedAt": 1794749739
+    }
+  },
   "version": 1
 }

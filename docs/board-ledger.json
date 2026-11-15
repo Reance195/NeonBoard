@@ -7604,7 +7604,7 @@
       "depends": [],
       "evidence": "维护者 2026-11-15 会话指令「授权」，承接同一轮「同一个单子，为啥两个状态」的诊断与「数据要同源」的纠偏。只读查本机 board.db 实证：17 张卡 status 与 column_id 撕裂（15 张 done 挂 col-todo、2 张 done 挂 col-doing），全是带 #短号 的路线图导入卡；R6-04 卡 status=done、completed_at=2026-10-28 02:53:58，卡片却仍在待办列，详情徽章显示「已办结」而「所在列」显示「待办」。表层触发点是 TaskModel::upsertTask 已存在分支的 UPDATE 不含 column_id，但根因是 task.status 与 task.column_id 各存一份可写状态、写者分散在拖拽／撤销／RoadmapSync 导入／DataPort 导入等入口；docs/board-sync.md 第 10 行已写明「卡片状态是算出来的，不是手写的」，实现违背了它。补 columnForStatus 只是再打一次双写补丁，本卡按收敛处理：库内只留一个可写源。",
       "id": "DX-168",
-      "note": "",
+      "note": "收口口径：库内 task.column_id → board_column.status 是唯一可写状态，task.status 降为三个触发器维护的只读投影。Database::finalizeSchema 幂等落盘（一次性把存量 17 行撕裂数据按 status 补到对应列、保留 completed_at，meta 键 schema.status_single_source 记账）、每次启动把 status 投影回列状态并自检；不升 user_version，旧版程序仍可读库。TaskModel 的 upsert/update/commitMove/restoreSnapshot 四条 UPDATE 全部去掉 status 赋值，只写 column_id；外部三态在写库边界换算成目标状态的列，状态再从列反推。INSERT 受 NOT NULL 约束仍带一个从列反推的投影值，非独立事实。协议层 progress.json/导出/插件 API 三态不变。验收：本地全量 verify.ps1 通过（ctest 45/45、--selftest、--smoke、模块守卫、QML 致命告警 0）；三个测试二进制新增 6 个用例全部 PASS（tst_taskmodel 18/18、tst_roadmapsync 14/14、tst_databasemigration 8/8）；check_scope 与 check_path_refs 退出码 0。范围检查曾抓到 Database.h 越界，按契约不改 scope，改为 Database.cpp 文件内静态函数收口。",
       "scope": [
         "src/core/Database.cpp",
         "src/task/TaskModel.cpp",

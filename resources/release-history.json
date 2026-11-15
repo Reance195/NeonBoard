@@ -4,6 +4,18 @@
   "note": "随源码发布的可读版本摘要。客户端把 GitHub Releases 列表的元数据按版本号与这里合并，离线时直接展示本文件；发新版本时在数组头部追加一条即可。",
   "releases": [
     {
+      "version": "0.1.10",
+      "date": "2026-11-15",
+      "title": "更新中心与按钮样式同源",
+      "highlights": [
+        "标题栏新增「更新」按钮，更新中心可回看倒序版本历史",
+        "历史由 Releases 元数据、内置中文摘要与本地缓存三层合并，离线也可查看",
+        "全项目按钮抽为 NeonButton 单一实现，19 处原生 Button 统一深色主题",
+        "库内状态收敛为单一事实源：列决定状态，status 降为只读投影"
+      ],
+      "url": "https://github.com/Reance195/NeonBoard/releases/tag/v0.1.10"
+    },
+    {
       "version": "0.1.9",
       "date": "2026-11-14",
       "title": "流程治理与启动实测",

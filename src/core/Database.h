@@ -41,8 +41,6 @@ public:
     // 一张卡落在哪列由 task.column_id 决定；column_id 为空时按 status 落到默认列。
     // 列只是「同一状态的不同分段」，status 仍是 todo/doing/done 三态，
     // 完成判定 / 撤销 / 提醒等既有逻辑语义不变。
-    // DX-168 同源约束：column_id → board_column.status 是唯一可写状态，
-    // task.status 只是由触发器维护的派生投影，任何写入口都不许独立赋值。
     static constexpr int kSchemaVersion = 2;
 
     QString defaultBoardId() const;
@@ -95,9 +93,6 @@ private:
     bool ensureSchema(QString *error);
     bool createSchemaV1(QString *error);
     bool migrateToV2(QString *error);
-    // DX-168：库内状态同源的幂等落盘（存量纠正 + 触发器 + 启动自检）。
-    // 不升 user_version：触发器与纠正都挂在 finalizeSchema()，旧版程序仍能开库。
-    bool enforceSingleSourceStatus(QString *error);
     bool exec(const QString &sql, QString *error = nullptr);
     bool execQuery(const QString &sql, QString *error = nullptr);
     // 幂等补列：表已存在但没有该列时才 ALTER TABLE ADD COLUMN。

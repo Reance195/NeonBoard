@@ -7620,6 +7620,13 @@
       "title": "卡片状态同源：column_id 为唯一可写源，status 降为数据库派生的只读投影"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-168": {
+      "agent": "agent-dx168",
+      "branch": "fix/status-single-source",
+      "head": "fcc847d150d557367ec060cf0dcc7c9999c9e5f1",
+      "claimedAt": 1794721736
+    }
+  },
   "version": 1
 }

@@ -1,0 +1,13 @@
+{
+  "card": "DX-169",
+  "sha256": "c5ddacf5f1a1e3107fcaa8714484e8cb9538131f69a7f6f6f5a111c46136e161",
+  "authorizedBy": "维护者 2026-11-15 会话「按钮太丑」截图反馈，明确选择「抽通用组件全项目统一」+「按上次流程完整落地」",
+  "form": "docs/card-requests/20261115-button-theme-unify.md",
+  "registeredAt": "2026-11-15T09:22:40+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-169",
+    "sha": "e660873aba26526a9e16c3d2028e950c3bbe44b7"
+  }
+}

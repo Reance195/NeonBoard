@@ -1,22 +1,22 @@
 {
     "items": [
         {
-            "code": "DX-170",
-            "completedAt": 1794748207,
-            "createdAt": 1794743560,
+            "code": "R5-17",
+            "completedAt": 0,
+            "createdAt": 1794749627,
             "deleted": false,
             "dueAt": 0,
-            "id": "DX-170",
-            "note": "已完成：标题栏「＋ 新建」左侧新增「更新」TopToolButton（updateAvailable 时转强调态并挂 Theme.danger 提示点），点击打开更新中心；窗口侧只留 property alias 与一处组件实例化，开窗／刷新两行胶水。新建 qml/components/UpdateCenterDialog.qml（DialogShell lg 档）：上区当前版本／安装形态／上次检查／状态／上次更新未完成警示／最新版本摘要，操作区刷新检查、下载页、跳过此版本、自动检查开关，下区倒序版本历史（版本号、日期、中文变更要点、当前版本徽章、展开纯文本正文、Release 页跳转），含加载中／空态／离线／错误四态。历史三层来源：GitHub Releases 列表元数据 + resources/release-history.json（v0.1.0~v0.1.9 十条中文摘要，随源码进 QRC）+ 数据目录 update-history.json 缓存，离线也能显示完整历史并标注来源。UpdateManager 新增 releaseHistory／historyStatus／historyLoading 属性、静态纯函数 parseReleaseHistory／mergeReleaseHistory、refreshReleaseHistory()、openReleaseUrl()；过滤 draft／prerelease／非法版本号／*-sha256: 校验行／NeonBoard x.y.z 标题行，按 compareVersion 倒序去重限 30 条；远端正文一律 Text.PlainText，外链只放行 https + github.com／gitee.com 白名单。历史用独立 m_historyReply、独立缓存、8 秒超时，不碰 checkForUpdates／下载校验／增量更新／静默安装。tests/tst_updatemanager.cpp 新增 5 个解析／排序／过滤／合并用例全 PASS；CMakeLists.txt 三处登记（QT_RESOURCE_ALIAS、QML_FILES、QRC 资源），docs/auto-update.md 与 README.md 补说明。关键取舍：模块守卫 LINE_LIMITS 是硬闸门且 scripts/ 不在 scope，首轮全量验收 Main.qml／AboutPage.qml／BoardChrome.qml 分别超 27／97／29 行，因此回退关于页紧凑历史、主窗口删去 openUpdateCenter() 与 Loader 改 alias + 直接实例化、标题栏按钮压到 17 行并合并 5 段沿革注释，最终 BoardChrome 603／Main.qml 1504／AboutPage 214 行均落回上限内；关于页保持原样，历史统一由更新中心提供，避免同一功能两套视图漂移，文档同步改为该口径。验收：verify.ps1 全量档退出码 0（Release 增量编译 13/13 并链接、ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行、模块守卫 19 个文件均未超且 qml/ 55 个文件登记齐套、看板一致性 333 张卡通过）；check_qml_pitfalls 54 文件无陷阱、check_qml_warnings selftest 13 正例／8 反例、task_gate selftest 70 例、check_scope 14 个改动全在 scope 内、check_path_refs 新增 0 处失效、derive --check 通过。边界：不改发布流水线，内置摘要发新版时手工在 releases 数组头部追加一条，摘要生成自动化留后续卡。",
+            "id": "R5-17",
+            "note": "",
             "orderKey": 1024,
             "priority": 2,
-            "stage": "DX",
-            "status": "done",
+            "stage": "R5",
+            "status": "todo",
             "tags": [
-                "DX"
+                "R5"
             ],
-            "title": "更新中心：标题栏更新按钮 + 历史版本变更内容",
-            "updatedAt": 1794748207
+            "title": "v0.1.10 发版：版本号递增、内置更新摘要与发布验收",
+            "updatedAt": 1794749627
         },
         {
             "code": "R7-06",
@@ -180,6 +180,24 @@
             ],
             "title": "结卡证据闸门整轮连坐：一张无证据候选卡拒结全批，--close-explicit 人工通道也被击穿",
             "updatedAt": 1793988075
+        },
+        {
+            "code": "DX-170",
+            "completedAt": 1794748207,
+            "createdAt": 1794743560,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-170",
+            "note": "已完成：标题栏「＋ 新建」左侧新增「更新」TopToolButton（updateAvailable 时转强调态并挂 Theme.danger 提示点），点击打开更新中心；窗口侧只留 property alias 与一处组件实例化，开窗／刷新两行胶水。新建 qml/components/UpdateCenterDialog.qml（DialogShell lg 档）：上区当前版本／安装形态／上次检查／状态／上次更新未完成警示／最新版本摘要，操作区刷新检查、下载页、跳过此版本、自动检查开关，下区倒序版本历史（版本号、日期、中文变更要点、当前版本徽章、展开纯文本正文、Release 页跳转），含加载中／空态／离线／错误四态。历史三层来源：GitHub Releases 列表元数据 + resources/release-history.json（v0.1.0~v0.1.9 十条中文摘要，随源码进 QRC）+ 数据目录 update-history.json 缓存，离线也能显示完整历史并标注来源。UpdateManager 新增 releaseHistory／historyStatus／historyLoading 属性、静态纯函数 parseReleaseHistory／mergeReleaseHistory、refreshReleaseHistory()、openReleaseUrl()；过滤 draft／prerelease／非法版本号／*-sha256: 校验行／NeonBoard x.y.z 标题行，按 compareVersion 倒序去重限 30 条；远端正文一律 Text.PlainText，外链只放行 https + github.com／gitee.com 白名单。历史用独立 m_historyReply、独立缓存、8 秒超时，不碰 checkForUpdates／下载校验／增量更新／静默安装。tests/tst_updatemanager.cpp 新增 5 个解析／排序／过滤／合并用例全 PASS；CMakeLists.txt 三处登记（QT_RESOURCE_ALIAS、QML_FILES、QRC 资源），docs/auto-update.md 与 README.md 补说明。关键取舍：模块守卫 LINE_LIMITS 是硬闸门且 scripts/ 不在 scope，首轮全量验收 Main.qml／AboutPage.qml／BoardChrome.qml 分别超 27／97／29 行，因此回退关于页紧凑历史、主窗口删去 openUpdateCenter() 与 Loader 改 alias + 直接实例化、标题栏按钮压到 17 行并合并 5 段沿革注释，最终 BoardChrome 603／Main.qml 1504／AboutPage 214 行均落回上限内；关于页保持原样，历史统一由更新中心提供，避免同一功能两套视图漂移，文档同步改为该口径。验收：verify.ps1 全量档退出码 0（Release 增量编译 13/13 并链接、ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行、模块守卫 19 个文件均未超且 qml/ 55 个文件登记齐套、看板一致性 333 张卡通过）；check_qml_pitfalls 54 文件无陷阱、check_qml_warnings selftest 13 正例／8 反例、task_gate selftest 70 例、check_scope 14 个改动全在 scope 内、check_path_refs 新增 0 处失效、derive --check 通过。边界：不改发布流水线，内置摘要发新版时手工在 releases 数组头部追加一条，摘要生成自动化留后续卡。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "更新中心：标题栏更新按钮 + 历史版本变更内容",
+            "updatedAt": 1794748207
         },
         {
             "code": "DX-23",
@@ -5317,6 +5335,24 @@
             "updatedAt": 1793251716
         },
         {
+            "code": "DX-119",
+            "completedAt": 0,
+            "createdAt": 1793980819,
+            "deleted": true,
+            "dueAt": 0,
+            "id": "DX-119",
+            "note": "",
+            "orderKey": 80896,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9",
+            "updatedAt": 1794023716
+        },
+        {
             "code": "R10-04",
             "completedAt": 1793251716,
             "createdAt": 1793251716,
@@ -5405,6 +5441,24 @@
             ],
             "title": "R11 顶栏视觉一致性：令牌化 + 统一工具按钮",
             "updatedAt": 1793251716
+        },
+        {
+            "code": "DX-43",
+            "completedAt": 0,
+            "createdAt": 1793822375,
+            "deleted": true,
+            "dueAt": 0,
+            "id": "DX-43",
+            "note": "起因：每立一张卡，维护者须手工走完「临时分支 → 临时检出（agent 工作区禁改 cards）→ 手编 ledger JSON → 手写 chore(board) 授权/批次 → git-done 合并推送 → 清理」全套仪式（DX-40 即此流程），agent 侧还要等卡、领卡、再开区；需求队列 docs/card-requests/ 已有雏形但无人消费，请求积压。目标：scripts/card-approve.ps1 一键完成「受理队列请求/显式参数 → 查重 → 临时 worktree 立卡（授权/批次注入提交体）→ git-done 合并推送 → 回收 →（可选 -Claim）接 agent-init 领用开区」，维护者只需在会话中批准；宪章仅要求授权行不可省（位置不是凭证），仪式全部可自动化。看板 UI 需求面板/批准按钮为第二阶段，另立卡走全量验收。",
+            "orderKey": 83968,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用",
+            "updatedAt": 1794023716
         },
         {
             "code": "DX-129",
@@ -5801,6 +5855,24 @@
             ],
             "title": "R9 Agent Provider 扩展点：插件声明 profile + 三层合并",
             "updatedAt": 1793251716
+        },
+        {
+            "code": "R0-12",
+            "completedAt": 0,
+            "createdAt": 1793825191,
+            "deleted": true,
+            "dueAt": 0,
+            "id": "R0-12",
+            "note": "触发证据：pitfalls 7.6 与 R0-11 诊断定案：CI 冷启动 6010ms 中 CPU 仅 702ms，88% 墙钟在等 35 个 DLL 与 7 套 QML 样式的冷 I/O，秒级收益在打包侧（deploy 只随 Basic + CMake DELAYLOAD 链接）。R0-11 已结卡，治本改动不在其 scope，经维护者批准另立新卡。\n\n## 目标\n发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头\n\n## 验收\npwsh -File scripts/deploy.ps1 出包成功，dist 的 qml 样式目录仅剩 Basic（Fusion/Imagine/Material/Universal/FluentWinUI3/Windows 不再随包）;python scripts/check_dist.py --dir dist/NeonBoard 通过;dist NeonBoard NeonBoard.exe --selftest 退出码 0 且 --smoke 退出码 0;冷启动对比：BOOT loaded 分段与 startupCpuMs 记录进卡片 note，CPU 口径不回归;pwsh -File scripts/verify.ps1 全量通过\n\n## 边界\nscripts/deploy.ps1;CMakeLists.txt;scripts/check_dist.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
+            "orderKey": 86016,
+            "priority": 2,
+            "stage": "R0",
+            "status": "done",
+            "tags": [
+                "R0"
+            ],
+            "title": "发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头",
+            "updatedAt": 1794023716
         },
         {
             "code": "DX-102",
@@ -6611,62 +6683,8 @@
             ],
             "title": "按钮样式同源：抽 NeonButton 单一实现，收口全项目 19 处原生 Button",
             "updatedAt": 1794742838
-        },
-        {
-            "code": "DX-119",
-            "completedAt": 0,
-            "createdAt": 1793980819,
-            "deleted": true,
-            "dueAt": 0,
-            "id": "DX-119",
-            "note": "",
-            "orderKey": 80896,
-            "priority": 2,
-            "stage": "DX",
-            "status": "done",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9",
-            "updatedAt": 1794023716
-        },
-        {
-            "code": "DX-43",
-            "completedAt": 0,
-            "createdAt": 1793822375,
-            "deleted": true,
-            "dueAt": 0,
-            "id": "DX-43",
-            "note": "起因：每立一张卡，维护者须手工走完「临时分支 → 临时检出（agent 工作区禁改 cards）→ 手编 ledger JSON → 手写 chore(board) 授权/批次 → git-done 合并推送 → 清理」全套仪式（DX-40 即此流程），agent 侧还要等卡、领卡、再开区；需求队列 docs/card-requests/ 已有雏形但无人消费，请求积压。目标：scripts/card-approve.ps1 一键完成「受理队列请求/显式参数 → 查重 → 临时 worktree 立卡（授权/批次注入提交体）→ git-done 合并推送 → 回收 →（可选 -Claim）接 agent-init 领用开区」，维护者只需在会话中批准；宪章仅要求授权行不可省（位置不是凭证），仪式全部可自动化。看板 UI 需求面板/批准按钮为第二阶段，另立卡走全量验收。",
-            "orderKey": 83968,
-            "priority": 2,
-            "stage": "DX",
-            "status": "done",
-            "tags": [
-                "DX"
-            ],
-            "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用",
-            "updatedAt": 1794023716
-        },
-        {
-            "code": "R0-12",
-            "completedAt": 0,
-            "createdAt": 1793825191,
-            "deleted": true,
-            "dueAt": 0,
-            "id": "R0-12",
-            "note": "触发证据：pitfalls 7.6 与 R0-11 诊断定案：CI 冷启动 6010ms 中 CPU 仅 702ms，88% 墙钟在等 35 个 DLL 与 7 套 QML 样式的冷 I/O，秒级收益在打包侧（deploy 只随 Basic + CMake DELAYLOAD 链接）。R0-11 已结卡，治本改动不在其 scope，经维护者批准另立新卡。\n\n## 目标\n发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头\n\n## 验收\npwsh -File scripts/deploy.ps1 出包成功，dist 的 qml 样式目录仅剩 Basic（Fusion/Imagine/Material/Universal/FluentWinUI3/Windows 不再随包）;python scripts/check_dist.py --dir dist/NeonBoard 通过;dist NeonBoard NeonBoard.exe --selftest 退出码 0 且 --smoke 退出码 0;冷启动对比：BOOT loaded 分段与 startupCpuMs 记录进卡片 note，CPU 口径不回归;pwsh -File scripts/verify.ps1 全量通过\n\n## 边界\nscripts/deploy.ps1;CMakeLists.txt;scripts/check_dist.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 86016,
-            "priority": 2,
-            "stage": "R0",
-            "status": "done",
-            "tags": [
-                "R0"
-            ],
-            "title": "发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头",
-            "updatedAt": 1794023716
         }
     ],
-    "updated": "2026-11-15T19:56:39",
+    "updated": "2026-11-15T21:33:47",
     "version": 3
 }

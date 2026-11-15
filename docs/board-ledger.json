@@ -351,7 +351,8 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "R5-17": "todo"
   },
   "cards": {
     "DX-01": {
@@ -7677,6 +7678,28 @@
       "stage": "DX",
       "tier": "P4",
       "title": "更新中心：标题栏更新按钮 + 历史版本变更内容"
+    },
+    "R5-17": {
+      "acceptance": [
+        "CMakeLists.txt 的 project(NeonBoard VERSION) 递增为 0.1.10，与 tag v0.1.10 一致（release.yml 标签-源码版本一致性校验通过），仓库不新增版本字面量",
+        "resources/release-history.json 数组头部追加 0.1.10 条目（version/date/title/highlights/url），离线内置摘要仍能被 parseReleaseHistory 解析，tst_updatemanager 用例不回归",
+        "pwsh -File scripts/verify.ps1 全量档通过（CMakeLists.txt 属代码路径）",
+        "tag v0.1.10 推送成功且指向 origin/main 上的合并提交（pre-push 标签闸门放行）",
+        "CI release run 全绿，GitHub Release 资产齐全（NeonBoard-Setup / portable.zip / delta.zip / update.json）",
+        "release.yml 回写 update.json 至 0.1.10 并落地 origin/main（客户端 raw 读取可见新版本）"
+      ],
+      "author": "maintainer-session-2026-11-15",
+      "depends": [],
+      "evidence": "维护者 2026-11-15 会话指令「发个版」，承接上一轮说明「本机装的是 0.1.9，DX-169/DX-170 只进了 main，还没打 tag；要看效果需本地重构建或等 v0.1.10 发版」。v0.1.9 之后 origin/main 新增 54 个提交，含状态同源（DX-168）、按钮样式同源 NeonButton（DX-169）、更新中心与版本历史（DX-170）三张功能卡，按语义化版本递增 patch 号到 0.1.10。版本号唯一来源是 CMakeLists.txt 的 project(NeonBoard VERSION)，release.yml 第一步有「标签版本 == 源码版本」硬校验。DX-170 建立的维护约定要求发新版时在 resources/release-history.json 的 releases 数组头部追加一条中文摘要，否则更新中心里 0.1.10 只剩 Releases API 的校验值正文、没有可读变更要点。按先例（R5-03/08/10/13/14/15/16 每版一张发版卡）立卡。",
+      "id": "R5-17",
+      "note": "",
+      "scope": [
+        "CMakeLists.txt",
+        "resources/release-history.json"
+      ],
+      "stage": "R5",
+      "tier": "P3",
+      "title": "v0.1.10 发版：版本号递增、内置更新摘要与发布验收"
     }
   },
   "claims": {},

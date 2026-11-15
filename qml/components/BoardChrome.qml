@@ -167,6 +167,24 @@ MouseArea {
             description: "新建任务"
             onClicked: hostWin.openTaskComposer("todo")
         }
+
+        // DX-170：标题栏更新入口；发现新版本时转强调态并挂提示点，点击打开更新中心。
+        TopToolButton {
+            id: updateCenterButton
+            anchors { right: newTaskButton.left; rightMargin: 8; verticalCenter: parent.verticalCenter }
+            text: "更新"
+            emphasis: updateManager.updateAvailable
+            description: updateManager.updateAvailable ? "发现新版本，打开更新中心" : "打开更新中心，查看版本历史"
+            onClicked: { hostWin.updateCenter.open(); hostWin.updateCenter.refresh() }
+
+            Rectangle {
+                visible: updateManager.updateAvailable
+                anchors { right: parent.right; top: parent.top; rightMargin: -3; topMargin: -3 }
+                width: 7; height: 7; radius: 4
+                color: Theme.danger
+                border { width: 1; color: Theme.panel }
+            }
+        }
     }
 
     RowLayout {
@@ -189,13 +207,9 @@ MouseArea {
                 anchors.margins: 16
                 spacing: 8
 
-                // R11-8：侧栏顶部直接是导航 —— 原先这里有一块「工作台 / PERSONAL
-                // WORKBENCH」标题，与主区顶栏的「工作台」重复且零信息量（约 60 px）。
+                // R11-8：侧栏顶部直接是导航（原 PERSONAL WORKBENCH 标题与主区顶栏重复）。
                 Repeater {
-                    // 「队列」所有实例都有（队列是本机运行态，沙箱实例同样要能看自己的队列）；
-                    // 「预览」只在主线实例出现：agent 沙箱实例里再嵌套预览入口只会混淆。
-                    // R11-8：设置移出侧栏，改标题栏右上角齿轮按钮 —— 它是低频全局操作，
-                    // 占侧栏一整行不划算；导航下标相应前移一位（插件 1 / 队列 2 / 预览 3）。
+                    // R11-8：设置移出侧栏改标题栏齿轮；队列所有实例都有，预览只在主线实例出现。
                     model: previewHub.hostInstance
                            ? ["看板", "插件", "队列", "预览"]
                            : ["看板", "插件", "队列"]
@@ -269,10 +283,7 @@ MouseArea {
                     Layout.topMargin: 4
                 }
 
-                // R11-8：侧栏不再常驻插件库卡片 —— 这块「插件库 8 + 已装列表 +
-                // 刷新市场 / 重新扫描 / 打开目录 / 详情」与「插件」导航点开的插件库
-                // 面板是同一份信息出现两处。浏览 / 安装 / 卸载归插件库面板，
-                // 插件目录 / 市场源 / 重新扫描归设置 → 插件（见 R11-9）。
+                // R11-8：插件库信息不重复进侧栏，浏览归插件面板、目录与市场源归设置（R11-9）。
 
                 Text {
                     text: "SQLite · " + database.taskCount + " 条任务"
@@ -297,10 +308,7 @@ MouseArea {
             // R11-8：8 → 6，顶区（标题行 / 工具行 / 横幅）三段各省 2 px
             spacing: 6
 
-            // R11-01：顶区信息层级重排。
-            // 原先这里是一行 48 px 高的「大标题 + 三块统计盒」，顶区垂直占用近 190 px，
-            // 看板被压扁。现在标题降到 18 px 且与副标题同行，统计改成单行状态带，
-            // 整行高度从 48 px 降到 28 px —— 省下的高度直接还给三列看板。
+            // R11-01：大标题 + 统计盒（48 px）压成标题/副标题同行 + 单行状态带（28 px），省给看板。
             RowLayout {
                 Layout.fillWidth: true
                 Layout.topMargin: 8
@@ -400,13 +408,8 @@ MouseArea {
                 }
             }
 
-            // R11-8：工具行三合一 —— 项目切换 / 里程碑条 / 搜索框并成一行，
-            // 顶区竖直占用因此从 264 px 收到 147 px（热力图收起态）。
-            //
-            // R10-05 的教训仍然成立：阶段条不能被挤成 0 宽（那次实测三个项目 chip
-            // + 搜索框 + 阶段条在 980 px 里放不下，只剩「全部」一个胶囊）。这里的做法是
-            // 给三者都留下限宽度，阶段条拿剩余空间、窄窗口下横向滚动（R11-03 的
-            // Flickable），而不是被压扁变形。
+            // R11-8：项目切换 / 里程碑条 / 搜索框并一行（264 → 147 px）；R10-05 教训：
+            // 三者都要留下限宽度，阶段条拿剩余空间并在窄窗口横向滚动（R11-03 Flickable）。
             RowLayout {
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
@@ -505,12 +508,8 @@ MouseArea {
                 }
             }
 
-            // R11-13：筛选态空态要浮在看板正中间，但 EmptyState 原本挂在窗口级容器
-            // （本 Rectangle）上，而 boardRow 是它的三层后代 —— QML 只允许锚到父级或兄弟，
-            // anchors.centerIn: boardRow 必然失效：引擎每次启动打一条告警并忽略这条锚定，
-            // 空态面板停在窗口左上角 (0,0)，而不是看板正中。
-            // 这里给看板区包一层普通 Item，让 EmptyState 与 boardRow 变成同一父级下的兄弟，
-            // 锚定恢复合法；列的边距 / 间距数值一律沿用原值，布局不变。
+            // R11-13：QML 只许锚父级/兄弟，给看板区包一层 Item，让 EmptyState 与 boardRow
+            // 成为兄弟，anchors.centerIn 才合法（否则锚定被忽略、空态跑到窗口左上角）。
             Item {
                 id: boardArea
                 Layout.fillWidth: true

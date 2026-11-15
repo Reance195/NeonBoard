@@ -251,7 +251,7 @@ ApplicationWindow {
         closeAllPanels()
         projectMapLoader.active = true
     }
-
+    property alias updateCenter: updateCenterDialog
     // 执行前确认（R6-03）：只展示快照，真正的进程启动在 R6-04 接入
     function openExecConfirm(payload) {
         execConfirmDialog.taskId = payload.taskId || ""
@@ -1294,7 +1294,7 @@ ApplicationWindow {
         sourceComponent: taskEditorComponent
         onLoaded: item.hostWin = window
     }
-
+    UpdateCenterDialog { id: updateCenterDialog; hostWindow: window }
     Loader {
         id: themeMarketLoader
         active: false

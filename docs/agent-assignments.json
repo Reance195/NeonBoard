@@ -1,5 +1,21 @@
 {
-    "assignments": {},
-    "updatedAt": 1794737667,
+    "assignments": {
+        "DX-170": {
+            "agent": "agent-dx170",
+            "branch": "feature/update-center-history",
+            "claimedAt": 1794744166,
+            "handoffFrom": "",
+            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
+            "progress": {
+                "done": 0,
+                "total": 0
+            },
+            "sessionId": "",
+            "stage": "开区",
+            "updatedAt": 1794747600,
+            "worktree": ".worktrees/agent-dx170"
+        }
+    },
+    "updatedAt": 1794747600,
     "version": 1
 }

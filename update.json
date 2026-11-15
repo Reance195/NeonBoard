@@ -1,29 +1,29 @@
 {
   "version": 1,
   "channel": "stable",
-  "latest": "0.1.9",
-  "publishedAt": "2026-11-14",
-  "notes": "完整变更记录：https://github.com/Reance195/NeonBoard/commits/v0.1.9",
+  "latest": "0.1.10",
+  "publishedAt": "2026-11-15",
+  "notes": "完整变更记录：https://github.com/Reance195/NeonBoard/commits/v0.1.10",
   "htmlUrl": "https://github.com/Reance195/NeonBoard/releases/latest",
   "artifacts": [
     {
       "kind": "delta",
-      "url": "https://github.com/Reance195/NeonBoard/releases/download/v0.1.9/delta.zip",
-      "sha256": "087f9f5e9accfee03b87c3b0256dab756768270f7d25f066c454d8e39807ce70",
-      "size": 398943,
-      "fromVersion": "0.1.8"
+      "url": "https://github.com/Reance195/NeonBoard/releases/download/v0.1.10/delta.zip",
+      "sha256": "8d822a3c75b685219feded65a59e0d9caac500faa6998986a6e98f155b4f64e6",
+      "size": 396586,
+      "fromVersion": "0.1.9"
     },
     {
       "kind": "setup",
-      "url": "https://github.com/Reance195/NeonBoard/releases/download/v0.1.9/NeonBoard-Setup-0.1.9.exe",
-      "sha256": "ee8b1bf1f09009d1b2ddb925c60adb7485b20fb072f687f3bfebcc393bc5028b",
-      "size": 48253506
+      "url": "https://github.com/Reance195/NeonBoard/releases/download/v0.1.10/NeonBoard-Setup-0.1.10.exe",
+      "sha256": "8bb728dd2d4247906c8f04432362d998f56cdc6374774beb4db53185078b866c",
+      "size": 48291493
     },
     {
       "kind": "portable",
-      "url": "https://github.com/Reance195/NeonBoard/releases/download/v0.1.9/NeonBoard-0.1.9-portable.zip",
-      "sha256": "1e9311a1cca0d2cb94e6abd8e8c6e570d7409be540b8f3f43ec75e3419c99218",
-      "size": 60477649
+      "url": "https://github.com/Reance195/NeonBoard/releases/download/v0.1.10/NeonBoard-0.1.10-portable.zip",
+      "sha256": "e03051c970e5f93756705cda49b3f16c54b04c39bdb28709d08eeddb2125965c",
+      "size": 60542875
     }
   ]
 }

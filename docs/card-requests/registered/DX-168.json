@@ -1,0 +1,13 @@
+{
+  "card": "DX-168",
+  "sha256": "00ac1a95cf4322f7074965e8182f478962788ff82b0d1d70a0150494cce6c149",
+  "authorizedBy": "维护者 2026-11-15 会话「授权」",
+  "form": "docs/card-requests/20261115-status-single-source.md",
+  "registeredAt": "2026-11-15T05:44:29+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-168",
+    "sha": "174a1c68d906054bc629e086a13bd80855060422"
+  }
+}

@@ -1,77 +1,76 @@
 {
     "items": [
         {
-            "code": "DX-119",
+            "code": "DX-170",
             "completedAt": 0,
-            "createdAt": 1793980819,
-            "deleted": true,
-            "dueAt": 0,
-            "id": "DX-119",
-            "note": "",
-            "orderKey": 80896,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "nbflow approve 立卡链路被 DX-98 回执闸门打破：board-apply 提交被 commit-msg 拒且报错被缓冲吞掉只剩退出码 9",
-            "updatedAt": 1794023716
-        },
-        {
-            "code": "DX-43",
-            "completedAt": 0,
-            "createdAt": 1793822375,
-            "deleted": true,
-            "dueAt": 0,
-            "id": "DX-43",
-            "note": "起因：每立一张卡，维护者须手工走完「临时分支 → 临时检出（agent 工作区禁改 cards）→ 手编 ledger JSON → 手写 chore(board) 授权/批次 → git-done 合并推送 → 清理」全套仪式（DX-40 即此流程），agent 侧还要等卡、领卡、再开区；需求队列 docs/card-requests/ 已有雏形但无人消费，请求积压。目标：scripts/card-approve.ps1 一键完成「受理队列请求/显式参数 → 查重 → 临时 worktree 立卡（授权/批次注入提交体）→ git-done 合并推送 → 回收 →（可选 -Claim）接 agent-init 领用开区」，维护者只需在会话中批准；宪章仅要求授权行不可省（位置不是凭证），仪式全部可自动化。看板 UI 需求面板/批准按钮为第二阶段，另立卡走全量验收。",
-            "orderKey": 83968,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "一键立卡发区：card-approve.ps1 自动完成立卡仪式与开区领用",
-            "updatedAt": 1794023716
-        },
-        {
-            "code": "R0-12",
-            "completedAt": 0,
-            "createdAt": 1793825191,
-            "deleted": true,
-            "dueAt": 0,
-            "id": "R0-12",
-            "note": "触发证据：pitfalls 7.6 与 R0-11 诊断定案：CI 冷启动 6010ms 中 CPU 仅 702ms，88% 墙钟在等 35 个 DLL 与 7 套 QML 样式的冷 I/O，秒级收益在打包侧（deploy 只随 Basic + CMake DELAYLOAD 链接）。R0-11 已结卡，治本改动不在其 scope，经维护者批准另立新卡。\n\n## 目标\n发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头\n\n## 验收\npwsh -File scripts/deploy.ps1 出包成功，dist 的 qml 样式目录仅剩 Basic（Fusion/Imagine/Material/Universal/FluentWinUI3/Windows 不再随包）;python scripts/check_dist.py --dir dist/NeonBoard 通过;dist NeonBoard NeonBoard.exe --selftest 退出码 0 且 --smoke 退出码 0;冷启动对比：BOOT loaded 分段与 startupCpuMs 记录进卡片 note，CPU 口径不回归;pwsh -File scripts/verify.ps1 全量通过\n\n## 边界\nscripts/deploy.ps1;CMakeLists.txt;scripts/check_dist.py;docs/pitfalls.md\n\n## 输入\n基线 origin/main；依赖：\n\n## 产出\n合并提交 body 四段（变更 / 验收 / 影响 / 卡片）",
-            "orderKey": 86016,
-            "priority": 2,
-            "stage": "R0",
-            "status": "todo",
-            "tags": [
-                "R0"
-            ],
-            "title": "发布包瘦样式：deploy 只随 Basic 样式，砍冷启动冷 I/O 大头",
-            "updatedAt": 1794023716
-        },
-        {
-            "code": "R0-01",
-            "completedAt": 1792568900,
-            "createdAt": 1792568900,
+            "createdAt": 1794743560,
             "deleted": false,
             "dueAt": 0,
-            "id": "1c015b79-5b10-4e3b-a26c-55cde4d9b1f4",
-            "note": "Theme/Motion 双单例；霓虹青/赛博紫/落日橙/深海蓝/森野绿/极夜灰；全应用含霓虹背景一起渐变。持久化走 C++ UiSettings。",
+            "id": "DX-170",
+            "note": "",
             "orderKey": 1024,
-            "priority": 3,
-            "stage": "R0",
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "更新中心：标题栏更新按钮 + 历史版本变更内容",
+            "updatedAt": 1794743560
+        },
+        {
+            "code": "R7-06",
+            "completedAt": 1794636629,
+            "createdAt": 1793123355,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "1ecfbbd3-e038-4e3e-aaa0-c5f1ad8380dd",
+            "note": "目标：task_run.cost_ms 在 run 结束写入（含 running 时长，不含排队）；TaskRunStore 提供 totalCost(cardId) 聚合；执行面板（R6-06）与卡面显示「本卡累计耗时 X」；token 计量留接口（开放问题 #6，后续）。",
+            "orderKey": 0,
+            "priority": 2,
+            "stage": "R7",
             "status": "done",
             "tags": [
-                "R0",
-                "主题"
+                "R7"
             ],
-            "title": "主题引擎 v1：6 套预设 + 换色渐变",
-            "updatedAt": 1792568900
+            "title": "R7 成本账",
+            "updatedAt": 1794636629
+        },
+        {
+            "code": "DX-03",
+            "completedAt": 1794743560,
+            "createdAt": 1793125542,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "ad91032e-f7aa-411b-92e2-5c1c8d113808",
+            "note": "起因（2026-10-28 合并 DX-01/DX-02 时的真实经过）：两条规则互相打架 —— git-done 的领用闸门要求「一个分支只能领一张卡」（check_claim_refs 发现多个领用短号即失败），而 task_gate push 规则是逐提交校验 refs/claims/<卡号>。结果：一条分支装两张卡时，第二张卡在分支上无处领用；本次只能把 DX-02 的占位建在一次性分支上、推完再释放，属于绕行而非正解。同一根因还导致领用提交被迫排在实现提交之后（方向倒置：先写代码后领用），两道闸门都查不出这种倒置。目标二选一：A) claims 列表化 —— 一个分支可登记多张卡，闸门按「分支 ∪ 提交」校验且仍能防双领（改动面小：check_claim_refs 去掉唯一限制 + claims 改成列表 + agent-init 支持多次领用）；B) 新增 scripts/split-card.ps1 —— 把既有分支按卡号拆成单卡分支（重建该卡的提交与台账差异并补领用），更贴合「一卡一分支」原意但要处理台账冲突。不论选哪条，都要能回答「一分支多卡是否合法」这一个问题，而不是靠绕。",
+            "orderKey": 0,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "DX 一分支多卡：领用占位列表化，或提供从既有分支拆卡的脚本",
+            "updatedAt": 1794743560
+        },
+        {
+            "code": "R6-02",
+            "completedAt": 1793098683,
+            "createdAt": 1793085737,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "0921b037-54ca-45e4-ab4a-7c82f484be92",
+            "note": "起因：执行器需要可追溯的 run 身份与「同卡不并发」的锁，而 task 表不能加列、user_version 不能升。目标：新增侧表 task_run（id / task_id / agent / cwd / workflow / status / attempt / 时间戳 / heartbeat / exit_code / last_error / log_path / scope_violation）+ 同卡活跃 run 的部分唯一索引，配套 TaskRunStore 做创建/心跳/结束/孤儿回收，启动时把心跳超 90 秒的 running 判为 blocked（进程中断）。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "R6",
+            "status": "done",
+            "tags": [
+                "R6"
+            ],
+            "title": "R6 运行记录侧表与任务锁",
+            "updatedAt": 1793098683
         },
         {
             "code": "R0-02",
@@ -93,13 +92,13 @@
             "updatedAt": 1792581455
         },
         {
-            "code": "R5-02",
-            "completedAt": 1793015304,
-            "createdAt": 1793013568,
+            "code": "R5-05",
+            "completedAt": 1794743560,
+            "createdAt": 1793098683,
             "deleted": false,
             "dueAt": 0,
-            "id": "534b6730-a829-4881-a5c7-ff33ba67ef5b",
-            "note": "已完成 4 / 待做 0。起因：v0.1.0 发布后 --check-update 恒报「检查超时」，但仓库、Release、update.json 全部正常 —— 属客户端韧性缺陷。① 定位：三源串行，单源超时 10 秒、--check-update 总预算 15 秒，raw.githubusercontent.com 挂住吃满 10 秒后，排最后的 GitHub Releases API 只剩约 4 秒，被总超时砍掉；只把源指向 API 时立刻返回 uptodate，反证链路本身没问题。② 修复：startRequest 为 Manifest 类请求挂 6 秒看门狗（到点 abort，按网络错误顺延下一源，产物下载不设限），总预算提到 UpdateManager::kDefaultCheckTimeoutMs = 25 秒，main.cpp 不再写死 15000；取消原因显示为「连接超时（6 秒无响应）」而不是 Operation canceled。③ 连带修掉校验值错位：update.json 的 notes 不再拼 setup-sha256/portable-sha256（回退路径读的是 Release 正文，根本拿不到清单，塞在 notes 只会在设置面板里被当更新日志显示），改由 release.yml 生成 dist/RELEASE-NOTES.md 并以 body_path 提交，使 API 回退路径下载后仍能校验。④ 验证：ctest 9/9 通过（含 tst_updatemanager 18 例）、--selftest OK；默认源（gitee raw → github raw → API）实测 19 秒返回 CHECK-UPDATE uptodate current 0.1.0 latest 0.1.0，此前恒定超时。未实跑项：API 回退路径的「有新版→下载→校验」全链路，需下一个版本发布后才能验（本版正文才刚开始带校验值）。",
+            "id": "3c520d5a-a9b7-4140-8040-17e2bca8b9e8",
+            "note": "起因：安装包的桌面与开始菜单快捷方式都指向 NeonBoardHost.exe（installer/neonboard.iss 的 [Icons]），但 CMakeLists.txt 里 qt_add_executable(NeonBoardHost ...) 的源列表没带 resources/neonboard.rc，exe 里连 RT_GROUP_ICON 资源都没有（EnumResourceNamesW 返回失败），Windows 只能退回通用 exe 图标；同一目录的 NeonBoard.exe 因为带了 .rc 所以正常。目标：给 NeonBoardHost 源列表追加 resources/neonboard.rc，让 Host 自身带图标，桌面、开始菜单、postinstall 启动项一并恢复。不改 installer：升级安装会重建 [Icons]，快捷方式随新 Host 自愈；已在本机手工设过 IconLocation 的桌面项不受影响。",
             "orderKey": 1024,
             "priority": 2,
             "stage": "R5",
@@ -107,8 +106,26 @@
             "tags": [
                 "R5"
             ],
-            "title": "R5 更新检查韧性：逐源超时不吃光总预算 + 回退路径的校验值兜底",
-            "updatedAt": 1793015304
+            "title": "R5 安装快捷方式无图标：Host 未内嵌应用图标",
+            "updatedAt": 1794743560
+        },
+        {
+            "code": "R5-04",
+            "completedAt": 1793202572,
+            "createdAt": 1793098683,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "4c95eebc-891c-4196-9fb9-b88a0f6cf41f",
+            "note": "起因：R5-02 把单源超时从 10 秒压到 6 秒、总预算从 15 秒提到 25 秒后，默认源自检仍偶发「检查更新失败：连接超时」—— 三源串行时，raw.githubusercontent.com 常年只挂不答吃满 6 秒，GitHub API 单次 5-7 秒，最坏情况 6+6+7=19 秒逼近总预算，一旦某个源抖动即超时。根治方向：候选源并行竞速，所有源同时发起请求，首个成功者胜出，其余立即取消。目标：① UpdateManager::checkForUpdates 改为并发请求所有候选源（QNetworkAccessManager 多次 get）；② 任一源返回有效清单即胜出，取消其余请求（QNetworkReply::abort）；③ 全部失败才报错误，按失败原因优先级取最严重的；④ 保留单源看门狗（防单个请求挂死），但总预算改为「所有源最慢那个的超时」而非串行累加；⑤ 命令行 --check-update 与设置面板检查按钮行为一致。验收：默认源（gitee raw → github raw → API）自检稳定 < 8 秒（此前偶发 19 秒超时）；断网时仍走缓存降级；单测覆盖并发竞速场景（mock 一慢一快两个源，快的胜出）。",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "R5",
+            "status": "done",
+            "tags": [
+                "R5"
+            ],
+            "title": "R5 更新检查并行竞速：候选源并发请求取首个成功",
+            "updatedAt": 1793202572
         },
         {
             "code": "R1-01",
@@ -127,42 +144,6 @@
             ],
             "title": "R1 提醒 + 逾期提醒",
             "updatedAt": 1792845600
-        },
-        {
-            "code": "R6-01",
-            "completedAt": 1793098683,
-            "createdAt": 1793085737,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "90651d45-9baf-4c3a-93a6-2a8d2ff981b5",
-            "note": "起因：task_exec 侧表已能存 cwd / timeout_min / max_attempts，但任务编辑弹窗只暴露 goal / acceptance / scope / agent / workflow，执行参数填不全也就无法派发。目标：补齐三项编辑能力（cwd 需校验为存在的绝对路径），把编辑弹窗拆出「任务 / 执行」两个页签，并在执行页签底部给出执行入口与最小集提示。",
-            "orderKey": 1024,
-            "priority": 2,
-            "stage": "R6",
-            "status": "done",
-            "tags": [
-                "R6"
-            ],
-            "title": "R6 执行定义收尾：cwd / 超时 / 轮数可编辑 + 执行页签",
-            "updatedAt": 1793098683
-        },
-        {
-            "code": "R5-01",
-            "completedAt": 1793010438,
-            "createdAt": 1793006573,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "99162cf1-b09a-4841-a449-1c2e91541aca",
-            "note": "已完成 9 / 待做 0。① 清单拉取：update.json 主源（Gitee raw → GitHub raw 候选）+ GitHub Releases API 兜底，清单缓存 6 小时、全源失败时离线降级；② 语义化版本比较，容忍 v 前缀与预发布后缀（0.2.0-beta.1 < 0.2.0）；③ 下载后先验 SHA-256 再落地，清单未提供校验值即中止并明确报错，绝不静默放行；④ 安装版（注册表 AppId {8E3B6A2C-…}_is1 判定）走 /VERYSILENT /NORESTART 静默升级；⑤ 便携版下载 zip → 解压 → 生成纯 ASCII 自更新脚本 → 主程序退出后 robocopy 覆盖并重新拉起；⑥ 三个入口：设置面板分区（检查 / 立即更新 / 下载页 / 跳过此版本 / 自动检查开关）、命令面板「检查软件更新」、托盘提示；⑦ 命令行 --check-update / --update-source / --update-sources（属 utilityMode，应用运行时也能查）；⑧ 发布侧 scripts/build-update-manifest.ps1 + release.yml 打便携 zip、生成 update.json、随 Release 上传并回写仓库（客户端默认读 raw）；⑨ 单测 tst_updatemanager 18 例（全量 9/9 通过）、--selftest OK、--smoke 零 QML 报错，README / docs/auto-update.md / 路线图已同步。未实跑项：真实端到端升级 —— 便携版覆盖 exe 会动当前运行目录，只在本机假清单上验证到「下载 + 校验」为止；安装版静默升级依赖已发布安装包，待首个 v* 标签实跑。已知限制：清单签名校验未实现（只做产物 SHA-256）；默认源仓库地址未定前需手工改。",
-            "orderKey": 1024,
-            "priority": 2,
-            "stage": "R5",
-            "status": "done",
-            "tags": [
-                "R5"
-            ],
-            "title": "R5 软件自动更新：检查 / 校验 / 静默升级 / 便携版自更新",
-            "updatedAt": 1793010438
         },
         {
             "code": "DX-12",
@@ -363,24 +344,6 @@
             "updatedAt": 1793821330
         },
         {
-            "code": "R5-03",
-            "completedAt": 1793021221,
-            "createdAt": 1793016029,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "aee6be17-c2c3-4157-88e2-b495478fd32d",
-            "note": "已完成 6 / 待做 0。① 版本号收敛单点：唯一来源是 CMakeLists 的 project(VERSION)，编译期注入 NEONBOARD_VERSION_STRING，main.cpp / HostMain.cpp / SplashWindow.cpp 改用它；installer/neonboard.iss 去掉版本字面量、缺参数即 #error；release.ps1 与 release.yml 解析 CMakeLists 后以 /DMyAppVersion 传入；release.yml 第一步新增「标签版本 == 源码版本」闸门。② 新增 --update-apply：检查→下载→校验→静默安装一次跑完（退出码 0/2、进度按 10% 打日志、总闸 10 分钟），让升级链路可无人值守复现，也便于计划内升级。③ 端到端验证抓到真 bug：onReplyFinished 把产物读进内存后直接去校验 m_pendingArtifact，但全流程没有任何一处把 payload 写盘（全文只有清单缓存与便携脚本在写文件）——v0.1.0/v0.1.1 的自动更新实际一直停在「无法读取文件」，安装环节永远走不到，界面上看还像下载失败。改 QSaveFile 原子落盘再校验；另补产物下载 60 秒无数据看门狗（本机代理下 GitHub 资产地址连上即彻底静默，界面会停在「正在下载 0%」，既不报错也不超时）。④ 发布流程硬化：v0.1.1 的最后一步「回写 update.json」被 fetch first 拒掉——打包那十几分钟里 main 已被别的自动化推进，Release 出好了但清单没回仓库，等价于「发版了没人能收到」，且失败埋在一串成功之后很容易被忽略；改成 fetch + rebase + 重试 3 次，v0.1.2 一次通过。⑤ 实测（真实产物 + 真实安装器）：v0.1.1 发布后，已装 0.1.0 的 --check-update 得 available 0.1.1；v0.1.2 发布后用 0.1.2 客户端跑 --update-apply（清单版本人为抬到 0.1.3 触发升级，产物是真实 v0.1.2 安装包，传输走本地 HTTP 以绕开本机 TLS 吊销检查故障）：落盘 55163855 字节 → SHA-256 与清单一致 → /VERYSILENT 静默安装 → 注册表 DisplayVersion 0.1.0 → 0.1.2，安装目录 exe 换成 CI 构建那份（3239424 字节 / 12:11 UTC），新 exe --check-update 自报 current 0.1.2 / uptodate。ctest 9/9、--selftest 退出 0。⑥ 未解决：默认三源串行的 6 秒单源看门狗在本机偏紧（API 单次 5-7 秒、raw.githubusercontent.com 常年只挂不答），默认源自检偶发「检查更新失败：连接超时」；根治方向是候选源并行竞速取首个成功，需单独立卡。",
-            "orderKey": 1024,
-            "priority": 2,
-            "stage": "R5",
-            "status": "done",
-            "tags": [
-                "R5"
-            ],
-            "title": "R5 发布 v0.1.1：版本号单源化 + 端到端升级验证",
-            "updatedAt": 1793021221
-        },
-        {
             "code": "DX-11",
             "completedAt": 1793286993,
             "createdAt": 1793281760,
@@ -397,24 +360,6 @@
             ],
             "title": "开发启动链路：dev-run 认 Ninja 布局并自带 Qt 运行时",
             "updatedAt": 1793286993
-        },
-        {
-            "code": "R6-02",
-            "completedAt": 1793098683,
-            "createdAt": 1793085737,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "0921b037-54ca-45e4-ab4a-7c82f484be92",
-            "note": "起因：执行器需要可追溯的 run 身份与「同卡不并发」的锁，而 task 表不能加列、user_version 不能升。目标：新增侧表 task_run（id / task_id / agent / cwd / workflow / status / attempt / 时间戳 / heartbeat / exit_code / last_error / log_path / scope_violation）+ 同卡活跃 run 的部分唯一索引，配套 TaskRunStore 做创建/心跳/结束/孤儿回收，启动时把心跳超 90 秒的 running 判为 blocked（进程中断）。",
-            "orderKey": 2048,
-            "priority": 2,
-            "stage": "R6",
-            "status": "done",
-            "tags": [
-                "R6"
-            ],
-            "title": "R6 运行记录侧表与任务锁",
-            "updatedAt": 1793098683
         },
         {
             "code": "R14-01",
@@ -709,24 +654,6 @@
             "updatedAt": 1793809508
         },
         {
-            "code": "R6-03",
-            "completedAt": 1793098683,
-            "createdAt": 1793085737,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "d926c728-42bf-497d-8661-d1f093949226",
-            "note": "起因：docs/agent-profile.md 的实测结论还停留在文档里，代码不知道每种 CLI 怎么拼参数、怎么进只读模式。目标：落地 AgentProfile（内置 opencode / claude / cursor-agent，codex 未实测不内置；存 meta 表 exec.agentProfiles）+ 命令行拼装（无 shell）+ 设置面板「任务执行」区（总开关默认关、默认 agent、profile 管理）+ 执行前确认框（agent / cwd / 完整命令行 / acceptance / 超时，勾选信任目录后写白名单）。",
-            "orderKey": 3072,
-            "priority": 2,
-            "stage": "R6",
-            "status": "done",
-            "tags": [
-                "R6"
-            ],
-            "title": "R6 Agent Profile 与执行前确认",
-            "updatedAt": 1793098683
-        },
-        {
             "code": "R1-06",
             "completedAt": 1792646616,
             "createdAt": 1792568900,
@@ -924,7 +851,7 @@
                 "R6"
             ],
             "title": "R6 验收器与越界检查",
-            "updatedAt": 1793132285
+            "updatedAt": 1794718031
         },
         {
             "code": "DX-13",
@@ -1306,24 +1233,6 @@
             ],
             "title": "通用 agent profile 名片页：宿主按 manifest 渲染，删四份 main.qml",
             "updatedAt": 1793819210
-        },
-        {
-            "code": "R5-04",
-            "completedAt": 1793202572,
-            "createdAt": 1793098683,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "4c95eebc-891c-4196-9fb9-b88a0f6cf41f",
-            "note": "起因：R5-02 把单源超时从 10 秒压到 6 秒、总预算从 15 秒提到 25 秒后，默认源自检仍偶发「检查更新失败：连接超时」—— 三源串行时，raw.githubusercontent.com 常年只挂不答吃满 6 秒，GitHub API 单次 5-7 秒，最坏情况 6+6+7=19 秒逼近总预算，一旦某个源抖动即超时。根治方向：候选源并行竞速，所有源同时发起请求，首个成功者胜出，其余立即取消。目标：① UpdateManager::checkForUpdates 改为并发请求所有候选源（QNetworkAccessManager 多次 get）；② 任一源返回有效清单即胜出，取消其余请求（QNetworkReply::abort）；③ 全部失败才报错误，按失败原因优先级取最严重的；④ 保留单源看门狗（防单个请求挂死），但总预算改为「所有源最慢那个的超时」而非串行累加；⑤ 命令行 --check-update 与设置面板检查按钮行为一致。验收：默认源（gitee raw → github raw → API）自检稳定 < 8 秒（此前偶发 19 秒超时）；断网时仍走缓存降级；单测覆盖并发竞速场景（mock 一慢一快两个源，快的胜出）。",
-            "orderKey": 10240,
-            "priority": 2,
-            "stage": "R5",
-            "status": "done",
-            "tags": [
-                "R5"
-            ],
-            "title": "R5 更新检查并行竞速：候选源并发请求取首个成功",
-            "updatedAt": 1793202572
         },
         {
             "completedAt": 1792748224,
@@ -1780,43 +1689,6 @@
             "updatedAt": 1792588621
         },
         {
-            "code": "R4-03",
-            "completedAt": 1793002946,
-            "createdAt": 1792654081,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "cffdfbbb-46f5-4cae-a2c3-d3e64e0d2047",
-            "note": "能力矩阵点名「架构级解锁」但未排期：去掉 CHECK(status) 三列硬约束，引入 board/column 表，单板→多板、三列→N 列；迁移需保证老库照常可开。路线图未排期的新增方向。",
-            "orderKey": 15360,
-            "priority": 3,
-            "stage": "R4",
-            "status": "done",
-            "tags": [
-                "R4",
-                "架构"
-            ],
-            "title": "R4 多板 / 自定义列架构解锁",
-            "updatedAt": 1793002946
-        },
-        {
-            "code": "R7-06",
-            "completedAt": 1793214203,
-            "createdAt": 1793123355,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "1ecfbbd3-e038-4e3e-aaa0-c5f1ad8380dd",
-            "note": "目标：task_run.cost_ms 在 run 结束写入（含 running 时长，不含排队）；TaskRunStore 提供 totalCost(cardId) 聚合；执行面板（R6-06）与卡面显示「本卡累计耗时 X」；token 计量留接口（开放问题 #6，后续）。",
-            "orderKey": 16384,
-            "priority": 2,
-            "stage": "R7",
-            "status": "done",
-            "tags": [
-                "R7"
-            ],
-            "title": "R7 成本账",
-            "updatedAt": 1793214203
-        },
-        {
             "code": "M07",
             "completedAt": 1792588621,
             "createdAt": 1792572839,
@@ -1889,24 +1761,6 @@
             ],
             "title": "CLI --emit-hook：只投递不执行",
             "updatedAt": 1792588621
-        },
-        {
-            "code": "DX-03",
-            "completedAt": 1793204551,
-            "createdAt": 1793125542,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "ad91032e-f7aa-411b-92e2-5c1c8d113808",
-            "note": "起因（2026-10-28 合并 DX-01/DX-02 时的真实经过）：两条规则互相打架 —— git-done 的领用闸门要求「一个分支只能领一张卡」（check_claim_refs 发现多个领用短号即失败），而 task_gate push 规则是逐提交校验 refs/claims/<卡号>。结果：一条分支装两张卡时，第二张卡在分支上无处领用；本次只能把 DX-02 的占位建在一次性分支上、推完再释放，属于绕行而非正解。同一根因还导致领用提交被迫排在实现提交之后（方向倒置：先写代码后领用），两道闸门都查不出这种倒置。目标二选一：A) claims 列表化 —— 一个分支可登记多张卡，闸门按「分支 ∪ 提交」校验且仍能防双领（改动面小：check_claim_refs 去掉唯一限制 + claims 改成列表 + agent-init 支持多次领用）；B) 新增 scripts/split-card.ps1 —— 把既有分支按卡号拆成单卡分支（重建该卡的提交与台账差异并补领用），更贴合「一卡一分支」原意但要处理台账冲突。不论选哪条，都要能回答「一分支多卡是否合法」这一个问题，而不是靠绕。",
-            "orderKey": 17408,
-            "priority": 2,
-            "stage": "DX",
-            "status": "done",
-            "tags": [
-                "DX"
-            ],
-            "title": "DX 一分支多卡：领用占位列表化，或提供从既有分支拆卡的脚本",
-            "updatedAt": 1793204551
         },
         {
             "code": "M09",
@@ -3206,6 +3060,25 @@
             ],
             "title": "在办卡僵尸占位无接手通道：补判活事实源与显式授权的原地接手",
             "updatedAt": 1794193757
+        },
+        {
+            "code": "R0-01",
+            "completedAt": 1794743560,
+            "createdAt": 1792568900,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "1c015b79-5b10-4e3b-a26c-55cde4d9b1f4",
+            "note": "Theme/Motion 双单例；霓虹青/赛博紫/落日橙/深海蓝/森野绿/极夜灰；全应用含霓虹背景一起渐变。持久化走 C++ UiSettings。",
+            "orderKey": 39424,
+            "priority": 3,
+            "stage": "R0",
+            "status": "done",
+            "tags": [
+                "R0",
+                "主题"
+            ],
+            "title": "主题引擎 v1：6 套预设 + 换色渐变",
+            "updatedAt": 1794743560
         },
         {
             "code": "DX-69",
@@ -4813,24 +4686,6 @@
             "updatedAt": 1793981567
         },
         {
-            "code": "R5-05",
-            "completedAt": 1793098683,
-            "createdAt": 1793098683,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "3c520d5a-a9b7-4140-8040-17e2bca8b9e8",
-            "note": "起因：安装包的桌面与开始菜单快捷方式都指向 NeonBoardHost.exe（installer/neonboard.iss 的 [Icons]），但 CMakeLists.txt 里 qt_add_executable(NeonBoardHost ...) 的源列表没带 resources/neonboard.rc，exe 里连 RT_GROUP_ICON 资源都没有（EnumResourceNamesW 返回失败），Windows 只能退回通用 exe 图标；同一目录的 NeonBoard.exe 因为带了 .rc 所以正常。目标：给 NeonBoardHost 源列表追加 resources/neonboard.rc，让 Host 自身带图标，桌面、开始菜单、postinstall 启动项一并恢复。不改 installer：升级安装会重建 [Icons]，快捷方式随新 Host 自愈；已在本机手工设过 IconLocation 的桌面项不受影响。",
-            "orderKey": 74752,
-            "priority": 2,
-            "stage": "R5",
-            "status": "done",
-            "tags": [
-                "R5"
-            ],
-            "title": "R5 安装快捷方式无图标：Host 未内嵌应用图标",
-            "updatedAt": 1793098683
-        },
-        {
             "code": "DX-113",
             "completedAt": 1793982867,
             "createdAt": 1793980098,
@@ -4849,6 +4704,25 @@
             "updatedAt": 1793982867
         },
         {
+            "code": "R4-03",
+            "completedAt": 1793002946,
+            "createdAt": 1792654081,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "cffdfbbb-46f5-4cae-a2c3-d3e64e0d2047",
+            "note": "能力矩阵点名「架构级解锁」但未排期：去掉 CHECK(status) 三列硬约束，引入 board/column 表，单板→多板、三列→N 列；迁移需保证老库照常可开。路线图未排期的新增方向。",
+            "orderKey": 74752,
+            "priority": 3,
+            "stage": "R4",
+            "status": "done",
+            "tags": [
+                "R4",
+                "架构"
+            ],
+            "title": "R4 多板 / 自定义列架构解锁",
+            "updatedAt": 1793002946
+        },
+        {
             "code": "DX-01",
             "completedAt": 1793123355,
             "createdAt": 1793123355,
@@ -4865,6 +4739,24 @@
             ],
             "title": "DX 项目全景面板：四层事实源实时派生（路线图 / 台账 / git / 文件系统对账）",
             "updatedAt": 1793123355
+        },
+        {
+            "code": "R5-01",
+            "completedAt": 1793010438,
+            "createdAt": 1793006573,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "99162cf1-b09a-4841-a449-1c2e91541aca",
+            "note": "已完成 9 / 待做 0。① 清单拉取：update.json 主源（Gitee raw → GitHub raw 候选）+ GitHub Releases API 兜底，清单缓存 6 小时、全源失败时离线降级；② 语义化版本比较，容忍 v 前缀与预发布后缀（0.2.0-beta.1 < 0.2.0）；③ 下载后先验 SHA-256 再落地，清单未提供校验值即中止并明确报错，绝不静默放行；④ 安装版（注册表 AppId {8E3B6A2C-…}_is1 判定）走 /VERYSILENT /NORESTART 静默升级；⑤ 便携版下载 zip → 解压 → 生成纯 ASCII 自更新脚本 → 主程序退出后 robocopy 覆盖并重新拉起；⑥ 三个入口：设置面板分区（检查 / 立即更新 / 下载页 / 跳过此版本 / 自动检查开关）、命令面板「检查软件更新」、托盘提示；⑦ 命令行 --check-update / --update-source / --update-sources（属 utilityMode，应用运行时也能查）；⑧ 发布侧 scripts/build-update-manifest.ps1 + release.yml 打便携 zip、生成 update.json、随 Release 上传并回写仓库（客户端默认读 raw）；⑨ 单测 tst_updatemanager 18 例（全量 9/9 通过）、--selftest OK、--smoke 零 QML 报错，README / docs/auto-update.md / 路线图已同步。未实跑项：真实端到端升级 —— 便携版覆盖 exe 会动当前运行目录，只在本机假清单上验证到「下载 + 校验」为止；安装版静默升级依赖已发布安装包，待首个 v* 标签实跑。已知限制：清单签名校验未实现（只做产物 SHA-256）；默认源仓库地址未定前需手工改。",
+            "orderKey": 75776,
+            "priority": 2,
+            "stage": "R5",
+            "status": "done",
+            "tags": [
+                "R5"
+            ],
+            "title": "R5 软件自动更新：检查 / 校验 / 静默升级 / 便携版自更新",
+            "updatedAt": 1793010438
         },
         {
             "code": "R11-13",
@@ -4901,6 +4793,24 @@
             ],
             "title": "宪章 §四「密钥严禁入库」零机器执行，入库闸门全靠自觉",
             "updatedAt": 1794148712
+        },
+        {
+            "code": "R5-02",
+            "completedAt": 1793015304,
+            "createdAt": 1793013568,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "534b6730-a829-4881-a5c7-ff33ba67ef5b",
+            "note": "已完成 4 / 待做 0。起因：v0.1.0 发布后 --check-update 恒报「检查超时」，但仓库、Release、update.json 全部正常 —— 属客户端韧性缺陷。① 定位：三源串行，单源超时 10 秒、--check-update 总预算 15 秒，raw.githubusercontent.com 挂住吃满 10 秒后，排最后的 GitHub Releases API 只剩约 4 秒，被总超时砍掉；只把源指向 API 时立刻返回 uptodate，反证链路本身没问题。② 修复：startRequest 为 Manifest 类请求挂 6 秒看门狗（到点 abort，按网络错误顺延下一源，产物下载不设限），总预算提到 UpdateManager::kDefaultCheckTimeoutMs = 25 秒，main.cpp 不再写死 15000；取消原因显示为「连接超时（6 秒无响应）」而不是 Operation canceled。③ 连带修掉校验值错位：update.json 的 notes 不再拼 setup-sha256/portable-sha256（回退路径读的是 Release 正文，根本拿不到清单，塞在 notes 只会在设置面板里被当更新日志显示），改由 release.yml 生成 dist/RELEASE-NOTES.md 并以 body_path 提交，使 API 回退路径下载后仍能校验。④ 验证：ctest 9/9 通过（含 tst_updatemanager 18 例）、--selftest OK；默认源（gitee raw → github raw → API）实测 19 秒返回 CHECK-UPDATE uptodate current 0.1.0 latest 0.1.0，此前恒定超时。未实跑项：API 回退路径的「有新版→下载→校验」全链路，需下一个版本发布后才能验（本版正文才刚开始带校验值）。",
+            "orderKey": 76800,
+            "priority": 2,
+            "stage": "R5",
+            "status": "done",
+            "tags": [
+                "R5"
+            ],
+            "title": "R5 更新检查韧性：逐源超时不吃光总预算 + 回退路径的校验值兜底",
+            "updatedAt": 1793015304
         },
         {
             "code": "DX-122",
@@ -4993,6 +4903,24 @@
             "updatedAt": 1794026799
         },
         {
+            "code": "R5-03",
+            "completedAt": 1793021221,
+            "createdAt": 1793016029,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "aee6be17-c2c3-4157-88e2-b495478fd32d",
+            "note": "已完成 6 / 待做 0。① 版本号收敛单点：唯一来源是 CMakeLists 的 project(VERSION)，编译期注入 NEONBOARD_VERSION_STRING，main.cpp / HostMain.cpp / SplashWindow.cpp 改用它；installer/neonboard.iss 去掉版本字面量、缺参数即 #error；release.ps1 与 release.yml 解析 CMakeLists 后以 /DMyAppVersion 传入；release.yml 第一步新增「标签版本 == 源码版本」闸门。② 新增 --update-apply：检查→下载→校验→静默安装一次跑完（退出码 0/2、进度按 10% 打日志、总闸 10 分钟），让升级链路可无人值守复现，也便于计划内升级。③ 端到端验证抓到真 bug：onReplyFinished 把产物读进内存后直接去校验 m_pendingArtifact，但全流程没有任何一处把 payload 写盘（全文只有清单缓存与便携脚本在写文件）——v0.1.0/v0.1.1 的自动更新实际一直停在「无法读取文件」，安装环节永远走不到，界面上看还像下载失败。改 QSaveFile 原子落盘再校验；另补产物下载 60 秒无数据看门狗（本机代理下 GitHub 资产地址连上即彻底静默，界面会停在「正在下载 0%」，既不报错也不超时）。④ 发布流程硬化：v0.1.1 的最后一步「回写 update.json」被 fetch first 拒掉——打包那十几分钟里 main 已被别的自动化推进，Release 出好了但清单没回仓库，等价于「发版了没人能收到」，且失败埋在一串成功之后很容易被忽略；改成 fetch + rebase + 重试 3 次，v0.1.2 一次通过。⑤ 实测（真实产物 + 真实安装器）：v0.1.1 发布后，已装 0.1.0 的 --check-update 得 available 0.1.1；v0.1.2 发布后用 0.1.2 客户端跑 --update-apply（清单版本人为抬到 0.1.3 触发升级，产物是真实 v0.1.2 安装包，传输走本地 HTTP 以绕开本机 TLS 吊销检查故障）：落盘 55163855 字节 → SHA-256 与清单一致 → /VERYSILENT 静默安装 → 注册表 DisplayVersion 0.1.0 → 0.1.2，安装目录 exe 换成 CI 构建那份（3239424 字节 / 12:11 UTC），新 exe --check-update 自报 current 0.1.2 / uptodate。ctest 9/9、--selftest 退出 0。⑥ 未解决：默认三源串行的 6 秒单源看门狗在本机偏紧（API 单次 5-7 秒、raw.githubusercontent.com 常年只挂不答），默认源自检偶发「检查更新失败：连接超时」；根治方向是候选源并行竞速取首个成功，需单独立卡。",
+            "orderKey": 77824,
+            "priority": 2,
+            "stage": "R5",
+            "status": "done",
+            "tags": [
+                "R5"
+            ],
+            "title": "R5 发布 v0.1.1：版本号单源化 + 端到端升级验证",
+            "updatedAt": 1793021221
+        },
+        {
             "code": "DX-07",
             "completedAt": 1793207091,
             "createdAt": 1793207091,
@@ -5027,6 +4955,24 @@
             ],
             "title": "弹窗与抽屉壳头部关闭键未贴右上角",
             "updatedAt": 1794312236
+        },
+        {
+            "code": "R6-01",
+            "completedAt": 1793098683,
+            "createdAt": 1793085737,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "90651d45-9baf-4c3a-93a6-2a8d2ff981b5",
+            "note": "起因：task_exec 侧表已能存 cwd / timeout_min / max_attempts，但任务编辑弹窗只暴露 goal / acceptance / scope / agent / workflow，执行参数填不全也就无法派发。目标：补齐三项编辑能力（cwd 需校验为存在的绝对路径），把编辑弹窗拆出「任务 / 执行」两个页签，并在执行页签底部给出执行入口与最小集提示。",
+            "orderKey": 78848,
+            "priority": 2,
+            "stage": "R6",
+            "status": "done",
+            "tags": [
+                "R6"
+            ],
+            "title": "R6 执行定义收尾：cwd / 超时 / 轮数可编辑 + 执行页签",
+            "updatedAt": 1793098683
         },
         {
             "code": "DX-111",
@@ -5225,6 +5171,24 @@
             ],
             "title": "nbflow approve 立卡通道被 DX-98 回执闸门击穿：程序级立卡只剩 register_board_cards 一条活路，nbflow 未随闸门迁移",
             "updatedAt": 1793987436
+        },
+        {
+            "code": "R6-03",
+            "completedAt": 1793098683,
+            "createdAt": 1793085737,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "d926c728-42bf-497d-8661-d1f093949226",
+            "note": "起因：docs/agent-profile.md 的实测结论还停留在文档里，代码不知道每种 CLI 怎么拼参数、怎么进只读模式。目标：落地 AgentProfile（内置 opencode / claude / cursor-agent，codex 未实测不内置；存 meta 表 exec.agentProfiles）+ 命令行拼装（无 shell）+ 设置面板「任务执行」区（总开关默认关、默认 agent、profile 管理）+ 执行前确认框（agent / cwd / 完整命令行 / acceptance / 超时，勾选信任目录后写白名单）。",
+            "orderKey": 79872,
+            "priority": 2,
+            "stage": "R6",
+            "status": "done",
+            "tags": [
+                "R6"
+            ],
+            "title": "R6 Agent Profile 与执行前确认",
+            "updatedAt": 1793098683
         },
         {
             "code": "DX-151",
@@ -5873,24 +5837,6 @@
             ],
             "title": "卡片状态同源：column_id 为唯一可写源，status 降为数据库派生的只读投影",
             "updatedAt": 1794724577
-        },
-        {
-            "code": "DX-169",
-            "completedAt": 1794737657,
-            "createdAt": 1794734562,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-169",
-            "note": "已完成：新建 qml/components/NeonButton.qml 作为按钮皮肤单一实现（基于 QtQuick.Controls.Button，保留 enabled／hovered／pressed／键盘可达／Accessible；tone=neutral|primary|danger 与 selected 表达语义；颜色只经 Theme.alpha 与既有令牌，覆盖 hover／pressed／visualFocus／disabled 四态）。CMakeLists.txt 两处登记 QT_RESOURCE_ALIAS 与 QML_FILES。19 处原生 Button 全部改走 NeonButton：TaskEditorDialog 13（页签 2 改 selected、执行与保存 tone=primary、删除 tone=danger）、CardDetailPanel 2、ExecPanelDialog 2、NightBatchDialog 1、ThemeMarketPanel 1；删掉 5 处重复的 background／contentItem，text／enabled／visible／onClicked 逐处不变。已验证：verify.ps1 全量档退出码 0（Release 编译 676/676、ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行、模块守卫确认 qml/ 54 个文件登记齐套）；check_qml_pitfalls 53 文件无陷阱、check_qml_warnings selftest 13 正例/8 反例通过、task_gate selftest 70 例通过、check_scope 9 个改动全在 scope 内、check_path_refs 新增 0 处失效；grep 确认调用处裸 Button 归零（仅 NeonButton.qml 自身第 12 行继承 Button 的声明保留，属组件定义而非调用点）、组件内无 Qt.rgba 与写死颜色字面量、NeonButton 调用处恰 19 个。边界：TopToolButton／DataButton／WinButton／AddColumnButton 与 DialogShell 底栏未迁移（本就是 Rectangle 系主题化实现）；未改 C++／数据库／CI／README；未新增静态检查脚本，裸 Button 归零目前靠验收 grep，是否沉淀成常驻闸门另卡再议。verify 报 1 项非阻断提示「看板快照落后」，系本分支领用造成的预期落后，由 git-done 收尾自动刷新。",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "DX",
-            "status": "done",
-            "tags": [
-                "DX"
-            ],
-            "title": "按钮样式同源：抽 NeonButton 单一实现，收口全项目 19 处原生 Button",
-            "updatedAt": 1794737657
         },
         {
             "code": "MOD-10",
@@ -6647,8 +6593,26 @@
             ],
             "title": "release.yml 清单回写步撞自家任务闸门：build.ps1 激活 hooksPath 后 bot 提交被拒，步骤不查 commit 退出码连累 rebase 二次失败",
             "updatedAt": 1794026856
+        },
+        {
+            "code": "DX-169",
+            "completedAt": 1794742838,
+            "createdAt": 1794734562,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-169",
+            "note": "已完成：新建 qml/components/NeonButton.qml 作为按钮皮肤单一实现（基于 QtQuick.Controls.Button，保留 enabled／hovered／pressed／键盘可达／Accessible；tone=neutral|primary|danger 与 selected 表达语义；颜色只经 Theme.alpha 与既有令牌，覆盖 hover／pressed／visualFocus／disabled 四态）。CMakeLists.txt 两处登记 QT_RESOURCE_ALIAS 与 QML_FILES。19 处原生 Button 全部改走 NeonButton：TaskEditorDialog 13（页签 2 改 selected、执行与保存 tone=primary、删除 tone=danger）、CardDetailPanel 2、ExecPanelDialog 2、NightBatchDialog 1、ThemeMarketPanel 1；删掉 5 处重复的 background／contentItem，text／enabled／visible／onClicked 逐处不变。已验证：verify.ps1 全量档退出码 0（Release 编译 676/676、ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行、模块守卫确认 qml/ 54 个文件登记齐套）；check_qml_pitfalls 53 文件无陷阱、check_qml_warnings selftest 13 正例/8 反例通过、task_gate selftest 70 例通过、check_scope 9 个改动全在 scope 内、check_path_refs 新增 0 处失效；grep 确认调用处裸 Button 归零（仅 NeonButton.qml 自身第 12 行继承 Button 的声明保留，属组件定义而非调用点）、组件内无 Qt.rgba 与写死颜色字面量、NeonButton 调用处恰 19 个。边界：TopToolButton／DataButton／WinButton／AddColumnButton 与 DialogShell 底栏未迁移（本就是 Rectangle 系主题化实现）；未改 C++／数据库／CI／README；未新增静态检查脚本，裸 Button 归零目前靠验收 grep，是否沉淀成常驻闸门另卡再议。verify 报 1 项非阻断提示「看板快照落后」，系本分支领用造成的预期落后，由 git-done 收尾自动刷新。",
+            "orderKey": 107520,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "按钮样式同源：抽 NeonButton 单一实现，收口全项目 19 处原生 Button",
+            "updatedAt": 1794742838
         }
     ],
-    "updated": "2026-11-15T18:14:17",
+    "updated": "2026-11-15T19:52:40",
     "version": 3
 }

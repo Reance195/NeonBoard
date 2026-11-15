@@ -350,7 +350,8 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "DX-170": "todo"
   },
   "cards": {
     "DX-01": {
@@ -7645,6 +7646,37 @@
       "stage": "DX",
       "tier": "P4",
       "title": "按钮样式同源：抽 NeonButton 单一实现，收口全项目 19 处原生 Button"
+    },
+    "DX-170": {
+      "acceptance": [
+        "标题栏在「＋ 新建」左侧新增「更新」按钮，走既有 TopToolButton，updateAvailable 为真时呈强调态并显示提示点，点击打开更新中心；python scripts/check_qml_warnings.py --selftest 与 --smoke 启动日志无 ReferenceError、无「is not a type」且 QML 致命告警 0 行",
+        "更新中心以倒序列表展示不少于 2 个历史版本条目，每条含版本号、发布日期、可读变更要点、当前版本徽章与 Release 页跳转，且加载中、空态、离线、错误四态都有对应呈现；离线下仍能渲染内置历史并标注来源",
+        "UpdateManager::parseReleaseHistory 为静态纯函数，兼容 GitHub Releases 数组与内置摘要格式，过滤 draft／prerelease 与 *-sha256: 行，按语义版本倒序去重并限制条数，非法或空输入返回空列表并给出 error；tests/tst_updatemanager.cpp 新增解析／排序／过滤／缓存用例全 PASS，且既有更新检查／下载／校验／安装用例不回归",
+        "CMakeLists.txt 同时登记新 QML 组件的 QT_RESOURCE_ALIAS 与 qt_add_qml_module 的 QML_FILES，并把 resources/release-history.json 挂进 QRC；模块守卫检查通过",
+        "pwsh -File scripts/verify.ps1 全量档退出码 0，覆盖编译、ctest、--selftest、--smoke、模块守卫、QML 致命告警与看板一致性；python scripts/check_scope.py --base origin/main、check_path_refs.py --base origin/main、check_qml_pitfalls.py、task_gate.py selftest、derive_board_status.py --check 退出码均为 0",
+        "远端正文一律按纯文本渲染（Text.PlainText），外链只接受 https，不把 Release body 当富文本或 HTML 执行；不改动 checkForUpdates／downloadAndInstall／增量更新／静默安装的既有语义"
+      ],
+      "author": "maintainer-session-2026-11-15",
+      "depends": [],
+      "evidence": "维护者 2026-11-15 会话以截图圈出标题栏「＋ 新建」左侧的空白槽位，要求「加一个更新的按钮，另外，更新的界面，要显示历史更新内容」，并明确「是否理解，我没描述足够的地方，你自己补一下」，即授权自行补全未描述的设计细节。只读核查结论：标题栏按钮集中在 qml/components/BoardChrome.qml:106-169，从右往左为窗口控制、ThemePicker、专注、全景、＋ 新建，红框槽位在 newTaskButton 左侧，目前无任何控件；现有软件更新界面是设置面板「关于」分页里的 qml/components/AboutPage.qml:44-213，只显示当前版本、最新版本、发布日、包体积与截断 6 行的 releaseNotes，完全没有历史版本列表。数据来源侧，update.json 只有 latest 一条，GitHub Releases 正文（gh api 实测 v0.1.5~v0.1.9）只有标题、一条 commits 链接与 3 行 *-sha256: 校验值，没有可读的变更要点；因此「显示历史更新内容」若只拉 Releases 列表，用户看到的会是一串哈希。仓库已有 10 个 v0.1.0~v0.1.9 标签且 git log 可按区间归纳要点，具备补一份中文版本摘要的条件。",
+      "id": "DX-170",
+      "note": "",
+      "scope": [
+        "CMakeLists.txt",
+        "qml/components/BoardChrome.qml",
+        "qml/components/UpdateCenterDialog.qml",
+        "qml/components/AboutPage.qml",
+        "qml/Main.qml",
+        "src/update/UpdateManager.h",
+        "src/update/UpdateManager.cpp",
+        "resources/release-history.json",
+        "tests/tst_updatemanager.cpp",
+        "docs/auto-update.md",
+        "README.md"
+      ],
+      "stage": "DX",
+      "tier": "P4",
+      "title": "更新中心：标题栏更新按钮 + 历史版本变更内容"
     }
   },
   "claims": {},

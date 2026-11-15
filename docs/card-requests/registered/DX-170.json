@@ -1,0 +1,13 @@
+{
+  "card": "DX-170",
+  "sha256": "92b7b5e56c2fff5e600861cf280bd1767a19cbbda5e9a47b554f2f117d73fb12",
+  "authorizedBy": "维护者 2026-11-15 会话截图：「加一个更新的按钮，另外，更新的界面，要显示历史更新内容，是否理解，我没描述足够的地方，你自己补一下」",
+  "form": "docs/card-requests/20261115-update-center-history.md",
+  "registeredAt": "2026-11-15T11:52:39+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-170",
+    "sha": "78f6747e49dcc7a093c6e0264605f3361c20a2bc"
+  }
+}

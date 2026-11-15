@@ -11,12 +11,12 @@
             "orderKey": 1024,
             "priority": 2,
             "stage": "R5",
-            "status": "todo",
+            "status": "doing",
             "tags": [
                 "R5"
             ],
             "title": "v0.1.10 发版：版本号递增、内置更新摘要与发布验收",
-            "updatedAt": 1794749627
+            "updatedAt": 1794749897
         },
         {
             "code": "R7-06",

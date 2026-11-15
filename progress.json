@@ -55,24 +55,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "DX-168",
-            "completedAt": 0,
-            "createdAt": 1794721472,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-168",
-            "note": "",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "卡片状态同源：column_id 为唯一可写源，status 降为数据库派生的只读投影",
-            "updatedAt": 1794721472
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5875,6 +5857,24 @@
             "updatedAt": 1794023071
         },
         {
+            "code": "DX-168",
+            "completedAt": 1794724577,
+            "createdAt": 1794721472,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-168",
+            "note": "收口口径：库内 task.column_id → board_column.status 是唯一可写状态，task.status 降为三个触发器维护的只读投影。Database::finalizeSchema 幂等落盘（一次性把存量 17 行撕裂数据按 status 补到对应列、保留 completed_at，meta 键 schema.status_single_source 记账）、每次启动把 status 投影回列状态并自检；不升 user_version，旧版程序仍可读库。TaskModel 的 upsert/update/commitMove/restoreSnapshot 四条 UPDATE 全部去掉 status 赋值，只写 column_id；外部三态在写库边界换算成目标状态的列，状态再从列反推。INSERT 受 NOT NULL 约束仍带一个从列反推的投影值，非独立事实。协议层 progress.json/导出/插件 API 三态不变。验收：本地全量 verify.ps1 通过（ctest 45/45、--selftest、--smoke、模块守卫、QML 致命告警 0）；三个测试二进制新增 6 个用例全部 PASS（tst_taskmodel 18/18、tst_roadmapsync 14/14、tst_databasemigration 8/8）；check_scope 与 check_path_refs 退出码 0。范围检查曾抓到 Database.h 越界，按契约不改 scope，改为 Database.cpp 文件内静态函数收口。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "卡片状态同源：column_id 为唯一可写源，status 降为数据库派生的只读投影",
+            "updatedAt": 1794724577
+        },
+        {
             "code": "MOD-10",
             "completedAt": 1794230196,
             "createdAt": 1794227657,
@@ -6631,6 +6631,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-15T13:44:32",
+    "updated": "2026-11-15T14:36:17",
     "version": 3
 }

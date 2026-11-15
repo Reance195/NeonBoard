@@ -55,24 +55,6 @@
             "updatedAt": 1794023716
         },
         {
-            "code": "DX-169",
-            "completedAt": 0,
-            "createdAt": 1794734562,
-            "deleted": false,
-            "dueAt": 0,
-            "id": "DX-169",
-            "note": "已完成：新建 qml/components/NeonButton.qml 作为按钮皮肤单一实现（基于 QtQuick.Controls.Button，保留 enabled／hovered／pressed／键盘可达／Accessible；tone=neutral|primary|danger 与 selected 表达语义；颜色只经 Theme.alpha 与既有令牌，覆盖 hover／pressed／visualFocus／disabled 四态）。CMakeLists.txt 两处登记 QT_RESOURCE_ALIAS 与 QML_FILES。19 处原生 Button 全部改走 NeonButton：TaskEditorDialog 13（页签 2 改 selected、执行与保存 tone=primary、删除 tone=danger）、CardDetailPanel 2、ExecPanelDialog 2、NightBatchDialog 1、ThemeMarketPanel 1；删掉 5 处重复的 background／contentItem，text／enabled／visible／onClicked 逐处不变。已验证：verify.ps1 全量档退出码 0（Release 编译 676/676、ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行、模块守卫确认 qml/ 54 个文件登记齐套）；check_qml_pitfalls 53 文件无陷阱、check_qml_warnings selftest 13 正例/8 反例通过、task_gate selftest 70 例通过、check_scope 9 个改动全在 scope 内、check_path_refs 新增 0 处失效；grep 确认调用处裸 Button 归零（仅 NeonButton.qml 自身第 12 行继承 Button 的声明保留，属组件定义而非调用点）、组件内无 Qt.rgba 与写死颜色字面量、NeonButton 调用处恰 19 个。边界：TopToolButton／DataButton／WinButton／AddColumnButton 与 DialogShell 底栏未迁移（本就是 Rectangle 系主题化实现）；未改 C++／数据库／CI／README；未新增静态检查脚本，裸 Button 归零目前靠验收 grep，是否沉淀成常驻闸门另卡再议。verify 报 1 项非阻断提示「看板快照落后」，系本分支领用造成的预期落后，由 git-done 收尾自动刷新。",
-            "orderKey": 87040,
-            "priority": 2,
-            "stage": "DX",
-            "status": "todo",
-            "tags": [
-                "DX"
-            ],
-            "title": "按钮样式同源：抽 NeonButton 单一实现，收口全项目 19 处原生 Button",
-            "updatedAt": 1794737218
-        },
-        {
             "code": "R0-01",
             "completedAt": 1792568900,
             "createdAt": 1792568900,
@@ -5893,6 +5875,24 @@
             "updatedAt": 1794724577
         },
         {
+            "code": "DX-169",
+            "completedAt": 1794737657,
+            "createdAt": 1794734562,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-169",
+            "note": "已完成：新建 qml/components/NeonButton.qml 作为按钮皮肤单一实现（基于 QtQuick.Controls.Button，保留 enabled／hovered／pressed／键盘可达／Accessible；tone=neutral|primary|danger 与 selected 表达语义；颜色只经 Theme.alpha 与既有令牌，覆盖 hover／pressed／visualFocus／disabled 四态）。CMakeLists.txt 两处登记 QT_RESOURCE_ALIAS 与 QML_FILES。19 处原生 Button 全部改走 NeonButton：TaskEditorDialog 13（页签 2 改 selected、执行与保存 tone=primary、删除 tone=danger）、CardDetailPanel 2、ExecPanelDialog 2、NightBatchDialog 1、ThemeMarketPanel 1；删掉 5 处重复的 background／contentItem，text／enabled／visible／onClicked 逐处不变。已验证：verify.ps1 全量档退出码 0（Release 编译 676/676、ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行、模块守卫确认 qml/ 54 个文件登记齐套）；check_qml_pitfalls 53 文件无陷阱、check_qml_warnings selftest 13 正例/8 反例通过、task_gate selftest 70 例通过、check_scope 9 个改动全在 scope 内、check_path_refs 新增 0 处失效；grep 确认调用处裸 Button 归零（仅 NeonButton.qml 自身第 12 行继承 Button 的声明保留，属组件定义而非调用点）、组件内无 Qt.rgba 与写死颜色字面量、NeonButton 调用处恰 19 个。边界：TopToolButton／DataButton／WinButton／AddColumnButton 与 DialogShell 底栏未迁移（本就是 Rectangle 系主题化实现）；未改 C++／数据库／CI／README；未新增静态检查脚本，裸 Button 归零目前靠验收 grep，是否沉淀成常驻闸门另卡再议。verify 报 1 项非阻断提示「看板快照落后」，系本分支领用造成的预期落后，由 git-done 收尾自动刷新。",
+            "orderKey": 87040,
+            "priority": 2,
+            "stage": "DX",
+            "status": "done",
+            "tags": [
+                "DX"
+            ],
+            "title": "按钮样式同源：抽 NeonButton 单一实现，收口全项目 19 处原生 Button",
+            "updatedAt": 1794737657
+        },
+        {
             "code": "MOD-10",
             "completedAt": 1794230196,
             "createdAt": 1794227657,
@@ -6649,6 +6649,6 @@
             "updatedAt": 1794026856
         }
     ],
-    "updated": "2026-11-15T18:06:58",
+    "updated": "2026-11-15T18:14:17",
     "version": 3
 }

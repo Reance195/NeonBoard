@@ -65,6 +65,14 @@ void writeSnapshot(const QString &path, const QString &content)
     file.write(content.toUtf8());
 }
 
+QString dbScalar(Database *db, const QString &sql)
+{
+    QSqlQuery query(QSqlDatabase::database(db->connectionName()));
+    if (!query.exec(sql) || !query.next())
+        return QStringLiteral("<query failed>");
+    return query.value(0).toString();
+}
+
 QList<QJsonObject> snapshotItems(const QString &path)
 {
     QList<QJsonObject> items;
@@ -118,6 +126,8 @@ private slots:
     void realDeleteStillAppliesForHomeFile();
     void sameRepoTwoProjectsDoNotKillEachOther();
     void failedImportDoesNotConsumeMtime();
+    // DX-168：导入把 todo 改成 done 时列跟着走，导出往返状态不漂
+    void importStatusChangeMovesColumnAndRoundTrips();
 
 private:
     QString globalPath() const { return m_dir.filePath(QStringLiteral("global-%1.json").arg(m_seq)); }
@@ -421,6 +431,45 @@ void TestRoadmapSync::failedImportDoesNotConsumeMtime()
     // 同一个 mtime（坏 JSON 那次的）必须还能触发导入——失败不消费变更
     m_sync->poll();
     QCOMPARE(m_model->count(), 2);
+}
+
+// DX-168：快照里的 status 是协议投影，导入后由列派生；todo → done 必须连列一起搬，
+// 不能只改 status 留下「已办结的卡挂在待办列」。导出再导入状态不漂。
+void TestRoadmapSync::importStatusChangeMovesColumnAndRoundTrips()
+{
+    writeGlobal({makeItem(QStringLiteral("g1"), QStringLiteral("路线图卡"),
+                          QStringLiteral("todo"), 1000)});
+    QVERIFY(m_sync->importAll(false));
+
+    const QString statusSql = QStringLiteral("SELECT status FROM task WHERE id='g1'");
+    const QString columnSql = QStringLiteral("SELECT column_id FROM task WHERE id='g1'");
+    QCOMPARE(dbScalar(m_db, statusSql), QStringLiteral("todo"));
+    QCOMPARE(dbScalar(m_db, columnSql), QStringLiteral("col-todo"));
+
+    QJsonObject done = makeItem(QStringLiteral("g1"), QStringLiteral("路线图卡"),
+                                QStringLiteral("done"), 2000);
+    done.insert(QStringLiteral("completedAt"), 1793127238);
+    writeGlobal({done});
+    QVERIFY(m_sync->importAll(false));
+
+    QCOMPARE(dbScalar(m_db, statusSql), QStringLiteral("done"));
+    QCOMPARE(dbScalar(m_db, columnSql), QStringLiteral("col-done"));
+    QCOMPARE(dbScalar(m_db, QStringLiteral(
+                          "SELECT completed_at FROM task WHERE id='g1'")).toLongLong(),
+             qlonglong(1793127238));
+    QCOMPARE(dbScalar(m_db, QStringLiteral(
+                          "SELECT COUNT(*) FROM task t JOIN board_column c ON c.id=t.column_id "
+                          "WHERE t.status<>c.status")).toLongLong(),
+             qlonglong(0));
+
+    m_sync->exportAll();
+    const QList<QJsonObject> items = snapshotItems(globalPath());
+    QCOMPARE(items.size(), 1);
+    QCOMPARE(items.at(0).value(QStringLiteral("status")).toString(), QStringLiteral("done"));
+
+    QVERIFY(m_sync->importAll(false));
+    QCOMPARE(dbScalar(m_db, statusSql), QStringLiteral("done"));
+    QCOMPARE(dbScalar(m_db, columnSql), QStringLiteral("col-done"));
 }
 
 QTEST_MAIN(TestRoadmapSync)

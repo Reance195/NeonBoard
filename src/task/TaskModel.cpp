@@ -21,6 +21,17 @@ static QString nonNull(const QString &value)
     return value.isNull() ? QStringLiteral("") : value;
 }
 
+namespace {
+// DX-168 状态同源：外部协议里的 todo/doing/done 只是投影，落库前先换算成
+// 目标状态的列；内存里的 status 一律从列反推，模型与 DB 不再各持一份事实。
+// 列查不到（自定义列被删等）才退回调用方给的兜底值。
+QString statusFromColumn(Database *database, const QString &columnId, const QString &fallback)
+{
+    const QString derived = database->columnStatus(columnId);
+    return derived.isEmpty() ? fallback : derived;
+}
+} // namespace
+
 TaskModel::TaskModel(Database *database, QObject *parent)
     : QAbstractListModel(parent)
     , m_database(database)
@@ -255,7 +266,13 @@ QString TaskModel::upsertTask(const QString &id, const QVariantMap &fields)
             && task.status != QLatin1String("done")) {
             task.status = QStringLiteral("todo");
         }
+        // 外部三态先落到「该状态的列」；显式给了合法列就以列为准，
+        // 状态再从列反推（列是唯一可写源，DX-168）。
         task.columnId = m_database->defaultColumnForStatus(task.status);
+        const QString requestedColumn = fields.value(QStringLiteral("columnId")).toString();
+        if (!requestedColumn.isEmpty() && !m_database->columnStatus(requestedColumn).isEmpty())
+            task.columnId = requestedColumn;
+        task.status = statusFromColumn(m_database, task.columnId, task.status);
         task.priority = qBound(0, fields.value(QStringLiteral("priority")).toInt(), 3);
         task.tags = normalizeTags(fields.value(QStringLiteral("tags")).toString());
         task.orderKey = fields.value(QStringLiteral("orderKey")).toLongLong();
@@ -273,6 +290,8 @@ QString TaskModel::upsertTask(const QString &id, const QVariantMap &fields)
 
         const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
         QSqlQuery query(db);
+        // status 列 NOT NULL 且无 DEFAULT，INSERT 仍要给一个值：这里给的是
+        // 上面从 column_id 反推的投影，不是独立事实；触发器还会按列再校正一次。
         query.prepare(QStringLiteral(
             "INSERT OR REPLACE INTO task (id, title, note, status, column_id, priority, tags,"
             " order_key, due_at, created_at, updated_at, completed_at)"
@@ -317,20 +336,42 @@ QString TaskModel::upsertTask(const QString &id, const QVariantMap &fields)
         updated.tags = normalizeTags(fields.value(QStringLiteral("tags")).toString());
     if (fields.contains(QStringLiteral("dueAt")))
         updated.dueAt = fields.value(QStringLiteral("dueAt")).toLongLong();
+    // —— 状态同源（DX-168）：协议三态换算成目标列，UPDATE 只写 column_id ——
+    // 旧的已存在分支那条 UPDATE 压根没有 column_id，路线图把 todo 改成 done 时
+    // 只写 status、不搬列，于是留下「已办结的卡挂在待办列」。这里不再给 status
+    // 赋值：先定列、再从列反推状态，最后让数据库触发器把投影刷新。
+    QString requestedStatus;
     if (fields.contains(QStringLiteral("status"))) {
         const QString status = fields.value(QStringLiteral("status")).toString();
         if (status == QLatin1String("todo")
             || status == QLatin1String("doing")
             || status == QLatin1String("done")) {
-            updated.status = status;
-            if (status == QLatin1String("done")
-                && fields.value(QStringLiteral("completedAt")).toLongLong() > 0) {
-                updated.completedAt = fields.value(QStringLiteral("completedAt")).toLongLong();
-            } else if (status == QLatin1String("done") && updated.completedAt == 0) {
+            requestedStatus = status;
+        }
+    }
+    if (!requestedStatus.isEmpty())
+        updated.columnId = columnForStatus(updated.columnId, requestedStatus);
+
+    // 显式列优先于协议状态：调用方已经知道落在哪列时不许被状态覆盖。
+    const QString requestedColumn = fields.value(QStringLiteral("columnId")).toString();
+    const bool hasColumn = !requestedColumn.isEmpty()
+        && !m_database->columnStatus(requestedColumn).isEmpty();
+    if (hasColumn)
+        updated.columnId = requestedColumn;
+    if (!requestedStatus.isEmpty() || hasColumn)
+        updated.status = statusFromColumn(m_database, updated.columnId, updated.status);
+    // 没有状态类字段时也让列与模型里的状态自愈一致（同状态自定义列保持原地）。
+    updated.columnId = columnForStatus(updated.columnId, updated.status);
+
+    if (!requestedStatus.isEmpty() || hasColumn) {
+        if (updated.status == QLatin1String("done")) {
+            const qint64 imported = fields.value(QStringLiteral("completedAt")).toLongLong();
+            if (imported > 0)
+                updated.completedAt = imported;
+            else if (updated.completedAt == 0)
                 updated.completedAt = now;
-            } else if (status != QLatin1String("done")) {
-                updated.completedAt = 0;
-            }
+        } else {
+            updated.completedAt = 0;
         }
     }
     updated.updatedAt = fields.value(QStringLiteral("updatedAt")).toLongLong() > 0
@@ -339,11 +380,11 @@ QString TaskModel::upsertTask(const QString &id, const QVariantMap &fields)
     const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
     QSqlQuery query(db);
     query.prepare(QStringLiteral(
-        "UPDATE task SET title = ?, note = ?, status = ?, priority = ?, tags = ?, "
+        "UPDATE task SET title = ?, note = ?, column_id = ?, priority = ?, tags = ?, "
         "order_key = ?, due_at = ?, updated_at = ?, completed_at = ? WHERE id = ?"));
     query.addBindValue(updated.title);
     query.addBindValue(nonNull(updated.note));
-    query.addBindValue(updated.status);
+    query.addBindValue(updated.columnId);
     query.addBindValue(updated.priority);
     query.addBindValue(nonNull(updated.tags));
     query.addBindValue(updated.orderKey);
@@ -412,19 +453,21 @@ QString TaskModel::addTask(const QString &title, const QString &status, int prio
     task.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
     task.title = cleanTitle;
     task.note = QStringLiteral("");
-    task.status = cleanStatus;
     task.columnId = cleanColumn.isEmpty() ? m_database->defaultColumnForStatus(cleanStatus)
                                           : cleanColumn;
+    // 状态从列反推，不从入参直接落库（DX-168）
+    task.status = statusFromColumn(m_database, task.columnId, cleanStatus);
     task.priority = parsed.priority >= 0 ? parsed.priority : qBound(0, priority, 3);
     task.tags = mergeTags(tags, parsed.tags);
-    task.orderKey = nextOrderKey(cleanStatus);
+    task.orderKey = nextOrderKey(task.status);
     task.dueAt = parsed.dueAt > 0 ? parsed.dueAt : dueAt;
     task.createdAt = now;
     task.updatedAt = now;
-    task.completedAt = cleanStatus == QLatin1String("done") ? now : 0;
+    task.completedAt = task.status == QLatin1String("done") ? now : 0;
 
     const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
     QSqlQuery query(db);
+    // 同上：status 只是从列反推的投影，NOT NULL 约束下必须给值，触发器兜底校正。
     query.prepare(QStringLiteral(
         "INSERT INTO task (id, title, note, status, column_id, priority, tags, order_key, due_at, "
         "created_at, updated_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
@@ -511,17 +554,18 @@ bool TaskModel::updateTask(const QString &id, const QVariantMap &fields)
         }
     }
     updated.columnId = columnForStatus(updated.columnId, updated.status);
+    // 列已定，状态从列反推；下面的 UPDATE 只写列，status 由触发器投影（DX-168）
+    updated.status = statusFromColumn(m_database, updated.columnId, updated.status);
 
     updated.updatedAt = QDateTime::currentSecsSinceEpoch();
 
     const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
     QSqlQuery query(db);
     query.prepare(QStringLiteral(
-        "UPDATE task SET title = ?, note = ?, status = ?, column_id = ?, priority = ?, "
+        "UPDATE task SET title = ?, note = ?, column_id = ?, priority = ?, "
         "tags = ?, order_key = ?, due_at = ?, updated_at = ?, completed_at = ? WHERE id = ?"));
     query.addBindValue(updated.title);
     query.addBindValue(nonNull(updated.note));
-    query.addBindValue(updated.status);
     query.addBindValue(updated.columnId);
     query.addBindValue(updated.priority);
     query.addBindValue(nonNull(updated.tags));
@@ -627,6 +671,8 @@ QString TaskModel::restoreTask(const QVariantMap &task)
         restored.columnId = snapshotColumn;
     else
         restored.columnId = m_database->defaultColumnForStatus(restored.status);
+    // 撤销快照里的 status 也只是投影：以还原到的列为准（DX-168）
+    restored.status = statusFromColumn(m_database, restored.columnId, restored.status);
     restored.priority = qBound(0, task.value(QStringLiteral("priority")).toInt(), 3);
     restored.tags = normalizeTags(task.value(QStringLiteral("tags")).toString());
     restored.orderKey = task.value(QStringLiteral("orderKey")).toLongLong();
@@ -645,6 +691,7 @@ QString TaskModel::restoreTask(const QVariantMap &task)
 
     const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
     QSqlQuery query(db);
+    // 撤销还原同样只表达「列」：status 是从列反推的投影，触发器兜底校正。
     query.prepare(QStringLiteral(
         "INSERT OR REPLACE INTO task (id, title, note, status, column_id, priority, tags,"
         " order_key, due_at, created_at, updated_at, completed_at)"
@@ -719,12 +766,14 @@ bool TaskModel::restoreSnapshot(const QVariantMap &snapshot)
 
     const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
     QSqlQuery query(db);
+    // 只写列归属，status 由列派生（DX-168）；恢复快照本就不改状态/列，
+    // 这里保持列值不变，让触发器顺带把投影刷新，不再给 status 赋值。
     query.prepare(QStringLiteral(
-        "UPDATE task SET title = ?, note = ?, status = ?, priority = ?, tags = ?, "
+        "UPDATE task SET title = ?, note = ?, column_id = ?, priority = ?, tags = ?, "
         "order_key = ?, due_at = ?, updated_at = ?, completed_at = ? WHERE id = ?"));
     query.addBindValue(updated.title);
     query.addBindValue(nonNull(updated.note));
-    query.addBindValue(updated.status);
+    query.addBindValue(updated.columnId);
     query.addBindValue(updated.priority);
     query.addBindValue(nonNull(updated.tags));
     query.addBindValue(updated.orderKey);
@@ -891,18 +940,19 @@ bool TaskModel::commitMove(int row, const QString &columnId, const QString &stat
 
     Task updated = m_tasks.at(row);
     const QString previousStatus = updated.status;
-    updated.status = status;
+    // 目标列是唯一事实：状态从列反推，不再信任调用方另传的 status 参数（DX-168）。
+    const QString derivedStatus = statusFromColumn(m_database, columnId, status);
+    updated.status = derivedStatus;
     updated.columnId = columnId;
     updated.orderKey = orderKey;
     updated.updatedAt = QDateTime::currentSecsSinceEpoch();
-    updated.completedAt = status == QLatin1String("done") ? completedAt : 0;
+    updated.completedAt = derivedStatus == QLatin1String("done") ? completedAt : 0;
 
     const QSqlDatabase db = QSqlDatabase::database(m_database->connectionName());
     QSqlQuery query(db);
     query.prepare(QStringLiteral(
-        "UPDATE task SET status = ?, column_id = ?, order_key = ?, updated_at = ?, "
+        "UPDATE task SET column_id = ?, order_key = ?, updated_at = ?, "
         "completed_at = ? WHERE id = ?"));
-    query.addBindValue(updated.status);
     query.addBindValue(updated.columnId);
     query.addBindValue(updated.orderKey);
     query.addBindValue(updated.updatedAt);

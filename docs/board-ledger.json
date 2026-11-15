@@ -7679,13 +7679,6 @@
       "title": "更新中心：标题栏更新按钮 + 历史版本变更内容"
     }
   },
-  "claims": {
-    "DX-170": {
-      "agent": "agent-dx170",
-      "branch": "feature/update-center-history",
-      "head": "c925be02d99c7aab354f986d11248f85d4fc2b09",
-      "claimedAt": 1794744165
-    }
-  },
+  "claims": {},
   "version": 1
 }

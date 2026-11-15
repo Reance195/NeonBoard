@@ -380,6 +380,9 @@ bool RoadmapSync::importEntry(SyncEntry &entry, bool force)
         // 标题尾嵌入快照短号（幂等，已含则保持原样），供计划钩子按标题匹配
         fields[QStringLiteral("title")] = embedCode(item.value(QStringLiteral("title")).toString(), code);
         fields[QStringLiteral("note")] = item.value(QStringLiteral("note")).toString();
+        // 快照里的 status 是对外协议投影（git 派生三态），不是库内可写源：
+        // TaskModel::upsertTask 会把它换算成目标状态的列，列再由触发器派生回 status。
+        // 导入侧因此不需要（也不允许）自己拼 columnId，更不能只改状态不搬列。
         fields[QStringLiteral("status")] = item.value(QStringLiteral("status")).toString();
         fields[QStringLiteral("priority")] = item.value(QStringLiteral("priority")).toInt();
         const QJsonArray tagArray = item.value(QStringLiteral("tags")).toArray();

@@ -102,7 +102,34 @@ orderKey(新卡) = insertion_order(cards[短号].tier, 当前 todo 列的档位�
 - 本地看板对**已存在**的卡保留自己的 `order_key`（`TaskModel::upsertTask` 既有设计），
   新卡导入时采纳快照落点 —— 所以排位规则对新卡全链路生效，存量卡的顺序归 UI 拖拽。
 
-## 七、常见问题
+## 七、库内状态只有一份事实（DX-168）
+
+`progress.json` 是跨端派生产物；**库内**同样只有一份可写状态：
+
+```text
+task.column_id → board_column.status   ← 唯一事实
+task.status                           ← 派生投影，只读
+```
+
+- 应用层所有写入口只表达「换列」：`TaskModel` 的 UPDATE 不再给 `status` 赋值；
+  外部协议里的 todo/doing/done 在写库边界先换算成目标状态的列，状态再从列反推。
+  路线图 / JSON 导入走同一个 `upsertTask` 边界，不会再出现「只改状态不搬列」。
+- 数据库三个触发器兜底：`task` 的 INSERT / UPDATE 把任何 `status` 写法纠正成列的状态，
+  `board_column.status` 变更时列内卡片同步重投影。绕过应用层的直写（旧版程序、
+  外部 SQL、临时脚本）造不出第二份事实。
+- 每次启动把 `status` 投影回列状态做一致性自检；`user_version` 保持 2，
+  旧版程序仍能打开同一个库。
+- 存量撕裂行（`done` 的卡挂在待办列）在首次用新版本打开时一次性纠正：以当时
+  `status` 为历史事实把 `column_id` 补到对应列，保留 `completed_at`；
+  `meta` 键 `schema.status_single_source` 记录已迁移，此后一律以列为准，
+  重开不覆盖用户拖过的列。
+
+所以「详情显示已办结、卡片还在待办列」这类撕裂，判据不再是「每个入口都记得同步」，
+而是数据库里根本写不进去。跨端方向（git 标记 → 派生快照 → 看板）仍按 §二 与
+[`adr/0001-task-definition-source.md`](adr/0001-task-definition-source.md) 执行，
+本机制只负责库内这一层，不改变快照写回与冲突仲裁语义。
+
+## 八、常见问题
 
 - **CI 报「快照状态落后于派生结果」**：本地跑 `python scripts/derive_board_status.py --write` 后提交 `progress.json` 即可。
 - **CI 报「台账未登记的路线图短号」**：短号拼错了，或者该卡还没登记进 `docs/board-ledger.json`。

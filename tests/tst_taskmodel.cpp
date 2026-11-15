@@ -7,6 +7,24 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+namespace {
+// 直接查库而不是只问模型：同源判据必须落在数据库上，模型自己的内存副本
+// 会替实现遮丑（DX-140 的教训）。
+QString dbScalar(Database *db, const QString &sql)
+{
+    QSqlQuery query(QSqlDatabase::database(db->connectionName()));
+    if (!query.exec(sql) || !query.next())
+        return QStringLiteral("<query failed>");
+    return query.value(0).toString();
+}
+
+bool dbExec(Database *db, const QString &sql)
+{
+    QSqlQuery query(QSqlDatabase::database(db->connectionName()));
+    return query.exec(sql);
+}
+} // namespace
+
 // R10-03：标签语义修正。
 //
 // tags 一个数组里混着三种语义（阶段 / 分类 / 角色），而 R10-03 之前只读 tags[0]。
@@ -37,6 +55,12 @@ private slots:
     void renumberColumnRollsBackMemoryOnCommitFailure();
     void renumberStatusRollsBackMemoryOnCommitFailure();
     void renumberStatusUsesIdTiebreakMatchingDisplayOrder();
+
+    // DX-168：库内状态同源
+    void directStatusWriteIsCorrectedFromColumn();
+    void insertAndColumnStatusChangeDeriveStatus();
+    void upsertStatusChangeMovesColumnAndKeepsCompletedAt();
+    void updateTaskStatusMovesColumn();
 
 private:
     QTemporaryDir m_dir;
@@ -302,6 +326,89 @@ void TestTaskModel::renumberStatusUsesIdTiebreakMatchingDisplayOrder()
     QCOMPARE(m_model->taskById(second).value(QStringLiteral("orderKey")).toLongLong(), 2048);
     QCOMPARE(m_model->taskIdsInStatus(QStringLiteral("todo")),
              (QStringList{first, c, second}));
+}
+
+// DX-168：绕过应用层直写 status 造不出第二份事实，唯一合法的状态变更是换列。
+void TestTaskModel::directStatusWriteIsCorrectedFromColumn()
+{
+    const QString id = m_model->addTask(QStringLiteral("待办卡"), QStringLiteral("todo"), 1, QString());
+    QVERIFY(!id.isEmpty());
+    const QString statusSql = QStringLiteral("SELECT status FROM task WHERE id='%1'").arg(id);
+    QCOMPARE(dbScalar(m_db, statusSql), QStringLiteral("todo"));
+
+    QVERIFY(dbExec(m_db, QStringLiteral(
+                       "UPDATE task SET status='done' WHERE id='%1'").arg(id)));
+    QCOMPARE(dbScalar(m_db, statusSql), QStringLiteral("todo"));
+
+    QVERIFY(dbExec(m_db, QStringLiteral(
+                       "UPDATE task SET column_id='col-done' WHERE id='%1'").arg(id)));
+    QCOMPARE(dbScalar(m_db, statusSql), QStringLiteral("done"));
+
+    QCOMPARE(dbScalar(m_db, QStringLiteral(
+                          "SELECT COUNT(*) FROM task t JOIN board_column c ON c.id=t.column_id "
+                          "WHERE t.status<>c.status")).toLongLong(),
+             qlonglong(0));
+}
+
+// DX-168：INSERT 只表达列时状态自动派生；列状态变更时列内卡同步重投影。
+void TestTaskModel::insertAndColumnStatusChangeDeriveStatus()
+{
+    QVERIFY(dbExec(m_db, QStringLiteral(
+                       "INSERT INTO task (id, title, status, column_id, order_key, created_at, updated_at) "
+                       "VALUES ('raw-done', '外部插入', 'todo', 'col-done', 1024, 1000, 1000)")));
+    const QString statusSql = QStringLiteral("SELECT status FROM task WHERE id='raw-done'");
+    QCOMPARE(dbScalar(m_db, statusSql), QStringLiteral("done"));
+
+    QString error;
+    const QString custom = m_db->addColumn(QStringLiteral("临时列"), QStringLiteral("doing"), &error);
+    QVERIFY2(!custom.isEmpty(), qPrintable(error));
+    QVERIFY(dbExec(m_db, QStringLiteral(
+                       "UPDATE task SET column_id='%1' WHERE id='raw-done'").arg(custom)));
+    QCOMPARE(dbScalar(m_db, statusSql), QStringLiteral("doing"));
+
+    QVERIFY(dbExec(m_db, QStringLiteral(
+                       "UPDATE board_column SET status='done' WHERE id='%1'").arg(custom)));
+    QCOMPARE(dbScalar(m_db, statusSql), QStringLiteral("done"));
+}
+
+// DX-168：路线图导入把 todo 改成 done 时，列必须跟着走，且保留文件里的完成时刻。
+void TestTaskModel::upsertStatusChangeMovesColumnAndKeepsCompletedAt()
+{
+    const QString id = m_model->addTask(QStringLiteral("路线图卡"), QStringLiteral("todo"), 1, QString());
+    QVERIFY(!id.isEmpty());
+
+    QVariantMap fields;
+    fields.insert(QStringLiteral("status"), QStringLiteral("done"));
+    fields.insert(QStringLiteral("completedAt"), QVariant::fromValue<qint64>(1793127238LL));
+    fields.insert(QStringLiteral("updatedAt"), QVariant::fromValue<qint64>(1793127239LL));
+    QCOMPARE(m_model->upsertTask(id, fields), id);
+
+    QCOMPARE(dbScalar(m_db, QStringLiteral("SELECT status FROM task WHERE id='%1'").arg(id)),
+             QStringLiteral("done"));
+    QCOMPARE(dbScalar(m_db, QStringLiteral("SELECT column_id FROM task WHERE id='%1'").arg(id)),
+             QStringLiteral("col-done"));
+    QCOMPARE(dbScalar(m_db, QStringLiteral("SELECT completed_at FROM task WHERE id='%1'").arg(id))
+                 .toLongLong(),
+             qlonglong(1793127238));
+    QCOMPARE(m_model->taskById(id).value(QStringLiteral("status")).toString(),
+             QStringLiteral("done"));
+    QCOMPARE(m_model->taskById(id).value(QStringLiteral("columnId")).toString(),
+             QStringLiteral("col-done"));
+}
+
+// DX-168：编辑器的状态字段同样只表达「换列」，不许留下 doing 的卡挂在待办列。
+void TestTaskModel::updateTaskStatusMovesColumn()
+{
+    const QString id = m_model->addTask(QStringLiteral("拖动前"), QStringLiteral("todo"), 1, QString());
+    QVERIFY(!id.isEmpty());
+
+    QVariantMap fields;
+    fields.insert(QStringLiteral("status"), QStringLiteral("doing"));
+    QVERIFY(m_model->updateTask(id, fields));
+    QCOMPARE(dbScalar(m_db, QStringLiteral("SELECT column_id FROM task WHERE id='%1'").arg(id)),
+             QStringLiteral("col-doing"));
+    QCOMPARE(dbScalar(m_db, QStringLiteral("SELECT status FROM task WHERE id='%1'").arg(id)),
+             QStringLiteral("doing"));
 }
 
 QTEST_MAIN(TestTaskModel)

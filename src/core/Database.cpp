@@ -26,6 +26,9 @@ static bool hasSqliteHeader(const QString &path)
     return header == QByteArrayLiteral("SQLite format 3\0");
 }
 
+// 定义在 migrateToV2 之后，finalizeSchema 之前先声明（DX-168）。
+static bool enforceStatusSingleSource(Database *database, QString *error);
+
 Database::Database(QObject *parent)
     : QObject(parent)
 {
@@ -201,6 +204,10 @@ bool Database::openDeferred(QString *error, const QString &pathOverride)
 bool Database::finalizeSchema(QString *error)
 {
     if (!ensureSchema(error))
+        return false;
+    // 状态同源必须在任何写入发生之前落盘：库里存在两个可写状态时，
+    // 每个写入口都记得同步只是自觉，判据要落在数据库约束上（DX-168）。
+    if (!enforceStatusSingleSource(this, error))
         return false;
 
     // 主任务 / 子任务关联边表：独立表，不动 task 表结构、不升 user_version，
@@ -572,6 +579,117 @@ bool Database::migrateToV2(QString *error)
         }
     }
     return exec(QStringLiteral("COMMIT"), error);
+}
+
+// 文件内实现，不改 Database.h 的公开/私有接口（卡的 scope 只覆盖本 .cpp）。
+static bool enforceStatusSingleSource(Database *database, QString *error)
+{
+    const QSqlDatabase db = QSqlDatabase::database(database->connectionName());
+    auto run = [&db](const QString &statement, QString *outError) {
+        QSqlQuery query(db);
+        if (!query.exec(statement)) {
+            if (outError)
+                *outError = query.lastError().text();
+            return false;
+        }
+        return true;
+    };
+
+    // DX-168：库内只留一份可写状态 —— task.column_id 指向的列。
+    // task.status 退化为给 SQL / 导出 / 插件看的派生投影，由下面三个触发器独占维护；
+    // 绕过应用层的直写（旧版程序、外部工具、临时 SQL）一律被按列状态纠正，
+    // 判据因此落在数据库上，而不是「每个写入口都记得同步」的自觉上。
+    // 不升 user_version：触发器与纠正都是幂等 DDL/DML，旧版程序仍能打开同一个库。
+
+    // 1) 存量撕裂行一次性纠正。旧 schema 里 status 与 column_id 各写各的，
+    //    路线图导入（RoadmapSync / DataPort → upsertTask）只改 status 不搬列，
+    //    留下「done 的卡挂在待办列」。迁移语义只此一次：以 status 为历史事实把
+    //    column_id 补到该状态的默认列；之后列才是唯一事实，重开不覆盖用户拖列。
+    //    meta 键就是迁移凭证，已纠正过就不再把 status 当源。
+    if (database->metaValue(QStringLiteral("schema.status_single_source")).isEmpty()) {
+        if (!run(QStringLiteral(
+                      "UPDATE task SET column_id = COALESCE("
+                      "  (SELECT c.id FROM board_column c JOIN board b ON b.id = c.board_id "
+                      "   WHERE c.status = task.status "
+                      "   ORDER BY b.order_key, c.order_key, c.id LIMIT 1),"
+                      "  (SELECT c.id FROM board_column c JOIN board b ON b.id = c.board_id "
+                      "   WHERE c.status = 'todo' "
+                      "   ORDER BY b.order_key, c.order_key, c.id LIMIT 1),"
+                      "  column_id) "
+                      "WHERE NOT EXISTS (SELECT 1 FROM board_column c "
+                      "                  WHERE c.id = task.column_id "
+                      "                    AND c.status = task.status)"),
+                  error)) {
+            return false;
+        }
+        if (!database->setMetaValue(QStringLiteral("schema.status_single_source"),
+                                    QStringLiteral("1"))) {
+            if (error)
+                *error = QStringLiteral("写入状态同源迁移标记失败");
+            return false;
+        }
+    }
+
+    // 2) 三个触发器：task 侧的 INSERT / UPDATE 与 board_column 侧的状态变更。
+    //    IF NOT EXISTS 让重开幂等；触发器内 UPDATE 后 WHEN 不再成立，
+    //    recursive_triggers 开或关都不会自激。
+    const QStringList triggers = {
+        QStringLiteral(
+            "CREATE TRIGGER IF NOT EXISTS task_status_from_column_insert "
+            "AFTER INSERT ON task "
+            "WHEN NEW.status IS NOT COALESCE("
+            "  (SELECT status FROM board_column WHERE id = NEW.column_id), 'todo') "
+            "BEGIN "
+            "  UPDATE task SET status = COALESCE("
+            "    (SELECT status FROM board_column WHERE id = NEW.column_id), 'todo') "
+            "    WHERE id = NEW.id; "
+            "END"),
+        QStringLiteral(
+            "CREATE TRIGGER IF NOT EXISTS task_status_from_column_update "
+            "AFTER UPDATE ON task "
+            "WHEN NEW.status IS NOT COALESCE("
+            "  (SELECT status FROM board_column WHERE id = NEW.column_id), 'todo') "
+            "BEGIN "
+            "  UPDATE task SET status = COALESCE("
+            "    (SELECT status FROM board_column WHERE id = NEW.column_id), 'todo') "
+            "    WHERE id = NEW.id; "
+            "END"),
+        QStringLiteral(
+            "CREATE TRIGGER IF NOT EXISTS task_status_from_column_change "
+            "AFTER UPDATE OF status ON board_column "
+            "BEGIN "
+            "  UPDATE task SET status = NEW.status "
+            "    WHERE column_id = NEW.id AND status IS NOT NEW.status; "
+            "END")
+    };
+    for (const QString &sql : triggers) {
+        if (!run(sql, error))
+            return false;
+    }
+
+    // 3) 启动一致性自检的执行部分：把 status 投影回列状态。触发器被外部工具
+    //    删掉时也能自愈；只动 status，绝不回写 column_id（列才是源）。
+    if (!run(QStringLiteral(
+                  "UPDATE task SET status = COALESCE("
+                  "  (SELECT c.status FROM board_column c WHERE c.id = task.column_id), 'todo') "
+                  "WHERE status IS NOT COALESCE("
+                  "  (SELECT c.status FROM board_column c WHERE c.id = task.column_id), 'todo')"),
+              error)) {
+        return false;
+    }
+
+    // 4) 仍不一致 / 列已不存在的行只告警不静默吞：这种行界面上看不见，
+    //    留一条日志便于排查外部写坏的数据。
+    QSqlQuery check(db);
+    if (check.exec(QStringLiteral(
+                       "SELECT COUNT(*) FROM task t "
+                       "LEFT JOIN board_column c ON c.id = t.column_id "
+                       "WHERE c.id IS NULL OR t.status <> c.status"))
+        && check.next() && check.value(0).toInt() > 0) {
+        qWarning().noquote() << "Database: status 与列不一致 / 列缺失的行数："
+                             << check.value(0).toInt();
+    }
+    return true;
 }
 
 QString Database::defaultBoardId() const

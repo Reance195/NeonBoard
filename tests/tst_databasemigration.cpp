@@ -115,6 +115,59 @@ bool createV1Database(const QString &path, QString *error)
     return true;
 }
 
+// DX-168：手工造一个「v2 老库 + 撕裂行」的现场。刻意不复用生产 DDL：
+// 老库里 status 与 column_id 各自可写，导入路径只改 status 不搬列，于是留下
+// done 的卡挂在待办列。meta 里没有迁移凭证，用来验证首次开新版本时的一次性纠正。
+bool createV2TornDatabase(const QString &path, QString *error)
+{
+    RawDb raw(path);
+    if (!raw.ok()) {
+        *error = raw.error();
+        return false;
+    }
+    const QStringList ddl = {
+        QStringLiteral(
+            "CREATE TABLE board (id TEXT PRIMARY KEY, name TEXT NOT NULL,"
+            " order_key INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL DEFAULT 0,"
+            " updated_at INTEGER NOT NULL DEFAULT 0)"),
+        QStringLiteral(
+            "CREATE TABLE board_column (id TEXT PRIMARY KEY, board_id TEXT NOT NULL,"
+            " name TEXT NOT NULL, status TEXT NOT NULL, order_key INTEGER NOT NULL DEFAULT 0,"
+            " created_at INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0)"),
+        QStringLiteral(
+            "CREATE TABLE task (id TEXT PRIMARY KEY, title TEXT NOT NULL,"
+            " note TEXT NOT NULL DEFAULT '', status TEXT NOT NULL,"
+            " column_id TEXT NOT NULL DEFAULT '', priority INTEGER NOT NULL DEFAULT 0,"
+            " tags TEXT NOT NULL DEFAULT '[]', order_key INTEGER NOT NULL, due_at INTEGER,"
+            " created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, completed_at INTEGER)"),
+        QStringLiteral("CREATE INDEX idx_task_status_order ON task(status, order_key)"),
+        QStringLiteral("CREATE INDEX idx_task_column_order ON task(column_id, order_key)"),
+        QStringLiteral("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"),
+        QStringLiteral("CREATE TABLE plugin_kv (plugin_id TEXT NOT NULL, key TEXT NOT NULL,"
+                       " value TEXT, PRIMARY KEY (plugin_id, key))"),
+        QStringLiteral("INSERT INTO board VALUES ('board-default', '默认看板', 1024, 0, 0)"),
+        QStringLiteral(
+            "INSERT INTO board_column VALUES"
+            " ('col-todo', 'board-default', '待办', 'todo', 1024, 0, 0),"
+            " ('col-doing', 'board-default', '进行中', 'doing', 2048, 0, 0),"
+            " ('col-done', 'board-default', '已完成', 'done', 3072, 0, 0)"),
+        QStringLiteral(
+            "INSERT INTO task (id, title, status, column_id, order_key, created_at,"
+            " updated_at, completed_at) VALUES"
+            " ('t-done', '撕裂的完成卡', 'done', 'col-todo', 1024, 1000, 1000, 1793127238),"
+            " ('t-todo', '正常待办卡', 'todo', 'col-todo', 2048, 1000, 1000, NULL),"
+            " ('t-orphan', '列已不存在', 'todo', 'col-gone', 3072, 1000, 1000, NULL)"),
+        QStringLiteral("PRAGMA user_version=2")
+    };
+    for (const QString &sql : ddl) {
+        if (!raw.exec(sql)) {
+            *error = raw.error();
+            return false;
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 class TestDatabaseMigration : public QObject
@@ -128,6 +181,8 @@ private slots:
     void newerSchemaIsRejected();
     // R16-03：metaKeys 按前缀枚举 —— 插件清扫自己命名空间的依赖面
     void metaKeysEnumeratesByPrefix();
+    // DX-168：存量撕裂行一次性纠正 + 触发器把 status 锁成列状态的投影
+    void tornRowsRepairedAndStatusProjectedFromColumn();
 };
 
 void TestDatabaseMigration::freshDatabaseIsCreatedAtV2()
@@ -205,12 +260,15 @@ void TestDatabaseMigration::v1DatabaseMigratesWithoutDataLoss()
     QCOMPARE(raw.scalar(QStringLiteral("SELECT column_id FROM task WHERE id='t-done'")).toString(),
              QStringLiteral("col-done"));
 
-    // CHECK 已移除：状态集合不再由建表语句锁死（自定义列的前提）
+    // CHECK 仍是移除状态（自定义列的前提），但 status 不再由写入方决定：
+    // DX-168 的 INSERT 触发器把任意写法纠正成 column_id 指向的列状态。
     QVERIFY2(raw.exec(QStringLiteral(
-                 "INSERT INTO task (id, title, status, order_key, created_at, updated_at)"
-                 " VALUES ('t-arch', '归档卡', 'archived', 4096, 1792900004, 1792900004)")),
+                 "INSERT INTO task (id, title, status, column_id, order_key, created_at, updated_at)"
+                 " VALUES ('t-arch', '归档卡', 'archived', 'col-doing', 4096, 1792900004, 1792900004)")),
              qPrintable(raw.error()));
     QCOMPARE(raw.scalar(QStringLiteral("SELECT COUNT(*) FROM task")).toInt(), 4);
+    QCOMPARE(raw.scalar(QStringLiteral("SELECT status FROM task WHERE id='t-arch'")).toString(),
+             QStringLiteral("doing"));
 }
 
 void TestDatabaseMigration::v2ReopenIsIdempotent()
@@ -244,6 +302,9 @@ void TestDatabaseMigration::v2ReopenIsIdempotent()
     QVERIFY2(raw.ok(), qPrintable(raw.error()));
     QCOMPARE(raw.scalar(QStringLiteral("SELECT column_id FROM task WHERE id='t-todo'")).toString(),
              QStringLiteral("col-doing"));
+    // 换列就是换状态：重开不能把触发器派生出的 status 又改回旧值
+    QCOMPARE(raw.scalar(QStringLiteral("SELECT status FROM task WHERE id='t-todo'")).toString(),
+             QStringLiteral("doing"));
     QCOMPARE(raw.scalar(QStringLiteral("PRAGMA user_version")).toInt(), 2);
 }
 
@@ -288,8 +349,10 @@ void TestDatabaseMigration::metaKeysEnumeratesByPrefix()
     QCOMPARE(keys.at(2), QStringLiteral("agentbridge.status"));
 
     // 无匹配返回空；空前缀返回全部键（meta 权限本就覆盖整表读写，无新增暴露面）
+    // DX-168：开库时会写一枚 schema.status_single_source 迁移凭证，故总数由 4 变 5。
     QVERIFY(db.metaKeys(QStringLiteral("nomatch.")).isEmpty());
-    QCOMPARE(db.metaKeys().size(), 4);
+    QCOMPARE(db.metaKeys().size(), 5);
+    QVERIFY(db.metaKeys().contains(QStringLiteral("schema.status_single_source")));
 
     // LIKE 通配符按字面量匹配：键里的 % _ 不当通配符使。
     // 判别式：若 _ 被当通配符，"weird_%" 会命中 "weird%key_x"（应为 0）。
@@ -302,6 +365,72 @@ void TestDatabaseMigration::metaKeysEnumeratesByPrefix()
     RawDb raw(dir.filePath(QStringLiteral("metakeys.db")));
     QVERIFY2(raw.ok(), qPrintable(raw.error()));
     QCOMPARE(raw.scalar(QStringLiteral("PRAGMA user_version")).toInt(), Database::kSchemaVersion);
+}
+
+void TestDatabaseMigration::tornRowsRepairedAndStatusProjectedFromColumn()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath(QStringLiteral("torn.db"));
+
+    QString error;
+    QVERIFY2(createV2TornDatabase(path, &error), qPrintable(error));
+    {
+        Database db;
+        QVERIFY2(db.open(&error, path), qPrintable(error));
+    }
+
+    RawDb raw(path);
+    QVERIFY2(raw.ok(), qPrintable(raw.error()));
+    // 不升 user_version：旧版程序仍能打开同一个库
+    QCOMPARE(raw.scalar(QStringLiteral("PRAGMA user_version")).toInt(), 2);
+
+    // 一次性纠正：以 status 为历史事实把 column_id 补到该状态的列，完成时刻不丢
+    QCOMPARE(raw.scalar(QStringLiteral("SELECT column_id FROM task WHERE id='t-done'")).toString(),
+             QStringLiteral("col-done"));
+    QCOMPARE(raw.scalar(QStringLiteral("SELECT status FROM task WHERE id='t-done'")).toString(),
+             QStringLiteral("done"));
+    QCOMPARE(raw.scalar(QStringLiteral("SELECT completed_at FROM task WHERE id='t-done'")).toLongLong(),
+             qint64(1793127238));
+    // 列已不存在的行也要落到有效列，否则界面上凭空消失
+    QCOMPARE(raw.scalar(QStringLiteral("SELECT column_id FROM task WHERE id='t-orphan'")).toString(),
+             QStringLiteral("col-todo"));
+    QCOMPARE(raw.scalar(QStringLiteral(
+                            "SELECT COUNT(*) FROM task t JOIN board_column c ON c.id=t.column_id "
+                            "WHERE t.status<>c.status")).toInt(),
+             0);
+
+    // 触发器：直写 status 被纠正，INSERT 只表达列，列状态变更时列内卡重投影
+    QVERIFY2(raw.exec(QStringLiteral("UPDATE task SET status='todo' WHERE id='t-done'")),
+             qPrintable(raw.error()));
+    QCOMPARE(raw.scalar(QStringLiteral("SELECT status FROM task WHERE id='t-done'")).toString(),
+             QStringLiteral("done"));
+    QVERIFY2(raw.exec(QStringLiteral(
+                 "INSERT INTO task (id, title, status, column_id, order_key, created_at, updated_at)"
+                 " VALUES ('t-new', '外部插入', 'todo', 'col-doing', 4096, 1000, 1000)")),
+             qPrintable(raw.error()));
+    QCOMPARE(raw.scalar(QStringLiteral("SELECT status FROM task WHERE id='t-new'")).toString(),
+             QStringLiteral("doing"));
+    QVERIFY2(raw.exec(QStringLiteral(
+                 "UPDATE board_column SET status='done' WHERE id='col-doing'")),
+             qPrintable(raw.error()));
+    QCOMPARE(raw.scalar(QStringLiteral("SELECT status FROM task WHERE id='t-new'")).toString(),
+             QStringLiteral("done"));
+
+    // 重开幂等：迁移凭证已写，不再把 status 当源回写列，也不重置完成时刻
+    {
+        Database db2;
+        QVERIFY2(db2.open(&error, path), qPrintable(error));
+    }
+    RawDb reopened(path);
+    QVERIFY2(reopened.ok(), qPrintable(reopened.error()));
+    QCOMPARE(reopened.scalar(QStringLiteral(
+                                 "SELECT meta.value FROM meta WHERE meta.key='schema.status_single_source'"))
+                 .toString(),
+             QStringLiteral("1"));
+    QCOMPARE(reopened.scalar(QStringLiteral("SELECT completed_at FROM task WHERE id='t-done'"))
+                 .toLongLong(),
+             qint64(1793127238));
 }
 
 QTEST_GUILESS_MAIN(TestDatabaseMigration)

@@ -1,21 +1,5 @@
 {
-    "assignments": {
-        "DX-169": {
-            "agent": "agent-dx169-close",
-            "branch": "chore/board-dx169-close",
-            "claimedAt": 1794737525,
-            "handoffFrom": "",
-            "nextStep": "dot-source .agent-env.ps1，先看 NB_SCOPE，收尾跑 verify.ps1",
-            "progress": {
-                "done": 0,
-                "total": 0
-            },
-            "sessionId": "",
-            "stage": "开区",
-            "updatedAt": 1794737525,
-            "worktree": ".worktrees/agent-dx169-close"
-        }
-    },
-    "updatedAt": 1794737525,
+    "assignments": {},
+    "updatedAt": 1794737667,
     "version": 1
 }

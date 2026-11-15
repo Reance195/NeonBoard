@@ -33,7 +33,7 @@ DialogShell {
 
         // 底栏左侧：清空选择
         footerExtra: Component {
-            Button {
+            NeonButton {
                 text: "清空选择"
                 enabled: nightBatchDialog.selectedIds().length > 0
                 onClicked: {

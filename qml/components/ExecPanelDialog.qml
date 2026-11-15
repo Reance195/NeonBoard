@@ -30,14 +30,14 @@ DialogShell {
             RowLayout {
                 spacing: Theme.spacingSm
 
-                Button {
+                NeonButton {
                     text: "查看完整日志"
                     enabled: (execPanelDialog.summary.logPath || "").length > 0
                     onClicked: Qt.openUrlExternally("file:///" + execPanelDialog.summary.logPath)
                 }
 
                 // R7-02：从执行面板直接跳到队列（排队 / 在跑的都在这看）
-                Button {
+                NeonButton {
                     text: "执行队列"
                     visible: execPanelDialog.summary.hasRun === true
                     onClicked: {

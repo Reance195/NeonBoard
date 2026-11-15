@@ -15,6 +15,9 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QProcess>
 #include <QSettings>
 #include <QTemporaryDir>
@@ -767,6 +770,157 @@ private slots:
         QCOMPARE(manager.state(), QStringLiteral("available"));
         QCOMPARE(manager.latestVersion(), QStringLiteral("9.9.9"));
         QVERIFY(manager.updateAvailable());
+    }
+
+    // ---- DX-170：版本历史的纯逻辑判据 ----
+    // 样本一律用相邻字符串字面量拼接，不用 C++ raw string（moc 会把里面的
+    // https:// 当注释起点，测试类的 moc 生成为空、链接期才炸）。
+
+    void parseReleaseHistoryGitHubArray()
+    {
+        const QByteArray json =
+            "["
+            "{\"tag_name\":\"v0.1.8\",\"published_at\":\"2026-11-10T10:00:00Z\","
+            "\"body\":\"NeonBoard 0.1.8\\n\\n"
+            "完整变更记录：https://github.com/Reance195/NeonBoard/commits/v0.1.8\\n\\n"
+            "setup-sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\\n"
+            "修复了列排序\\n\","
+            "\"html_url\":\"https://github.com/Reance195/NeonBoard/releases/tag/v0.1.8\"},"
+            "{\"tag_name\":\"v0.1.9\",\"published_at\":\"2026-11-14T13:32:36Z\","
+            "\"body\":\"portable-sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\","
+            "\"html_url\":\"https://gitee.com/Reance195/NeonBoard/releases\"},"
+            "{\"tag_name\":\"v9.9.9\",\"draft\":true,\"published_at\":\"2026-12-01T00:00:00Z\","
+            "\"html_url\":\"https://github.com/x/y\"},"
+            "{\"tag_name\":\"v8.8.8\",\"prerelease\":true,\"published_at\":\"2026-12-01T00:00:00Z\","
+            "\"html_url\":\"https://github.com/x/y\"},"
+            "{\"tag_name\":\"not-a-version\",\"published_at\":\"2026-12-01T00:00:00Z\","
+            "\"html_url\":\"https://github.com/x/y\"}"
+            "]";
+
+        QString error;
+        const QVariantList items = UpdateManager::parseReleaseHistory(json, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(items.size(), 2);  // 草稿 / 预发布 / 非法版本号都被挡掉
+        const QVariantMap newest = items.at(0).toMap();
+        const QVariantMap older = items.at(1).toMap();
+        QCOMPARE(newest.value(QStringLiteral("version")).toString(), QStringLiteral("0.1.9"));
+        QCOMPARE(newest.value(QStringLiteral("date")).toString(), QStringLiteral("2026-11-14"));
+        QCOMPARE(newest.value(QStringLiteral("url")).toString(),
+                 QStringLiteral("https://gitee.com/Reance195/NeonBoard/releases"));
+        QCOMPARE(older.value(QStringLiteral("version")).toString(), QStringLiteral("0.1.8"));
+        // 校验值与标题行是给机器看的，不该出现在给人看的历史里
+        const QString notes = older.value(QStringLiteral("notes")).toString();
+        QVERIFY(!notes.contains(QStringLiteral("setup-sha256")));
+        QVERIFY(!notes.contains(QStringLiteral("NeonBoard 0.1.8")));
+        QVERIFY(notes.contains(QStringLiteral("修复了列排序")));
+        QVERIFY(notes.contains(QStringLiteral("完整变更记录")));
+    }
+
+    void parseReleaseHistoryBuiltinFormat()
+    {
+        const QByteArray json =
+            "{\"version\":1,\"releases\":["
+            "{\"version\":\"0.1.9\",\"date\":\"2026-11-14\",\"title\":\"流程治理\","
+            "\"highlights\":[\"立卡回写\",\"闸门加码\"],"
+            "\"url\":\"https://github.com/Reance195/NeonBoard/releases/tag/v0.1.9\"},"
+            "{\"version\":\"0.1.8\",\"date\":\"2026-11-10\",\"title\":\"多板切换\","
+            "\"highlights\":[\"板选择器\"],\"url\":\"http://example.com/unsafe\"},"
+            "{\"version\":\"0.1.7\",\"date\":\"2026-11-07\",\"title\":\"构建提速\","
+            "\"highlights\":[\"sccache\"],\"url\":\"https://evil.example.com/x\"}"
+            "]}";
+
+        QString error;
+        const QVariantList items = UpdateManager::parseReleaseHistory(json, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(items.size(), 3);
+        QCOMPARE(items.at(0).toMap().value(QStringLiteral("version")).toString(),
+                 QStringLiteral("0.1.9"));
+        QCOMPARE(items.at(0).toMap().value(QStringLiteral("highlights")).toStringList().size(), 2);
+        QCOMPARE(items.at(0).toMap().value(QStringLiteral("title")).toString(),
+                 QStringLiteral("流程治理"));
+        // 非 https 与白名单外的主机都不该交给系统浏览器
+        QVERIFY(items.at(1).toMap().value(QStringLiteral("url")).toString().isEmpty());
+        QVERIFY(items.at(2).toMap().value(QStringLiteral("url")).toString().isEmpty());
+    }
+
+    void parseReleaseHistoryRejectsBadInput()
+    {
+        QString error;
+        QVERIFY(UpdateManager::parseReleaseHistory(QByteArray(), &error).isEmpty());
+        QVERIFY(!error.isEmpty());
+        error.clear();
+        QVERIFY(UpdateManager::parseReleaseHistory(QByteArray("{not json"), &error).isEmpty());
+        QVERIFY(!error.isEmpty());
+        error.clear();
+        QVERIFY(UpdateManager::parseReleaseHistory(QByteArray("[]"), &error).isEmpty());
+        QVERIFY(!error.isEmpty());
+        error.clear();
+        QVERIFY(UpdateManager::parseReleaseHistory(QByteArray("42"), &error).isEmpty());
+        QVERIFY(!error.isEmpty());
+        error.clear();
+        QVERIFY(UpdateManager::parseReleaseHistory(
+                    QByteArray("[{\"tag_name\":\"beta\"}]"), &error).isEmpty());
+        QVERIFY(!error.isEmpty());
+    }
+
+    void parseReleaseHistoryCapsAndDedups()
+    {
+        QJsonArray entries;
+        for (int i = 0; i < 40; ++i) {
+            QJsonObject entry;
+            entry.insert(QStringLiteral("tag_name"), QStringLiteral("v0.1.%1").arg(i));
+            entry.insert(QStringLiteral("published_at"), QStringLiteral("2026-11-01T00:00:00Z"));
+            entries.append(entry);
+        }
+        entries.append(entries.at(0).toObject());  // 同版本重复
+        const QByteArray json = QJsonDocument(entries).toJson();
+
+        QString error;
+        const QVariantList items = UpdateManager::parseReleaseHistory(json, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(items.size(), 30);
+        QCOMPARE(items.first().toMap().value(QStringLiteral("version")).toString(),
+                 QStringLiteral("0.1.39"));
+        QCOMPARE(items.last().toMap().value(QStringLiteral("version")).toString(),
+                 QStringLiteral("0.1.10"));
+    }
+
+    void mergeReleaseHistoryKeepsHighlightsAndSorts()
+    {
+        QVariantMap remoteItem;
+        remoteItem.insert(QStringLiteral("version"), QStringLiteral("0.2.0"));
+        remoteItem.insert(QStringLiteral("date"), QStringLiteral("2026-12-01"));
+        remoteItem.insert(QStringLiteral("notes"), QStringLiteral("远端正文"));
+        remoteItem.insert(QStringLiteral("url"), QString());
+
+        QVariantMap builtinOld;
+        builtinOld.insert(QStringLiteral("version"), QStringLiteral("0.1.0"));
+        builtinOld.insert(QStringLiteral("title"), QStringLiteral("首个版本"));
+        builtinOld.insert(QStringLiteral("highlights"), QStringList{QStringLiteral("初始功能")});
+        builtinOld.insert(QStringLiteral("date"), QStringLiteral("2026-10-26"));
+
+        QVariantMap builtinNew;
+        builtinNew.insert(QStringLiteral("version"), QStringLiteral("0.2.0"));
+        builtinNew.insert(QStringLiteral("title"), QStringLiteral("新版本摘要"));
+        builtinNew.insert(QStringLiteral("highlights"),
+                          QStringList{QStringLiteral("要点一"), QStringLiteral("要点二")});
+        builtinNew.insert(QStringLiteral("url"),
+                          QStringLiteral("https://github.com/Reance195/NeonBoard/releases/tag/v0.2.0"));
+
+        const QVariantList remote{remoteItem, remoteItem};  // 故意重复
+        const QVariantList builtin{builtinOld, builtinNew};
+        const QVariantList merged = UpdateManager::mergeReleaseHistory(remote, builtin);
+        QCOMPARE(merged.size(), 2);
+
+        const QVariantMap newest = merged.at(0).toMap();
+        QCOMPARE(newest.value(QStringLiteral("version")).toString(), QStringLiteral("0.2.0"));
+        QCOMPARE(newest.value(QStringLiteral("date")).toString(), QStringLiteral("2026-12-01"));
+        QCOMPARE(newest.value(QStringLiteral("title")).toString(), QStringLiteral("新版本摘要"));
+        QCOMPARE(newest.value(QStringLiteral("highlights")).toStringList().size(), 2);
+        QCOMPARE(newest.value(QStringLiteral("notes")).toString(), QStringLiteral("远端正文"));
+        QVERIFY(newest.value(QStringLiteral("url")).toString().startsWith(QStringLiteral("https://")));
+        QCOMPARE(merged.at(1).toMap().value(QStringLiteral("version")).toString(),
+                 QStringLiteral("0.1.0"));
     }
 };
 

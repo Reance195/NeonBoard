@@ -167,6 +167,35 @@ MouseArea {
             description: "新建任务"
             onClicked: hostWin.openTaskComposer("todo")
         }
+
+        // DX-170：标题栏「＋ 新建」左侧的更新入口（截图红框槽位）。
+        // 发现新版本时整颗按钮转强调态并挂一个提示点 —— 用户不必先去设置面板翻「关于」。
+        TopToolButton {
+            id: updateCenterButton
+            anchors.right: newTaskButton.left
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            text: "更新"
+            emphasis: updateManager.updateAvailable
+            description: updateManager.updateAvailable
+                         ? "发现新版本，打开更新中心"
+                         : "打开更新中心，查看版本历史"
+            onClicked: hostWin.openUpdateCenter()
+
+            Rectangle {
+                visible: updateManager.updateAvailable
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.rightMargin: -3
+                anchors.topMargin: -3
+                width: 7
+                height: 7
+                radius: 4
+                color: Theme.danger
+                border.width: 1
+                border.color: Theme.panel
+            }
+        }
     }
 
     RowLayout {

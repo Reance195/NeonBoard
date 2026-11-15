@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "updated": "2026-11-15",
+  "note": "随源码发布的可读版本摘要。客户端把 GitHub Releases 列表的元数据按版本号与这里合并，离线时直接展示本文件；发新版本时在数组头部追加一条即可。",
+  "releases": [
+    {
+      "version": "0.1.9",
+      "date": "2026-11-14",
+      "title": "流程治理与启动实测",
+      "highlights": [
+        "立卡回写请求单状态，并对账清零 45 份假积压",
+        "流程类提交夹带实现路径加闸，收口仓库卫生",
+        "内置 opencode profile 补 stdin:null",
+        "回填启动实测数据与冷页预热负结果"
+      ],
+      "url": "https://github.com/Reance195/NeonBoard/releases/tag/v0.1.9"
+    },
+    {
+      "version": "0.1.8",
+      "date": "2026-11-10",
+      "title": "多板切换与设置面板拆分",
+      "highlights": [
+        "多板切换：板选择器与建删改，切板上下文按板隔离",
+        "设置面板五个分页整迁为独立组件",
+        "补 CMake 双登记 AppearancePage 并加登记齐套守卫",
+        "QML 治理系列三段式复盘与对策入册"
+      ],
+      "url": "https://github.com/Reance195/NeonBoard/releases/tag/v0.1.8"
+    },
+    {
+      "version": "0.1.7",
+      "date": "2026-11-07",
+      "title": "弃单终态收口与构建提速",
+      "highlights": [
+        "弃单终态收口：派生器、闸门、开区拒领统一口径",
+        "发布构建换 Ninja 并接入 sccache 编译缓存",
+        "Qt 改走 NEONBOARD_QT_ROOT 通道",
+        "增加卡片交互回归与 QML 陷阱判据"
+      ],
+      "url": "https://github.com/Reance195/NeonBoard/releases/tag/v0.1.7"
+    },
+    {
+      "version": "0.1.6",
+      "date": "2026-11-05",
+      "title": "界面令牌化与流程状态机",
+      "highlights": [
+        "二级界面令牌化：面板颜色、圆角、字号统一",
+        "看板主体精致化：卡片层级、字号阶梯、列内密度",
+        "新增统一空态组件，筛选无结果时给出出口",
+        "nbflow reconcile/requeue 状态机对账与断链恢复"
+      ],
+      "url": "https://github.com/Reance195/NeonBoard/releases/tag/v0.1.6"
+    },
+    {
+      "version": "0.1.5",
+      "date": "2026-11-04",
+      "title": "静默升级可靠性收口",
+      "highlights": [
+        "全量更新前先退出宿主进程，避免安装器静默放弃",
+        "写安装回执判出「上次更新未完成」并在设置面板警示",
+        "客户端跟随系统代理配置",
+        "覆盖安装时清理旧版遗留的弃用样式文件"
+      ],
+      "url": "https://github.com/Reance195/NeonBoard/releases/tag/v0.1.5"
+    },
+    {
+      "version": "0.1.4",
+      "date": "2026-11-04",
+      "title": "增量升级接进发布链路",
+      "highlights": [
+        "增量升级包接入 CI 发布链路，便携包体积大幅下降",
+        "git-done 收尾加结单对账与 -Close 人工确认",
+        "发布前验证便携包可独立运行并拦截 0 字节 DLL",
+        "范围检查显式按 UTF-8 解码 git 输出"
+      ],
+      "url": "https://github.com/Reance195/NeonBoard/releases/tag/v0.1.4"
+    },
+    {
+      "version": "0.1.3",
+      "date": "2026-10-28",
+      "title": "构建产物兼容与文档台账",
+      "highlights": [
+        "兼容 Ninja 单配置构建的产物路径",
+        "建立问题与解决方案台账、锚点分叉定位三步",
+        "回写看板状态前先变基再派生"
+      ],
+      "url": "https://github.com/Reance195/NeonBoard/releases/tag/v0.1.3"
+    },
+    {
+      "version": "0.1.2",
+      "date": "2026-10-26",
+      "title": "修复静默升级落盘",
+      "highlights": [
+        "修复下载的安装包从未落盘、静默升级永远走不到的问题"
+      ],
+      "url": "https://github.com/Reance195/NeonBoard/releases/tag/v0.1.2"
+    },
+    {
+      "version": "0.1.1",
+      "date": "2026-10-26",
+      "title": "版本号单源化与无人值守升级",
+      "highlights": [
+        "版本号收敛到 CMakeLists.txt 单点注入",
+        "新增 --update-apply 无人值守升级链路",
+        "逐源看门狗，校验值改写进 Release 正文",
+        "清理公开仓库中的本机信息与内部运维内容"
+      ],
+      "url": "https://github.com/Reance195/NeonBoard/releases/tag/v0.1.1"
+    },
+    {
+      "version": "0.1.0",
+      "date": "2026-10-26",
+      "title": "首个版本",
+      "highlights": [
+        "软件自动更新：检查、SHA-256 校验、静默升级与便携版自更新",
+        "schema v2 引入看板与列，任务模型支持列归属",
+        "列管理支持增列、改名、调序与删列迁卡",
+        "首启动三步引导与示例卡"
+      ],
+      "url": "https://github.com/Reance195/NeonBoard/releases/tag/v0.1.0"
+    }
+  ]
+}

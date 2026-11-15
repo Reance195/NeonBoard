@@ -272,6 +272,7 @@ set_source_files_properties(qml/components/PluginPage.qml PROPERTIES QT_RESOURCE
 set_source_files_properties(qml/components/ExecPage.qml PROPERTIES QT_RESOURCE_ALIAS "ExecPage.qml")
 set_source_files_properties(qml/components/AboutPage.qml PROPERTIES QT_RESOURCE_ALIAS "AboutPage.qml")
 set_source_files_properties(qml/components/NeonButton.qml PROPERTIES QT_RESOURCE_ALIAS "NeonButton.qml")
+set_source_files_properties(qml/components/UpdateCenterDialog.qml PROPERTIES QT_RESOURCE_ALIAS "UpdateCenterDialog.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -331,6 +332,7 @@ qt_add_qml_module(NeonBoard
     qml/components/ExecPage.qml
     qml/components/AboutPage.qml
     qml/components/NeonButton.qml
+    qml/components/UpdateCenterDialog.qml
 )
 
 qt_add_resources(NeonBoard "icons"
@@ -338,6 +340,15 @@ qt_add_resources(NeonBoard "icons"
     BASE "${CMAKE_SOURCE_DIR}/resources/icons"
     FILES
         resources/icons/neonboard.svg
+)
+
+# 版本历史的中文摘要随程序发布：离线也能在更新中心看到完整历史，
+# 不用等网络把 GitHub Releases 列表拉回来（DX-170）。
+qt_add_resources(NeonBoard "release_history"
+    PREFIX "/"
+    BASE "${CMAKE_SOURCE_DIR}/resources"
+    FILES
+        resources/release-history.json
 )
 
 qt_add_shaders(NeonBoard "neon_shaders"

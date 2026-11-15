@@ -23,10 +23,13 @@
 #include <QRegularExpression>
 #include <QSaveFile>
 #include <QSettings>
+#include <QSet>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QUrl>
+
+#include <algorithm>
 
 #ifdef Q_OS_WINDOWS
 #include <windows.h>
@@ -163,6 +166,74 @@ QString isoDateOnly(const QString &value)
 {
     const int at = value.indexOf(QLatin1Char('T'));
     return at > 0 ? value.left(at) : value;
+}
+
+// ---- 版本历史（DX-170）----
+// 历史是「看看就好」的旁路数据，8 秒拿不到就降级，不值得让用户等 25 秒。
+constexpr int kHistoryTimeoutMs = 8000;
+constexpr int kHistoryLimit = 30;
+
+/** 只放行 https 且主机在白名单内的链接：Release 正文来自远端，不能被当成
+ *  任意外链的投递通道（QML 里也不渲染富文本，两者是同一条约束的两端）。 */
+QString safeReleaseUrl(const QString &raw)
+{
+    const QUrl url(raw.trimmed());
+    if (url.scheme() != QLatin1String("https"))
+        return QString();
+    const QString host = url.host().toLower();
+    const bool allowed = host == QLatin1String("github.com")
+                         || host.endsWith(QLatin1String(".github.com"))
+                         || host == QLatin1String("gitee.com")
+                         || host.endsWith(QLatin1String(".gitee.com"));
+    return allowed ? url.toString() : QString();
+}
+
+/** Release 正文里只有标题、变更记录链接与 3 行 *-sha256: 校验值。
+ *  校验值是给更新校验器看的，不是给人看的；留在历史列表里只会变成一串哈希。 */
+QString cleanReleaseNotes(const QString &raw)
+{
+    static const QRegularExpression shaLine(
+        QStringLiteral("^[A-Za-z0-9_-]+-sha256\\s*[:=]\\s*[0-9a-fA-F]{64}"));
+    static const QRegularExpression titleLine(
+        QStringLiteral("^NeonBoard\\s+v?[0-9]+(?:\\.[0-9]+)+(?:[-+][0-9A-Za-z.]+)?$"));
+    QStringList lines;
+    for (const QString &line : raw.split(QLatin1Char('\n'))) {
+        const QString text = line.trimmed();
+        if (text.isEmpty() || shaLine.match(text).hasMatch() || titleLine.match(text).hasMatch())
+            continue;
+        lines << text;
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
+bool validHistoryVersion(const QString &raw)
+{
+    static const QRegularExpression re(
+        QStringLiteral("^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.]+)?$"));
+    return re.match(raw).hasMatch();
+}
+
+/** 语义版本倒序、同版本去重、截断上限。排序用同一个 compareVersion，
+ *  与「当前是否最新」的判定口径一致（v 前缀与预发布后缀都认）。 */
+QVariantList sortHistory(QVariantList items)
+{
+    std::sort(items.begin(), items.end(), [](const QVariant &a, const QVariant &b) {
+        return UpdateManager::compareVersion(
+                   a.toMap().value(QStringLiteral("version")).toString(),
+                   b.toMap().value(QStringLiteral("version")).toString()) > 0;
+    });
+    QVariantList out;
+    QString previous;
+    for (const QVariant &item : items) {
+        const QString version = item.toMap().value(QStringLiteral("version")).toString();
+        if (version.isEmpty() || version == previous)
+            continue;
+        previous = version;
+        out << item;
+        if (out.size() >= kHistoryLimit)
+            break;
+    }
+    return out;
 }
 
 } // namespace
@@ -1482,4 +1553,250 @@ bool UpdateManager::downloadBlocking(const QString &destFile, QString *error)
     file.close();
 
     return verifyFile(destFile, artifactSha256(), error);
+}
+
+// ---------------------------------------------------------------------------
+// 版本历史（DX-170）
+//
+// 与「检查更新」是两条完全独立的链：历史用 m_historyReply / update-history.json，
+// 不碰 m_reply、m_activeManifestReplies 与 update-cache.json。哪怕 GitHub 挂了、
+// 历史解析炸了，更新检查与下载安装都照常工作。
+// ---------------------------------------------------------------------------
+
+QVariantList UpdateManager::parseReleaseHistory(const QByteArray &json, QString *error)
+{
+    if (error)
+        error->clear();
+    if (json.trimmed().isEmpty()) {
+        if (error)
+            *error = QStringLiteral("版本历史为空");
+        return {};
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(json, &parseError);
+    if (parseError.error != QJsonParseError::NoError) {
+        if (error)
+            *error = QStringLiteral("版本历史不是合法 JSON：%1").arg(parseError.errorString());
+        return {};
+    }
+
+    QJsonArray entries;
+    if (doc.isArray())
+        entries = doc.array();                       // GitHub Releases API
+    else if (doc.isObject())
+        entries = doc.object().value(QStringLiteral("releases")).toArray();  // 内置摘要 / 缓存
+    else {
+        if (error)
+            *error = QStringLiteral("版本历史格式无法识别");
+        return {};
+    }
+
+    QVariantList items;
+    for (const QJsonValue &value : entries) {
+        if (!value.isObject())
+            continue;
+        const QJsonObject obj = value.toObject();
+        if (obj.value(QStringLiteral("draft")).toBool()
+            || obj.value(QStringLiteral("prerelease")).toBool())
+            continue;
+
+        QString version = trimVersionPrefix(obj.value(QStringLiteral("version")).toString());
+        if (version.isEmpty())
+            version = trimVersionPrefix(obj.value(QStringLiteral("tag_name")).toString());
+        if (!validHistoryVersion(version))
+            continue;
+
+        QString date = obj.value(QStringLiteral("date")).toString();
+        if (date.isEmpty())
+            date = obj.value(QStringLiteral("published_at")).toString();
+
+        QStringList highlights;
+        for (const QJsonValue &entry : obj.value(QStringLiteral("highlights")).toArray()) {
+            if (entry.isString() && !entry.toString().trimmed().isEmpty())
+                highlights << entry.toString().trimmed();
+        }
+
+        QString notes = obj.value(QStringLiteral("notes")).toString();
+        if (notes.isEmpty())
+            notes = obj.value(QStringLiteral("body")).toString();
+        QString url = obj.value(QStringLiteral("url")).toString();
+        if (url.isEmpty())
+            url = obj.value(QStringLiteral("html_url")).toString();
+
+        QVariantMap item;
+        item.insert(QStringLiteral("version"), version);
+        item.insert(QStringLiteral("date"), isoDateOnly(date));
+        item.insert(QStringLiteral("title"), obj.value(QStringLiteral("title")).toString());
+        item.insert(QStringLiteral("highlights"), highlights);
+        item.insert(QStringLiteral("notes"), cleanReleaseNotes(notes));
+        item.insert(QStringLiteral("url"), safeReleaseUrl(url));
+        items << item;
+    }
+
+    if (items.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("版本历史里没有可用条目");
+        return {};
+    }
+    return sortHistory(items);
+}
+
+QVariantList UpdateManager::mergeReleaseHistory(const QVariantList &remote,
+                                                const QVariantList &builtin)
+{
+    QMap<QString, QVariantMap> builtinByVersion;
+    for (const QVariant &value : builtin) {
+        const QVariantMap map = value.toMap();
+        const QString version = map.value(QStringLiteral("version")).toString();
+        if (!version.isEmpty() && !builtinByVersion.contains(version))
+            builtinByVersion.insert(version, map);
+    }
+
+    QVariantList merged;
+    QSet<QString> seen;
+    for (const QVariant &value : remote) {
+        QVariantMap map = value.toMap();
+        const QString version = map.value(QStringLiteral("version")).toString();
+        if (version.isEmpty() || seen.contains(version))
+            continue;
+        const auto found = builtinByVersion.constFind(version);
+        if (found != builtinByVersion.constEnd()) {
+            if (map.value(QStringLiteral("title")).toString().isEmpty())
+                map.insert(QStringLiteral("title"), found->value(QStringLiteral("title")));
+            if (map.value(QStringLiteral("highlights")).toStringList().isEmpty())
+                map.insert(QStringLiteral("highlights"), found->value(QStringLiteral("highlights")));
+            if (map.value(QStringLiteral("date")).toString().isEmpty())
+                map.insert(QStringLiteral("date"), found->value(QStringLiteral("date")));
+            if (map.value(QStringLiteral("url")).toString().isEmpty())
+                map.insert(QStringLiteral("url"), found->value(QStringLiteral("url")));
+        }
+        seen.insert(version);
+        merged << map;
+    }
+
+    // 内置摘要里的老版本（或 GitHub 列表分页没覆盖到的）也要留在历史里
+    for (const QVariant &value : builtin) {
+        const QVariantMap map = value.toMap();
+        const QString version = map.value(QStringLiteral("version")).toString();
+        if (version.isEmpty() || seen.contains(version))
+            continue;
+        seen.insert(version);
+        merged << map;
+    }
+    return sortHistory(merged);
+}
+
+QString UpdateManager::historyUrl() const
+{
+    for (const QString &spec : m_sources) {
+        const QString value = spec.trimmed();
+        QString repo;
+        if (value.startsWith(QLatin1String("gitee+github://")))
+            repo = value.mid(QStringLiteral("gitee+github://").size());
+        else if (!value.contains(QLatin1String("://")) && value.contains(QLatin1Char('/')))
+            repo = value;
+        if (repo.count(QLatin1Char('/')) == 1 && !repo.startsWith(QLatin1Char('/')))
+            return QStringLiteral("https://api.github.com/repos/%1/releases?per_page=30").arg(repo);
+    }
+    return QStringLiteral("https://api.github.com/repos/Reance195/NeonBoard/releases?per_page=30");
+}
+
+QString UpdateManager::historyCachePath() const
+{
+    return AppPaths::dataDir() + QStringLiteral("/update-history.json");
+}
+
+QVariantList UpdateManager::loadBuiltinHistory() const
+{
+    QFile file(QStringLiteral(":/release-history.json"));
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    QString error;
+    return parseReleaseHistory(file.readAll(), &error);
+}
+
+QVariantList UpdateManager::loadHistoryCache() const
+{
+    QFile file(historyCachePath());
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    QString error;
+    return parseReleaseHistory(file.readAll(), &error);
+}
+
+void UpdateManager::storeHistoryCache(const QVariantList &items) const
+{
+    QJsonObject root;
+    root.insert(QStringLiteral("savedAt"), QDateTime::currentSecsSinceEpoch());
+    root.insert(QStringLiteral("releases"), QJsonArray::fromVariantList(items));
+    QSaveFile file(historyCachePath());
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return;
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    file.commit();
+}
+
+void UpdateManager::refreshReleaseHistory()
+{
+    if (m_historyLoading)
+        return;
+    if (m_builtinHistory.isEmpty())
+        m_builtinHistory = loadBuiltinHistory();
+
+    // 先把缓存 + 内置摘要填进界面：离线用户不该面对一块空白的「加载中」
+    const QVariantList cached = loadHistoryCache();
+    m_releaseHistory = mergeReleaseHistory(cached, m_builtinHistory);
+    m_historyStatus = cached.isEmpty()
+                          ? QStringLiteral("正在获取版本历史…")
+                          : QStringLiteral("正在刷新，暂用本地缓存…");
+    m_historyLoading = true;
+    emit releaseHistoryChanged();
+
+    QNetworkRequest request{QUrl(historyUrl())};
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("NeonBoard-UpdateManager"));
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+    QNetworkReply *reply = m_network->get(request);
+    m_historyReply = reply;
+    QTimer::singleShot(kHistoryTimeoutMs, reply, [reply]() {
+        if (reply->isRunning())
+            reply->abort();
+    });
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        onHistoryReplyFinished(reply);
+    });
+}
+
+void UpdateManager::onHistoryReplyFinished(QNetworkReply *reply)
+{
+    if (!reply || reply != m_historyReply)
+        return;
+    m_historyReply = nullptr;
+    const bool ok = reply->error() == QNetworkReply::NoError;
+    const QByteArray payload = ok ? reply->readAll() : QByteArray();
+    reply->deleteLater();
+
+    QString error;
+    const QVariantList remote = payload.isEmpty() ? QVariantList()
+                                                  : parseReleaseHistory(payload, &error);
+    if (!remote.isEmpty()) {
+        storeHistoryCache(remote);
+        m_releaseHistory = mergeReleaseHistory(remote, m_builtinHistory);
+        m_historyStatus = QStringLiteral("在线 · 共 %1 个版本").arg(m_releaseHistory.size());
+    } else {
+        m_releaseHistory = mergeReleaseHistory(loadHistoryCache(), m_builtinHistory);
+        m_historyStatus = m_releaseHistory.isEmpty()
+                              ? QStringLiteral("无法获取版本历史")
+                              : QStringLiteral("离线 · 显示本地缓存与内置摘要");
+    }
+    m_historyLoading = false;
+    emit releaseHistoryChanged();
+}
+
+void UpdateManager::openReleaseUrl(const QString &url)
+{
+    const QString safe = safeReleaseUrl(url);
+    if (!safe.isEmpty())
+        QDesktopServices::openUrl(QUrl(safe));
 }

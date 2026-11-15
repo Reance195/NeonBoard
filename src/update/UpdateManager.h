@@ -4,6 +4,7 @@
 #include <QString>
 #include <QStringList>
 #include <QMap>
+#include <QVariantList>
 
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -58,6 +59,11 @@ class UpdateManager : public QObject
     Q_PROPERTY(qint64 lastCheckAt READ lastCheckAt NOTIFY lastCheckChanged)
     // 构造时读一次安装回执就定型，运行期不会变，所以是 CONSTANT
     Q_PROPERTY(bool lastInstallIncomplete READ lastInstallIncomplete CONSTANT)
+    // 版本历史（DX-170）：每条是 QVariantMap，键为 version/date/title/highlights/notes/url。
+    // 与更新检查完全独立的一条数据链路，拉不到就退化到缓存 + 内置摘要。
+    Q_PROPERTY(QVariantList releaseHistory READ releaseHistory NOTIFY releaseHistoryChanged)
+    Q_PROPERTY(QString historyStatus READ historyStatus NOTIFY releaseHistoryChanged)
+    Q_PROPERTY(bool historyLoading READ historyLoading NOTIFY releaseHistoryChanged)
 
 public:
     explicit UpdateManager(QObject *parent = nullptr);
@@ -133,6 +139,17 @@ public:
     static QString receiptVersionMismatch(const QString &receiptPath,
                                           const QString &runningVersion);
 
+    /** 版本历史解析（DX-170）：同时兼容两种响应体 ——
+     *  ① GitHub Releases API 的数组（tag_name / published_at / body / html_url /
+     *     draft / prerelease）；② 仓库内置摘要的 {"releases": [...]} 对象。
+     *  统一的纯函数：过滤草稿与预发布、去掉 *-sha256: 校验行、按语义版本倒序去重、
+     *  截断到 kHistoryLimit 条；非法输入返回空列表并写 error。 */
+    static QVariantList parseReleaseHistory(const QByteArray &json, QString *error = nullptr);
+    /** 远端元数据与内置中文摘要按版本号合并：远端给日期/正文/链接，
+     *  内置给标题与要点；内置独有的版本补在末尾，整体仍按版本倒序。 */
+    static QVariantList mergeReleaseHistory(const QVariantList &remote,
+                                            const QVariantList &builtin);
+
     QString currentVersion() const;
     QString installKind() const;
 
@@ -154,6 +171,10 @@ public:
     /** 安装回执版本与自身编译版本不符 = 上次更新被占用文件打断，留下半装树 */
     bool lastInstallIncomplete() const { return m_lastInstallIncomplete; }
 
+    QVariantList releaseHistory() const { return m_releaseHistory; }
+    QString historyStatus() const { return m_historyStatus; }
+    bool historyLoading() const { return m_historyLoading; }
+
     /** 内置默认清单地址（Gitee raw 优先，GitHub raw 兜底） */
     static QString defaultSource();
     /** 清单缓存文件路径 */
@@ -169,6 +190,13 @@ public:
 
     /** 启动后的自动检查：到点才真的发请求，避免每次启动都打网络 */
     Q_INVOKABLE void startupCheck();
+
+    /** 拉取版本历史（DX-170）。先用缓存 + 内置摘要把界面填起来，再异步刷新；
+     *  成功就写缓存，失败保留降级结果并在 historyStatus 标注离线。 */
+    Q_INVOKABLE void refreshReleaseHistory();
+    /** 打开某个历史版本的 Release 页：只放行 https 且主机在白名单内，
+     *  避免把远端清单里的任意链接直接交给系统浏览器。 */
+    Q_INVOKABLE void openReleaseUrl(const QString &url);
 
     // ---- 同步接口（命令行 / 测试用）----
     /** 同步检查一次，返回是否有更新可用 */
@@ -195,6 +223,8 @@ signals:
     void errorOccurred(const QString &message);
     /** 安装动作已启动，宿主请准备退出 */
     void installLaunched();
+    /** 版本历史的内容、状态文案或加载态发生变化 */
+    void releaseHistoryChanged();
 
 private:
     enum class Purpose { Manifest, Artifact };
@@ -230,6 +260,14 @@ private:
     /** 启动时读安装回执：版本不符即告警并置 m_lastInstallIncomplete */
     void checkInstallReceipt();
 
+    // ---- 版本历史（DX-170）：独立的请求、缓存与降级链 ----
+    QString historyUrl() const;
+    QString historyCachePath() const;
+    QVariantList loadBuiltinHistory() const;
+    QVariantList loadHistoryCache() const;
+    void storeHistoryCache(const QVariantList &items) const;
+    void onHistoryReplyFinished(QNetworkReply *reply);
+
     QNetworkAccessManager *m_network = nullptr;
     QNetworkReply *m_reply = nullptr;
     /** 并行竞速：所有活动的清单检查请求 */
@@ -255,4 +293,11 @@ private:
     QStringList m_candidates;
     int m_candidateIndex = 0;
     QString m_pendingArtifact;
+
+    // 与 m_reply 分开：历史拉取失败不该影响「检查更新 → 下载 → 安装」这条链
+    QNetworkReply *m_historyReply = nullptr;
+    QVariantList m_builtinHistory;
+    QVariantList m_releaseHistory;
+    QString m_historyStatus;
+    bool m_historyLoading = false;
 };

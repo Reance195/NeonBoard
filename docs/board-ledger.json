@@ -7647,6 +7647,13 @@
       "title": "按钮样式同源：抽 NeonButton 单一实现，收口全项目 19 处原生 Button"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-169": {
+      "agent": "agent-dx169",
+      "branch": "refactor/button-theme-unify",
+      "head": "f6be80f6a1b00c7f258f04245421c3d7ead6f95b",
+      "claimedAt": 1794734709
+    }
+  },
   "version": 1
 }

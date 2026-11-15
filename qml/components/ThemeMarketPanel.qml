@@ -42,25 +42,11 @@ DialogShell {
 
     // 底栏左侧的额外动作（打开主题目录）
     footerExtra: Component {
-        Button {
+        NeonButton {
             text: "打开主题目录"
             Layout.preferredHeight: 26
             Layout.preferredWidth: 96
-            padding: 0
             onClicked: Qt.openUrlExternally("file:///" + themePacks.ensureDir())
-            background: Rectangle {
-                radius: Theme.radiusControl
-                color: Theme.input
-                border.width: 1
-                border.color: Theme.border
-            }
-            contentItem: Text {
-                text: "打开主题目录"
-                color: Theme.muted
-                font.pixelSize: Theme.fontMicro
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-            }
         }
     }
 

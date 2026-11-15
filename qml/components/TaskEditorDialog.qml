@@ -131,57 +131,25 @@ Dialog {
 
                 Item { Layout.fillWidth: true }
 
-                Button {
-                    id: taskTab
+                NeonButton {
                     text: "任务"
+                    selected: editor.tabIndex === 0
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 28
-                    padding: 0
                     onClicked: {
                         editor.tabIndex = 0
                         editor.execNotice = ""
                     }
-                    background: Rectangle {
-                        radius: 8
-                        color: editor.tabIndex === 0
-                               ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
-                               : Theme.input
-                        border.width: 1
-                        border.color: editor.tabIndex === 0 ? Theme.cyan : Theme.border
-                    }
-                    contentItem: Text {
-                        text: taskTab.text
-                        color: editor.tabIndex === 0 ? Theme.text : Theme.muted
-                        font.pixelSize: 11
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                Button {
-                    id: execTab
+                NeonButton {
                     text: "执行"
+                    selected: editor.tabIndex === 1
                     Layout.preferredWidth: 64
                     Layout.preferredHeight: 28
-                    padding: 0
                     onClicked: {
                         editor.tabIndex = 1
                         editor.execNotice = ""
-                    }
-                    background: Rectangle {
-                        radius: 8
-                        color: editor.tabIndex === 1
-                               ? Qt.rgba(Theme.cyan.r, Theme.cyan.g, Theme.cyan.b, 0.32)
-                               : Theme.input
-                        border.width: 1
-                        border.color: editor.tabIndex === 1 ? Theme.cyan : Theme.border
-                    }
-                    contentItem: Text {
-                        text: execTab.text
-                        color: editor.tabIndex === 1 ? Theme.text : Theme.muted
-                        font.pixelSize: 11
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }
@@ -412,7 +380,7 @@ Dialog {
                 spacing: 8
                 visible: editor.tabIndex === 1
 
-                Button {
+                NeonButton {
                     text: editor.triageRunning ? "分析中…" : "先分析"
                     enabled: !editor.triageRunning
                              && agentProfile.executorEnabled
@@ -438,7 +406,7 @@ Dialog {
 
                 // 台账单向导入（R6-09，ADR-0001）：按标题内嵌短号只补空值，
                 // 冲突只报告不覆盖；没有「写入台账」的反向入口。
-                Button {
+                NeonButton {
                     text: "台账导入"
                     property string code: {
                         var m = String(titleField.text || "").match(/#([A-Za-z]{1,4}\d*-\d+|M\d+)\b/)
@@ -571,7 +539,7 @@ Dialog {
                             wrapMode: Text.Wrap
                         }
 
-                        Button {
+                        NeonButton {
                             text: "采纳草案"
                             // confidence < 0.5 时不给一键回填执行参数（先拆分或澄清）
                             enabled: ((editor.triageDraft.draft || {}).executable !== false)
@@ -587,7 +555,7 @@ Dialog {
                             }
                         }
 
-                        Button {
+                        NeonButton {
                             text: "忽略"
                             onClicked: {
                                 triageRunner.clearDraft(editor.taskId)
@@ -669,12 +637,12 @@ Dialog {
                     }
                 }
 
-                Button {
+                NeonButton {
                     text: "选择…"
                     onClicked: execCwdDialog.open()
                 }
 
-                Button {
+                NeonButton {
                     text: "清除"
                     enabled: editor.execCwd.length > 0
                     onClicked: editor.execCwd = ""
@@ -778,7 +746,7 @@ Dialog {
                     }
                 }
 
-                Button {
+                NeonButton {
                     text: "执行态"
                     // 有任何 run 记录才显示（revision 建立依赖，run 变化时重算）
                     property var latest: {
@@ -789,7 +757,8 @@ Dialog {
                     onClicked: hostWin.openExecPanel(editor.taskId)
                 }
 
-                Button {
+                NeonButton {
+                    tone: "primary"
                     text: "执行"
                     enabled: editor.execBlocker.length === 0
                     onClicked: {
@@ -826,7 +795,8 @@ Dialog {
                 Layout.fillWidth: true
                 spacing: 8
 
-                Button {
+                NeonButton {
+                    tone: "danger"
                     text: "删除"
                     onClicked: {
                         hostWin.deleteTaskWithUndo(editor.taskId)
@@ -836,12 +806,13 @@ Dialog {
 
                 Item { Layout.fillWidth: true }
 
-                Button {
+                NeonButton {
                     text: "取消"
                     onClicked: editor.close()
                 }
 
-                Button {
+                NeonButton {
+                    tone: "primary"
                     text: "保存"
                     onClicked: {
                         const title = titleField.text.trim()

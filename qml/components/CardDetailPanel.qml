@@ -37,52 +37,24 @@ DialogShell {
         RowLayout {
             spacing: Theme.spacingSm
 
-            Button {
+            NeonButton {
                 visible: !root.editing
                 text: "编辑"
                 Layout.preferredHeight: 26
                 Layout.preferredWidth: 52
-                padding: 0
                 onClicked: root.beginEdit()
-                background: Rectangle {
-                    radius: Theme.radiusControl
-                    color: Theme.input
-                    border.width: 1
-                    border.color: Theme.border
-                }
-                contentItem: Text {
-                    text: "编辑"
-                    color: Theme.muted
-                    font.pixelSize: Theme.fontCaption
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
             }
 
-            Button {
+            NeonButton {
                 visible: !root.editing
                 text: "打开编辑器"
                 Layout.preferredHeight: 26
-                padding: 0
                 Layout.preferredWidth: 92
                 onClicked: {
                     const id = root.cardId
                     root.silentClose = true
                     root.close()
                     root.openEditor(id)
-                }
-                background: Rectangle {
-                    radius: Theme.radiusControl
-                    color: Theme.input
-                    border.width: 1
-                    border.color: Theme.border
-                }
-                contentItem: Text {
-                    text: "打开编辑器"
-                    color: Theme.muted
-                    font.pixelSize: Theme.fontCaption
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
                 }
             }
         }

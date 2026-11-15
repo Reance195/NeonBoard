@@ -271,6 +271,7 @@ set_source_files_properties(qml/components/HotkeyPage.qml PROPERTIES QT_RESOURCE
 set_source_files_properties(qml/components/PluginPage.qml PROPERTIES QT_RESOURCE_ALIAS "PluginPage.qml")
 set_source_files_properties(qml/components/ExecPage.qml PROPERTIES QT_RESOURCE_ALIAS "ExecPage.qml")
 set_source_files_properties(qml/components/AboutPage.qml PROPERTIES QT_RESOURCE_ALIAS "AboutPage.qml")
+set_source_files_properties(qml/components/NeonButton.qml PROPERTIES QT_RESOURCE_ALIAS "NeonButton.qml")
 
 qt_add_qml_module(NeonBoard
     URI NeonBoard
@@ -329,6 +330,7 @@ qt_add_qml_module(NeonBoard
     qml/components/PluginPage.qml
     qml/components/ExecPage.qml
     qml/components/AboutPage.qml
+    qml/components/NeonButton.qml
 )
 
 qt_add_resources(NeonBoard "icons"

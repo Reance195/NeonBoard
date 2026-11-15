@@ -43,8 +43,8 @@ DialogShell {
     }
     onSecondaryTriggered: root.close()
 
-    // 由 Main.qml 的 openUpdateCenter() 显式调一次，避免 Popup 重复 open 时
-    // 既不刷历史、也不在首次打开时连发两个同样的请求。
+    // 由标题栏入口在 open() 后显式调一次；UpdateManager 内另有 historyLoading 闸门，
+    // 重复点击不会连发两个同样的请求。
     function refresh() { updateManager.refreshReleaseHistory() }
 
     // 单条历史版本卡片。entry 显式取名，避免内层 Repeater 的 modelData 遮蔽外层。

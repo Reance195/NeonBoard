@@ -6,20 +6,10 @@ import QtQuick.Layouts
 // 版本信息 / 更新设置（updateManager 等为上下文属性）。
 // visible 由实例化处按页绑定。
 ColumnLayout {
-        id: root
         Layout.fillWidth: true
         Layout.leftMargin: Theme.spacingMd
         Layout.rightMargin: Theme.spacingMd
         spacing: Theme.spacingMd
-
-        // DX-170：历史更新内容与标题栏更新中心共用同一份数据（UpdateManager），
-        // 这里只做紧凑投影；完整版本列表在更新中心里看。
-        property bool showAllHistory: false
-        readonly property var visibleHistory: showAllHistory
-                                              ? updateManager.releaseHistory
-                                              : updateManager.releaseHistory.slice(0, 3)
-
-        Component.onCompleted: updateManager.refreshReleaseHistory()
 
         // ① 版本与快捷键
         ColumnLayout {
@@ -36,7 +26,7 @@ ColumnLayout {
                 Layout.fillWidth: true
 
                 Text {
-                    text: "NeonBoard " + updateManager.currentVersion + " · Qt 6.8 · SQLite"
+                    text: "NeonBoard 0.1.0 · Qt 6.8 · SQLite"
                     color: Theme.muted
                     font.pixelSize: Theme.fontMicro
                 }
@@ -219,93 +209,6 @@ ColumnLayout {
                 color: Theme.muted
                 font.pixelSize: Theme.fontMicro
                 wrapMode: Text.WordWrap
-            }
-
-            // 历史更新内容（DX-170）：倒序、默认 3 条，可展开看全部。
-            // 离线时用缓存与内置摘要，状态由 updateManager.historyStatus 说明。
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: 6
-                spacing: 8
-
-                Text {
-                    text: "历史更新"
-                    color: Theme.text
-                    font.pixelSize: Theme.fontCaption
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: updateManager.historyStatus
-                    color: Theme.muted
-                    font.pixelSize: Theme.fontMicro
-                    wrapMode: Text.WordWrap
-                    textFormat: Text.PlainText
-                }
-
-                Text {
-                    visible: updateManager.releaseHistory.length > 3
-                    text: root.showAllHistory ? "收起" : "查看全部"
-                    color: Theme.accent
-                    font.pixelSize: Theme.fontMicro
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.showAllHistory = !root.showAllHistory
-                    }
-                }
-
-                Text {
-                    text: updateManager.historyLoading ? "载入中…" : "刷新"
-                    color: Theme.accent
-                    font.pixelSize: Theme.fontMicro
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        enabled: !updateManager.historyLoading
-                        onClicked: updateManager.refreshReleaseHistory()
-                    }
-                }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                visible: !updateManager.historyLoading && updateManager.releaseHistory.length === 0
-                text: "暂无版本历史：联网后点「刷新」重试。"
-                color: Theme.warning
-                font.pixelSize: Theme.fontMicro
-            }
-
-            Repeater {
-                model: root.visibleHistory
-                delegate: RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Text {
-                        text: "v" + modelData.version
-                        color: modelData.version === updateManager.currentVersion ? Theme.cyan : Theme.accent
-                        font.pixelSize: Theme.fontMicro
-                        font.bold: true
-                        textFormat: Text.PlainText
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: modelData.title.length > 0 ? modelData.title : "版本更新"
-                        color: Theme.muted
-                        font.pixelSize: Theme.fontMicro
-                        elide: Text.ElideRight
-                        textFormat: Text.PlainText
-                    }
-
-                    Text {
-                        text: modelData.date
-                        color: Theme.muted
-                        font.pixelSize: Theme.fontMicro
-                        textFormat: Text.PlainText
-                    }
-                }
             }
         }
 }

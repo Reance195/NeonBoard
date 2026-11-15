@@ -251,23 +251,7 @@ ApplicationWindow {
         closeAllPanels()
         projectMapLoader.active = true
     }
-
-    // 更新中心（DX-170）：标题栏「更新」按钮的统一入口。
-    // Loader 同步加载，item 拿到后开弹窗并刷一次历史；重复点击不会再发第二个请求
-    // （UpdateManager 内部有 historyLoading 闸门）。
-    function openUpdateCenter() {
-        show()
-        raise()
-        requestActivate()
-        closeAllPanels()
-        if (!updateCenterLoader.active)
-            updateCenterLoader.active = true
-        if (updateCenterLoader.item) {
-            updateCenterLoader.item.open()
-            updateCenterLoader.item.refresh()
-        }
-    }
-
+    property alias updateCenter: updateCenterDialog
     // 执行前确认（R6-03）：只展示快照，真正的进程启动在 R6-04 接入
     function openExecConfirm(payload) {
         execConfirmDialog.taskId = payload.taskId || ""
@@ -1310,18 +1294,7 @@ ApplicationWindow {
         sourceComponent: taskEditorComponent
         onLoaded: item.hostWin = window
     }
-
-    // 更新中心（DX-170）：按需加载的独立弹窗，宿主窗口显式注入让壳挂到窗口 Overlay。
-    Loader {
-        id: updateCenterLoader
-        active: false
-        sourceComponent: Component {
-            UpdateCenterDialog {
-                hostWindow: window
-            }
-        }
-    }
-
+    UpdateCenterDialog { id: updateCenterDialog; hostWindow: window }
     Loader {
         id: themeMarketLoader
         active: false

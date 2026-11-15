@@ -348,7 +348,8 @@
     "R9-02": "done",
     "R9-03": "done",
     "R9-04": "done",
-    "R9-05": "done"
+    "R9-05": "done",
+    "DX-168": "todo"
   },
   "cards": {
     "DX-01": {
@@ -7589,6 +7590,34 @@
       "stage": "R5",
       "tier": "P3",
       "title": "v0.1.9 发版：版本号递增与发布验收"
+    },
+    "DX-168": {
+      "acceptance": [
+        "ctest -R \"tst_taskmodel|tst_roadmapsync|tst_databasemigration\" --output-on-failure 全过，新增用例覆盖直写 task.status 被触发器按列状态纠正、INSERT 只给 column_id 时状态自动派生、board_column.status 变更时列内卡同步重投影",
+        "tst_roadmapsync 新增用例断言导入把 todo 改成 done 后 column_id 落到 col-done 且 status 为 done 且 completedAt 保留文件值，并断言导出再导入的状态往返一致",
+        "tst_databasemigration 新增用例断言启动时一次性把存量撕裂行的 column_id 补到 status 对应列，且 PRAGMA user_version 仍为 2（旧版程序仍可读库）",
+        "全库一致性断言 SELECT COUNT(*) FROM task t JOIN board_column c ON c.id=t.column_id WHERE t.status<>c.status 为 0，且 src/task/TaskModel.cpp 的 UPDATE 语句不再给 status 列赋值（状态只由 column_id 换算）",
+        "pwsh -File scripts/verify.ps1 全量档退出码 0",
+        "python scripts/check_scope.py --base origin/main 与 python scripts/check_path_refs.py --base origin/main 退出码 0"
+      ],
+      "author": "maintainer-session-2026-11-15",
+      "depends": [],
+      "evidence": "维护者 2026-11-15 会话指令「授权」，承接同一轮「同一个单子，为啥两个状态」的诊断与「数据要同源」的纠偏。只读查本机 board.db 实证：17 张卡 status 与 column_id 撕裂（15 张 done 挂 col-todo、2 张 done 挂 col-doing），全是带 #短号 的路线图导入卡；R6-04 卡 status=done、completed_at=2026-10-28 02:53:58，卡片却仍在待办列，详情徽章显示「已办结」而「所在列」显示「待办」。表层触发点是 TaskModel::upsertTask 已存在分支的 UPDATE 不含 column_id，但根因是 task.status 与 task.column_id 各存一份可写状态、写者分散在拖拽／撤销／RoadmapSync 导入／DataPort 导入等入口；docs/board-sync.md 第 10 行已写明「卡片状态是算出来的，不是手写的」，实现违背了它。补 columnForStatus 只是再打一次双写补丁，本卡按收敛处理：库内只留一个可写源。",
+      "id": "DX-168",
+      "note": "",
+      "scope": [
+        "src/core/Database.cpp",
+        "src/task/TaskModel.cpp",
+        "src/board/RoadmapSync.cpp",
+        "docs/board-sync.md",
+        "tests/tst_taskmodel.cpp",
+        "tests/tst_roadmapsync.cpp",
+        "tests/tst_databasemigration.cpp",
+        "tests/CMakeLists.txt"
+      ],
+      "stage": "DX",
+      "tier": "P4",
+      "title": "卡片状态同源：column_id 为唯一可写源，status 降为数据库派生的只读投影"
     }
   },
   "claims": {},

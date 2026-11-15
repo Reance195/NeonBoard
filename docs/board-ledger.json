@@ -7692,7 +7692,7 @@
       "depends": [],
       "evidence": "维护者 2026-11-15 会话指令「发个版」，承接上一轮说明「本机装的是 0.1.9，DX-169/DX-170 只进了 main，还没打 tag；要看效果需本地重构建或等 v0.1.10 发版」。v0.1.9 之后 origin/main 新增 54 个提交，含状态同源（DX-168）、按钮样式同源 NeonButton（DX-169）、更新中心与版本历史（DX-170）三张功能卡，按语义化版本递增 patch 号到 0.1.10。版本号唯一来源是 CMakeLists.txt 的 project(NeonBoard VERSION)，release.yml 第一步有「标签版本 == 源码版本」硬校验。DX-170 建立的维护约定要求发新版时在 resources/release-history.json 的 releases 数组头部追加一条中文摘要，否则更新中心里 0.1.10 只剩 Releases API 的校验值正文、没有可读变更要点。按先例（R5-03/08/10/13/14/15/16 每版一张发版卡）立卡。",
       "id": "R5-17",
-      "note": "",
+      "note": "已完成 v0.1.10 发版准备：CMakeLists.txt 的 project(NeonBoard VERSION) 从 0.1.9 递增到 0.1.10（版本号唯一来源，release.yml 的标签-源码一致性校验据此判定，仓库无其它版本字面量）；resources/release-history.json 的 releases 数组头部追加 0.1.10 中文摘要（标题「更新中心与按钮样式同源」+ 4 条要点），兑现 DX-170 的维护约定，更新中心离线也能显示本版变更要点，既有 10 条摘要未改写。验收：verify.ps1 全量档退出码 0（新 worktree 首次 Release 全量编译 680/680 并链接、ctest 45/45、--selftest 与 --smoke 退出码 0、QML 致命告警 0 行、模块守卫 19 文件均未超且 qml/ 55 文件登记齐套、看板一致性 334 张卡通过）；check_scope 变更全在 scope 内、check_path_refs 新增 0 处失效、check_qml_pitfalls 54 文件、task_gate selftest 70 例、derive --check 通过。边界：不动 installer/*.iss、不手写 update.json（CI 单一写者）、不本地出包（交付物由 release.yml 一处产出）。时序：tag v0.1.10、CI Release 资产与 update.json 回写属合并打标签之后的结构性验收，按 R5-16 先例在收尾后逐条核验。备注：本机 NeonBoard.exe 运行中会周期性写回 progress.json 抹掉弃单墓碑，立卡与领用阶段的快照均通过 git 索引直接构造正确内容绕开写回窗口。",
       "scope": [
         "CMakeLists.txt",
         "resources/release-history.json"

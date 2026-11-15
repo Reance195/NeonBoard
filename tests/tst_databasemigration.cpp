@@ -349,8 +349,10 @@ void TestDatabaseMigration::metaKeysEnumeratesByPrefix()
     QCOMPARE(keys.at(2), QStringLiteral("agentbridge.status"));
 
     // 无匹配返回空；空前缀返回全部键（meta 权限本就覆盖整表读写，无新增暴露面）
+    // DX-168：开库时会写一枚 schema.status_single_source 迁移凭证，故总数由 4 变 5。
     QVERIFY(db.metaKeys(QStringLiteral("nomatch.")).isEmpty());
-    QCOMPARE(db.metaKeys().size(), 4);
+    QCOMPARE(db.metaKeys().size(), 5);
+    QVERIFY(db.metaKeys().contains(QStringLiteral("schema.status_single_source")));
 
     // LIKE 通配符按字面量匹配：键里的 % _ 不当通配符使。
     // 判别式：若 _ 被当通配符，"weird_%" 会命中 "weird%key_x"（应为 0）。

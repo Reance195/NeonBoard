@@ -1,5 +1,5 @@
 ---
-state: approved
+state: closed
 card: DX-169
 stage: DX
 tier: P4

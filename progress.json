@@ -11,12 +11,12 @@
             "orderKey": 1024,
             "priority": 2,
             "stage": "DX",
-            "status": "todo",
+            "status": "doing",
             "tags": [
                 "DX"
             ],
             "title": "更新中心右上角关闭键无响应：补接 DialogShell.closeRequested",
-            "updatedAt": 1794798013
+            "updatedAt": 1794798582
         },
         {
             "code": "R7-06",
@@ -6703,6 +6703,6 @@
             "updatedAt": 1794742838
         }
     ],
-    "updated": "2026-11-16T11:00:13",
+    "updated": "2026-11-16T11:09:42",
     "version": 3
 }

@@ -1,0 +1,13 @@
+{
+  "card": "DX-174",
+  "sha256": "6fbab1854308c383c23217249f7b05efc0f3a560f47a19fa642b5f70695dac2a",
+  "authorizedBy": "维护者会话 2026-11-16：用户先问「有权限管理的地方吗」「是不是应该有这个页面」，明确要求「开工」新增权限管理页",
+  "form": "docs/card-requests/20261116-plugin-permission-manager-page.md",
+  "registeredAt": "2026-11-16T07:41:39+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-174",
+    "sha": "c858599b33560a5fef6a4ea486d5f488a9cdde80"
+  }
+}

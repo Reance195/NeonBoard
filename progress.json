@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "DX-174",
+            "completedAt": 0,
+            "createdAt": 1794814902,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-174",
+            "note": "",
+            "orderKey": 512,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "新增插件权限管理页面，集中查看与调整所有插件授权",
+            "updatedAt": 1794814902
+        },
+        {
             "code": "DX-173",
             "completedAt": 0,
             "createdAt": 1794814382,
@@ -6739,6 +6757,6 @@
             "updatedAt": 1794742838
         }
     ],
-    "updated": "2026-11-16T15:33:02",
+    "updated": "2026-11-16T15:41:42",
     "version": 3
 }

@@ -7744,6 +7744,13 @@
       "title": "修复定时任务插件每次启动误弹权限窗（后台加载早于 schema 就绪）"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-172": {
+      "agent": "wb-fix172",
+      "branch": "fix/plugin-permission-startup-race",
+      "head": "579340d9859fe73a10eb5d1b4294f8c9980dcd4d",
+      "claimedAt": 1794811832
+    }
+  },
   "version": 1
 }

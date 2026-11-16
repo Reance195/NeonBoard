@@ -472,6 +472,25 @@ void PluginRuntime::loadBackgroundPlugins()
     if (!m_loader || !m_engine)
         return;
 
+    // DX-172：两阶段建表的空态期授权表还读不到（ensureGrantsBootstrapped 被
+    // schemaReady 守卫跳过）。此刻加载后台插件会在第一次 require() 时误判未授权、
+    // 弹出按空表渲染的权限窗；schema 就绪后重放授权也不会刷新已打开的窗。
+    // 这里把加载推迟到 schemaFinalized，并先补一次授权引导，让插件第一次查权限
+    // 就能看到真实授权。m_backgroundLoadPending 保证重复 reload 只挂一次。
+    if (m_database && !m_database->schemaReady()) {
+        if (m_backgroundLoadPending)
+            return;
+        m_backgroundLoadPending = true;
+        connect(m_database, &Database::schemaFinalized, this,
+                [this]() {
+                    m_backgroundLoadPending = false;
+                    replayGrantsBootstrap();
+                    loadBackgroundPlugins();
+                },
+                Qt::SingleShotConnection);
+        return;
+    }
+
     const QVariantList plugins = m_loader->plugins();
     for (const QVariant &value : plugins) {
         const QVariantMap plugin = value.toMap();

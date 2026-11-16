@@ -149,6 +149,9 @@ private:
 
     QHash<QString, PluginContext *> m_contexts;
     QList<BackgroundEntry> m_background;
+    // DX-172：两阶段建表的空态期不加载后台插件，schema 就绪后一次性补载，
+    // 避免插件在授权表载入前误判「未授权」而发权限请求。
+    bool m_backgroundLoadPending = false;
     PluginContext *m_activeContext = nullptr;
 
     QHash<QString, PluginHost *> m_hosts;

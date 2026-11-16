@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "DX-172",
+            "completedAt": 0,
+            "createdAt": 1794811527,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-172",
+            "note": "",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "修复定时任务插件每次启动误弹权限窗（后台加载早于 schema 就绪）",
+            "updatedAt": 1794811527
+        },
+        {
             "code": "R7-06",
             "completedAt": 1794636629,
             "createdAt": 1793123355,
@@ -6703,6 +6721,6 @@
             "updatedAt": 1794742838
         }
     ],
-    "updated": "2026-11-16T11:52:31",
+    "updated": "2026-11-16T14:45:27",
     "version": 3
 }

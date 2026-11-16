@@ -7735,15 +7735,23 @@
       "depends": [],
       "evidence": "维护者 2026-11-16 会话以截图指出「定时任务」权限窗每次启动都弹，随后明确要求根治。只读核查：本机 %APPDATA%\\com.lin\\NeonBoard\\board.db 的 plugins.grants 已含 com.lin.scheduler 四项权限、plugins.grants.revoked 为空，故不是授权漏存；neonboard.log 14:35:06.278 后台插件启动 → 06.808 PluginContext: permission not granted \"storage\" → 07.048 BOOT schema finalized，证明权限检查发生在两阶段建表完成之前。src/plugin/PluginRuntime.cpp:835 的 ensureGrantsBootstrapped() 被 schemaReady() 守卫跳过，start() 却在 :215 立即 loadBackgroundPlugins()；后台插件经 PluginContext::require（src/plugin/PluginContext.cpp:59-69）误判未授权并发 permissionRequested，弹窗按空授权表列出四项。schema 就绪后 :904 replayGrantsBootstrap() 才载入授权，但已打开的对话框不会刷新，于是每次启动复现。R0-15 只修了授权落库，未修这条 UI 竞态。",
       "id": "DX-172",
-      "note": "",
+      "note": "起因：授权已落库但启动期 schema 未就绪，后台插件误判未授权并发 permissionRequested，弹窗按空授权表列出 4 项；schema 就绪后重放授权也不会刷新已打开的窗，故每次启动复现。\n变更：PluginRuntime::loadBackgroundPlugins() 在 m_database 存在且 schemaReady()==false 时挂一次 Database::schemaFinalized，回调内先 replayGrantsBootstrap() 再加载后台插件；新增 m_backgroundLoadPending 保证重复 reload 只挂一次；无数据库指针时保持原行为。\n验收：pwsh -File scripts/verify.ps1 全量档退出码 0（编译 658/658、ctest 45/45、--selftest / --smoke 退出码 0、QML 致命告警 0、模块守卫与看板一致性通过）；沙箱 GUI 实测日志 15:22:07.889 授权引导落库、07.961 后台插件启动、全程 0 条 PluginContext permission not granted、无权限弹窗；check_scope / check_path_refs / check_module_deps --base origin/main 全过。\n影响：仅 PluginRuntime.cpp / .h；不改 grants/revoked 读写、官方自动补授、permissionRequested 与第三方插件「稍后再说 / 拒绝」语义；后台插件启动点从空态期移到 schema 就绪回调内，仍在窗口 shown 之前，启动体感无变化。\n流程：立卡请求单多路径误用逗号分隔，台账 scope 被存成单个带逗号路径；已用带「授权：」「批次：」的独立 chore(board) 提交修正为分号格式并同步回执 sha256，未扩大授权范围。\n残留（同族、不在本卡 acceptance）：agent profile 声明在首帧前的 wirePluginAnnouncements 里读授权，启动日志仍有 4 条「权限未授予，声明被跳过」提示；需另行处理授权就绪后的声明刷新，本卡未动。",
       "scope": [
-        "src/plugin/PluginRuntime.cpp,src/plugin/PluginRuntime.h"
+        "src/plugin/PluginRuntime.cpp",
+        "src/plugin/PluginRuntime.h"
       ],
       "stage": "DX",
       "tier": "P4",
       "title": "修复定时任务插件每次启动误弹权限窗（后台加载早于 schema 就绪）"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-172": {
+      "agent": "wb-fix172",
+      "branch": "fix/plugin-permission-startup-race",
+      "head": "579340d9859fe73a10eb5d1b4294f8c9980dcd4d",
+      "claimedAt": 1794811832
+    }
+  },
   "version": 1
 }

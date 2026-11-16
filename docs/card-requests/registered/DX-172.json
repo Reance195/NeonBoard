@@ -1,6 +1,6 @@
 {
   "card": "DX-172",
-  "sha256": "4d1b1c602d7f40a4a8e0686774af9946ca1213da6a58518dd012b27684a943e9",
+  "sha256": "75f7363e40e63e0240ef4092018cd4ee74db18e9cd528162bf986ab36eadf132",
   "authorizedBy": "维护者会话 2026-11-16：用户明确要求根治定时任务权限弹窗每次启动误弹",
   "form": "docs/card-requests/20261116-scheduler-permission-startup-race.md",
   "registeredAt": "2026-11-16T06:45:25+00:00",

@@ -7714,7 +7714,7 @@
       "depends": [],
       "evidence": "维护者 2026-11-16 会话以截图指出「软件更新」对话框右上角 ✕ 点击没效果，并在选项中明确选择「授权立卡并修好」。只读核查结论：qml/components/DialogShell.qml:156-162 的关闭键 MouseArea 只 emit shell.closeRequested()，统一壳自身并不执行 close()，需由每个弹窗显式接这个信号；qml/components/ 下 14 个 DialogShell 派生组件中 13 个都声明了 onCloseRequested（TaskComposer.qml:21、SettingsPanel.qml:33、CardDetailPanel.qml:28 等），唯独 DX-170 新增的 qml/components/UpdateCenterDialog.qml 只写了 onSecondaryTriggered: root.close()，漏接 onCloseRequested。截图里 ✕ 已呈红色 hover 边框，证明点击确实到达 MouseArea，是信号无接收者而非遮挡或 hover 失效；底部「关闭」按钮、Esc 与点遮罩（closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside）三条路径不受影响，只有右上角 ✕ 无效。",
       "id": "DX-171",
-      "note": "",
+      "note": "起因：维护者 2026-11-16 会话以截图报软件更新对话框右上角关闭键点击无效果。根因：qml/components/DialogShell.qml 的右上角关闭键只 emit closeRequested()，统一壳自身不执行 close()，须由每个弹窗显式接线；DX-170 新建的 UpdateCenterDialog 只写了 onSecondaryTriggered，漏接 onCloseRequested，于是底部关闭按钮、Esc、点遮罩三条路径正常，唯独右上角关闭键无响应。修复：补一行 onCloseRequested: root.close()，与其余 13 个 DialogShell 派生组件同一形态；公共壳零改动，避免 14 个弹窗的关闭语义一起变。\n已完成 4 / 待做 0 —— ① 更新中心右上角关闭键接上 closeRequested，四条关闭路径一致；② 只读核查 14 个 DialogShell 派生组件全部声明 onCloseRequested（同族零遗漏），DialogShell.qml 零改动；③ check_scope / check_path_refs / check_qml_pitfalls / check_qml_warnings --selftest 全绿，改动不越出唯一 scope 文件；④ verify.ps1 全量档退出码 0：编译 637/637、ctest 45/45、--selftest 与 --smoke 均 0、QML 致命告警 0 行、模块守卫与 derive --check 通过。构建期首次 AutoMoc 遇本机并发环境偶发 0xC0000142，手动复现同一 moc 命令退出码 0 后以 -Jobs 4 增量重跑通过，非源码问题。",
       "scope": [
         "qml/components/UpdateCenterDialog.qml"
       ],

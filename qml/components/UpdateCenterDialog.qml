@@ -42,6 +42,7 @@ DialogShell {
             updateManager.checkForUpdates(false)
     }
     onSecondaryTriggered: root.close()
+    onCloseRequested: root.close()
 
     // 由标题栏入口在 open() 后显式调一次；UpdateManager 内另有 historyLoading 闸门，
     // 重复点击不会连发两个同样的请求。

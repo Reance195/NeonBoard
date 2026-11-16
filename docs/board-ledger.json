@@ -7723,6 +7723,13 @@
       "title": "更新中心右上角关闭键无响应：补接 DialogShell.closeRequested"
     }
   },
-  "claims": {},
+  "claims": {
+    "DX-171": {
+      "agent": "wb-fix",
+      "branch": "fix/update-center-close-button",
+      "head": "7e7ef9cdd509c4a4046fc9f75c6c06068fab3d88",
+      "claimedAt": 1794798329
+    }
+  },
   "version": 1
 }

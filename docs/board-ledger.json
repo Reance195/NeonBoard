@@ -7737,7 +7737,8 @@
       "id": "DX-172",
       "note": "",
       "scope": [
-        "src/plugin/PluginRuntime.cpp,src/plugin/PluginRuntime.h"
+        "src/plugin/PluginRuntime.cpp",
+        "src/plugin/PluginRuntime.h"
       ],
       "stage": "DX",
       "tier": "P4",

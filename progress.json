@@ -1,6 +1,24 @@
 {
     "items": [
         {
+            "code": "DX-173",
+            "completedAt": 0,
+            "createdAt": 1794814382,
+            "deleted": false,
+            "dueAt": 0,
+            "id": "DX-173",
+            "note": "",
+            "orderKey": 1024,
+            "priority": 2,
+            "stage": "DX",
+            "status": "todo",
+            "tags": [
+                "DX"
+            ],
+            "title": "预览中心接入项目仓库绑定：按项目列出各仓库 worktree",
+            "updatedAt": 1794814382
+        },
+        {
             "code": "R7-06",
             "completedAt": 1794636629,
             "createdAt": 1793123355,
@@ -6721,6 +6739,6 @@
             "updatedAt": 1794742838
         }
     ],
-    "updated": "2026-11-16T15:23:52",
+    "updated": "2026-11-16T15:33:02",
     "version": 3
 }

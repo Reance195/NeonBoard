@@ -1,0 +1,10 @@
+{
+  "card": "DX-173",
+  "sha256": "00bc22b24216c8a53f349bd5e7dee35946a49cfe08e48601ac4e387f1adf834e",
+  "authorizedBy": "维护者 2026-11-16 会话「可以，你整理一下；确认正式立卡」",
+  "form": "docs/card-requests/20261116-preview-multi-repo-worktrees.md",
+  "registeredAt": "2026-11-16T07:32:58+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": null
+}

@@ -1,0 +1,13 @@
+{
+  "card": "DX-171",
+  "sha256": "224b8edffd458e177d645708108c14e51a98884531e6b335c936c98e777b0258",
+  "authorizedBy": "维护者 2026-11-16 会话：截图报「软件更新」右上角关闭键点击没效果，并明确选择「授权立卡并修好（推荐）」",
+  "form": "docs/card-requests/20261116-update-center-close.md",
+  "registeredAt": "2026-11-16T03:00:12+00:00",
+  "tool": "scripts/register_board_cards.py",
+  "mode": "remote",
+  "reservation": {
+    "ref": "refs/registrations/DX-171",
+    "sha": "ba0bad77666b764e6488a6c9538aae050a3a1b4d"
+  }
+}

@@ -181,7 +181,7 @@ function Get-CommitCount {
 
     # 注意传数组：把 'HEAD --not --remotes=origin' 整串当一个参数递过去，git 会当成
     # 一个不存在的版本号直接失败，计数恒为 0 —— 这里必须逐个参数展开（DX-12 实测踩过）。
-    $raw = & git -C $Path rev-list --count @RevArgs 2>$null | Select-Object -First 1
+    $raw = Get-NbGitLine -Cwd $Path -GitArgs (@('rev-list', '--count') + $RevArgs)
     $count = 0
     if ($raw) { try { $count = [int]([string]$raw).Trim() } catch { $count = 0 } }
     return $count
@@ -456,7 +456,7 @@ function Invoke-TxnRollback {
     if ($script:txnServerClaim) {
         # 占位是否属于本次运行，看 sha：等于本次领用提交头 → 是本次孤儿占位，删掉让卡回到可领；
         # 指向别的提交 → 别的会话的占位，一概不碰（回滚不是回收站，不能替别人放卡）。
-        $remoteLine = & git ls-remote origin ("refs/claims/{0}" -f $script:txnServerClaim) 2>$null | Select-Object -First 1
+        $remoteLine = Get-NbGitLine -GitArgs @('ls-remote', 'origin', ("refs/claims/{0}" -f $script:txnServerClaim))
         $remoteSha = if ($remoteLine) { (([string]$remoteLine).Trim() -split '\s+')[0] } else { '' }
         if ($remoteSha -and $remoteSha -eq $script:txnHeadSha) {
             & git push origin --delete ("refs/claims/{0}" -f $script:txnServerClaim) *> $null
@@ -752,7 +752,7 @@ if ($Card) {
     # release-claims 的「分支不存在」判据被恒存在的 refs/remotes/origin/HEAD 符号引用
     # 永久骗过（登记成僵尸，DX-40 实测中招）；且游离提交变基会断开 refs/claims 祖先，
     # CI 领用闸门跟着红。fail-closed，切到具名分支后再领。
-    $currentBranch = (& git -C $worktree branch --show-current 2>$null | Select-Object -First 1)
+    $currentBranch = Get-NbGitLine -Cwd $worktree -GitArgs @('branch', '--show-current')
     if (-not $currentBranch -or $currentBranch.Trim().Length -eq 0) {
         Write-Host '[任务闸门] 检出处于 detached HEAD，禁止领用：会记下 branch="HEAD" 的僵尸登记，游离提交还会断开 claim 祖先（DX-42）。' -ForegroundColor Red
         Write-Host '  先 git switch -c <分支名>（或切到具名分支）再重跑。' -ForegroundColor Yellow
@@ -801,7 +801,7 @@ if ($Card) {
         # 1) 空提交：给分支一个 head，也让 post-commit 钩子顺手投递一次
         & git commit --allow-empty -m ("chore(claim): 领取 #{0} 实施任务" -f $code) | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "领用空提交失败：$LASTEXITCODE" }
-        $script:txnHeadSha = (& git rev-parse HEAD | Select-Object -First 1)
+        $script:txnHeadSha = Get-NbGitLine -GitArgs @('rev-parse', 'HEAD')
         if ($InPlace) { $script:txnInPlaceCommits++ }
 
         # 2) 校验 + 防双领 + 写本 worktree 台账副本。claim-card 先推服务端占位后做扫描，
@@ -882,7 +882,7 @@ $selfPath = ($worktree -replace '\\', '/').TrimEnd('/')
 $selfUnpushed = 0
 $orphans = @()
 foreach ($path in $nested) {
-    $cntRaw = & git -C $path rev-list --count HEAD --not --remotes=origin 2>$null | Select-Object -First 1
+    $cntRaw = Get-NbGitLine -Cwd $path -GitArgs @('rev-list', '--count', 'HEAD', '--not', '--remotes=origin')
     if (-not $cntRaw) { continue }
     $cnt = 0
     if (-not [int]::TryParse(($cntRaw -replace '\s', ''), [ref]$cnt)) { continue }
@@ -915,7 +915,7 @@ if ($nested.Count -ge 5) {
     Write-Host ''
     Write-Host ("· 工作区回收：已有 {0} 个 agent 工作区" -f $nested.Count) -ForegroundColor Cyan
     foreach ($path in $nested) {
-        $stamp = (& git -C $path log -1 --format=%ct 2>$null | Select-Object -First 1)
+        $stamp = Get-NbGitLine -Cwd $path -GitArgs @('log', '-1', '--format=%ct')
         if (-not $stamp) { $stamp = 0 }
         $ageDays = [int](($now - [int64]$stamp) / 86400)
         $name = Split-Path -Leaf $path

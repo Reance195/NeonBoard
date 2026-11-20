@@ -123,7 +123,7 @@ function Remove-MergedBranch {
     $ahead = -1
     $aheadRes = Invoke-GitQuiet @('rev-list', '--count', $Name, '--not', $AnchorCommit)
     if ($aheadRes.Code -eq 0) {
-        $first = $aheadRes.Output | Select-Object -First 1
+        $first = $aheadRes.Output[0]
         if ($first) { [void][int]::TryParse($first.ToString().Trim(), [ref]$ahead) }
     }
     if ($aheadRes.Code -ne 0 -or $ahead -ne 0) {
@@ -1370,7 +1370,7 @@ if ($Mode -eq 'remote') {
             $ahead = 0
             $aheadRes = Invoke-GitQuiet @('-C', $abs, 'rev-list', '--count', 'HEAD', '--not', $mergedCommit)
             if ($aheadRes.Code -eq 0) {
-                $first = $aheadRes.Output | Select-Object -First 1
+                $first = $aheadRes.Output[0]
                 if ($first) { [void][int]::TryParse($first.ToString().Trim(), [ref]$ahead) }
             }
             $dirtyNum = 0
